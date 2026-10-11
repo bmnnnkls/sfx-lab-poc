@@ -1,12 +1,11 @@
 import { RIGHT } from '../dsp'
 import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
-import { type Patch, sendTargets } from '../patch'
+import { type Patch, audioSources, sendTargets } from '../patch'
 import type { Clip, SendLevels } from '../project'
 import type { SampleLookup } from '../sample'
 import { ClipLauncher, type LauncherStatus, type NoteEvent } from '../session'
-import type { AudioBoard } from './audio-board'
-import type { MixTiming, PlayableTrack, ScheduledAction } from './playable-track'
+import type { MixContext, PlayableTrack, ScheduledAction } from './playable-track'
 
 /** How long an audition note sounds before it is released. */
 const AUDITION_SECONDS = 0.3
@@ -20,6 +19,7 @@ export class TrackRuntime implements PlayableTrack {
   private instrument: Instrument
   private fx: FxGraph
   private targets: string[]
+  private sources: string[]
   /** The send knobs as pairs of (return track id, level), post-fader. */
   private sendList: ReadonlyArray<readonly [string, number]> = []
   private audition: { pitch: number; framesLeft: number } | null = null
@@ -38,6 +38,7 @@ export class TrackRuntime implements PlayableTrack {
     this.instrument = new Instrument(patch, sampleRate, voices, samples)
     this.fx = new FxGraph(fx, sampleRate, samples)
     this.targets = sendTargets(fx)
+    this.sources = audioSources(fx)
     this.clips = clips
     this.volume = volume
     this.graph.sync(noteGraph)
@@ -51,10 +52,15 @@ export class TrackRuntime implements PlayableTrack {
   setFx(fx: Patch): void {
     this.fx = new FxGraph(fx, this.sampleRate, this.samples)
     this.targets = sendTargets(fx)
+    this.sources = audioSources(fx)
   }
 
   setSends(sends: SendLevels): void {
     this.sendList = Object.entries(sends)
+  }
+
+  audioSources(): string[] {
+    return this.sources
   }
 
   sendTargets(): string[] {
@@ -153,13 +159,16 @@ export class TrackRuntime implements PlayableTrack {
   }
 
   /** Adds `frames` samples of this track, through its insert graph and scaled by its volume, into the stereo buses. */
-  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, _timing: MixTiming, board: AudioBoard): void {
-    const signal = this.fx.process(this.instrument.render(frames), frames, board)
+  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, mix: MixContext): void {
+    const dry = this.instrument.render(frames)
+    mix.taps.write(this.trackId, 0, dry, frames)
+    const signal = this.fx.process(dry, frames, mix)
+    mix.taps.write(this.trackId, 1, signal, frames)
     for (let i = 0; i < frames; i++) {
       left[offset + i] = (left[offset + i] ?? 0) + (signal[i] ?? 0) * this.volume
       right[offset + i] = (right[offset + i] ?? 0) + (signal[RIGHT + i] ?? 0) * this.volume
     }
-    for (const [returnId, level] of this.sendList) board.add(returnId, signal, level * this.volume, frames)
+    for (const [returnId, level] of this.sendList) mix.sends.add(returnId, signal, level * this.volume, frames)
     if (this.audition) {
       this.audition.framesLeft -= frames
       if (this.audition.framesLeft <= 0) this.endAudition()

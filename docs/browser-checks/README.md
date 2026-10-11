@@ -32,6 +32,7 @@ sandbox's. Change them (or install `playwright`) elsewhere.
 | `returns.mjs` | return tracks and the Send node: the + menu, a return's effects, a send to it heard through a turned-down track, the tail after the clip stops, removing the return and undo, loop refusal, persistence |
 | `sends.mjs` | send knobs: shown only when returns exist, per return, post-fader, one undo step per drag, removed with the return, persistence |
 | `master.mjs` | the Master strip: its graph on the final mix, a master gain silencing every track, a master reverb tail, undo, persistence |
+| `trackaudio.mjs` | the Track audio node: another track's sound heard through a track turned all the way down, before/after Take, loop refusal (picker and send knob), removal and undo, persistence |
 | `notegraph.mjs` | the note graph: split, merge, bypass, notes from another track (real audio), loop refusal, note modules, persistence |
 
 ## Conventions inside the scripts

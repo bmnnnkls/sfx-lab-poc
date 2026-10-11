@@ -1,4 +1,5 @@
-import type { SendLevels, Track } from '../project'
+import type { ModuleLibrary } from '../patch'
+import { type SendLevels, type Track, mixesAfter } from '../project'
 import { clamp } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, finiteNumber, isRecord } from './raw'
@@ -14,10 +15,13 @@ export const readSends = (raw: unknown): SendLevels =>
       )
     : {}
 
-/** Drops send levels that point at something that is not a return track of the file (the track is gone, or never was one). */
-export const repairSendLevels = (tracks: Track[], warn: Warn): Track[] => {
+/**
+ * Drops send levels that point at something that is not a return track of the file (the track is gone, or never was
+ * one), or that would make a loop: the track takes audio from that return, however indirectly.
+ */
+export const repairSendLevels = (tracks: Track[], modules: ModuleLibrary, warn: Warn): Track[] => {
   const returns = new Set(tracks.filter((track) => track.kind === 'return').map((track) => track.id))
-  return tracks.map((track) => {
+  let repaired = tracks.map((track) => {
     if (track.kind === 'return') return track
     const entries = Object.entries(track.sends)
     const kept = entries.filter(([id]) => returns.has(id))
@@ -25,4 +29,14 @@ export const repairSendLevels = (tracks: Track[], warn: Warn): Track[] => {
     warn(`Track "${track.name}": dropped a send level for a track that is not a return track`)
     return { ...track, sends: Object.fromEntries(kept) }
   })
+  for (const original of tracks) {
+    for (const returnId of Object.keys(original.kind === 'return' ? {} : original.sends)) {
+      const current = repaired.find((candidate) => candidate.id === original.id)
+      if (!current || current.kind === 'return' || !(returnId in current.sends) || !mixesAfter({ tracks: repaired, modules }, current.id, returnId)) continue
+      warn(`Track "${current.name}": dropped a send level that would make two tracks depend on each other`)
+      const { [returnId]: _dropped, ...rest } = current.sends
+      repaired = repaired.map((candidate) => (candidate === current ? { ...current, sends: rest } : candidate))
+    }
+  }
+  return repaired
 }

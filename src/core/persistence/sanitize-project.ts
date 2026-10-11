@@ -122,6 +122,6 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
           ? sanitizePatch(raw.master.fx, 'Master effects', sampleIds, modules, warn)
           : createDefaultMasterGraph(),
     },
-    tracks: repairSendLevels(repairTrackReferences(tracks, modules, warn), warn),
+    tracks: repairSendLevels(repairTrackReferences(tracks, modules, warn), modules, warn),
   }
 }

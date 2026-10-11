@@ -13,6 +13,7 @@ import type { SampleInfo } from '../sample'
 import { clamp, createId } from '../shared'
 import { createNote, notesEqual, shiftedCopies, trimNotesToLength } from './note-edit'
 import { clampAudioClip, createAudioClip } from './audio-clip'
+import { mixesAfter } from './mix-order'
 import { MAX_CLIP_BEATS, MIN_CLIP_BEATS } from './limits'
 import type { AudioClip, AudioTrack, Clip, InstrumentTrack, MasterBus, Note, Project, ReturnTrack, Track } from './types'
 
@@ -141,10 +142,13 @@ const withoutKey = (record: Readonly<Record<string, number>>, key: string): Reco
 
 /**
  * Sets how much of a track goes to a return track (its send knob), 0..1; 0 removes the entry. Return tracks have no
- * knobs, and a send to something that is not a return track is ignored. No change keeps the same project.
+ * knobs, a send to something that is not a return track is ignored, and so is one that would make a loop (the track
+ * takes audio from that return). No change keeps the same project.
  */
 export const setTrackSend = (project: Project, trackId: string, returnId: string, level: number): Project => {
   if (project.tracks.find((track) => track.id === returnId)?.kind !== 'return') return project
+  // A track that takes audio from a return (however indirectly) cannot also send to it.
+  if (mixesAfter(project, trackId, returnId)) return project
   const amount = clamp(level, 0, 1)
   return updateTrack(project, trackId, (track) => {
     if (track.kind === 'return' || (track.sends[returnId] ?? 0) === amount) return track

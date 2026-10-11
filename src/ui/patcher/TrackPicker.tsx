@@ -1,11 +1,11 @@
-import { sendableReturns, tappableTracks } from '@core'
+import { audioSourceTracks, sendableReturns, tappableTracks } from '@core'
 import { useProjectStore } from '@state'
 import { TRACK_PICKER_HEIGHT } from './geometry'
 import styles from './Patcher.module.css'
 
 interface TrackPickerProps {
-  /** `notes`: another instrument track to take notes from. `return`: a return track to send to. */
-  pick: 'notes' | 'return'
+  /** `notes`: another instrument track to take notes from. `return`: a return track to send to. `audio`: another track to take sound from. */
+  pick: 'notes' | 'return' | 'audio'
   /** The track whose graph this is: it cannot point at itself, or at a track that points back at it. */
   ownerTrackId: string
   trackId: string | undefined
@@ -15,12 +15,13 @@ interface TrackPickerProps {
 const TEXT = {
   notes: { label: 'Take notes from track', none: '(no other instrument track)' },
   return: { label: 'Send to return track', none: '(no return track: add one with +)' },
+  audio: { label: 'Take audio from track', none: '(no other track)' },
 } as const
 
-/** Chooses which other track a Track notes node takes its notes from, or which return track a Send sends to. */
+/** Chooses which other track a Track notes node takes its notes from, which return track a Send sends to, or which track a Track audio node takes sound from. */
 export const TrackPicker = ({ pick, ownerTrackId, trackId, onChange }: TrackPickerProps) => {
   const project = useProjectStore((state) => state.project)
-  const choices = pick === 'notes' ? tappableTracks(project, ownerTrackId) : sendableReturns(project, ownerTrackId)
+  const choices = pick === 'notes' ? tappableTracks(project, ownerTrackId) : pick === 'return' ? sendableReturns(project, ownerTrackId) : audioSourceTracks(project, ownerTrackId)
   const current = trackId ? project.tracks.find((track) => track.id === trackId) : undefined
 
   return (

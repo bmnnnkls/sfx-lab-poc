@@ -14,6 +14,7 @@ export { createDefaultFxGraph } from './default-fx-graph'
 export { createDefaultReturnGraph } from './default-return-graph'
 export { createDefaultMasterGraph } from './default-master-graph'
 export { sendTargets } from './send-targets'
+export { audioSources } from './audio-sources'
 export { type NoteGraphNodeSpec, noteGraphFrom } from './note-graph-builder'
 export { containsModule, expandModuleUse, flattenPatch, modulesUsedBy, unlinkModuleUse } from './flatten'
 export {

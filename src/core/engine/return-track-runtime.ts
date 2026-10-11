@@ -1,10 +1,9 @@
 import { RIGHT, STEREO_FRAMES } from '../dsp'
 import { FxGraph } from '../instrument'
-import { type Patch, sendTargets } from '../patch'
+import { type Patch, audioSources, sendTargets } from '../patch'
 import type { SampleLookup } from '../sample'
 import type { LauncherStatus } from '../session'
-import type { AudioBoard } from './audio-board'
-import type { MixTiming, PlayableTrack, ScheduledAction } from './playable-track'
+import type { MixContext, PlayableTrack, ScheduledAction } from './playable-track'
 
 const IDLE: LauncherStatus = { playingClipId: null, startBeat: null, queued: null }
 
@@ -13,6 +12,7 @@ export class ReturnTrackRuntime implements PlayableTrack {
   volume: number
   private fx: FxGraph
   private targets: string[]
+  private sources: string[]
   /** Used when nothing was sent (no board slot): the graph then runs on silence and its tail rings out. */
   private readonly silence = new Float32Array(STEREO_FRAMES)
 
@@ -26,11 +26,13 @@ export class ReturnTrackRuntime implements PlayableTrack {
     this.volume = volume
     this.fx = new FxGraph(fx, sampleRate, samples)
     this.targets = sendTargets(fx)
+    this.sources = audioSources(fx)
   }
 
   setFx(fx: Patch): void {
     this.fx = new FxGraph(fx, this.sampleRate, this.samples)
     this.targets = sendTargets(fx)
+    this.sources = audioSources(fx)
   }
 
   setParam(nodeId: string, paramId: string, value: number): void {
@@ -64,9 +66,15 @@ export class ReturnTrackRuntime implements PlayableTrack {
     return this.targets
   }
 
-  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, _timing: MixTiming, board: AudioBoard): void {
-    const input = board.read(this.trackId) ?? this.silence
-    const signal = this.fx.process(input, frames, board)
+  audioSources(): string[] {
+    return this.sources
+  }
+
+  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, mix: MixContext): void {
+    const input = mix.sends.read(this.trackId) ?? this.silence
+    mix.taps.write(this.trackId, 0, input, frames)
+    const signal = this.fx.process(input, frames, mix)
+    mix.taps.write(this.trackId, 1, signal, frames)
     for (let i = 0; i < frames; i++) {
       left[offset + i] = (left[offset + i] ?? 0) + (signal[i] ?? 0) * this.volume
       right[offset + i] = (right[offset + i] ?? 0) + (signal[RIGHT + i] ?? 0) * this.volume

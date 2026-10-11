@@ -1,12 +1,11 @@
 import { RIGHT } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
-import { type Patch, sendTargets } from '../patch'
+import { type Patch, audioSources, sendTargets } from '../patch'
 import type { AudioClip, SendLevels } from '../project'
 import type { SampleLookup } from '../sample'
 import { AudioClipLauncher, type AudioEvent, type LauncherStatus } from '../session'
 import { fadeGain, readRegion, regionOf, repitchPosition } from './audio-clip-playback'
-import type { AudioBoard } from './audio-board'
-import type { MixTiming, PlayableTrack, ScheduledAction } from './playable-track'
+import type { MixContext, MixTiming, PlayableTrack, ScheduledAction } from './playable-track'
 
 /** A clip that stops (or is replaced) keeps sounding for this long, fading to silence, instead of cutting dead. */
 const TAIL_SECONDS = 0.005
@@ -38,12 +37,14 @@ export class AudioTrackRuntime implements PlayableTrack {
   private readonly tailFrames: number
   private fx: FxGraph
   private targets: string[]
+  private sources: string[]
   /** The send knobs as pairs of (return track id, level), post-fader. */
   private sendList: ReadonlyArray<readonly [string, number]> = []
   /** The clip audio of the current stretch, before the insert graph. */
   private readonly scratch = new Float32Array(MAX_BLOCK_FRAMES)
 
   constructor(
+    private readonly trackId: string,
     fx: Patch,
     clips: readonly (AudioClip | null)[],
     volume: number,
@@ -55,15 +56,21 @@ export class AudioTrackRuntime implements PlayableTrack {
     this.tailFrames = Math.max(1, Math.round(TAIL_SECONDS * sampleRate))
     this.fx = new FxGraph(fx, sampleRate, samples)
     this.targets = sendTargets(fx)
+    this.sources = audioSources(fx)
   }
 
   setFx(fx: Patch): void {
     this.fx = new FxGraph(fx, this.sampleRate, this.samples)
     this.targets = sendTargets(fx)
+    this.sources = audioSources(fx)
   }
 
   setSends(sends: SendLevels): void {
     this.sendList = Object.entries(sends)
+  }
+
+  audioSources(): string[] {
+    return this.sources
   }
 
   sendTargets(): string[] {
@@ -139,7 +146,7 @@ export class AudioTrackRuntime implements PlayableTrack {
   }
 
   /** The clip audio goes through the insert graph (which keeps ringing after the clip ends), then the fader. */
-  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, timing: MixTiming, board: AudioBoard): void {
+  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, { timing, sends, taps }: MixContext): void {
     this.scratch.fill(0, 0, frames)
     if (this.tail) {
       const alive = this.mixVoice(this.tail.voice, frames, timing, this.tail)
@@ -148,12 +155,14 @@ export class AudioTrackRuntime implements PlayableTrack {
     }
     if (this.playing && !this.mixVoice(this.playing, frames, timing)) this.playing = null
 
-    const signal = this.fx.process(this.scratch, frames, board)
+    taps.write(this.trackId, 0, this.scratch, frames)
+    const signal = this.fx.process(this.scratch, frames, { sends, taps })
+    taps.write(this.trackId, 1, signal, frames)
     for (let i = 0; i < frames; i++) {
       left[offset + i] = (left[offset + i] ?? 0) + (signal[i] ?? 0) * this.volume
       right[offset + i] = (right[offset + i] ?? 0) + (signal[RIGHT + i] ?? 0) * this.volume
     }
-    for (const [returnId, level] of this.sendList) board.add(returnId, signal, level * this.volume, frames)
+    for (const [returnId, level] of this.sendList) sends.add(returnId, signal, level * this.volume, frames)
   }
 
   /** Adds `frames` of `voice` to the scratch buffer. Returns false once the clip has finished (a non-looping pass ended). */

@@ -6,9 +6,10 @@ import { SampleBank } from '../sample'
 import type { LauncherStatus } from '../session'
 import { Transport } from '../transport'
 import { AudioBoard } from './audio-board'
+import { AudioTaps } from './audio-taps'
 import { AudioTrackRuntime } from './audio-track-runtime'
 import type { EngineCommand } from './commands'
-import type { PlayableTrack, ScheduledAction } from './playable-track'
+import type { MixContext, PlayableTrack, ScheduledAction } from './playable-track'
 import { ReturnTrackRuntime } from './return-track-runtime'
 import { SamplePreview } from './sample-preview'
 import type { EngineStatus } from './status'
@@ -31,14 +32,18 @@ export class Engine {
   private readonly preview: SamplePreview
   private peak = 0
   /**
-   * Tracks in the order they run: those that take notes from others, and return tracks, come after the tracks they
-   * depend on. Rebuilt when tracks or graphs change.
+   * Two orders, because notes and sound are passed on at different times: the order the tracks' events are scheduled in
+   * (a track after the tracks it takes notes from) and the order they are mixed in (a return after the tracks that send
+   * to it, a track after the tracks it takes audio from). Each is rebuilt when tracks or graphs change.
    */
-  private order: PlayableTrack[] | null = null
+  private scheduleOrder: PlayableTrack[] | null = null
+  private mixOrder: PlayableTrack[] | null = null
   /** What each track's note graph produced in the current block, for other tracks to read. */
-  private readonly taps: TapBoard = new Map()
+  private readonly noteTaps: TapBoard = new Map()
   /** What the tracks sent to each return track in the stretch being mixed. */
   private readonly sends = new AudioBoard()
+  /** What the tracks sounded like in the stretch being mixed, for Track audio nodes. */
+  private readonly audioTaps = new AudioTaps()
   /** The master bus's insert graph, on the mix of all tracks (a pass-through until the project sets one). */
   private master: FxGraph
   private readonly masterInput = new Float32Array(STEREO_FRAMES)
@@ -61,11 +66,11 @@ export class Engine {
         this.transport.setTempo(command.bpm)
         break
       case 'track/add':
-        this.order = null
+        this.invalidateOrder()
         this.tracks.set(command.trackId, this.createTrack(command))
         break
       case 'track/remove':
-        this.order = null
+        this.invalidateOrder()
         this.tracks.delete(command.trackId)
         break
       case 'track/setPatch':
@@ -82,11 +87,11 @@ export class Engine {
         break
       case 'track/setFx':
         this.tracks.get(command.trackId)?.setFx(command.graph)
-        this.order = null // which returns it sends to may have changed
+        this.invalidateOrder() // which returns it sends to may have changed
         break
       case 'track/setNoteGraph':
         this.instrument(command.trackId)?.setNoteGraph(command.graph)
-        this.order = null
+        this.invalidateOrder()
         break
       case 'track/setVoices':
         this.instrument(command.trackId)?.setVoices(command.voices)
@@ -104,7 +109,7 @@ export class Engine {
       }
       case 'track/setSends':
         this.tracks.get(command.trackId)?.setSends(command.sends)
-        this.order = null // which returns it sends to may have changed
+        this.invalidateOrder() // which returns it sends to may have changed
         break
       case 'track/setParam':
         this.tracks.get(command.trackId)?.setParam(command.nodeId, command.paramId, command.value)
@@ -204,9 +209,9 @@ export class Engine {
     const from = this.transport.positionBeats
     const to = this.transport.beatAfter(frames)
     const scheduled: ScheduledEvent[] = []
-    this.taps.clear()
-    for (const track of this.runOrder()) {
-      for (const action of track.schedule(from, to, this.taps)) {
+    this.noteTaps.clear()
+    for (const track of this.scheduleTracks()) {
+      for (const action of track.schedule(from, to, this.noteTaps)) {
         scheduled.push({ frame: this.transport.frameOf(action.beat, frames), action })
       }
     }
@@ -226,40 +231,62 @@ export class Engine {
     frames: number,
   ): void {
     if (frames <= 0) return
-    const timing = { beat: this.transport.beatAfter(cursor), beatsPerSample: this.transport.beatsPerSample }
-    // Senders run before the return tracks they send to, so each return's input is complete when it is mixed.
+    const mix: MixContext = {
+      timing: { beat: this.transport.beatAfter(cursor), beatsPerSample: this.transport.beatsPerSample },
+      sends: this.sends,
+      taps: this.audioTaps,
+    }
+    // Tracks come after the ones they take sound from, so what they read from the boards is complete.
     this.sends.clear(frames)
-    for (const track of this.runOrder()) track.mixInto(left, right, blockOffset + cursor, frames, timing, this.sends)
+    this.audioTaps.clear(frames)
+    for (const track of this.mixTracks()) track.mixInto(left, right, blockOffset + cursor, frames, mix)
+  }
+
+  private invalidateOrder(): void {
+    this.scheduleOrder = null
+    this.mixOrder = null
+  }
+
+  /** The tracks in the order their events are scheduled in: each after the tracks it takes notes from. */
+  private scheduleTracks(): readonly PlayableTrack[] {
+    this.scheduleOrder ??= this.sorted(new Map([...this.tracks].map(([id, track]) => [id, track.tapSources()])))
+    return this.scheduleOrder
   }
 
   /**
-   * Tracks sorted so each runs after the tracks it takes notes from, and each return track after every track that sends
-   * to it. Tracks that depend on each other in a loop (the editor prevents this) are put last and simply read nothing
-   * from one another.
+   * The tracks in the order they are mixed in: each return track after every track that sends to it, and each track
+   * after the tracks it takes audio from. Also prepares the boards that carry that sound.
    */
-  private runOrder(): readonly PlayableTrack[] {
-    if (this.order) return this.order
-    const needs = new Map<string, string[]>(
-      [...this.tracks].map(([id, track]) => [id, track.tapSources().filter((source) => this.tracks.has(source))]),
-    )
+  private mixTracks(): readonly PlayableTrack[] {
+    if (this.mixOrder) return this.mixOrder
+    const needs = new Map<string, string[]>([...this.tracks].map(([id, track]) => [id, [...track.audioSources()]]))
     for (const [id, track] of this.tracks) {
       for (const target of track.sendTargets()) if (target !== id) needs.get(target)?.push(id)
     }
     this.sends.sync([...this.tracks].filter(([, track]) => track instanceof ReturnTrackRuntime).map(([id]) => id))
+    this.audioTaps.sync([...this.tracks.values()].flatMap((track) => track.audioSources()).filter((id) => this.tracks.has(id)))
+    this.mixOrder = this.sorted(needs)
+    return this.mixOrder
+  }
+
+  /**
+   * The tracks sorted so each comes after those it `needs`. Tracks that need each other in a loop (the editor and
+   * files prevent this) are put last and simply read nothing from one another.
+   */
+  private sorted(needs: ReadonlyMap<string, readonly string[]>): PlayableTrack[] {
     const done = new Set<string>()
     const order: PlayableTrack[] = []
     let progress = true
     while (progress) {
       progress = false
       for (const [id, track] of this.tracks) {
-        if (done.has(id) || !(needs.get(id) ?? []).every((source) => done.has(source))) continue
+        if (done.has(id) || !(needs.get(id) ?? []).every((source) => done.has(source) || !this.tracks.has(source))) continue
         done.add(id)
         order.push(track)
         progress = true
       }
     }
     for (const [id, track] of this.tracks) if (!done.has(id)) order.push(track)
-    this.order = order
     return order
   }
 
@@ -268,7 +295,7 @@ export class Engine {
       case 'return':
         return new ReturnTrackRuntime(command.trackId, command.fx, command.volume, this.sampleRate, this.samples)
       case 'audio': {
-        const track = new AudioTrackRuntime(command.fx, command.clips, command.volume, this.samples, this.sampleRate)
+        const track = new AudioTrackRuntime(command.trackId, command.fx, command.clips, command.volume, this.samples, this.sampleRate)
         track.setSends(command.sends ?? {})
         return track
       }

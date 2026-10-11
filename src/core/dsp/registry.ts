@@ -14,6 +14,7 @@ import { reverbNode } from './nodes/reverb.node'
 import { sendNode } from './nodes/send.node'
 import { samplerNode } from './nodes/sampler.node'
 import { stereoReverbNode } from './nodes/stereo-reverb.node'
+import { trackAudioNode } from './nodes/track-audio.node'
 import { trackInNode } from './nodes/track-in.node'
 import { trackOutNode } from './nodes/track-out.node'
 import { widthNode } from './nodes/width.node'
@@ -40,6 +41,7 @@ export const nodeDefinitions: readonly NodeDefinition[] = [
   returnInNode,
   masterInNode,
   sendNode,
+  trackAudioNode,
 ]
 
 const byType = new Map(nodeDefinitions.map((definition) => [definition.type, definition]))

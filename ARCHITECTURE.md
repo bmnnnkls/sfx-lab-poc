@@ -340,6 +340,30 @@ sends to it; it just processes what the tracks and returns have summed.
 * **UI.** A **Master** strip ends the session grid (select it to open its graph in the Effects tab; the tab then edits
   `GraphEditor owner="master"`); `useSelectionStore.master` says it is selected.
 
+## Track audio (taking another track's sound)
+
+The **Track audio** node is the audio mirror of *Track notes*: a stereo source in an insert graph that plays another track's
+sound, `Take` before or after that track's own effects (both before its fader, so a track turned all the way down can still
+be used). It makes parallel chains possible (process a copy of a drum loop differently on another track) and modulation
+(through *Mono sum* into a Gain's CV the other track scales this one). An envelope follower for sidechain-style ducking is
+not built yet; it would be one more node reading the same source.
+
+* **Engine** (`engine/audio-taps.ts`). Each track writes its sound before and after its insert graph to `AudioTaps`, one stereo
+  buffer each, only for tracks someone reads; Track audio nodes read it through `ProcessContext.taps`. Like the sends board
+  it is cleared before every stretch the engine mixes (`mixSegment`), which is why the master graph, which runs on the whole
+  block, has no Track audio node. A return track can be taken too (its `before` is its input, its `after` its output).
+* **Two orders.** Notes are passed on before any sound is mixed, so the engine keeps two orders: the schedule order (a track after
+  the tracks it takes notes from) and the mix order (a return after the tracks that send to it, a track after the tracks it
+  takes audio from). A notes loop and a sound dependency in opposite directions are therefore not a loop.
+* **Rules** (`project/mix-order.ts`). `mixDependencies(track)` = the tracks it takes audio from, plus for a return the tracks that
+  send to it (Send nodes and send knobs). `audioSourceTracks` offers each node every other track that is not mixed after its
+  own, `sendableReturns` every return that is not mixed before the sender, and `setTrackSend` refuses a knob that would
+  loop (the header disables it). `repairTrackReferences` applies the same test to files (a pointer to a missing track, to its
+  own track or that closes a loop is dropped, one at a time, with a warning), and `repairSendLevels` to the knobs.
+  `removeTrack` clears the inputs that took from the removed track, also inside modules.
+* **UI.** The node has a track picker (`NodeShape.usesTrack: 'audio'`) and a Take choice. New nodes in an insert graph now
+  appear right under its two ends instead of far below, so they are in view.
+
 ## Editing clips (piano roll)
 
 * **Gestures are pure functions of the pointer.** `ui/clip-editor/note-gestures.ts` describes draw / move /

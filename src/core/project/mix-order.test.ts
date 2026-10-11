@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { noteGraphFrom } from '../patch'
-import { addModuleUse, createDemoProject, createReturnTrack, editPatchAt, groupNodesAsModule, removeTrack, sendTargetsOf, sendableReturns, sendsReach } from './index'
+import { addModuleUse, createDemoProject, createReturnTrack, editPatchAt, groupNodesAsModule, removeTrack, sendTargetsOf, sendableReturns, mixesAfter } from './index'
 import { addTrack } from './edit'
 import type { Project, Track } from './types'
 
@@ -53,8 +53,8 @@ describe('sends in the project', () => {
     expect(sendableReturns(chained, bass.id).map((t) => t.name)).toEqual(['Return A', 'Return B'])
     expect(sendableReturns(chained, a.id).map((t) => t.name)).toEqual(['Return B'])
     expect(sendableReturns(chained, b.id).map((t) => t.name)).toEqual([]) // A sends to B: B may not send to A
-    expect(sendsReach(chained, a.id, b.id)).toBe(true)
-    expect(sendsReach(chained, b.id, a.id)).toBe(false)
+    expect(mixesAfter(chained, b.id, a.id)).toBe(true) // B is mixed after A, which sends to it
+    expect(mixesAfter(chained, a.id, b.id)).toBe(false)
   })
 
   it('removing a return clears the Sends that pointed at it, in tracks and in modules', () => {

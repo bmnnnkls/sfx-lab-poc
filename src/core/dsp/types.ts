@@ -50,6 +50,12 @@ export interface SendSink {
   add(trackId: string, source: Float32Array, amount: number, frames: number): void
 }
 
+/** Where a Track audio node reads another track's sound: what the track produced in the stretch being mixed. */
+export interface SignalTaps {
+  /** `tap` 0 is the track's own sound before its effects, 1 after them (both before its fader). A stereo buffer, or undefined. */
+  read(trackId: string, tap: number): Float32Array | undefined
+}
+
 export interface ProcessContext {
   /** Number of samples to render in this call (<= buffer length). */
   readonly frames: number
@@ -63,6 +69,8 @@ export interface ProcessContext {
   readonly input?: Float32Array
   /** Where Send nodes put their signal. Absent where there is nowhere to send to (an instrument's own patch). */
   readonly sends?: SendSink
+  /** Where Track audio nodes read other tracks. Absent where that makes no sense (the master graph). */
+  readonly taps?: SignalTaps
 }
 
 /**
@@ -107,8 +115,8 @@ export interface NodeDefinition {
    * the same parameters, and its signal ports become stereo (see `stereoPorts`).
    */
   readonly stereoCapable?: boolean
-  /** The node refers to a track: a Send picks one of the return tracks. */
-  readonly usesTrack?: 'return'
+  /** The node refers to a track: a Send picks one of the return tracks, Track audio any other track. */
+  readonly usesTrack?: 'return' | 'audio'
   /** The node plays library samples; the patcher shows a sample picker and stores `sampleId`. */
   readonly usesSample?: boolean
   create(sampleRate: number): DspNode

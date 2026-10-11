@@ -8,8 +8,8 @@ export type NodeDomain = 'audio' | 'notes'
 
 /** What the editor and the connection rules need to know about a node: its ports and parameters. */
 export type NodeShape = Pick<NodeDefinition, 'label' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
-  /** The node refers to another track and the editor shows a track picker: `notes` takes notes from an instrument track, `return` sends to a return track. */
-  readonly usesTrack?: 'notes' | 'return'
+  /** The node refers to another track and the editor shows a track picker: `notes` takes notes from an instrument track, `return` sends to a return track, `audio` takes another track's sound. */
+  readonly usesTrack?: 'notes' | 'return' | 'audio'
   /** A note effect that can be switched off (notes then pass straight through). */
   readonly bypassable?: boolean
   readonly domain?: NodeDomain

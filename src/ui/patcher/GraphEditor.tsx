@@ -2,6 +2,7 @@ import {
   MASTER_IN_TYPE,
   RETURN_IN_TYPE,
   SEND_TYPE,
+  TRACK_AUDIO_TYPE,
   TRACK_IN_TYPE,
   type ModuleLibrary,
   type Patch,
@@ -34,16 +35,22 @@ import styles from './Patcher.module.css'
 
 type PatchEdit = (patch: Patch, modules: ModuleLibrary) => Patch
 
-/** New nodes go on a grid below the existing ones, in the first slot nothing is sitting on. */
-const SLOT = { x: 196, y: 150, columns: 6, originX: 40, originY: 330 }
+/**
+ * New nodes go on a grid below the existing ones, in the first slot nothing is sitting on. An insert graph starts with
+ * just its two ends in one row, so its grid starts right under them and a new node is in view; the others have a patch
+ * several rows high to clear.
+ */
+const SLOT = { x: 196, y: 150, columns: 6, originX: 40 }
+const GRID_TOP = { patch: 330, notes: 330, fx: 130 } as const
 
-const spawnPoint = (patch: Patch): { x: number; y: number } => {
+const spawnPoint = (patch: Patch, graph: TrackGraph): { x: number; y: number } => {
+  const originY = GRID_TOP[graph]
   for (let index = 0; index < 200; index++) {
     const x = SLOT.originX + (index % SLOT.columns) * SLOT.x
-    const y = SLOT.originY + Math.floor(index / SLOT.columns) * SLOT.y
+    const y = originY + Math.floor(index / SLOT.columns) * SLOT.y
     if (!patch.nodes.some((node) => Math.abs(node.x - x) < SLOT.x - 20 && Math.abs(node.y - y) < SLOT.y - 20)) return { x, y }
   }
-  return { x: SLOT.originX, y: SLOT.originY }
+  return { x: SLOT.originX, y: originY }
 }
 const SUFFIX: Record<TrackGraph, string> = { patch: '', fx: ' effects', notes: ' notes' }
 
@@ -67,8 +74,8 @@ const paletteFor = (graph: TrackGraph, kind: Track['kind'] | 'master') => {
   return nodeDefinitions.filter((definition) => {
     if (graph !== 'fx') return definition.insertOnly !== true
     if (STARTS.has(definition.type)) return definition.type === START[kind]
-    // The master mix is not sent anywhere: the return tracks are mixed before it.
-    if (kind === 'master' && definition.type === SEND_TYPE) return false
+    // The master graph runs on the whole block, after the tracks: nothing to send to, and no tracks to read one by one.
+    if (kind === 'master' && (definition.type === SEND_TYPE || definition.type === TRACK_AUDIO_TYPE)) return false
     return definition.type !== 'note' && definition.type !== 'output' && definition.usesSample !== true
   })
 }
@@ -181,12 +188,12 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             modules={placeable}
             onAdd={(type) =>
               edit((current) => {
-                const { x, y } = spawnPoint(current)
+                const { x, y } = spawnPoint(current, graph)
                 return addNode(current, createNode(type, x, y))
               })
             }
             onAddModule={(moduleId) => {
-              const { x, y } = spawnPoint(patch)
+              const { x, y } = spawnPoint(patch, graph)
               store().addModuleUse(target, moduleId, x, y)
             }}
           />

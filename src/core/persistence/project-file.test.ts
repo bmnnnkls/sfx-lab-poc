@@ -211,7 +211,7 @@ describe('return tracks and sends in files', () => {
   it('drops the Send that would close a loop between two returns, keeping the other', () => {
     const loaded = load([returnTrack('r1', { fx: sending('r2') }), returnTrack('r2', { fx: sending('r1') })])
     expect([target(loaded, 'r1'), target(loaded, 'r2')].filter((t) => t !== undefined)).toHaveLength(1)
-    expect(loaded.warnings.join('\n')).toMatch(/feed each other/)
+    expect(loaded.warnings.join('\n')).toMatch(/depend on each other/)
   })
 
   it('keeps send knob levels for return tracks, clamped, and drops the rest', () => {
@@ -239,6 +239,35 @@ describe('return tracks and sends in files', () => {
     const withSends = { ...base, tracks: [{ ...base.tracks[0]!, sends: { [ret.id]: 0.25 } }, ...base.tracks.slice(1), ret] }
     const result = parseOk(serializeProject(withSends as Project))
     expect(result.project).toEqual(withSends)
+  })
+
+  it('keeps a valid Track audio input; drops one that points at a missing track, at its own track, or at a loop', () => {
+    const taking = (target: unknown) => ({
+      nodes: [node('i', 'trackIn'), node('a', 'trackAudio', { trackId: target }), node('o', 'trackOut')],
+      connections: [wire('w', 'a', 'o')],
+    })
+    const loaded = load([instrument('t', taking('u')), instrument('u', taking('ghost')), instrument('v', taking('v')), instrument('p', taking('q')), instrument('q', taking('p'))])
+    expect(target(loaded, 't', 'a')).toBe('u')
+    expect(target(loaded, 'u', 'a')).toBeUndefined()
+    expect(target(loaded, 'v', 'a')).toBeUndefined()
+    expect([target(loaded, 'p', 'a'), target(loaded, 'q', 'a')].filter((t) => t !== undefined)).toHaveLength(1)
+    expect(loaded.warnings.join('\n')).toMatch(/audio from track/)
+  })
+
+  it('drops the Send, the Track audio input or the knob that completes a loop between a track and a return', () => {
+    const takingFrom = (source: string) => ({ nodes: [node('i', 'trackIn'), node('a', 'trackAudio', { trackId: source }), node('o', 'trackOut')], connections: [wire('w', 'a', 'o')] })
+    // t sends to r and also takes audio from r: one of the two must go
+    const byNode = load([instrument('t', { nodes: [...sending('r').nodes, node('a', 'trackAudio', { trackId: 'r' })], connections: sending('r').connections }), returnTrack('r')])
+    const t = byNode.project.tracks.find((x) => x.id === 't')!
+    expect([t.fx.nodes.find((n) => n.id === 's')?.trackId, t.fx.nodes.find((n) => n.id === 'a')?.trackId].filter((x) => x !== undefined)).toHaveLength(1)
+    // t takes audio from r and has a knob for r
+    const byKnob = load([{ ...instrument('t', takingFrom('r')), sends: { r: 0.5 } }, returnTrack('r')])
+    const kept = byKnob.project.tracks.find((x) => x.id === 't')!
+    const knob = kept.kind !== 'return' && 'r' in kept.sends
+    const input = kept.fx.nodes.find((n) => n.id === 'a')?.trackId !== undefined
+    expect(knob && input).toBe(false) // one of the two had to go
+    expect(knob || input).toBe(true) // and only one
+    expect(byKnob.warnings.join('\n')).toMatch(/depend on each other/)
   })
 
   it('survives a garbage trackId on a Send', () => {

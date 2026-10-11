@@ -1,4 +1,4 @@
-import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode } from '@core'
+import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode, mixesAfter } from '@core'
 import { useEngineControls, useProjectStore, useSelectionStore } from '@state'
 import styles from './SessionView.module.css'
 
@@ -65,20 +65,28 @@ export const TrackHeader = ({ track }: { track: Track }) => {
       />
       {track.kind !== 'return' && returns.length > 0 && (
         <div className={styles.sends} role="group" aria-label={`${track.name} sends`}>
-          {returns.map((target) => (
-            <label key={target.id} className={styles.send} title={`Send to ${target.name} (post-fader: after the effects and the volume)`}>
-              <span>{target.name.replace(/^Return /, '')}</span>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={track.sends[target.id] ?? 0}
-                aria-label={`${track.name} send to ${target.name}`}
-                onChange={(event) => setSend(track.id, target.id, Number(event.target.value))}
-              />
-            </label>
-          ))}
+          {returns.map((target) => {
+            // A track that takes audio from a return cannot send to it as well: that would be a loop.
+            const loop = mixesAfter({ tracks, modules }, track.id, target.id)
+            const title = loop
+              ? `${track.name} takes audio from ${target.name}, so it cannot send to it`
+              : `Send to ${target.name} (post-fader: after the effects and the volume)`
+            return (
+              <label key={target.id} className={styles.send} title={title}>
+                <span>{target.name.replace(/^Return /, '')}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={track.sends[target.id] ?? 0}
+                  aria-label={`${track.name} send to ${target.name}`}
+                  disabled={loop}
+                  onChange={(event) => setSend(track.id, target.id, Number(event.target.value))}
+                />
+              </label>
+            )
+          })}
         </div>
       )}
       {track.kind !== 'return' && (

@@ -55,7 +55,7 @@ update or replace a module's definition from a file; show where a module is used
 
 ## Effects on tracks, sends and returns (sound in, sound out)
 
-Status: **steps 1-5 built** (insert graph, stereo, return tracks and the Send node, send knobs, master graph: see `ARCHITECTURE.md`); step 6 open.
+Status: **all six steps built** (insert graph, stereo, return tracks and the Send node, send knobs, master graph, Track audio: see `ARCHITECTURE.md`). Follow-ups below.
 
 * **What exists:** effect nodes (filter, delay, reverb, LFO, gain) and modules with audio ports already work *inside an
   instrument's patch*. What is missing is somewhere to put an effect on a track's *output*, and audio tracks (samples)
@@ -89,7 +89,17 @@ Full handoff for whoever builds this: [`HANDOFF-track-effects-and-stereo.md`](HA
 3. ~~Return tracks and the Send node (engine primitive, ordering, loop rules, persistence).~~ Done (see `ARCHITECTURE.md`).
 4. ~~The send knob row on track headers.~~ Done (see `ARCHITECTURE.md`).
 5. ~~Master effects graph.~~ Done (see `ARCHITECTURE.md`).
-6. *Track audio* node.
+6. ~~*Track audio* node.~~ Done (see `ARCHITECTURE.md`); the envelope follower for sidechains is still open (below).
+
+## Effects follow-ups
+
+* **Envelope follower** (a node that turns a signal's level into a smooth control signal), which with *Track audio* gives
+  sidechain ducking. Not built: raw audio into a CV is amplitude modulation, not a duck.
+* Chorus, flanger and other stereo modulation effects; a limiter or compressor for the master (today the output soft clip is
+  the only limiter).
+* A master volume and a meter per track; pan and mute/solo on the track header (a Pan node in the insert graph does the job today).
+* A mono *Reverb* cannot be wired to a stereo source (a return's input, the master): use *Stereo reverb* or put the *Mono sum*
+  node first. Offering the L R switch on the mono reverb would be cheap if two copies were acceptable.
 
 ## Note graph follow-ups
 

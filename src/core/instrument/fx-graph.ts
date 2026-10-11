@@ -1,4 +1,4 @@
-import { type NoteState, STEREO_FRAMES, type SendSink } from '../dsp'
+import { type NoteState, STEREO_FRAMES, type SendSink, type SignalTaps } from '../dsp'
 import { type Patch, topologicalOrder } from '../patch'
 import type { SampleLookup } from '../sample'
 import { addInto, compileStage, processStage, setStageParam, setStageSample } from './compile'
@@ -35,10 +35,10 @@ export class FxGraph {
 
   /**
    * Runs `frames` samples (<= MAX_BLOCK_FRAMES) of `input` through the graph and returns the shared stereo output
-   * buffer (left channel first, then right; see `dsp/stereo.ts`). Send nodes add to the return tracks through `sends`.
+   * buffer (left channel first, then right; see `dsp/stereo.ts`). Send nodes add to the return tracks through `boards.sends`, Track audio nodes read other tracks through `boards.taps`.
    */
-  process(input: Float32Array, frames: number, sends?: SendSink): Float32Array {
-    processStage(this.stage, { frames, sampleRate: this.sampleRate, note: NO_NOTE, samples: this.samples, input, sends })
+  process(input: Float32Array, frames: number, boards: { sends?: SendSink; taps?: SignalTaps } = {}): Float32Array {
+    processStage(this.stage, { frames, sampleRate: this.sampleRate, note: NO_NOTE, samples: this.samples, input, sends: boards.sends, taps: boards.taps })
     this.out.fill(0)
     for (const source of this.stage.outputSources) addInto(this.out, source, frames)
     return this.out

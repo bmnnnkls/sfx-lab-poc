@@ -3,6 +3,7 @@ import type { Patch } from '../patch'
 import type { SendLevels } from '../project'
 import type { LauncherStatus } from '../session'
 import type { AudioBoard } from './audio-board'
+import type { AudioTaps } from './audio-taps'
 
 /** Something to do at an exact transport beat, produced by a track and run by the engine at the right sample. */
 export interface ScheduledAction {
@@ -15,6 +16,15 @@ export interface MixTiming {
   /** Transport beat at the first frame of the stretch. */
   readonly beat: number
   readonly beatsPerSample: number
+}
+
+/** What the engine hands a track to mix into: where the stretch sits in musical time, and the boards tracks share sound on. */
+export interface MixContext {
+  readonly timing: MixTiming
+  /** Sends to return tracks go here; a return track reads its own slot as its input. */
+  readonly sends: AudioBoard
+  /** Tracks write their sound here for Track audio nodes to read (the engine mixes the tracks they read from first). */
+  readonly taps: AudioTaps
 }
 
 /**
@@ -40,8 +50,10 @@ export interface PlayableTrack {
   schedule(from: number, to: number, board: TapBoard): ScheduledAction[]
   /** Ids of the tracks this one takes notes from. */
   tapSources(): string[]
-  /** Ids of the return tracks this one sends to, from its insert graph or its send knobs (the engine runs it before them). */
+  /** Ids of the return tracks this one sends to, from its insert graph or its send knobs (the engine mixes it before them). */
   sendTargets(): string[]
+  /** Ids of the tracks this one takes audio from with Track audio nodes (the engine mixes it after them). */
+  audioSources(): string[]
   /** Replaces the insert graph. Structural changes restart it (its tails are lost); knob changes go through `setParam`. */
   setFx(fx: Patch): void
   /** Changes a parameter of a node in the track's patch or insert graph (node ids are unique across both). */
@@ -50,8 +62,8 @@ export interface PlayableTrack {
   /** The send knobs: how much of the track, after its fader, goes to each return track. */
   setSends(sends: SendLevels): void
   /**
-   * Adds `frames` samples of this track, through its insert graph and scaled by its volume, into the stereo buses.
-   * Sends to return tracks are added to `board`; a return track reads its own slot of it as its input.
+   * Adds `frames` samples of this track, through its insert graph and scaled by its volume, into the stereo buses, and
+   * leaves its sound on the boards of `mix` for the tracks that send to or take audio from it.
    */
-  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, timing: MixTiming, board: AudioBoard): void
+  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, mix: MixContext): void
 }

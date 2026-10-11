@@ -78,7 +78,15 @@ export {
   updateModule,
 } from './module-edit'
 export { readsNotesFrom, tapSourcesOf, tappableTracks } from './note-taps'
-export { sendTargetsOf, sendableReturns, sendsReach } from './sends'
+export {
+  type MixGraph,
+  audioSourceTracks,
+  audioSourcesOf,
+  mixDependencies,
+  mixesAfter,
+  sendTargetsOf,
+  sendableReturns,
+} from './mix-order'
 export { createDemoProject } from './demo-project'
 export {
   DEFAULT_VELOCITY,

@@ -119,6 +119,25 @@ describe('diffProject', () => {
     })
   })
 
+  describe('Track audio', () => {
+    const other = project.tracks[1]!
+    const taking = (source: string, tap = 1) =>
+      noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 'ta', type: 'trackAudio', trackId: source, params: { tap } }, { id: 'out', type: 'trackOut' }], ['ta.out>out.in'])
+    const withTake = editPatchAt(project, { trackId: track.id, graph: 'fx' }, () => taking(other.id))
+
+    it('rebuilds the graph when another track is chosen, and sends a new Take as a parameter', () => {
+      expect(diffProject(project, withTake).map((c) => c.type)).toEqual(['track/setFx'])
+      const retargeted = editPatchAt(withTake, { trackId: track.id, graph: 'fx' }, (fx) => setNodeTrack(fx, 'ta', project.tracks[2]!.id))
+      expect(diffProject(withTake, retargeted).map((c) => c.type)).toEqual(['track/setFx'])
+      const before = editPatchAt(withTake, { trackId: track.id, graph: 'fx' }, (fx) => setNodeParam(fx, 'ta', 'tap', 0))
+      expect(diffProject(withTake, before)).toEqual([{ type: 'track/setParam', trackId: track.id, nodeId: 'ta', paramId: 'tap', value: 0 }])
+    })
+
+    it('removing the source removes the track and clears the input in one go', () => {
+      expect(diffProject(withTake, removeTrack(withTake, other.id)).map((c) => c.type)).toEqual(['track/remove', 'track/setFx'])
+    })
+  })
+
   describe('the master bus', () => {
     const reverb = noteGraphFrom([{ id: 'in', type: 'masterIn' }, { id: 'r', type: 'stereoReverb' }, { id: 'out', type: 'trackOut' }], ['in.out>r.in', 'r.out>out.in'])
     const withMaster = editPatchAt(project, { master: true }, () => reverb)
