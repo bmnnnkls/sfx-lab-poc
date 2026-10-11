@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import { existsSync } from 'node:fs'
+import { LOOP_WINDOW_MS, installAudioTap, listen, show } from './audio-tap.mjs'
 const require = createRequire(existsSync('/node-tools/node_modules/') ? '/node-tools/node_modules/' : '/opt/node-tools/node_modules/')
 const { chromium } = require('playwright')
 const dir = process.argv[2] ?? '.'
@@ -24,41 +25,8 @@ const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first
 const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
 const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
 
-// The page's own meter only shows the louder channel, so tap the real output of the engine's worklet per channel.
-await page.addInitScript(() => {
-  const Original = window.AudioWorkletNode
-  window.AudioWorkletNode = class extends Original {
-    constructor(ctx, name, options) {
-      super(ctx, name, options)
-      const split = ctx.createChannelSplitter(2)
-      this.connect(split)
-      const analysers = [0, 1].map((channel) => {
-        const analyser = ctx.createAnalyser()
-        split.connect(analyser, channel)
-        return analyser
-      })
-      window.__channelRms = () =>
-        analysers.map((analyser) => {
-          const data = new Float32Array(analyser.fftSize)
-          analyser.getFloatTimeDomainData(data)
-          return Math.sqrt(data.reduce((sum, v) => sum + v * v, 0) / data.length)
-        })
-    }
-  }
-})
-
-/** The largest RMS seen on each channel over a window. */
-const channels = async (ms) => {
-  const best = [0, 0]
-  const end = Date.now() + ms
-  while (Date.now() < end) {
-    const now = await page.evaluate(() => window.__channelRms?.() ?? [0, 0])
-    best[0] = Math.max(best[0], now[0])
-    best[1] = Math.max(best[1], now[1])
-    await page.waitForTimeout(40)
-  }
-  return best
-}
+// Both channels of the real output, sample for sample (see audio-tap.mjs for why not two analysers).
+await installAudioTap(page)
 const surface = page.getByTestId('patch-surface')
 const node = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator('[class*="nodeTitle"]', { hasText: new RegExp(`^${title}`) }) }).first()
 const idOf = async (title) => (await node(title).getAttribute('data-testid')).replace('node-', '')
@@ -92,8 +60,8 @@ await page.getByRole('button', { name: 'Effects', exact: true }).click()
 // ---- untouched: the same in both channels
 await page.getByRole('button', { name: new RegExp(LOOP) }).first().click()
 await page.waitForTimeout(2500)
-const plain = await channels(1500)
-check('a track without effects is the same in both channels', plain[0] > 0.02 && Math.abs(plain[0] - plain[1]) < 0.002, JSON.stringify(plain))
+const plain = await listen(page, 1500)
+check('a track without effects is the same in both channels', plain.peak[0] > 0.02 && plain.diffPeak < 1e-6, show(plain))
 
 // ---- pan
 await add('Pan')
@@ -104,12 +72,12 @@ check('Track in (mono) -> Pan -> Track out (stereo) is wired', (await wireCount(
 await selectNode('Pan')
 await slider('Pan').fill('0') // hard left
 await page.waitForTimeout(500)
-const left = await channels(1200)
-check('panned hard left: sound only on the left', left[0] > 0.02 && left[1] < 0.001, JSON.stringify(left))
+const left = await listen(page, LOOP_WINDOW_MS)
+check('panned hard left: sound only on the left', left.peak[0] > 0.02 && left.peak[1] < 0.001, show(left))
 await slider('Pan').fill('1000') // hard right
 await page.waitForTimeout(500)
-const right = await channels(1200)
-check('panned hard right: sound only on the right', right[1] > 0.02 && right[0] < 0.001, JSON.stringify(right))
+const right = await listen(page, LOOP_WINDOW_MS)
+check('panned hard right: sound only on the right', right.peak[1] > 0.02 && right.peak[0] < 0.001, show(right))
 await page.screenshot({ path: `${dir}/stereo-pan.png` })
 
 // ---- a mono node cannot take stereo until it is switched to stereo
@@ -136,12 +104,9 @@ await selectNode('Stereo reverb')
 const mixKnob = slider('Mix')
 await mixKnob.fill('1000')
 await page.waitForTimeout(600)
-const wet = await channels(1500)
-check('a stereo reverb on the mono loop gives both channels sound', wet[0] > 0.01 && wet[1] > 0.01, JSON.stringify(wet))
-const snapshot = async () => page.evaluate(() => window.__channelRms())
-let different = 0
-for (let i = 0; i < 10; i++) { const [l, r] = await snapshot(); if (Math.abs(l - r) > 1e-4) different++; await page.waitForTimeout(60) }
-check('...and the two channels differ (an untouched mono track gives exactly equal ones)', different >= 8, `${different}/10 snapshots`)
+const wet = await listen(page, LOOP_WINDOW_MS)
+check('a stereo reverb on the mono loop gives both channels sound', wet.peak[0] > 0.01 && wet.peak[1] > 0.01, show(wet))
+check('...and the two channels differ (an untouched mono track gives exactly equal ones)', wet.diffPeak > 1e-3, show(wet))
 await page.screenshot({ path: `${dir}/stereo-reverb.png` })
 
 // ---- persistence

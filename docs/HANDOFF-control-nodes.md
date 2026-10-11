@@ -25,8 +25,7 @@ npm run build && npx vite preview --port 4173 &
 node docs/browser-checks/panel.mjs /some/dir    # one script per feature; see docs/browser-checks/README.md
 ```
 
-Known: `docs/browser-checks/mixer.mjs` fails "panned hard right" on `main` too (it compares levels across two windows of a looping
-sample; the sound is right). Ignore that one line; a fix was suggested as a separate task.
+Flaky listening checks (`stereo.mjs` "same in both channels", `mixer.mjs` "panned hard right") were fixed at the end of step 8: they now use the shared sample-accurate tap in `docs/browser-checks/audio-tap.mjs` (see the README there).
 
 **Git and house rules.** Push only to `claude/determined-turing-ypq9ix`. If its PR is already merged when you start, restart it from
 `origin/main` under the same name before adding work. Do not open a pull request unless asked. Commit with the attribution lines your

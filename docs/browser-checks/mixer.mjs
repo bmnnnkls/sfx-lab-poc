@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import { existsSync } from 'node:fs'
+import { LOOP_WINDOW_MS, installAudioTap, listen, show } from './audio-tap.mjs'
 const require = createRequire(existsSync('/node-tools/node_modules/') ? '/node-tools/node_modules/' : '/opt/node-tools/node_modules/')
 const { chromium } = require('playwright')
 const dir = process.argv[2] ?? '.'
@@ -11,41 +12,8 @@ page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
 
-// The page's own meter only shows the louder channel, so tap the real output of the engine's worklet per channel.
-await page.addInitScript(() => {
-  const Original = window.AudioWorkletNode
-  window.AudioWorkletNode = class extends Original {
-    constructor(ctx, name, options) {
-      super(ctx, name, options)
-      const split = ctx.createChannelSplitter(2)
-      this.connect(split)
-      const analysers = [0, 1].map((channel) => {
-        const analyser = ctx.createAnalyser()
-        split.connect(analyser, channel)
-        return analyser
-      })
-      window.__channelRms = () =>
-        analysers.map((analyser) => {
-          const data = new Float32Array(analyser.fftSize)
-          analyser.getFloatTimeDomainData(data)
-          return Math.sqrt(data.reduce((sum, v) => sum + v * v, 0) / data.length)
-        })
-    }
-  }
-})
-
-/** The largest RMS seen on each channel of the real output over a window. */
-const channels = async (ms) => {
-  const best = [0, 0]
-  const end = Date.now() + ms
-  while (Date.now() < end) {
-    const now = await page.evaluate(() => window.__channelRms?.() ?? [0, 0])
-    best[0] = Math.max(best[0], now[0])
-    best[1] = Math.max(best[1], now[1])
-    await page.waitForTimeout(40)
-  }
-  return best
-}
+// Both channels of the real output, sample for sample (see audio-tap.mjs for why not two analysers).
+await installAudioTap(page)
 /** The largest raw peak a strip's own meter reported over a window. */
 const meter = async (label, ms = 700) => {
   let best = 0
@@ -101,42 +69,44 @@ check('a playing track\'s meter moves and the others\' stay at zero', level4 > 0
 const master = await meter('Master level')
 check('the master meter follows the output', master > 0.02, master.toFixed(3))
 
-// ---- fader
+// ---- fader: the output's peak over a whole loop, before and after (the master soft-clips, and each pass of the loop peaks a few % differently, so only a band)
+const atFull = await listen(page, LOOP_WINDOW_MS)
 await control('Audio 4 fader').fill('0.4')
 await page.waitForTimeout(1000)
-const half = await meter('Audio 4 level')
-check('the fader changes the track\'s level (here from 0.8 to 0.4: about half)', half > 0.3 * level4 && half < 0.7 * level4, `${level4.toFixed(3)} -> ${half.toFixed(3)}`)
+const atHalf = await listen(page, LOOP_WINDOW_MS)
+const ratio = atHalf.peak[0] / atFull.peak[0]
+check('the fader changes the track\'s level (here from 0.8 to 0.4: about half)', atFull.peak[0] > 0.02 && ratio > 0.4 && ratio < 0.7, `${atFull.peak[0].toFixed(3)} -> ${atHalf.peak[0].toFixed(3)} (x${ratio.toFixed(3)})`)
 check('the header slider shows the same volume', (await control('Audio 4 volume').inputValue()) === '0.4')
 await control('Audio 4 fader').fill('0.8')
 
 // ---- pan, per output channel
 await page.waitForTimeout(800)
-const centre = await channels(900)
-check('centred: both channels carry the same sound', centre[0] > 0.01 && Math.abs(centre[0] - centre[1]) < 0.003, JSON.stringify(centre))
+const centre = await listen(page, LOOP_WINDOW_MS)
+check('centred: both channels carry the same sound', centre.peak[0] > 0.01 && centre.diffPeak < 1e-6, show(centre))
 await control('Audio 4 pan').fill('-1')
 await page.waitForTimeout(800)
-const left = await channels(900)
-check('panned hard left: sound in the left channel only', left[0] > centre[0] && left[1] < 0.002, JSON.stringify(left))
+const left = await listen(page, LOOP_WINDOW_MS)
+check('panned hard left: sound in the left channel only', left.peak[0] > 0.9 * centre.peak[0] && left.peak[1] < 0.002, show(left))
 await control('Audio 4 pan').fill('1')
 await page.waitForTimeout(800)
-const right = await channels(900)
-check('panned hard right: sound in the right channel only', right[1] > centre[1] && right[0] < 0.002, JSON.stringify(right))
+const right = await listen(page, LOOP_WINDOW_MS)
+check('panned hard right: sound in the right channel only', right.peak[1] > 0.9 * centre.peak[1] && right.peak[0] < 0.002, show(right))
 await control('Audio 4 pan').dblclick()
 const panAfter = await control('Audio 4 pan').inputValue()
 await page.waitForTimeout(1500)
-const back = await channels(900)
-check('double-clicking the pan centres it again (value ' + panAfter + ')', back[0] > 0.01 && Math.abs(back[0] - back[1]) < 0.003, JSON.stringify(back))
+const back = await listen(page, LOOP_WINDOW_MS)
+check('double-clicking the pan centres it again (value ' + panAfter + ')', back.peak[0] > 0.01 && back.diffPeak < 1e-6, show(back))
 
 // ---- mute
 await control('Audio 4 mute').click()
 await page.waitForTimeout(1000)
-const muted = await channels(700)
-check('muting the only playing track silences the output', muted[0] < 0.002 && muted[1] < 0.002, JSON.stringify(muted))
+const muted = await listen(page, 700)
+check('muting the only playing track silences the output', muted.peak[0] < 0.002 && muted.peak[1] < 0.002, show(muted))
 check('...and its meter reads zero, and the button shows it is pressed', (await meter('Audio 4 level')) === 0 && (await pressed('Audio 4 mute')))
 await control('Audio 4 mute').click()
 await page.waitForTimeout(1000)
-const unmuted = await channels(700)
-check('unmuting brings it back', unmuted[0] > 0.01, JSON.stringify(unmuted))
+const unmuted = await listen(page, LOOP_WINDOW_MS)
+check('unmuting brings it back', unmuted.peak[0] > 0.01, show(unmuted))
 
 // ---- solo: Audio 5 plays too; soloing Audio 4 silences it, and the return Audio 4 feeds stays heard
 await launch(1).click()
@@ -168,13 +138,13 @@ await control('Audio 4 mute').click()
 // ---- master volume
 await control('Master fader').fill('0')
 await page.waitForTimeout(1000)
-const silent = await channels(700)
-check('master volume 0 silences everything', silent[0] < 0.001 && silent[1] < 0.001 && (await meter('Master level')) === 0, JSON.stringify(silent))
+const silent = await listen(page, 700)
+check('master volume 0 silences everything', silent.peak[0] < 0.001 && silent.peak[1] < 0.001 && (await meter('Master level')) === 0, show(silent))
 check('the track meters still move (they are before the master fader)', (await meter('Audio 4 level')) > 0.02)
 await control('Master fader').fill('1')
 await page.waitForTimeout(1000)
-const restored = await channels(700)
-check('master volume 1 restores it', restored[0] > 0.01, JSON.stringify(restored))
+const restored = await listen(page, LOOP_WINDOW_MS)
+check('master volume 1 restores it', restored.peak[0] > 0.01, show(restored))
 
 // ---- undo and redo
 await control('Audio 4 mute').click()

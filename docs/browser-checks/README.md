@@ -44,7 +44,7 @@ sandbox's. Change them (or install `playwright`) elsewhere.
 | `tooltips.mjs` | tooltips: palette buttons, parameter rows (range, unit, default, curve), enums, ports, node titles, sockets free and driven, a control's live range, Escape / press / pointer-leave hide, keyboard focus, `aria-describedby`, inside the window |
 | `notegraph.mjs` | the note graph: split, merge, bypass, notes from another track (real audio), loop refusal, note modules, persistence |
 
-`mixer.mjs` has one unreliable assertion, "panned hard right": it compares the right channel's level with the centred one over a 900 ms window of a looping drum sample, so it fails whenever that window falls on a quieter part of the loop (it also fails on `main`; the sound itself is right, with the left channel at about 1e-17). Compare the channels within one window instead.
+**Listening checks (`stereo.mjs`, `mixer.mjs`) use `audio-tap.mjs`**, a tap that sees every sample of both output channels. Two rules keep them free of timing luck: compare the two channels inside one window (`diffPeak`, the largest |left - right|), and compare two windows only when each is `LOOP_WINDOW_MS` long and with a margin (a shorter window can fall on a quiet stretch; whole-loop passes still differ by a few percent and the master soft-clips, so test "about half", not "exactly half"). Do not read two `AnalyserNode`s one after the other (they show different slices of the sound) and do not compare a meter reading across two short windows. `listen` throws when nothing went through the tap, so a dead tap cannot pass a silence check.
 
 ## Conventions inside the scripts
 
