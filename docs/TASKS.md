@@ -46,7 +46,9 @@ chain that transforms the `NoteEvent` stream (`noteOn` / `noteOff` / `allOff`, p
   everything on stop/launch changes, as `ClipLauncher` does for held notes.
 * Pure transforms first (transpose, scale lock, chord, velocity curve), then stateful (arpeggiator, note delay /
   echo), then a note-level patcher if hand-building them is wanted.
-* Open question: show the note chain as a strip on the track header, or as a second patcher view.
+* **UI decided:** a **Notes tab** next to the Instrument tab holds the chain (left to right, all parameters visible),
+  plus a small "fx" badge on the header of any track that has a chain; clicking it opens the Notes tab. (Mock-up compared
+  this with a strip on every track header; the strip crowds four-track layouts and has no room for parameters.)
 
 ### Suggested order
 
