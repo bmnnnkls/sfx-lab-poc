@@ -210,6 +210,45 @@ TypeScript, then do the effect on the bins. Constraints to design around:
 
 ---
 
+## Next batch (selected, not built)
+
+Thirteen items, picked for an SFX lab: mostly cheap to medium DSP, then example modules that use it. Build in this order (the oscillator
+extras come before the FM module, and the filter modes before the auto-wah). Run only the new browser checks, not the whole suite.
+
+**Effects**
+1. **Distortion** (D2): modes soft clip (`tanh`), hard clip and wavefolder; `drive` (dB), `mix`, output level. Category *Effects*. Watch the
+   level: drive then a make-up gain, and oversampling is out of scope (say so in the words).
+2. **Bitcrusher** (D2/G12): `bits` (1 to 16), sample-rate reduction (a hold of 1 to 64 samples, or a rate in Hz), `mix`.
+3. **Chorus / flanger** (D7): one node, a modulated delay line (`delay` ms, `depth` ms, `rate`, `feedback`, `mix`; a flanger is a short delay with
+   feedback). `stereoCapable` like the Delay; the delay time already has a socket, so the LFO can also be wired in.
+4. **Stutter** (G9): captures the last `slice` ms (10 to 1000) when its `gate` input rises and loops that slice while the gate is high, then passes
+   the input again; a short crossfade at the seam. Slice in milliseconds until the DSP has a tempo (see `docs/PROMPT-next-session.md`, then it
+   can offer beats). A *Switch* in trigger or momentary mode drives it.
+5. **More filter modes** (D3): notch, all-pass, peak, low shelf, high shelf, in the existing `filter` node. **Append** them to the mode list
+   (saved projects store the index) and add a `gain` parameter (dB, +-24, used by peak and shelves). The filter picture (`ui/patcher/previews/filter.ts`)
+   has its own copy of the mode list and `responseDb`: update both. A 24 dB slope (two biquads) is a possible follow-up.
+
+**Oscillator and math**
+6. **Oscillator extras** (D4/D5): `width` (pulse width, 0.05 to 0.95, default 0.5 = today's square), a `pm` input (phase modulation, in cycles,
+   scaled by a `pmAmount` parameter) and a `sync` input (a rise through 0.5 resets the phase: hard sync). With nothing wired and the defaults
+   the sound must be unchanged. The oscillator is naive (not band-limited): say so, and check aliasing at the top of the range before promising PWM.
+7. **Scale quantizer** (a math/logic node): snaps a MIDI note to a scale (`scale` enum: major, minor, harmonic minor, pentatonic major / minor,
+   blues, whole tone, chromatic) and `root`; either rounds to the nearest degree or floors. Next to *Quantize*.
+
+**Example modules** (under *Add -> Examples*, built like `patch/example-modules.ts`; their knobs should be **control nodes inside the module**
+with sensible ranges and curves, named and given units, because a module knob taken from a math node's parameter would have a +-100000 range;
+test each by rendering it and measuring, as the organ is tested)
+8. **FM pair**: carrier and modulator (needs item 6); controls `Ratio` (0.25 to 8, step 0.25) and `Index` (0 to 2 cycles); sidebands at fc +- k fm
+   are the test.
+9. **Supersaw / unison**: seven saws detuned by fixed multiples of one `Spread` control (wire a multiply into each oscillator's `param:detune`).
+10. **Mono synth starter**: saw plus a sub-octave square, filter, amplitude envelope; controls `Cutoff` (log), `Resonance`, `Attack`, `Release`, `Sub`.
+11. **Wobble bass**: saw into a filter whose cutoff follows an LFO through *Map range* (log); controls `Rate`, `Depth`, `Base cutoff`.
+12. **Auto-wah**: audio in, *Envelope follower* into *Map range* into the filter cutoff; controls `Sensitivity`, `Base`, `Range`, `Q`.
+13. **Ducker**: a `Key` input as well as `In`; the follower on the key lowers the gain of `In` (`Depth`, `Attack`, `Release`).
+
+**Left out of this batch on purpose:** the **granular sampler** (G6, large: its own session), the **drum machine** (E5: a module cannot carry a
+sample choice per use, so decide how first, see `TASKS.md`) and the **compressor** (D6, worth doing, but not with these).
+
 ## Suggested first batch
 
 A1 (controls in the cards), A2 and A3 (extend the Switch), B0 with B1 and B2 (live indicators), C1 to C4 (cheap analysis), G1

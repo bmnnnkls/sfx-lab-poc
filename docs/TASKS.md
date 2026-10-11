@@ -3,6 +3,26 @@
 Things we have decided are worth doing but have not started. Newest first. Move an item to `ARCHITECTURE.md`
 (as documentation of what exists) when it ships, and delete it here.
 
+## Other work, in the order I would do it
+
+Not nodes (the next batch of nodes is in [`IDEAS-nodes-and-controls.md`](IDEAS-nodes-and-controls.md), "Next batch"). The first three are
+written up as a prompt for a new session in [`PROMPT-next-session.md`](PROMPT-next-session.md).
+
+1. **Export to WAV** (idea F2): the missing half of an SFX lab, an offline render of the engine (it already runs without the browser) to a
+   stereo WAV, with a tail, a sample rate and a normalize option. Deterministic, so the same project is the same file.
+2. **Tempo in the DSP context**: `ProcessContext.tempo`, so *Clock* (and later stutter, delays and the LFO) can follow the project tempo.
+3. **A seed per voice**: the seeded sources start from the same seed in every voice of a chord; give `create` a voice salt and a `voices` option.
+4. **MIDI input** (F4): a MIDI keyboard for notes (Web MIDI), CC mapped to control nodes with MIDI learn. Makes the panel playable. Needs
+   a decision on where learned mappings live (on the node, like `panel`, is the likely answer).
+5. **Presets and snapshots** (F3): save the states of the controls and morph between two with an XY pad; pairs with Randomize and Mutate
+   (a snapshot is also "keep this roll").
+6. **Drum machine design**: decide how a module holds or picks samples (a module use cannot carry a sampler's `sampleId` today), then build E5:
+   N samplers gated by the incoming note (hz to MIDI, compare, multiply), per-pad level, pan and tune.
+7. **Test and tooling hygiene**: the whole browser suite takes too long; split it into a fast smoke set and a full run, and stop checks
+   hard-coding lists the app already knows (they broke three times as nodes were added; the unit tests already read the registry).
+8. **Smaller follow-ups found on the way**: per-*parameter* locks for Randomize; indicators live inside a module's own editor; a bigger
+   example-module library (E8) and a way to save a module as an example of your own.
+
 ## Ideas for the next nodes, controls and effects
 
 A pool of candidate work (live controls inside cards, indicators, analysis nodes, noise including Perlin, granular and glitch
