@@ -1,10 +1,11 @@
 name: Deploy to GitHub Pages
 
-# Deploys whatever is pushed to the gh-pages branch (main is not allowed to deploy to the github-pages environment).
-# To publish: git push origin main:gh-pages
+# The deploy job only succeeds for branches the github-pages environment allows (Settings > Environments >
+# github-pages > Deployment branches): add `main` there, or the run fails with "not allowed to deploy ... due to
+# environment protection rules".
 on:
   push:
-    branches: [gh-pages]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
