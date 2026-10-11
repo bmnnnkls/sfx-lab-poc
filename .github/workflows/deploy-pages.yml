@@ -1,8 +1,10 @@
 name: Deploy to GitHub Pages
 
+# Deploys whatever is pushed to the gh-pages branch (main is not allowed to deploy to the github-pages environment).
+# To publish: git push origin main:gh-pages
 on:
   push:
-    branches: [main, master, claude/admiring-ride-46010w]
+    branches: [gh-pages]
   workflow_dispatch:
 
 permissions:
