@@ -7,6 +7,7 @@ const PARAMS: readonly ParamSpec[] = [
   { id: 'mode', label: 'Mode', min: 0, max: MODES.length - 1, default: 0, step: 1, options: MODES },
   { id: 'cutoff', label: 'Cutoff', min: 20, max: 20000, default: 2000, unit: 'Hz' },
   { id: 'resonance', label: 'Res', min: 0.1, max: 20, default: 0.707 },
+  { id: 'cvAmount', label: 'CV amt', min: 0, max: 6, default: 2, step: 0.01, unit: 'oct' },
 ]
 
 interface Coefficients {
@@ -44,6 +45,13 @@ const designBiquad = (mode: number, cutoff: number, q: number, sampleRate: numbe
   return { b0: b0 / a0, b1: b1 / a0, b2: b2 / a0, a1: (-2 * cosW0) / a0, a2: (1 - alpha) / a0 }
 }
 
+/** How many samples share one set of coefficients while the cutoff is being modulated. */
+const MODULATION_BLOCK = 16
+
+/**
+ * The `cutoff` input moves the cutoff exponentially: a CV of +1 raises it by CV amount octaves, −1 lowers it
+ * by the same. Coefficients are redesigned every few samples, which is smooth enough to sound continuous.
+ */
 class Filter implements DspNode {
   private readonly params = new Params(PARAMS)
   private coefficients: Coefficients | null = null
@@ -56,19 +64,29 @@ class Filter implements DspNode {
 
   process(
     { frames, sampleRate }: ProcessContext,
-    [input]: ReadonlyArray<Float32Array | null>,
+    [input, cutoffCv]: ReadonlyArray<Float32Array | null>,
     [out]: readonly Float32Array[],
   ): void {
     if (!out) return
+    const octaves = this.params.get('cvAmount')
+    const modulated = cutoffCv !== null && cutoffCv !== undefined && octaves > 0
     this.coefficients ??= designBiquad(
       Math.round(this.params.get('mode')),
       this.params.get('cutoff'),
       this.params.get('resonance'),
       sampleRate,
     )
-    const { b0, b1, b2, a1, a2 } = this.coefficients
+    let { b0, b1, b2, a1, a2 } = this.coefficients
 
     for (let i = 0; i < frames; i++) {
+      if (modulated && i % MODULATION_BLOCK === 0) {
+        ;({ b0, b1, b2, a1, a2 } = designBiquad(
+          Math.round(this.params.get('mode')),
+          this.params.get('cutoff') * 2 ** ((cutoffCv[i] ?? 0) * octaves),
+          this.params.get('resonance'),
+          sampleRate,
+        ))
+      }
       const x = input?.[i] ?? 0
       const y = b0 * x + this.z1
       this.z1 = b1 * x - a1 * y + this.z2
@@ -81,7 +99,10 @@ class Filter implements DspNode {
 export const filterNode: NodeDefinition = {
   type: 'filter',
   label: 'Filter',
-  inputs: [{ id: 'in', label: 'In' }],
+  inputs: [
+    { id: 'in', label: 'In' },
+    { id: 'cutoff', label: 'Cutoff' },
+  ],
   outputs: [{ id: 'out', label: 'Out' }],
   params: PARAMS,
   create: () => new Filter(),

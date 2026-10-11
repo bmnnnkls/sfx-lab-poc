@@ -8,6 +8,7 @@ const PARAMS: readonly ParamSpec[] = [
   { id: 'waveform', label: 'Wave', min: 0, max: WAVEFORMS.length - 1, default: 0, step: 1, options: WAVEFORMS },
   { id: 'frequency', label: 'Freq', min: 20, max: 4000, default: 220, unit: 'Hz' },
   { id: 'detune', label: 'Detune', min: -1200, max: 1200, default: 0, step: 1, unit: 'ct' },
+  { id: 'pitchAmount', label: 'Pitch CV', min: 0, max: 24, default: 2, step: 0.1, unit: 'st' },
 ]
 
 const waveAt = (shape: number, phase: number): number => {
@@ -23,7 +24,10 @@ const waveAt = (shape: number, phase: number): number => {
   }
 }
 
-/** Naive (non-band-limited) oscillator. The `freq` input overrides the Freq parameter. */
+/**
+ * Naive (non-band-limited) oscillator. The `freq` input overrides the Freq parameter; the `pitch` input bends
+ * the pitch by Pitch CV semitones per unit (an LFO here is vibrato).
+ */
 class Oscillator implements DspNode {
   private readonly params = new Params(PARAMS)
   private phase = 0
@@ -34,16 +38,18 @@ class Oscillator implements DspNode {
 
   process(
     { frames, sampleRate }: ProcessContext,
-    [frequencyIn]: ReadonlyArray<Float32Array | null>,
+    [frequencyIn, pitchCv]: ReadonlyArray<Float32Array | null>,
     [out]: readonly Float32Array[],
   ): void {
     if (!out) return
     const shape = Math.round(this.params.get('waveform'))
     const ratio = centsToRatio(this.params.get('detune'))
     const baseFrequency = this.params.get('frequency')
+    const semitones = this.params.get('pitchAmount')
 
     for (let i = 0; i < frames; i++) {
-      const frequency = (frequencyIn ? (frequencyIn[i] ?? 0) : baseFrequency) * ratio
+      const bend = pitchCv ? 2 ** (((pitchCv[i] ?? 0) * semitones) / 12) : 1
+      const frequency = (frequencyIn ? (frequencyIn[i] ?? 0) : baseFrequency) * ratio * bend
       out[i] = waveAt(shape, this.phase)
       this.phase += frequency / sampleRate
       if (this.phase >= 1) this.phase -= Math.floor(this.phase)
@@ -54,7 +60,10 @@ class Oscillator implements DspNode {
 export const oscillatorNode: NodeDefinition = {
   type: 'oscillator',
   label: 'Oscillator',
-  inputs: [{ id: 'freq', label: 'Freq' }],
+  inputs: [
+    { id: 'freq', label: 'Freq' },
+    { id: 'pitch', label: 'Pitch' },
+  ],
   outputs: [{ id: 'out', label: 'Out' }],
   params: PARAMS,
   create: () => new Oscillator(),

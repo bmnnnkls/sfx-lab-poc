@@ -23,7 +23,7 @@ Use a Chromium-based browser or Firefox. Audio starts on your first click (brows
 
 1. Click **▶ 1** (scene 1) — the Bass, Lead and Pad clips launch on the next bar and loop.
 2. Select a track name, then edit its instrument in the **Instrument** tab: drag nodes by their header,
-   drag from an output dot to an input dot to wire, click a wire to remove it, tweak sliders live.
+   drag from an output dot to an input dot to wire, click a wire to remove it, tweak sliders live. Besides oscillator, filter, envelope, gain and delay there are an **LFO** (wire it into a filter `Cutoff`, oscillator `Pitch` or gain `CV`) and a **Reverb**.
 3. Edit away: your project **autosaves in this browser** and is restored on reload.
    Use **File → Export / Import** to move projects as `.sfxlab.json` files, and **File → Restore previous**
    to swap back after a replace (import / new / demo).

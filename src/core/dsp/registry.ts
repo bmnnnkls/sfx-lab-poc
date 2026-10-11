@@ -2,9 +2,11 @@ import { delayNode } from './nodes/delay.node'
 import { envelopeNode } from './nodes/envelope.node'
 import { filterNode } from './nodes/filter.node'
 import { gainNode } from './nodes/gain.node'
+import { lfoNode } from './nodes/lfo.node'
 import { noteNode } from './nodes/note.node'
 import { oscillatorNode } from './nodes/oscillator.node'
 import { outputNode } from './nodes/output.node'
+import { reverbNode } from './nodes/reverb.node'
 import { samplerNode } from './nodes/sampler.node'
 import type { NodeDefinition } from './types'
 
@@ -15,7 +17,9 @@ export const nodeDefinitions: readonly NodeDefinition[] = [
   envelopeNode,
   gainNode,
   filterNode,
+  lfoNode,
   delayNode,
+  reverbNode,
   outputNode,
 ]
 

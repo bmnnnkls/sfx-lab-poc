@@ -82,7 +82,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
   already releasing, otherwise the oldest.
 * **A patch is split into two stages** (`instrument/stages.ts`). *Voice* nodes are instantiated once per voice;
   *shared* nodes (effects) are instantiated once and fed the **sum of all voices**. A node is shared if its
-  `NodeDefinition.shared` is true (today: delay) **or anything upstream of it is shared**, which makes the split a
+  `NodeDefinition.shared` is true (today: delay, reverb) **or anything upstream of it is shared**, which makes the split a
   clean cut: signals flow from voices into the shared stage, never back. The patcher tags shared nodes.
   Without this split, a delay would be copied into every voice and its echoes would be chopped off whenever a
   voice is reused.
@@ -95,6 +95,27 @@ Each folder exposes one `index.ts`; everything else in it is private.
   optional field with a safe default needs no format-version bump).
 * Measured on the engine alone (Node, this container): 3 tracks / ~3 voices ≈ 2 % of the real-time budget, 8 tracks ×
   16 voices ≈ 25 %.
+
+## Modulation and effects nodes
+
+Every signal in a patch is an audio-rate buffer, so modulation needs no separate machinery: an LFO is a node whose
+output you wire into another node's input.
+
+* **LFO** (`dsp/nodes/lfo.node.ts`, per voice): shapes sine / triangle / saw / square / random (sample-and-hold, from
+  a seeded generator so voices agree and tests are reproducible); *Rate* 0.05–30 Hz, *Depth*. Two outputs: `out` swings
+  ±depth (vibrato, panning-style effects) and `uni` stays within 0..depth (tremolo, cutoff sweeps). The optional
+  `gate` input restarts the cycle on a rising edge, so each note gets the same modulation; unconnected it free-runs.
+  There is no tempo sync: nodes are not given the tempo (see limits).
+* **Filter `cutoff` input** moves the cutoff exponentially: CV +1 raises it by *CV amt* octaves (param, default 2).
+  While modulated, coefficients are redesigned every 16 samples. Unconnected, the filter is exactly as before.
+* **Oscillator `pitch` input** bends pitch by *Pitch CV* semitones per unit (default 2), exponentially.
+* **Gain** already took a `cv` input (that is how the envelope drives the VCA); an LFO into it is tremolo.
+* **Reverb** (`dsp/nodes/reverb.node.ts`, **shared**): Freeverb: eight damped feedback combs in parallel, four allpasses
+  in series, delay lengths scaled from 44.1 kHz to the engine's rate. Params *Size* (comb feedback 0.70–0.98, always
+  stable), *Damp* (lowpass in the loop), *Predelay* (0–100 ms), *Mix* (0 is an exact pass-through). Mono. Being
+  shared, the tail rings on after notes end and one reverb serves all voices. Tests cover tail growth with size,
+  damping darkening the tail, boundedness with loud noise at maximum settings and no NaN.
+* Added ports are appended and saved by id, so old files and patches load unchanged.
 
 ## Editing clips (piano roll)
 
@@ -341,7 +362,8 @@ launcher queue need no changes.
   `decodeAudioData` resamples to 48 kHz, and the sample's reported rate is that decoded rate.
 * Sample hashing needs a secure context (https or localhost).
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
-* Oscillators are naive (alias at high pitches); no band-limiting or oversampling.
+* Oscillators are naive (alias at high pitches); no band-limiting or oversampling. The LFO cannot sync to the tempo
+  (`ProcessContext` carries none) and the reverb is mono. Filter cutoff has a linear slider over 20 Hz–20 kHz.
 * Launch quantisation is fixed at one bar; no recording or plugin hosting.
 * History is per session (not saved) and does not cover selection or transport.
 * One autosaved project per browser. Two tabs on the same site overwrite each other (last write wins).
@@ -351,5 +373,5 @@ launcher queue need no changes.
 ## Natural next steps
 
 1. Unused-sample cleanup, loop points inside a clip, 2. offline bounce using `Engine` directly,
-3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (LFO, reverb, band-limited oscillators),
+3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (band-limited oscillators, tempo-synced LFO, stereo reverb),
 5. WASM DSP nodes (Faust/RNBO).
