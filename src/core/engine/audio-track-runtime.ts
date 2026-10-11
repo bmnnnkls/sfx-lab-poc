@@ -1,14 +1,27 @@
 import type { AudioClip } from '../project'
-import { AudioClipLauncher, type AudioEvent, type LauncherStatus } from '../session'
 import type { SampleLookup } from '../sample'
-import { readInterpolated, repitchPosition } from './audio-clip-playback'
+import { AudioClipLauncher, type AudioEvent, type LauncherStatus } from '../session'
+import { fadeGain, readRegion, regionOf, repitchPosition } from './audio-clip-playback'
 import type { MixTiming, PlayableTrack, ScheduledAction } from './playable-track'
 
+/** A clip that stops (or is replaced) keeps sounding for this long, fading to silence, instead of cutting dead. */
+const TAIL_SECONDS = 0.005
+
+/** One clip as it is currently being read. */
 interface Playing {
   clip: AudioClip
   startBeat: number
-  /** Read position in the sample, used only by clips that ignore tempo (`warp: 'off'`). */
+  /**
+   * Read position in sample frames, used only by clips that ignore tempo (`warp: 'off'`).
+   * Negative until the first read, when it is set to the start of the clip's region.
+   */
   position: number
+}
+
+interface Tail {
+  readonly voice: Playing
+  framesLeft: number
+  readonly total: number
 }
 
 /** Live, audio-thread counterpart of an audio Track: launcher plus the player that reads library samples. */
@@ -17,6 +30,8 @@ export class AudioTrackRuntime implements PlayableTrack {
   clips: readonly (AudioClip | null)[]
   private readonly launcher = new AudioClipLauncher()
   private playing: Playing | null = null
+  private tail: Tail | null = null
+  private readonly tailFrames: number
 
   constructor(
     clips: readonly (AudioClip | null)[],
@@ -26,12 +41,13 @@ export class AudioTrackRuntime implements PlayableTrack {
   ) {
     this.clips = clips
     this.volume = volume
+    this.tailFrames = Math.max(1, Math.round(TAIL_SECONDS * sampleRate))
   }
 
   setClips(clips: readonly (AudioClip | null)[]): void {
     this.clips = clips
     this.launcher.syncClips(clips)
-    // Edited settings (gain, loop, length…) apply to the clip that is sounding right now.
+    // Edited settings (gain, trim, fades, loop…) apply to the clip that is sounding right now.
     if (this.playing) {
       const edited = clips.find((clip) => clip?.id === this.playing?.clip.id) ?? null
       this.playing = edited ? { ...this.playing, clip: edited } : null
@@ -55,10 +71,11 @@ export class AudioTrackRuntime implements PlayableTrack {
 
   reset(): void {
     this.launcher.reset()
+    this.fadeOutPlaying()
     this.playing = null
   }
 
-  /** What is sounding (not just queued), so a finished one-shot stops showing as playing. */
+  /** What is sounding (not just queued, and not a fading tail), so a finished one-shot stops showing as playing. */
   status(): LauncherStatus {
     return {
       playingClipId: this.playing?.clip.id ?? null,
@@ -74,41 +91,75 @@ export class AudioTrackRuntime implements PlayableTrack {
   }
 
   private apply(event: AudioEvent): void {
-    this.playing = event.kind === 'start' ? { clip: event.clip, startBeat: event.beat, position: 0 } : null
+    this.fadeOutPlaying()
+    this.playing = event.kind === 'start' ? { clip: event.clip, startBeat: event.beat, position: -1 } : null
+  }
+
+  /** Hands what is sounding over to a short fade-out, so whatever replaces it (or silence) starts without a click. */
+  private fadeOutPlaying(): void {
+    if (this.playing) this.tail = { voice: this.playing, framesLeft: this.tailFrames, total: this.tailFrames }
   }
 
   mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, timing: MixTiming): void {
-    const playing = this.playing
-    const sample = playing ? this.samples.get(playing.clip.sampleId) : undefined
-    if (!playing || !sample) return // a sample that hasn't arrived yet just plays silence, then joins in phase
+    if (this.tail) {
+      const alive = this.mixVoice(this.tail.voice, left, right, offset, frames, timing, this.tail)
+      this.tail.framesLeft -= frames
+      if (!alive || this.tail.framesLeft <= 0) this.tail = null
+    }
+    if (this.playing && !this.mixVoice(this.playing, left, right, offset, frames, timing)) this.playing = null
+  }
 
-    const { clip } = playing
+  /** Adds `frames` of `voice` to the buses. Returns false once the clip has finished (a non-looping pass ended). */
+  private mixVoice(
+    voice: Playing,
+    left: Float32Array,
+    right: Float32Array,
+    offset: number,
+    frames: number,
+    timing: MixTiming,
+    tail?: Tail,
+  ): boolean {
+    const sample = this.samples.get(voice.clip.sampleId)
+    if (!sample) return true // a sample that hasn't arrived yet just plays silence, then joins in phase
+
+    const { clip } = voice
     const { data } = sample
+    const region = regionOf(clip.start, clip.end, data.length)
+    const regionLength = region.endPos - region.startPos
+    const fadeInFrames = clip.fadeIn * sample.sampleRate
+    const fadeOutFrames = clip.fadeOut * sample.sampleRate
     const gain = clip.gain * this.volume
     const nativeSpeed = sample.sampleRate / this.sampleRate
+    if (voice.position < 0) voice.position = region.startPos
 
     for (let i = 0; i < frames; i++) {
       let position: number | null
       if (clip.warp === 'repitch') {
         position = repitchPosition(
-          timing.beat + i * timing.beatsPerSample - playing.startBeat,
+          timing.beat + i * timing.beatsPerSample - voice.startBeat,
           clip.lengthBeats,
           clip.loop,
-          data.length,
+          region,
         )
       } else {
-        position = playing.position
-        if (position >= data.length) position = clip.loop ? position % data.length : null
-        playing.position = (position ?? 0) + nativeSpeed
+        position = voice.position
+        if (position >= region.endPos) {
+          position = clip.loop ? region.startPos + ((position - region.startPos) % regionLength) : null
+        }
+        if (position !== null) voice.position = position + nativeSpeed
       }
+      if (position === null) return false
 
-      if (position === null) {
-        this.playing = null
-        return
+      let level = gain * fadeGain(position, region, fadeInFrames, fadeOutFrames)
+      if (tail) {
+        const remaining = tail.framesLeft - i
+        if (remaining <= 0) return false
+        level *= remaining / tail.total
       }
-      const value = readInterpolated(data, position, clip.loop) * gain
+      const value = readRegion(data, position, region, clip.loop) * level
       left[offset + i] = (left[offset + i] ?? 0) + value
       right[offset + i] = (right[offset + i] ?? 0) + value
     }
+    return true
   }
 }

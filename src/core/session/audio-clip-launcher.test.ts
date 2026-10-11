@@ -10,6 +10,10 @@ const clip = (id: string): AudioClip => ({
   loop: true,
   warp: 'repitch',
   gain: 1,
+  start: 0,
+  end: 1,
+  fadeIn: 0,
+  fadeOut: 0,
 })
 
 describe('AudioClipLauncher', () => {

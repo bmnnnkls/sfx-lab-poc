@@ -207,7 +207,9 @@ export const setAudioClipAt = (
     clips: track.clips.map((existing, index) => (index === scene ? clip : existing)),
   }))
 
-export type AudioClipChanges = Partial<Pick<AudioClip, 'name' | 'sampleId' | 'lengthBeats' | 'loop' | 'warp' | 'gain'>>
+export type AudioClipChanges = Partial<
+  Pick<AudioClip, 'name' | 'sampleId' | 'lengthBeats' | 'loop' | 'warp' | 'gain' | 'start' | 'end' | 'fadeIn' | 'fadeOut'>
+>
 
 /** Edits an audio clip's settings, keeping them in range. No change keeps the same project (no empty undo step). */
 export const updateAudioClip = (

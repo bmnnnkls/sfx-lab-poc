@@ -10,13 +10,18 @@ export type {
 } from './types'
 export { isAudioTrack, isInstrumentTrack } from './track-kind'
 export {
+  DEFAULT_FADE_SECONDS,
+  MAX_FADE_SECONDS,
   MAX_GAIN,
   MIN_GAIN,
+  MIN_REGION,
   WARP_MODES,
   clampAudioClip,
   createAudioClip,
   guessLengthBeats,
+  isTrimmed,
   playbackSpeed,
+  regionFraction,
   tempoFromName,
 } from './audio-clip'
 export {

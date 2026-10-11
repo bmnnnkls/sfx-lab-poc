@@ -40,6 +40,14 @@ export interface AudioClip {
   readonly warp: WarpMode
   /** 0..2, 1 = unchanged. */
   readonly gain: number
+  /** Where the played region starts, as a fraction (0..1) of the whole sample. */
+  readonly start: number
+  /** Where it ends (> `start`, <= 1). In re-pitch mode this region is what fits `lengthBeats`; when looping it is what repeats. */
+  readonly end: number
+  /** Fade-in at the start of each pass, in seconds of the sample's own time (so it is the same at any tempo). */
+  readonly fadeIn: number
+  /** Fade-out at the end of each pass, likewise. */
+  readonly fadeOut: number
 }
 
 interface TrackBase {

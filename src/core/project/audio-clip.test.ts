@@ -10,7 +10,9 @@ import {
   createDemoProject,
   guessLengthBeats,
   isAudioTrack,
+  isTrimmed,
   playbackSpeed,
+  regionFraction,
   removeSample,
   setClipAt,
   setClipNotes,
@@ -75,7 +77,8 @@ describe('guessLengthBeats', () => {
 
 describe('playbackSpeed', () => {
   const clip = (overrides: Partial<AudioClip> = {}): AudioClip => ({
-    id: 'c', name: 'c', sampleId: 's', lengthBeats: 4, loop: true, warp: 'repitch', gain: 1, ...overrides,
+    id: 'c', name: 'c', sampleId: 's', lengthBeats: 4, loop: true, warp: 'repitch', gain: 1,
+    start: 0, end: 1, fadeIn: 0, fadeOut: 0, ...overrides,
   })
 
   it('is 1 when the sample already fits its length at the tempo', () => {
@@ -155,5 +158,55 @@ describe('audio tracks in the project', () => {
     expect(clampAudioClip({ ...clip, gain: -5, lengthBeats: 5000, warp: 'nonsense' as never })).toMatchObject({
       gain: 0, lengthBeats: 256, warp: 'repitch',
     })
+  })
+})
+
+describe('trim and fades', () => {
+  const clip = (overrides: Partial<AudioClip> = {}): AudioClip => ({
+    id: 'c', name: 'c', sampleId: 's', lengthBeats: 4, loop: true, warp: 'repitch', gain: 1,
+    start: 0, end: 1, fadeIn: 0, fadeOut: 0, ...overrides,
+  })
+
+  it('new clips start untrimmed with a tiny declick fade', () => {
+    const { clip: created } = withAudioTrack()
+    expect(created).toMatchObject({ start: 0, end: 1, fadeIn: 0.002, fadeOut: 0.002 })
+  })
+
+  it('the length guess and the speed use only the trimmed part', () => {
+    const s = sample({ durationSeconds: 4 })
+    expect(guessLengthBeats(s, 120)).toBe(8)
+    expect(guessLengthBeats(s, 120, 0.5)).toBe(4)
+    // Half of a 4 s sample is 2 s: it already fits 4 beats at 120 bpm.
+    expect(playbackSpeed(clip({ start: 0, end: 0.5 }), 4, 120)).toBeCloseTo(1)
+    expect(regionFraction(clip({ start: 0.25, end: 0.75 }))).toBe(0.5)
+  })
+
+  it('keeps the region valid: start before end, inside the sample, never empty', () => {
+    expect(clampAudioClip(clip({ start: -1, end: 5 }))).toMatchObject({ start: 0, end: 1 })
+    const swapped = clampAudioClip(clip({ start: 0.8, end: 0.2 }))
+    expect(swapped.start).toBe(0.8)
+    expect(swapped.end).toBeGreaterThan(swapped.start)
+    const empty = clampAudioClip(clip({ start: 1, end: 1 }))
+    expect(empty.end).toBeGreaterThan(empty.start)
+    expect(empty.end).toBeLessThanOrEqual(1)
+  })
+
+  it('limits fades to a sane range', () => {
+    expect(clampAudioClip(clip({ fadeIn: -1, fadeOut: 99 }))).toMatchObject({ fadeIn: 0, fadeOut: 2 })
+  })
+
+  it('knows whether a clip is trimmed', () => {
+    expect(isTrimmed(clip())).toBe(false)
+    expect(isTrimmed(clip({ start: 0.1 }))).toBe(true)
+    expect(isTrimmed(clip({ end: 0.9 }))).toBe(true)
+  })
+
+  it('updateAudioClip applies and clamps trim changes', () => {
+    const { project, track, clip: created } = withAudioTrack()
+    const edited = updateAudioClip(project, track.id, created.id, { start: 0.3, end: 0.2 })
+    const t = edited.tracks.find((x) => x.id === track.id)!
+    const result = (isAudioTrack(t) ? t.clips[0] : null) as AudioClip
+    expect(result.start).toBe(0.3)
+    expect(result.end).toBeGreaterThan(0.3)
   })
 })

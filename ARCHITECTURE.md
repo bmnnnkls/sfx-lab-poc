@@ -260,7 +260,7 @@ the transport, optionally looping. A track is now one of two kinds (as in Ableto
 through a patch, as before) or an **audio track**.
 
 * **Model.** `Track` is a discriminated union (`kind: 'instrument' | 'audio'`; `isInstrumentTrack` / `isAudioTrack`).
-  An `AudioClip` is `{ sampleId, lengthBeats, loop, warp, gain }`. Instrument-only edits (`setClipNotes`,
+  An `AudioClip` is `{ sampleId, lengthBeats, loop, warp, gain, start, end, fadeIn, fadeOut }`. Instrument-only edits (`setClipNotes`,
   `setTrackVoices`, …) leave audio tracks untouched. Removing a library sample removes the audio clips that used it
   (and clears sampler nodes); undo restores both. Files from before this have no `kind` and load as instrument tracks.
 * **Tempo without time-stretching.** `warp: 'repitch'` (default) says the clip spans `lengthBeats` and speeds the
@@ -272,6 +272,15 @@ through a patch, as before) or an **audio track**.
   (`repitchPosition`: `(beats since start mod length) / length × sample length`), not advanced sample by sample. So a
   loop cannot drift, and tempo changes mid-clip are seamless. This is covered by a test that changes tempo five times
   while playing and checks every block against the beat clock.
+* **Trim and fades.** `start`/`end` are fractions (0..1) of the sample that the clip plays (minimum region 0.2 %);
+  `lengthBeats` spans the *region*, so trimming a 4-beat loop to its back half and fitting gives 2 beats. Re-pitch
+  position is `start + phase × (end − start)`, still derived from the beat clock; looping wraps within the region
+  (interpolating back to the region start, so there is no read past the end). `fadeIn`/`fadeOut` are seconds of
+  sample time at the region edges (default 2 ms, max 2 s, each capped at half the region). To avoid clicks when a clip
+  is stopped, replaced or edited out, the engine does not cut it: the old voice becomes a 5 ms **tail** that fades
+  out while the new one starts. Old files load with the whole sample and no fades. In the editor, handles drag with
+  pointer capture (one undo step per drag via a merge key), excluded parts are dimmed, and the beat grid and playhead
+  are laid over the region only.
 * **One launch state machine for both kinds.** `LaunchQueue` (queued launch/stop applied at the next bar boundary,
   clip edits swapped in by id) is shared by `ClipLauncher` (adds note events and held-note tracking) and
   `AudioClipLauncher` (just `start` / `stop` at a beat). The 12 original MIDI-launcher tests passed unchanged through
@@ -321,18 +330,19 @@ launcher queue need no changes.
 ## Known POC limits (deliberate)
 
 * One clip plays per track. Polyphony has simple voice stealing and no unison, glide or legato modes.
-* Audio clips have no time-stretch (only re-pitch or original speed), no start offset/trim, no fades or loop crossfade
-  (a loop whose ends don't match will click), and no recording. Audio is mono.
+* Audio clips have no time-stretch (only re-pitch or original speed), no loop crossfade (a loop whose ends don't
+  match will click unless you add fades) and no recording. Trim is non-destructive but there are no separate loop
+  points inside the region. Audio is mono.
 * The piano roll assumes 4/4 for the ruler and its clipboard is not shared with the OS clipboard. Groove tools are
   destructive edits (undoable), not a reusable groove pool; swing and quantize use the toolbar grid, which has no
   triplet options yet.
-* Samples are mono (stereo is mixed down), at most 120 s / 32 MB per file, with no trimming or loop-point editing.
+* Samples are mono (stereo is mixed down), at most 120 s / 32 MB per file, (trimming is per clip, not per sample).
   Bytes stay in IndexedDB after a sample is removed from a project (so undo works); there is no cleanup yet.
   `decodeAudioData` resamples to 48 kHz, and the sample's reported rate is that decoded rate.
 * Sample hashing needs a secure context (https or localhost).
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
 * Oscillators are naive (alias at high pitches); no band-limiting or oversampling.
-* Launch quantisation is fixed at one bar; no recording, audio clips or plugin hosting.
+* Launch quantisation is fixed at one bar; no recording or plugin hosting.
 * History is per session (not saved) and does not cover selection or transport.
 * One autosaved project per browser. Two tabs on the same site overwrite each other (last write wins).
   `localStorage` holds ~5 MB, plenty for projects, not for samples (see above).
@@ -340,6 +350,6 @@ launcher queue need no changes.
 
 ## Natural next steps
 
-1. Audio clips in the session grid, sample trimming/loop points and unused-sample cleanup, 2. offline bounce using `Engine` directly,
+1. Unused-sample cleanup, loop points inside a clip, 2. offline bounce using `Engine` directly,
 3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (LFO, reverb, band-limited oscillators),
 5. WASM DSP nodes (Faust/RNBO).

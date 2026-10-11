@@ -35,5 +35,10 @@ export const sanitizeAudioClip = (
     loop: typeof raw.loop === 'boolean' ? raw.loop : true,
     warp,
     gain: finiteNumber(raw.gain, 1),
+    // Clips saved before trim and fades existed play the whole sample with no fades, as they always did.
+    start: finiteNumber(raw.start, 0),
+    end: finiteNumber(raw.end, 1),
+    fadeIn: finiteNumber(raw.fadeIn, 0),
+    fadeOut: finiteNumber(raw.fadeOut, 0),
   })
 }

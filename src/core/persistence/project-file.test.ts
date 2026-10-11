@@ -264,4 +264,27 @@ describe('audio tracks in files', () => {
     expect(loaded.clips).toHaveLength(3)
     expect(new Set(loaded.clips.map((c) => c?.id)).size).toBe(3)
   })
+
+  it('gives clips saved before trim and fades the whole sample and no fades, as they always had', () => {
+    const raw = project({ samples: [sampleEntry], tracks: [audioTrack([clip()])] })
+    const loaded = parseOk(envelope(raw)).project.tracks[0] as unknown as { clips: Array<Record<string, unknown>> }
+    expect(loaded.clips[0]).toMatchObject({ start: 0, end: 1, fadeIn: 0, fadeOut: 0 })
+  })
+
+  it('repairs a nonsensical trim region and out-of-range fades', () => {
+    const raw = project({ samples: [sampleEntry], tracks: [audioTrack([clip({ start: 0.9, end: 0.1, fadeIn: -3, fadeOut: 'x' })])] })
+    const loaded = parseOk(envelope(raw)).project.tracks[0] as unknown as { clips: Array<{ start: number; end: number; fadeIn: number; fadeOut: number }> }
+    const c = loaded.clips[0]!
+    expect(c.start).toBe(0.9)
+    expect(c.end).toBeGreaterThan(c.start)
+    expect(c.fadeIn).toBe(0)
+    expect(c.fadeOut).toBe(0)
+  })
+
+  it('round-trips a trimmed, faded clip', () => {
+    const raw = project({ samples: [sampleEntry], tracks: [audioTrack([clip({ start: 0.25, end: 0.75, fadeIn: 0.05, fadeOut: 0.1 })])] })
+    const { project: loaded } = parseOk(envelope(raw))
+    expect(parseOk(serializeProject(loaded)).project).toEqual(loaded)
+    expect((loaded.tracks[0] as unknown as { clips: Array<Record<string, unknown>> }).clips[0]).toMatchObject({ start: 0.25, end: 0.75, fadeIn: 0.05, fadeOut: 0.1 })
+  })
 })

@@ -5,6 +5,7 @@ import { Engine } from './engine'
 
 const SAMPLE_RATE = 48000
 const BEAT = 24000 // frames per beat at 120 bpm
+const TAIL = 240 // the 5 ms fade-out when a clip stops or is replaced
 const AMPLITUDE = 0.2 // small enough that the master soft clip is close to linear
 
 const SAMPLE_ID = 'a'.repeat(64)
@@ -20,6 +21,10 @@ const audioClip = (overrides: Partial<AudioClip> = {}): AudioClip => ({
   loop: true,
   warp: 'repitch',
   gain: 1,
+  start: 0,
+  end: 1,
+  fadeIn: 0, // exact sample values in these tests; fades and trim have their own
+  fadeOut: 0,
   ...overrides,
 })
 
@@ -176,6 +181,7 @@ describe('audio clips in the engine', () => {
     expect(render(engine, 500)[499]).toBeCloseTo(loud / 2, 2)
 
     engine.apply({ type: 'track/setAudioClips', trackId: 'a', clips: [null] })
+    render(engine, TAIL * 2)
     expect(Math.max(...render(engine, 500))).toBe(0)
     expect(engine.status().tracks.a).toMatchObject({ playingClipId: null })
   })
@@ -188,11 +194,12 @@ describe('audio clips in the engine', () => {
     expect(engine.status().tracks.a).toMatchObject({ queued: 'stop' })
     const left = render(engine, 4 * BEAT)
     expect(left[3 * BEAT - 10]).toBeGreaterThan(0) // still sounding until the bar line…
-    expect(left[3 * BEAT + 10]).toBe(0) // …then gone
+    expect(left[3 * BEAT + TAIL * 2]).toBe(0) // …then faded out
 
     engine.apply({ type: 'clip/launch', trackId: 'a', clipId: clip.id })
     render(engine, 100)
     engine.apply({ type: 'transport/stop' })
+    render(engine, TAIL * 2) // the short fade-out
     expect(Math.max(...render(engine, 100))).toBe(0)
     expect(engine.status().tracks.a).toMatchObject({ playingClipId: null, queued: null })
   })
@@ -233,5 +240,108 @@ describe('audio clips in the engine', () => {
       return result
     }
     expect(run(128)).toEqual(run(4000))
+  })
+})
+
+describe('audio clip trim, fades and declicking', () => {
+  it('only plays the trimmed region, stretched over the clip length (re-pitch)', () => {
+    // Region 25%..75% of the ramp, spread over 4 beats: the pass starts at 0.25 and heads for 0.75.
+    const { engine, clip } = setup(ramp(8 * BEAT), audioClip({ start: 0.25, end: 0.75 }))
+    engine.apply({ type: 'clip/launch', trackId: 'a', clipId: clip.id })
+    const left = render(engine, 4 * BEAT + 100)
+
+    expect(left[0]).toBeCloseTo(out(AMPLITUDE * 0.25), 3)
+    expect(left[2 * BEAT]).toBeCloseTo(out(AMPLITUDE * 0.5), 3) // halfway through the pass
+    expect(left[4 * BEAT - 5]).toBeCloseTo(out(AMPLITUDE * 0.75), 3)
+    expect(left[4 * BEAT + 5]).toBeCloseTo(out(AMPLITUDE * 0.25), 3) // the loop restarts at the region start
+  })
+
+  it('loops just the trimmed region at original speed with warp off', () => {
+    const { engine, clip } = setup(ramp(24000), audioClip({ warp: 'off', start: 0.25, end: 0.75 }))
+    engine.apply({ type: 'clip/launch', trackId: 'a', clipId: clip.id })
+    const left = render(engine, 30000) // region is 12000 frames long
+
+    expect(left[0]).toBeCloseTo(out(AMPLITUDE * 0.25), 3)
+    expect(left[11990]).toBeCloseTo(out(AMPLITUDE * 0.7498), 3)
+    expect(left[12010]).toBeCloseTo(out(AMPLITUDE * 0.25), 2) // wrapped back to the start of the region, not the file
+  })
+
+  it('a non-looping trimmed clip stops at the end of its region', () => {
+    const { engine, clip } = setup(dc(4 * BEAT), audioClip({ warp: 'off', loop: false, start: 0, end: 0.5 }))
+    engine.apply({ type: 'clip/launch', trackId: 'a', clipId: clip.id })
+    const left = render(engine, 4 * BEAT)
+
+    expect(left[2 * BEAT - 10]).toBeGreaterThan(0)
+    expect(Math.max(...left.subarray(2 * BEAT + 10))).toBe(0)
+  })
+
+  it('fades in and out at the ends of each pass', () => {
+    // 0.01 s fades on a 48 kHz sample = 480 frames.
+    const { engine, clip } = setup(dc(4 * BEAT), audioClip({ fadeIn: 0.01, fadeOut: 0.01 }))
+    engine.apply({ type: 'clip/launch', trackId: 'a', clipId: clip.id })
+    const left = render(engine, 4 * BEAT + 600)
+
+    expect(left[0]).toBe(0)
+    expect(left[240]).toBeCloseTo(out(AMPLITUDE * 0.5), 3) // halfway up the fade-in
+    expect(left[480 + 10]).toBeCloseTo(out(AMPLITUDE), 3)
+    expect(left[4 * BEAT - 240]).toBeCloseTo(out(AMPLITUDE * 0.5), 2) // halfway down the fade-out
+    expect(left[4 * BEAT - 1]).toBeLessThan(out(AMPLITUDE) * 0.01)
+    expect(left[4 * BEAT + 5]).toBeLessThan(out(AMPLITUDE) * 0.05) // the next pass fades in again
+  })
+
+  it('last the same amount of sample time at any tempo (twice as fast = half as many frames)', () => {
+    const rampLength = (bpm: number) => {
+      const { engine, clip } = setup(dc(4 * BEAT), audioClip({ fadeIn: 0.01 }))
+      engine.apply({ type: 'transport/setTempo', bpm })
+      engine.apply({ type: 'clip/launch', trackId: 'a', clipId: clip.id })
+      const left = render(engine, 2000)
+      return left.findIndex((v) => v >= out(AMPLITUDE) * 0.999)
+    }
+    const normal = rampLength(120)
+    const doubled = rampLength(240)
+    expect(normal).toBeGreaterThan(440)
+    expect(doubled).toBeCloseTo(normal / 2, -1)
+  })
+
+  it('cap each fade at half the region, so they never overlap', () => {
+    const { engine, clip } = setup(dc(4 * BEAT), audioClip({ warp: 'off', loop: false, end: 0.01, fadeIn: 2, fadeOut: 2 }))
+    engine.apply({ type: 'clip/launch', trackId: 'a', clipId: clip.id })
+    const left = render(engine, 1500) // region is 960 frames: up for 480, down for 480
+
+    const peakFrame = left.indexOf(Math.max(...left))
+    expect(peakFrame).toBeGreaterThan(440)
+    expect(peakFrame).toBeLessThan(520)
+  })
+
+  it('stopping at the bar fades out over about 5 ms instead of cutting off', () => {
+    const { engine, clip } = setup(dc(4 * BEAT))
+    engine.apply({ type: 'clip/launch', trackId: 'a', clipId: clip.id })
+    render(engine, BEAT)
+    engine.apply({ type: 'track/stop', trackId: 'a' })
+    const left = render(engine, 4 * BEAT)
+    const stopAt = 3 * BEAT
+
+    expect(left[stopAt - 1]).toBeCloseTo(out(AMPLITUDE), 3)
+    const tail = Array.from(left.subarray(stopAt, stopAt + TAIL + 20))
+    expect(tail[0]).toBeGreaterThan(0) // not an abrupt cut
+    expect(tail[TAIL + 5]).toBe(0)
+    // Smooth: no sample-to-sample jump anywhere near the size of the signal itself.
+    for (let i = 1; i < tail.length; i++) expect(Math.abs(tail[i]! - tail[i - 1]!)).toBeLessThan(out(AMPLITUDE) / 100)
+    // And it only ever goes down.
+    for (let i = 1; i < TAIL; i++) expect(tail[i]!).toBeLessThanOrEqual(tail[i - 1]! + 1e-9)
+  })
+
+  it('replacing a clip crossfades the old one out under the new one', () => {
+    const { engine, clip } = setup(dc(4 * BEAT))
+    engine.apply({ type: 'track/setAudioClips', trackId: 'a', clips: [clip, { ...clip, id: 'second', gain: 0.5 }] })
+    engine.apply({ type: 'clip/launch', trackId: 'a', clipId: 'clip' })
+    render(engine, BEAT)
+    engine.apply({ type: 'clip/launch', trackId: 'a', clipId: 'second' })
+    const left = render(engine, 4 * BEAT)
+    const swap = 3 * BEAT
+
+    // At the swap both are briefly audible (old fading out, new at half level), then only the new one.
+    expect(left[swap]).toBeGreaterThan(left[swap + TAIL + 50]!)
+    expect(left[swap + TAIL + 50]).toBeCloseTo(out(AMPLITUDE * 0.5), 3)
   })
 })

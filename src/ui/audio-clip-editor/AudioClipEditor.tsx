@@ -1,11 +1,14 @@
 import {
   type AudioClip,
   type AudioTrack,
+  MAX_FADE_SECONDS,
   MAX_GAIN,
   WARP_MODES,
   type WarpMode,
   guessLengthBeats,
+  isTrimmed,
   playbackSpeed,
+  regionFraction,
 } from '@core'
 import { useProjectStore } from '@state'
 import toolbar from '../clip-editor/ClipEditor.module.css'
@@ -23,6 +26,26 @@ const describeSpeed = (speed: number, tempo: number): string => {
   const sign = semitones >= 0 ? '+' : '−'
   return `Plays at ×${speed.toFixed(2)} speed (${sign}${Math.abs(semitones).toFixed(1)} semitones) at ${Math.round(tempo)} BPM`
 }
+
+const FadeField = ({ label, seconds, onChange }: { label: string; seconds: number; onChange(seconds: number): void }) => (
+  <label className={toolbar.field} title="Fade at the clip's trimmed edge, in milliseconds. A few ms removes clicks.">
+    {label}
+    <input
+      className={styles.fadeField}
+      type="number"
+      min={0}
+      max={MAX_FADE_SECONDS * 1000}
+      step={1}
+      value={Math.round(seconds * 1000)}
+      aria-label={label}
+      onChange={(event) => {
+        const ms = Number(event.target.value)
+        if (Number.isFinite(ms)) onChange(ms / 1000)
+      }}
+    />
+    ms
+  </label>
+)
 
 /**
  * Editor for one audio clip: which sample, how it follows the tempo, whether it loops, how long it is,
@@ -75,13 +98,22 @@ export const AudioClipEditor = ({ track, clip }: { track: AudioTrack; clip: Audi
             <LengthField lengthBeats={clip.lengthBeats} onCommit={(lengthBeats) => change({ lengthBeats })} />
             {sample && (
               <button
-                onClick={() => change({ lengthBeats: guessLengthBeats(sample, tempo) })}
+                onClick={() => change({ lengthBeats: guessLengthBeats(sample, tempo, regionFraction(clip)) })}
                 title="Set the length to the whole number of beats this sample spans at the current tempo"
               >
                 Fit to tempo
               </button>
             )}
           </>
+        )}
+
+        <FadeField label="Fade in" seconds={clip.fadeIn} onChange={(fadeIn) => change({ fadeIn })} />
+        <FadeField label="Fade out" seconds={clip.fadeOut} onChange={(fadeOut) => change({ fadeOut })} />
+
+        {isTrimmed(clip) && (
+          <button onClick={() => change({ start: 0, end: 1 })} title="Play the whole sample again">
+            Reset trim
+          </button>
         )}
 
         <label className={toolbar.field}>
@@ -106,13 +138,15 @@ export const AudioClipEditor = ({ track, clip }: { track: AudioTrack; clip: Audi
               : 'Plays at its original speed; tempo changes do not affect it.'
             : 'This clip’s sample is missing from the library.'}
         </p>
-        <AudioWaveform
-          trackId={track.id}
-          clipId={clip.id}
-          sampleId={clip.sampleId}
-          lengthBeats={clip.lengthBeats}
-          locked={clip.warp === 'repitch'}
-        />
+        {sample && (
+          <AudioWaveform
+            trackId={track.id}
+            clip={clip}
+            sampleSeconds={sample.durationSeconds}
+            onTrim={change}
+          />
+        )}
+        <p className={styles.info}>Drag the orange edges to trim; the dimmed parts are not played.</p>
       </div>
     </div>
   )
