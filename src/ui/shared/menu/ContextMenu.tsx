@@ -1,23 +1,8 @@
 import * as Menu from '@radix-ui/react-context-menu'
 import type { ReactElement } from 'react'
-import styles from './ContextMenu.module.css'
-
-export interface MenuAction {
-  readonly kind?: 'action'
-  readonly label: string
-  /** Display only, e.g. "Ctrl+C". The shortcut itself is wired up by whoever owns it. */
-  readonly shortcut?: string
-  readonly disabled?: boolean
-  /** Styles the item as destructive (red). */
-  readonly danger?: boolean
-  onSelect(): void
-}
-
-export interface MenuSeparator {
-  readonly kind: 'separator'
-}
-
-export type MenuEntry = MenuAction | MenuSeparator
+import { MenuEntries } from './MenuEntries'
+import type { MenuEntry } from './menu-types'
+import styles from './Menu.module.css'
 
 interface ContextMenuProps {
   /** What the menu offers. Recomputed on every render, so it can reflect the current selection. */
@@ -39,21 +24,7 @@ export const ContextMenu = ({ entries, children }: ContextMenuProps) => (
     <Menu.Trigger asChild>{children}</Menu.Trigger>
     <Menu.Portal>
       <Menu.Content className={styles.menu} collisionPadding={8}>
-        {entries.map((entry, index) =>
-          entry.kind === 'separator' ? (
-            <Menu.Separator key={`separator-${index}`} className={styles.separator} />
-          ) : (
-            <Menu.Item
-              key={entry.label}
-              className={`${styles.item} ${entry.danger ? styles.danger : ''}`}
-              disabled={entry.disabled}
-              onSelect={entry.onSelect}
-            >
-              <span>{entry.label}</span>
-              {entry.shortcut && <span className={styles.shortcut}>{entry.shortcut}</span>}
-            </Menu.Item>
-          ),
-        )}
+        <MenuEntries entries={entries} parts={{ Item: Menu.Item, Separator: Menu.Separator }} />
       </Menu.Content>
     </Menu.Portal>
   </Menu.Root>

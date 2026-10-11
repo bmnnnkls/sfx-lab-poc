@@ -9,7 +9,7 @@ const setup = () => {
   const engine = new Engine(SAMPLE_RATE)
   const clip = createClip('c', 4, [createNote(69, 0, 1, 1)])
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
-  engine.apply({ type: 'track/add', trackId: 't', patch: createDefaultPatch(), clips: [clip], volume: 1, voices: 8 })
+  engine.apply({ type: 'track/add', kind: 'instrument', trackId: 't', patch: createDefaultPatch(), clips: [clip], volume: 1, voices: 8 })
   return { engine, clip }
 }
 
@@ -95,7 +95,7 @@ describe('Engine samples', () => {
     const engine = new Engine(SAMPLE_RATE)
     const clip = createClip('hit', 4, [createNote(60, 0, 1, 1)])
     engine.apply({ type: 'transport/setTempo', bpm: 120 })
-    engine.apply({ type: 'track/add', trackId: 't', patch: createSamplerPatch(SAMPLE.id), clips: [clip], volume: 1, voices: 4 })
+    engine.apply({ type: 'track/add', kind: 'instrument', trackId: 't', patch: createSamplerPatch(SAMPLE.id), clips: [clip], volume: 1, voices: 4 })
     return { engine, clip }
   }
 

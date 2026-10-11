@@ -1,6 +1,6 @@
 import type { Note } from '@core'
 import { useEffect, useRef } from 'react'
-import { ContextMenu, type MenuEntry } from '../shared/context-menu'
+import { ContextMenu, type MenuEntry } from '../shared/menu'
 import { shortcut } from '../shared/shortcut-labels'
 import { NoteView } from './NoteView'
 import { PianoKeys } from './PianoKeys'

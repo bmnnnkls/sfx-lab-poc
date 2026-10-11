@@ -1,5 +1,5 @@
 import type { Patch } from '../patch'
-import type { Clip } from '../project'
+import type { AudioClip, Clip } from '../project'
 import type { SampleData } from '../sample'
 
 /** Everything the outside world can ask the engine to do. Plain data, safe to post across threads. */
@@ -9,16 +9,25 @@ export type EngineCommand =
   | { readonly type: 'transport/setTempo'; readonly bpm: number }
   | {
       readonly type: 'track/add'
+      readonly kind: 'instrument'
       readonly trackId: string
       readonly patch: Patch
       readonly clips: readonly (Clip | null)[]
       readonly volume: number
       readonly voices: number
     }
+  | {
+      readonly type: 'track/add'
+      readonly kind: 'audio'
+      readonly trackId: string
+      readonly clips: readonly (AudioClip | null)[]
+      readonly volume: number
+    }
   | { readonly type: 'track/remove'; readonly trackId: string }
   | { readonly type: 'track/setPatch'; readonly trackId: string; readonly patch: Patch }
   | { readonly type: 'track/setVoices'; readonly trackId: string; readonly voices: number }
   | { readonly type: 'track/setClips'; readonly trackId: string; readonly clips: readonly (Clip | null)[] }
+  | { readonly type: 'track/setAudioClips'; readonly trackId: string; readonly clips: readonly (AudioClip | null)[] }
   | { readonly type: 'track/setVolume'; readonly trackId: string; readonly volume: number }
   | {
       readonly type: 'track/setParam'

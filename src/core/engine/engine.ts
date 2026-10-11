@@ -1,16 +1,17 @@
 import { MAX_BLOCK_FRAMES } from '../instrument'
 import { SampleBank } from '../sample'
-import type { NoteEvent } from '../session'
+import type { LauncherStatus } from '../session'
 import { Transport } from '../transport'
+import { AudioTrackRuntime } from './audio-track-runtime'
 import type { EngineCommand } from './commands'
+import type { PlayableTrack, ScheduledAction } from './playable-track'
 import { SamplePreview } from './sample-preview'
 import type { EngineStatus } from './status'
 import { TrackRuntime } from './track-runtime'
 
 interface ScheduledEvent {
   readonly frame: number
-  readonly track: TrackRuntime
-  readonly event: NoteEvent
+  readonly action: ScheduledAction
 }
 
 /**
@@ -20,7 +21,7 @@ interface ScheduledEvent {
  */
 export class Engine {
   private readonly transport: Transport
-  private readonly tracks = new Map<string, TrackRuntime>()
+  private readonly tracks = new Map<string, PlayableTrack>()
   private readonly samples = new SampleBank()
   private readonly preview: SamplePreview
   private peak = 0
@@ -44,27 +45,32 @@ export class Engine {
       case 'track/add':
         this.tracks.set(
           command.trackId,
-          new TrackRuntime(
-            command.patch,
-            command.clips,
-            command.volume,
-            command.voices,
-            this.sampleRate,
-            this.samples,
-          ),
+          command.kind === 'audio'
+            ? new AudioTrackRuntime(command.clips, command.volume, this.samples, this.sampleRate)
+            : new TrackRuntime(
+                command.patch,
+                command.clips,
+                command.volume,
+                command.voices,
+                this.sampleRate,
+                this.samples,
+              ),
         )
         break
       case 'track/remove':
         this.tracks.delete(command.trackId)
         break
       case 'track/setPatch':
-        this.tracks.get(command.trackId)?.setPatch(command.patch)
+        this.instrument(command.trackId)?.setPatch(command.patch)
         break
       case 'track/setVoices':
-        this.tracks.get(command.trackId)?.setVoices(command.voices)
+        this.instrument(command.trackId)?.setVoices(command.voices)
         break
       case 'track/setClips':
-        this.tracks.get(command.trackId)?.setClips(command.clips)
+        this.instrument(command.trackId)?.setClips(command.clips)
+        break
+      case 'track/setAudioClips':
+        this.audio(command.trackId)?.setClips(command.clips)
         break
       case 'track/setVolume': {
         const track = this.tracks.get(command.trackId)
@@ -72,10 +78,10 @@ export class Engine {
         break
       }
       case 'track/setParam':
-        this.tracks.get(command.trackId)?.setParam(command.nodeId, command.paramId, command.value)
+        this.instrument(command.trackId)?.setParam(command.nodeId, command.paramId, command.value)
         break
       case 'track/setSample':
-        this.tracks.get(command.trackId)?.setSample(command.nodeId, command.sampleId)
+        this.instrument(command.trackId)?.setSample(command.nodeId, command.sampleId)
         break
       case 'sample/add':
         this.samples.set(command.sample)
@@ -92,10 +98,10 @@ export class Engine {
         this.preview.stop()
         break
       case 'track/audition':
-        this.tracks.get(command.trackId)?.auditionNote(command.pitch, command.velocity)
+        this.instrument(command.trackId)?.auditionNote(command.pitch, command.velocity)
         break
       case 'track/stop':
-        this.tracks.get(command.trackId)?.launcher.stop()
+        this.tracks.get(command.trackId)?.stopClip()
         break
       case 'clip/launch':
         this.tracks.get(command.trackId)?.launchClip(command.clipId)
@@ -124,8 +130,8 @@ export class Engine {
 
   /** Snapshot for display. Reading it also resets the output-level peak. */
   status(): EngineStatus {
-    const tracks: Record<string, ReturnType<TrackRuntime['launcher']['status']>> = {}
-    for (const [id, track] of this.tracks) tracks[id] = track.launcher.status()
+    const tracks: Record<string, LauncherStatus> = {}
+    for (const [id, track] of this.tracks) tracks[id] = track.status()
     const peak = this.peak
     this.peak = 0 // each snapshot reports the level since the previous one
     return { playing: this.transport.playing, beat: this.transport.positionBeats, peak, tracks }
@@ -140,12 +146,12 @@ export class Engine {
     const events = this.transport.playing ? this.collectEvents(frames) : []
 
     let cursor = 0
-    for (const { frame, track, event } of events) {
-      this.mixSegment(left, right, offset + cursor, frame - cursor)
+    for (const { frame, action } of events) {
+      this.mixSegment(left, right, offset, cursor, frame - cursor)
       cursor = frame
-      track.apply(event)
+      action.run()
     }
-    this.mixSegment(left, right, offset + cursor, frames - cursor)
+    this.mixSegment(left, right, offset, cursor, frames - cursor)
     this.transport.advance(frames)
   }
 
@@ -154,17 +160,38 @@ export class Engine {
     const to = this.transport.beatAfter(frames)
     const scheduled: ScheduledEvent[] = []
     for (const track of this.tracks.values()) {
-      for (const event of track.launcher.collectEvents(from, to)) {
-        scheduled.push({ frame: this.transport.frameOf(event.beat, frames), track, event })
+      for (const action of track.schedule(from, to)) {
+        scheduled.push({ frame: this.transport.frameOf(action.beat, frames), action })
       }
     }
-    // Array#sort is stable, so same-frame events keep the launcher's off-before-on order.
+    // Array#sort is stable, so same-frame events keep each launcher's own order (offs before ons).
     return scheduled.sort((a, b) => a.frame - b.frame)
   }
 
-  private mixSegment(left: Float32Array, right: Float32Array, offset: number, frames: number): void {
+  /**
+   * Mixes `frames` samples starting `cursor` frames into the current block. Audio clips need to know where that
+   * is on the beat clock to stay locked to the grid.
+   */
+  private mixSegment(
+    left: Float32Array,
+    right: Float32Array,
+    blockOffset: number,
+    cursor: number,
+    frames: number,
+  ): void {
     if (frames <= 0) return
-    for (const track of this.tracks.values()) track.mixInto(left, right, offset, frames)
+    const timing = { beat: this.transport.beatAfter(cursor), beatsPerSample: this.transport.beatsPerSample }
+    for (const track of this.tracks.values()) track.mixInto(left, right, blockOffset + cursor, frames, timing)
+  }
+
+  private instrument(trackId: string): TrackRuntime | undefined {
+    const track = this.tracks.get(trackId)
+    return track instanceof TrackRuntime ? track : undefined
+  }
+
+  private audio(trackId: string): AudioTrackRuntime | undefined {
+    const track = this.tracks.get(trackId)
+    return track instanceof AudioTrackRuntime ? track : undefined
   }
 }
 

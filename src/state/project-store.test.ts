@@ -1,4 +1,4 @@
-import { createDemoProject, createEmptyProject, setNodeParam } from '@core'
+import { createDemoProject, createEmptyProject, setNodeParam, type InstrumentTrack } from '@core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { selectCanRedo, selectCanUndo, useProjectStore } from './project-store'
 
@@ -31,7 +31,7 @@ describe('project store undo/redo', () => {
   })
 
   it('turns a burst of slider changes into one undo step', () => {
-    const track = store().project.tracks[0]!
+    const track = store().project.tracks[0] as InstrumentTrack
     const filter = track.patch.nodes.find((node) => node.type === 'filter')!
     const original = filter.params.cutoff
 
@@ -41,7 +41,7 @@ describe('project store undo/redo', () => {
     }
     store().undo()
 
-    const restored = store().project.tracks[0]!.patch.nodes.find((node) => node.id === filter.id)!
+    const restored = (store().project.tracks[0] as InstrumentTrack).patch.nodes.find((node) => node.id === filter.id)!
     expect(restored.params.cutoff).toBe(original)
     expect(selectCanUndo(store())).toBe(false)
   })

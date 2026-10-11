@@ -12,6 +12,7 @@ import {
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
+import { sanitizeAudioClip } from './sanitize-audio-clip'
 import { sanitizeClip } from './sanitize-clip'
 import { sanitizePatch } from './sanitize-patch'
 import { sanitizeSamples } from './sanitize-samples'
@@ -36,14 +37,30 @@ const sanitizeTrack = (
 
   const rawClips = asList(raw.clips)
   const usedClipIds = new Set<string>()
+  const volume = clamp(finiteNumber(raw.volume, 0.8), 0, 1)
+
+  // Files from before audio tracks existed have no `kind`: they are instrument tracks.
+  if (raw.kind === 'audio') {
+    return {
+      kind: 'audio',
+      id,
+      name,
+      volume,
+      clips: Array.from({ length: sceneCount }, (_, scene) =>
+        sanitizeAudioClip(rawClips[scene], where, sampleIds, usedClipIds, warn),
+      ),
+    }
+  }
+
   const clips = Array.from({ length: sceneCount }, (_, scene) =>
     sanitizeClip(rawClips[scene], where, usedClipIds, warn),
   )
 
   return {
+    kind: 'instrument',
     id,
     name,
-    volume: clamp(finiteNumber(raw.volume, 0.8), 0, 1),
+    volume,
     voices: Math.round(clamp(finiteNumber(raw.voices, DEFAULT_VOICES), MIN_VOICES, MAX_VOICES)),
     patch: sanitizePatch(raw.patch, where, sampleIds, warn),
     clips,

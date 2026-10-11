@@ -1,4 +1,24 @@
-export type { Clip, Note, Project, Track } from './types'
+export type {
+  AudioClip,
+  AudioTrack,
+  Clip,
+  InstrumentTrack,
+  Note,
+  Project,
+  Track,
+  WarpMode,
+} from './types'
+export { isAudioTrack, isInstrumentTrack } from './track-kind'
+export {
+  MAX_GAIN,
+  MIN_GAIN,
+  WARP_MODES,
+  clampAudioClip,
+  createAudioClip,
+  guessLengthBeats,
+  playbackSpeed,
+  tempoFromName,
+} from './audio-clip'
 export {
   DEFAULT_SCENE_COUNT,
   DEFAULT_VOICES,
@@ -11,14 +31,18 @@ export {
   MIN_TEMPO,
   createEmptyProject,
   setProjectName,
+  addAudioClip,
+  addAudioTrackWithClip,
   addSamplerTrack,
   addSamples,
   addTrack,
+  createAudioTrack,
   createClip,
   createTrack,
   removeSample,
   removeTrack,
   doubleClip,
+  setAudioClipAt,
   setClipAt,
   setClipLength,
   setClipNotes,
@@ -26,6 +50,8 @@ export {
   setTrackPatch,
   setTrackVoices,
   setTrackVolume,
+  updateAudioClip,
+  type AudioClipChanges,
 } from './edit'
 export { createDemoProject } from './demo-project'
 export {

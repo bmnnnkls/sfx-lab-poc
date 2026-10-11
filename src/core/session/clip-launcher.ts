@@ -1,12 +1,6 @@
 import type { Clip } from '../project'
+import { LaunchQueue } from './launch-queue'
 import type { LauncherStatus, NoteEvent } from './types'
-
-interface Playback {
-  readonly clip: Clip
-  readonly startBeat: number
-}
-
-type Queued = { readonly clip: Clip } | { readonly clip: null }
 
 /** A note that has started sounding and not yet ended, as it was when it started. */
 interface HeldNote {
@@ -26,29 +20,33 @@ const byTime = (a: NoteEvent, b: NoteEvent): number =>
  * clip, which takes over at the next quantize boundary and then loops.
  */
 export class ClipLauncher {
-  private playback: Playback | null = null
-  private queued: Queued | null = null
+  private readonly queue: LaunchQueue<Clip>
   private readonly held = new Map<string, HeldNote>()
   /** Pitches to release at the start of the next range (their notes were edited away mid-sound). */
   private pendingReleases: number[] = []
   /** End of the last range handed out: the current play position. */
   private cursorBeat = 0
 
-  constructor(private readonly quantizeBeats = 4) {}
+  constructor(quantizeBeats = 4) {
+    this.queue = new LaunchQueue<Clip>(quantizeBeats)
+  }
+
+  private get playback() {
+    return this.queue.playback
+  }
 
   launch(clip: Clip): void {
-    this.queued = { clip }
+    this.queue.launch(clip)
   }
 
   /** Queues a stop at the next boundary. */
   stop(): void {
-    if (this.playback) this.queued = { clip: null }
+    this.queue.stop()
   }
 
   /** Drops all state immediately (transport stopped). */
   reset(): void {
-    this.playback = null
-    this.queued = null
+    this.queue.reset()
     this.held.clear()
     this.pendingReleases = []
   }
@@ -59,24 +57,12 @@ export class ClipLauncher {
    * so editing a running clip never leaves a note stuck on.
    */
   syncClips(clips: readonly (Clip | null)[]): void {
-    const find = (id: string) => clips.find((clip) => clip?.id === id) ?? null
-    if (this.playback) {
-      const clip = find(this.playback.clip.id)
-      this.playback = clip ? { ...this.playback, clip } : null
-    }
-    if (this.queued?.clip) {
-      const clip = find(this.queued.clip.id)
-      this.queued = clip ? { clip } : null
-    }
+    this.queue.sync(clips)
     this.releaseStaleNotes()
   }
 
   status(): LauncherStatus {
-    return {
-      playingClipId: this.playback?.clip.id ?? null,
-      startBeat: this.playback?.startBeat ?? null,
-      queued: this.queued ? (this.queued.clip?.id ?? 'stop') : null,
-    }
+    return this.queue.status()
   }
 
   /**
@@ -92,16 +78,13 @@ export class ClipLauncher {
     this.pendingReleases = []
     let cursor = from
 
-    if (this.queued) {
-      const boundary = Math.ceil(from / this.quantizeBeats) * this.quantizeBeats
-      if (boundary < to) {
-        events.push(...this.clipEvents(cursor, boundary))
-        events.push({ beat: boundary, kind: 'allOff' })
-        this.held.clear()
-        this.playback = this.queued.clip ? { clip: this.queued.clip, startBeat: boundary } : null
-        this.queued = null
-        cursor = boundary
-      }
+    const boundary = this.queue.pendingBoundary(from, to)
+    if (boundary !== null) {
+      events.push(...this.clipEvents(cursor, boundary))
+      events.push({ beat: boundary, kind: 'allOff' })
+      this.held.clear()
+      this.queue.commit(boundary)
+      cursor = boundary
     }
 
     events.push(...this.clipEvents(cursor, to))

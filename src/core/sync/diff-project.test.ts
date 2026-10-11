@@ -1,3 +1,4 @@
+import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
 import { moveNode, setNodeParam, setNodeSample } from '../patch'
 import {
@@ -8,11 +9,12 @@ import {
   setTrackVoices,
   setTrackVolume,
 } from '../project'
+import { addAudioTrackWithClip, addSamples, createAudioTrack, addTrack, setTrackVolume as setVolume, updateAudioClip, isAudioTrack } from '../project'
 import { diffProject } from './diff-project'
 
 describe('diffProject', () => {
   const project = createDemoProject()
-  const track = project.tracks[0]!
+  const track = project.tracks[0] as InstrumentTrack
 
   it('describes a whole project as tempo + one add per track when starting from nothing', () => {
     const commands = diffProject(null, project)
@@ -63,5 +65,40 @@ describe('diffProject', () => {
       'track/setClips',
       'track/setVolume',
     ])
+  })
+
+  describe('audio tracks', () => {
+    const sample = { id: 'a'.repeat(64), name: 'Loop', extension: 'wav', durationSeconds: 2, sampleRate: 44100, channels: 1, bytes: 1 }
+    const base = addAudioTrackWithClip(addSamples(project, [sample]), sample)
+    const audio = base.tracks[base.tracks.length - 1]!
+
+    it('adds an audio track as an audio track, with no patch or voices', () => {
+      const commands = diffProject(project, base)
+      expect(commands).toContainEqual(
+        expect.objectContaining({ type: 'track/add', kind: 'audio', trackId: audio.id }),
+      )
+      expect(commands.find((c) => c.type === 'track/add' && c.kind === 'audio')).not.toHaveProperty('patch')
+    })
+
+    it('maps clip edits to setAudioClips and volume to setVolume', () => {
+      const clipId = isAudioTrack(audio) ? audio.clips[0]!.id : ''
+      const edited = setVolume(updateAudioClip(base, audio.id, clipId, { gain: 0.4 }), audio.id, 0.3)
+
+      expect(diffProject(base, edited).map((c) => c.type)).toEqual(['track/setAudioClips', 'track/setVolume'])
+    })
+
+    it('emits nothing for an unchanged audio track', () => {
+      expect(diffProject(base, { ...base })).toEqual([])
+    })
+
+    it('replaces a track whose kind changed under the same id', () => {
+      const asInstrument = { ...base, tracks: [...base.tracks.slice(0, -1), { ...project.tracks[0]!, id: audio.id }] }
+      expect(diffProject(base, asInstrument).map((c) => c.type)).toEqual(['track/remove', 'track/add'])
+    })
+
+    it('adding an empty audio track works too', () => {
+      const next = addTrack(project, createAudioTrack('Empty', project.sceneCount))
+      expect(diffProject(project, next).at(-1)).toMatchObject({ type: 'track/add', kind: 'audio', clips: [null, null, null, null] })
+    })
   })
 })

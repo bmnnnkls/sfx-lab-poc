@@ -3,7 +3,8 @@ import { type SampleData, type SampleInfo, computePeaks, createDemoSamples } fro
 import { type SampleLibrary, usePersistenceStore, useProjectStore, useSampleStore } from '@state'
 import { type SampleStorage, sha256Hex } from '@storage'
 
-const PEAK_BUCKETS = 96
+/** Enough detail for the large clip waveform; thumbnails simply sample it more coarsely. */
+const PEAK_BUCKETS = 800
 const MAX_FILE_BYTES = 32 * 1024 * 1024
 
 const describe = (error: unknown): string => (error instanceof Error ? error.message : String(error))
@@ -80,7 +81,8 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
     }
   }
 
-  const ingest = async (bytes: Uint8Array, fileName: string): Promise<void> => {
+  /** Adds one file to the library. Reports whether it was new; the caller decides what to tell the user. */
+  const ingest = async (bytes: Uint8Array, fileName: string): Promise<{ name: string; known: boolean }> => {
     const { name, extension } = splitFileName(fileName)
     if (bytes.length > MAX_FILE_BYTES) {
       throw new Error(`Files over ${MAX_FILE_BYTES / 1024 / 1024} MB are not supported`)
@@ -104,17 +106,28 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
         bytes: bytes.length,
       },
     ])
-    notify('info', known ? `"${name}" is already in the library` : `Added sample "${name}"`)
+    return { name, known }
   }
 
+  /** Adds several files, then tells the user once (not once per file). */
   const ingestAll = async (items: ReadonlyArray<{ bytes: () => Promise<Uint8Array>; fileName: string }>) => {
+    const added: string[] = []
+    const already: string[] = []
     for (const item of items) {
       try {
-        await ingest(await item.bytes(), item.fileName)
+        const { name, known } = await ingest(await item.bytes(), item.fileName)
+        ;(known ? already : added).push(name)
       } catch (error) {
         notify('error', `Could not add "${item.fileName}": ${describe(error)}`)
       }
     }
+
+    if (added.length === 1 && already.length === 0) notify('info', `Added sample "${added[0]}"`)
+    else if (added.length > 0) {
+      const extra = already.length > 0 ? ` (${already.length} already in the library)` : ''
+      notify('info', `Added ${added.length} samples${extra}`)
+    } else if (already.length === 1) notify('info', `"${already[0]}" is already in the library`)
+    else if (already.length > 1) notify('info', `All ${already.length} samples were already in the library`)
   }
 
   return {

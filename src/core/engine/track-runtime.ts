@@ -2,14 +2,15 @@ import { Instrument } from '../instrument'
 import type { Patch } from '../patch'
 import type { Clip } from '../project'
 import type { SampleLookup } from '../sample'
-import { ClipLauncher, type NoteEvent } from '../session'
+import { ClipLauncher, type LauncherStatus, type NoteEvent } from '../session'
+import type { PlayableTrack, ScheduledAction } from './playable-track'
 
 /** How long an audition note sounds before it is released. */
 const AUDITION_SECONDS = 0.3
 
 /** Live, audio-thread counterpart of a project Track: voice + clip player + level. */
-export class TrackRuntime {
-  readonly launcher = new ClipLauncher()
+export class TrackRuntime implements PlayableTrack {
+  private readonly launcher = new ClipLauncher()
   volume: number
   clips: readonly (Clip | null)[]
   private instrument: Instrument
@@ -58,6 +59,20 @@ export class TrackRuntime {
     if (clip) this.launcher.launch(clip)
   }
 
+  stopClip(): void {
+    this.launcher.stop()
+  }
+
+  status(): LauncherStatus {
+    return this.launcher.status()
+  }
+
+  schedule(from: number, to: number): ScheduledAction[] {
+    return this.launcher
+      .collectEvents(from, to)
+      .map((event) => ({ beat: event.beat, run: () => this.apply(event) }))
+  }
+
   launchScene(scene: number): void {
     const clip = this.clips[scene]
     if (clip) this.launcher.launch(clip)
@@ -83,7 +98,7 @@ export class TrackRuntime {
     this.audition = null
   }
 
-  apply(event: NoteEvent): void {
+  private apply(event: NoteEvent): void {
     switch (event.kind) {
       case 'noteOn':
         this.instrument.noteOn(event.pitch, event.velocity)

@@ -4,6 +4,13 @@ export type NoteEvent =
   | { readonly beat: number; readonly kind: 'noteOff'; readonly pitch: number }
   | { readonly beat: number; readonly kind: 'allOff' }
 
+import type { AudioClip } from '../project'
+
+/** Start or stop of an audio clip at an absolute transport beat. */
+export type AudioEvent =
+  | { readonly beat: number; readonly kind: 'start'; readonly clip: AudioClip }
+  | { readonly beat: number; readonly kind: 'stop' }
+
 /** What the UI needs to draw a track's launch state. */
 export interface LauncherStatus {
   readonly playingClipId: string | null

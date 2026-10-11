@@ -1,6 +1,6 @@
 import type { EngineCommand } from '../engine'
 import type { Patch } from '../patch'
-import type { Project, Track } from '../project'
+import type { AudioTrack, InstrumentTrack, Project, Track } from '../project'
 
 /** Identity of a patch's wiring, ignoring params and canvas positions. */
 const structureOf = (patch: Patch): string =>
@@ -34,10 +34,10 @@ const diffPatch = (trackId: string, prev: Patch, next: Patch): EngineCommand[] =
   return commands
 }
 
-const sameClips = (a: Track['clips'], b: Track['clips']): boolean =>
+const sameClips = (a: readonly unknown[], b: readonly unknown[]): boolean =>
   a === b || (a.length === b.length && a.every((clip, index) => clip === b[index]))
 
-const diffTrack = (prev: Track, next: Track): EngineCommand[] => {
+const diffInstrumentTrack = (prev: InstrumentTrack, next: InstrumentTrack): EngineCommand[] => {
   const commands = diffPatch(next.id, prev.patch, next.patch)
   if (!sameClips(prev.clips, next.clips)) {
     commands.push({ type: 'track/setClips', trackId: next.id, clips: next.clips })
@@ -45,11 +45,39 @@ const diffTrack = (prev: Track, next: Track): EngineCommand[] => {
   if (prev.voices !== next.voices) {
     commands.push({ type: 'track/setVoices', trackId: next.id, voices: next.voices })
   }
+  return commands
+}
+
+const diffAudioTrack = (prev: AudioTrack, next: AudioTrack): EngineCommand[] =>
+  sameClips(prev.clips, next.clips)
+    ? []
+    : [{ type: 'track/setAudioClips', trackId: next.id, clips: next.clips }]
+
+const diffTrack = (prev: Track, next: Track): EngineCommand[] => {
+  const commands =
+    prev.kind === 'instrument' && next.kind === 'instrument'
+      ? diffInstrumentTrack(prev, next)
+      : prev.kind === 'audio' && next.kind === 'audio'
+        ? diffAudioTrack(prev, next)
+        : []
   if (prev.volume !== next.volume) {
     commands.push({ type: 'track/setVolume', trackId: next.id, volume: next.volume })
   }
   return commands
 }
+
+const addTrackCommand = (track: Track): EngineCommand =>
+  track.kind === 'audio'
+    ? { type: 'track/add', kind: 'audio', trackId: track.id, clips: track.clips, volume: track.volume }
+    : {
+        type: 'track/add',
+        kind: 'instrument',
+        trackId: track.id,
+        patch: track.patch,
+        clips: track.clips,
+        volume: track.volume,
+        voices: track.voices,
+      }
 
 /** Commands that bring an engine holding `prev` (null = empty) in line with `next`. */
 export const diffProject = (prev: Project | null, next: Project): EngineCommand[] => {
@@ -65,14 +93,9 @@ export const diffProject = (prev: Project | null, next: Project): EngineCommand[
   for (const track of next.tracks) {
     const before = prevTracks.get(track.id)
     if (!before) {
-      commands.push({
-        type: 'track/add',
-        trackId: track.id,
-        patch: track.patch,
-        clips: track.clips,
-        volume: track.volume,
-        voices: track.voices,
-      })
+      commands.push(addTrackCommand(track))
+    } else if (before.kind !== track.kind) {
+      commands.push({ type: 'track/remove', trackId: track.id }, addTrackCommand(track))
     } else if (before !== track) {
       commands.push(...diffTrack(before, track))
     }

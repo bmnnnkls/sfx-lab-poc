@@ -13,6 +13,7 @@ export const TrackHeader = ({ track }: { track: Track }) => {
     <div className={`${styles.header} ${selected ? styles.selected : ''}`}>
       <button className={styles.trackName} onClick={() => selectTrack(track.id)}>
         {track.name}
+        {track.kind === 'audio' && <span className={styles.audioTag}> audio</span>}
       </button>
       <input
         type="range"

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
 import { createDemoProject } from '../project'
 import { parseProject, serializeProject } from './project-file'
@@ -36,22 +37,22 @@ describe('project file round trip', () => {
 
     expect(warnings).toEqual([])
     expect(loaded.name).toBe('Fixture v1')
-    expect(loaded.tracks[0]?.patch.connections.map((c) => c.id)).toEqual(['w1', 'w2'])
-    expect(loaded.tracks[0]?.clips[0]?.notes).toHaveLength(2)
-    expect(loaded.tracks[0]?.clips[1]).toBeNull()
+    expect((loaded.tracks[0] as InstrumentTrack).patch.connections.map((c) => c.id)).toEqual(['w1', 'w2'])
+    expect((loaded.tracks[0] as InstrumentTrack).clips[0]?.notes).toHaveLength(2)
+    expect((loaded.tracks[0] as InstrumentTrack).clips[1]).toBeNull()
   })
 
   it('gives files saved before polyphony the default voice count, silently', () => {
     const text = readFileSync(new URL('./fixtures/v1-minimal.sfxlab.json', import.meta.url), 'utf8')
     const { project: loaded, warnings } = parseOk(text)
 
-    expect(loaded.tracks[0]?.voices).toBe(8)
+    expect((loaded.tracks[0] as InstrumentTrack).voices).toBe(8)
     expect(warnings).toEqual([])
   })
 
   it('clamps an out-of-range voice count', () => {
     const raw = project({ tracks: [{ id: 't', name: 'T', voices: 500, patch: {}, clips: [] }] })
-    expect(parseOk(envelope(raw)).project.tracks[0]?.voices).toBe(16)
+    expect((parseOk(envelope(raw)).project.tracks[0] as InstrumentTrack).voices).toBe(16)
   })
 })
 
@@ -87,8 +88,8 @@ describe('sanitizing', () => {
     }
     const { project: loaded, warnings } = parseOk(envelope(project({ tracks: [track(patch)] })))
 
-    expect(loaded.tracks[0]?.patch.nodes.map((n) => n.id)).toEqual(['a', 'b'])
-    expect(loaded.tracks[0]?.patch.connections).toHaveLength(1)
+    expect((loaded.tracks[0] as InstrumentTrack).patch.nodes.map((n) => n.id)).toEqual(['a', 'b'])
+    expect((loaded.tracks[0] as InstrumentTrack).patch.connections).toHaveLength(1)
     expect(warnings.join('\n')).toMatch(/unknown node type "does-not-exist"/)
     expect(warnings.join('\n')).toMatch(/dropped 2 invalid connection/)
   })
@@ -105,13 +106,13 @@ describe('sanitizing', () => {
     ] }
     const raw = project({ tempo: 9999, tracks: [{ ...track(patch, [clip]), volume: 5 }] })
     const { project: loaded, warnings } = parseOk(envelope(raw))
-    const node = loaded.tracks[0]!.patch.nodes[0]!
+    const node = (loaded.tracks[0] as InstrumentTrack).patch.nodes[0]!
 
     expect(loaded.tempo).toBe(240)
     expect(loaded.tracks[0]?.volume).toBe(1)
     expect(node.x).toBe(0)
     expect(node.params).toMatchObject({ cutoff: 20000, resonance: 0.707 })
-    expect(loaded.tracks[0]?.clips[0]?.notes).toEqual([
+    expect((loaded.tracks[0] as InstrumentTrack).clips[0]?.notes).toEqual([
       { id: expect.stringMatching(/^note_/), pitch: 127, start: 0, duration: 1 / 16, velocity: 1 },
     ])
     expect(warnings.join('\n')).toMatch(/dropped 2 invalid note/)
@@ -129,9 +130,9 @@ describe('sanitizing', () => {
     const { project: loaded } = parseOk(envelope(raw))
 
     expect(new Set(loaded.tracks.map((t) => t.id)).size).toBe(2)
-    expect(loaded.tracks[0]?.clips).toHaveLength(3)
-    expect(new Set(loaded.tracks[0]?.clips.map((c) => c?.id)).size).toBe(3)
-    expect(loaded.tracks[1]?.clips).toEqual([null, null, null])
+    expect((loaded.tracks[0] as InstrumentTrack).clips).toHaveLength(3)
+    expect(new Set((loaded.tracks[0] as InstrumentTrack).clips.map((c) => c?.id)).size).toBe(3)
+    expect((loaded.tracks[1] as InstrumentTrack).clips).toEqual([null, null, null])
   })
 
   it('survives garbage inside an otherwise valid envelope', () => {
@@ -139,7 +140,7 @@ describe('sanitizing', () => {
     const { project: loaded } = parseOk(envelope(raw))
 
     expect(loaded.tracks).toHaveLength(1)
-    expect(loaded.tracks[0]?.patch).toEqual({ nodes: [], connections: [] })
+    expect((loaded.tracks[0] as InstrumentTrack).patch).toEqual({ nodes: [], connections: [] })
   })
 })
 
@@ -158,7 +159,7 @@ describe('samples in files', () => {
 
     expect(warnings).toEqual([])
     expect(loaded.samples).toEqual([sampleEntry])
-    expect(loaded.tracks[0]?.patch.nodes[0]?.sampleId).toBe(id)
+    expect((loaded.tracks[0] as InstrumentTrack).patch.nodes[0]?.sampleId).toBe(id)
     expect(parseOk(serializeProject(loaded)).project).toEqual(loaded)
   })
 
@@ -177,7 +178,7 @@ describe('samples in files', () => {
     const raw = project({ samples: [], tracks: [track(samplerPatch(id))] })
     const { project: loaded, warnings } = parseOk(envelope(raw))
 
-    expect(loaded.tracks[0]?.patch.nodes[0]?.sampleId).toBeUndefined()
+    expect((loaded.tracks[0] as InstrumentTrack).patch.nodes[0]?.sampleId).toBeUndefined()
     expect(warnings.join('\n')).toMatch(/pointed at a sample that is not in the project/)
   })
 
@@ -191,7 +192,7 @@ describe('note ids in files', () => {
     id: 'c', name: 'C', lengthBeats: 4, notes,
   })
   const load = (notes: unknown[]) =>
-    parseOk(envelope(project({ tracks: [{ id: 't', name: 'T', patch: {}, clips: [clipWith(notes)] }] }))).project.tracks[0]!.clips[0]!.notes
+    (parseOk(envelope(project({ tracks: [{ id: 't', name: 'T', patch: {}, clips: [clipWith(notes)] }] }))).project.tracks[0] as InstrumentTrack).clips[0]!.notes
 
   it('keeps saved ids and gives older files (no ids) fresh unique ones, without warnings', () => {
     const kept = load([{ id: 'mine', pitch: 60, start: 0, duration: 1, velocity: 1 }])
@@ -211,5 +212,56 @@ describe('note ids in files', () => {
       { id: 'same', pitch: 62, start: 1, duration: 1, velocity: 1 },
     ])
     expect(new Set(notes.map((n) => n.id)).size).toBe(2)
+  })
+})
+
+describe('audio tracks in files', () => {
+  const id = 'e'.repeat(64)
+  const sampleEntry = { id, name: 'Loop', extension: 'wav', durationSeconds: 2, sampleRate: 44100, channels: 1, bytes: 10 }
+  const audioTrack = (clips: unknown[], extra: Record<string, unknown> = {}) => ({
+    kind: 'audio', id: 'at', name: 'Audio', volume: 0.7, clips, ...extra,
+  })
+  const clip = (overrides: Record<string, unknown> = {}) => ({
+    id: 'ac', name: 'Loop', sampleId: id, lengthBeats: 4, loop: true, warp: 'repitch', gain: 1, ...overrides,
+  })
+
+  it('round-trips an audio track with its clip', () => {
+    const raw = project({ samples: [sampleEntry], tracks: [audioTrack([clip(), null])] })
+    const { project: loaded, warnings } = parseOk(envelope(raw))
+
+    expect(warnings).toEqual([])
+    expect(loaded.tracks[0]).toMatchObject({ kind: 'audio', id: 'at', volume: 0.7 })
+    expect(parseOk(serializeProject(loaded)).project).toEqual(loaded)
+  })
+
+  it('treats a track with no kind (older files) as an instrument', () => {
+    const loaded = parseOk(envelope(project({ tracks: [{ id: 't', name: 'T', patch: {}, clips: [] }] }))).project
+    expect(loaded.tracks[0]?.kind).toBe('instrument')
+  })
+
+  it('drops an audio clip whose sample is not in the project, with a warning', () => {
+    const raw = project({ samples: [], tracks: [audioTrack([clip()])] })
+    const { project: loaded, warnings } = parseOk(envelope(raw))
+
+    expect((loaded.tracks[0] as unknown as { clips: unknown[] }).clips).toEqual([null, null])
+    expect(warnings.join('\n')).toMatch(/audio clip whose sample is not in the project/)
+  })
+
+  it('repairs out-of-range settings and unknown warp modes', () => {
+    const raw = project({
+      samples: [sampleEntry],
+      tracks: [audioTrack([clip({ gain: 50, lengthBeats: 'x', warp: 'wobble', loop: 'yes' })])],
+    })
+    const loaded = parseOk(envelope(raw)).project.tracks[0] as unknown as { clips: Array<Record<string, unknown>> }
+
+    expect(loaded.clips[0]).toMatchObject({ gain: 2, lengthBeats: 4, warp: 'repitch', loop: true })
+  })
+
+  it('gives clips unique ids and fits the slots to the scene count', () => {
+    const raw = project({ sceneCount: 3, samples: [sampleEntry], tracks: [audioTrack([clip(), clip(), clip(), clip()])] })
+    const loaded = parseOk(envelope(raw)).project.tracks[0] as unknown as { clips: Array<{ id: string } | null> }
+
+    expect(loaded.clips).toHaveLength(3)
+    expect(new Set(loaded.clips.map((c) => c?.id)).size).toBe(3)
   })
 })

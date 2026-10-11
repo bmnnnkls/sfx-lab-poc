@@ -73,3 +73,25 @@
     background: rgba(245, 213, 36, 0.18);
   }
 }
+
+.audioLaunch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slotName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audioTag {
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}

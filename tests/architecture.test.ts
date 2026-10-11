@@ -42,7 +42,7 @@ const EXTERNAL_ALLOWED: Record<string, readonly string[]> = {
   audio: [],
   storage: ['fflate'],
   state: ['react', 'zustand'],
-  ui: ['react', 'react-dom', '@radix-ui/react-context-menu'],
+  ui: ['react', 'react-dom', '@radix-ui/react-context-menu', '@radix-ui/react-dropdown-menu'],
   app: ['react', 'react-dom'],
 }
 

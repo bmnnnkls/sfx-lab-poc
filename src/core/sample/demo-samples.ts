@@ -45,6 +45,32 @@ const hat = (): Float32Array => {
   })
 }
 
+const LOOP_BPM = 120
+const LOOP_BEATS = 4
+
+/** Mixes `part` into `into` starting at `startSeconds`. */
+const mixIn = (into: Float32Array, part: Float32Array, startSeconds: number, level: number): void => {
+  const offset = Math.round(startSeconds * SAMPLE_RATE)
+  for (let i = 0; i < part.length && offset + i < into.length; i++) {
+    into[offset + i] = (into[offset + i] ?? 0) + (part[i] ?? 0) * level
+  }
+}
+
+/** A one-bar drum loop at 120 BPM: kick on 1 and 3, snare on 2 and 4, hats on every eighth. */
+const drumLoop = (): Float32Array => {
+  const secondsPerBeat = 60 / LOOP_BPM
+  const loop = new Float32Array(Math.round(LOOP_BEATS * secondsPerBeat * SAMPLE_RATE))
+  const [hitKick, hitSnare, hitHat] = [kick(), snare(), hat()]
+
+  for (const beat of [0, 2]) mixIn(loop, hitKick, beat * secondsPerBeat, 0.9)
+  for (const beat of [1, 3]) mixIn(loop, hitSnare, beat * secondsPerBeat, 0.7)
+  for (let eighth = 0; eighth < LOOP_BEATS * 2; eighth++) mixIn(loop, hitHat, (eighth / 2) * secondsPerBeat, 0.35)
+
+  // Keep clear of clipping where the hits stack up.
+  const peak = loop.reduce((max, value) => Math.max(max, Math.abs(value)), 0)
+  return loop.map((value) => (value / peak) * 0.9)
+}
+
 /** A plucked, pitched tone at C4 (261.63 Hz), useful for playing melodies with the sampler. */
 const pluck = (): Float32Array =>
   render(1.2, (t) => {
@@ -54,13 +80,17 @@ const pluck = (): Float32Array =>
     return 0.6 * tone * Math.exp(-3.2 * t) * Math.min(1, t * 400)
   })
 
-/** Four one-shots, synthesised on demand, so the sampler can be tried without any audio files. */
+/**
+ * Synthesised on demand, so samples and audio clips can be tried without any audio files: four one-shots
+ * for the sampler, and a drum loop whose name carries its tempo ("120 BPM") so an audio clip knows its length.
+ */
 export const createDemoSamples = (): DemoSample[] =>
   [
     ['Demo Kick', kick()],
     ['Demo Snare', snare()],
     ['Demo Hat', hat()],
     ['Demo Pluck C4', pluck()],
+    ['Demo Drum Loop 120 BPM', drumLoop()],
   ].map(([name, data]) => ({
     name: name as string,
     bytes: encodeWav(data as Float32Array, SAMPLE_RATE),

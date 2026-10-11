@@ -4,13 +4,18 @@ import {
   type Note,
   type Patch,
   type Project,
+  type AudioClipChanges,
   type SampleInfo,
+  addAudioClip,
+  addAudioTrackWithClip,
+  setAudioClipAt,
   addSamplerTrack,
   addSamples,
   addTrack,
   canRedo,
   canUndo,
   commit,
+  createAudioTrack,
   createClip,
   createDemoProject,
   createHistory,
@@ -28,6 +33,7 @@ import {
   setTrackVoices,
   setTrackVolume,
   undo,
+  updateAudioClip,
 } from '@core'
 import { create } from 'zustand'
 
@@ -42,13 +48,24 @@ interface ProjectActions {
   redo(): void
   setName(name: string): void
   setTempo(bpm: number): void
+  /** Adds an empty instrument track. */
   addTrack(): void
+  /** Adds an empty audio track. */
+  addAudioTrack(): void
   removeTrack(trackId: string): void
   setTrackVolume(trackId: string, volume: number): void
   addSamples(samples: readonly SampleInfo[]): void
   removeSample(sampleId: string): void
   /** Adds a track with a sampler playing `sample`, plus a clip that triggers it. */
   addSamplerTrack(sample: SampleInfo): void
+  /** Adds an audio track with a looping clip of `sample` in the first scene. */
+  addAudioTrackFromSample(sample: SampleInfo): void
+  /** Empties a slot of an audio track. */
+  deleteAudioClip(trackId: string, scene: number): void
+  /** Puts a new audio clip of `sample` into a slot of an audio track. */
+  createAudioClip(trackId: string, scene: number, sample: SampleInfo): void
+  /** Edits an audio clip; rapid edits of the same setting (a slider drag) merge into one undo step. */
+  updateAudioClip(trackId: string, clipId: string, changes: AudioClipChanges): void
   setTrackVoices(trackId: string, voices: number): void
   /**
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
@@ -100,6 +117,10 @@ export const useProjectStore = create<ProjectState>((set) => {
       edit((project) =>
         addTrack(project, createTrack(`Track ${project.tracks.length + 1}`, project.sceneCount)),
       ),
+    addAudioTrack: () =>
+      edit((project) =>
+        addTrack(project, createAudioTrack(`Audio ${project.tracks.length + 1}`, project.sceneCount)),
+      ),
     removeTrack: (trackId) => edit((project) => removeTrack(project, trackId)),
     setTrackVolume: (trackId, volume) =>
       edit((project) => setTrackVolume(project, trackId, volume), `volume:${trackId}`),
@@ -107,12 +128,21 @@ export const useProjectStore = create<ProjectState>((set) => {
     addSamples: (samples) => edit((project) => addSamples(project, samples)),
     removeSample: (sampleId) => edit((project) => removeSample(project, sampleId)),
     addSamplerTrack: (sample) => edit((project) => addSamplerTrack(project, sample)),
+    addAudioTrackFromSample: (sample) => edit((project) => addAudioTrackWithClip(project, sample)),
+    deleteAudioClip: (trackId, scene) => edit((project) => setAudioClipAt(project, trackId, scene, null)),
+    createAudioClip: (trackId, scene, sample) =>
+      edit((project) => addAudioClip(project, trackId, scene, sample)),
+    updateAudioClip: (trackId, clipId, changes) =>
+      edit(
+        (project) => updateAudioClip(project, trackId, clipId, changes),
+        `audio:${clipId}:${Object.keys(changes).sort().join(',')}`,
+      ),
     setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
 
     updatePatch: (trackId, change, mergeKey) =>
       edit((project) => {
         const track = project.tracks.find((candidate) => candidate.id === trackId)
-        return track ? setTrackPatch(project, trackId, change(track.patch)) : project
+        return track?.kind === 'instrument' ? setTrackPatch(project, trackId, change(track.patch)) : project
       }, mergeKey),
 
     createClip: (trackId, scene) => {

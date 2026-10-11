@@ -1,3 +1,4 @@
+import type { InstrumentTrack } from '.'
 import { describe, expect, it } from 'vitest'
 import { createSamplerPatch } from '../patch'
 import type { SampleInfo } from '../sample'
@@ -26,7 +27,7 @@ describe('sample library edits', () => {
   it('creates a ready-to-play sampler track with a clip that triggers it', () => {
     const sample = info('a')
     const project = addSamplerTrack(addSamples(createDemoProject(), [sample]), sample)
-    const track = project.tracks[project.tracks.length - 1]!
+    const track = project.tracks[project.tracks.length - 1] as InstrumentTrack
 
     expect(track.name).toBe('Kick')
     expect(track.patch.nodes.find((n) => n.type === 'sampler')?.sampleId).toBe(sample.id)
@@ -42,7 +43,7 @@ describe('sample library edits', () => {
     const untouched = project.tracks[0]!
 
     const removed = removeSample(project, sample.id)
-    const sampler = removed.tracks[removed.tracks.length - 1]!.patch.nodes.find((n) => n.type === 'sampler')!
+    const sampler = (removed.tracks[removed.tracks.length - 1] as InstrumentTrack).patch.nodes.find((n) => n.type === 'sampler')!
 
     expect(removed.samples).toEqual([])
     expect(sampler.sampleId).toBeUndefined()

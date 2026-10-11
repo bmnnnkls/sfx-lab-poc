@@ -23,8 +23,18 @@ export const Patcher = () => {
   const updatePatch = useProjectStore((state) => state.updatePatch)
   const setTrackVoices = useProjectStore((state) => state.setTrackVoices)
 
-  const track = tracks.find((candidate) => candidate.id === selectedId) ?? tracks[0]
-  if (!track) return <p className={styles.empty}>Add a track to edit its instrument.</p>
+  // Fall back to the first instrument track when nothing (or an audio track) is selected.
+  const track =
+    tracks.find((candidate) => candidate.id === selectedId) ?? tracks.find((candidate) => candidate.kind === 'instrument')
+  if (!track) return <p className={styles.empty}>Add an instrument track to edit its instrument.</p>
+  if (track.kind === 'audio') {
+    return (
+      <p className={styles.empty}>
+        “{track.name}” is an audio track: it plays samples directly and has no instrument. Select an instrument
+        track to edit its patch, or open one of this track’s clips to edit it.
+      </p>
+    )
+  }
 
   const edit = (change: Parameters<typeof updatePatch>[1], mergeKey?: string) =>
     updatePatch(track.id, change, mergeKey)

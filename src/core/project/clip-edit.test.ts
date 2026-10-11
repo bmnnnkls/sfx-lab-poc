@@ -1,3 +1,4 @@
+import type { InstrumentTrack } from '.'
 import { describe, expect, it } from 'vitest'
 import {
   MAX_CLIP_BEATS,
@@ -11,10 +12,10 @@ import {
 
 const setup = (length = 4) => {
   const project = createDemoProject()
-  const track = project.tracks[0]!
+  const track = project.tracks[0] as InstrumentTrack
   const clip = createClip('Test', length, [createNote(60, 0, 1), createNote(64, 3, 1)])
   const next = setClipAt(project, track.id, 3, clip)
-  return { project: next, trackId: track.id, clip, read: (p: typeof next) => p.tracks[0]!.clips[3]! }
+  return { project: next, trackId: track.id, clip, read: (p: typeof next) => (p.tracks[0] as InstrumentTrack).clips[3]! }
 }
 
 describe('clip length', () => {

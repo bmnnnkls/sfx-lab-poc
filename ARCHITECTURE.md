@@ -45,7 +45,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `instrument` | compiles a `Patch` into a polyphonic synth: voice pool + shared effects | `Instrument`, `classifyStages` |
 | `project` | the saveable document: tracks, clips, notes, tempo, name; pure note/clip edit operations | `Project`, edit functions, `moveNotes`, `resizeNotesEnd`, `setClipLength`, … |
 | `transport` | sample-accurate beat clock | `Transport` |
-| `session` | clip launching: quantized start/stop, looping, note events | `ClipLauncher` |
+| `session` | clip launching: a shared quantized `LaunchQueue`, the MIDI `ClipLauncher` (note events) and `AudioClipLauncher` (start/stop events) | `ClipLauncher`, `AudioClipLauncher` |
 | `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` | `Engine`, `EngineCommand`, `EngineStatus` |
 | `sync` | diffs two `Project`s into `EngineCommand`s | `diffProject` |
 | `sample` | sample metadata/data types, engine-side `SampleBank`, mono mixdown, peaks, WAV encoder, demo samples | `SampleInfo`, `SampleData`, `SampleBank`, `createDemoSamples`, … |
@@ -253,11 +253,41 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
 * **Add a sample-playing node:** set `usesSample: true` on its definition; the patcher shows the picker and the
   engine calls `setSample` on it.
 
-## Not yet: audio clips
+## Audio clips
 
-Samples are played by the sampler through MIDI clips. Launching a sample as an *audio clip* in the session grid
-(looped and synced to the transport, Ableton-style) is not implemented; it would add a second clip type to the
-`ClipLauncher` and a track kind that plays from the `SampleBank` instead of an `Instrument`.
+An **audio track** holds clips that play a library sample in the session grid: launched on the next bar, in time with
+the transport, optionally looping. A track is now one of two kinds (as in Ableton): an **instrument track** (MIDI clips
+through a patch, as before) or an **audio track**.
+
+* **Model.** `Track` is a discriminated union (`kind: 'instrument' | 'audio'`; `isInstrumentTrack` / `isAudioTrack`).
+  An `AudioClip` is `{ sampleId, lengthBeats, loop, warp, gain }`. Instrument-only edits (`setClipNotes`,
+  `setTrackVoices`, …) leave audio tracks untouched. Removing a library sample removes the audio clips that used it
+  (and clears sampler nodes); undo restores both. Files from before this have no `kind` and load as instrument tracks.
+* **Tempo without time-stretching.** `warp: 'repitch'` (default) says the clip spans `lengthBeats` and speeds the
+  sample up or down to fit at the current tempo, like Ableton's Re-Pitch mode, so it stays in time at the cost of
+  pitch following speed (the editor says so: "×0.92 speed (−1.5 semitones) at 110 BPM"). `warp: 'off'` plays at
+  original speed regardless of tempo. A sample's length in beats is guessed from a tempo in its file name
+  ("… 98 BPM") or else the project tempo; **Fit to tempo** redoes that guess. Real time-stretch is not implemented.
+* **Phase-locked, never accumulated.** In re-pitch mode the read position is *derived from the transport beat*
+  (`repitchPosition`: `(beats since start mod length) / length × sample length`), not advanced sample by sample. So a
+  loop cannot drift, and tempo changes mid-clip are seamless. This is covered by a test that changes tempo five times
+  while playing and checks every block against the beat clock.
+* **One launch state machine for both kinds.** `LaunchQueue` (queued launch/stop applied at the next bar boundary,
+  clip edits swapped in by id) is shared by `ClipLauncher` (adds note events and held-note tracking) and
+  `AudioClipLauncher` (just `start` / `stop` at a beat). The 12 original MIDI-launcher tests passed unchanged through
+  the extraction.
+* **Engine.** Both runtimes implement `PlayableTrack` (launch, status, `schedule(from, to)`, `mixInto`). `schedule`
+  returns actions pinned to a beat; the engine runs each at its exact sample, so an audio clip starts on the bar
+  line to the sample (tested). `mixInto` receives a `MixTiming` (beat at the segment start, beats per sample), which
+  is how audio stays on the grid. What *sounds* is reported by the player, not the queue, so a finished one-shot stops
+  showing as playing. Commands: `track/add` has a `kind`; audio clips travel as `track/setAudioClips`.
+* **UI.** The session `+` is a menu (instrument or audio track); an empty audio slot's `+` lists the library samples;
+  audio slots show a mini waveform and share the context menu. `AudioClipEditor` shows the waveform across the clip's
+  length with the beat grid over it (kicks on beats 1 and 3 line up visibly), a playhead, and controls for sample,
+  warp, loop, length, fit and gain. The Samples tab has *New audio track*. Instrument-tab content for an audio track
+  explains it has no instrument. A 120 BPM demo drum loop ships in **Add demo samples**.
+* **Menus.** `ui/shared/menu` now holds `ContextMenu` (right-click) and `PopupMenu` (click on a trigger), both over
+  Radix with one shared entry renderer and stylesheet, so they look and behave identically.
 
 ## Conventions
 
@@ -278,6 +308,10 @@ chorus, …). The patcher palette, parameter UI, engine and file loader pick it 
 from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off UI action, expose it on
 `EngineControls` (`state/engine-controls.tsx`) and implement it in `app/engine-controls.ts`.
 
+**Add another kind of track** — extend the `Track` union, add its runtime implementing `PlayableTrack`, a `track/add`
+variant and diff in `core/sync`, a sanitizer in `persistence`, and a slot variant in the session grid; `Engine` and the
+launcher queue need no changes.
+
 **Add a UI feature** — new folder under `ui/`, read state via `@state` hooks, mount it from `Workspace` or
 `EditorPanel`.
 
@@ -287,6 +321,8 @@ from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off
 ## Known POC limits (deliberate)
 
 * One clip plays per track. Polyphony has simple voice stealing and no unison, glide or legato modes.
+* Audio clips have no time-stretch (only re-pitch or original speed), no start offset/trim, no fades or loop crossfade
+  (a loop whose ends don't match will click), and no recording. Audio is mono.
 * The piano roll assumes 4/4 for the ruler and its clipboard is not shared with the OS clipboard. Groove tools are
   destructive edits (undoable), not a reusable groove pool; swing and quantize use the toolbar grid, which has no
   triplet options yet.

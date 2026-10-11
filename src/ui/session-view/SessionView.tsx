@@ -1,4 +1,5 @@
 import { useEngineControls, useProjectStore } from '@state'
+import { PopupMenu } from '../shared/menu'
 import { ClipSlot } from './ClipSlot'
 import styles from './SessionView.module.css'
 import { TrackHeader } from './TrackHeader'
@@ -9,6 +10,7 @@ export const SessionView = () => {
   const tracks = useProjectStore((state) => state.project.tracks)
   const sceneCount = useProjectStore((state) => state.project.sceneCount)
   const addTrack = useProjectStore((state) => state.addTrack)
+  const addAudioTrack = useProjectStore((state) => state.addAudioTrack)
 
   const columns = `repeat(${tracks.length}, minmax(150px, 1fr)) 56px`
 
@@ -17,9 +19,16 @@ export const SessionView = () => {
       {tracks.map((track) => (
         <TrackHeader key={track.id} track={track} />
       ))}
-      <button className={styles.addTrack} onClick={addTrack} aria-label="Add track">
-        +
-      </button>
+      <PopupMenu
+        entries={[
+          { label: 'Instrument track', onSelect: addTrack },
+          { label: 'Audio track', onSelect: addAudioTrack },
+        ]}
+      >
+        <button className={styles.addTrack} aria-label="Add track">
+          +
+        </button>
+      </PopupMenu>
 
       {Array.from({ length: sceneCount }, (_, scene) => (
         <SceneRow key={scene} scene={scene} onLaunch={() => controls.launchScene(scene)} />
@@ -33,7 +42,7 @@ const SceneRow = ({ scene, onLaunch }: { scene: number; onLaunch: () => void }) 
   return (
     <>
       {tracks.map((track) => (
-        <ClipSlot key={track.id} trackId={track.id} scene={scene} clip={track.clips[scene] ?? null} />
+        <ClipSlot key={track.id} track={track} scene={scene} />
       ))}
       <button className={styles.scene} onClick={onLaunch} aria-label={`Launch scene ${scene + 1}`}>
         ▶ {scene + 1}

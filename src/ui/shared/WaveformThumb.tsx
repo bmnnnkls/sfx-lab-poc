@@ -22,11 +22,15 @@ export const WaveformThumb = ({ sampleId, width = 160, height = 32 }: WaveformTh
     if (!peaks) return
 
     context.fillStyle = getComputedStyle(element).getPropertyValue('--accent').trim() || '#f5a524'
-    const barWidth = width / peaks.length
-    peaks.forEach((peak, index) => {
+    // One column per pixel: the loudest peak that falls under it, so any amount of detail draws cleanly.
+    for (let x = 0; x < width; x++) {
+      const from = Math.floor((x * peaks.length) / width)
+      const to = Math.max(from + 1, Math.floor(((x + 1) * peaks.length) / width))
+      let peak = 0
+      for (let i = from; i < to; i++) peak = Math.max(peak, peaks[i] ?? 0)
       const barHeight = Math.max(1, peak * height)
-      context.fillRect(index * barWidth, (height - barHeight) / 2, Math.max(1, barWidth - 1), barHeight)
-    })
+      context.fillRect(x, (height - barHeight) / 2, 1, barHeight)
+    }
   }, [peaks, width, height])
 
   const message =

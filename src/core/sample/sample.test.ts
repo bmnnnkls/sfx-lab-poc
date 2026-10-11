@@ -44,7 +44,9 @@ describe('demo samples', () => {
   it('are deterministic, audible and not clipping', () => {
     const first = createDemoSamples()
     const second = createDemoSamples()
-    expect(first.map((s) => s.name)).toEqual(['Demo Kick', 'Demo Snare', 'Demo Hat', 'Demo Pluck C4'])
+    expect(first.map((s) => s.name)).toEqual([
+      'Demo Kick', 'Demo Snare', 'Demo Hat', 'Demo Pluck C4', 'Demo Drum Loop 120 BPM',
+    ])
 
     for (const [index, sample] of first.entries()) {
       expect(Array.from(sample.bytes)).toEqual(Array.from(second[index]!.bytes)) // stable ids
@@ -64,5 +66,22 @@ describe('SampleBank', () => {
     expect(bank.get('a')?.sampleRate).toBe(44100)
     bank.delete('a')
     expect(bank.get('a')).toBeUndefined()
+  })
+})
+
+describe('demo drum loop', () => {
+  const loop = createDemoSamples().find((sample) => sample.name.includes('Loop'))!
+
+  it('is exactly one bar at 120 BPM (4 beats = 2 seconds), so it loops without a seam', () => {
+    const view = new DataView(loop.bytes.buffer)
+    const sampleRate = view.getUint32(24, true)
+    const frames = view.getUint32(40, true) / 2
+    expect(frames / sampleRate).toBeCloseTo(2, 3)
+  })
+
+  it('names its tempo so an audio clip can work out its length', async () => {
+    const { guessLengthBeats } = await import('../project')
+    const info = { id: 'x'.repeat(64), name: loop.name, extension: 'wav', durationSeconds: 2, sampleRate: 44100, channels: 1, bytes: 1 }
+    expect(guessLengthBeats(info, 77)).toBe(4) // regardless of the project tempo
   })
 })
