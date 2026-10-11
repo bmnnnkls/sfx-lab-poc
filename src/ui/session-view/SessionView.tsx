@@ -2,6 +2,7 @@ import { useEngineControls, useProjectStore } from '@state'
 import { useMemo } from 'react'
 import { PopupMenu } from '../shared/menu'
 import { ClipSlot } from './ClipSlot'
+import { MasterHeader } from './MasterHeader'
 import styles from './SessionView.module.css'
 import { TrackHeader } from './TrackHeader'
 import { sessionOrder } from './track-order'
@@ -16,13 +17,14 @@ export const SessionView = () => {
   const addAudioTrack = useProjectStore((state) => state.addAudioTrack)
   const addReturnTrack = useProjectStore((state) => state.addReturnTrack)
 
-  const columns = `repeat(${tracks.length}, minmax(150px, 1fr)) 56px`
+  const columns = `repeat(${tracks.length + 1}, minmax(150px, 1fr)) 56px` // the tracks, then the master
 
   return (
     <div className={styles.grid} style={{ gridTemplateColumns: columns }}>
       {tracks.map((track) => (
         <TrackHeader key={track.id} track={track} />
       ))}
+      <MasterHeader />
       <PopupMenu
         entries={[
           { label: 'Instrument track', onSelect: addTrack },
@@ -50,6 +52,7 @@ const SceneRow = ({ scene, onLaunch }: { scene: number; onLaunch: () => void }) 
       {tracks.map((track) => (
         <ClipSlot key={track.id} track={track} scene={scene} />
       ))}
+      <div className={styles.returnSlot} aria-hidden />
       <button className={styles.scene} onClick={onLaunch} aria-label={`Launch scene ${scene + 1}`}>
         ▶ {scene + 1}
       </button>

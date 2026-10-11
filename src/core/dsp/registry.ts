@@ -9,7 +9,7 @@ import { monoSumNode } from './nodes/mono-sum.node'
 import { outputNode } from './nodes/output.node'
 import { panNode } from './nodes/pan.node'
 import { pingPongNode } from './nodes/ping-pong.node'
-import { returnInNode } from './nodes/return-in.node'
+import { masterInNode, returnInNode } from './nodes/return-in.node'
 import { reverbNode } from './nodes/reverb.node'
 import { sendNode } from './nodes/send.node'
 import { samplerNode } from './nodes/sampler.node'
@@ -38,6 +38,7 @@ export const nodeDefinitions: readonly NodeDefinition[] = [
   pingPongNode,
   monoSumNode,
   returnInNode,
+  masterInNode,
   sendNode,
 ]
 

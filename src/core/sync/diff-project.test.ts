@@ -23,9 +23,9 @@ describe('diffProject', () => {
   const project = createDemoProject()
   const track = project.tracks[0] as InstrumentTrack
 
-  it('describes a whole project as tempo + one add per track when starting from nothing', () => {
+  it('describes a whole project as tempo + master graph + one add per track when starting from nothing', () => {
     const commands = diffProject(null, project)
-    expect(commands.map((c) => c.type)).toEqual(['transport/setTempo', 'track/add', 'track/add', 'track/add'])
+    expect(commands.map((c) => c.type)).toEqual(['transport/setTempo', 'master/setFx', 'track/add', 'track/add', 'track/add'])
   })
 
   it('emits nothing for an identical project', () => {
@@ -116,6 +116,31 @@ describe('diffProject', () => {
 
     it('a default graph for a fresh track is what the model starts with', () => {
       expect(createAudioTrack('x', 1).fx.nodes.map((n) => n.type)).toEqual(createDefaultFxGraph().nodes.map((n) => n.type))
+    })
+  })
+
+  describe('the master bus', () => {
+    const reverb = noteGraphFrom([{ id: 'in', type: 'masterIn' }, { id: 'r', type: 'stereoReverb' }, { id: 'out', type: 'trackOut' }], ['in.out>r.in', 'r.out>out.in'])
+    const withMaster = editPatchAt(project, { master: true }, () => reverb)
+
+    it('sends the master graph when the project is loaded', () => {
+      expect(diffProject(null, withMaster).filter((c) => c.type === 'master/setFx')).toEqual([{ type: 'master/setFx', graph: reverb }])
+    })
+
+    it('rebuilds it when its wiring changes, and only then', () => {
+      expect(diffProject(project, withMaster)).toEqual([{ type: 'master/setFx', graph: reverb }])
+      expect(diffProject(withMaster, editPatchAt(withMaster, { master: true }, (fx) => moveNode(fx, 'r', 400, 100)))).toEqual([])
+    })
+
+    it('maps a knob on a master effect to master/setParam, so its tail survives', () => {
+      const next = editPatchAt(withMaster, { master: true }, (fx) => setNodeParam(fx, 'r', 'mix', 0.9))
+      expect(diffProject(withMaster, next)).toEqual([{ type: 'master/setParam', nodeId: 'r', paramId: 'mix', value: 0.9 }])
+    })
+
+    it('flattens a module used on the master, like everywhere else', () => {
+      const grouped = groupNodesAsModule(withMaster, { master: true }, ['r'], 'Wash')
+      const [command] = diffProject(null, grouped).filter((c) => c.type === 'master/setFx')
+      expect(command?.type === 'master/setFx' && command.graph.nodes.some((n) => n.type === 'module')).toBe(false)
     })
   })
 

@@ -31,6 +31,7 @@ sandbox's. Change them (or install `playwright`) elsewhere.
 | `stereo.mjs` | stereo: per-channel level of the real output, pan, mono-into-stereo rules and the M / L R switch, stereo reverb, persistence |
 | `returns.mjs` | return tracks and the Send node: the + menu, a return's effects, a send to it heard through a turned-down track, the tail after the clip stops, removing the return and undo, loop refusal, persistence |
 | `sends.mjs` | send knobs: shown only when returns exist, per return, post-fader, one undo step per drag, removed with the return, persistence |
+| `master.mjs` | the Master strip: its graph on the final mix, a master gain silencing every track, a master reverb tail, undo, persistence |
 | `notegraph.mjs` | the note graph: split, merge, bypass, notes from another track (real audio), loop refusal, note modules, persistence |
 
 ## Conventions inside the scripts

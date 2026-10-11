@@ -95,6 +95,11 @@ interface ProjectActions {
     edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
     mergeKey?: string,
   ): void
+  /** Like `updatePatch`, for the master bus's graph (the effects on the final mix). */
+  updateMasterFx(
+    edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
+    mergeKey?: string,
+  ): void
   /** Like `updatePatch`, for the track's note graph (what happens to notes before the instrument). */
   updateNoteGraph(
     trackId: string,
@@ -195,6 +200,8 @@ export const useProjectStore = create<ProjectState>((set) => {
       edit((project) => editPatchAt(project, { trackId }, change), mergeKey),
     updateFx: (trackId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { trackId, graph: 'fx' }, change), mergeKey),
+    updateMasterFx: (change, mergeKey) =>
+      edit((project) => editPatchAt(project, { master: true }, change), mergeKey),
     updateNoteGraph: (trackId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { trackId, graph: 'notes' }, change), mergeKey),
     updateModulePatch: (moduleId, change, mergeKey) =>

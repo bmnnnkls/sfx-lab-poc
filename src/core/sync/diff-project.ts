@@ -15,8 +15,8 @@ const structureOf = (patch: Patch): string =>
  * track that uses it.
  */
 const diffPatch = (
-  /** `patch` is the instrument's sound patch, `fx` the track's insert graph. */
-  slot: 'patch' | 'fx',
+  /** `patch` is the instrument's sound patch, `fx` a track's insert graph, `master` the master bus's. */
+  slot: 'patch' | 'fx' | 'master',
   trackId: string,
   prevPatch: Patch,
   prevModules: ModuleLibrary,
@@ -28,7 +28,13 @@ const diffPatch = (
   const next = flattenPatch(nextPatch, nextModules)
   if (prev === next) return []
   if (structureOf(prev) !== structureOf(next)) {
-    return [slot === 'fx' ? { type: 'track/setFx', trackId, graph: next } : { type: 'track/setPatch', trackId, patch: next }]
+    return [
+      slot === 'master'
+        ? { type: 'master/setFx', graph: next }
+        : slot === 'fx'
+          ? { type: 'track/setFx', trackId, graph: next }
+          : { type: 'track/setPatch', trackId, patch: next },
+    ]
   }
 
   // Same wiring: push only what changed so knobs and pickers work without rebuilding the voice.
@@ -37,16 +43,20 @@ const diffPatch = (
     const before = prev.nodes.find((candidate) => candidate.id === node.id)
     for (const [paramId, value] of Object.entries(node.params)) {
       if (before?.params[paramId] !== value) {
-        commands.push({ type: 'track/setParam', trackId, nodeId: node.id, paramId, value })
+        commands.push(
+          slot === 'master'
+            ? { type: 'master/setParam', nodeId: node.id, paramId, value }
+            : { type: 'track/setParam', trackId, nodeId: node.id, paramId, value },
+        )
       }
     }
     if (before?.sampleId !== node.sampleId) {
-      commands.push({
-        type: 'track/setSample',
-        trackId,
-        nodeId: node.id,
-        sampleId: node.sampleId ?? null,
-      })
+      const sampleId = node.sampleId ?? null
+      commands.push(
+        slot === 'master'
+          ? { type: 'master/setSample', nodeId: node.id, sampleId }
+          : { type: 'track/setSample', trackId, nodeId: node.id, sampleId },
+      )
     }
   }
   return commands
@@ -139,6 +149,11 @@ const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
 export const diffProject = (prev: Project | null, next: Project): EngineCommand[] => {
   const commands: EngineCommand[] = []
   if (prev?.tempo !== next.tempo) commands.push({ type: 'transport/setTempo', bpm: next.tempo })
+  commands.push(
+    ...(prev === null
+      ? [{ type: 'master/setFx' as const, graph: flattenPatch(next.master.fx, next.modules) }]
+      : diffPatch('master', '', prev.master.fx, prev.modules, next.master.fx, next.modules)),
+  )
 
   const before = prev?.modules ?? []
   const prevTracks = new Map((prev?.tracks ?? []).map((track) => [track.id, track]))

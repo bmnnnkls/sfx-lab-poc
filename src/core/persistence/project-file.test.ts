@@ -256,6 +256,48 @@ describe('return tracks and sends in files', () => {
   })
 })
 
+describe('the master bus in files', () => {
+  const node = (id: string, type: string, extra: Record<string, unknown> = {}) => ({ id, type, x: 0, y: 0, params: {}, ...extra })
+  const types = (fx: { nodes: readonly { type: string }[] }) => fx.nodes.map((n) => n.type)
+
+  it('gives files saved before the master bus the default graph, silently', () => {
+    const { project: loaded, warnings } = parseOk(envelope(project({})))
+    expect(types(loaded.master.fx)).toEqual(['masterIn', 'trackOut'])
+    expect(loaded.master.fx.connections).toHaveLength(1)
+    expect(warnings).toEqual([])
+  })
+
+  it('round-trips a master graph with effects', () => {
+    const base = createDemoProject()
+    const withMaster = {
+      ...base,
+      master: { fx: noteGraphFrom([{ id: 'i', type: 'masterIn' }, { id: 'w', type: 'width', params: { width: 1.5 } }, { id: 'r', type: 'stereoReverb' }, { id: 'o', type: 'trackOut' }], ['i.out>w.in', 'w.out>r.in', 'r.out>o.in']) },
+    }
+    const result = parseOk(serializeProject(withMaster))
+    expect(result.project).toEqual(withMaster)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('cleans a hand-edited master graph like any other, and falls back to the default for garbage', () => {
+    const fx = {
+      nodes: [node('i', 'masterIn'), node('n', 'transpose'), node('f', 'filter', { params: { cutoff: 1e9 } }), node('o', 'trackOut')],
+      connections: [
+        { id: 'a', from: { node: 'i', port: 'out' }, to: { node: 'f', port: 'in' } }, // stereo into a mono filter: not allowed
+        { id: 'b', from: { node: 'f', port: 'out' }, to: { node: 'o', port: 'in' } },
+      ],
+    }
+    const { project: loaded, warnings } = parseOk(envelope(project({ master: { fx } })))
+    expect(types(loaded.master.fx)).toEqual(['masterIn', 'filter', 'trackOut'])
+    expect(loaded.master.fx.nodes[1]!.params.cutoff).toBe(20000)
+    expect(loaded.master.fx.connections.map((c) => c.id)).toEqual(['b'])
+    expect(warnings.join('\n')).toMatch(/Master effects/)
+
+    for (const master of ['x', 5, null, [], { fx: 'y' }]) {
+      expect(types(parseOk(envelope(project({ master }))).project.master.fx)).toEqual(['masterIn', 'trackOut'])
+    }
+  })
+})
+
 describe('rejecting bad files', () => {
   it.each([
     ['not json', 'nope{', /not valid JSON/],

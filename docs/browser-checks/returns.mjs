@@ -46,7 +46,7 @@ const entries = await page.getByRole('menuitem').allTextContents()
 check('the + menu offers a return track', entries.includes('Return track'), JSON.stringify(entries))
 await page.getByRole('menuitem', { name: 'Return track' }).click()
 check('the return track appears, tagged, with no clips and no stop button', (await trackBtn('Return A').count()) === 1 && (await page.getByRole('button', { name: 'Stop Return A' }).count()) === 0)
-check('it is shown after the clip tracks', (await page.locator('[class*="_trackName_"]').allTextContents()).at(-1)?.startsWith('Return A') === true)
+check('it is shown after the clip tracks', (await page.locator('[class*="_trackName_"]').allTextContents()).filter((name) => name !== 'Master').at(-1)?.startsWith('Return A') === true)
 
 await trackBtn('Return A').click()
 await effects()

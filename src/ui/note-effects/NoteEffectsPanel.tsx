@@ -11,6 +11,9 @@ import styles from './NoteEffects.module.css'
 export const NoteEffectsPanel = () => {
   const tracks = useProjectStore((state) => state.project.tracks)
   const selectedId = useSelectionStore((state) => state.trackId)
+  const master = useSelectionStore((state) => state.master)
+
+  if (master) return <p className={styles.empty}>The master bus has no notes to process.</p>
 
   const track =
     tracks.find((candidate) => candidate.id === selectedId) ?? tracks.find((candidate) => candidate.kind === 'instrument')
@@ -25,5 +28,5 @@ export const NoteEffectsPanel = () => {
       </p>
     )
   }
-  return <GraphEditor key={track.id} track={track} graph="notes" aside={<HeardNotes track={track} />} />
+  return <GraphEditor key={track.id} owner={track} graph="notes" aside={<HeardNotes track={track} />} />
 }

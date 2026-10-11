@@ -54,6 +54,12 @@
   border-color: var(--accent);
 }
 
+.masterHeader {
+  grid-template-columns: 1fr auto;
+  align-content: start;
+  border-width: 2px;
+}
+
 .returnHeader {
   border-style: dashed;
 }

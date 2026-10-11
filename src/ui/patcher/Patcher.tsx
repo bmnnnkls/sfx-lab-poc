@@ -6,6 +6,9 @@ import styles from './Patcher.module.css'
 export const Patcher = () => {
   const tracks = useProjectStore((state) => state.project.tracks)
   const selectedId = useSelectionStore((state) => state.trackId)
+  const master = useSelectionStore((state) => state.master)
+
+  if (master) return <p className={styles.empty}>The master bus has no instrument: its effects are in the Effects tab.</p>
 
   // Fall back to the first instrument track when nothing (or an audio track) is selected.
   const track =
@@ -27,5 +30,5 @@ export const Patcher = () => {
       </p>
     )
   }
-  return <GraphEditor key={track.id} track={track} graph="patch" />
+  return <GraphEditor key={track.id} owner={track} graph="patch" />
 }

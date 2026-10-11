@@ -1,5 +1,7 @@
 import {
+  MASTER_IN_TYPE,
   RETURN_IN_TYPE,
+  SEND_TYPE,
   TRACK_IN_TYPE,
   type ModuleLibrary,
   type Patch,
@@ -50,19 +52,30 @@ const graphOf = (track: Track, graph: TrackGraph): Patch =>
 
 const VOICE_OPTIONS = [1, 2, 3, 4, 6, 8, 12, 16]
 
+/** Where an insert graph starts: a return track at Return in, the master at Master in, every other track at Track in. */
+const START: Record<Track['kind'] | 'master', string> = {
+  instrument: TRACK_IN_TYPE,
+  audio: TRACK_IN_TYPE,
+  return: RETURN_IN_TYPE,
+  master: MASTER_IN_TYPE,
+}
+const STARTS = new Set(Object.values(START))
+
 /** What each kind of graph may offer in its palette: the insert graph has its own ends and no note-driven sources. */
-const paletteFor = (graph: TrackGraph, kind: Track['kind']) => {
+const paletteFor = (graph: TrackGraph, kind: Track['kind'] | 'master') => {
   if (graph === 'notes') return noteNodeDefinitions
   return nodeDefinitions.filter((definition) => {
     if (graph !== 'fx') return definition.insertOnly !== true
-    // A return track starts at Return in, every other track at Track in.
-    if (definition.type === (kind === 'return' ? TRACK_IN_TYPE : RETURN_IN_TYPE)) return false
+    if (STARTS.has(definition.type)) return definition.type === START[kind]
+    // The master mix is not sent anywhere: the return tracks are mixed before it.
+    if (kind === 'master' && definition.type === SEND_TYPE) return false
     return definition.type !== 'note' && definition.type !== 'output' && definition.usesSample !== true
   })
 }
 
 interface GraphEditorProps {
-  track: Track
+  /** The track whose graph is edited, or `master` for the master bus's. */
+  owner: Track | 'master'
   /**
    * `patch`: the instrument's sound patch. `fx`: the track's insert graph (any track). `notes`: the note graph
    * between the clips and the instrument.
@@ -76,7 +89,9 @@ interface GraphEditorProps {
  * Node editor for one track's sound patch or note graph, or (one level at a time) the inside of a module it uses.
  * Both kinds of graph share everything: selecting, wiring, grouping into modules, editing modules in place.
  */
-export const GraphEditor = ({ track, graph, aside }: GraphEditorProps) => {
+export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
+  const track = owner === 'master' ? undefined : owner
+  const masterFx = useProjectStore((state) => state.project.master.fx)
   const domain = graph === 'notes' ? 'notes' : 'audio'
   const modules = useProjectStore((state) => state.project.modules)
   const store = useProjectStore.getState
@@ -90,9 +105,9 @@ export const GraphEditor = ({ track, graph, aside }: GraphEditorProps) => {
   const missing = path.findIndex((id) => !modules.some((module) => module.id === id))
   const known = missing === -1 ? path : path.slice(0, missing)
   const definition = modules.find((module) => module.id === known.at(-1))
-  const target: PatchTarget = definition ? { moduleId: definition.id } : { trackId: track.id, graph }
-  const patch = definition ? definition.patch : graphOf(track, graph)
-  const scope = definition ? definition.id : `${track.id}:${graph}`
+  const target: PatchTarget = definition ? { moduleId: definition.id } : track ? { trackId: track.id, graph } : { master: true }
+  const patch = definition ? definition.patch : track ? graphOf(track, graph) : masterFx
+  const scope = definition ? definition.id : `${track?.id ?? 'master'}:${graph}`
 
   const enter = (next: readonly string[]) => {
     setPath(next)
@@ -100,6 +115,7 @@ export const GraphEditor = ({ track, graph, aside }: GraphEditorProps) => {
   }
   const edit = (change: PatchEdit, mergeKey?: string) => {
     if (definition) store().updateModulePatch(definition.id, change, mergeKey)
+    else if (!track) store().updateMasterFx(change, mergeKey)
     else if (graph === 'notes') store().updateNoteGraph(track.id, change, mergeKey)
     else if (graph === 'fx') store().updateFx(track.id, change, mergeKey)
     else store().updatePatch(track.id, change, mergeKey)
@@ -110,14 +126,14 @@ export const GraphEditor = ({ track, graph, aside }: GraphEditorProps) => {
     const kind = moduleDomain(module, modules)
     return (kind === undefined || kind === domain) && !(definition && containsModule(modules, module.id, definition.id))
   })
-  const title = `${track.name}${SUFFIX[graph]}`
+  const title = track ? `${track.name}${SUFFIX[graph]}` : 'Master effects'
   const crumbs = [{ label: title, path: [] as string[] }].concat(
     known.map((id, index) => ({
       label: modules.find((module) => module.id === id)?.name ?? '',
       path: known.slice(0, index + 1) as string[],
     })),
   )
-  const palette = paletteFor(graph, track.kind)
+  const palette = paletteFor(graph, track?.kind ?? 'master')
 
   return (
     <div className={styles.patcher} data-editing={definition ? 'module' : 'track'} data-domain={domain} data-graph={graph}>
@@ -148,7 +164,7 @@ export const GraphEditor = ({ track, graph, aside }: GraphEditorProps) => {
         )}
         <div className={styles.toolbar}>
           {!definition && <strong>{title}</strong>}
-          {!definition && graph === 'patch' && track.kind === 'instrument' && (
+          {!definition && graph === 'patch' && track?.kind === 'instrument' && (
             <label className={styles.voices} title="Maximum simultaneous notes for this instrument">
               Voices
               <select value={track.voices} onChange={(event) => setTrackVoices(track.id, Number(event.target.value))}>
@@ -191,7 +207,7 @@ export const GraphEditor = ({ track, graph, aside }: GraphEditorProps) => {
           patch={patch}
           modules={modules}
           selected={selected}
-          ownerTrackId={track.id}
+          ownerTrackId={track?.id ?? ''}
           showStages={graph === 'patch'}
           onSelectionChange={setSelected}
           onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}

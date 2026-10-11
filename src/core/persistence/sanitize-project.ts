@@ -9,7 +9,7 @@ import {
   type Project,
   type Track,
 } from '../project'
-import { type ModuleDefinition, createDefaultFxGraph, createDefaultNoteGraph, createDefaultReturnGraph } from '../patch'
+import { type ModuleDefinition, createDefaultFxGraph, createDefaultMasterGraph, createDefaultNoteGraph, createDefaultReturnGraph } from '../patch'
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
@@ -115,6 +115,13 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     sceneCount,
     samples,
     modules,
+    // Files from before the master bus existed have none: the mix passes through untouched.
+    master: {
+      fx:
+        isRecord(raw.master) && isRecord(raw.master.fx)
+          ? sanitizePatch(raw.master.fx, 'Master effects', sampleIds, modules, warn)
+          : createDefaultMasterGraph(),
+    },
     tracks: repairSendLevels(repairTrackReferences(tracks, modules, warn), warn),
   }
 }

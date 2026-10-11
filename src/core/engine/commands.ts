@@ -40,6 +40,9 @@ export type EngineCommand =
   | { readonly type: 'track/remove'; readonly trackId: string }
   | { readonly type: 'track/setPatch'; readonly trackId: string; readonly patch: Patch }
   | { readonly type: 'track/setFx'; readonly trackId: string; readonly graph: Patch }
+  | { readonly type: 'master/setFx'; readonly graph: Patch }
+  | { readonly type: 'master/setParam'; readonly nodeId: string; readonly paramId: string; readonly value: number }
+  | { readonly type: 'master/setSample'; readonly nodeId: string; readonly sampleId: string | null }
   | { readonly type: 'track/setNoteGraph'; readonly trackId: string; readonly graph: Patch }
   | { readonly type: 'track/setVoices'; readonly trackId: string; readonly voices: number }
   | { readonly type: 'track/setClips'; readonly trackId: string; readonly clips: readonly (Clip | null)[] }

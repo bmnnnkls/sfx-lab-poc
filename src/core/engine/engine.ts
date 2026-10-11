@@ -1,5 +1,7 @@
-import { MAX_BLOCK_FRAMES } from '../instrument'
+import { RIGHT, STEREO_FRAMES } from '../dsp'
+import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
 import type { TapBoard } from '../notefx'
+import { createDefaultMasterGraph } from '../patch'
 import { SampleBank } from '../sample'
 import type { LauncherStatus } from '../session'
 import { Transport } from '../transport'
@@ -37,10 +39,14 @@ export class Engine {
   private readonly taps: TapBoard = new Map()
   /** What the tracks sent to each return track in the stretch being mixed. */
   private readonly sends = new AudioBoard()
+  /** The master bus's insert graph, on the mix of all tracks (a pass-through until the project sets one). */
+  private master: FxGraph
+  private readonly masterInput = new Float32Array(STEREO_FRAMES)
 
   constructor(private readonly sampleRate: number) {
     this.transport = new Transport(sampleRate)
     this.preview = new SamplePreview(sampleRate)
+    this.master = new FxGraph(createDefaultMasterGraph(), sampleRate, this.samples)
   }
 
   apply(command: EngineCommand): void {
@@ -64,6 +70,15 @@ export class Engine {
         break
       case 'track/setPatch':
         this.instrument(command.trackId)?.setPatch(command.patch)
+        break
+      case 'master/setFx':
+        this.master = new FxGraph(command.graph, this.sampleRate, this.samples)
+        break
+      case 'master/setParam':
+        this.master.setParam(command.nodeId, command.paramId, command.value)
+        break
+      case 'master/setSample':
+        this.master.setSample(command.nodeId, command.sampleId)
         break
       case 'track/setFx':
         this.tracks.get(command.trackId)?.setFx(command.graph)
@@ -135,7 +150,9 @@ export class Engine {
     for (let offset = 0; offset < left.length; offset += MAX_BLOCK_FRAMES) {
       const frames = Math.min(MAX_BLOCK_FRAMES, left.length - offset)
       this.renderBlock(left, right, offset, frames)
+      this.processMaster(left, right, offset, frames)
     }
+    // A sample being auditioned is not part of the mix, so it skips the master graph.
     this.preview.mixInto(left, right)
     softClip(left)
     softClip(right)
@@ -154,6 +171,20 @@ export class Engine {
   private stopTransport(): void {
     this.transport.stop()
     for (const track of this.tracks.values()) track.reset()
+  }
+
+  /** Runs the mix of the block through the master graph, in place. */
+  private processMaster(left: Float32Array, right: Float32Array, offset: number, frames: number): void {
+    const input = this.masterInput
+    for (let i = 0; i < frames; i++) {
+      input[i] = left[offset + i] ?? 0
+      input[RIGHT + i] = right[offset + i] ?? 0
+    }
+    const output = this.master.process(input, frames)
+    for (let i = 0; i < frames; i++) {
+      left[offset + i] = output[i] ?? 0
+      right[offset + i] = output[RIGHT + i] ?? 0
+    }
   }
 
   private renderBlock(left: Float32Array, right: Float32Array, offset: number, frames: number): void {

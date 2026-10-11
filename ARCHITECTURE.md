@@ -43,7 +43,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `dsp` | node library: definitions (ports, params, factory) + processors | `nodeDefinitions`, `requireNodeDefinition`, types |
 | `patch` | immutable node-graph model + pure edit operations | `Patch`, `addNode`, `connect`, `canConnect`, … |
 | `instrument` | compiles a `Patch` into a polyphonic synth (voice pool + shared effects) or a track's insert graph (`FxGraph`) | `Instrument`, `FxGraph`, `classifyStages` |
-| `project` | the saveable document: tracks, clips, notes, tempo, name; pure note/clip edit operations | `Project`, edit functions, `moveNotes`, `resizeNotesEnd`, `setClipLength`, … |
+| `project` | the saveable document: tracks (instrument, audio, return), the master bus, clips, notes, tempo, name; pure note/clip edit operations | `Project`, edit functions, `moveNotes`, `resizeNotesEnd`, `setClipLength`, … |
 | `transport` | sample-accurate beat clock | `Transport` |
 | `session` | clip launching: a shared quantized `LaunchQueue`, the MIDI `ClipLauncher` (note events) and `AudioClipLauncher` (start/stop events) | `ClipLauncher`, `AudioClipLauncher` |
 | `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` | `Engine`, `EngineCommand`, `EngineStatus` |
@@ -318,6 +318,27 @@ add together on the same return. A track's send targets for ordering are its Sen
 * `track/setSends` carries the whole record; `track/add` carries it too. Persistence reads numbers clamped to 0..1
   (`readSends`), and `repairSendLevels` drops entries for tracks that are not return tracks of the file, with a warning.
 * The header shows the knobs only when return tracks exist and never on a return track; each says "post-fader" in its tooltip.
+
+## The master bus
+
+`Project.master` (`MasterBus { fx: Patch }`) is an insert graph on the final mix: `Master in -> effects -> Track out`, in
+stereo, with the same graph editor, modules and persistence as every other graph (`PatchTarget { master: true }`). Nothing
+sends to it; it just processes what the tracks and returns have summed.
+
+* **Engine.** `Engine.render` runs the master `FxGraph` on each block of the mix after the tracks are mixed (`processMaster`)
+  and before the sample preview (an audition is not part of the mix) and the output soft clip, so a limiter or glue reverb
+  sits where it should. It runs every block, so tails ring on after the tracks stop. The engine starts with a pass-through
+  graph; `master/setFx` replaces it (restarting its tails), `master/setParam` and `master/setSample` are the knob and picker
+  changes. `diffProject` sends `master/setFx` when a project is loaded, then only what changed, by the same function that
+  diffs track graphs (`diffPatch('master', ...)`).
+* **Nodes.** `Master in` is the same stereo source as `Return in` (one implementation, two names). The master's palette
+  has `Master in`, not `Track in`, `Return in` or `Send` (the returns are mixed before the master, so there is nothing to
+  send to).
+* **Project.** The default graph comes with every new project, files without one load with it silently, and a stored one
+  goes through `sanitizePatch`. Modules, `moduleUsage` ("Master" is listed as a user), `removeSample` and `removeTrack`
+  treat it like any track's graph.
+* **UI.** A **Master** strip ends the session grid (select it to open its graph in the Effects tab; the tab then edits
+  `GraphEditor owner="master"`); `useSelectionStore.master` says it is selected.
 
 ## Editing clips (piano roll)
 

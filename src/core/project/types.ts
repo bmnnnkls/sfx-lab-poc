@@ -102,6 +102,14 @@ export interface ReturnTrack extends TrackBase {
 
 export type Track = InstrumentTrack | AudioTrack | ReturnTrack
 
+/**
+ * The master bus: an insert graph on the final mix of all tracks, after they are summed and before the output limiter,
+ * `Master in` -> effects -> `Track out`, in stereo. Nothing sends to it; it just processes the mix.
+ */
+export interface MasterBus {
+  readonly fx: Patch
+}
+
 /** The saveable document. Everything the user authors lives here. */
 export interface Project {
   readonly name: string
@@ -111,5 +119,6 @@ export interface Project {
   readonly samples: readonly SampleInfo[]
   /** Reusable sub-patches (of sound or of notes). Patches use them by id, so editing one changes every use. */
   readonly modules: readonly ModuleDefinition[]
+  readonly master: MasterBus
   readonly tracks: readonly Track[]
 }

@@ -2,6 +2,7 @@ import {
   clearSampleReferences,
   clearTrackReferences,
   createDefaultFxGraph,
+  createDefaultMasterGraph,
   createDefaultNoteGraph,
   createDefaultPatch,
   createDefaultReturnGraph,
@@ -13,7 +14,7 @@ import { clamp, createId } from '../shared'
 import { createNote, notesEqual, shiftedCopies, trimNotesToLength } from './note-edit'
 import { clampAudioClip, createAudioClip } from './audio-clip'
 import { MAX_CLIP_BEATS, MIN_CLIP_BEATS } from './limits'
-import type { AudioClip, AudioTrack, Clip, InstrumentTrack, Note, Project, ReturnTrack, Track } from './types'
+import type { AudioClip, AudioTrack, Clip, InstrumentTrack, MasterBus, Note, Project, ReturnTrack, Track } from './types'
 
 export { MAX_CLIP_BEATS, MIN_CLIP_BEATS }
 
@@ -107,6 +108,7 @@ export const addTrack = (project: Project, track: Track): Project => ({
  */
 export const removeTrack = (project: Project, trackId: string): Project => ({
   ...project,
+  master: mapMasterFx(project.master, (fx) => clearTrackReferences(fx, trackId)),
   modules: mapModules(project.modules, (module) => {
     const patch = clearTrackReferences(module.patch, trackId)
     return patch === module.patch ? module : { ...module, patch }
@@ -127,6 +129,12 @@ export const setTempo = (project: Project, tempo: number): Project => ({
   ...project,
   tempo: clamp(tempo, MIN_TEMPO, MAX_TEMPO),
 })
+
+/** The master bus with `change` applied to its graph; the same bus when the graph did not change. */
+export const mapMasterFx = (master: MasterBus, change: (fx: Patch) => Patch): MasterBus => {
+  const fx = change(master.fx)
+  return fx === master.fx ? master : { ...master, fx }
+}
 
 const withoutKey = (record: Readonly<Record<string, number>>, key: string): Record<string, number> =>
   Object.fromEntries(Object.entries(record).filter(([id]) => id !== key))
@@ -220,10 +228,13 @@ export const setProjectName = (project: Project, name: string): Project => ({
   name: name.slice(0, MAX_NAME_LENGTH),
 })
 
+/** The master bus a project starts with: nothing on it. */
+export const createMasterBus = (): MasterBus => ({ fx: createDefaultMasterGraph() })
+
 /** A blank project with a single empty track. */
 export const createEmptyProject = (): Project =>
   addTrack(
-    { name: 'Untitled', tempo: 120, sceneCount: DEFAULT_SCENE_COUNT, samples: [], modules: [], tracks: [] },
+    { name: 'Untitled', tempo: 120, sceneCount: DEFAULT_SCENE_COUNT, samples: [], modules: [], master: createMasterBus(), tracks: [] },
     createTrack('Track 1', DEFAULT_SCENE_COUNT),
   )
 
@@ -240,6 +251,7 @@ export const addSamples = (project: Project, samples: readonly SampleInfo[]): Pr
  */
 export const removeSample = (project: Project, sampleId: string): Project => ({
   ...project,
+  master: mapMasterFx(project.master, (fx) => clearSampleReferences(fx, sampleId)),
   samples: project.samples.filter((sample) => sample.id !== sampleId),
   modules: mapModules(project.modules, (module) => {
     const patch = clearSampleReferences(module.patch, sampleId)
