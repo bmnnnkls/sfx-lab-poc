@@ -97,7 +97,8 @@ Full handoff for whoever builds this: [`HANDOFF-track-effects-and-stereo.md`](HA
   sidechain ducking. Not built: raw audio into a CV is amplitude modulation, not a duck.
 * Chorus, flanger and other stereo modulation effects; a limiter or compressor for the master (today the output soft clip is
   the only limiter).
-* A master volume and a meter per track; pan and mute/solo on the track header (a Pan node in the insert graph does the job today).
+* Mixer leftovers: a dB-shaped fader (the stored volume is linear), a pan/mute/solo control in the session-view header
+  (they are in the Mixer tab only), a peak-hold or numeric readout on the meters.
 * A mono *Reverb* cannot be wired to a stereo source (a return's input, the master): use *Stereo reverb* or put the *Mono sum*
   node first. Offering the L R switch on the mono reverb would be cheap if two copies were acceptable.
 

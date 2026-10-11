@@ -1,6 +1,6 @@
 import type { EngineCommand } from '../engine'
 import { type ModuleLibrary, type Patch, flattenPatch } from '../patch'
-import type { AudioTrack, InstrumentTrack, Project, SendLevels, Track } from '../project'
+import { type AudioTrack, type InstrumentTrack, type Project, type SendLevels, type Track, panOf } from '../project'
 
 /** Identity of a patch's wiring, ignoring params and canvas positions. */
 const structureOf = (patch: Patch): string =>
@@ -119,16 +119,24 @@ const diffTrack = (prev: Track, next: Track, before: ModuleLibrary, after: Modul
   if (prev.volume !== next.volume) {
     commands.push({ type: 'track/setVolume', trackId: next.id, volume: next.volume })
   }
+  if (panOf(prev) !== panOf(next)) commands.push({ type: 'track/setPan', trackId: next.id, pan: panOf(next) })
+  if ((prev.muted ?? false) !== (next.muted ?? false)) {
+    commands.push({ type: 'track/setMute', trackId: next.id, muted: next.muted ?? false })
+  }
+  if ((prev.soloed ?? false) !== (next.soloed ?? false)) {
+    commands.push({ type: 'track/setSolo', trackId: next.id, soloed: next.soloed ?? false })
+  }
   return commands
 }
 
 const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand => {
   const fx = flattenPatch(track.fx, modules)
+  const mix = { volume: track.volume, pan: panOf(track), muted: track.muted ?? false, soloed: track.soloed ?? false }
   switch (track.kind) {
     case 'return':
-      return { type: 'track/add', kind: 'return', trackId: track.id, fx, volume: track.volume }
+      return { type: 'track/add', kind: 'return', trackId: track.id, fx, ...mix }
     case 'audio':
-      return { type: 'track/add', kind: 'audio', trackId: track.id, fx, sends: track.sends, clips: track.clips, volume: track.volume }
+      return { type: 'track/add', kind: 'audio', trackId: track.id, fx, sends: track.sends, clips: track.clips, ...mix }
     case 'instrument':
       return {
         type: 'track/add',
@@ -139,7 +147,7 @@ const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
         fx,
         sends: track.sends,
         clips: track.clips,
-        volume: track.volume,
+        ...mix,
         voices: track.voices,
       }
   }
@@ -154,6 +162,9 @@ export const diffProject = (prev: Project | null, next: Project): EngineCommand[
       ? [{ type: 'master/setFx' as const, graph: flattenPatch(next.master.fx, next.modules) }]
       : diffPatch('master', '', prev.master.fx, prev.modules, next.master.fx, next.modules)),
   )
+  if ((prev?.master.volume ?? 1) !== (next.master.volume ?? 1)) {
+    commands.push({ type: 'master/setVolume', volume: next.master.volume ?? 1 })
+  }
 
   const before = prev?.modules ?? []
   const prevTracks = new Map((prev?.tracks ?? []).map((track) => [track.id, track]))

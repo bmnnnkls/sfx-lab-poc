@@ -46,7 +46,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `project` | the saveable document: tracks (instrument, audio, return), the master bus, clips, notes, tempo, name; pure note/clip edit operations | `Project`, edit functions, `moveNotes`, `resizeNotesEnd`, `setClipLength`, … |
 | `transport` | sample-accurate beat clock | `Transport` |
 | `session` | clip launching: a shared quantized `LaunchQueue`, the MIDI `ClipLauncher` (note events) and `AudioClipLauncher` (start/stop events) | `ClipLauncher`, `AudioClipLauncher` |
-| `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` | `Engine`, `EngineCommand`, `EngineStatus` |
+| `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` (also the channel strips: fader, pan, mute/solo, meters) | `Engine`, `EngineCommand`, `EngineStatus` |
 | `sync` | diffs two `Project`s into `EngineCommand`s | `diffProject` |
 | `sample` | sample metadata/data types, engine-side `SampleBank`, mono mixdown, peaks, WAV encoder, demo samples | `SampleInfo`, `SampleData`, `SampleBank`, `createDemoSamples`, … |
 | `persistence` | project file format: envelope, versioned migrations, sanitizing | `serializeProject`, `parseProject` |
@@ -284,7 +284,7 @@ tracks; a return track *is* the bus, so there are no bus names.
   engine mixes (`mixSegment`, so it follows the segments a block is split into), added to by senders, read by the return as its
   input. The **Send** node uses it from anywhere in an insert graph (its `trackId` is the return, `amount` the level, its
   input is stereo so a mono signal is accepted; where it sits is where the signal is taken, before or after other effects).
-  The per-track send knobs of the next step use the same call, post-fader.
+  The per-track send knobs use the same call, post-fader.
 * **Return in is stereo**, so mono effects on a return need the **L R** switch (or use *Stereo reverb*, *Ping-pong delay*,
   *Width*); `Track in` stays mono for instrument and audio tracks. The editor offers `Track in` on every track but returns
   and `Return in` only on returns.
@@ -317,7 +317,10 @@ add together on the same return. A track's send targets for ordering are its Sen
   them with the track). Dragging a knob merges into one undo step (`send:<track>:<return>`).
 * `track/setSends` carries the whole record; `track/add` carries it too. Persistence reads numbers clamped to 0..1
   (`readSends`), and `repairSendLevels` drops entries for tracks that are not return tracks of the file, with a warning.
-* The header shows the knobs only when return tracks exist and never on a return track; each says "post-fader" in its tooltip.
+* The knobs live in the **Mixer** tab (they used to be in the session-view headers, which were too cramped): one per
+  return track, labelled with the return's real name, only when return tracks exist and never on a return track; each says
+  "post-fader" in its tooltip and is disabled when `mixesAfter` says it would make a loop. The model, the command and
+  `setTrackSend` are unchanged.
 
 ## The master bus
 
@@ -338,7 +341,56 @@ sends to it; it just processes what the tracks and returns have summed.
   goes through `sanitizePatch`. Modules, `moduleUsage` ("Master" is listed as a user), `removeSample` and `removeTrack`
   treat it like any track's graph.
 * **UI.** A **Master** strip ends the session grid (select it to open its graph in the Effects tab; the tab then edits
-  `GraphEditor owner="master"`); `useSelectionStore.master` says it is selected.
+  `GraphEditor owner="master"`); `useSelectionStore.master` says it is selected. The Mixer tab ends with a master strip too.
+* **Master volume.** `MasterBus.volume` (0..1, absent = 1) is a gain applied in `processMaster` right after the master
+  graph and before the soft clip, so it scales the final mix exactly. The sample preview skips it, like it skips the graph
+  (an audition is not part of the mix). `master/setVolume`; `diffProject` sends it on load and on change. There is still no
+  limiter: the soft clip is the only one.
+
+## Mixer
+
+The **Mixer** tab (`ui/mixer/`, `EditorTab 'mixer'`) is a row of vertical channel strips: every track in `sessionOrder`
+(clip tracks, then returns), then the master. A strip has the track's name (select), an fx badge (opens the Effects tab),
+pan, one send knob per return, **M**ute, **S**olo, the fader and a level meter. The session grid keeps its header volume
+slider (the same `track.volume`) and gains no other control; its header only strikes through the name of a muted track.
+
+* **Model.** `TrackBase` gets optional `pan` (-1..1), `muted` and `soloed`, and `MasterBus` an optional `volume`. They are
+  saved only when they differ from the default (centre, false, false, 1): `setTrackPan` & co. delete the key when the value
+  returns to the default, and the sanitizer writes none for a default, so old files load identically and the format version
+  did not change. Edits clamp and return the same project when nothing changes (no empty undo step). Pan drags merge into one
+  undo step (`pan:<track>`), so do master-fader drags (`master-volume`); mute and solo are single steps.
+* **Channel strip** (`engine/channel-strip.ts`). Every `PlayableTrack` has a `strip` holding fader, pan, mute, solo, the
+  engine-decided `audible` flag, the send gate and the peak. A runtime runs its insert graph and writes its taps as before,
+  then hands the stereo signal to `strip.mixInto`, which scales each channel by `volume` and the pan gains and adds them to the
+  buses. **Pan law**: the same cos/sin curve as the *Pan* node, times sqrt(2), so the **centre passes at unity** (the *Pan*
+  node itself puts a mono source at -3 dB in each channel; a track's default pan must leave old projects sounding the same,
+  so the strip is normalised and pan 0 is exactly 1/1). Hard left or right is +3 dB in one channel, and the power of a mono
+  source stays constant along the way. Pan is after the insert graph, next to the fader; **sends stay post-fader and are not
+  panned** (they carry the stereo signal to the return as before).
+* **Mute** silences the track everywhere it is heard: its output *and* its sends (both the knobs and the Send nodes in its
+  graph, through a per-track `SendGate`). Its insert graph keeps running, so tails ring on, and its taps are still written,
+  so Track audio nodes that read it keep working. Only what it adds to the output is silenced.
+* **Solo** is "solo in place". When any track is soloed, a track is heard only if it is soloed, or it is a **return fed by a
+  heard track** (so a soloed track keeps its reverb, however many returns deep: `Engine.updateMixState` grows the set until
+  nothing changes). A muted return stays muted. Rules, in full:
+  * no solo anywhere: heard = not muted;
+  * a **soloed return** is heard, and tracks that send to it keep sending to it even though they are not heard themselves
+    (solo a reverb to hear only the wet signal);
+  * a track that is both muted and soloed is heard (solo wins);
+  * a send from track T to return R is open when T is soloed, or T is not muted and (T is heard or R is soloed).
+  The flags are worked out when a mute, solo, track, send or graph changes (`mixStateStale`), never per sample; the result is
+  each strip's `audible` and its set of blocked send targets.
+* **Commands.** `track/setPan`, `track/setMute`, `track/setSolo`, `master/setVolume`, small and separate like
+  `track/setVolume`; `track/add` carries the three track fields too (so a project loaded with a muted track starts muted).
+  `diffTrack` compares the fields with their defaults, so a field that appears or disappears is a command only if the value
+  changed.
+* **Meters.** `EngineStatus.peaks` is a record track id -> the loudest sample the track *added to the output* since the
+  previous status, after fader, pan, mute and solo (zero for a track that is not heard), read-and-reset like `peak`. The
+  master strip shows `peak`. The bars are drawn by `LevelBar` from the status store (~30 Hz): the engine reports raw peaks and
+  the bar falls with a fixed factor per update, on a dB scale (the raw value is in `data-peak`).
+* **Fader law.** The stored volume is linear 0..1, as before; the control is linear too (no dB taper yet).
+* **Files.** `sanitizeTrack` reads `pan` (finite, clamped), `muted` and `soloed` (only a real `true` counts) and the
+  master's `volume` (clamped, anything else is 1).
 
 ## Track audio (taking another track's sound)
 

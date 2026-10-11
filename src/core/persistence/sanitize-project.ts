@@ -43,6 +43,13 @@ const sanitizeTrack = (
   const rawClips = asList(raw.clips)
   const usedClipIds = new Set<string>()
   const volume = clamp(finiteNumber(raw.volume, 0.8), 0, 1)
+  // Mix settings are saved only when they differ from the default, so files that never used them are unchanged.
+  const pan = clamp(finiteNumber(raw.pan, 0), -1, 1)
+  const mix = {
+    ...(pan !== 0 && { pan }),
+    ...(raw.muted === true && { muted: true }),
+    ...(raw.soloed === true && { soloed: true }),
+  }
   // Files from before insert graphs existed have none: the sound passes through untouched.
   const isReturn = raw.kind === 'return'
   const fx = isRecord(raw.fx)
@@ -51,7 +58,7 @@ const sanitizeTrack = (
       ? createDefaultReturnGraph()
       : createDefaultFxGraph()
 
-  if (isReturn) return { kind: 'return', id, name, volume, fx }
+  if (isReturn) return { kind: 'return', id, name, volume, ...mix, fx }
 
   // Files from before audio tracks existed have no `kind`: they are instrument tracks.
   if (raw.kind === 'audio') {
@@ -60,6 +67,7 @@ const sanitizeTrack = (
       id,
       name,
       volume,
+      ...mix,
       fx,
       sends: readSends(raw.sends),
       clips: Array.from({ length: sceneCount }, (_, scene) =>
@@ -77,6 +85,7 @@ const sanitizeTrack = (
     id,
     name,
     volume,
+    ...mix,
     fx,
     sends: readSends(raw.sends),
     voices: Math.round(clamp(finiteNumber(raw.voices, DEFAULT_VOICES), MIN_VOICES, MAX_VOICES)),
@@ -87,6 +96,8 @@ const sanitizeTrack = (
     clips,
   }
 }
+
+const masterVolume = (raw: unknown): number => clamp(finiteNumber(raw, 1), 0, 1)
 
 /** Turns arbitrary parsed JSON into a valid `Project`, or null when it isn't an object at all. */
 export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
@@ -121,6 +132,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
         isRecord(raw.master) && isRecord(raw.master.fx)
           ? sanitizePatch(raw.master.fx, 'Master effects', sampleIds, modules, warn)
           : createDefaultMasterGraph(),
+      ...(isRecord(raw.master) && masterVolume(raw.master.volume) !== 1 && { volume: masterVolume(raw.master.volume) }),
     },
     tracks: repairSendLevels(repairTrackReferences(tracks, modules, warn), modules, warn),
   }

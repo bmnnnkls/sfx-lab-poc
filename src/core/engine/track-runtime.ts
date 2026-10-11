@@ -1,10 +1,10 @@
-import { RIGHT } from '../dsp'
 import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
 import { type Patch, audioSources, sendTargets } from '../patch'
 import type { Clip, SendLevels } from '../project'
 import type { SampleLookup } from '../sample'
 import { ClipLauncher, type LauncherStatus, type NoteEvent } from '../session'
+import { ChannelStrip } from './channel-strip'
 import type { MixContext, PlayableTrack, ScheduledAction } from './playable-track'
 
 /** How long an audition note sounds before it is released. */
@@ -14,7 +14,7 @@ const AUDITION_SECONDS = 0.3
 export class TrackRuntime implements PlayableTrack {
   private readonly launcher = new ClipLauncher()
   private readonly graph = new NoteGraph()
-  volume: number
+  readonly strip: ChannelStrip
   clips: readonly (Clip | null)[]
   private instrument: Instrument
   private fx: FxGraph
@@ -40,7 +40,7 @@ export class TrackRuntime implements PlayableTrack {
     this.targets = sendTargets(fx)
     this.sources = audioSources(fx)
     this.clips = clips
-    this.volume = volume
+    this.strip = new ChannelStrip(volume)
     this.graph.sync(noteGraph)
   }
 
@@ -158,17 +158,15 @@ export class TrackRuntime implements PlayableTrack {
     }
   }
 
-  /** Adds `frames` samples of this track, through its insert graph and scaled by its volume, into the stereo buses. */
+  /** Adds `frames` samples of this track, through its insert graph and through its channel strip, into the stereo buses. */
   mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, mix: MixContext): void {
     const dry = this.instrument.render(frames)
     mix.taps.write(this.trackId, 0, dry, frames)
-    const signal = this.fx.process(dry, frames, mix)
+    const sends = this.strip.sendsTo(mix.sends)
+    const signal = this.fx.process(dry, frames, { sends, taps: mix.taps })
     mix.taps.write(this.trackId, 1, signal, frames)
-    for (let i = 0; i < frames; i++) {
-      left[offset + i] = (left[offset + i] ?? 0) + (signal[i] ?? 0) * this.volume
-      right[offset + i] = (right[offset + i] ?? 0) + (signal[RIGHT + i] ?? 0) * this.volume
-    }
-    for (const [returnId, level] of this.sendList) mix.sends.add(returnId, signal, level * this.volume, frames)
+    this.strip.mixInto(left, right, offset, frames, signal)
+    for (const [returnId, level] of this.sendList) sends.add(returnId, signal, level * this.strip.volume, frames)
     if (this.audition) {
       this.audition.framesLeft -= frames
       if (this.audition.framesLeft <= 0) this.endAudition()

@@ -74,12 +74,15 @@ check('the track that is taken from cannot take audio from its reader (a loop)',
 // ---- the send knob refuses the same loop through a return
 await page.getByRole('button', { name: 'Add track' }).click()
 await page.getByRole('menuitem', { name: 'Return track' }).click()
+await page.getByRole('button', { name: 'Mixer', exact: true }).click() // the send knobs live in the mixer
 check('a send knob for a return is there for the track that takes audio from nobody', (await page.getByLabel('Lead send to Return A').isEnabled()))
 await trackBtn('Bass').click()
 await effects()
 const bassPicker = surface.getByLabel('Take audio from track')
 await bassPicker.selectOption({ label: 'Return A' })
+await page.getByRole('button', { name: 'Mixer', exact: true }).click()
 check('once Bass takes audio from a return, its own send knob for it is disabled (it would be a loop)', await page.getByLabel('Bass send to Return A').isDisabled())
+await effects()
 await bassPicker.selectOption({ label: options.find((o) => o.startsWith('Audio')) })
 
 // ---- the master graph cannot use it

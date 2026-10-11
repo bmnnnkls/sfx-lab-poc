@@ -39,6 +39,8 @@ await page.getByRole('button', { name: 'Add track' }).click()
 await page.getByRole('menuitem', { name: 'Audio track' }).click()
 await page.getByRole('button', { name: 'Add audio clip' }).first().click()
 await page.getByRole('menuitem', { name: LOOP }).click()
+const mixer = () => page.getByRole('button', { name: 'Mixer', exact: true }).click()
+await mixer()
 check('with no return tracks there are no send knobs', (await page.getByRole('group', { name: /sends$/ }).count()) === 0)
 
 // ---- two returns; A gets a long wet reverb
@@ -55,12 +57,15 @@ await wire('Stereo reverb', 'Track out')
 await node('Stereo reverb').locator('input[type=range]').nth(0).fill('1000')
 await node('Stereo reverb').locator('input[type=range]').nth(3).fill('1000')
 
+await mixer()
+check('the session-view headers have no send knobs any more', (await page.locator('[class*="_header_"]').getByLabel(/ send to /).count()) === 0)
 const groups = page.getByRole('group', { name: /sends$/ })
 check('every instrument and audio track shows a knob per return (4 tracks x 2)', (await groups.count()) === 4 && (await page.getByLabel(/ send to Return [AB]$/).count()) === 8, String(await groups.count()))
 check('return tracks have no send knobs', (await page.getByLabel(/^Return [AB] send to/).count()) === 0)
 const tip = await page.locator('label[title*="Return A"]').first().getAttribute('title')
+check('the knob carries the return\'s real name, not a letter', (await page.getByRole('group', { name: 'Audio 4 sends' }).getByText('Return A', { exact: true }).count()) === 1)
 check('the knob says it is post-fader', /post-fader/.test(tip ?? ''), tip)
-await page.screenshot({ path: `${dir}/sends-header.png` })
+await page.screenshot({ path: `${dir}/sends-mixer.png` })
 
 // ---- no send, no tail
 await page.getByRole('button', { name: new RegExp(LOOP) }).first().click()
@@ -115,6 +120,7 @@ check('a Send node can be added next to the knob for the same return', (await no
 
 // ---- persistence
 await page.reload()
+await mixer()
 check('knob values survive a reload', (await knob('Audio 4', 'Return A').inputValue()) === '1' && (await knob('Audio 4', 'Return B').inputValue()) === '0.7')
 
 check('no page errors', errors.length === 0, errors.join(' | '))

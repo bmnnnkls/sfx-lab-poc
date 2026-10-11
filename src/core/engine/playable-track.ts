@@ -4,6 +4,7 @@ import type { SendLevels } from '../project'
 import type { LauncherStatus } from '../session'
 import type { AudioBoard } from './audio-board'
 import type { AudioTaps } from './audio-taps'
+import type { ChannelStrip } from './channel-strip'
 
 /** Something to do at an exact transport beat, produced by a track and run by the engine at the right sample. */
 export interface ScheduledAction {
@@ -33,7 +34,8 @@ export interface MixContext {
  * playback logic behind this.
  */
 export interface PlayableTrack {
-  volume: number
+  /** Fader, pan, mute/solo and meter: everything between the insert graph and the output. */
+  readonly strip: ChannelStrip
   launchClip(clipId: string): void
   /** Launches the clip in scene slot `scene`, or stops the track if that slot is empty. */
   launchScene(scene: number): void
@@ -62,7 +64,7 @@ export interface PlayableTrack {
   /** The send knobs: how much of the track, after its fader, goes to each return track. */
   setSends(sends: SendLevels): void
   /**
-   * Adds `frames` samples of this track, through its insert graph and scaled by its volume, into the stereo buses, and
+   * Adds `frames` samples of this track, through its insert graph and through its channel strip, into the stereo buses, and
    * leaves its sound on the boards of `mix` for the tracks that send to or take audio from it.
    */
   mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, mix: MixContext): void

@@ -1,0 +1,170 @@
+.mixer {
+  display: flex;
+  gap: 6px;
+  height: 100%;
+  padding: 10px;
+  overflow: auto hidden;
+}
+
+.strip {
+  display: flex;
+  flex: 0 0 120px;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.selected {
+  border-color: var(--accent);
+}
+
+.returnStrip {
+  border-style: dashed;
+}
+
+.masterStrip {
+  margin-left: auto;
+  border-width: 2px;
+}
+
+.mutedStrip .name,
+.mutedStrip .faderRow {
+  opacity: 0.55;
+}
+
+.name {
+  overflow: hidden;
+  text-align: left;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+span.name {
+  padding: 4px 10px;
+}
+
+.kind {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.badges {
+  display: flex;
+  min-height: 22px;
+}
+
+.fxBadge {
+  padding: 1px 6px;
+  font-size: 11px;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.pan,
+.send {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* A send's label (the return's full name) sits above its slider, so a long name is not cut to a few letters. */
+.send {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.pan span {
+  flex: 0 0 26px;
+}
+
+.send span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pan input,
+.send input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+
+.sends {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.buttons button {
+  flex: 1;
+  padding: 3px 0;
+  font-weight: 700;
+}
+
+.buttons .mute {
+  color: var(--bg);
+  background: var(--queued);
+  border-color: var(--queued);
+}
+
+.buttons .solo {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.faderRow {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  justify-content: center;
+  min-height: 80px;
+}
+
+/* A vertical slider: writing-mode turns the range input on its side, direction keeps "up" the louder end. */
+.fader {
+  width: 28px;
+  padding: 0;
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+
+.meter {
+  position: relative;
+  width: 10px;
+  overflow: hidden;
+  background: linear-gradient(to top, var(--play) 0 70%, var(--queued) 70% 90%, #e5484d 90%);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+/* Covers the part of the bar above the level, so the colours stay put and the bar shows through up to the level. */
+.meterCover {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  background: var(--bg);
+}
+
+.value {
+  text-align: center;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}

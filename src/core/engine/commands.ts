@@ -16,6 +16,9 @@ export type EngineCommand =
       readonly fx: Patch
       readonly clips: readonly (Clip | null)[]
       readonly volume: number
+      readonly pan?: number
+      readonly muted?: boolean
+      readonly soloed?: boolean
       readonly voices: number
       /** Absent means nothing is sent. */
       readonly sends?: SendLevels
@@ -29,6 +32,9 @@ export type EngineCommand =
       readonly sends?: SendLevels
       readonly clips: readonly (AudioClip | null)[]
       readonly volume: number
+      readonly pan?: number
+      readonly muted?: boolean
+      readonly soloed?: boolean
     }
   | {
       readonly type: 'track/add'
@@ -36,6 +42,9 @@ export type EngineCommand =
       readonly trackId: string
       readonly fx: Patch
       readonly volume: number
+      readonly pan?: number
+      readonly muted?: boolean
+      readonly soloed?: boolean
     }
   | { readonly type: 'track/remove'; readonly trackId: string }
   | { readonly type: 'track/setPatch'; readonly trackId: string; readonly patch: Patch }
@@ -48,6 +57,10 @@ export type EngineCommand =
   | { readonly type: 'track/setClips'; readonly trackId: string; readonly clips: readonly (Clip | null)[] }
   | { readonly type: 'track/setAudioClips'; readonly trackId: string; readonly clips: readonly (AudioClip | null)[] }
   | { readonly type: 'track/setVolume'; readonly trackId: string; readonly volume: number }
+  | { readonly type: 'track/setPan'; readonly trackId: string; readonly pan: number }
+  | { readonly type: 'track/setMute'; readonly trackId: string; readonly muted: boolean }
+  | { readonly type: 'track/setSolo'; readonly trackId: string; readonly soloed: boolean }
+  | { readonly type: 'master/setVolume'; readonly volume: number }
   | { readonly type: 'track/setSends'; readonly trackId: string; readonly sends: SendLevels }
   | {
       readonly type: 'track/setParam'

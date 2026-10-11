@@ -159,6 +159,37 @@ export const setTrackSend = (project: Project, trackId: string, returnId: string
 export const setTrackVolume = (project: Project, trackId: string, volume: number): Project =>
   updateTrack(project, trackId, (track) => ({ ...track, volume: clamp(volume, 0, 1) }))
 
+/** A track's pan, -1..1; 0 is the centre. */
+export const panOf = (track: Track): number => track.pan ?? 0
+
+/** `track` with `key` set to `value`, or without the key when the value is the default; the same track when nothing changes. */
+const withMixField = <K extends 'pan' | 'muted' | 'soloed'>(track: Track, key: K, value: NonNullable<Track[K]>, fallback: NonNullable<Track[K]>): Track => {
+  if ((track[key] ?? fallback) === value) return track
+  if (value === fallback) {
+    const { [key]: _default, ...rest } = track
+    return rest as Track
+  }
+  return { ...track, [key]: value }
+}
+
+export const setTrackPan = (project: Project, trackId: string, pan: number): Project =>
+  updateTrack(project, trackId, (track) => withMixField(track, 'pan', clamp(pan, -1, 1), 0))
+
+/** Mute and solo are independent: a track can be both (solo then wins, see ARCHITECTURE.md). */
+export const setTrackMuted = (project: Project, trackId: string, muted: boolean): Project =>
+  updateTrack(project, trackId, (track) => withMixField(track, 'muted', muted, false))
+
+export const setTrackSoloed = (project: Project, trackId: string, soloed: boolean): Project =>
+  updateTrack(project, trackId, (track) => withMixField(track, 'soloed', soloed, false))
+
+/** The master volume, 0..1 (absent from the file = 1). */
+export const setMasterVolume = (project: Project, volume: number): Project => {
+  const next = clamp(volume, 0, 1)
+  if ((project.master.volume ?? 1) === next) return project
+  const { volume: _previous, ...rest } = project.master
+  return { ...project, master: next === 1 ? rest : { ...rest, volume: next } }
+}
+
 export const setTrackVoices = (project: Project, trackId: string, voices: number): Project =>
   updateInstrument(project, trackId, (track) => ({
     ...track,
