@@ -483,10 +483,21 @@ plain cards; the property editor, the panel built from control nodes and the nod
   wired into its port, or, unwired, the parameter of the same id (which has its own socket); the result is never NaN or
   infinite (rounded to float32 first, so a product that overflows the buffer is 0, not Infinity). *Hz to MIDI* gives 0, the
   lowest note, for 0 or less; fractional notes work. Math nodes are global-capable.
+* **Sources of sound and chance** (`dsp/random.ts`, `dsp/nodes/{noise,perlin,geiger,random}.node.ts`). Everything random is **seeded**
+  (`createRng`, mulberry32; `hashSigned` for lattice points), never `Math.random` or the clock, so a render comes out the same every
+  time (exports, tests, a sound you want back); each has a `seed` parameter (no socket: `socket: false`). The seed is per node
+  instance, so in a chord every voice starts from the same seed (the noise is coherent across voices). *Noise*: white, pink
+  (Kellet's three-pole filter, gain 0.11 so its peak stays under 1) or brown (leaky random walk, clamped), with a level. *Perlin
+  noise*: fractal 1D gradient noise (`gradientNoise`, `fractalNoise`: octaves, persistence, quintic fade), outputs `out` and `uni`
+  like the LFO, optional `Retrig` input restarts the wander. *Geiger*: a Poisson process (each sample has the chance
+  `rate / sampleRate`), outputs `Click` (a noise burst that decays over `decay`, strength varied by `spread`) and `Trigger` (high for
+  `gate` seconds), so one node is both a crackle and a random trigger. *Random*: a control that holds a roll between `min` and `max`
+  (optionally snapped to `step`) and draws a new one on each rise of `Roll` through 0.5; it keeps the roll as a position in the range,
+  so turning Min or Max moves the value without a new roll.
 * **Names.** `PatchNode.name?` (trimmed, at most 60 characters, absent when blank; `setNodeName`, same patch when unchanged;
   read by the sanitizer). Nothing shows it yet. It is not sound: renaming sends no engine command.
 * **Words** (`dsp/node-docs.ts`, `notefx/node-docs.ts`, `dsp/document.ts`). Every node has a one-sentence `description`, a `category`
-  (*Sources, Controls, Modulation, Math, Filters, Effects, Routing*; the note graph uses only Sources, Effects and Routing;
+  (*Sources, Controls, Modulation, Math, Filters, Effects, Routing*, and since then more; the note graph uses only Sources, Effects and Routing;
   modules are `Modules`) and optional `keywords` for search, and every port and
   parameter a `description`. They are written once in one table per registry and attached by the registry (`documented`), not
   scattered over the node files; **a test fails when a registered node, port or parameter has no entry, or an entry names

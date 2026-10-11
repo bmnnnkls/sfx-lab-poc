@@ -46,6 +46,34 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     },
   },
 
+  noise: {
+    category: 'Sources',
+    description: 'Hiss, wind or rumble: white noise is bright and even, pink is softer, brown is a low rumble.',
+    keywords: ['hiss', 'static', 'wind', 'snare', 'hat', 'white', 'pink', 'brown', 'random', 'sfx'],
+    outputs: { out: 'The noise.' },
+    params: {
+      colour: 'White is flat and bright, pink falls 3 dB per octave, brown falls 6 dB per octave.',
+      level: 'How loud the noise is, from 0 to 1.',
+      seed: 'The same seed always gives the same noise; change it for a different one.',
+    },
+  },
+  geiger: {
+    category: 'Sources',
+    description: 'Random clicks at random times, like a Geiger counter, vinyl dust or rain: as crackle, and as a trigger for other nodes.',
+    keywords: ['crackle', 'dust', 'click', 'random pulse', 'poisson', 'rain', 'vinyl', 'trigger', 'sfx'],
+    outputs: {
+      click: 'The crackle: a short burst of noise for every click.',
+      trigger: 'High for the Gate time at every click. Wire it to an envelope, a sampler or a sample and hold.',
+    },
+    params: {
+      rate: 'How many clicks per second on average. The gaps between them are irregular.',
+      decay: 'How long each click rings, in milliseconds. Short is a tick, long is a splash.',
+      spread: 'How much the clicks differ in loudness: 0 for all alike, 1 from silent to full.',
+      gate: 'How long the Trigger output stays high after each click, in seconds.',
+      seed: 'The same seed always gives the same clicks at the same times.',
+    },
+  },
+
   // ---- Controls
   control: {
     category: 'Controls',
@@ -106,6 +134,33 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
   },
 
   // ---- Modulation
+  perlin: {
+    category: 'Modulation',
+    description: 'Smooth, organic wandering: Perlin noise as a signal, for drifting a filter, a pitch or a pan.',
+    keywords: ['noise', 'drift', 'wander', 'organic', 'random', 'smooth', 'fractal', 'wobble', 'lfo'],
+    inputs: { gate: 'A rise starts the wandering from the beginning, so every note wanders the same way.' },
+    outputs: { out: 'The wandering, swinging both ways around zero.', uni: 'The same, between 0 and Depth.' },
+    params: {
+      rate: 'How fast it wanders: roughly how many new directions per second.',
+      octaves: 'How many layers of finer detail are added on top of the slow wander.',
+      persistence: 'How strong each finer layer is compared to the one below it. Low is smooth, high is rough.',
+      depth: 'How far the signal swings, from 0 to 1.',
+      seed: 'The same seed always wanders the same way; change it for a different path.',
+    },
+  },
+  random: {
+    category: 'Modulation',
+    description: 'A random value that stays until you roll again: wire a push button or a clock to Roll for a new one.',
+    keywords: ['dice', 'roll', 'chance', 'sfx', 'variation', 'randomise', 'stepped'],
+    inputs: { roll: 'Each rise through 0.5 draws a new value.' },
+    outputs: { out: 'The random value, between Min and Max.' },
+    params: {
+      min: 'The lowest value it can draw.',
+      max: 'The highest value it can draw.',
+      step: 'Snap the value to multiples of this step (0 for any value).',
+      seed: 'The same seed always gives the same first value and the same rolls after it.',
+    },
+  },
   envelope: {
     category: 'Modulation',
     description: 'Shapes a value over the life of a note: rises when the key goes down, falls when it is let go.',

@@ -3,7 +3,10 @@ import { nodeDefinitions } from '@core'
 import { buildCatalog } from './node-catalog'
 import { INITIAL, type QuickAddAction, type QuickAddState, rowsOf, step } from './quick-add-model'
 
-const catalog = buildCatalog(nodeDefinitions.filter((definition) => definition.insertOnly !== true), [])
+const offered = nodeDefinitions.filter((definition) => definition.insertOnly !== true)
+const catalog = buildCatalog(offered, [])
+/** The labels the picker lists under a category, in registry order (so adding a node does not break these tests). */
+const labelsIn = (category: string) => offered.filter((definition) => definition.category === category).map((definition) => definition.label)
 
 /** Plays actions in order, returning the final state and what came out. */
 const play = (actions: QuickAddAction[], from: QuickAddState = INITIAL) => {
@@ -22,15 +25,15 @@ const names = (state: QuickAddState) => rowsOf(catalog, state).map((row) => (row
 describe('quick-add: what it lists', () => {
   it('opens on the categories, each with its count', () => {
     const rows = names(INITIAL)
-    expect(rows[0]).toBe('Sources (3)')
-    expect(rows).toContain('Math (24)')
+    expect(rows[0]).toBe(`Sources (${labelsIn('Sources').length})`)
+    expect(rows).toContain(`Math (${labelsIn('Math').length})`)
     expect(rows).toHaveLength(7)
   })
 
   it('drilling into a category lists its nodes', () => {
     const { state } = play([key('Enter')])
     expect(state.scope).toBe('Sources')
-    expect(names(state)).toEqual(['Note', 'Oscillator', 'Sampler'])
+    expect(names(state)).toEqual(labelsIn('Sources'))
   })
 
   it('Backspace on an empty field goes back up; with text it only edits', () => {
@@ -52,7 +55,7 @@ describe('quick-add: what it lists', () => {
 
   it('clearing the text inside a category shows that category again', () => {
     const { state } = play([key('Enter'), type('reverb'), type('')])
-    expect(names(state)).toEqual(['Note', 'Oscillator', 'Sampler'])
+    expect(names(state)).toEqual(labelsIn('Sources'))
   })
 })
 

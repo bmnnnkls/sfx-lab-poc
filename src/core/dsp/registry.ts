@@ -2,13 +2,17 @@ import { delayNode } from './nodes/delay.node'
 import { envelopeNode } from './nodes/envelope.node'
 import { filterNode } from './nodes/filter.node'
 import { gainNode } from './nodes/gain.node'
+import { geigerNode } from './nodes/geiger.node'
 import { lfoNode } from './nodes/lfo.node'
+import { noiseNode } from './nodes/noise.node'
 import { noteNode } from './nodes/note.node'
 import { oscillatorNode } from './nodes/oscillator.node'
 import { monoSumNode } from './nodes/mono-sum.node'
 import { outputNode } from './nodes/output.node'
 import { panNode } from './nodes/pan.node'
+import { perlinNode } from './nodes/perlin.node'
 import { pingPongNode } from './nodes/ping-pong.node'
+import { randomNode } from './nodes/random.node'
 import { masterInNode, returnInNode } from './nodes/return-in.node'
 import { reverbNode } from './nodes/reverb.node'
 import { sendNode } from './nodes/send.node'
@@ -35,11 +39,15 @@ import type { NodeDefinition } from './types'
 const plainDefinitions: readonly NodeDefinition[] = [
   noteNode,
   oscillatorNode,
+  noiseNode,
+  geigerNode,
   samplerNode,
   envelopeNode,
   gainNode,
   filterNode,
   lfoNode,
+  perlinNode,
+  randomNode,
   delayNode,
   reverbNode,
   outputNode,
