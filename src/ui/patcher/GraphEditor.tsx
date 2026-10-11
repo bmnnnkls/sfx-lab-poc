@@ -61,6 +61,8 @@ const graphOf = (track: Track, graph: TrackGraph): Patch =>
 
 const VOICE_OPTIONS = [1, 2, 3, 4, 6, 8, 12, 16]
 
+const isFlag = (value: unknown): value is boolean => typeof value === 'boolean'
+
 type View = 'graph' | 'panel'
 const isView = (value: unknown): value is View => value === 'graph' || value === 'panel'
 
@@ -114,6 +116,8 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const [interfaceOpen, setInterfaceOpen] = useState(true)
   // Remembered per kind of graph (instrument, effects, notes), not per track: it is a way of looking, not part of the project.
   const [view, setView] = useStoredState<View>(`sfxlab.view.${graph}`, 'graph', isView)
+  // Parameter sockets are drawn only when wired, unless this is on; also a way of looking, so not in the project.
+  const [showSockets, setShowSockets] = useStoredState<boolean>('sfxlab.sockets', false, isFlag)
 
   // A module that disappeared (undo, delete) ends the path there.
   const missing = path.findIndex((id) => !modules.some((module) => module.id === id))
@@ -214,6 +218,12 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
               }}
             />
           )}
+          {view === 'graph' && graph !== 'notes' && (
+            <label className={styles.socketsToggle} title="Show a socket for every parameter, so a wire can drive it (the wire replaces the parameter's value)">
+              <input type="checkbox" checked={showSockets} onChange={(event) => setShowSockets(event.target.checked)} />
+              Sockets
+            </label>
+          )}
           {view === 'graph' && (
             <button
               disabled={selected.size === 0}
@@ -240,6 +250,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             selected={selected}
             ownerTrackId={track?.id ?? ''}
             showStages={graph === 'patch'}
+            showSockets={showSockets && graph !== 'notes'}
             onSelectionChange={setSelected}
             onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
             onRemoveNode={(id) => edit((current) => removeNode(current, id))}

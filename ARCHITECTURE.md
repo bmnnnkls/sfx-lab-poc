@@ -80,7 +80,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 * **Each track has a voice pool** (`Track.voices`, 1–16, default 8; set in the Instrument tab). A chord or
   overlapping notes play on separate voices; when all are busy the new note **steals** a voice: first one that is
   already releasing, otherwise the oldest.
-* **A patch is split into two stages** (`instrument/stages.ts`). *Voice* nodes are instantiated once per voice;
+* **A patch is split into stages** (`instrument/stages.ts`; a third, *global*, is described under "Control nodes" below). *Voice* nodes are instantiated once per voice;
   *shared* nodes (effects) are instantiated once and fed the **sum of all voices**. A node is shared if its
   `NodeDefinition.shared` is true (today: delay, reverb) **or anything upstream of it is shared**, which makes the split a
   clean cut: signals flow from voices into the shared stage, never back. The patcher tags shared nodes.
@@ -409,7 +409,8 @@ kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`): a way of looki
   step); an emptied panel is stored as no field. `controlFits` is the one rule for "does this control suit its parameters"
   (a selector needs an enum, the others a number, a pad two different numbers), used by the editor, pruning and the sanitizer.
   `buildPanel` adds a control for every parameter that has none (selector for enums, knob otherwise) in reading order, so
-  running it again after adding nodes only adds the new ones.
+  running it again after adding nodes only adds the new ones (it skips control nodes: a control is itself a knob, and its range and
+  step are settings; step 5 of the control-nodes plan replaces this whole panel).
 * **Staying consistent.** `removeNode`, `groupIntoModule` and `expandModuleUse` (unlink) drop the controls bound to the nodes
   they remove or move; `reconcileModules` also runs `prunePanel` on every patch, so hiding a module knob, or any change that
   makes a binding stop fitting, removes its control (a pad with one dead axis goes whole). Several functions used to build a
@@ -441,6 +442,59 @@ kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`): a way of looki
 * **Limits.** Layout is an ordered flow with sizes, not free positioning; a panel belongs to one graph (no combined
   instrument + effects panel); grouping nodes into a module drops their controls rather than rebinding them to the module's
   knobs; no automation, MIDI mapping, meters or per-control ranges (see `docs/TASKS.md`).
+
+## Control nodes, parameter sockets and the global stage
+
+A knob is a node you wire, and any numeric parameter can be driven by a wire. (Built so far: the engine, the model and the
+plain cards; the property editor, the panel built from control nodes and the node pictures follow, see
+`docs/HANDOFF-control-nodes.md`.)
+
+* **Parameter sockets** (`dsp/param-sockets.ts`, `describeNode`). Every numeric, non-enum parameter `p` of a **sound** node also
+  appears as an input socket `param:p` of kind `control` (`PortSpec.param` names the parameter). They are generated, not written
+  per node, appended after the node's own inputs; a node can opt out with `NodeDefinition.paramSockets: false` (the control
+  nodes: their range and step are settings, not signals). Note nodes have none yet. Because a socket is an ordinary port to
+  `canConnect`, `flattenPatch`, `diffProject`, modules and the sanitizer, none of them changed.
+* **A wire replaces the value.** Unwired, the node uses its stored parameter; wired, the wire's value is the parameter (several
+  wires add up). The stored value stays in the file and is used again when the wire goes. To add on top of a stored value use
+  an *Add* node. Existing modulation ports (oscillator `freq`, filter `cutoff`, gain `cv`) keep their own meanings.
+* **Block rate.** `compileStage` turns every wired socket into a `ParamFeed` on its `CompiledNode`; `processStage` reads the
+  first sample of each source once per 128-frame block (sources summed) and applies it with `setParam` *only when it changed*
+  (so a node that redesigns itself on `setParam` is not poked every block). **No DSP node changed.** A non-finite value is
+  ignored. Audio-rate modulation keeps using the audio-rate ports. A parameter with a feed is in `CompiledStage.driven`, and
+  `setStageParam` leaves it alone, so a slider on the stored value cannot fight the wire (the engine side of "a driven
+  parameter's `track/setParam` is ignored"; `diffProject` still sends it).
+* **Port kind `control`** (`kindsConnect`): `control` to `control`, `control` to `signal` (a constant buffer), `signal` to
+  `control` (read once per block, so an LFO can drive a socket); never to or from `stereo` or `notes`. Not to be confused with
+  `PortSpec.control`, the older flag on a modulation *input* that keeps it mono in a stereo node (sockets are mono either way).
+  Wires from a control output are drawn dashed green.
+* **The `global` stage** (`planStages`: `voice`, `shared`, `global`). A definition may say `global: true`; the node then runs
+  globally when everything wired into it is global, and a node with nothing wired in (a control, a constant) always does. Shared
+  wins (anything downstream of a shared node stays shared). The global stage is compiled once per `Instrument`, runs once per
+  block **before the voices** (also when none is sounding, so a smoothing node keeps its state), and its output buffers are
+  passed as `seeded` buffers to every voice's stage and to the shared stage. They are read, never summed, which is the point:
+  a voice -> shared boundary adds the voices up, so a value read across it would arrive as N times itself (tested: a control
+  driving a gain or a delay mix under a three-note chord sounds exactly like the value typed in). Insert graphs and the master
+  graph (`FxGraph`) have one copy of every node, so they need no stages; they get feeds from the same `processStage`.
+* **Nodes.** *Control* (`value`, `min`, `max`, `curve`, `step`, `default`; output `out`), *XY pad* (the same per axis, `x` / `xMin`
+  / ..., outputs `x`, `y`) and *Switch* (`on`, `mode` toggle / momentary; output 0 or 1). They output the **real value** in their
+  own range, clamped and snapped to the step by the node itself, so the specs' own bounds are wide (+-100000) and
+  `ParamSpec.range` says "my range is the node's `min` / `max` / `step`" (`liveSpec` resolves it; the cards use it for the
+  slider). `curve` (linear / log / exp) is for the knobs' mapping; the engine ignores it. Math nodes (`dsp/nodes/math/`,
+  one factory `mathNode`): *Add, Multiply, Invert, Min, Max, Clamp, Map range, Quantize, Smooth, Mix, Compare, MIDI to Hz,
+  Hz to MIDI*. Each is elementwise over buffers, so it works on constants, controls and audio alike; an operand is the buffer
+  wired into its port, or, unwired, the parameter of the same id (which has its own socket); the result is never NaN or
+  infinite (rounded to float32 first, so a product that overflows the buffer is 0, not Infinity). *Hz to MIDI* gives 0, the
+  lowest note, for 0 or less; fractional notes work. Math nodes are global-capable.
+* **Names.** `PatchNode.name?` (trimmed, at most 60 characters, absent when blank; `setNodeName`, same patch when unchanged;
+  read by the sanitizer). Nothing shows it yet. It is not sound: renaming sends no engine command.
+* **Cards.** A card draws a parameter socket only when it is wired, or all of them while the **Sockets** toggle (a checkbox in the
+  toolbar, remembered like the Graph | Panel switch) is on (`ui/patcher/visible-shape.ts`; `portPosition` indexes the visible
+  shape). A slider whose parameter is driven is disabled.
+* **Files.** All optional with safe defaults, no format-version bump: old files have no control nodes, no names and no socket
+  wires and load identically (a test pins it); a wire to a socket that does not exist, to an enum, or that would make a loop is
+  dropped with the usual "invalid connection" warning.
+* **Browser check:** `docs/browser-checks/controls.mjs` (a Control wired into Gain's socket silences and restores the real bass,
+  the Sockets toggle, undo, reload).
 
 ## Track audio (taking another track's sound)
 
@@ -680,7 +734,7 @@ through a patch, as before) or an **audio track**.
 ## Common changes
 
 **Add a DSP node** — create `core/dsp/nodes/<name>.node.ts` exporting a `NodeDefinition`, add it to
-`core/dsp/registry.ts`. Set `shared: true` if it is an effect whose state must outlive individual notes (reverb,
+`core/dsp/registry.ts` (every numeric parameter then has a socket automatically; `paramSockets: false` opts out, `global: true` lets it run in the global stage; an elementwise math node is a few lines with `mathNode`). Set `shared: true` if it is an effect whose state must outlive individual notes (reverb,
 chorus, …). The patcher palette, parameter UI, engine and file loader pick it up automatically.
 
 **Add an engine capability** — add a variant to `EngineCommand`, handle it in `Engine.apply`, and (if it comes

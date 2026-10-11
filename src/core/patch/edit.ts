@@ -5,6 +5,8 @@ import { describeNode, kindsConnect } from './node-shape'
 import { dropControlsOfNodes } from './panel'
 import type { Patch, PatchNode, PortRef } from './types'
 
+export const MAX_NODE_NAME = 60
+
 const defaultParams = (type: string): Record<string, number> => {
   const shape = describeNode({ id: '', type, x: 0, y: 0, params: {} })
   if (!shape) throw new Error(`Unknown node type: ${type}`)
@@ -79,6 +81,15 @@ export const clearTrackReferences = (patch: Patch, trackId: string): Patch =>
         }),
       }
     : patch
+
+/** Names a node; an empty or blank name goes back to the default. The same patch when nothing changes. */
+export const setNodeName = (patch: Patch, nodeId: string, name: string): Patch => {
+  const wanted = name.trim().slice(0, MAX_NODE_NAME)
+  const node = patch.nodes.find((candidate) => candidate.id === nodeId)
+  if (!node || (node.name ?? '') === wanted) return patch
+  const { name: _previous, ...rest } = node
+  return { ...patch, nodes: patch.nodes.map((candidate) => (candidate === node ? (wanted === '' ? rest : { ...rest, name: wanted }) : candidate)) }
+}
 
 export const setNodeBypassed = (patch: Patch, nodeId: string, bypassed: boolean): Patch =>
   patch.nodes.some((node) => node.id === nodeId && (node.bypassed === true) !== bypassed)

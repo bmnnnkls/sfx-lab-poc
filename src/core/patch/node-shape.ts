@@ -1,4 +1,4 @@
-import { type NodeDefinition, type ParamSpec, type PortKind, type PortSpec, findNodeDefinition, stereoPorts } from '../dsp'
+import { type NodeDefinition, type ParamSpec, type PortKind, type PortSpec, findNodeDefinition, paramSockets, stereoPorts } from '../dsp'
 import { findNoteNode } from '../notefx'
 import { MODULE_NODE_TYPE, type ModuleDefinition, type ModuleLibrary, type ModulePort } from './module-types'
 import type { PatchNode } from './types'
@@ -17,10 +17,12 @@ export type NodeShape = Pick<NodeDefinition, 'label' | 'inputs' | 'outputs' | 'p
 
 /**
  * Sound connects to sound, stereo to stereo and notes to notes, never across. A mono signal may also feed a stereo
- * input (it is heard in both channels); going back to mono is the explicit *Mono sum* node.
+ * input (it is heard in both channels); going back to mono is the explicit *Mono sum* node. A `control` (a knob's
+ * value, a parameter socket) joins controls and mono signals either way: into a signal input it is a constant, and a
+ * signal into a control socket is read once per block. It never meets stereo or notes.
  */
 export const kindsConnect = (from: PortKind = 'signal', to: PortKind = 'signal'): boolean =>
-  from === to || (from === 'signal' && to === 'stereo')
+  from === to || (from === 'signal' && to === 'stereo') || (from === 'control' && to === 'signal') || (from === 'signal' && to === 'control')
 
 export const findModule = (modules: ModuleLibrary, id: string | undefined): ModuleDefinition | undefined =>
   id === undefined ? undefined : modules.find((candidate) => candidate.id === id)
@@ -61,6 +63,23 @@ export const moduleDomain = (definition: ModuleDefinition, modules: ModuleLibrar
   return undefined
 }
 
+const soundShapes = new Map<string, NodeShape>()
+
+/**
+ * A sound node's shape: its own ports, then one socket per numeric parameter. A node running in stereo has stereo
+ * ports; everything else about it is the same. Cached, so the shape of a type is one object, as the definition was.
+ */
+const soundShape = (definition: NodeDefinition, stereo: boolean): NodeShape => {
+  const lifted = stereo && definition.stereoCapable === true
+  const key = `${definition.type}:${lifted}`
+  const cached = soundShapes.get(key)
+  if (cached) return cached
+  const ports = lifted ? stereoPorts(definition) : definition
+  const shape: NodeShape = { ...definition, inputs: [...ports.inputs, ...paramSockets(definition)], outputs: ports.outputs }
+  soundShapes.set(key, shape)
+  return shape
+}
+
 /**
  * Ports and parameters of any node: sound nodes come from the DSP registry, note nodes from the note registry,
  * uses of a module from its definition. Undefined for an unknown type or a module that is not in the library.
@@ -68,8 +87,7 @@ export const moduleDomain = (definition: ModuleDefinition, modules: ModuleLibrar
 export const describeNode = (node: PatchNode, modules: ModuleLibrary = []): NodeShape | undefined => {
   if (node.type !== MODULE_NODE_TYPE) {
     const audio = findNodeDefinition(node.type)
-    // A node running in stereo has stereo ports; everything else about it is the same.
-    if (audio) return node.stereo === true && audio.stereoCapable === true ? { ...audio, ...stereoPorts(audio) } : audio
+    if (audio) return soundShape(audio, node.stereo === true)
     const note = findNoteNode(node.type)
     return (
       note && {

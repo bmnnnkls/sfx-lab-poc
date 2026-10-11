@@ -8,7 +8,7 @@ import {
   type PanelControl,
   type ParamBinding,
 } from './panel-types'
-import type { ParamSpec } from '../dsp'
+import { type ParamSpec, findNodeDefinition } from '../dsp'
 import type { Patch } from './types'
 
 /**
@@ -159,6 +159,8 @@ export const buildPanel = (patch: Patch, modules: ModuleLibrary): Patch => {
   )
   let next = patch
   for (const node of readingOrder(patch)) {
+    // A control node is itself a knob (it will be the panel's own control); its range and step are settings, not knobs.
+    if (findNodeDefinition(node.type)?.paramSockets === false) continue
     for (const spec of describeNode(node, modules)?.params ?? []) {
       if (bound.has(`${node.id}\0${spec.id}`)) continue
       next = addControl(next, modules, {

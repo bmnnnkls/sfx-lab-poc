@@ -9,14 +9,21 @@ export interface PortSpec {
    * instead of becoming a left/right pair.
    */
   readonly control?: boolean
+  /**
+   * Set on the sockets `describeNode` generates for a numeric parameter (`param-sockets.ts`): the id of the parameter
+   * this port drives. Such a port is not an input of the DSP node; it is read once per block and applied with `setParam`.
+   */
+  readonly param?: string
 }
 
 /**
  * `signal`: audio-rate buffers (the patcher). `stereo`: a left/right pair of them (see `stereo.ts`); a `signal`
  * output may feed a `stereo` input (it is heard in both channels), never the reverse. `notes`: streams of note events
- * (the note graph).
+ * (the note graph). `control`: a value that changes slowly (a knob, a parameter socket); it is still a buffer, constant
+ * over a block, so it may feed a `signal` input, and a `signal` may feed a `control` socket (it is read once per block).
+ * Not to be confused with `PortSpec.control`, which marks a modulation input that stays mono in a stereo node.
  */
-export type PortKind = 'signal' | 'stereo' | 'notes'
+export type PortKind = 'signal' | 'stereo' | 'notes' | 'control'
 
 import type { SampleLookup } from '../sample'
 
@@ -33,6 +40,11 @@ export interface ParamSpec {
   readonly options?: readonly string[]
   /** How to show the value: `midiNote` renders 60 as "C4". */
   readonly format?: 'midiNote'
+  /**
+   * The range of this parameter is not fixed: it is whatever the node's own parameters `min` and `max` say (a control
+   * node's value lies between its min and max). `min` / `max` here are then only wide bounds; `liveSpec` resolves it.
+   */
+  readonly range?: { readonly min: string; readonly max: string; readonly step?: string }
 }
 
 /** The note currently held by an instrument, shared with every node in its patch. */
@@ -119,5 +131,12 @@ export interface NodeDefinition {
   readonly usesTrack?: 'return' | 'audio'
   /** The node plays library samples; the patcher shows a sample picker and stores `sampleId`. */
   readonly usesSample?: boolean
+  /**
+   * The node may run in the `global` stage: once per block per instrument, not once per voice (see `planStages`). It
+   * does when everything wired into it is global too; a node with no inputs (a control) always is.
+   */
+  readonly global?: boolean
+  /** `false`: the node's numeric parameters get no sockets (a control's own range and step are settings, not signals). */
+  readonly paramSockets?: false
   create(sampleRate: number): DspNode
 }

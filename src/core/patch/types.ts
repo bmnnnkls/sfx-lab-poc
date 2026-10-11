@@ -13,6 +13,8 @@ export interface PatchNode {
   readonly x: number
   readonly y: number
   readonly params: Readonly<Record<string, number>>
+  /** What the user calls this node. Absent: the node's type label, numbered when alike ("Oscillator 2"). */
+  readonly name?: string
   /** For sample-playing nodes: id of the project sample to play. */
   readonly sampleId?: string
   /** For `trackNotes` nodes: which track the notes are taken from. For `send` nodes: which return track they send to. */

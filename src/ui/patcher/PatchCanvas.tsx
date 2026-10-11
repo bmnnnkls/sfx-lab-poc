@@ -12,6 +12,7 @@ import {
 import { type PointerEvent, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
 import { NodeView } from './NodeView'
+import { drivenParams, visibleShape } from './visible-shape'
 import styles from './Patcher.module.css'
 import { WireLayer } from './WireLayer'
 
@@ -23,6 +24,8 @@ interface PatchCanvasProps {
   ownerTrackId: string
   /** Sound patches have voice / shared stages to show; note graphs do not. */
   showStages: boolean
+  /** Draw every parameter socket, not only the wired ones. */
+  showSockets: boolean
   onSelectionChange(selected: ReadonlySet<string>): void
   onMoveNode(nodeId: string, x: number, y: number): void
   onRemoveNode(nodeId: string): void
@@ -61,6 +64,7 @@ export const PatchCanvas = ({
   selected,
   ownerTrackId,
   showStages,
+  showSockets,
   onSelectionChange,
   onMoveNode,
   onRemoveNode,
@@ -89,10 +93,10 @@ export const PatchCanvas = ({
     const map = new Map<string, NodeShape>()
     for (const node of patch.nodes) {
       const shape = describeNode(node, modules)
-      if (shape) map.set(node.id, shape)
+      if (shape) map.set(node.id, visibleShape(shape, node.id, patch, showSockets))
     }
     return map
-  }, [patch, modules])
+  }, [patch, modules, showSockets])
   const visible = patch.nodes.filter((node) => shapes.has(node.id))
 
   const width = Math.max(...visible.map((node) => node.x + NODE_WIDTH), 0) + PADDING
@@ -154,12 +158,13 @@ export const PatchCanvas = ({
         }}
         onPointerLeave={() => setPending(null)}
       >
-        <WireLayer patch={patch} modules={modules} pending={pending} onDisconnect={onDisconnect} />
+        <WireLayer patch={patch} shapes={shapes} pending={pending} onDisconnect={onDisconnect} />
         {visible.map((node) => (
           <NodeView
             key={node.id}
             node={node}
             shape={shapes.get(node.id)!}
+            driven={drivenParams(node.id, shapes.get(node.id)!, patch)}
             shared={isShared(node)}
             selected={selected.has(node.id)}
             ownerTrackId={ownerTrackId}

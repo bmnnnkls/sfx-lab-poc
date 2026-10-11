@@ -10,12 +10,14 @@ import { VoicePool } from './voice-pool'
 const NO_NOTE: Readonly<NoteState> = { frequency: 0, velocity: 0, gate: false, trigger: 0 }
 
 /**
- * A polyphonic synth built from a patch. The patch is split in two (see `planStages`):
+ * A polyphonic synth built from a patch. The patch is split in three (see `planStages`):
  * voice nodes are instantiated once per voice, shared nodes (effects) once, fed by the
- * sum of all voices. Renders a mono signal; the mixer decides placement.
+ * sum of all voices, and global nodes (controls and the math on them) once per block, read by both.
+ * Renders a mono signal; the mixer decides placement.
  */
 export class Instrument {
   private readonly pool: VoicePool
+  private readonly global: ReturnType<typeof compileStage>
   private readonly shared: ReturnType<typeof compileStage>
   private readonly boundaries: ReadonlyArray<{ key: string; buffer: Float32Array }>
   private readonly mix = new Float32Array(MAX_BLOCK_FRAMES)
@@ -28,12 +30,16 @@ export class Instrument {
   ) {
     const plan = planStages(patch)
 
+    // The global stage is compiled first: its buffers are what the other two stages read, shared by all voices.
+    this.global = compileStage(patch, plan.globalOrder, sampleRate)
+    const globalBuffers = this.global.outputBuffers
+
     this.boundaries = plan.boundaries.map((key) => ({ key, buffer: new Float32Array(MAX_BLOCK_FRAMES) }))
     this.shared = compileStage(
       patch,
       plan.sharedOrder,
       sampleRate,
-      new Map(this.boundaries.map(({ key, buffer }) => [key, buffer])),
+      new Map([...globalBuffers, ...this.boundaries.map(({ key, buffer }) => [key, buffer] as const)]),
     )
 
     this.pool = new VoicePool(
@@ -41,7 +47,7 @@ export class Instrument {
         { length: Math.max(1, Math.floor(voiceCount)) },
         () =>
           new Voice(
-            compileStage(patch, plan.voiceOrder, sampleRate),
+            compileStage(patch, plan.voiceOrder, sampleRate, globalBuffers),
             plan.boundaries,
             sampleRate,
             samples,
@@ -69,6 +75,7 @@ export class Instrument {
 
   setParam(nodeId: string, paramId: string, value: number): void {
     for (const voice of this.pool.voices) voice.setParam(nodeId, paramId, value)
+    setStageParam(this.global, nodeId, paramId, value)
     setStageParam(this.shared, nodeId, paramId, value)
   }
 
@@ -82,6 +89,8 @@ export class Instrument {
     this.mix.fill(0, 0, frames)
     for (const { buffer } of this.boundaries) buffer.fill(0, 0, frames)
 
+    // Every block, voices or not: a smoothing node keeps its state, and the voices read the buffers it fills.
+    processStage(this.global, { frames, sampleRate: this.sampleRate, note: NO_NOTE, samples: this.samples })
     for (const voice of this.pool.voices) {
       if (!voice.active) continue
       voice.render(frames)

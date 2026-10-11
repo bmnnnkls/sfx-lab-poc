@@ -7,6 +7,7 @@ import {
   STEREO_FRAMES,
   isStereoBuffer,
   leftOf,
+  paramOfPort,
   requireNodeDefinition,
   rightOf,
   stereoPorts,
@@ -23,9 +24,23 @@ export interface CompiledRun {
   readonly outputs: readonly Float32Array[]
 }
 
+/**
+ * A wired parameter socket: once per block the first sample of each source (summed) is applied with `setParam`, in
+ * place of the stored value. Audio-rate modulation has its own ports; a socket is a knob, not a signal.
+ */
+export interface ParamFeed {
+  /** Every copy of the node (two for a node running in stereo). */
+  readonly dsps: readonly DspNode[]
+  readonly paramId: string
+  readonly sources: readonly Float32Array[]
+  /** What was last applied. A steady wire then costs nothing, and a node that redesigns itself on `setParam` is not poked every block. */
+  last: number
+}
+
 export interface CompiledNode {
   readonly id: string
   readonly runs: readonly CompiledRun[]
+  readonly paramFeeds: readonly ParamFeed[]
   /** Source buffers that must be summed into a node's own input buffer before processing. */
   readonly sums: ReadonlyArray<{ target: Float32Array; sources: readonly Float32Array[] }>
 }
@@ -40,14 +55,20 @@ export interface CompiledStage {
   readonly outputSources: readonly Float32Array[]
   /** The processors of each node (two for a node running in stereo). */
   readonly byId: ReadonlyMap<string, readonly DspNode[]>
+  /** `bufferKey(node, param)` of every parameter a wire is driving: the stored value of those is ignored. */
+  readonly driven: ReadonlySet<string>
 }
 
 export const bufferKey = (nodeId: string, portId: string): string => `${nodeId}:${portId}`
 
 const newBuffer = (stereo = false) => new Float32Array(stereo ? STEREO_FRAMES : MAX_BLOCK_FRAMES)
 
-/** Changes a parameter of a node of the stage, in every copy of it. */
+/**
+ * Changes a parameter of a node of the stage, in every copy of it. A parameter with a wire into its socket is left
+ * alone: the wire wins, and a knob turned on the stored value must not fight it.
+ */
 export const setStageParam = (stage: CompiledStage, nodeId: string, paramId: string, value: number): void => {
+  if (stage.driven.has(bufferKey(nodeId, paramId))) return
   for (const dsp of stage.byId.get(nodeId) ?? []) dsp.setParam(paramId, value)
 }
 
@@ -73,6 +94,7 @@ export const compileStage = (
   const byId = new Map<string, DspNode[]>()
   const nodes: CompiledNode[] = []
   const outputSources: Float32Array[] = []
+  const driven = new Set<string>()
 
   for (const id of order) {
     const node = nodesById.get(id)
@@ -124,13 +146,26 @@ export const compileStage = (
       }
     })
 
+    // Parameter sockets: each parameter with at least one wire into its socket is read from those wires every block.
+    const feeds = new Map<string, Float32Array[]>()
+    for (const connection of patch.connections) {
+      const paramId = connection.to.node === id ? paramOfPort(connection.to.port) : undefined
+      const source = paramId === undefined ? undefined : outputBuffers.get(bufferKey(connection.from.node, connection.from.port))
+      if (paramId === undefined || !source || !definition.params.some((spec) => spec.id === paramId)) continue
+      feeds.set(paramId, [...(feeds.get(paramId) ?? []), source])
+    }
+    const paramFeeds: ParamFeed[] = [...feeds].map(([paramId, sources]) => {
+      driven.add(bufferKey(id, paramId))
+      return { dsps: copies, paramId, sources, last: Number.NaN }
+    })
+
     if (definition.sink === true && inputs[0]) outputSources.push(inputs[0])
 
     byId.set(id, copies)
-    nodes.push({ id, runs, sums })
+    nodes.push({ id, runs, sums, paramFeeds })
   }
 
-  return { nodes, outputBuffers, outputSources, byId }
+  return { nodes, outputBuffers, outputSources, byId, driven }
 }
 
 /** Adds `source` into `target`; a mono source into a stereo target is heard in both channels. */
@@ -154,6 +189,13 @@ export const processStage = (stage: CompiledStage, context: ProcessContext): voi
       target.fill(0, 0, frames)
       if (isStereoBuffer(target)) target.fill(0, RIGHT, RIGHT + frames)
       for (const source of sources) addInto(target, source, frames)
+    }
+    for (const feed of node.paramFeeds) {
+      let value = 0
+      for (const source of feed.sources) value += source[0] ?? 0
+      if (!Number.isFinite(value) || value === feed.last) continue
+      feed.last = value
+      for (const dsp of feed.dsps) dsp.setParam(feed.paramId, value)
     }
     for (const { dsp, inputs, outputs } of node.runs) dsp.process(context, inputs, outputs)
   }

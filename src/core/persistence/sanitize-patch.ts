@@ -4,6 +4,7 @@ import {
   type ModuleLibrary,
   type Patch,
   type PortRef,
+  MAX_NODE_NAME,
   addNode,
   connect,
   type NodeDomain,
@@ -85,9 +86,11 @@ export const sanitizePatch = (
       else warn(`${where}: a ${definition.label} pointed at a sample that is not in the project`)
     }
 
+    const name = typeof rawNode.name === 'string' ? rawNode.name.trim().slice(0, MAX_NODE_NAME) : ''
     patch = addNode(patch, {
       id: rawNode.id,
       type,
+      ...(name === '' ? {} : { name }),
       ...(moduleId === undefined ? {} : { moduleId }),
       x: finiteNumber(rawNode.x, 0),
       y: finiteNumber(rawNode.y, 0),

@@ -134,6 +134,11 @@ describe('editing controls', () => {
 })
 
 describe('buildPanel', () => {
+  it('leaves control nodes alone: their range and step are settings, not knobs', () => {
+    const patch: Patch = { nodes: [createNode('control', 0, 0), createNode('gain', 100, 0)], connections: [] }
+    expect(buildPanel(patch, []).panel?.map((control) => control.bind.param)).toEqual(['gain'])
+  })
+
   it('makes a control for every parameter in reading order, a selector for enums', () => {
     const left = createNode('filter', 0, 0)
     const right = createNode('oscillator', 400, 0)

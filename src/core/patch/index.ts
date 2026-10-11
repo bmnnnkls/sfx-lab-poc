@@ -47,6 +47,8 @@ export {
   setNodeSample,
   setNodeTrack,
   setNodeBypassed,
+  setNodeName,
+  MAX_NODE_NAME,
   setNodeStereo,
   clearTrackReferences,
   clearSampleReferences,

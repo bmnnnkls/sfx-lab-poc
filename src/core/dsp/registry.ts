@@ -18,6 +18,13 @@ import { trackAudioNode } from './nodes/track-audio.node'
 import { trackInNode } from './nodes/track-in.node'
 import { trackOutNode } from './nodes/track-out.node'
 import { widthNode } from './nodes/width.node'
+import { controlNode } from './nodes/control.node'
+import { addNode, clampNode, compareNode, invertNode, maxNode, minNode, multiplyNode } from './nodes/math/arithmetic'
+import { hzToMidiNode, midiToHzNode } from './nodes/math/midi'
+import { mapRangeNode, mixNode, quantizeNode } from './nodes/math/shaping'
+import { smoothNode } from './nodes/math/smooth.node'
+import { switchNode } from './nodes/switch.node'
+import { xyPadNode } from './nodes/xy-pad.node'
 import type { NodeDefinition } from './types'
 
 export const nodeDefinitions: readonly NodeDefinition[] = [
@@ -42,6 +49,22 @@ export const nodeDefinitions: readonly NodeDefinition[] = [
   masterInNode,
   sendNode,
   trackAudioNode,
+  controlNode,
+  xyPadNode,
+  switchNode,
+  addNode,
+  multiplyNode,
+  invertNode,
+  minNode,
+  maxNode,
+  clampNode,
+  mapRangeNode,
+  quantizeNode,
+  smoothNode,
+  mixNode,
+  compareNode,
+  midiToHzNode,
+  hzToMidiNode,
 ]
 
 const byType = new Map(nodeDefinitions.map((definition) => [definition.type, definition]))

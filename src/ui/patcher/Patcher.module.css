@@ -324,6 +324,28 @@
   stroke-width: 3.5;
 }
 
+/* A knob's value or a parameter socket: a slow signal, drawn thinner and dashed so it reads as "setting", not "sound". */
+.controlWire {
+  stroke: var(--play);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+}
+
+.controlPort .dot {
+  background: var(--play);
+}
+
+.socketsToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+}
+
+.param[data-driven='true'] {
+  opacity: 0.5;
+}
+
 .nodeBypassed {
   opacity: 0.55;
 }

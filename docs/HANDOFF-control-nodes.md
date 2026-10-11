@@ -1,6 +1,8 @@
 # Handoff: control nodes, a property editor and a panel built from them
 
-> **Status: planned, not started; the design is agreed** (replace semantics confirmed, math nodes and a searchable quick-add added).
+> **Status: in progress; the design is agreed** (replace semantics confirmed, math nodes and a searchable quick-add added).
+> **Step 1 is built** (see "Build order" and `ARCHITECTURE.md`, "Control nodes, parameter sockets and the global stage"); steps 2 onward are not.
+> The build is paused for the user's check-in before **step 4**.
 > Written after the front panel (`HANDOFF-front-panel.md`, built and merged) was tried and the
 > user said what they actually want. Decisions marked **(confirm)** are the planner's proposals the user has not answered yet (the build
 > can go ahead on them; the user will say if one is wrong); the rest were agreed in conversation or follow from how the code works. Work on the branch **`claude/determined-turing-ypq9ix`**
@@ -12,9 +14,10 @@ conditions": commands, layering test, browser checks) first. They apply unchange
 
 ## Start here (for a fresh session)
 
-**State.** Branch `claude/determined-turing-ypq9ix` was restarted from `main` (`0929605`, PR #2 merged) and holds only this plan
-and the docs that point at it. **Nothing of the design is built.** On `main` already: the controls widgets (`ui/controls`), the
-board (`ui/panel`), the Graph | Panel switch and `Patch.panel`, which step 4 replaces. 694 unit tests passed at `0929605`.
+**State.** Branch `claude/determined-turing-ypq9ix` was restarted from `main` (`0929605`, PR #2 merged). **Step 1 of the build order is
+done** (the engine, the model, parameter sockets, the global stage, the control and math nodes, `PatchNode.name`); the rest of the
+design is not. On `main` already: the controls widgets (`ui/controls`), the board (`ui/panel`), the Graph | Panel switch and
+`Patch.panel`, which step 5 replaces. 694 unit tests passed at `0929605`; 812 pass after step 1.
 
 **Setup and checks** (from the repo root; running vitest inside `src/` breaks the `@core` alias):
 
@@ -33,7 +36,7 @@ sample; the sound is right). Ignore that one line; a fix was suggested as a sepa
 session instructions give. Small files, immutable data, pure edits that return the **same object** when nothing changes, optional
 fields with safe defaults (no format-version bump unless a migration needs one), tests beside the code, comments say why.
 
-**Where step 1 lives:**
+**Where step 1 lives** (now built; the files to know):
 
 | Concern | Files |
 | --- | --- |
@@ -256,12 +259,21 @@ The toolbar's row of one button per node (`NodePalette`) does not survive 30+ no
 
 ## Build order (each step ships and passes the tests)
 
-1. **Engine and model, no UI change beyond sockets.** `control` port kind and rules; param sockets in `describeNode`;
+> **Step 1: done.** Differences between this plan and what the code needed, all recorded in `ARCHITECTURE.md`: the Sockets toggle
+> and the dashed wire colour are in step 1 (without them a wire cannot be made to a socket); `PortSpec.control` already existed as a
+> flag (a mono modulation input), so the new `control` *kind* shares the word, not the meaning; a control's `unit`, `display` and
+> `label` are strings and `PatchNode.params` holds only numbers, so they are **not built yet** and need a home (decide in step 4 with
+> the property editor: probably optional string fields on the node); `ParamSpec.range` / `liveSpec` (a control's value takes its
+> range from the node's own `min` / `max` / `step`) is new and is what the panel in step 5 reads; `buildPanel` skips control nodes.
+> Math operands are an input port **and** a parameter of the same id (unwired, the parameter is the operand), so *Add* has `a` and
+> `b` ports and `a` / `b` parameters with sockets of their own.
+
+1. **Engine and model, no UI change beyond sockets (done).** `control` port kind and rules; param sockets in `describeNode`;
    `paramFeeds` in `compileStage` / `processStage` (and the fx-graph / master paths); the `global` stage; the control nodes
    (Control, XY, Switch) and the first-batch math nodes (including MIDI <-> Hz) in the DSP registry; `PatchNode.name?`. Tests: socket
    generation, replace semantics, block-rate feed, **a control into N voices is not N times the value**, global / voice classification,
    flatten and diff (a knob turn is one `track/setParam`), save / load, old files identical. The old palette strip lists the new nodes
-   and the old sliders stay on cards for now, so everything is usable.
+   and the old sliders stay on cards for now, so everything is usable. Browser check: `docs/browser-checks/controls.mjs`.
 2. **Descriptions, categories and tooltips**: `description` on every node, param and port, a `category` on every node, the
    completeness test (nothing registered without them), the tooltip component, used in the palette and on cards.
 3. **Quick-add**: `node-catalog.ts` with tests, `QuickAdd.tsx`, double-click / Add / Shift+A, the old strip removed. Update the

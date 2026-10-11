@@ -1,4 +1,4 @@
-import type { NodeShape, PatchNode, PortRef } from '@core'
+import { type NodeShape, type PatchNode, type PortRef, liveSpec } from '@core'
 import { HEADER_HEIGHT, MODULE_FOOTER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT } from './geometry'
 import { ParamControl } from './ParamControl'
 import { SamplePicker } from './SamplePicker'
@@ -9,6 +9,8 @@ import { useNodeDrag } from './use-node-drag'
 interface NodeViewProps {
   node: PatchNode
   shape: NodeShape
+  /** Parameters a wire is driving; their sliders are disabled, since the stored value is ignored meanwhile. */
+  driven: ReadonlySet<string>
   /** Runs once on the mix of all voices (effects), rather than once per voice. */
   shared: boolean
   selected: boolean
@@ -32,6 +34,7 @@ interface NodeViewProps {
 export const NodeView = ({
   node,
   shape,
+  driven,
   shared,
   selected,
   ownerTrackId,
@@ -117,7 +120,7 @@ export const NodeView = ({
             <div key={row} className={styles.portRow} style={{ height: PORT_ROW_HEIGHT }}>
               {input ? (
                 <span
-                  className={`${styles.port} ${styles.inPort}`}
+                  className={`${styles.port} ${styles.inPort} ${input.kind === 'control' ? styles.controlPort : ''}`}
                   data-testid={`in-${node.id}-${input.id}`}
                   onPointerUp={() => onWireEnd({ node: node.id, port: input.id })}
                 >
@@ -129,7 +132,7 @@ export const NodeView = ({
               )}
               {output && (
                 <span
-                  className={`${styles.port} ${styles.outPort}`}
+                  className={`${styles.port} ${styles.outPort} ${output.kind === 'control' ? styles.controlPort : ''}`}
                   data-testid={`out-${node.id}-${output.id}`}
                   onPointerDown={(event) => {
                     event.stopPropagation()
@@ -151,8 +154,9 @@ export const NodeView = ({
       {shape.params.map((spec) => (
         <ParamControl
           key={spec.id}
-          spec={spec}
+          spec={liveSpec(spec, node.params)}
           value={node.params[spec.id] ?? spec.default}
+          driven={driven.has(spec.id)}
           onChange={(value) => onParamChange(spec.id, value)}
         />
       ))}
