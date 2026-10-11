@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type ModuleDefinition, noteNodeDefinitions, nodeDefinitions } from '@core'
+import { NODE_CATEGORIES, type ModuleDefinition, noteNodeDefinitions, nodeDefinitions } from '@core'
 import { buildCatalog, searchCatalog } from './node-catalog'
 
 const catalog = buildCatalog(nodeDefinitions.filter((definition) => definition.insertOnly !== true), [])
@@ -9,8 +9,8 @@ const module = (id: string, name: string): ModuleDefinition => ({ id, name, patc
 
 describe('buildCatalog', () => {
   it('lists the categories that have something, in the picker order, with their counts', () => {
-    expect(catalog.categories.map((category) => category.name)).toEqual(['Sources', 'Controls', 'Modulation', 'Math', 'Filters', 'Effects', 'Routing'])
-    expect(catalog.categories.find((category) => category.name === 'Math')?.count).toBe(24)
+    expect(catalog.categories.map((category) => category.name)).toEqual([...NODE_CATEGORIES])
+    expect(catalog.categories.find((category) => category.name === 'Math')?.count).toBe(nodeDefinitions.filter((definition) => definition.category === 'Math' && definition.insertOnly !== true).length)
     expect(catalog.categories.reduce((sum, category) => sum + category.count, 0)).toBe(catalog.entries.length)
   })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nodeDefinitions } from '@core'
+import { NODE_CATEGORIES, nodeDefinitions } from '@core'
 import { buildCatalog } from './node-catalog'
 import { INITIAL, type QuickAddAction, type QuickAddState, rowsOf, step } from './quick-add-model'
 
@@ -27,7 +27,7 @@ describe('quick-add: what it lists', () => {
     const rows = names(INITIAL)
     expect(rows[0]).toBe(`Sources (${labelsIn('Sources').length})`)
     expect(rows).toContain(`Math (${labelsIn('Math').length})`)
-    expect(rows).toHaveLength(7)
+    expect(rows).toHaveLength(NODE_CATEGORIES.length)
   })
 
   it('drilling into a category lists its nodes', () => {

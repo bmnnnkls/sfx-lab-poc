@@ -514,6 +514,81 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     params: { in: 'The value while nothing is wired to In.', trigger: 'The trigger while nothing is wired to it.' },
   },
 
+  // ---- Logic
+  schmitt: {
+    category: 'Logic',
+    description: 'Turns a wobbling signal into a clean on/off: on when it rises past High, off only when it falls below Low.',
+    keywords: ['threshold', 'gate', 'comparator', 'hysteresis', 'trigger', 'detect'],
+    inputs: { in: 'The signal to watch.', high: 'The level at which the output turns on.', low: 'The level at which the output turns off.' },
+    outputs: { out: '1 while on, 0 while off.' },
+    params: { in: 'The signal while nothing is wired to In.', high: 'The level at which the output turns on.', low: 'The level at which the output turns off.' },
+  },
+  edge: {
+    category: 'Logic',
+    description: 'Sends a short pulse each time the signal crosses 0.5: when it rises, when it falls, or both.',
+    keywords: ['trigger', 'pulse', 'change', 'detect', 'rising', 'falling', 'one shot'],
+    inputs: { in: 'The signal to watch.' },
+    outputs: { out: '1 for the Pulse time after each edge, 0 otherwise.' },
+    params: {
+      in: 'The signal while nothing is wired to In.',
+      mode: 'Which edges give a pulse: rising, falling or both.',
+      pulse: 'How long the pulse lasts, in seconds.',
+    },
+  },
+  flipFlop: {
+    category: 'Logic',
+    description: 'Flips between 0 and 1 on every trigger: turn a push button into a toggle, or a beat into an on/off pattern.',
+    keywords: ['toggle', 'latch', 'alternate', 'divide by two', 'memory', 'bistable'],
+    inputs: { trigger: 'Each rise through 0.5 flips the output.', reset: 'A rise through 0.5 sets the output back to 0.' },
+    outputs: { out: 'Alternates between 0 and 1.' },
+    params: { trigger: 'The trigger while nothing is wired to it.', reset: 'The reset while nothing is wired to it.' },
+  },
+  counter: {
+    category: 'Logic',
+    description: 'Counts triggers: 0, 1, 2, and so on, optionally starting over at a limit. Steps through a list or a pattern.',
+    keywords: ['count', 'step', 'sequence', 'index', 'bar', 'beat'],
+    inputs: { trigger: 'Each rise through 0.5 adds one.', reset: 'A rise through 0.5 goes back to 0.' },
+    outputs: { out: 'The count, starting at 0.' },
+    params: {
+      trigger: 'The trigger while nothing is wired to it.',
+      reset: 'The reset while nothing is wired to it.',
+      limit: 'Start over at 0 after counting up to one less than this (0 for no limit).',
+    },
+  },
+  clock: {
+    category: 'Logic',
+    description: 'A steady on/off beat: a square wave at a slow rate, to step counters, retrigger envelopes and fire samples.',
+    keywords: ['metronome', 'tempo', 'beat', 'pulse', 'square', 'gate', 'timer', 'bpm', 'oscillator'],
+    inputs: { reset: 'A rise through 0.5 restarts the cycle.' },
+    outputs: { out: '1 for the first part of each cycle (Width), 0 for the rest.' },
+    params: {
+      reset: 'The reset while nothing is wired to it.',
+      rate: 'How many cycles per second or per minute, depending on Per.',
+      unit: 'Count the rate in cycles per second (Hz) or per minute (BPM).',
+      width: 'How much of each cycle is on, from 0 to 1.',
+    },
+  },
+  divider: {
+    category: 'Logic',
+    description: 'Lets through every Nth cycle of a clock: half time, a marker once a bar, a rhythm from a steady beat.',
+    keywords: ['clock divider', 'every other', 'half time', 'rhythm', 'ratio', 'pulse'],
+    inputs: { in: 'The clock or gate to divide.', reset: 'A rise through 0.5 starts counting again from the first cycle.' },
+    outputs: { out: 'The input, on the cycles that pass; 0 otherwise.' },
+    params: {
+      in: 'The signal while nothing is wired to In.',
+      reset: 'The reset while nothing is wired to it.',
+      by: 'Pass one cycle in this many, starting with the first.',
+    },
+  },
+  controlDelay: {
+    category: 'Logic',
+    description: 'The signal, a little later: delays a control or a gate by a set time, up to two seconds.',
+    keywords: ['delay', 'late', 'shift', 'lag', 'wait', 'offset', 'echo'],
+    inputs: { in: 'The signal to delay.' },
+    outputs: { out: 'The signal as it was Time seconds ago.' },
+    params: { in: 'The signal while nothing is wired to In.', time: 'How long to delay it, in seconds.' },
+  },
+
   // ---- Routing
   output: {
     category: 'Routing',

@@ -21,6 +21,8 @@ export interface MathSpec {
   readonly operands: readonly Operand[]
   /** Parameters that are not operands (a range, a step, a curve). */
   readonly extra?: readonly ParamSpec[]
+  /** `false`: the node has state over time (a clock, a counter), so it makes no sense as a constant in a note graph. */
+  readonly inNotes?: false
   /** Builds the rule for one instance; `params` is the node's own storage, read when the rule runs. */
   readonly make: (params: Params, sampleRate: number) => MathFn
 }
@@ -81,7 +83,7 @@ export const mathNode = (spec: MathSpec): NodeDefinition => {
     outputs: [{ id: 'out', label: 'Out' }],
     params,
     global: true,
-    inNotes: true,
+    ...(spec.inNotes === false ? {} : { inNotes: true as const }),
     create: (sampleRate) => new MathNode(spec, params, sampleRate),
   }
 }

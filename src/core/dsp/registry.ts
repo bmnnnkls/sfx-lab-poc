@@ -25,6 +25,7 @@ import { widthNode } from './nodes/width.node'
 import { controlNode } from './nodes/control.node'
 import { absNode, addNode, clampNode, compareNode, constantNode, divideNode, invertNode, maxNode, minNode, multiplyNode, subtractNode } from './nodes/math/arithmetic'
 import { dbToGainNode, gainToDbNode, hzToMsNode, msToHzNode, ratioToSemitonesNode, semitonesToRatioNode } from './nodes/math/conversions'
+import { clockNode, controlDelayNode, counterNode, dividerNode, edgeNode, flipFlopNode, schmittNode } from './nodes/math/logic'
 import { sampleHoldNode } from './nodes/math/sample-hold.node'
 import { hzToMidiNode, midiToHzNode } from './nodes/math/midi'
 import { mapRangeNode, mixNode, quantizeNode } from './nodes/math/shaping'
@@ -90,6 +91,13 @@ const plainDefinitions: readonly NodeDefinition[] = [
   hzToMsNode,
   msToHzNode,
   sampleHoldNode,
+  schmittNode,
+  edgeNode,
+  flipFlopNode,
+  counterNode,
+  clockNode,
+  dividerNode,
+  controlDelayNode,
 ]
 
 /** Every node type, with the words that go with it (`node-docs.ts`) attached. */

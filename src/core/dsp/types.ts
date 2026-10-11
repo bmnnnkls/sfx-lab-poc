@@ -118,7 +118,7 @@ export interface DspNode {
 }
 
 /** How the node picker groups nodes. A module is placed under `Modules`, which the picker adds. */
-export const NODE_CATEGORIES = ['Sources', 'Controls', 'Modulation', 'Math', 'Filters', 'Effects', 'Routing'] as const
+export const NODE_CATEGORIES = ['Sources', 'Controls', 'Modulation', 'Math', 'Logic', 'Filters', 'Effects', 'Routing'] as const
 export type NodeCategory = (typeof NODE_CATEGORIES)[number]
 
 /** Everything the app needs to know about a node type: its shape and how to build it. */

@@ -494,10 +494,17 @@ plain cards; the property editor, the panel built from control nodes and the nod
   `gate` seconds), so one node is both a crackle and a random trigger. *Random*: a control that holds a roll between `min` and `max`
   (optionally snapped to `step`) and draws a new one on each rise of `Roll` through 0.5; it keeps the roll as a position in the range,
   so turning Min or Max moves the value without a new roll.
+* **Logic** (`dsp/nodes/math/logic.ts`, category *Logic*, all built with `mathNode` and global-capable; `MathSpec.inNotes: false` keeps them out of
+  note graphs, since a clock or counter has no meaning as a baked constant). *Schmitt trigger* (on at `high`, off only at `low`, either way round),
+  *Edge detect* (a pulse of `pulse` seconds on a rising, falling or either edge; the first sample is never an edge), *Flip-flop*
+  (toggles on a rise of `trigger`, `reset` clears), *Counter* (counts rises, wraps at `limit`), *Clock* (a square at `rate` Hz or BPM,
+  duty `width`, `reset` restarts it; the DSP context has no tempo, so BPM is just rate / 60), *Clock divider* (passes the first and
+  then every Nth cycle) and *Control delay* (up to 2 s, a ring buffer made when the node is created; starts as its first input). A
+  rise or high is always 0.5, as everywhere else.
 * **Names.** `PatchNode.name?` (trimmed, at most 60 characters, absent when blank; `setNodeName`, same patch when unchanged;
   read by the sanitizer). Nothing shows it yet. It is not sound: renaming sends no engine command.
 * **Words** (`dsp/node-docs.ts`, `notefx/node-docs.ts`, `dsp/document.ts`). Every node has a one-sentence `description`, a `category`
-  (*Sources, Controls, Modulation, Math, Filters, Effects, Routing*, and since then more; the note graph uses only Sources, Effects and Routing;
+  (*Sources, Controls, Modulation, Math, Logic, Filters, Effects, Routing*; the note graph uses only Sources, Effects and Routing;
   modules are `Modules`) and optional `keywords` for search, and every port and
   parameter a `description`. They are written once in one table per registry and attached by the registry (`documented`), not
   scattered over the node files; **a test fails when a registered node, port or parameter has no entry, or an entry names
