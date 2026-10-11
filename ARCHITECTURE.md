@@ -501,10 +501,17 @@ plain cards; the property editor, the panel built from control nodes and the nod
   duty `width`, `reset` restarts it; the DSP context has no tempo, so BPM is just rate / 60), *Clock divider* (passes the first and
   then every Nth cycle) and *Control delay* (up to 2 s, a ring buffer made when the node is created; starts as its first input). A
   rise or high is always 0.5, as everywhere else.
+* **Analysis** (`dsp/nodes/analysis/`, category *Analysis*; audio in, control out). They read a sound, so they are voice or shared
+  nodes (never global), and their `control` outputs can feed a parameter socket (read once per block) or any signal input. *Envelope
+  follower* (`Follower`: a one-pole with its own attack and release, peak or RMS; RMS of a sine reads 0.707 of its peak). *Level (dB)*
+  (the same follower, symmetric, then `20 log10`, floor -120 dB, 0 dB is full scale). *Pitch detector* (`yin.ts`: the YIN method on the
+  input averaged down to about 12 kHz, a 1024-sample window looked at every 256, parabolic interpolation; outputs `frequency`, which holds the
+  last pitch it was sure about and is 0 until the first, and `confidence`; about 50 ms of lag; a pitch above its range comes out as a
+  subharmonic inside it).
 * **Names.** `PatchNode.name?` (trimmed, at most 60 characters, absent when blank; `setNodeName`, same patch when unchanged;
   read by the sanitizer). Nothing shows it yet. It is not sound: renaming sends no engine command.
 * **Words** (`dsp/node-docs.ts`, `notefx/node-docs.ts`, `dsp/document.ts`). Every node has a one-sentence `description`, a `category`
-  (*Sources, Controls, Modulation, Math, Logic, Filters, Effects, Routing*; the note graph uses only Sources, Effects and Routing;
+  (*Sources, Controls, Modulation, Math, Logic, Analysis, Filters, Effects, Routing*; the note graph uses only Sources, Effects and Routing;
   modules are `Modules`) and optional `keywords` for search, and every port and
   parameter a `description`. They are written once in one table per registry and attached by the registry (`documented`), not
   scattered over the node files; **a test fails when a registered node, port or parameter has no entry, or an entry names

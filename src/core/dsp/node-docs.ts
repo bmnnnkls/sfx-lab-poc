@@ -589,6 +589,46 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     params: { in: 'The signal while nothing is wired to In.', time: 'How long to delay it, in seconds.' },
   },
 
+  // ---- Analysis
+  follower: {
+    category: 'Analysis',
+    description: 'Listens to a sound and outputs how loud it is, as a control: for an auto-wah, ducking or a level light.',
+    keywords: ['envelope', 'amplitude', 'loudness', 'level', 'sidechain', 'duck', 'auto wah', 'detector', 'rms', 'peak'],
+    inputs: { in: 'The sound to listen to.' },
+    outputs: { out: 'How loud the sound is, from 0 up (1 is full scale).' },
+    params: {
+      mode: 'Peak follows the size of the waves; RMS follows their power, which is closer to how loud it sounds.',
+      attack: 'How fast the level rises when the sound gets louder, in milliseconds.',
+      release: 'How fast the level falls when the sound gets quieter, in milliseconds.',
+    },
+  },
+  level: {
+    category: 'Analysis',
+    description: 'Measures how loud a sound is in decibels, where 0 dB is full scale: a readout, or a threshold to wire onward.',
+    keywords: ['db', 'decibel', 'loudness', 'meter', 'vu', 'rms', 'peak', 'volume'],
+    inputs: { in: 'The sound to measure.' },
+    outputs: { out: 'The level in dB, from 0 down to -120 (silence).' },
+    params: {
+      mode: 'Peak follows the size of the waves; RMS follows their power, which is closer to how loud it sounds.',
+      time: 'How long the level is averaged over, in milliseconds. Short is twitchy, long is steady.',
+    },
+  },
+  pitch: {
+    category: 'Analysis',
+    description: 'Finds the pitch of a sound: its frequency and how sure it is. Wire it to an oscillator to follow a voice or an instrument.',
+    keywords: ['frequency', 'tuner', 'tracker', 'note', 'yin', 'detect', 'hz', 'follow'],
+    inputs: { in: 'The sound to listen to. One clear note at a time works best.' },
+    outputs: {
+      frequency: 'The pitch in Hz. It holds the last pitch it was sure about, and is 0 until it has heard one.',
+      confidence: 'How sure it is, from 0 (noise or silence) to 1 (a clean tone).',
+    },
+    params: {
+      low: 'The lowest pitch to look for, in Hz.',
+      high: 'The highest pitch to look for, in Hz.',
+      threshold: 'How sure it must be before the frequency output follows a new pitch.',
+    },
+  },
+
   // ---- Routing
   output: {
     category: 'Routing',

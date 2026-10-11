@@ -1,3 +1,6 @@
+import { followerNode } from './nodes/analysis/follower.node'
+import { levelNode } from './nodes/analysis/level.node'
+import { pitchNode } from './nodes/analysis/pitch.node'
 import { delayNode } from './nodes/delay.node'
 import { envelopeNode } from './nodes/envelope.node'
 import { filterNode } from './nodes/filter.node'
@@ -98,6 +101,9 @@ const plainDefinitions: readonly NodeDefinition[] = [
   clockNode,
   dividerNode,
   controlDelayNode,
+  followerNode,
+  levelNode,
+  pitchNode,
 ]
 
 /** Every node type, with the words that go with it (`node-docs.ts`) attached. */
