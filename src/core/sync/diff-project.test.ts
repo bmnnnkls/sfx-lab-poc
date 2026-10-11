@@ -15,6 +15,10 @@ import {
   setTrackPatch,
   setTrackVoices,
   setTrackVolume,
+  setMasterVolume,
+  setTrackMuted,
+  setTrackPan,
+  setTrackSoloed,
 } from '../project'
 import { addAudioTrackWithClip, addSamples, createAudioTrack, addTrack, setTrackVolume as setVolume, updateAudioClip, isAudioTrack } from '../project'
 import { diffProject } from './diff-project'
@@ -355,5 +359,32 @@ describe('diffProject', () => {
       const renamed = updateModule(grouped, grouped.modules[0]!.id, (m) => renameModule(m, 'Other'))
       expect(diffProject(grouped, renamed)).toEqual([])
     })
+  })
+})
+
+describe('diffProject: mixer settings', () => {
+  const project = createDemoProject()
+  const id = project.tracks[0]!.id
+
+  it('sends one command per change, and none for a no-op', () => {
+    expect(diffProject(project, setTrackPan(project, id, 0.5))).toEqual([{ type: 'track/setPan', trackId: id, pan: 0.5 }])
+    expect(diffProject(project, setTrackMuted(project, id, true))).toEqual([{ type: 'track/setMute', trackId: id, muted: true }])
+    expect(diffProject(project, setTrackSoloed(project, id, true))).toEqual([{ type: 'track/setSolo', trackId: id, soloed: true }])
+    expect(diffProject(project, setMasterVolume(project, 0.4))).toEqual([{ type: 'master/setVolume', volume: 0.4 }])
+    expect(diffProject(project, setTrackMuted(project, id, false))).toEqual([])
+    expect(diffProject(project, setTrackPan(project, id, 0))).toEqual([])
+  })
+
+  it('sends the reset when a setting returns to its default', () => {
+    const panned = setTrackPan(project, id, 0.5)
+    expect(diffProject(panned, project)).toEqual([{ type: 'track/setPan', trackId: id, pan: 0 }])
+    expect(diffProject(setMasterVolume(project, 0.4), project)).toEqual([{ type: 'master/setVolume', volume: 1 }])
+  })
+
+  it('carries the settings in the add command of a track, and the master volume when starting from nothing', () => {
+    const mixed = setMasterVolume(setTrackSoloed(setTrackMuted(setTrackPan(project, id, -0.5), id, true), id, true), 0.5)
+    const commands = diffProject(null, mixed)
+    expect(commands).toContainEqual({ type: 'master/setVolume', volume: 0.5 })
+    expect(commands.find((c) => c.type === 'track/add' && c.trackId === id)).toMatchObject({ pan: -0.5, muted: true, soloed: true })
   })
 })

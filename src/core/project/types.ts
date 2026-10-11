@@ -55,6 +55,15 @@ interface TrackBase {
   readonly name: string
   readonly volume: number
   /**
+   * Where the track sits between the speakers, -1 (left) .. 1 (right); absent = 0, the centre. Applied after the
+   * insert graph, next to the fader.
+   */
+  readonly pan?: number
+  /** Silences the track everywhere it is heard, its sends included; absent = false. Its effects keep running. */
+  readonly muted?: boolean
+  /** Silences every track that is not soloed (see ARCHITECTURE.md, "Mixer"); absent = false. */
+  readonly soloed?: boolean
+  /**
    * The insert graph after the track's own sound and before its fader: `Track in` -> effects -> `Track out`.
    * A fresh track has just those two, wired together (the sound passes through unchanged).
    */
@@ -108,6 +117,8 @@ export type Track = InstrumentTrack | AudioTrack | ReturnTrack
  */
 export interface MasterBus {
   readonly fx: Patch
+  /** 0..1 gain on the whole mix, after the master graph and before the output soft clip; absent = 1. */
+  readonly volume?: number
 }
 
 /** The saveable document. Everything the user authors lives here. */

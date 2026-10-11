@@ -1,15 +1,16 @@
-import { RIGHT, STEREO_FRAMES } from '../dsp'
+import { STEREO_FRAMES } from '../dsp'
 import { FxGraph } from '../instrument'
 import { type Patch, audioSources, sendTargets } from '../patch'
 import type { SampleLookup } from '../sample'
 import type { LauncherStatus } from '../session'
+import { ChannelStrip } from './channel-strip'
 import type { MixContext, PlayableTrack, ScheduledAction } from './playable-track'
 
 const IDLE: LauncherStatus = { playingClipId: null, startBeat: null, queued: null }
 
 /** Live counterpart of a return track: no clips, only the effects it applies to what the other tracks sent it. */
 export class ReturnTrackRuntime implements PlayableTrack {
-  volume: number
+  readonly strip: ChannelStrip
   private fx: FxGraph
   private targets: string[]
   private sources: string[]
@@ -23,7 +24,7 @@ export class ReturnTrackRuntime implements PlayableTrack {
     private readonly sampleRate: number,
     private readonly samples: SampleLookup,
   ) {
-    this.volume = volume
+    this.strip = new ChannelStrip(volume)
     this.fx = new FxGraph(fx, sampleRate, samples)
     this.targets = sendTargets(fx)
     this.sources = audioSources(fx)
@@ -73,11 +74,8 @@ export class ReturnTrackRuntime implements PlayableTrack {
   mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, mix: MixContext): void {
     const input = mix.sends.read(this.trackId) ?? this.silence
     mix.taps.write(this.trackId, 0, input, frames)
-    const signal = this.fx.process(input, frames, mix)
+    const signal = this.fx.process(input, frames, { sends: this.strip.sendsTo(mix.sends), taps: mix.taps })
     mix.taps.write(this.trackId, 1, signal, frames)
-    for (let i = 0; i < frames; i++) {
-      left[offset + i] = (left[offset + i] ?? 0) + (signal[i] ?? 0) * this.volume
-      right[offset + i] = (right[offset + i] ?? 0) + (signal[RIGHT + i] ?? 0) * this.volume
-    }
+    this.strip.mixInto(left, right, offset, frames, signal)
   }
 }

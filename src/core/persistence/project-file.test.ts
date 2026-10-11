@@ -716,3 +716,48 @@ describe('note graphs in files', () => {
     expect(describeNode(use, result.project.modules)!.inputs[0]!.kind).toBe('notes')
   })
 })
+
+describe('mixer settings in files', () => {
+  const track = (extra: Record<string, unknown>) => ({ kind: 'instrument', id: 't', name: 'T', volume: 0.5, clips: [], ...extra })
+  const load = (tracks: unknown[], master?: unknown) => parseOk(envelope(project({ tracks, ...(master === undefined ? {} : { master }) }))).project
+
+  it('load with the defaults from files that have none: centre, unmuted, unsoloed, master volume 1', () => {
+    const loaded = load([track({})])
+    expect(loaded.tracks[0]).not.toHaveProperty('pan')
+    expect(loaded.tracks[0]).not.toHaveProperty('muted')
+    expect(loaded.tracks[0]).not.toHaveProperty('soloed')
+    expect(loaded.master).not.toHaveProperty('volume')
+  })
+
+  it('survive a round trip', () => {
+    const base = createDemoProject()
+    const mixed = {
+      ...base,
+      master: { ...base.master, volume: 0.25 },
+      tracks: base.tracks.map((t, index) => (index === 0 ? { ...t, pan: -0.5, muted: true, soloed: true } : t)),
+    }
+    expect(parseOk(serializeProject(mixed)).project).toEqual(mixed)
+  })
+
+  it('read garbage as the defaults, and clamp what is out of range', () => {
+    const loaded = load(
+      [track({ pan: 'left', muted: 'yes', soloed: 1 }), track({ id: 'u', pan: 9, muted: true }), track({ id: 'v', pan: null, soloed: true })],
+      { volume: 'loud' },
+    )
+    expect(loaded.tracks[0]).not.toHaveProperty('pan')
+    expect(loaded.tracks[0]).not.toHaveProperty('muted')
+    expect(loaded.tracks[0]).not.toHaveProperty('soloed')
+    expect(loaded.tracks[1]).toMatchObject({ pan: 1, muted: true })
+    expect(loaded.tracks[2]).toMatchObject({ soloed: true })
+    expect(loaded.tracks[2]).not.toHaveProperty('pan')
+    expect(loaded.master).not.toHaveProperty('volume')
+    expect(load([], { volume: 5 }).master).not.toHaveProperty('volume')
+    expect(load([], { volume: -5 }).master.volume).toBe(0)
+  })
+
+  it('apply to audio and return tracks as well', () => {
+    const loaded = load([track({ kind: 'audio', pan: 0.2, muted: true }), track({ kind: 'return', id: 'r', pan: -0.2, soloed: true })])
+    expect(loaded.tracks[0]).toMatchObject({ kind: 'audio', pan: 0.2, muted: true })
+    expect(loaded.tracks[1]).toMatchObject({ kind: 'return', pan: -0.2, soloed: true })
+  })
+})

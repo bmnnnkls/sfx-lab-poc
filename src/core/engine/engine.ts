@@ -31,6 +31,10 @@ export class Engine {
   private readonly samples = new SampleBank()
   private readonly preview: SamplePreview
   private peak = 0
+  /** The master fader, applied after the master graph and before the soft clip. */
+  private masterVolume = 1
+  /** Mute, solo and sends need working out again (a mute or solo changed, or the tracks did). */
+  private mixStateStale = false
   /**
    * Two orders, because notes and sound are passed on at different times: the order the tracks' events are scheduled in
    * (a track after the tracks it takes notes from) and the order they are mixed in (a return after the tracks that send
@@ -104,9 +108,29 @@ export class Engine {
         break
       case 'track/setVolume': {
         const track = this.tracks.get(command.trackId)
-        if (track) track.volume = command.volume
+        if (track) track.strip.volume = command.volume
         break
       }
+      case 'track/setPan': {
+        const track = this.tracks.get(command.trackId)
+        if (track) track.strip.pan = command.pan
+        break
+      }
+      case 'track/setMute': {
+        const track = this.tracks.get(command.trackId)
+        if (track) track.strip.muted = command.muted
+        this.mixStateStale = true
+        break
+      }
+      case 'track/setSolo': {
+        const track = this.tracks.get(command.trackId)
+        if (track) track.strip.soloed = command.soloed
+        this.mixStateStale = true
+        break
+      }
+      case 'master/setVolume':
+        this.masterVolume = command.volume
+        break
       case 'track/setSends':
         this.tracks.get(command.trackId)?.setSends(command.sends)
         this.invalidateOrder() // which returns it sends to may have changed
@@ -168,9 +192,11 @@ export class Engine {
   status(): EngineStatus {
     const tracks: Record<string, LauncherStatus> = {}
     for (const [id, track] of this.tracks) tracks[id] = track.status()
+    const peaks: Record<string, number> = {}
+    for (const [id, track] of this.tracks) peaks[id] = track.strip.takePeak()
     const peak = this.peak
     this.peak = 0 // each snapshot reports the level since the previous one
-    return { playing: this.transport.playing, beat: this.transport.positionBeats, peak, tracks }
+    return { playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, tracks }
   }
 
   private stopTransport(): void {
@@ -178,7 +204,7 @@ export class Engine {
     for (const track of this.tracks.values()) track.reset()
   }
 
-  /** Runs the mix of the block through the master graph, in place. */
+  /** Runs the mix of the block through the master graph and the master fader, in place. */
   private processMaster(left: Float32Array, right: Float32Array, offset: number, frames: number): void {
     const input = this.masterInput
     for (let i = 0; i < frames; i++) {
@@ -187,8 +213,8 @@ export class Engine {
     }
     const output = this.master.process(input, frames)
     for (let i = 0; i < frames; i++) {
-      left[offset + i] = output[i] ?? 0
-      right[offset + i] = output[RIGHT + i] ?? 0
+      left[offset + i] = (output[i] ?? 0) * this.masterVolume
+      right[offset + i] = (output[RIGHT + i] ?? 0) * this.masterVolume
     }
   }
 
@@ -237,6 +263,7 @@ export class Engine {
       taps: this.audioTaps,
     }
     // Tracks come after the ones they take sound from, so what they read from the boards is complete.
+    if (this.mixStateStale) this.updateMixState()
     this.sends.clear(frames)
     this.audioTaps.clear(frames)
     for (const track of this.mixTracks()) track.mixInto(left, right, blockOffset + cursor, frames, mix)
@@ -245,6 +272,45 @@ export class Engine {
   private invalidateOrder(): void {
     this.scheduleOrder = null
     this.mixOrder = null
+    this.mixStateStale = true // which tracks feed which returns may have changed
+  }
+
+  /**
+   * Works out, from every track's mute and solo, which tracks are heard and which sends are open (rules in
+   * ARCHITECTURE.md, "Mixer"). Done when something changes, never per sample.
+   */
+  private updateMixState(): void {
+    this.mixStateStale = false
+    const entries = [...this.tracks]
+    const soloActive = entries.some(([, track]) => track.strip.soloed)
+    const returns = entries.filter(([, track]) => track instanceof ReturnTrackRuntime)
+    for (const [, track] of entries) track.strip.audible = soloActive ? track.strip.soloed : !track.strip.muted
+
+    // A send is open when its track is soloed, or is not muted and either heard or sending to a soloed return.
+    const open = (from: PlayableTrack, to: PlayableTrack): boolean =>
+      from.strip.soloed || (!from.strip.muted && (from.strip.audible || to.strip.soloed))
+
+    if (soloActive) {
+      // Returns fed by a heard track stay heard (so a soloed track keeps its reverb), however many returns deep.
+      let grew = true
+      while (grew) {
+        grew = false
+        for (const [, from] of entries) {
+          if (!from.strip.audible) continue
+          for (const targetId of from.sendTargets()) {
+            const to = this.tracks.get(targetId)
+            if (to instanceof ReturnTrackRuntime && !to.strip.audible && !to.strip.muted && open(from, to)) {
+              to.strip.audible = true
+              grew = true
+            }
+          }
+        }
+      }
+    }
+    for (const [id, from] of entries) {
+      const blocked = returns.filter(([returnId, to]) => returnId !== id && !open(from, to)).map(([returnId]) => returnId)
+      from.strip.blockedSends = new Set(blocked)
+    }
   }
 
   /** The tracks in the order their events are scheduled in: each after the tracks it takes notes from. */
@@ -291,6 +357,14 @@ export class Engine {
   }
 
   private createTrack(command: Extract<EngineCommand, { type: 'track/add' }>): PlayableTrack {
+    const track = this.buildTrack(command)
+    track.strip.pan = command.pan ?? 0
+    track.strip.muted = command.muted ?? false
+    track.strip.soloed = command.soloed ?? false
+    return track
+  }
+
+  private buildTrack(command: Extract<EngineCommand, { type: 'track/add' }>): PlayableTrack {
     switch (command.kind) {
       case 'return':
         return new ReturnTrackRuntime(command.trackId, command.fx, command.volume, this.sampleRate, this.samples)
