@@ -4,6 +4,8 @@ export const NODE_WIDTH = 176
 export const HEADER_HEIGHT = 28
 export const PORT_ROW_HEIGHT = 22
 export const MODULE_FOOTER_HEIGHT = 34
+/** A card's picture (`previews/`) and the space around it. */
+export const PREVIEW_AREA_HEIGHT = 44
 const BODY_PADDING = 6
 
 export interface Point {
@@ -14,10 +16,11 @@ export interface Point {
 const portRowCount = (definition: NodeShape): number =>
   Math.max(definition.inputs.length, definition.outputs.length)
 
-export const nodeHeight = (definition: NodeShape, isModule = false): number =>
+export const nodeHeight = (definition: NodeShape, isModule = false, hasPicture = false): number =>
   HEADER_HEIGHT +
   BODY_PADDING * 2 +
   portRowCount(definition) * PORT_ROW_HEIGHT +
+  (hasPicture ? PREVIEW_AREA_HEIGHT : 0) +
   (isModule ? MODULE_FOOTER_HEIGHT : 0)
 
 /** Canvas position of a port's connection dot. Layout is fixed, so no DOM measuring is needed. */

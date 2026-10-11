@@ -4,6 +4,8 @@ import type { NodeShape, PatchNode, PortRef } from '@core'
 import { nodeTooltip, portTooltip } from '../shared/tooltip/tooltip-text'
 import { HEADER_HEIGHT, MODULE_FOOTER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT } from './geometry'
 import styles from './Patcher.module.css'
+import { NodePreview } from './previews/NodePreview'
+import type { Preview } from './previews'
 import { useNodeDrag } from './use-node-drag'
 
 interface NodeViewProps {
@@ -13,6 +15,8 @@ interface NodeViewProps {
   title: string
   /** Parameters a wire is driving, with what drives each: their sockets show it. */
   driven: ReadonlyMap<string, string>
+  /** A picture of what the node does with its settings, when it has one (`previews/`); `moving` when a moving signal drives a setting. */
+  picture?: { preview: Preview; moving: boolean }
   /** Runs once on the mix of all voices (effects), rather than once per voice. */
   shared: boolean
   selected: boolean
@@ -29,7 +33,8 @@ interface NodeViewProps {
 }
 
 /**
- * A card is a title, its sockets and nothing else: what a node is set to lives in the property editor (select the
+ * A card is a title, its sockets and, where it helps, a small picture of what the node does with its settings. What a node is
+ * set to lives in the property editor (select the
  * card), so a patch reads as wiring. Cards show only state that matters at a glance (shared, stereo, bypassed, module).
  */
 export const NodeView = ({
@@ -37,6 +42,7 @@ export const NodeView = ({
   shape,
   title,
   driven,
+  picture,
   shared,
   selected,
   moduleActions,
@@ -136,6 +142,8 @@ export const NodeView = ({
           )
         })}
       </div>
+
+      {picture && <NodePreview preview={picture.preview} moving={picture.moving} />}
 
       {moduleActions && (
         <div className={styles.moduleFooter} style={{ height: MODULE_FOOTER_HEIGHT }}>

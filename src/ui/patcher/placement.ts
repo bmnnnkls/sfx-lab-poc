@@ -1,4 +1,5 @@
 import { type ModuleLibrary, type Patch, describeNode } from '@core'
+import { hasPreview } from './previews'
 import { HEADER_HEIGHT, NODE_WIDTH, type Point, nodeHeight } from './geometry'
 
 /** Room a new card is assumed to need when checking it against the others (a typical one: header, a few ports, a slider or two). */
@@ -22,7 +23,7 @@ const overlaps = (a: Point, aHeight: number, b: Point, bHeight: number): boolean
 export const freeSpot = (patch: Patch, modules: ModuleLibrary, wanted: Point): Point => {
   const boxes = patch.nodes.map((node) => {
     const shape = describeNode(node, modules)
-    return { at: { x: node.x, y: node.y }, height: shape ? nodeHeight(shape, shape.category === 'Modules') : NEW_HEIGHT }
+    return { at: { x: node.x, y: node.y }, height: shape ? nodeHeight(shape, shape.category === 'Modules', hasPreview(node.type)) : NEW_HEIGHT }
   })
   for (let step = 0; step <= MAX_NUDGES; step++) {
     const spot = { x: wanted.x + step * NUDGE, y: wanted.y + step * NUDGE }

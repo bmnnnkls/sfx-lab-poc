@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createNode, describeNode, requireNodeDefinition } from '@core'
-import { HEADER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT, nodeHeight, portPosition } from './geometry'
+import { HEADER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT, PREVIEW_AREA_HEIGHT, nodeHeight, portPosition } from './geometry'
 import { formatParam, fromSlider, snapToStep, toSlider } from '../shared/param-scale'
 
 describe('patcher geometry', () => {
@@ -58,6 +58,12 @@ describe('param scale curves', () => {
 })
 
 describe('card height', () => {
+  it('has room for a picture when the node has one', () => {
+    const filter = describeNode(createNode('filter', 0, 0))!
+    expect(nodeHeight(filter, false, true)).toBe(nodeHeight(filter) + PREVIEW_AREA_HEIGHT)
+    expect(PREVIEW_AREA_HEIGHT).toBeGreaterThan(36)
+  })
+
   it('is a header and the port rows: settings live in the property editor, not on the card', () => {
     const gain = describeNode(createNode('gain', 0, 0))!
     const rows = Math.max(gain.inputs.length, gain.outputs.length)

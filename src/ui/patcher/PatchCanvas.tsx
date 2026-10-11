@@ -8,12 +8,14 @@ import {
   classifyStages,
   describeNode,
   flattenPatch,
+  resolveParams,
 } from '@core'
 import { type PointerEvent, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
 import type { MenuEntry } from '../shared/menu'
 import { NodeView } from './NodeView'
 import { nodeTitles } from '@core'
+import { hasPreview, nodePreview } from './previews'
 import { drivenParams, visibleShape } from './visible-shape'
 import styles from './Patcher.module.css'
 import { WireLayer } from './WireLayer'
@@ -126,13 +128,24 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
     }
     return map
   }, [patch, modules, showSockets])
+  // The picture of each node that has one, from the numbers it is working with: a wire into a socket counts for its value.
+  const pictures = useMemo(() => {
+    const map = new Map<string, { preview: NonNullable<ReturnType<typeof nodePreview>>; moving: boolean }>()
+    for (const node of patch.nodes) {
+      if (!hasPreview(node.type)) continue
+      const { values, moving } = resolveParams(patch, node.id)
+      const preview = nodePreview(node.type, values)
+      if (preview) map.set(node.id, { preview, moving: moving.size > 0 })
+    }
+    return map
+  }, [patch])
   const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
   const visible = patch.nodes.filter((node) => shapes.has(node.id))
 
   const width = Math.max(...visible.map((node) => node.x + NODE_WIDTH), 0) + PADDING
   const height =
     Math.max(
-      ...visible.map((node) => node.y + nodeHeight(shapes.get(node.id)!, node.type === MODULE_NODE_TYPE)),
+      ...visible.map((node) => node.y + nodeHeight(shapes.get(node.id)!, node.type === MODULE_NODE_TYPE, pictures.has(node.id))),
       0,
     ) + PADDING
 
@@ -158,7 +171,7 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
       return
     }
     const hit = visible.filter((node) => {
-      const nodeBottom = node.y + nodeHeight(shapes.get(node.id)!, node.type === MODULE_NODE_TYPE)
+      const nodeBottom = node.y + nodeHeight(shapes.get(node.id)!, node.type === MODULE_NODE_TYPE, pictures.has(node.id))
       return node.x < area.right && node.x + NODE_WIDTH > area.left && node.y < area.bottom && nodeBottom > area.top
     })
     onSelectionChange(new Set([...(finished.additive ? selected : []), ...hit.map((node) => node.id)]))
@@ -211,6 +224,7 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
             node={node}
             shape={shapes.get(node.id)!}
             title={titles.get(node.id) ?? node.type}
+            picture={pictures.get(node.id)}
             driven={drivenParams(node.id, shapes.get(node.id)!, patch, (id) => titles.get(id) ?? '')}
             inputMenu={(portId) => inputMenu(node.id, portId)}
             shared={isShared(node)}

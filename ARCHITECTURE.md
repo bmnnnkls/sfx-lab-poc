@@ -517,13 +517,27 @@ plain cards; the property editor, the panel built from control nodes and the nod
   `PointerEvent.detail` is 0), and the second press puts back the selection the first one cleared and draws no box; the canvas
   surface now fills the whole scroller, so empty parts far from the nodes count as canvas. Browser check:
   `docs/browser-checks/quickadd.mjs`. The Notes tab's preview aside is 30% (at most 440 px) so the canvas keeps room next to the property editor.
-* **Cards** (`ui/patcher/NodeView.tsx`). A card is a **title and its sockets, nothing else**: no sliders, fields, pickers or switches (the
-  height is the header plus the port rows, `nodeHeight`). It shows the node's title (`nodeTitles`: its name, else its label numbered when
+* **Cards** (`ui/patcher/NodeView.tsx`). A card is a **title, its sockets and, where it helps, a picture** (below): no sliders, fields, pickers or switches (the
+  height is the header plus the port rows, plus the picture's area, `nodeHeight`). It shows the node's title (`nodeTitles`: its name, else its label numbered when
   alike) and only state that matters at a glance: `shared`, `L R`, `module`, bypassed (dimmed), and the module's *Edit* / *Unlink*. A
   parameter socket is drawn only when it is wired, or for all of them while the **Sockets** toggle (a checkbox in the toolbar,
   remembered like the Graph | Panel switch) is on (`ui/patcher/visible-shape.ts`; `portPosition` indexes the visible shape). A press
   anywhere on a card but a port or button selects it. The patcher's grid is one column that may be narrower than its content, so the
   canvas scrolls and the property editor keeps its width.
+* **Node pictures** (`ui/patcher/previews/`, `core/patch/resolve.ts`). A card shows a small SVG of what the node does with its settings, drawn from
+  the numbers it is *working with*: `resolveParams(patch, nodeId)` takes the stored parameters and replaces each one that a wire drives by
+  what the wire carries, worked out through controls, switches, XY pads and math nodes on them by running the **real DSP nodes for one
+  frame** (so the picture cannot disagree with the engine, including a control's own clamp and step and the parameter's own range). Anything
+  that moves (an LFO, a note, an oscillator into a socket) cannot be a constant: the stored value is kept and the parameter is listed as
+  `moving`, which the card marks with a **~**. The pictures are pure geometry in a fixed 152 x 36 box (`nodePreview(type, values) ->
+  shapes`: polylines, areas, rects, dots, tested for the numbers they must show and for staying inside the box with absurd values):
+  *Oscillator* its wave, with cycles following pitch and detune (one at 20 Hz up to eight); *Filter* the response (the same RBJ biquad as
+  the node, 20 Hz to 20 kHz on a log axis, -36 to +18 dB, a dim 0 dB line); *Envelope* the ADSR (times on a square-root scale so 10 ms and
+  2 s are both visible); *LFO* its shape at its rate and as tall as its depth; *Gain* a bar with a tick at unity, *Pan* a dot, *Width* two
+  dots; *Delay* / *Ping-pong* the echoes (a time apart, each the feedback quieter, the first at the mix); *Reverb* / *Stereo reverb* the
+  decay tail. `hasPreview(type)` says who has one; the card is `PREVIEW_AREA_HEIGHT` taller for it and `nodeHeight` takes that into
+  account (wire ends, the marquee and `freeSpot` all use it). The audio-rate effect of a modulation input (an LFO into `cutoff`) is not
+  drawn: that would need telemetry from the engine. Browser check: `docs/browser-checks/previews.mjs`.
 * **Property editor** (`ui/patcher/PropertyEditor.tsx`, `ParamRow.tsx`, `NumberField.tsx`, `TextField.tsx`, `property-rows.ts`). A docked
   aside (`role=complementary`, "Properties") beside the canvas in the graph view of every graph, for the **selected** node: nothing
   selected, a hint; several, the count. For one: its kind and **Name** (an empty field hints the default title; applied on Enter or
