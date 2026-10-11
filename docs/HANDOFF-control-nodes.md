@@ -9,6 +9,47 @@
 Read `ARCHITECTURE.md` (Modules, Front panel, Conventions, Common changes) and `docs/HANDOFF-mixer-view.md` ("Working
 conditions": commands, layering test, browser checks) first. They apply unchanged.
 
+## Start here (for a fresh session)
+
+**State.** Branch `claude/determined-turing-ypq9ix` was restarted from `main` (`0929605`, PR #2 merged) and holds only this plan
+and the docs that point at it. **Nothing of the design is built.** On `main` already: the controls widgets (`ui/controls`), the
+board (`ui/panel`), the Graph | Panel switch and `Patch.panel`, which step 4 replaces. 694 unit tests passed at `0929605`.
+
+**Setup and checks** (from the repo root; running vitest inside `src/` breaks the `@core` alias):
+
+```
+npm ci
+npx tsc --noEmit && npx vitest run     # vitest runs in `node`: no DOM, so UI is covered by the browser checks
+npm run build && npx vite preview --port 4173 &
+node docs/browser-checks/panel.mjs /some/dir    # one script per feature; see docs/browser-checks/README.md
+```
+
+Known: `docs/browser-checks/mixer.mjs` fails "panned hard right" on `main` too (it compares levels across two windows of a looping
+sample; the sound is right). Ignore that one line; a fix was suggested as a separate task.
+
+**Git and house rules.** Push only to `claude/determined-turing-ypq9ix`. If its PR is already merged when you start, restart it from
+`origin/main` under the same name before adding work. Do not open a pull request unless asked. Commit with the attribution lines your
+session instructions give. Small files, immutable data, pure edits that return the **same object** when nothing changes, optional
+fields with safe defaults (no format-version bump unless a migration needs one), tests beside the code, comments say why.
+
+**Where step 1 lives:**
+
+| Concern | Files |
+| --- | --- |
+| Ports and params of any node, connection kinds | `src/core/patch/node-shape.ts` (`describeNode`, `kindsConnect`), `src/core/dsp/types.ts` (`PortKind`, `PortSpec`, `ParamSpec`, `NodeDefinition`) |
+| Node registry, `Params` | `src/core/dsp/registry.ts`, `src/core/dsp/params.ts`, `src/core/dsp/nodes/*.node.ts` |
+| Compile and run a stage | `src/core/instrument/compile.ts` (`compileStage`, `processStage`, `seeded`), `stages.ts` (`planStages`), `instrument.ts`, `voice.ts`, `fx-graph.ts` |
+| Params to the engine | `src/core/sync/diff-project.ts`, `src/core/patch/flatten.ts` (module knobs are baked in here), `engine/commands.ts` |
+| Patch edits | `src/core/patch/edit.ts`, `src/core/project/module-edit.ts` (`reconcileModules`) |
+| Persistence | `src/core/persistence/sanitize-patch.ts` |
+
+**Decided with the user:** control nodes, a property editor, right-click "create control" on inputs, tooltips, minimal cards with a
+small picture per node, math nodes, block-rate param sockets, a module may have both exposed inputs and internal controls shown on the
+parent's panel (show / hide by a flag), and the build order's priority is the planner's call.
+**Not yet confirmed by the user** (the user asked what "replace vs add" meant and was given an explanation; wait for an answer before
+building step 1): wire **replaces** the parameter's value; the `control` kind's connection rules; the "Sockets" toggle; controls carry
+real values, not 0..1; the legacy-panel migration. The user prefers talking through big changes first and likes minimalism.
+
 ## Why
 
 The first front panel bound controls to node parameters from a separate list on the patch. The user wants something more
