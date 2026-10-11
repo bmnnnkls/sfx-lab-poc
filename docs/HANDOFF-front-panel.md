@@ -1,7 +1,9 @@
 # Handoff: the Front panel (sliders, knobs and XY pads as an alternative to the graph)
 
-> **Status: planned, not started.** Written before any code. Decisions marked **(confirm)** were proposed by the planner and
-> not yet agreed with the user; everything else follows from how the code already works. Work on the branch
+> **Status: built** (see `ARCHITECTURE.md`, "Front panel", for how it works; `docs/TASKS.md`, "Front panel follow-ups", for what is left).
+> The text below is the original brief, kept as the record of what was decided. The user accepted all the proposals marked
+> **(confirm)**. Differences in the build: reordering is both drag-and-drop (a handle) and move buttons; the pad answers the
+> arrow keys itself (no hidden inputs); a pad's size S / M / L is 2x2 / 3x2 / 3x3 cells; `param-scale.ts` moved to `ui/shared/`. Work on the branch
 > **`claude/determined-turing-ypq9ix`** (cut from `main` at `8fd9397`, the merged Mixer). Do not open a pull request unless
 > asked; `main` deploys to GitHub Pages on every push.
 
