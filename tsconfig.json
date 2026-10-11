@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["vite/client", "node"],
+    "paths": {
+      "@core": ["./src/core/index.ts"],
+      "@audio": ["./src/audio/index.ts"],
+      "@state": ["./src/state/index.ts"],
+      "@ui": ["./src/ui/index.ts"],
+      "@core/*": ["./src/core/*"],
+      "@audio/*": ["./src/audio/*"],
+      "@state/*": ["./src/state/*"],
+      "@ui/*": ["./src/ui/*"]
+    }
+  },
+  "include": ["src", "tests", "vite.config.ts"]
+}
