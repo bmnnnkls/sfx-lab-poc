@@ -15,7 +15,7 @@ import { useMemo, useState } from 'react'
 import { AddControl } from './AddControl'
 import { ControlCell, type ParamChange } from './ControlCell'
 import styles from './panel.module.css'
-import { nodeTitles } from './panel-values'
+import { nodeTitles } from '@core'
 
 interface PanelViewProps {
   patch: Patch

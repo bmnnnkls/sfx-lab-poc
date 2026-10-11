@@ -1,8 +1,7 @@
 # Handoff: control nodes, a property editor and a panel built from them
 
 > **Status: in progress; the design is agreed** (replace semantics confirmed, math nodes and a searchable quick-add added).
-> **Steps 1, 2 and 3 are built** (see "Build order" and `ARCHITECTURE.md`, "Control nodes, parameter sockets and the global stage"); steps 4 onward are not.
-> The build is paused for the user's check-in before **step 4**.
+> **Steps 1 to 4 are built** (see "Build order" and `ARCHITECTURE.md`, "Control nodes, parameter sockets and the global stage"); steps 5 onward are not.
 > Written after the front panel (`HANDOFF-front-panel.md`, built and merged) was tried and the
 > user said what they actually want. Decisions marked **(confirm)** are the planner's proposals the user has not answered yet (the build
 > can go ahead on them; the user will say if one is wrong); the rest were agreed in conversation or follow from how the code works. Work on the branch **`claude/determined-turing-ypq9ix`**
@@ -16,8 +15,8 @@ conditions": commands, layering test, browser checks) first. They apply unchange
 
 **State.** Branch `claude/determined-turing-ypq9ix` was restarted from `main` (`0929605`, PR #2 merged). **Step 1 of the build order is
 done** (the engine, the model, parameter sockets, the global stage, the control and math nodes, `PatchNode.name`) and **step 2** (words,
-categories, tooltips) and **step 3** (the node picker); the rest of the design is not. On `main` already: the controls widgets (`ui/controls`), the board (`ui/panel`), the Graph | Panel switch and
-`Patch.panel`, which step 5 replaces. 694 unit tests passed at `0929605`; 914 pass after step 3.
+categories, tooltips) and **step 3** (the node picker) and **step 4** (compact cards, the property editor, the socket menu); the rest of the design is not. On `main` already: the controls widgets (`ui/controls`), the board (`ui/panel`), the Graph | Panel switch and
+`Patch.panel`, which step 5 replaces. 694 unit tests passed at `0929605`; 939 pass after step 4.
 
 **Setup and checks** (from the repo root; running vitest inside `src/` breaks the `@core` alias):
 
@@ -290,8 +289,18 @@ The toolbar's row of one button per node (`NodePalette`) does not survive 30+ no
    is 0, and the canvas surface now fills the scroller; the checks that make a wire to a socket (`controls`, `tooltips`) still
    enlarge the editor first (the demo's cards are taller than the default editor), the others needed nothing; the tooltips check
    moved from palette buttons to the Add button. "Wire-drop quick-add" is still step 8.
-4. **Property editor, compact cards, context menu.** The aside; sliders, pickers and switches leave the cards; "Create knob /
-   slider" on sockets; the Sockets toggle; node names editable. Update the browser checks that drive node sliders.
+4. **Property editor, compact cards, context menu (done).** The aside; sliders, pickers and switches leave the cards; "Create knob /
+   slider" on sockets; the Sockets toggle; node names editable. Update the browser checks that drive node sliders. Decided with the
+   user at this step: a control's **unit**, **display** (and an XY pad's second unit) are **optional string fields on `PatchNode`**
+   (`unit`, `unitY`, `display`); its label is its name. Differences from the plan: a `NodeDefinition.panelKind` (`value` / `xy` /
+   `switch`) says which nodes are controls (step 5 needs it); `ParamSpec.range` also carries a `curve` and a `reset` parameter id,
+   and `ParamSpec.curve` makes the sliders honour a control's linear / log / exp; `resolveSpec` is the one place a node's spec is
+   resolved; `nodeTitles` moved to core (names, numbering) and the cards show it; a click on a card's body selects it; "Create knob" is
+   offered only for an unwired socket; the editor's driven row has an **Unwire** button (the doc's "button that creates a control" is
+   on the unwired rows instead, as **Knob** / **Slider**); the Notes preview aside shrank to 30% so the canvas keeps room. Not done:
+   note names for a MIDI-note control (a control has no `format`), "Create XY with ...", "Create selector" for an enum. Browser
+   checks: every script that moved a node slider, a switch or a picker now goes through the editor (`selectNode` + `slider` /
+   `valueField` / `properties()` helpers), `properties.mjs` is new.
 5. **The panel from control nodes**: `PatchNode.panel`, re-point `PanelView`, delete `Patch.panel` and its machinery, the legacy
    migration with a fixture, a new `panel.mjs`.
 6. **Node pictures**: the pure geometry for oscillator, filter, envelope, LFO first, then the rest; tests for the geometry.
@@ -300,9 +309,9 @@ The toolbar's row of one button per node (`NodePalette`) does not survive 30+ no
 
 ## Things that will bite
 
-* **Browser checks drive the node sliders** (`input[type=range]` on a node): `fx`, `master`, `modules`, `notegraph`, `returns`,
-  `sends`, `stereo`, and `panel.mjs`; they move to the property editor in step 4. **Most of them also add nodes by clicking a palette
-  button** (`getByRole('button', { name: 'Gain' })`): that moves to the quick-add popup in step 3. Keep selectors in one helper per script.
+* **Browser checks:** the node sliders, switches and pickers moved to the property editor (step 4) and the palette buttons to the picker
+  (step 3); both have one set of helpers per script (`addNode` / `offers`, `selectNode` / `slider` / `valueField` / `properties`). Selection
+  is forgotten when the tab or track changes, and a node's title is numbered when alike.
 * The canvas surface's `onPointerDown` starts the selection box and captures the pointer; a double-click on empty canvas must open
   the popup without leaving a marquee or clearing a selection the user meant to keep (test it in the browser check).
 * The compile step reads `node.params` once at creation and then gets `setParam`; a **wired** socket must win over both

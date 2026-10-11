@@ -17,6 +17,12 @@ const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
 const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
 const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
 const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
+
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const node = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator('[class*="nodeTitle"]', { hasText: new RegExp(`^${title}`) }) }).first()
@@ -61,8 +67,9 @@ await surface.locator('[data-testid^="wire-"]').first().click({ force: true })
 await add('Stereo reverb')
 await wire('Return in', 'Stereo reverb')
 await wire('Stereo reverb', 'Track out')
-await node('Stereo reverb').locator('input[type=range]').nth(0).fill('1000')
-await node('Stereo reverb').locator('input[type=range]').nth(3).fill('1000')
+await selectNode('Stereo reverb')
+await slider('Size').fill('1000')
+await slider('Mix').fill('1000')
 
 await mixer()
 check('the session-view headers have no send knobs any more', (await page.locator('[class*="_header_"]').getByLabel(/ send to /).count()) === 0)
@@ -121,7 +128,7 @@ check('undo brings the return, its knobs and the knob value back', (await knob('
 await trackBtn('Audio').click()
 await effects()
 await add('Send')
-await surface.getByLabel('Send to return track').selectOption({ label: 'Return A' })
+await properties().getByLabel('Send to return track').selectOption({ label: 'Return A' })
 await wire('Track in', 'Send')
 check('a Send node can be added next to the knob for the same return', (await node('Send').count()) === 1)
 

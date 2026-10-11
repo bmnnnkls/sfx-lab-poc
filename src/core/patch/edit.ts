@@ -3,9 +3,10 @@ import { isDownstream } from './graph'
 import type { ModuleLibrary } from './module-types'
 import { describeNode, kindsConnect } from './node-shape'
 import { dropControlsOfNodes } from './panel'
-import type { Patch, PatchNode, PortRef } from './types'
+import type { ControlDisplay, Patch, PatchNode, PortRef } from './types'
 
 export const MAX_NODE_NAME = 60
+export const MAX_UNIT = 16
 
 const defaultParams = (type: string): Record<string, number> => {
   const shape = describeNode({ id: '', type, x: 0, y: 0, params: {} })
@@ -89,6 +90,23 @@ export const setNodeName = (patch: Patch, nodeId: string, name: string): Patch =
   if (!node || (node.name ?? '') === wanted) return patch
   const { name: _previous, ...rest } = node
   return { ...patch, nodes: patch.nodes.map((candidate) => (candidate === node ? (wanted === '' ? rest : { ...rest, name: wanted }) : candidate)) }
+}
+
+/** Sets the unit of a control node's value (`unit`; for an XY pad's y axis `unitY`). Blank removes it; the same patch when nothing changes. */
+export const setNodeUnit = (patch: Patch, nodeId: string, field: 'unit' | 'unitY', text: string): Patch => {
+  const wanted = text.trim().slice(0, MAX_UNIT)
+  const node = patch.nodes.find((candidate) => candidate.id === nodeId)
+  if (!node || (node[field] ?? '') === wanted) return patch
+  const { [field]: _previous, ...rest } = node
+  return { ...patch, nodes: patch.nodes.map((candidate) => (candidate === node ? (wanted === '' ? rest : { ...rest, [field]: wanted }) : candidate)) }
+}
+
+/** How a *Control* is drawn on the panel; a knob (the default) is stored as nothing. The same patch when nothing changes. */
+export const setNodeDisplay = (patch: Patch, nodeId: string, display: ControlDisplay): Patch => {
+  const node = patch.nodes.find((candidate) => candidate.id === nodeId)
+  if (!node || (node.display ?? 'knob') === display) return patch
+  const { display: _previous, ...rest } = node
+  return { ...patch, nodes: patch.nodes.map((candidate) => (candidate === node ? (display === 'knob' ? rest : { ...rest, display }) : candidate)) }
 }
 
 export const setNodeBypassed = (patch: Patch, nodeId: string, bypassed: boolean): Patch =>

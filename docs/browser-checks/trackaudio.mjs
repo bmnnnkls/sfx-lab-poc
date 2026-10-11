@@ -17,6 +17,12 @@ const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
 const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
 const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
 const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
+
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const node = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator('[class*="nodeTitle"]', { hasText: new RegExp(`^${title}`) }) }).first()
@@ -52,11 +58,11 @@ await page.getByLabel(/^Audio \d+ volume$/).fill('0') // the loop is not heard f
 await trackBtn('Bass').click()
 await effects()
 await add('Track audio')
-const picker = surface.getByLabel('Take audio from track')
+const picker = properties().getByLabel('Take audio from track')
 const options = await picker.locator('option').allTextContents()
 check('the picker offers every other track, not the one being edited', options.includes('Lead') && options.includes('Pad') && options.some((o) => o.startsWith('Audio')) && !options.includes('Bass'), JSON.stringify(options))
 await picker.selectOption({ label: options.find((o) => o.startsWith('Audio')) })
-check('it has a Take choice, after the effects by default', (await node('Track audio').locator('select').nth(1).inputValue()) === '1')
+check('it has a Take choice, after the effects by default', (await properties().getByLabel('Take', { exact: true }).inputValue()) === '1')
 await wire('Track audio', 'Track out')
 check('Track audio -> Track out is wired', (await wireCount()) === 2, String(await wireCount()))
 await page.screenshot({ path: `${dir}/trackaudio.png` })
@@ -67,7 +73,7 @@ const heard = await level(1500)
 check('the loop is heard through Bass although its own track is turned all the way down', heard > 0.05, `peak=${heard.toFixed(3)}`)
 
 // ---- take it before the effects too
-await node('Track audio').locator('select').nth(1).selectOption('0')
+await properties().getByLabel('Take', { exact: true }).selectOption('0')
 await page.waitForTimeout(400)
 check('switching the Take to before its effects keeps it sounding', (await level(1000)) > 0.05)
 
@@ -75,7 +81,7 @@ check('switching the Take to before its effects keeps it sounding', (await level
 await trackBtn('Audio').click()
 await effects()
 await add('Track audio')
-const loopOptions = await surface.getByLabel('Take audio from track').locator('option').allTextContents()
+const loopOptions = await properties().getByLabel('Take audio from track').locator('option').allTextContents()
 check('the track that is taken from cannot take audio from its reader (a loop)', !loopOptions.includes('Bass') && loopOptions.includes('Lead'), JSON.stringify(loopOptions))
 
 // ---- the send knob refuses the same loop through a return
@@ -85,11 +91,13 @@ await page.getByRole('button', { name: 'Mixer', exact: true }).click() // the se
 check('a send knob for a return is there for the track that takes audio from nobody', (await page.getByLabel('Lead send to Return A').isEnabled()))
 await trackBtn('Bass').click()
 await effects()
-const bassPicker = surface.getByLabel('Take audio from track')
+await selectNode('Track audio')
+const bassPicker = properties().getByLabel('Take audio from track')
 await bassPicker.selectOption({ label: 'Return A' })
 await page.getByRole('button', { name: 'Mixer', exact: true }).click()
 check('once Bass takes audio from a return, its own send knob for it is disabled (it would be a loop)', await page.getByLabel('Bass send to Return A').isDisabled())
 await effects()
+await selectNode('Track audio') // switching tabs forgets the selection
 await bassPicker.selectOption({ label: options.find((o) => o.startsWith('Audio')) })
 
 // ---- the master graph cannot use it
@@ -102,18 +110,21 @@ await page.waitForTimeout(600)
 check('after removing the source track there is silence and no error', (await level(800)) < 0.005)
 await trackBtn('Bass').click()
 await effects()
-check('the picker is empty again', (await surface.getByLabel('Take audio from track').inputValue()) === '')
+await selectNode('Track audio')
+check('the picker is empty again', (await properties().getByLabel('Take audio from track').inputValue()) === '')
 await page.getByRole('button', { name: 'Undo' }).click()
 await page.waitForTimeout(500)
 await trackBtn('Bass').click()
 await effects()
-check('undo brings the track back with the input pointing at it', (await surface.getByLabel('Take audio from track').inputValue()) !== '')
+await selectNode('Track audio')
+check('undo brings the track back with the input pointing at it', (await properties().getByLabel('Take audio from track').inputValue()) !== '')
 
 // ---- persistence
 await page.reload()
 await trackBtn('Bass').click()
 await effects()
-check('the input survives a reload', (await surface.getByLabel('Take audio from track').inputValue()) !== '' && (await wireCount()) === 2)
+await selectNode('Track audio')
+check('the input survives a reload', (await properties().getByLabel('Take audio from track').inputValue()) !== '' && (await wireCount()) === 2)
 
 check('no page errors', errors.length === 0, errors.join(' | '))
 await browser.close()

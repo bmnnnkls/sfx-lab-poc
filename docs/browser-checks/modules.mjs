@@ -16,6 +16,13 @@ const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
 const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
 const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
 const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
+
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const node = (title) => nodeByTitle(title)
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const nodeByTitle = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator(`[class*="nodeTitle"]`, { hasText: new RegExp(`^${title}`) }) })
@@ -56,13 +63,13 @@ await page.getByTestId(`expose-knob-${filterId}-cutoff`).check()
 await page.getByLabel('Name of Cutoff').fill('Brightness')
 await page.screenshot({ path: `${dir}/20-inside.png` })
 await crumb('Bass').click()
-check('back out: the use is named Wobble core and shows a Brightness knob', (await nodeByTitle('Wobble core').count()) === 1 && (await nodeByTitle('Wobble core').getByText('Brightness').count()) === 1)
+check('back out: the use is named Wobble core and its Brightness knob is in the property editor', (await nodeByTitle('Wobble core').count()) === 1 && (await (async () => { await selectNode('Wobble core'); return slider('Brightness').count() })()) === 1)
 
 // ---- the knob is live (its value display follows, and the instrument keeps playing)
-const knobBox = nodeByTitle('Wobble core').locator('label', { hasText: 'Brightness' })
-const before = await knobBox.locator('[class*="paramValue"]').innerText()
-await knobBox.locator('input[type=range]').fill('900')
-const after = await knobBox.locator('[class*="paramValue"]').innerText()
+await selectNode('Wobble core')
+const before = await valueField('Brightness').inputValue()
+await slider('Brightness').fill('900')
+const after = await valueField('Brightness').inputValue()
 check('turning the module knob changes its value', before !== after, `${before} -> ${after}`)
 await page.locator('[class*="_launch_"]').first().click()
 check('and the instrument keeps sounding', (await level(1500)) > 0.02)

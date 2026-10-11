@@ -17,6 +17,12 @@ const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
 const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
 const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
 const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
+
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 
 await page.goto('http://localhost:4173/')
@@ -53,7 +59,7 @@ check('import accepted (no error toast)', !(await page.getByText(/couldn.t|inval
 await page.getByRole('button', { name: 'Edit Root' }).click()
 await page.getByRole('tab', { name: 'Instrument' }).or(page.getByRole('button', { name: 'Instrument', exact: true })).first().click()
 await page.waitForTimeout(400)
-check('patcher shows LFO nodes', (await page.getByText('LFO', { exact: true }).count()) >= 2)
+check('patcher shows LFO nodes', (await page.locator('[class*="nodeTitle"]', { hasText: /^LFO/ }).count()) >= 2)
 check('patcher shows the Reverb node', (await page.locator('[class*="nodeTitle"]', { hasText: /^Reverb/ }).count()) >= 1)
 check('wires are drawn for the new connections', (await page.locator('svg path, svg line').count()) >= 10, String(await page.locator('svg path, svg line').count()))
 await page.screenshot({ path: `${dir}/17-patch-lfo.png` })

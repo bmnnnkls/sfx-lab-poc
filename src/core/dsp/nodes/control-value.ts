@@ -13,15 +13,16 @@ const BOUND = 100000
 export const axisParams = (prefix: '' | 'x' | 'y', label: string, initial: number): ParamSpec[] => {
   const id = (name: string) => (prefix === '' ? name : `${prefix}${name[0]?.toUpperCase()}${name.slice(1)}`)
   const named = (text: string) => (label === '' ? text : `${label} ${text.toLowerCase()}`)
-  const range = { min: id('min'), max: id('max'), step: id('step') }
+  const range = { min: id('min'), max: id('max'), step: id('step'), curve: id('curve'), reset: id('default') }
+  const unitFrom = prefix === 'y' ? ('unitY' as const) : ('unit' as const)
   return [
-    { id: prefix === '' ? 'value' : prefix, label: label === '' ? 'Value' : label, min: -BOUND, max: BOUND, default: initial, range },
-    { id: id('min'), label: named('Min'), min: -BOUND, max: BOUND, default: 0 },
-    { id: id('max'), label: named('Max'), min: -BOUND, max: BOUND, default: 1 },
+    { id: prefix === '' ? 'value' : prefix, label: label === '' ? 'Value' : label, min: -BOUND, max: BOUND, default: initial, range, unitFrom },
+    { id: id('min'), label: named('Min'), min: -BOUND, max: BOUND, default: 0, unitFrom },
+    { id: id('max'), label: named('Max'), min: -BOUND, max: BOUND, default: 1, unitFrom },
     { id: id('curve'), label: named('Curve'), min: 0, max: CURVE_OPTIONS.length - 1, default: 0, step: 1, options: CURVE_OPTIONS },
-    { id: id('step'), label: named('Step'), min: 0, max: BOUND, default: 0 },
+    { id: id('step'), label: named('Step'), min: 0, max: BOUND, default: 0, unitFrom },
     // What "reset" returns to; the engine ignores it.
-    { id: id('default'), label: named('Default'), min: -BOUND, max: BOUND, default: initial, range },
+    { id: id('default'), label: named('Default'), min: -BOUND, max: BOUND, default: initial, range, unitFrom },
   ]
 }
 

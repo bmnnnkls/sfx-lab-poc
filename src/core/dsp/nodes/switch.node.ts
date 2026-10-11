@@ -27,6 +27,7 @@ export const switchNode: NodeDefinition = {
   outputs: [{ id: 'out', label: 'Out', kind: 'control' }],
   params: PARAMS,
   global: true,
+  panelKind: 'switch',
   paramSockets: false,
   create: () => new Switch(),
 }

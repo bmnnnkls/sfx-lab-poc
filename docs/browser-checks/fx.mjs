@@ -17,6 +17,12 @@ const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
 const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
 const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
 const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
+
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const node = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator('[class*="nodeTitle"]', { hasText: new RegExp(`^${title}`) }) }).first()
@@ -71,10 +77,11 @@ check('Track in -> Gain -> Track out is wired', (await wireCount()) === 2, Strin
 check('the header says the track has one effect', (await page.getByLabel('Audio 2 has 1 effect').count()) + (await page.getByLabel(/has 1 effect$/).count()) >= 1)
 const through = await level(1500)
 check('with a unity-ish gain the loop still plays', through > 0.02, `peak=${through.toFixed(3)}`)
-await node('Gain').locator('input[type=range]').first().fill('0')
+await selectNode('Gain')
+await slider('Gain').fill('0')
 await page.waitForTimeout(500)
 const quiet = await level(1200)
-check('turning the gain to 0 silences the track', quiet < 0.005, `peak=${quiet.toFixed(4)} value=${await node('Gain').locator('input[type=range]').first().inputValue()}`)
+check('turning the gain to 0 silences the track', quiet < 0.005, `peak=${quiet.toFixed(4)} value=${await slider('Gain').inputValue()}`)
 await page.screenshot({ path: `${dir}/fx-gain.png` })
 
 // ---- a reverb replaces the gain: the tail rings on after the clip is stopped, and a knob turn does not cut it
@@ -82,7 +89,8 @@ await page.getByRole('button', { name: 'Remove Gain' }).click()
 await addNode('Reverb')
 await wire('Track in', 'Reverb')
 await wire('Reverb', 'Track out')
-const knob = (n) => node('Reverb').locator('input[type=range]').nth(n)
+await selectNode('Reverb')
+const knob = (n) => slider(['Size', 'Damp', 'Predelay', 'Mix'][n])
 await knob(0).fill('1000') // size
 await knob(3).fill('1000') // mix: wet only, so any sound after the stop is the tail
 await page.waitForTimeout(500)

@@ -18,6 +18,12 @@ const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`
 const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
 const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
 
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
+
 const surface = page.getByTestId('patch-surface')
 const tip = () => page.getByRole('tooltip')
 const track = (name) => page.locator('[class*="_trackName_"]', { hasText: name }).first().click()
@@ -42,8 +48,9 @@ await page.mouse.move(5, 5)
 await page.waitForTimeout(200)
 check('moving away hides it', (await tip().count()) === 0)
 
-// ---- a parameter row: description, then range, unit, default, curve
-await hover(node('Filter').locator('[class*="param"]').filter({ hasText: 'Cutoff' }).first())
+// ---- a parameter row of the property editor: description, then range, unit, default, curve
+await selectNode('Filter')
+await hover(properties().locator('[data-param="cutoff"]'))
 let lines = await texts()
 check('a parameter row says what it does', /frequency where the filter starts to cut/.test(lines[0] ?? ''), lines[0])
 check('then its range, unit, default and curve', lines[1] === 'Range 20 Hz to 20000 Hz · default 2000 Hz · logarithmic', lines[1])
@@ -51,11 +58,14 @@ check('the tooltip sits inside the window', await tip().evaluate((el) => { const
 await page.screenshot({ path: `${dir}/tooltips-param.png` })
 
 // ---- an enum, a port, a node title
-await hover(node('Oscillator').locator('[class*="param"]').filter({ hasText: 'Wave' }).first())
+await selectNode('Oscillator')
+await hover(properties().locator('[data-param="waveform"]'))
 check('an enum lists its options', (await texts())[1] === 'Options: sine, saw, square, triangle · default saw' || (await texts())[1] === 'Options: sine, saw, square, triangle · default sine', (await texts())[1])
 await hover(node('Oscillator').getByTestId(`in-${await idOf('Oscillator')}-pitch`))
 check('an input port says what it is for', /Bends the pitch/.test((await texts())[0] ?? ''), (await texts())[0])
-await hover(node('Delay').locator('[class*="nodeTitle"]'))
+// the left end of the title: its middle is the "shared" tag, which has a tooltip of its own
+await node('Delay').locator('[class*="nodeTitle"]').hover({ position: { x: 4, y: 8 } })
+await page.waitForTimeout(600)
 lines = await texts()
 check('a node title says what it does', lines.length === 1 && /^Repeats the sound/.test(lines[0] ?? ''), lines.join(' | '))
 
@@ -72,12 +82,14 @@ await page.mouse.move(a.x + a.width - 4, a.y + a.height / 2)
 await page.mouse.down()
 await page.mouse.move(b.x + 6, b.y + b.height / 2, { steps: 8 })
 await page.mouse.up()
-await hover(node('Gain').locator('[class*="param"]').first())
+await selectNode('Gain')
+await hover(properties().locator('[data-param="gain"]'))
 lines = await texts()
 check('a driven parameter says what drives it', lines.at(-1) === 'Driven by Control: the wire replaces this value.', lines.join(' | '))
 await hover(node('Gain').getByTestId(`in-${await idOf('Gain')}-param:gain`))
 check('and so does its socket', (await texts()).at(-1) === 'Driven by Control: the wire replaces the stored value.', (await texts()).join(' | '))
-await hover(node('Control').locator('[class*="param"]').first())
+await selectNode('Control')
+await hover(properties().locator('[data-param="value"]'))
 check('a control shows its own range, not the wide bounds of its spec', (await texts())[1] === 'Range 0 to 1 · default 0.5', (await texts())[1])
 
 // ---- dismissing, keyboard, and what it links to

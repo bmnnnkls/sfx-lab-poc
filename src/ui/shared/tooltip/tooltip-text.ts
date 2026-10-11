@@ -19,7 +19,7 @@ export const paramFacts = (spec: ParamSpec): string => {
   return [
     `Range ${shown(spec, spec.min)} to ${shown(spec, spec.max)}`,
     `default ${shown(spec, spec.default)}`,
-    ...(isLogarithmic(spec) ? ['logarithmic'] : []),
+    ...(isLogarithmic(spec) ? ['logarithmic'] : spec.curve === 'exp' ? ['exponential'] : []),
   ].join(' · ')
 }
 

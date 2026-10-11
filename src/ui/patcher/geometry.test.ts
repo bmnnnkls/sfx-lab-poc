@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createNode, requireNodeDefinition } from '@core'
-import { NODE_WIDTH, SAMPLE_PICKER_HEIGHT, nodeHeight, portPosition } from './geometry'
+import { createNode, describeNode, requireNodeDefinition } from '@core'
+import { HEADER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT, nodeHeight, portPosition } from './geometry'
 import { formatParam, fromSlider, snapToStep, toSlider } from '../shared/param-scale'
 
 describe('patcher geometry', () => {
@@ -30,11 +30,45 @@ describe('param scale', () => {
   })
 })
 
-describe('sampler node layout', () => {
-  it('reserves room for the sample picker', () => {
-    expect(nodeHeight(requireNodeDefinition('sampler'))).toBeGreaterThan(
-      nodeHeight(requireNodeDefinition('gain')) + SAMPLE_PICKER_HEIGHT - 1,
-    )
+describe('param scale curves', () => {
+  const spec = { id: 'v', label: 'V', min: 0, max: 10, default: 0 }
+
+  it('a control curve overrides the range rule: log on a narrow positive range, linear on a wide one', () => {
+    const narrow = { ...spec, min: 1, max: 4, curve: 'log' as const }
+    expect(toSlider(narrow, 2)).toBeCloseTo(0.5, 6)
+    const wide = { ...spec, min: 20, max: 20000, curve: 'linear' as const }
+    expect(toSlider(wide, 10010)).toBeCloseTo(0.5, 6)
+  })
+
+  it('a log curve on a range that includes 0 falls back to straight', () => {
+    expect(toSlider({ ...spec, curve: 'log' }, 5)).toBeCloseTo(0.5, 6)
+  })
+
+  it('exp starts slow: the middle of the range sits above the middle of the slider, and it round-trips', () => {
+    const exp = { ...spec, curve: 'exp' as const }
+    expect(fromSlider(exp, 0.5)).toBeLessThan(5)
+    for (const value of [0, 1, 4.2, 10]) expect(fromSlider(exp, toSlider(exp, value))).toBeCloseTo(value, 6)
+    expect(toSlider(exp, 0)).toBe(0)
+    expect(toSlider(exp, 10)).toBeCloseTo(1, 6)
+  })
+
+  it('a degenerate range does not divide by zero', () => {
+    expect(toSlider({ ...spec, min: 3, max: 3 }, 3)).toBe(0)
+  })
+})
+
+describe('card height', () => {
+  it('is a header and the port rows: settings live in the property editor, not on the card', () => {
+    const gain = describeNode(createNode('gain', 0, 0))!
+    const rows = Math.max(gain.inputs.length, gain.outputs.length)
+    expect(nodeHeight(gain)).toBe(HEADER_HEIGHT + 12 + rows * PORT_ROW_HEIGHT)
+    expect(nodeHeight(describeNode(createNode('sampler', 0, 0))!)).toBeLessThan(nodeHeight(gain) + 5 * PORT_ROW_HEIGHT)
+  })
+
+  it('grows with the sockets that are drawn, not with the number of parameters', () => {
+    const filter = describeNode(createNode('filter', 0, 0))!
+    const bare = { ...filter, inputs: filter.inputs.filter((port) => port.param === undefined) }
+    expect(nodeHeight(filter)).toBeGreaterThan(nodeHeight(bare))
   })
 })
 

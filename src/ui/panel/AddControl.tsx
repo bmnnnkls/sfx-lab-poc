@@ -1,7 +1,7 @@
 import { type ControlDraft, type ControlKind, type ModuleLibrary, type ParamBinding, type Patch, controlFits, describeNode } from '@core'
 import { useMemo, useState } from 'react'
 import styles from './panel.module.css'
-import { nodeTitles } from './panel-values'
+import { nodeTitles } from '@core'
 
 interface Choice {
   readonly id: string

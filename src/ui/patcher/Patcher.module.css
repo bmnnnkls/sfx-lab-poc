@@ -1,5 +1,7 @@
 .patcher {
   display: grid;
+  /* One column that may be narrower than its content: the canvas scrolls, the editor beside it keeps its width. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
 }
@@ -126,27 +128,6 @@
   margin-right: -6px;
 }
 
-.param {
-  display: grid;
-  gap: 2px;
-  padding: 2px 10px 6px;
-}
-
-.param input[type='range'] {
-  padding: 0;
-}
-
-.paramLabel {
-  display: flex;
-  justify-content: space-between;
-  color: var(--text-dim);
-  font-size: 11px;
-}
-
-.paramValue {
-  color: var(--text);
-}
-
 .voices {
   display: flex;
   align-items: center;
@@ -260,8 +241,8 @@
 
 /* A preview beside the canvas takes a fixed share; the canvas keeps what is left. */
 .editorBody > .aside {
-  flex: 0 0 42%;
-  max-width: 600px;
+  flex: 0 0 30%;
+  max-width: 440px;
 }
 
 .interface {
@@ -333,24 +314,19 @@
   color: var(--text-dim);
 }
 
-.param[data-driven='true'] {
-  opacity: 0.5;
-}
-
 .nodeBypassed {
   opacity: 0.55;
 }
 
-.bypass {
-  margin-left: auto;
-  margin-right: 4px;
-  padding: 0 6px;
-  line-height: 18px;
-}
-
-.stereoToggle {
-  min-width: 28px;
+.stereoTag {
+  margin-left: 8px;
+  padding: 1px 5px;
   font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
 .trackPicker {

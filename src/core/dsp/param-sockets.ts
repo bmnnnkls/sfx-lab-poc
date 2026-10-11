@@ -30,17 +30,28 @@ export const paramSockets = (definition: Pick<NodeDefinition, 'params' | 'paramS
           range: { min: spec.min, max: spec.max, default: spec.default, ...(spec.unit === undefined ? {} : { unit: spec.unit }) },
         }))
 
-/** The spec with a range taken from the node's own parameters (`ParamSpec.range`); the spec itself when it has none. */
+const CURVES = ['linear', 'log', 'exp'] as const
+
+/**
+ * The spec with its range, step and curve taken from the node's own parameters (`ParamSpec.range`); the spec itself
+ * when it has none or the node lacks them.
+ */
 export const liveSpec = (spec: ParamSpec, values: Readonly<Record<string, number>>): ParamSpec => {
   if (!spec.range) return spec
   const low = values[spec.range.min]
   const high = values[spec.range.max]
   if (low === undefined || high === undefined || !Number.isFinite(low) || !Number.isFinite(high)) return spec
   const step = spec.range.step === undefined ? undefined : values[spec.range.step]
+  const curveIndex = spec.range.curve === undefined ? undefined : values[spec.range.curve]
+  const curve = curveIndex === undefined || !Number.isFinite(curveIndex) ? undefined : CURVES[Math.round(curveIndex)]
   return {
     ...spec,
     min: Math.min(low, high),
     max: Math.max(low, high),
     ...(step !== undefined && step > 0 ? { step } : { step: undefined }),
+    ...(curve === undefined ? {} : { curve }),
   }
 }
+
+/** Wide positive ranges (20 Hz to 20 kHz) feel right on a logarithmic scale; the single place that says so. */
+export const isWideRange = (spec: Pick<ParamSpec, 'min' | 'max'>): boolean => spec.min > 0 && spec.max / spec.min >= 50

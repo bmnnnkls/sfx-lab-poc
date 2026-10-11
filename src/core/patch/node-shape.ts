@@ -1,4 +1,4 @@
-import { type NodeCategory, type NodeDefinition, type ParamSpec, type PortKind, type PortSpec, findNodeDefinition, paramSockets, stereoPorts } from '../dsp'
+import { type NodeCategory, type NodeDefinition, type ParamSpec, type PortKind, type PortSpec, findNodeDefinition, liveSpec, paramSockets, stereoPorts } from '../dsp'
 import { findNoteNode } from '../notefx'
 import { MODULE_NODE_TYPE, type ModuleDefinition, type ModuleLibrary, type ModulePort } from './module-types'
 import type { PatchNode } from './types'
@@ -7,7 +7,7 @@ import type { PatchNode } from './types'
 export type NodeDomain = 'audio' | 'notes'
 
 /** What the editor and the connection rules need to know about a node: its ports and parameters. */
-export type NodeShape = Pick<NodeDefinition, 'label' | 'description' | 'keywords' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
+export type NodeShape = Pick<NodeDefinition, 'label' | 'description' | 'keywords' | 'panelKind' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
   /** Where the picker files it; a module's is `Modules`. */
   readonly category?: NodeCategory | 'Modules'
   /** The node refers to another track and the editor shows a track picker: `notes` takes notes from an instrument track, `return` sends to a return track, `audio` takes another track's sound. */
@@ -116,4 +116,14 @@ export const describeNode = (node: PatchNode, modules: ModuleLibrary = []): Node
     params: knobSpecs(definition, modules),
     domain: moduleDomain(definition, modules),
   }
+}
+
+/**
+ * A parameter's spec as this node has it: a control's range, step and curve are its own settings (`liveSpec`) and its
+ * unit is the text the user gave it. The spec itself for everything else.
+ */
+export const resolveSpec = (node: Pick<PatchNode, 'params' | 'unit' | 'unitY'>, spec: ParamSpec): ParamSpec => {
+  const live = liveSpec(spec, node.params)
+  const unit = spec.unitFrom === undefined ? undefined : node[spec.unitFrom]
+  return unit === undefined ? live : { ...live, unit }
 }

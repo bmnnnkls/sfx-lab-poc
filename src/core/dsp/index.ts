@@ -19,6 +19,6 @@ export type {
   SignalTaps,
 } from './types'
 export { Params } from './params'
-export { PARAM_PORT_PREFIX, liveSpec, paramOfPort, paramPortId, paramSockets } from './param-sockets'
+export { PARAM_PORT_PREFIX, isWideRange, liveSpec, paramOfPort, paramPortId, paramSockets } from './param-sockets'
 export { MAX_BLOCK_FRAMES } from './block'
 export { RIGHT, STEREO_FRAMES, isStereoBuffer, leftOf, rightOf, stereoPorts } from './stereo'

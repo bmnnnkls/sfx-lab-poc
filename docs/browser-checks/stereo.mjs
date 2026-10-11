@@ -18,6 +18,12 @@ const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`
 const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
 const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
 
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
+
 // The page's own meter only shows the louder channel, so tap the real output of the engine's worklet per channel.
 await page.addInitScript(() => {
   const Original = window.AudioWorkletNode
@@ -95,26 +101,29 @@ await surface.locator('[data-testid^="wire-"]').first().click({ force: true }) /
 await wire('Track in', 'Pan')
 await wire('Pan', 'Track out')
 check('Track in (mono) -> Pan -> Track out (stereo) is wired', (await wireCount()) === 2, String(await wireCount()))
-await node('Pan').locator('input[type=range]').first().fill('0') // hard left
+await selectNode('Pan')
+await slider('Pan').fill('0') // hard left
 await page.waitForTimeout(500)
 const left = await channels(1200)
 check('panned hard left: sound only on the left', left[0] > 0.02 && left[1] < 0.001, JSON.stringify(left))
-await node('Pan').locator('input[type=range]').first().fill('1000') // hard right
+await slider('Pan').fill('1000') // hard right
 await page.waitForTimeout(500)
 const right = await channels(1200)
 check('panned hard right: sound only on the right', right[1] > 0.02 && right[0] < 0.001, JSON.stringify(right))
 await page.screenshot({ path: `${dir}/stereo-pan.png` })
 
 // ---- a mono node cannot take stereo until it is switched to stereo
-await node('Pan').locator('input[type=range]').first().fill('250')
+await selectNode('Pan')
+await slider('Pan').fill('250')
 await add('Filter')
 await wire('Pan', 'Filter')
 check('a stereo output does not wire into a mono Filter', (await wireCount()) === 2, String(await wireCount()))
-await node('Filter').getByRole('button', { name: 'Filter: mono' }).click()
-check('the Filter can be switched to stereo', (await node('Filter').getByRole('button', { name: 'Filter: stereo' }).count()) === 1)
+await selectNode('Filter')
+await properties().getByRole('checkbox', { name: 'Stereo' }).check()
+check('the Filter can be switched to stereo', (await node('Filter').locator('[class*="stereoTag"]').count()) === 1)
 await wire('Pan', 'Filter')
 check('and then the stereo wire is accepted', (await wireCount()) === 3, String(await wireCount()))
-await node('Filter').getByRole('button', { name: 'Filter: stereo' }).click()
+await properties().getByRole('checkbox', { name: 'Stereo' }).uncheck()
 check('switching it back to mono drops the wire that no longer fits', (await wireCount()) === 2, String(await wireCount()))
 await page.getByRole('button', { name: 'Remove Filter' }).click()
 await page.getByRole('button', { name: 'Remove Pan' }).click()
@@ -123,7 +132,8 @@ await page.getByRole('button', { name: 'Remove Pan' }).click()
 await add('Stereo reverb')
 await wire('Track in', 'Stereo reverb')
 await wire('Stereo reverb', 'Track out')
-const mixKnob = node('Stereo reverb').locator('input[type=range]').nth(3)
+await selectNode('Stereo reverb')
+const mixKnob = slider('Mix')
 await mixKnob.fill('1000')
 await page.waitForTimeout(600)
 const wet = await channels(1500)

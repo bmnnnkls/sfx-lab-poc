@@ -26,7 +26,7 @@ describe('tooltip text', () => {
   })
 
   it('a control value shows its own range', () => {
-    const live = liveSpec(spec('control', 'value'), { min: 20, max: 20000, step: 0 })
+    const live = liveSpec(spec('control', 'value'), { min: 20, max: 20000, step: 0, curve: 1 })
     expect(paramFacts({ ...live, default: 440 })).toBe('Range 20 to 20000 · default 440 · logarithmic')
   })
 

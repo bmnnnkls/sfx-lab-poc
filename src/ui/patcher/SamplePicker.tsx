@@ -1,6 +1,5 @@
 import { useProjectStore } from '@state'
 import { WaveformThumb } from '../shared/WaveformThumb'
-import { SAMPLE_PICKER_HEIGHT } from './geometry'
 import styles from './Patcher.module.css'
 
 interface SamplePickerProps {
@@ -13,7 +12,7 @@ export const SamplePicker = ({ sampleId, onChange }: SamplePickerProps) => {
   const samples = useProjectStore((state) => state.project.samples)
 
   return (
-    <div className={styles.samplePicker} style={{ height: SAMPLE_PICKER_HEIGHT }}>
+    <div className={styles.samplePicker}>
       <select
         value={sampleId ?? ''}
         aria-label="Sample"
@@ -26,7 +25,7 @@ export const SamplePicker = ({ sampleId, onChange }: SamplePickerProps) => {
           </option>
         ))}
       </select>
-      {sampleId ? <WaveformThumb sampleId={sampleId} width={152} height={26} /> : <div style={{ height: 26 }} />}
+      {sampleId ? <WaveformThumb sampleId={sampleId} width={200} height={26} /> : <div style={{ height: 26 }} />}
     </div>
   )
 }

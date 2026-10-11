@@ -50,7 +50,11 @@ export interface ParamSpec {
    * The range of this parameter is not fixed: it is whatever the node's own parameters `min` and `max` say (a control
    * node's value lies between its min and max). `min` / `max` here are then only wide bounds; `liveSpec` resolves it.
    */
-  readonly range?: { readonly min: string; readonly max: string; readonly step?: string }
+  readonly range?: { readonly min: string; readonly max: string; readonly step?: string; readonly curve?: string; readonly reset?: string }
+  /** The unit is the node's own text (`PatchNode.unit` / `unitY`), not a fixed one: a control's unit is whatever the user says. */
+  readonly unitFrom?: 'unit' | 'unitY'
+  /** How a knob or slider maps its position onto the range. Absent: logarithmic for wide positive ranges, else linear (`liveSpec` sets it from a control's own `curve`). */
+  readonly curve?: 'linear' | 'log' | 'exp'
 }
 
 /** The note currently held by an instrument, shared with every node in its patch. */
@@ -151,6 +155,11 @@ export interface NodeDefinition {
    * does when everything wired into it is global too; a node with no inputs (a control) always is.
    */
   readonly global?: boolean
+  /**
+   * The node is itself a control that can sit on a panel: `value` (one knob or slider), `xy` (a pad) or `switch`.
+   * Its parameters are settings (range, step), not knobs.
+   */
+  readonly panelKind?: 'value' | 'xy' | 'switch'
   /** `false`: the node's numeric parameters get no sockets (a control's own range and step are settings, not signals). */
   readonly paramSockets?: false
   create(sampleRate: number): DspNode

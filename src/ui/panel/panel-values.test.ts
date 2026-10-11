@@ -1,6 +1,6 @@
 import { type PanelControl, type ParamSpec, addNode, createNode } from '@core'
 import { describe, expect, it } from 'vitest'
-import { defaultPosition, keyStep, knobWidth, nodeTitles, positionOf, spanOf, valueAt, valueOf } from './panel-values'
+import { defaultPosition, keyStep, knobWidth, positionOf, spanOf, valueAt, valueOf } from './panel-values'
 
 const linear: ParamSpec = { id: 'a', label: 'A', min: 0, max: 10, default: 5 }
 const log: ParamSpec = { id: 'f', label: 'F', min: 20, max: 20000, default: 2000 }
@@ -53,19 +53,6 @@ describe('valueOf', () => {
     expect(valueOf(patch, { node: node.id, param: 'gain' }, linear)).toBe(0.3)
     expect(valueOf(patch, { node: node.id, param: 'other' }, linear)).toBe(5)
     expect(valueOf(patch, { node: 'gone', param: 'gain' }, linear)).toBe(5)
-  })
-})
-
-describe('nodeTitles', () => {
-  it('numbers nodes that share a name, in patch order, and leaves single ones alone', () => {
-    const a = createNode('oscillator', 500, 500)
-    const f = createNode('filter', 0, 0)
-    const b = createNode('oscillator', 0, 0)
-    const patch = [a, f, b].reduce(addNode, { nodes: [], connections: [] })
-    const titles = nodeTitles(patch, [])
-    expect(titles.get(a.id)).toBe('Oscillator 1')
-    expect(titles.get(b.id)).toBe('Oscillator 2')
-    expect(titles.get(f.id)).toBe('Filter')
   })
 })
 

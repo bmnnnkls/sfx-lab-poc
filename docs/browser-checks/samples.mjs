@@ -75,6 +75,9 @@ check('preview makes sound on the output meter', previewLevel > 0.1 && idle < 0.
 // --- make a sampler track from the kick, then play it
 await page.locator('li', { hasText: 'Demo Kick' }).getByText('New sampler track').click()
 check('switches to the instrument editor', (await page.getByLabel('Voices').count()) === 1)
+// the sample picker is in the property editor now: select the Sampler card
+const selectSampler = () => page.locator('[class*="nodeHeader"]', { hasText: /^Sampler/ }).first().click()
+await selectSampler()
 check('sampler node shows the chosen sample', (await page.getByLabel('Sample', { exact: true }).inputValue()) !== '')
 check('sampler root note displayed as a note name', (await page.getByText('C4', { exact: true }).count()) >= 1)
 await page.getByRole('button', { name: 'Launch scene 1' }).click()
@@ -131,11 +134,13 @@ check('re-importing the original restores a missing sample', (await page.locator
 // --- removing a sample clears sampler nodes that used it, and undo brings it back
 await page.getByRole('button', { name: 'Demo Kick', exact: true }).click() // select the sampler track
 await page.getByRole('button', { name: 'Instrument' }).click()
+await selectSampler()
 const picker = page.getByLabel('Sample', { exact: true })
 check('sampler points at the kick before removal', (await picker.inputValue()) !== '')
 await page.getByRole('button', { name: 'Samples', exact: true }).click()
 await page.locator('li', { hasText: 'Demo Kick' }).getByRole('button', { name: 'Remove Demo Kick' }).click()
 await page.getByRole('button', { name: 'Instrument' }).click()
+await selectSampler()
 check('removing the sample clears the node reference', (await picker.inputValue()) === '')
 await page.getByRole('button', { name: 'Undo' }).click()
 check('undo restores the reference', (await picker.inputValue()) !== '')

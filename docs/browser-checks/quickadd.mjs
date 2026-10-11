@@ -11,6 +11,12 @@ page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
 
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
+
 const surface = page.getByTestId('patch-surface')
 const popup = () => page.getByTestId('quick-add')
 const field = () => page.getByRole('combobox', { name: 'Add a node' })
@@ -98,8 +104,7 @@ check('three nodes added in a row do not sit on each other', !overlap(gains[0], 
 const before = await nodes().count()
 await node('Oscillator').locator('[class*="nodeHeader"]').first().click()
 check('a node is selected', (await node('Oscillator').first().getAttribute('data-selected')) === 'true')
-const surfaceBox = await surface.boundingBox()
-const spot = { x: Math.min(surfaceBox.x + surfaceBox.width - 60, 1320), y: surfaceBox.y + 60 }
+const spot = { x: view.x + view.width - 70, y: view.y + 60 } // empty canvas, right of the cards, left of the property editor
 await page.mouse.dblclick(spot.x, spot.y)
 check('a double-click on empty canvas opens the picker', (await popup().count()) === 1)
 const popupBox = await popup().boundingBox()
@@ -114,19 +119,22 @@ check('and only that node is selected afterwards', (await node('Invert').first()
 check('one node was added', (await nodes().count()) === before + 1)
 await page.screenshot({ path: `${dir}/quickadd-dblclick.png` })
 
+const blank = { x: view.x + 60, y: view.y + 22 } // empty canvas above the cards, where nothing else sits
 // ---- a plain click still clears the selection, and a drag still draws a marquee
-await page.mouse.click(1290, spot.y + 150)
+await page.mouse.click(blank.x, blank.y)
 check('a single click on empty canvas still clears the selection', (await surface.locator('[data-selected=true]').count()) === 0 && (await popup().count()) === 0)
-await page.mouse.move(1260, spot.y + 120)
+await page.waitForTimeout(600) // not a double-click with the click before
+await page.mouse.move(blank.x, blank.y)
 await page.mouse.down()
-await page.mouse.move(1330, spot.y + 160, { steps: 4 })
+await page.mouse.move(blank.x + 90, blank.y + 22, { steps: 4 })
 check('and a drag still draws the selection box', (await page.locator('[class*="marquee"]').count()) === 1)
 await page.mouse.up()
 
 // ---- Shift+A over the canvas
-await page.mouse.move(1260, spot.y + 200)
+await page.waitForTimeout(600)
+await page.mouse.move(blank.x, blank.y)
 await page.keyboard.press('Shift+A')
-check('Shift+A over the canvas opens the picker at the pointer', (await popup().count()) === 1 && Math.abs((await popup().boundingBox()).x - Math.min(1260, 1500 - 340 - 8)) < 3, JSON.stringify(await popup().boundingBox()))
+check('Shift+A over the canvas opens the picker at the pointer', (await popup().count()) === 1 && Math.abs((await popup().boundingBox()).x - Math.min(blank.x, 1500 - 340 - 8)) < 3, JSON.stringify(await popup().boundingBox()))
 await page.keyboard.type('A')
 check('typing a capital A into the field types it, it does not reopen anything', (await field().inputValue()) === 'A' && (await popup().count()) === 1)
 await page.keyboard.press('Escape')

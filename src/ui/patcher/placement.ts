@@ -2,7 +2,7 @@ import { type ModuleLibrary, type Patch, describeNode } from '@core'
 import { HEADER_HEIGHT, NODE_WIDTH, type Point, nodeHeight } from './geometry'
 
 /** Room a new card is assumed to need when checking it against the others (a typical one: header, a few ports, a slider or two). */
-const NEW_HEIGHT = 150
+const NEW_HEIGHT = 90
 const NUDGE = 28
 const MAX_NUDGES = 60
 

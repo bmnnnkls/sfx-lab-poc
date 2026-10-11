@@ -1,5 +1,9 @@
 import type { PanelControl } from './panel-types'
 
+/** How a control node is drawn on the panel. */
+export const CONTROL_DISPLAYS = ['knob', 'slider', 'slider-horizontal'] as const
+export type ControlDisplay = (typeof CONTROL_DISPLAYS)[number]
+
 export interface PortRef {
   readonly node: string
   readonly port: string
@@ -13,6 +17,12 @@ export interface PatchNode {
   readonly x: number
   readonly y: number
   readonly params: Readonly<Record<string, number>>
+  /** For control nodes: the unit shown with the value ("Hz", "%"); for an XY pad, of its x axis. */
+  readonly unit?: string
+  /** For an XY pad: the unit of its y axis. */
+  readonly unitY?: string
+  /** For a *Control* node: how the panel draws it. Absent: a knob. */
+  readonly display?: ControlDisplay
   /** What the user calls this node. Absent: the node's type label, numbered when alike ("Oscillator 2"). */
   readonly name?: string
   /** For sample-playing nodes: id of the project sample to play. */

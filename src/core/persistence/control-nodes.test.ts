@@ -103,6 +103,38 @@ describe('control nodes in a saved project', () => {
     expect(Number.isFinite(knob.params.max!)).toBe(true)
   })
 
+  it('keeps a control unit and display, an XY pad unit for each axis, and nothing of the kind on other nodes', () => {
+    const text = rawWith((patch) => {
+      patch.nodes.push(
+        { id: 'knob', type: 'control', x: 0, y: 0, params: {}, unit: ' Hz ', display: 'slider-horizontal' },
+        { id: 'pad', type: 'xyPad', x: 0, y: 0, params: {}, unit: 'Hz', unitY: '%', display: 'slider' },
+        { id: 'sw', type: 'switch', x: 0, y: 0, params: {}, unit: 'Hz', display: 'slider' },
+      )
+      patch.nodes[0]!.unit = 'Hz'
+      patch.nodes[0]!.display = 'slider'
+    })
+    const nodes = (parseOk(text).project.tracks[0] as InstrumentTrack).patch.nodes
+    const get = (id: string) => nodes.find((n) => n.id === id)!
+    expect(get('knob')).toMatchObject({ unit: 'Hz', display: 'slider-horizontal' })
+    expect(get('pad')).toMatchObject({ unit: 'Hz', unitY: '%' })
+    expect('display' in get('pad')).toBe(false)
+    expect('unit' in get('sw') || 'display' in get('sw')).toBe(false)
+    expect('unit' in nodes[0]! || 'display' in nodes[0]!).toBe(false)
+  })
+
+  it('drops a unit that is not text, an unknown display and a knob display (the default)', () => {
+    const text = rawWith((patch) => {
+      patch.nodes.push(
+        { id: 'a', type: 'control', x: 0, y: 0, params: {}, unit: 5, display: 'bogus' },
+        { id: 'b', type: 'control', x: 0, y: 0, params: {}, unit: 'x'.repeat(99), display: 'knob' },
+      )
+    })
+    const nodes = (parseOk(text).project.tracks[0] as InstrumentTrack).patch.nodes
+    expect('unit' in nodes.find((n) => n.id === 'a')! || 'display' in nodes.find((n) => n.id === 'a')!).toBe(false)
+    expect(nodes.find((n) => n.id === 'b')!.unit).toHaveLength(16)
+    expect('display' in nodes.find((n) => n.id === 'b')!).toBe(false)
+  })
+
   it('files saved before control nodes load exactly as they did: no warnings, no new nodes, same wiring', () => {
     const result = parseOk(serializeProject(demo))
     expect(result.warnings).toEqual([])

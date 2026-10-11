@@ -11,8 +11,9 @@ import {
 } from '@core'
 import { type PointerEvent, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
+import type { MenuEntry } from '../shared/menu'
 import { NodeView } from './NodeView'
-import { nodeTitles } from '../panel/panel-values'
+import { nodeTitles } from '@core'
 import { drivenParams, visibleShape } from './visible-shape'
 import styles from './Patcher.module.css'
 import { WireLayer } from './WireLayer'
@@ -21,8 +22,6 @@ interface PatchCanvasProps {
   patch: Patch
   modules: ModuleLibrary
   selected: ReadonlySet<string>
-  /** The track whose graph this is. */
-  ownerTrackId: string
   /** Sound patches have voice / shared stages to show; note graphs do not. */
   showStages: boolean
   /** Draw every parameter socket, not only the wired ones. */
@@ -30,11 +29,8 @@ interface PatchCanvasProps {
   onSelectionChange(selected: ReadonlySet<string>): void
   onMoveNode(nodeId: string, x: number, y: number): void
   onRemoveNode(nodeId: string): void
-  onParamChange(nodeId: string, paramId: string, value: number): void
-  onSampleChange(nodeId: string, sampleId: string | null): void
-  onTrackChange(nodeId: string, trackId: string | null): void
-  onBypassChange(nodeId: string, bypassed: boolean): void
-  onStereoChange(nodeId: string, stereo: boolean): void
+  /** The right-click menu of an input port of a node (empty: none). */
+  inputMenu(nodeId: string, portId: string): readonly MenuEntry[]
   onConnect(from: PortRef, to: PortRef): void
   onDisconnect(connectionId: string): void
   onOpenModule(moduleId: string): void
@@ -74,17 +70,12 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
   patch,
   modules,
   selected,
-  ownerTrackId,
   showStages,
   showSockets,
   onSelectionChange,
   onMoveNode,
   onRemoveNode,
-  onParamChange,
-  onSampleChange,
-  onTrackChange,
-  onBypassChange,
-  onStereoChange,
+  inputMenu,
   onConnect,
   onDisconnect,
   onOpenModule,
@@ -219,10 +210,11 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
             key={node.id}
             node={node}
             shape={shapes.get(node.id)!}
+            title={titles.get(node.id) ?? node.type}
             driven={drivenParams(node.id, shapes.get(node.id)!, patch, (id) => titles.get(id) ?? '')}
+            inputMenu={(portId) => inputMenu(node.id, portId)}
             shared={isShared(node)}
             selected={selected.has(node.id)}
-            ownerTrackId={ownerTrackId}
             moduleActions={
               node.type === MODULE_NODE_TYPE && node.moduleId
                 ? { onOpen: () => onOpenModule(node.moduleId!), onUnlink: () => onUnlinkModule(node.id) }
@@ -231,11 +223,6 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
             onSelect={(additive) => select(node.id, additive)}
             onMove={(x, y) => onMoveNode(node.id, x, y)}
             onRemove={() => onRemoveNode(node.id)}
-            onParamChange={(paramId, value) => onParamChange(node.id, paramId, value)}
-            onSampleChange={(sampleId) => onSampleChange(node.id, sampleId)}
-            onTrackChange={(trackId) => onTrackChange(node.id, trackId)}
-            onBypassChange={(bypassed) => onBypassChange(node.id, bypassed)}
-            onStereoChange={(stereo) => onStereoChange(node.id, stereo)}
             onWireStart={(from) => setPending({ from, pointer: { x: node.x, y: node.y } })}
             onWireEnd={(to) => pending && onConnect(pending.from, to)}
           />

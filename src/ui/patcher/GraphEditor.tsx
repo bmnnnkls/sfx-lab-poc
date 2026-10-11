@@ -12,29 +12,28 @@ import {
   addNode,
   connect,
   containsModule,
+  createControlFor,
   createNode,
+  describeNode,
   disconnect,
   moduleDomain,
   moveNode,
   noteNodeDefinitions,
   nodeDefinitions,
   removeNode,
-  setNodeBypassed,
-  setNodeParam,
-  setNodeSample,
-  setNodeStereo,
-  setNodeTrack,
 } from '@core'
 import { useProjectStore } from '@state'
 import { type ReactNode, useRef, useState } from 'react'
 import { PanelView } from '../panel/PanelView'
+import type { MenuEntry } from '../shared/menu'
 import { useStoredState } from '../shared/use-stored-state'
 import { ModuleBar } from './ModuleBar'
 import { ModuleInterface } from './ModuleInterface'
 import { type Catalog, buildCatalog } from './node-catalog'
 import { PatchCanvas, type PatchCanvasHandle } from './PatchCanvas'
 import { QuickAdd } from './QuickAdd'
-import { type Point } from './geometry'
+import { NODE_WIDTH, type Point } from './geometry'
+import { PropertyEditor } from './PropertyEditor'
 import { centredOn, freeSpot } from './placement'
 import styles from './Patcher.module.css'
 
@@ -143,6 +142,38 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   )
   const palette = paletteFor(graph, track?.kind ?? 'master')
   const catalog: Catalog | null = picker ? buildCatalog(palette, placeable) : null
+
+  /** "Create knob / slider" on a parameter: a control to the left of the node, set up from the parameter and wired in. */
+  const createControl = (nodeId: string, paramId: string, display: 'knob' | 'slider') => {
+    const node = patch.nodes.find((candidate) => candidate.id === nodeId)
+    if (!node) return
+    const at = freeSpot(patch, modules, { x: Math.max(0, node.x - NODE_WIDTH - 40), y: node.y })
+    const made = createControlFor(patch, modules, nodeId, paramId, { at, display })
+    if (!made) return
+    edit(() => made.patch)
+    setSelected(new Set([made.controlId]))
+  }
+  /** Removes every wire into one port (a socket may have several). */
+  const disconnectPort = (nodeId: string, portId: string) =>
+    edit((current) =>
+      current.connections
+        .filter((connection) => connection.to.node === nodeId && connection.to.port === portId)
+        .reduce((next, connection) => disconnect(next, connection.id), current),
+    )
+  const inputMenu = (nodeId: string, portId: string): readonly MenuEntry[] => {
+    const node = patch.nodes.find((candidate) => candidate.id === nodeId)
+    const port = node && describeNode(node, modules)?.inputs.find((candidate) => candidate.id === portId)
+    if (!port) return []
+    const wired = patch.connections.some((connection) => connection.to.node === nodeId && connection.to.port === portId)
+    const entries: MenuEntry[] = []
+    // A parameter that is already wired has its value; a second wire would add to it, so the menu offers no new control.
+    if (port.param !== undefined && !wired) {
+      entries.push({ label: 'Create knob', onSelect: () => createControl(nodeId, port.param!, 'knob') })
+      entries.push({ label: 'Create slider', onSelect: () => createControl(nodeId, port.param!, 'slider') })
+    }
+    if (wired) entries.push({ label: 'Disconnect', danger: true, onSelect: () => disconnectPort(nodeId, portId) })
+    return entries
+  }
 
   const closePicker = () => {
     if (picker?.fromButton) addButton.current?.focus()
@@ -260,19 +291,12 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             patch={patch}
             modules={modules}
             selected={selected}
-            ownerTrackId={track?.id ?? ''}
             showStages={graph === 'patch'}
             showSockets={showSockets && graph !== 'notes'}
             onSelectionChange={setSelected}
             onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
             onRemoveNode={(id) => edit((current) => removeNode(current, id))}
-            onParamChange={(id, paramId, value) =>
-              edit((current) => setNodeParam(current, id, paramId, value), `param:${scope}:${id}:${paramId}`)
-            }
-            onSampleChange={(id, sampleId) => edit((current) => setNodeSample(current, id, sampleId))}
-            onTrackChange={(id, trackId) => edit((current) => setNodeTrack(current, id, trackId))}
-            onBypassChange={(id, bypassed) => edit((current) => setNodeBypassed(current, id, bypassed))}
-            onStereoChange={(id, stereo) => edit((current, library) => setNodeStereo(current, id, stereo, library))}
+            inputMenu={inputMenu}
             onConnect={(from, to) => edit((current, library) => connect(current, from, to, { modules: library }))}
             onDisconnect={(id) => edit((current) => disconnect(current, id))}
             onOpenModule={(moduleId) => enter([...known, moduleId])}
@@ -281,6 +305,18 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
           />
         )}
         {aside && <div className={styles.aside}>{aside}</div>}
+        {view === 'graph' && (
+          <PropertyEditor
+            patch={patch}
+            modules={modules}
+            selected={selected}
+            scope={scope}
+            ownerTrackId={track?.id ?? ''}
+            edit={edit}
+            onCreateControl={createControl}
+            onUnwire={(nodeId, paramId) => disconnectPort(nodeId, `param:${paramId}`)}
+          />
+        )}
         {definition && interfaceOpen && view === 'graph' && <ModuleInterface definition={definition} />}
       </div>
       {picker && catalog && <QuickAdd catalog={catalog} anchor={picker.anchor} onPick={addFromPicker} onClose={closePicker} />}

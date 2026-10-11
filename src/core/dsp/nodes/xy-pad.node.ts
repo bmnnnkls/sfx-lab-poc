@@ -29,6 +29,7 @@ export const xyPadNode: NodeDefinition = {
   ],
   params: PARAMS,
   global: true,
+  panelKind: 'xy',
   paramSockets: false,
   create: () => new XYPad(),
 }

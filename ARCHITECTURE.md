@@ -207,7 +207,7 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
 * **Preview** (`engine/heard-notes.ts`). `heardNotes(clip, graph, modules)` runs the real clip player and graph over two
   loops and returns the second, so the Notes tab's piano roll cannot disagree with what plays. It shows this track's own
   clip through its graph; notes taken from other tracks are not part of it (the tab says so).
-* **UI.** Nodes have a bypass switch, *Track notes* has a track picker, note wires are drawn in the accent colour, and a
+* **UI.** Nodes have a bypass switch and *Track notes* a track picker (both in the property editor), note wires are drawn in the accent colour, and a
   track with processing nodes gets an **fx N** badge that opens the Notes tab. New nodes go where the picker was
   opened (see "Adding nodes" under Control nodes).
 * **Limits.** Auditioning a note in the piano roll skips the graph. Nodes cannot yet be moved together. An event that falls
@@ -258,8 +258,8 @@ sit on any track. It reuses the typed-port machinery the note graph introduced.
 * **Every effect without rewriting it.** `PatchNode.stereo` (like `bypassed`): on a node that opts in with
   `NodeDefinition.stereoCapable` (filter, gain, delay) the compiler creates two processors with the same parameters, each
   on one channel of the node's stereo ports, so `describeNode` reports those ports as `stereo`. A port marked `control`
-  (`cv`, filter `cutoff`) stays one mono signal that both channels follow, so one LFO moves both. The node header shows an
-  **M / L R** switch; `setNodeStereo` flips it and removes the wires that no longer fit.
+  (`cv`, filter `cutoff`) stays one mono signal that both channels follow, so one LFO moves both. The property editor has a
+  **Stereo** switch (the card shows an **L R** tag); `setNodeStereo` flips it and removes the wires that no longer fit.
 * **New nodes** (all `insertOnly`, so the instrument picker leaves them out): *Pan* (mono to stereo, constant-power law,
   -3 dB in each channel at the centre), *Width* (mid/side; 0 mono, 1 unchanged, 2 wider), *Stereo reverb* (Freeverb with the
   right tank's delays 23 samples longer, sharing `ReverbTank` with the mono reverb, so a mono source comes out with
@@ -302,7 +302,7 @@ tracks; a return track *is* the bus, so there are no bus names.
   counts, so it is `track/setFx`); turning its Amount is a `setParam`.
 * **UI.** The `+` menu adds a **Return track**; returns are drawn after the clip tracks with a dashed header, hatched empty
   slots and no stop button. The Instrument and Notes tabs say a return has neither; the Effects tab edits its graph. The
-  Send node shows a picker of return tracks (`NodeShape.usesTrack` says which kind of track a node picks: `notes` or `return`).
+  Send node has a picker of return tracks in the property editor (`NodeShape.usesTrack` says which kind of track a node picks: `notes` or `return`).
 
 ### Send knobs
 
@@ -434,7 +434,7 @@ kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`): a way of looki
   grid cells (a knob grows square, a slider along its length, a pad wide). `ControlCell` draws one control and, in **Edit**
   mode, its tools (drag handle, move, size, orientation, remove, rename); `AddControl` is the form for new ones (a pad asks
   for a second parameter); `PanelView` is the grid, the Play / Edit toggle and *Build from graph*. Cells are captioned with
-  their node's name, numbered when alike ("Oscillator 2", in patch order).
+  their node's name (`nodeTitles`, in core: the name the user gave it, else the type numbered when alike, "Oscillator 2", in patch order).
 * **Writing a value.** A control calls `setNodeParam` through the editor's own `edit`, with the **same merge key as the graph
   slider** (`param:<scope>:<node>:<param>`), so one drag is one undo step and a drag in either view merges alike; a pad sets
   its two parameters in **one** edit (`panel:<control>:<scope>`), so it is one step too. The control sets the base value of
@@ -519,14 +519,47 @@ plain cards; the property editor, the panel built from control nodes and the nod
   `aria-activedescendant`, rows carry `data-label`). A double-click is detected from two presses on empty canvas (450 ms, 8 px:
   `PointerEvent.detail` is 0), and the second press puts back the selection the first one cleared and draws no box; the canvas
   surface now fills the whole scroller, so empty parts far from the nodes count as canvas. Browser check:
-  `docs/browser-checks/quickadd.mjs`.
-* **Cards.** A card draws a parameter socket only when it is wired, or all of them while the **Sockets** toggle (a checkbox in the
-  toolbar, remembered like the Graph | Panel switch) is on (`ui/patcher/visible-shape.ts`; `portPosition` indexes the visible
-  shape). A slider whose parameter is driven is disabled.
+  `docs/browser-checks/quickadd.mjs`. The Notes tab's preview aside is 30% (at most 440 px) so the canvas keeps room next to the property editor.
+* **Cards** (`ui/patcher/NodeView.tsx`). A card is a **title and its sockets, nothing else**: no sliders, fields, pickers or switches (the
+  height is the header plus the port rows, `nodeHeight`). It shows the node's title (`nodeTitles`: its name, else its label numbered when
+  alike) and only state that matters at a glance: `shared`, `L R`, `module`, bypassed (dimmed), and the module's *Edit* / *Unlink*. A
+  parameter socket is drawn only when it is wired, or for all of them while the **Sockets** toggle (a checkbox in the toolbar,
+  remembered like the Graph | Panel switch) is on (`ui/patcher/visible-shape.ts`; `portPosition` indexes the visible shape). A press
+  anywhere on a card but a port or button selects it. The patcher's grid is one column that may be narrower than its content, so the
+  canvas scrolls and the property editor keeps its width.
+* **Property editor** (`ui/patcher/PropertyEditor.tsx`, `ParamRow.tsx`, `NumberField.tsx`, `TextField.tsx`, `property-rows.ts`). A docked
+  aside (`role=complementary`, "Properties") beside the canvas in the graph view of every graph, for the **selected** node: nothing
+  selected, a hint; several, the count. For one: its kind and **Name** (an empty field hints the default title; applied on Enter or
+  leaving the field, since a name is trimmed and a keystroke edit would eat a trailing space; Escape reverts), the **Stereo** and
+  **Bypass** switches where the node has them, the sample or track picker, for a control **Unit** and **Display** (an XY pad: **X
+  unit** and **Y unit**), then **one row per parameter**: label, a number field, a slider, the unit, reset, and a choice for an enum.
+  A row says what it is in its tooltip; the **number field** keeps half-typed text as typed, applies every complete number as it is
+  typed and holds it inside the parameter's range (`clampToSpec`; leaving the field shows the stored value); the slider only where
+  one is usable (`showsSlider`: not the wide bounds of a control's own range); **reset** goes to the spec's default, or for a control
+  to its own `default`. A parameter with a wire into its socket is greyed with **Driven by <name>** and an **Unwire** button; an
+  unwired one with a socket has **Knob** and **Slider** buttons (`Create knob for <label>`). Edits use the same `edit` and merge key as
+  the cards' sliders did (`param:<scope>:<node>:<param>`), so a drag, or typing a number, is one undo step; switches and pickers are
+  single steps. Parameter specs are the node's own (`resolveSpec`): a control's range, step, **curve** and **unit** are its settings
+  (`liveSpec` for the first three, `PatchNode.unit` / `unitY` for the unit), and `param-scale` honours `ParamSpec.curve` (a control's
+  linear / log / exp; `exp` is the same bend as *Map range*), falling back to "log for wide positive ranges" without one.
+* **Create knob / slider** (`createControlFor` in `core/patch/control-for.ts`, pure and tested). Right-click a parameter socket that has no
+  wire (`ui/shared/menu` `ContextMenu` around the port): **Create knob**, **Create slider**; the editor's row buttons do the same. It
+  adds a *Control* to the left of the node (`freeSpot` finds the room) named after the parameter (`name`), with the parameter's
+  **range, step, unit and default**, a **log curve** for a wide positive range (else linear), `display: 'slider'` for a slider, holding
+  the parameter's **current value**, and wires it into the socket, in one edit (one undo step), then selects it. The sound does not
+  change (the control holds what the parameter had). It refuses an enum, a parameter without a socket, and one that already has a wire
+  (a second would add to the first; the menu leaves it out). A wired socket's menu has **Disconnect** (every wire into it); an
+  ordinary input has a menu only when wired; note-graph nodes have no sockets, so nothing to create from there.
+* **Control fields** (`PatchNode.unit`, `unitY`, `display`; `NodeDefinition.panelKind` is `value` / `xy` / `switch`). `unit` is text (at
+  most 16 characters, blank = none; `setNodeUnit`), `display` is `knob` (stored as nothing), `slider` or `slider-horizontal`
+  (`setNodeDisplay`); the sanitizer keeps a unit only on a control with a value to show (not a switch), `unitY` only on a pad, and
+  `display` only on a *Control*. A control has no separate label: its **name** is its caption on the panel. Optional fields, no
+  format-version bump. A MIDI-note control shows numbers, not note names, for now (`format: 'midiNote'` is a spec property that a
+  control does not have).
 * **Files.** All optional with safe defaults, no format-version bump: old files have no control nodes, no names and no socket
   wires and load identically (a test pins it); a wire to a socket that does not exist, to an enum, or that would make a loop is
   dropped with the usual "invalid connection" warning.
-* **Browser check:** `docs/browser-checks/controls.mjs` (a Control wired into Gain's socket silences and restores the real bass,
+* **Browser checks:** `docs/browser-checks/properties.mjs` (the editor, the menu, create knob) and `docs/browser-checks/controls.mjs` (a Control wired into Gain's socket silences and restores the real bass,
   the Sockets toggle, undo, reload).
 
 ## Track audio (taking another track's sound)
@@ -680,7 +713,7 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   regardless of the gate, `hold` stops when the gate falls, `loop` repeats until it falls), *Root note* (plays at
   original speed), *Start*, *Tune*. It compensates for the sample's own sample rate, interpolates linearly, and
   fades out in 10 ms on release to avoid clicks. Its sample is a node-level reference (`PatchNode.sampleId`, chosen
-  with a picker in the node), not a numeric param.
+  with a picker in the property editor), not a numeric param.
 * **Three homes for one sample**, all keyed by the **SHA-256 of the original file** (so importing the same file
   twice is a no-op, and ids can't collide):
   1. **Project** — `Project.samples: SampleInfo[]` (name, duration, …) is the library. Saved, undoable, tiny.
@@ -706,7 +739,7 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   Missing/corrupt samples become warnings, not failures.
 * **Persistence of the new fields:** `samples` and `sampleId` are optional with safe defaults (a reference to a
   sample not in the library is dropped with a warning), so no format-version bump was needed.
-* **Add a sample-playing node:** set `usesSample: true` on its definition; the patcher shows the picker and the
+* **Add a sample-playing node:** set `usesSample: true` on its definition; the property editor shows the picker and the
   engine calls `setSample` on it.
 
 ## Audio clips

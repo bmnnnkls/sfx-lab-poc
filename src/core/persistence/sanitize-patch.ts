@@ -4,7 +4,9 @@ import {
   type ModuleLibrary,
   type Patch,
   type PortRef,
+  CONTROL_DISPLAYS,
   MAX_NODE_NAME,
+  MAX_UNIT,
   addNode,
   connect,
   type NodeDomain,
@@ -87,10 +89,18 @@ export const sanitizePatch = (
     }
 
     const name = typeof rawNode.name === 'string' ? rawNode.name.trim().slice(0, MAX_NODE_NAME) : ''
+    // The unit and display belong to controls with a value to show (not switches); anywhere else they would only be clutter.
+    const unitOf = (value: unknown) => ((definition.panelKind === 'value' || definition.panelKind === 'xy') && typeof value === 'string' ? value.trim().slice(0, MAX_UNIT) : '')
+    const unit = unitOf(rawNode.unit)
+    const unitY = definition.panelKind === 'xy' ? unitOf(rawNode.unitY) : ''
+    const display = definition.panelKind === 'value' ? CONTROL_DISPLAYS.find((candidate) => candidate === rawNode.display) : undefined
     patch = addNode(patch, {
       id: rawNode.id,
       type,
       ...(name === '' ? {} : { name }),
+      ...(unit === '' ? {} : { unit }),
+      ...(unitY === '' ? {} : { unitY }),
+      ...(display === undefined || display === 'knob' ? {} : { display }),
       ...(moduleId === undefined ? {} : { moduleId }),
       x: finiteNumber(rawNode.x, 0),
       y: finiteNumber(rawNode.y, 0),

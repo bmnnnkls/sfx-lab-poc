@@ -1,4 +1,6 @@
-export type { Patch, PatchConnection, PatchNode, PortRef } from './types'
+export { CONTROL_DISPLAYS, type ControlDisplay, type Patch, type PatchConnection, type PatchNode, type PortRef } from './types'
+export { createControlFor, type ControlForOptions } from './control-for'
+export { nodeTitles } from './titles'
 export {
   MODULE_NODE_TYPE,
   type ModuleDefinition,
@@ -8,7 +10,7 @@ export {
   exposedKnobId,
   exposedPortId,
 } from './module-types'
-export { type NodeDomain, type NodeShape, describeNode, findModule, kindsConnect, moduleDomain } from './node-shape'
+export { type NodeDomain, type NodeShape, describeNode, findModule, kindsConnect, moduleDomain, resolveSpec } from './node-shape'
 export { createDefaultNoteGraph } from './default-note-graph'
 export { createDefaultFxGraph } from './default-fx-graph'
 export { createDefaultReturnGraph } from './default-return-graph'
@@ -48,7 +50,10 @@ export {
   setNodeTrack,
   setNodeBypassed,
   setNodeName,
+  setNodeUnit,
+  setNodeDisplay,
   MAX_NODE_NAME,
+  MAX_UNIT,
   setNodeStereo,
   clearTrackReferences,
   clearSampleReferences,

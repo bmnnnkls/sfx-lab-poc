@@ -18,6 +18,11 @@ const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`
 const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
 const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
 
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
+
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const slider = (name) => page.getByRole('slider', { name, exact: true })
 const pad = (name) => page.getByRole('group', { name, exact: true })
@@ -66,8 +71,9 @@ check('dragging a knob up raises it by the pixels dragged (45 of 180 = 0.25)', n
 const textAfter = await readout('Cutoff').textContent()
 check('its readout follows', textAfter !== textBefore, `${textBefore} -> ${textAfter}`)
 await view('Graph')
-const graphText = await node('Filter').locator('[class*="param"]').filter({ hasText: 'Cutoff' }).first().textContent()
-check('the graph view shows the same value in the filter node', graphText.replace(/\s/g, '').includes(textAfter.replace(/\s/g, '')), `${graphText} vs ${textAfter}`)
+await selectNode('Filter')
+const graphValue = await valueField('Cutoff').inputValue()
+check('the graph view shows the same value in the filter node (its property editor)', Math.abs(parseFloat(graphValue) - parseFloat(textAfter)) < 1, `${graphValue} vs ${textAfter}`)
 await view('Panel')
 check('and the panel is still there after switching back', (await position('Cutoff')) === after)
 
