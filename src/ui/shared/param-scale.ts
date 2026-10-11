@@ -1,7 +1,7 @@
 import { type ParamSpec, pitchName } from '@core'
 
 /** Wide positive ranges (e.g. 20 Hz - 20 kHz) feel right on a logarithmic slider. */
-const isLogarithmic = (spec: ParamSpec): boolean => spec.min > 0 && spec.max / spec.min >= 50
+export const isLogarithmic = (spec: ParamSpec): boolean => spec.min > 0 && spec.max / spec.min >= 50
 
 /** Maps a parameter value to a 0..1 slider position. */
 export const toSlider = (spec: ParamSpec, value: number): number => {

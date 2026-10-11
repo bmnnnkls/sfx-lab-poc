@@ -47,7 +47,7 @@
 /* Knob */
 .knob {
   width: 100%;
-  max-width: 64px;
+  max-width: var(--knob-max, 64px);
   aspect-ratio: 1;
   cursor: ns-resize;
   border-radius: 50%;

@@ -1,5 +1,5 @@
 import type { ParamSpec } from '@core'
-import { formatParam, fromSlider, snapToStep, toSlider } from './param-scale'
+import { formatParam, fromSlider, snapToStep, toSlider } from '../shared/param-scale'
 import styles from './Patcher.module.css'
 
 interface ParamControlProps {

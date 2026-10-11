@@ -352,3 +352,33 @@
   overflow: auto;
   border-left: 1px solid var(--border);
 }
+
+/* Graph | Panel */
+.viewSwitch {
+  display: inline-flex;
+}
+
+.viewSwitch button {
+  border-radius: 0;
+}
+
+.viewSwitch button:first-child {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.viewSwitch button:last-child {
+  margin-left: -1px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.viewSwitch button[aria-pressed='true'] {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.panelHost {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}

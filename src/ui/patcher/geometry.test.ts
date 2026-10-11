@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createNode, requireNodeDefinition } from '@core'
 import { NODE_WIDTH, SAMPLE_PICKER_HEIGHT, nodeHeight, portPosition } from './geometry'
-import { formatParam, fromSlider, snapToStep, toSlider } from './param-scale'
+import { formatParam, fromSlider, snapToStep, toSlider } from '../shared/param-scale'
 
 describe('patcher geometry', () => {
   it('places inputs on the left edge and outputs on the right edge', () => {
