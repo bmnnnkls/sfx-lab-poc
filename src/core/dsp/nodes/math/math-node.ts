@@ -81,6 +81,7 @@ export const mathNode = (spec: MathSpec): NodeDefinition => {
     outputs: [{ id: 'out', label: 'Out' }],
     params,
     global: true,
+    inNotes: true,
     create: (sampleRate) => new MathNode(spec, params, sampleRate),
   }
 }

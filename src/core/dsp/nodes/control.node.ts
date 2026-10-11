@@ -25,6 +25,7 @@ export const controlNode: NodeDefinition = {
   outputs: [{ id: 'out', label: 'Out', kind: 'control' }],
   params: PARAMS,
   global: true,
+  inNotes: true,
   panelKind: 'value',
   paramSockets: false,
   create: () => new Control(),

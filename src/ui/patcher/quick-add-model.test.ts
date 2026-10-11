@@ -23,7 +23,7 @@ describe('quick-add: what it lists', () => {
   it('opens on the categories, each with its count', () => {
     const rows = names(INITIAL)
     expect(rows[0]).toBe('Sources (3)')
-    expect(rows).toContain('Math (13)')
+    expect(rows).toContain('Math (24)')
     expect(rows).toHaveLength(7)
   })
 

@@ -10,7 +10,7 @@ const module = (id: string, name: string): ModuleDefinition => ({ id, name, patc
 describe('buildCatalog', () => {
   it('lists the categories that have something, in the picker order, with their counts', () => {
     expect(catalog.categories.map((category) => category.name)).toEqual(['Sources', 'Controls', 'Modulation', 'Math', 'Filters', 'Effects', 'Routing'])
-    expect(catalog.categories.find((category) => category.name === 'Math')?.count).toBe(13)
+    expect(catalog.categories.find((category) => category.name === 'Math')?.count).toBe(24)
     expect(catalog.categories.reduce((sum, category) => sum + category.count, 0)).toBe(catalog.entries.length)
   })
 
@@ -24,6 +24,8 @@ describe('buildCatalog', () => {
     expect(buildCatalog([], []).categories).toEqual([])
     const notes = buildCatalog(noteNodeDefinitions, [])
     expect(notes.categories.map((category) => category.name)).toEqual(['Sources', 'Effects', 'Routing'])
+    const withControls = buildCatalog([...noteNodeDefinitions, ...nodeDefinitions.filter((definition) => definition.inNotes === true)], [])
+    expect(withControls.categories.map((category) => category.name)).toEqual(['Sources', 'Controls', 'Math', 'Effects', 'Routing'])
   })
 
   it('files every node of both registries under a real category (nothing falls back)', () => {
@@ -43,7 +45,9 @@ describe('searchCatalog', () => {
     expect(labels('gain')[0]).toBe('Gain')
     expect(labels('osc')[0]).toBe('Oscillator')
     expect(labels('pad')[0]).toBe('XY pad') // a word of the label
-    expect(labels('hz').slice(0, 2)).toEqual(['Hz to MIDI', 'MIDI to Hz']) // prefix, then a later word
+    const hz = labels('hz')
+    expect(hz.slice(0, 2).every((label) => label.startsWith('Hz'))).toBe(true) // prefixes first
+    expect(hz.indexOf('MIDI to Hz')).toBeGreaterThan(hz.indexOf('Hz to MIDI')) // then a later word
     expect(labels('ver')[0]).toBe('Reverb') // contained
   })
 

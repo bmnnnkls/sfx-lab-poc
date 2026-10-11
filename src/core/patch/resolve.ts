@@ -1,4 +1,5 @@
 import { findNodeDefinition, paramOfPort } from '../dsp'
+import { describeNode } from './node-shape'
 import type { Patch, PatchNode } from './types'
 
 /** The silent note and empty sample bank a one-frame evaluation runs with: nodes that can be resolved never look at them. */
@@ -97,7 +98,7 @@ export const resolveParams = (patch: Patch, nodeId: string): { values: Record<st
   }
   for (const [param, { total, ok }] of sums) {
     // The node's own parameter clamps what it is given, so the picture shows what the engine plays.
-    const spec = findNodeDefinition(node.type)?.params.find((candidate) => candidate.id === param)
+    const spec = describeNode(node)?.params.find((candidate) => candidate.id === param)
     if (ok) values[param] = spec ? Math.min(spec.max, Math.max(spec.min, total)) : total
     else moving.add(param)
   }

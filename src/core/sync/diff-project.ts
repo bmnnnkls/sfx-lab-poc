@@ -1,5 +1,5 @@
 import type { EngineCommand } from '../engine'
-import { type ModuleLibrary, type Patch, flattenPatch } from '../patch'
+import { type ModuleLibrary, type Patch, engineNoteGraph, flattenPatch } from '../patch'
 import { type AudioTrack, type InstrumentTrack, type Project, type SendLevels, type Track, panOf } from '../project'
 
 /** Identity of a patch's wiring, ignoring params and canvas positions. */
@@ -84,8 +84,8 @@ const diffInstrumentTrack = (
   }
   if (prev.noteGraph !== next.noteGraph || before !== after) {
     // Module uses are expanded first; the ids of expanded nodes are stable, so running nodes keep their state.
-    const graph = flattenPatch(next.noteGraph, after)
-    if (behaviourOf(flattenPatch(prev.noteGraph, before)) !== behaviourOf(graph)) {
+    const graph = engineNoteGraph(next.noteGraph, after)
+    if (behaviourOf(engineNoteGraph(prev.noteGraph, before)) !== behaviourOf(graph)) {
       commands.push({ type: 'track/setNoteGraph', trackId: next.id, graph })
     }
   }
@@ -143,7 +143,7 @@ const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
         kind: 'instrument',
         trackId: track.id,
         patch: flattenPatch(track.patch, modules),
-        noteGraph: flattenPatch(track.noteGraph, modules),
+        noteGraph: engineNoteGraph(track.noteGraph, modules),
         fx,
         sends: track.sends,
         clips: track.clips,

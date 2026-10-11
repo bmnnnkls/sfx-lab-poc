@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addNode, connect, createModuleUse, createNode, flattenPatch, groupIntoModule, movePanelControl, noteGraphFrom, resizePanelControl, setNodeName, setNodeParam, setPanelShow } from '../patch'
+import { addNode, connect, createModuleUse, createNode, flattenPatch, groupIntoModule, moveNode, movePanelControl, noteGraphFrom, resizePanelControl, setNodeName, setNodeParam, setPanelShow } from '../patch'
 import { type InstrumentTrack, createDemoProject, editPatchAt, groupNodesAsModule, setTrackPatch } from '../project'
 import { diffProject } from './diff-project'
 
@@ -65,6 +65,33 @@ describe('control nodes and the engine commands', () => {
     const turnMaster = editPatchAt(onMaster, { master: true }, (fx) => setNodeParam(fx, 'k', 'value', 0.2))
     expect(diffProject(inFx, turnFx)).toEqual([{ type: 'track/setParam', trackId: track.id, nodeId: 'k', paramId: 'value', value: 0.2 }])
     expect(diffProject(onMaster, turnMaster)).toEqual([{ type: 'master/setParam', nodeId: 'k', paramId: 'value', value: 0.2 }])
+  })
+})
+
+describe('controls in a note graph', () => {
+  const graph = noteGraphFrom(
+    [{ id: 'clip', type: 'clipNotes' }, { id: 't', type: 'transpose' }, { id: 'out', type: 'noteOut' }, { id: 'k', type: 'control', params: { value: 3, min: -24, max: 24 } }],
+    ['clip.out>t.in', 't.out>out.in', 'k.out>t.param:semitones'],
+  )
+  const withGraph = { ...project, tracks: [{ ...track, noteGraph: graph }, ...project.tracks.slice(1)] }
+  const turn = (value: number) => ({ ...withGraph, tracks: [{ ...(withGraph.tracks[0] as InstrumentTrack), noteGraph: setNodeParam(graph, 'k', 'value', value) }, ...withGraph.tracks.slice(1)] })
+
+  it('the engine gets the note nodes with the control\'s value baked in, and no control nodes', () => {
+    const added = diffProject(null, withGraph).find((c) => c.type === 'track/add' && c.trackId === track.id)
+    const sent = (added as unknown as { noteGraph: { nodes: { id: string; params: Record<string, number> }[] } }).noteGraph
+    expect(sent.nodes.map((n) => n.id).sort()).toEqual(['clip', 'out', 't'])
+    expect(sent.nodes.find((n) => n.id === 't')!.params.semitones).toBe(3)
+  })
+
+  it('turning the control is one track/setNoteGraph with the new value', () => {
+    const commands = diffProject(withGraph, turn(9))
+    expect(commands.map((c) => c.type)).toEqual(['track/setNoteGraph'])
+    expect((commands[0] as unknown as { graph: { nodes: { id: string; params: Record<string, number> }[] } }).graph.nodes.find((n) => n.id === 't')!.params.semitones).toBe(9)
+  })
+
+  it('a control that changes nothing the engine sees sends nothing (moving it on the canvas, naming it)', () => {
+    const renamed = { ...withGraph, tracks: [{ ...(withGraph.tracks[0] as InstrumentTrack), noteGraph: setNodeName(moveNode(graph, 'k', 500, 500), 'k', 'Shift') }, ...withGraph.tracks.slice(1)] }
+    expect(diffProject(withGraph, renamed)).toEqual([])
   })
 })
 

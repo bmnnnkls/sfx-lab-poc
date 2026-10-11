@@ -9,7 +9,7 @@ import type { PatchNode } from './types'
 export type NodeDomain = 'audio' | 'notes'
 
 /** What the editor and the connection rules need to know about a node: its ports and parameters. */
-export type NodeShape = Pick<NodeDefinition, 'label' | 'description' | 'keywords' | 'panelKind' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
+export type NodeShape = Pick<NodeDefinition, 'label' | 'description' | 'keywords' | 'panelKind' | 'inNotes' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
   /** Where the picker files it; a module's is `Modules`. */
   readonly category?: NodeCategory | 'Modules'
   /** The node refers to another track and the editor shows a track picker: `notes` takes notes from an instrument track, `return` sends to a return track, `audio` takes another track's sound. */
@@ -87,7 +87,10 @@ export const moduleDomain = (definition: ModuleDefinition, modules: ModuleLibrar
       const domain = inner && moduleDomain(inner, modules, seen)
       if (domain) return domain
     } else if (findNoteNode(node.type)) return 'notes'
-    else if (findNodeDefinition(node.type)) return 'audio'
+    else if (findNodeDefinition(node.type)) {
+      // Controls and math work in either kind of graph and so do not say which this module is.
+      if (findNodeDefinition(node.type)?.inNotes !== true) return 'audio'
+    }
   }
   return undefined
 }
@@ -124,7 +127,7 @@ export const describeNode = (node: PatchNode, modules: ModuleLibrary = []): Node
         description: note.description,
         category: note.category,
         keywords: note.keywords,
-        inputs: note.inputs,
+        inputs: [...note.inputs, ...paramSockets(note)],
         outputs: note.outputs,
         params: note.params,
         usesTrack: note.usesTrack === true ? 'notes' : undefined,
@@ -146,11 +149,14 @@ export const describeNode = (node: PatchNode, modules: ModuleLibrary = []): Node
 }
 
 /**
- * A parameter's spec as this node has it: a control's range, step and curve are its own settings (`liveSpec`) and its
- * unit is the text the user gave it. The spec itself for everything else.
+ * A parameter's spec as this node has it: a control's range, step and curve are its own settings (`liveSpec`), its
+ * default is its own `default` setting and its unit is the text the user gave it. The spec itself for everything else.
  */
 export const resolveSpec = (node: Pick<PatchNode, 'params' | 'unit' | 'unitY'>, spec: ParamSpec): ParamSpec => {
   const live = liveSpec(spec, node.params)
   const unit = spec.unitFrom === undefined ? undefined : node[spec.unitFrom]
-  return unit === undefined ? live : { ...live, unit }
+  // A control's default is its own `default` setting, not the spec's.
+  const reset = live.range?.reset === undefined ? undefined : node.params[live.range.reset]
+  const resolved = reset === undefined ? live : { ...live, default: reset }
+  return unit === undefined ? resolved : { ...resolved, unit }
 }

@@ -30,6 +30,7 @@ export { createDefaultMasterGraph } from './default-master-graph'
 export { sendTargets } from './send-targets'
 export { audioSources } from './audio-sources'
 export { type NoteGraphNodeSpec, noteGraphFrom } from './note-graph-builder'
+export { engineNoteGraph } from './bake'
 export { containsModule, expandModuleUse, flattenPatch, modulesUsedBy, unlinkModuleUse } from './flatten'
 export {
   type GroupResult,

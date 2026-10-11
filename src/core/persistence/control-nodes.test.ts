@@ -163,6 +163,43 @@ describe('control nodes in a saved project', () => {
     })
   })
 
+  describe('in a note graph', () => {
+    const withNoteControl = () => {
+      const raw = JSON.parse(serializeProject(demo))
+      const graph = raw.project.tracks[0].noteGraph
+      graph.nodes.push(
+        { id: 't', type: 'transpose', x: 0, y: 0, params: {} },
+        { id: 'k', type: 'control', x: 0, y: 0, params: { value: 5, min: -24, max: 24 } },
+        { id: 'a', type: 'add', x: 0, y: 0, params: {} },
+        { id: 'o', type: 'oscillator', x: 0, y: 0, params: {} },
+      )
+      graph.connections.push(
+        { id: 'c1', from: { node: 'k', port: 'out' }, to: { node: 'a', port: 'a' } },
+        { id: 'c2', from: { node: 'a', port: 'out' }, to: { node: 't', port: 'param:semitones' } },
+      )
+      return raw
+    }
+    const noteNodes = (loaded: { tracks: readonly unknown[] }) => (loaded.tracks[0] as InstrumentTrack).noteGraph.nodes
+
+    it('keeps controls and math and their wires into a note node\'s socket; a sound node still does not belong', () => {
+      const result = parseOk(JSON.stringify(withNoteControl()))
+      const nodes = noteNodes(result.project)
+      expect(nodes.map((n) => n.id)).toEqual(expect.arrayContaining(['t', 'k', 'a']))
+      expect(nodes.some((n) => n.id === 'o')).toBe(false)
+      expect(result.warnings.join('\n')).toMatch(/Oscillator node that does not belong/)
+      expect((result.project.tracks[0] as InstrumentTrack).noteGraph.connections.filter((c) => c.to.port === 'param:semitones')).toHaveLength(1)
+    })
+
+    it('round trips without warnings', () => {
+      const raw = withNoteControl()
+      raw.project.tracks[0].noteGraph.nodes = raw.project.tracks[0].noteGraph.nodes.filter((n: { id: string }) => n.id !== 'o')
+      const first = parseOk(JSON.stringify(raw))
+      const again = parseOk(serializeProject(first.project))
+      expect(again.warnings).toEqual([])
+      expect(again.project).toEqual(first.project)
+    })
+  })
+
   it('files saved before control nodes load exactly as they did: no warnings, no new nodes, same wiring', () => {
     const result = parseOk(serializeProject(demo))
     expect(result.warnings).toEqual([])

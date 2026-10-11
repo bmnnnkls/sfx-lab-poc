@@ -478,7 +478,8 @@ plain cards; the property editor, the panel built from control nodes and the nod
   `ParamSpec.range` says "my range is the node's `min` / `max` / `step`" (`liveSpec` resolves it; the cards use it for the
   slider). `curve` (linear / log / exp) is for the knobs' mapping; the engine ignores it. Math nodes (`dsp/nodes/math/`,
   one factory `mathNode`): *Add, Multiply, Invert, Min, Max, Clamp, Map range, Quantize, Smooth, Mix, Compare, MIDI to Hz,
-  Hz to MIDI*. Each is elementwise over buffers, so it works on constants, controls and audio alike; an operand is the buffer
+  Hz to MIDI*, then *Subtract, Divide* (by 0 gives 0), *Abs, Constant, Semitones to ratio, Ratio to semitones, dB to gain, Gain to dB,
+  Hz to ms, ms to Hz* (zero gives 0) and *Sample and hold* (catches `in` on a rise of `trigger` through 0.5). Each is elementwise over buffers, so it works on constants, controls and audio alike; an operand is the buffer
   wired into its port, or, unwired, the parameter of the same id (which has its own socket); the result is never NaN or
   infinite (rounded to float32 first, so a product that overflows the buffer is 0, not Infinity). *Hz to MIDI* gives 0, the
   lowest note, for 0 or less; fractional notes work. Math nodes are global-capable.
@@ -540,6 +541,20 @@ plain cards; the property editor, the panel built from control nodes and the nod
   somebody turned (the sanitizer reads a use's parameters that are present, not a full set), and `pruneModuleUses` drops a stored
   value whose control was hidden or deleted. Not offered: controls of a module nested inside the used one (open that module). Browser
   check: `docs/browser-checks/modulecontrols.mjs`.
+* **Controls in a note graph** (`NodeDefinition.inNotes`, `core/patch/bake.ts`). Control and math nodes may sit in a note graph, and note nodes
+  have parameter sockets for their numeric parameters (descriptions and ranges from the note node docs), so a knob, a switch or *Add* can
+  drive *Transpose*'s semitones or an arpeggio's octaves. They work in either kind of graph, so they do not decide which kind a module is
+  (`moduleDomain`; the sanitizer lets them into both). The note engine knows nothing of them: `engineNoteGraph(patch, modules)` is what
+  every consumer of a note graph (`diffProject`, `heardNotes`, the `track/add` command) gets: modules expanded, then each note node's
+  parameters replaced by what its sockets carry (`resolveParams`: nothing in a note graph moves, so it is always a constant), and the
+  control nodes and their wires left out. So turning a knob is only a changed parameter in a `track/setNoteGraph` (the running graph
+  keeps its state: no restart, no all-notes-off, tested), and wiring a control in or moving it does not change the note wiring at all. The
+  Sockets toggle, *Create knob*, the property editor and the panel work in the Notes tab like anywhere else; its picker offers the
+  Controls and Math categories besides the note nodes. Browser check: `docs/browser-checks/notecontrols.mjs`.
+* **Dropping a wire on empty canvas** opens the same picker, limited to what can take it (`wire-drop.ts` `targetInput`: the first input that
+  accepts what the wire carries, preferring a node's own inputs to parameter sockets; stereo, notes and sound only meet their own kind), headed
+  "Can take <node> <port>"; picking one adds the node at the drop (to the right of the pointer, `freeSpot` finding the room), wires it in
+  and selects it, in one undo step. A module use is offered when one of its ports takes the wire.
 * **Node pictures** (`ui/patcher/previews/`, `core/patch/resolve.ts`). A card shows a small SVG of what the node does with its settings, drawn from
   the numbers it is *working with*: `resolveParams(patch, nodeId)` takes the stored parameters and replaces each one that a wire drives by
   what the wire carries, worked out through controls, switches, XY pads and math nodes on them by running the **real DSP nodes for one

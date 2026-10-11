@@ -19,7 +19,9 @@ import { trackInNode } from './nodes/track-in.node'
 import { trackOutNode } from './nodes/track-out.node'
 import { widthNode } from './nodes/width.node'
 import { controlNode } from './nodes/control.node'
-import { addNode, clampNode, compareNode, invertNode, maxNode, minNode, multiplyNode } from './nodes/math/arithmetic'
+import { absNode, addNode, clampNode, compareNode, constantNode, divideNode, invertNode, maxNode, minNode, multiplyNode, subtractNode } from './nodes/math/arithmetic'
+import { dbToGainNode, gainToDbNode, hzToMsNode, msToHzNode, ratioToSemitonesNode, semitonesToRatioNode } from './nodes/math/conversions'
+import { sampleHoldNode } from './nodes/math/sample-hold.node'
 import { hzToMidiNode, midiToHzNode } from './nodes/math/midi'
 import { mapRangeNode, mixNode, quantizeNode } from './nodes/math/shaping'
 import { smoothNode } from './nodes/math/smooth.node'
@@ -67,6 +69,17 @@ const plainDefinitions: readonly NodeDefinition[] = [
   compareNode,
   midiToHzNode,
   hzToMidiNode,
+  subtractNode,
+  divideNode,
+  absNode,
+  constantNode,
+  semitonesToRatioNode,
+  ratioToSemitonesNode,
+  dbToGainNode,
+  gainToDbNode,
+  hzToMsNode,
+  msToHzNode,
+  sampleHoldNode,
 ]
 
 /** Every node type, with the words that go with it (`node-docs.ts`) attached. */

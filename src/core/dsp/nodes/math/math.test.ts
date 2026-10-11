@@ -37,7 +37,10 @@ const run = (
 const value = (type: string, params: Record<string, number>, inputs: Array<number | null> = []): number =>
   run(type, params, inputs.map((v) => (v === null ? null : new Float32Array(8).fill(v))), 8)[7]!
 
-const MATH = ['add', 'multiply', 'invert', 'min', 'max', 'clamp', 'mapRange', 'quantize', 'smooth', 'mix', 'compare', 'midiToHz', 'hzToMidi']
+const MATH = [
+  'add', 'multiply', 'invert', 'min', 'max', 'clamp', 'mapRange', 'quantize', 'smooth', 'mix', 'compare', 'midiToHz', 'hzToMidi',
+  'subtract', 'divide', 'abs', 'constant', 'semitonesToRatio', 'ratioToSemitones', 'dbToGain', 'gainToDb', 'hzToMs', 'msToHz', 'sampleHold',
+]
 
 describe('math nodes: arithmetic', () => {
   it('add, multiply and invert', () => {
@@ -104,6 +107,73 @@ describe('math nodes: shaping', () => {
     expect(value('mix', {}, [10, 20, 0.25])).toBeCloseTo(12.5, 6)
     expect(value('mix', {}, [10, 20, 7])).toBe(20)
     expect(value('mix', { t: -3 }, [10, 20, null])).toBe(10)
+  })
+})
+
+describe('math nodes: second batch', () => {
+  it('subtract, divide, abs and constant', () => {
+    expect(value('subtract', {}, [5, 3])).toBe(2)
+    expect(value('subtract', { b: 4 }, [10, null])).toBe(6)
+    expect(value('divide', {}, [6, 3])).toBe(2)
+    expect(value('divide', {}, [1, 4])).toBe(0.25)
+    expect(value('abs', {}, [-3])).toBe(3)
+    expect(value('abs', {}, [3])).toBe(3)
+    expect(value('constant', { value: 7 })).toBe(7)
+    expect(value('constant', {})).toBe(1)
+  })
+
+  it('dividing by zero gives 0, never Infinity or NaN', () => {
+    for (const a of [0, 1, -1, 1e30]) expect(value('divide', {}, [a, 0])).toBe(0)
+    expect(value('divide', { b: 0 }, [5, null])).toBe(0)
+  })
+
+  it('semitones and ratios undo each other: 12 semitones is a ratio of 2', () => {
+    expect(value('semitonesToRatio', {}, [12])).toBeCloseTo(2, 6)
+    expect(value('semitonesToRatio', {}, [-12])).toBeCloseTo(0.5, 6)
+    expect(value('semitonesToRatio', {}, [0])).toBe(1)
+    expect(value('ratioToSemitones', {}, [2])).toBeCloseTo(12, 5)
+    for (const st of [-24, -7.5, 0, 3, 19.25]) expect(value('ratioToSemitones', {}, [value('semitonesToRatio', {}, [st])])).toBeCloseTo(st, 4)
+  })
+
+  it('a ratio of 0 or less is the floor (-120 semitones worth of silence), not -Infinity', () => {
+    for (const ratio of [0, -2, 1e-30]) expect(value('ratioToSemitones', {}, [ratio]), String(ratio)).toBeCloseTo(12 * Math.log2(1e-6), 3)
+  })
+
+  it('decibels and gain: 0 dB is 1, -20 dB a tenth, 6 dB about double', () => {
+    expect(value('dbToGain', {}, [0])).toBe(1)
+    expect(value('dbToGain', {}, [-20])).toBeCloseTo(0.1, 6)
+    expect(value('dbToGain', {}, [6.0206])).toBeCloseTo(2, 3)
+    expect(value('gainToDb', {}, [1])).toBeCloseTo(0, 6)
+    expect(value('gainToDb', {}, [0.1])).toBeCloseTo(-20, 5)
+    expect(value('gainToDb', {}, [0])).toBeCloseTo(-120, 3)
+    for (const db of [-60, -6, 0, 12]) expect(value('gainToDb', {}, [value('dbToGain', {}, [db])])).toBeCloseTo(db, 4)
+  })
+
+  it('Hz and milliseconds: 100 Hz is 10 ms, and each undoes the other; zero gives 0', () => {
+    expect(value('hzToMs', {}, [100])).toBeCloseTo(10, 6)
+    expect(value('msToHz', {}, [10])).toBeCloseTo(100, 6)
+    expect(value('msToHz', {}, [value('hzToMs', {}, [440])])).toBeCloseTo(440, 4)
+    for (const x of [0, -5]) {
+      expect(value('hzToMs', {}, [x])).toBe(0)
+      expect(value('msToHz', {}, [x])).toBe(0)
+    }
+  })
+
+  it('sample and hold catches on a rising trigger and holds between', () => {
+    const input = Float32Array.from({ length: 8 }, (_, i) => i + 1)
+    const trigger = Float32Array.of(0, 0, 1, 1, 0, 1, 0, 0)
+    // The first value is taken at once (the node starts holding something), then 3 on the rise at 2, 6 on the rise at 5.
+    expect([...run('sampleHold', {}, [input, trigger])]).toEqual([1, 1, 3, 3, 3, 6, 6, 6])
+  })
+
+  it('sample and hold keeps its state across blocks', () => {
+    const input = Float32Array.from({ length: 300 }, (_, i) => i)
+    const trigger = new Float32Array(300)
+    trigger[200] = 1
+    const out = run('sampleHold', {}, [input, trigger])
+    expect(out[199]).toBe(0)
+    expect(out[200]).toBe(200)
+    expect(out[299]).toBe(200)
   })
 })
 

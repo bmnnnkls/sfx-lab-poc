@@ -69,9 +69,9 @@ describe('parameter sockets in a patch', () => {
     expect(shape.inputs.find((port) => port.id === 'param:gain')?.kind).toBe('control')
   })
 
-  it('note nodes have no sockets yet', () => {
+  it('note nodes have sockets for their numeric parameters too (see note-controls.test.ts)', () => {
     const shape = describeNode(createNode('transpose', 0, 0))!
-    expect(shape.inputs.some((port) => port.param !== undefined)).toBe(false)
+    expect(shape.inputs.filter((port) => port.param !== undefined).map((port) => port.param)).toEqual(['semitones'])
   })
 })
 

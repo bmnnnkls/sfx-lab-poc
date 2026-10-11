@@ -1,22 +1,20 @@
 # Handoff: control nodes, a property editor and a panel built from them
 
-> **Status: in progress; the design is agreed** (replace semantics confirmed, math nodes and a searchable quick-add added).
-> **Steps 1 to 7 are built** (see "Build order" and `ARCHITECTURE.md`, "Control nodes, parameter sockets and the global stage"); step 8 is not.
-> Written after the front panel (`HANDOFF-front-panel.md`, built and merged) was tried and the
-> user said what they actually want. Decisions marked **(confirm)** are the planner's proposals the user has not answered yet (the build
-> can go ahead on them; the user will say if one is wrong); the rest were agreed in conversation or follow from how the code works. Work on the branch **`claude/determined-turing-ypq9ix`**
-> (restarted from `main` at `0929605`, after PR #2). Do not open a pull request unless asked. `main` deploys to GitHub Pages
-> on every merge.
+> **Status: built (all eight steps), on the branch `claude/determined-turing-ypq9ix`; no pull request has been opened.** The design is in
+> `ARCHITECTURE.md` ("Control nodes, parameter sockets and the global stage", "Front panel", "Modules"); this document is the plan and the
+> record of where the build departed from it (each step in "Build order" says so; "Not done" lists what is left). It was written after the
+> front panel (`HANDOFF-front-panel.md`) was tried and the user said what they actually want. Decisions marked **(confirm)** were the planner's
+> proposals; they were built as proposed and none was objected to. The branch was restarted from `main` at `0929605` (after PR #2); `main`
+> deploys to GitHub Pages on every merge.
 
 Read `ARCHITECTURE.md` (Modules, Front panel, Conventions, Common changes) and `docs/HANDOFF-mixer-view.md` ("Working
 conditions": commands, layering test, browser checks) first. They apply unchanged.
 
 ## Start here (for a fresh session)
 
-**State.** Branch `claude/determined-turing-ypq9ix` was restarted from `main` (`0929605`, PR #2 merged). **Step 1 of the build order is
-done** (the engine, the model, parameter sockets, the global stage, the control and math nodes, `PatchNode.name`) and **step 2** (words,
-categories, tooltips) and **step 3** (the node picker) **step 4** (compact cards, the property editor, the socket menu) **step 5** (the panel from control nodes) **step 6** (node pictures) and **step 7** (controls and exposed sockets in modules); the rest of the design is not. On `main` already: the controls widgets (`ui/controls`), the board (`ui/panel`), the Graph | Panel switch and
-`Patch.panel`, which step 5 replaces. 694 unit tests passed at `0929605`; 939 pass after step 4.
+**State.** All eight steps are built and pushed (one commit each) and the browser checks and 1059 unit tests pass. Nothing is in progress. The
+front panel is now the patch's control nodes (`Patch.panel` is gone; the widgets and the board stayed). To pick the work up again, read "Not
+done" below and the "Differences" notes under each step.
 
 **Setup and checks** (from the repo root; running vitest inside `src/` breaks the `@core` alias):
 
@@ -322,7 +320,23 @@ The toolbar's row of one button per node (`NodePalette`) does not survive 30+ no
    name" is a title ("Voice core: Cutoff"), not a group header; only controls directly inside the module (not in a module nested in it); a
    use's stored values are read only if present, so an untouched use keeps following the module (this changes how module knobs load
    too: a use no longer gets every knob filled in with the definition's value at load time). Browser check: `modulecontrols.mjs`.
-8. **More math nodes** (second batch), the note graph's sockets, wire-drop quick-add.
+8. **More math nodes, the note graph's sockets, wire-drop quick-add (done)**. The second batch is Subtract, Divide, Abs, Constant,
+   Semitones to ratio, Ratio to semitones, dB to gain, Gain to dB, Hz to ms, ms to Hz and Sample and hold (the plan's "Constant" and
+   "sample & hold" included; the conversions are one factory each). The note graph's sockets needed a decision the plan did not make: where
+   do the values come from, since a note graph cannot hold sound nodes? Control and math nodes are allowed in a note graph
+   (`NodeDefinition.inNotes`) and worked out on the main thread (`engineNoteGraph`), so the note engine did not change at all; they
+   cannot be driven by anything that moves, so they are always constants. Wire-drop: a wire let go of on empty canvas.
+   Browser checks: `notecontrols.mjs`, `quickadd.mjs` (note categories).
+
+## Not done
+
+* A selector (enum) control node, a button, "named values"; "Create XY with ..." from the right-click menu (the panel's Add form makes a pad
+  for two parameters).
+* Controls in a module nested inside a used module are not on the outer panel.
+* A MIDI-note control shows numbers, not note names.
+* The modulation ports (filter `cutoff`, oscillator `pitch` / `freq`, gain `cv`) are still audio-rate only; a parameter socket is block rate.
+* Pictures do not show audio-rate modulation (that needs engine telemetry).
+* Note graph controls are constants: nothing in a note graph moves, and there is no way to modulate a note parameter from a sound.
 
 ## Things that will bite
 

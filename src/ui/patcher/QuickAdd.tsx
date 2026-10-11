@@ -9,6 +9,8 @@ interface QuickAddProps {
   catalog: Catalog
   /** Where the popup opens, in window pixels (the pointer, or the Add button). */
   anchor: Point
+  /** What the list is limited to, when it is ("Can take Out of Clip notes"); shown in place of "Categories". */
+  heading?: string
   onPick(entry: CatalogEntry): void
   onClose(): void
 }
@@ -20,7 +22,7 @@ const SIZE = { width: 340, height: 380 }
  * All behaviour is in `quick-add-model.ts` (pure, tested); this only forwards events to it and draws the rows. A
  * `combobox` that owns a `listbox`, with the highlighted row named by `aria-activedescendant`.
  */
-export const QuickAdd = ({ catalog, anchor, onPick, onClose }: QuickAddProps) => {
+export const QuickAdd = ({ catalog, anchor, heading, onPick, onClose }: QuickAddProps) => {
   const listId = useId()
   const input = useRef<HTMLInputElement>(null)
   const root = useRef<HTMLDivElement>(null)
@@ -92,7 +94,7 @@ export const QuickAdd = ({ catalog, anchor, onPick, onClose }: QuickAddProps) =>
             <span>{state.scope}</span>
           </>
         ) : (
-          <span>{rows.length === 0 ? 'Nothing matches' : state.query ? `${rows.length} found` : 'Categories'}</span>
+          <span>{rows.length === 0 ? 'Nothing matches' : state.query ? `${rows.length} found` : (heading ?? 'Categories')}</span>
         )}
       </div>
       <ul id={listId} role="listbox" aria-label="Nodes" className={styles.list}>

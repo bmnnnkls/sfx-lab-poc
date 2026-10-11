@@ -27,6 +27,19 @@ describe('note node words: nothing is registered without them', () => {
     }
   })
 
+  it('the sockets of a note node take the words and range of their parameter', async () => {
+    const { describeNode, createNode } = await import('../patch')
+    for (const definition of noteNodeDefinitions) {
+      const shape = describeNode(createNode(definition.type, 0, 0))!
+      const numeric = definition.params.filter((spec) => spec.options === undefined)
+      expect(shape.inputs.filter((port) => port.param !== undefined).map((port) => port.param), definition.type).toEqual(numeric.map((spec) => spec.id))
+      for (const socket of shape.inputs.filter((port) => port.param !== undefined)) {
+        expect(sentence(socket.description), `${definition.type} ${socket.id}`).toBe(true)
+        expect(socket.range, `${definition.type} ${socket.id}`).toBeDefined()
+      }
+    }
+  })
+
   it('follows the plan: sources, effects, routing', () => {
     const categoryOf = (type: string) => noteNodeDefinitions.find((definition) => definition.type === type)?.category
     expect([categoryOf('clipNotes'), categoryOf('trackNotes'), categoryOf('noteOut'), categoryOf('arpeggiator')]).toEqual(['Sources', 'Sources', 'Routing', 'Effects'])

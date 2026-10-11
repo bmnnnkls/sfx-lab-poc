@@ -66,6 +66,12 @@ describe('resolveSpec', () => {
     expect(resolveSpec(control, min).unit).toBe('Hz')
   })
 
+  it('a control\'s default is its own default setting', () => {
+    const base = createNode('control', 0, 0)
+    const control = { ...base, params: { ...base.params, default: 0.9 } }
+    expect(resolveSpec(control, describeNode(control)!.params.find((spec) => spec.id === 'value')!).default).toBe(0.9)
+  })
+
   it('an XY pad takes its y unit from unitY', () => {
     const pad = { ...createNode('xyPad', 0, 0), unit: 'Hz', unitY: '%' }
     const shape = describeNode(pad)!

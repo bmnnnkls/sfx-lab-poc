@@ -160,6 +160,11 @@ export interface NodeDefinition {
    * Its parameters are settings (range, step), not knobs.
    */
   readonly panelKind?: 'value' | 'xy' | 'switch'
+  /**
+   * The node may also sit in a note graph (controls and math nodes): there it works out constants that drive the note nodes'
+   * parameters, and has no sound of its own.
+   */
+  readonly inNotes?: true
   /** `false`: the node's numeric parameters get no sockets (a control's own range and step are settings, not signals). */
   readonly paramSockets?: false
   create(sampleRate: number): DspNode

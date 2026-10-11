@@ -56,3 +56,34 @@ export const compareNode = mathNode({
   operands: [{ ...A, default: 0 }, { id: 'b', label: 'Threshold', default: 0.5 }],
   make: () => (a, b) => (a > b ? 1 : 0),
 })
+
+export const subtractNode = mathNode({
+  type: 'subtract',
+  label: 'Subtract',
+  operands: [{ ...A, default: 0 }, { ...B, default: 0 }],
+  make: () => (a, b) => a - b,
+})
+
+/** Dividing by zero gives 0, not Infinity: a control that is dragged through 0 must not blow the sound up. */
+export const divideNode = mathNode({
+  type: 'divide',
+  label: 'Divide',
+  operands: [{ ...A, default: 1 }, { ...B, default: 1 }],
+  make: () => (a, b) => (b === 0 ? 0 : a / b),
+})
+
+export const absNode = mathNode({
+  type: 'abs',
+  label: 'Abs',
+  operands: [{ id: 'in', label: 'In', default: 0 }],
+  make: () => (a) => Math.abs(a),
+})
+
+/** A fixed value: the same as a control nobody turns, as a node a patch can read like a number. */
+export const constantNode = mathNode({
+  type: 'constant',
+  label: 'Constant',
+  operands: [],
+  extra: [{ id: 'value', label: 'Value', min: -100000, max: 100000, default: 1 }],
+  make: (params) => () => params.get('value'),
+})

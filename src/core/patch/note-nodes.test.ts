@@ -10,7 +10,7 @@ import type { Patch } from './types'
 describe('note nodes in a patch', () => {
   it('are described like any other node, with ports of kind notes', () => {
     const split = describeNode(createNode('rangeSplit', 0, 0))!
-    expect(split.inputs.map((p) => [p.id, p.kind])).toEqual([['in', 'notes']])
+    expect(split.inputs.filter((p) => p.param === undefined).map((p) => [p.id, p.kind])).toEqual([['in', 'notes']])
     expect(split.outputs.map((p) => p.id)).toEqual(['inside', 'outside'])
     expect(split.domain).toBe('notes')
     expect(describeNode(createNode('trackNotes', 0, 0))!.usesTrack).toBe('notes')

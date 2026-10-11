@@ -37,8 +37,11 @@ interface PatchCanvasProps {
   onDisconnect(connectionId: string): void
   onOpenModule(moduleId: string): void
   onUnlinkModule(nodeId: string): void
-  /** The user asked for the node picker: double-click on empty canvas, or Shift+A over it. `at` is in canvas coordinates, `anchor` in window pixels. */
-  onRequestAdd(request: { anchor: Point; at: Point }): void
+  /**
+   * The user asked for the node picker: double-click on empty canvas, or Shift+A over it, or a wire dropped there (`from` is
+   * then the output it was dragged from). `at` is in canvas coordinates, `anchor` in window pixels.
+   */
+  onRequestAdd(request: { anchor: Point; at: Point; from?: PortRef }): void
 }
 
 export interface PatchCanvasHandle {
@@ -210,8 +213,12 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
           if (box) setBox({ ...box, to: pointerIn(event) })
           else if (pending) setPending({ ...pending, pointer: pointerIn(event) })
         }}
-        onPointerUp={() => {
+        onPointerUp={(event) => {
           if (box) finishBox(box)
+          // A wire let go of on empty canvas asks where it should go: the picker, offering what can take it.
+          if (pending && event.target === event.currentTarget) {
+            onRequestAdd({ anchor: { x: event.clientX, y: event.clientY }, at: pointerIn(event), from: pending.from })
+          }
           setBox(null)
           setPending(null)
         }}

@@ -84,7 +84,7 @@ export const sanitizePatch = (
     const moduleId = type === MODULE_NODE_TYPE && typeof rawNode.moduleId === 'string' ? rawNode.moduleId : undefined
     const definition = describeNode({ id: rawNode.id, type, x: 0, y: 0, params: {}, moduleId }, modules)
     // A patch holds sound nodes and a note graph holds note nodes. A module that is still empty fits either.
-    const nodeDomain = definition && (type === MODULE_NODE_TYPE ? definition.domain : (definition.domain ?? 'audio'))
+    const nodeDomain = definition && (type === MODULE_NODE_TYPE ? definition.domain : definition.inNotes === true ? undefined : (definition.domain ?? 'audio'))
     const fits = definition && (active === undefined || nodeDomain === undefined || nodeDomain === active)
     if (!definition || !fits) {
       if (definition) {
