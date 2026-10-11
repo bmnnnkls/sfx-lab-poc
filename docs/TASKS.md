@@ -3,6 +3,15 @@
 Things we have decided are worth doing but have not started. Newest first. Move an item to `ARCHITECTURE.md`
 (as documentation of what exists) when it ships, and delete it here.
 
+## Front panel: sliders, knobs and XY pads instead of the graph
+
+Status: **planned, not started.** Full plan, decisions and build order: [`HANDOFF-front-panel.md`](HANDOFF-front-panel.md).
+
+A **Graph | Panel** switch in the graph editor; the panel is a board of knobs, sliders, selectors and XY pads bound to node
+parameters (saved on the patch, auto-buildable from the graph). Follow-ups once it ships: a combined per-track panel
+(instrument + effects), free positioning, rebinding controls to a module's knobs when grouping, the Mixer adopting the same
+widgets, MIDI learn and automation.
+
 ## Reusable modules (sub-patches with inputs and outputs)
 
 Status: **steps 1 and 2 are built** (modules in the project: group, use by reference, edit in place, interface panel,
