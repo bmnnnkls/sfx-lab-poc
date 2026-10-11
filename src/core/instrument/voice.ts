@@ -1,4 +1,4 @@
-import { type NoteState } from '../dsp'
+import { DEFAULT_TEMPO, type NoteState } from '../dsp'
 import type { SampleLookup } from '../sample'
 import { midiToFrequency } from '../shared'
 import { type CompiledStage, processStage, setStageParam, setStageSample, stageReadouts } from './compile'
@@ -77,12 +77,13 @@ export class Voice {
     setStageSample(this.stage, nodeId, sampleId)
   }
 
-  render(frames: number): void {
+  render(frames: number, tempo = DEFAULT_TEMPO): void {
     processStage(this.stage, {
       frames,
       sampleRate: this.sampleRate,
       note: this.note,
       samples: this.samples,
+      tempo,
     })
     if (this.released) this.checkFinished(frames)
   }

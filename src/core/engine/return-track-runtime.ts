@@ -1,4 +1,4 @@
-import { STEREO_FRAMES } from '../dsp'
+import { DEFAULT_TEMPO, STEREO_FRAMES } from '../dsp'
 import { FxGraph } from '../instrument'
 import { type Patch, audioSources, sendTargets } from '../patch'
 import type { SampleLookup } from '../sample'
@@ -16,6 +16,7 @@ export class ReturnTrackRuntime implements PlayableTrack {
   private sources: string[]
   /** Used when nothing was sent (no board slot): the graph then runs on silence and its tail rings out. */
   private readonly silence = new Float32Array(STEREO_FRAMES)
+  private tempo = DEFAULT_TEMPO
 
   constructor(
     private readonly trackId: string,
@@ -34,8 +35,13 @@ export class ReturnTrackRuntime implements PlayableTrack {
     return this.fx.readouts()
   }
 
+  setTempo(bpm: number): void {
+    this.tempo = bpm
+    this.fx.setTempo(bpm)
+  }
+
   setFx(fx: Patch): void {
-    this.fx = new FxGraph(fx, this.sampleRate, this.samples)
+    this.fx = new FxGraph(fx, this.sampleRate, this.samples, this.tempo)
     this.targets = sendTargets(fx)
     this.sources = audioSources(fx)
   }

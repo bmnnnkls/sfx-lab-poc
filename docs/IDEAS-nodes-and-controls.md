@@ -14,8 +14,7 @@ left behind:
 * **C10** is *Random* (a value that stays until a rise on `Roll`); **G3** (smooth random with glides) is not built.
 * **E1** shipped as two modules under a new picker category, *Examples* (an overtone oscillator and a drawbar organ); E8 (a bigger library) is not built.
 * **F1** randomizes and mutates the graph on show, with a seed and a per-node lock; per-*parameter* locks and a randomize on the panel's controls only are not built.
-* **Left for later, found while building:** the DSP has no tempo, so *Clock* counts in Hz or BPM but cannot follow the project's tempo (a `tempo` in
-  `ProcessContext` would fix it, and make C12's "tempo-synced" real); an indicator inside a module's own editor has no live value (a module is only live where it is used);
+* **Left for later, found while building:** an indicator inside a module's own editor has no live value (a module is only live where it is used);
   indicators in a voice are absent, not stale, when no voice sounds (so a LED driven by a voice-stage follower goes dark between notes).
 * **A1** is the same `ControlWidget` as the panel's, inside the card (`widgets.mjs`); the widget's own label is hidden there, the title is the name.
 * **Not selected, so not built:** A5 to A7, B4 and B5, C5 to C9, D2 to D12, E2 to E9, F2 to F8, G5 to G14, H.
@@ -89,7 +88,7 @@ widget lives in the panel and the property editor). Both views edit the same nod
 | C9 | Spectral flux; loudness (LUFS-style). | ★ | M |
 | C10 ✓ | Random control (seeded; re-roll button). See also G-noise below. | ★★ | S |
 | C11 ✓ | Edge detect, flip-flop, counter. | ★★ | S |
-| C12 ✓ | Control clock and divider (tempo-synced). | ★★ | S |
+| C12 ✓ | Control clock and divider (tempo-synced: the clock counts Hz, BPM or beats of the project tempo). | ★★ | S |
 | C13 ✓ | Control delay. | ★ | S |
 
 ## D. Synthesis building blocks

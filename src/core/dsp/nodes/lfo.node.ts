@@ -1,11 +1,14 @@
 import { Params } from '../params'
-import type { DspNode, NodeDefinition, ParamSpec, ProcessContext } from '../types'
+import { type DspNode, type NodeDefinition, type ParamSpec, type ProcessContext, tempoOf } from '../types'
 
 const SHAPES = ['sine', 'triangle', 'saw', 'square', 'random'] as const
+const SYNCS = ['off', 'beat'] as const
 
 const PARAMS: readonly ParamSpec[] = [
   { id: 'shape', label: 'Shape', min: 0, max: SHAPES.length - 1, default: 0, step: 1, options: SHAPES },
-  { id: 'rate', label: 'Rate', min: 0.05, max: 30, default: 2, step: 0.01, unit: 'Hz' },
+  // In Hz, or cycles per beat when Sync is `beat`; so no fixed unit is shown.
+  { id: 'rate', label: 'Rate', min: 0.05, max: 30, default: 2, step: 0.01 },
+  { id: 'sync', label: 'Sync', min: 0, max: SYNCS.length - 1, default: 0, step: 1, options: SYNCS },
   { id: 'depth', label: 'Depth', min: 0, max: 1, default: 1, step: 0.01 },
 ]
 
@@ -17,7 +20,8 @@ const toBipolar = (state: number): number => (state / 0x100000000) * 2 - 1
 /**
  * Low-frequency oscillator for modulating other nodes. `out` swings both ways around zero (for pitch,
  * vibrato), `uni` stays between 0 and `depth` (for gain or cutoff). A rising edge on the optional
- * `gate` input restarts the cycle, so every note gets the same modulation; unconnected, it free-runs.
+ * `gate` input restarts the cycle, so every note gets the same modulation; unconnected, it free-runs. With `sync` on `beat` the rate is in cycles per beat of the project's tempo (1 is once a beat, 0.25 once a bar), so the LFO
+ * keeps time when the tempo changes.
  */
 class Lfo implements DspNode {
   private readonly params = new Params(PARAMS)
@@ -55,12 +59,14 @@ class Lfo implements DspNode {
   }
 
   process(
-    { frames, sampleRate }: ProcessContext,
+    context: ProcessContext,
     [gate]: ReadonlyArray<Float32Array | null>,
     [out, uni]: readonly Float32Array[],
   ): void {
     const shape = Math.round(this.params.get('shape'))
-    const increment = this.params.get('rate') / sampleRate
+    const { frames, sampleRate } = context
+    const perSecond = this.params.get('rate') * (Math.round(this.params.get('sync')) === 1 ? tempoOf(context) / 60 : 1)
+    const increment = perSecond / sampleRate
     const depth = this.params.get('depth')
 
     for (let i = 0; i < frames; i++) {

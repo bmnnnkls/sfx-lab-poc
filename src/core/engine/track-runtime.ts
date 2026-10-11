@@ -1,3 +1,4 @@
+import { DEFAULT_TEMPO } from '../dsp'
 import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
 import { type Patch, audioSources, sendTargets } from '../patch'
@@ -23,6 +24,8 @@ export class TrackRuntime implements PlayableTrack {
   /** The send knobs as pairs of (return track id, level), post-fader. */
   private sendList: ReadonlyArray<readonly [string, number]> = []
   private audition: { pitch: number; framesLeft: number } | null = null
+  /** Kept here as well, since the instrument and the insert graph are rebuilt by edits and must start with it. */
+  private tempo = DEFAULT_TEMPO
 
   constructor(
     private readonly trackId: string,
@@ -49,8 +52,14 @@ export class TrackRuntime implements PlayableTrack {
     this.graph.sync(graph)
   }
 
+  setTempo(bpm: number): void {
+    this.tempo = bpm
+    this.instrument.setTempo(bpm)
+    this.fx.setTempo(bpm)
+  }
+
   setFx(fx: Patch): void {
-    this.fx = new FxGraph(fx, this.sampleRate, this.samples)
+    this.fx = new FxGraph(fx, this.sampleRate, this.samples, this.tempo)
     this.targets = sendTargets(fx)
     this.sources = audioSources(fx)
   }
@@ -74,13 +83,13 @@ export class TrackRuntime implements PlayableTrack {
   setPatch(patch: Patch): void {
     this.audition = null
     this.patch = patch
-    this.instrument = new Instrument(patch, this.sampleRate, this.voices, this.samples)
+    this.instrument = new Instrument(patch, this.sampleRate, this.voices, this.samples, this.tempo)
   }
 
   setVoices(voices: number): void {
     this.audition = null
     this.voices = voices
-    this.instrument = new Instrument(this.patch, this.sampleRate, voices, this.samples)
+    this.instrument = new Instrument(this.patch, this.sampleRate, voices, this.samples, this.tempo)
   }
 
   setClips(clips: readonly (Clip | null)[]): void {

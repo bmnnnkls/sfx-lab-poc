@@ -224,7 +224,8 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     },
     params: {
       shape: 'The shape of the wave; random holds a new random value each cycle.',
-      rate: 'Cycles per second.',
+      rate: 'Cycles per second, or cycles per beat when Sync is beat (1 is once a beat, 0.25 once a bar).',
+      sync: 'Off: the rate is in hertz. Beat: the rate is in cycles per beat of the project tempo, so the LFO keeps time when the tempo changes.',
       depth: 'How far the output swings.',
     },
   },
@@ -602,8 +603,8 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     outputs: { out: '1 for the first part of each cycle (Width), 0 for the rest.' },
     params: {
       reset: 'The reset while nothing is wired to it.',
-      rate: 'How many cycles per second or per minute, depending on Per.',
-      unit: 'Count the rate in cycles per second (Hz) or per minute (BPM).',
+      rate: 'How many cycles per second, per minute or per beat, depending on Per.',
+      unit: 'Count the rate in cycles per second (Hz), per minute (BPM), or per beat of the project tempo (beat: 1 is once a beat, 4 is sixteenths), which follows the tempo when it changes.',
       width: 'How much of each cycle is on, from 0 to 1.',
     },
   },

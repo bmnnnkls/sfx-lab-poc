@@ -121,6 +121,38 @@ describe('lfo', () => {
   })
 })
 
+describe('lfo synced to the tempo', () => {
+  /** A saw LFO for `frames` samples in blocks of 128, at the given tempo (absent: a context without one). */
+  const run = (params: Record<string, number>, frames: number, tempo?: number) => {
+    const definition = requireNodeDefinition('lfo')
+    const node = definition.create(SAMPLE_RATE)
+    for (const [id, value] of Object.entries(params)) node.setParam(id, value)
+    const out = new Float32Array(frames)
+    for (let start = 0; start < frames; start += 128) {
+      const length = Math.min(128, frames - start)
+      node.process({ ...context(length), ...(tempo === undefined ? {} : { tempo }) }, [null], [out.subarray(start, start + length), new Float32Array(length)])
+    }
+    return out
+  }
+  const wraps = (saw: Float32Array) => saw.reduce((n, v, i) => (i > 0 && v < saw[i - 1]! - 1 ? n + 1 : n), 0)
+
+  it('is in hertz by default, whatever the tempo', () => {
+    expect(wraps(run({ shape: 2, rate: 4 }, SAMPLE_RATE, 60))).toBe(wraps(run({ shape: 2, rate: 4 }, SAMPLE_RATE, 200)))
+    expect(wraps(run({ shape: 2, rate: 4 }, SAMPLE_RATE, 60))).toBeGreaterThanOrEqual(3)
+  })
+
+  it('with Sync on beat the rate is cycles per beat: 1 is once a beat at 120 BPM (2 a second) and once every 2 s at 30 BPM', () => {
+    expect(wraps(run({ shape: 2, rate: 1, sync: 1 }, SAMPLE_RATE * 3, 120))).toBeGreaterThanOrEqual(5)
+    expect(wraps(run({ shape: 2, rate: 1, sync: 1 }, SAMPLE_RATE * 3, 120))).toBeLessThanOrEqual(6)
+    expect(wraps(run({ shape: 2, rate: 1, sync: 1 }, SAMPLE_RATE * 4, 30))).toBeGreaterThanOrEqual(1)
+    expect(wraps(run({ shape: 2, rate: 1, sync: 1 }, SAMPLE_RATE * 4, 30))).toBeLessThanOrEqual(2)
+  })
+
+  it('with no tempo in the context the beat is 120 BPM', () => {
+    expect(Array.from(run({ shape: 2, rate: 2, sync: 1 }, 4096))).toEqual(Array.from(run({ shape: 2, rate: 2, sync: 1 }, 4096, 120)))
+  })
+})
+
 describe('reverb', () => {
   const impulse = (frames: number) => {
     const buffer = new Float32Array(frames)

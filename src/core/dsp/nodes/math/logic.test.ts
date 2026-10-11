@@ -5,18 +5,26 @@ import { requireNodeDefinition } from '../../registry'
 const RATE = 48000
 const BLOCK = 128
 
-const context = (frames: number) => ({
+const context = (frames: number, tempo?: number) => ({
   frames,
   sampleRate: RATE,
   note: { frequency: 440, velocity: 1, gate: false, trigger: 0 },
   samples: new SampleBank(),
+  ...(tempo === undefined ? {} : { tempo }),
 })
 
 /**
  * Runs a node over the given input signals (one array per input port, in port order, as long as you like; ports you leave out
  * stay unwired) in blocks of 128, and returns its output.
  */
-const run = (type: string, params: Record<string, number>, inputs: readonly (readonly number[] | null)[] = [], length?: number): number[] => {
+const run = (
+  type: string,
+  params: Record<string, number>,
+  inputs: readonly (readonly number[] | null)[] = [],
+  length?: number,
+  /** The project's tempo in each block, by the sample the block starts at; absent for a context with none. */
+  tempo?: (start: number) => number,
+): number[] => {
   const definition = requireNodeDefinition(type)
   const node = definition.create(RATE)
   for (const [id, value] of Object.entries(params)) node.setParam(id, value)
@@ -26,7 +34,7 @@ const run = (type: string, params: Record<string, number>, inputs: readonly (rea
     const frames = Math.min(BLOCK, total - start)
     const buffers = inputs.map((input) => (input ? Float32Array.from({ length: frames }, (_, i) => input[start + i] ?? 0) : null))
     const output = new Float32Array(BLOCK)
-    node.process(context(frames), buffers, [output])
+    node.process(context(frames, tempo?.(start)), buffers, [output])
     out.push(...output.subarray(0, frames))
   }
   return out
@@ -126,6 +134,48 @@ describe('clock', () => {
   it('counts in beats per minute when asked: 120 BPM is 2 a second', () => {
     expect(risesAt(run('clock', { rate: 120, unit: 1 }, [], second))).toHaveLength(2)
     expect(risesAt(run('clock', { rate: 2, unit: 0 }, [], second))).toHaveLength(2)
+  })
+
+  it('counts in beats of the project tempo: the edges land on the beat at 90, 120 and 140 BPM', () => {
+    for (const bpm of [90, 120, 140]) {
+      const beat = (60 / bpm) * RATE
+      const rises = risesAt(run('clock', { rate: 1, unit: 2 }, [], Math.round(beat * 4.5), () => bpm))
+      expect(rises, `${bpm} BPM`).toHaveLength(5)
+      rises.forEach((at, index) => expect(Math.abs(at - index * beat), `${bpm} BPM, beat ${index}`).toBeLessThanOrEqual(2))
+    }
+  })
+
+  it('beat is cycles per beat: 4 is sixteenths, 0.25 once a bar', () => {
+    const bar = 2 * RATE // 120 BPM
+    expect(risesAt(run('clock', { rate: 4, unit: 2 }, [], bar, () => 120))).toHaveLength(16)
+    expect(risesAt(run('clock', { rate: 0.25, unit: 2 }, [], bar * 2 - 10, () => 120))).toHaveLength(2)
+  })
+
+  it('a change of tempo in the middle changes the next cycle, not the one running', () => {
+    // One beat per cycle. 120 BPM for the first two beats (24000 samples each), then 60 BPM: a beat is 48000 samples.
+    const out = run('clock', { rate: 1, unit: 2 }, [], 24000 * 2 + 48000 * 2 + 100, (start) => (start < 48000 ? 120 : 60))
+    const rises = risesAt(out)
+    expect(rises.slice(0, 3).map((at) => Math.round(at / 100) * 100)).toEqual([0, 24000, 48000])
+    // The cycle that began at 48000 runs at 60 BPM, so the next rise is a whole slow beat later.
+    expect(Math.abs((rises[3] ?? 0) - 96000)).toBeLessThanOrEqual(130)
+  })
+
+  it('a context without a tempo is 120 BPM', () => {
+    const bare = risesAt(run('clock', { rate: 1, unit: 2 }, [], RATE * 2 - 10))
+    const set = risesAt(run('clock', { rate: 1, unit: 2 }, [], RATE * 2 - 10, () => 120))
+    expect(bare).toEqual(set)
+    expect(bare).toHaveLength(4)
+  })
+
+  it('ignores a tempo that is not a positive number', () => {
+    for (const bad of [0, -90, Number.NaN, Infinity]) {
+      expect(risesAt(run('clock', { rate: 1, unit: 2 }, [], RATE - 10, () => bad)), String(bad)).toHaveLength(2)
+    }
+  })
+
+  it('Hz and BPM do not depend on the tempo', () => {
+    expect(risesAt(run('clock', { rate: 3, unit: 0 }, [], second, () => 60))).toHaveLength(3)
+    expect(risesAt(run('clock', { rate: 90, unit: 1 }, [], second, () => 200))).toHaveLength(2)
   })
 
   it('a rise of Reset restarts the cycle', () => {

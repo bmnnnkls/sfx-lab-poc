@@ -105,7 +105,8 @@ output you wire into another node's input.
   a seeded generator so voices agree and tests are reproducible); *Rate* 0.05–30 Hz, *Depth*. Two outputs: `out` swings
   ±depth (vibrato, panning-style effects) and `uni` stays within 0..depth (tremolo, cutoff sweeps). The optional
   `gate` input restarts the cycle on a rising edge, so each note gets the same modulation; unconnected it free-runs.
-  There is no tempo sync: nodes are not given the tempo (see limits).
+  *Sync* `beat` reads *Rate* in cycles per beat of the project's tempo (1 is once a beat, 0.25 once a bar) instead of hertz, so the LFO keeps
+  time when the tempo changes (see "Tempo in the DSP"); the card's picture, which only knows hertz, shows a rough number of cycles then.
 * **Filter `cutoff` input** moves the cutoff exponentially: CV +1 raises it by *CV amt* octaves (param, default 2).
   While modulated, coefficients are redesigned every 16 samples. Unconnected, the filter is exactly as before.
 * **Oscillator `pitch` input** bends pitch by *Pitch CV* semitones per unit (default 2), exponentially.
@@ -504,10 +505,21 @@ plain cards; the property editor, the panel built from control nodes and the nod
 * **Logic** (`dsp/nodes/math/logic.ts`, category *Logic*, all built with `mathNode` and global-capable; `MathSpec.inNotes: false` keeps them out of
   note graphs, since a clock or counter has no meaning as a baked constant). *Schmitt trigger* (on at `high`, off only at `low`, either way round),
   *Edge detect* (a pulse of `pulse` seconds on a rising, falling or either edge; the first sample is never an edge), *Flip-flop*
-  (toggles on a rise of `trigger`, `reset` clears), *Counter* (counts rises, wraps at `limit`), *Clock* (a square at `rate` Hz or BPM,
-  duty `width`, `reset` restarts it; the DSP context has no tempo, so BPM is just rate / 60), *Clock divider* (passes the first and
+  (toggles on a rise of `trigger`, `reset` clears), *Counter* (counts rises, wraps at `limit`), *Clock* (a square at `rate` per second
+  (Hz), per minute (BPM) or per beat of the project's tempo (`beat`: 1 is once a beat, 4 is sixteenths), duty `width`, `reset` restarts it),
+  *Clock divider* (passes the first and
   then every Nth cycle) and *Control delay* (up to 2 s, a ring buffer made when the node is created; starts as its first input). A
   rise or high is always 0.5, as everywhere else.
+* **Tempo in the DSP** (`ProcessContext.tempo`, `DEFAULT_TEMPO`, `tempoOf`). The context carries the project's tempo in BPM; absent, or not a
+  positive number, it is 120 (`tempoOf`), so the many tests that build a context by hand keep working and a node never divides by zero.
+  The engine hands it down: `Engine.apply` on `transport/setTempo` calls `setTempo` on **every track** (`PlayableTrack.setTempo`: instrument,
+  audio and return runtimes, which pass it to their `Instrument` and `FxGraph`) and on the master graph, and a track added later is told the
+  transport's current tempo as it is created; each runtime also keeps it, so a rebuilt instrument or insert graph (`setPatch`, `setVoices`,
+  `setFx`, `master/setFx`) starts with it, not with 120. `Instrument` puts it in the context of its global, voice and shared stages and `FxGraph`
+  in its own, from the next block on. Math nodes see it as `BlockInfo.tempo`, the third argument of `MathSpec.make`, refreshed before each
+  block, which is how *Clock* counts beats: the rate is re-read every block, so a change of tempo bends the next cycle (the one running
+  finishes its phase at the new speed) with no command to the node. Only *Clock* and the *LFO* use it so far; delays, stutter and the
+  rest are still in seconds.
 * **Analysis** (`dsp/nodes/analysis/`, category *Analysis*; audio in, control out). They read a sound, so they are voice or shared
   nodes (never global), and their `control` outputs can feed a parameter socket (read once per block) or any signal input. *Envelope
   follower* (`Follower`: a one-pole with its own attack and release, peak or RMS; RMS of a sine reads 0.707 of its peak). *Level (dB)*
@@ -940,8 +952,7 @@ launcher queue need no changes (the return track was added this way; TypeScript 
   `decodeAudioData` resamples to 48 kHz, and the sample's reported rate is that decoded rate.
 * Sample hashing needs a secure context (https or localhost).
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
-* Oscillators are naive (alias at high pitches); no band-limiting or oversampling. The LFO cannot sync to the tempo
-  (`ProcessContext` carries none); the plain Reverb is mono (use *Stereo reverb* in an insert graph). Filter cutoff has a linear slider over 20 Hz–20 kHz.
+* Oscillators are naive (alias at high pitches); no band-limiting or oversampling. The plain Reverb is mono (use *Stereo reverb* in an insert graph). Filter cutoff has a linear slider over 20 Hz–20 kHz.
 * Launch quantisation is fixed at one bar; no recording or plugin hosting.
 * History is per session (not saved) and does not cover selection or transport.
 * One autosaved project per browser. Two tabs on the same site overwrite each other (last write wins).
@@ -951,5 +962,5 @@ launcher queue need no changes (the return track was added this way; TypeScript 
 ## Natural next steps
 
 1. Unused-sample cleanup, loop points inside a clip, 2. offline bounce using `Engine` directly,
-3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (band-limited oscillators, tempo-synced LFO, chorus / stereo modulation effects),
+3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (band-limited oscillators, chorus / stereo modulation effects, tempo sync for delays),
 5. WASM DSP nodes (Faust/RNBO).

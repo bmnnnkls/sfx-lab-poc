@@ -56,6 +56,8 @@ export interface PlayableTrack {
   sendTargets(): string[]
   /** Ids of the tracks this one takes audio from with Track audio nodes (the engine mixes it after them). */
   audioSources(): string[]
+  /** The project's tempo in BPM, handed on to the nodes of the track's patch and insert graph (the engine sets it when a track is added and whenever the tempo changes). */
+  setTempo(bpm: number): void
   /** Replaces the insert graph. Structural changes restart it (its tails are lost); knob changes go through `setParam`. */
   setFx(fx: Patch): void
   /** Changes a parameter of a node in the track's patch or insert graph (node ids are unique across both). */
