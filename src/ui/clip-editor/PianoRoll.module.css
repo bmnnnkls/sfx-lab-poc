@@ -3,57 +3,120 @@
   overflow: auto;
 }
 
-.roll {
-  position: relative;
+.layout {
+  display: grid;
+  width: max-content;
 }
 
-.row {
-  display: flex;
+.corner {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  background: var(--panel-raised);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.ruler {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--panel-raised);
+  border-bottom: 1px solid var(--border);
+}
+
+.bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  padding: 3px 0 0 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+  border-left: 1px solid var(--border);
+  user-select: none;
+}
+
+.keys {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--panel-raised);
+  border-right: 1px solid var(--border);
 }
 
 .key {
-  flex: none;
-  width: 44px;
   padding-left: 4px;
   font-size: 10px;
   line-height: 16px;
   color: var(--text-dim);
-  background: var(--panel-raised);
   border-bottom: 1px solid var(--border);
+  user-select: none;
 }
 
 .black {
   background: var(--bg);
 }
 
-.cell {
-  flex: none;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  border-left: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 0;
-  background: transparent;
+.surface {
+  position: relative;
+  outline: none;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
 }
 
-.cell:hover {
-  background: var(--accent-soft);
+.surface:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.rows,
+.gridLines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .blackRow {
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(0, 0, 0, 0.2);
 }
 
-.beat {
-  border-left-color: var(--border);
+.cRow {
+  border-bottom-color: var(--border);
+}
+
+/* Step, beat and bar lines drawn as three layered gradients instead of thousands of cells. */
+.gridLines {
+  background-image:
+    repeating-linear-gradient(to right, rgba(255, 255, 255, 0.28) 0 1px, transparent 1px var(--bar)),
+    repeating-linear-gradient(to right, rgba(255, 255, 255, 0.12) 0 1px, transparent 1px var(--beat)),
+    repeating-linear-gradient(to right, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px var(--step));
 }
 
 .note {
   position: absolute;
+  box-sizing: border-box;
   background: var(--accent);
-  border-radius: 2px;
-  pointer-events: none;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 3px;
+  cursor: grab;
+}
+
+.selected {
+  background: #ffd27a;
+  box-shadow: 0 0 0 1px #fff;
+  z-index: 1;
+}
+
+.handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  cursor: ew-resize;
 }
 
 .playhead {
@@ -63,4 +126,5 @@
   width: 2px;
   background: var(--play);
   pointer-events: none;
+  z-index: 2;
 }

@@ -30,6 +30,8 @@ Use a Chromium-based browser or Firefox. Audio starts on your first click (brows
    **Undo / redo** with ↶ ↷ or `Ctrl/⌘+Z` / `Ctrl/⌘+Shift+Z`: dragging a slider or node is a single step.
 4. Open the **Samples** tab: **Add demo samples** (or import/drag in your own audio), press ▶ to audition, and
    **New sampler track** to get a playable track. Projects with samples export as a `.sfxlab` package.
-5. Click **✎** on a clip to open it in the **Clip** tab and click cells to add/remove notes while it plays.
+5. Click **✎** on a clip to open it in the **Clip** tab: drag on empty space to draw a note of any length, drag a
+   note to move it, drag its ends to resize, Shift-click to select several, **Del** to delete. Change the clip's
+   **Length** (or hit **Double**) for longer clips, and zoom with the slider or Ctrl+wheel. Edit while it plays.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how it is put together and where to add things.

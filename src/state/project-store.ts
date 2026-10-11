@@ -15,10 +15,12 @@ import {
   createDemoProject,
   createHistory,
   createTrack,
+  doubleClip,
   redo,
   removeSample,
   removeTrack,
   setClipAt,
+  setClipLength,
   setClipNotes,
   setProjectName,
   setTempo,
@@ -56,6 +58,10 @@ interface ProjectActions {
   createClip(trackId: string, scene: number): Clip
   deleteClip(trackId: string, scene: number): void
   setClipNotes(trackId: string, clipId: string, notes: readonly Note[]): void
+  /** Resizes a clip; shortening trims notes that no longer fit. */
+  setClipLength(trackId: string, clipId: string, lengthBeats: number): void
+  /** Doubles the clip's length and repeats its notes into the new half. */
+  doubleClip(trackId: string, clipId: string): void
 }
 
 export interface ProjectState extends ProjectActions {
@@ -117,6 +123,9 @@ export const useProjectStore = create<ProjectState>((set) => {
     deleteClip: (trackId, scene) => edit((project) => setClipAt(project, trackId, scene, null)),
     setClipNotes: (trackId, clipId, notes) =>
       edit((project) => setClipNotes(project, trackId, clipId, notes)),
+    setClipLength: (trackId, clipId, lengthBeats) =>
+      edit((project) => setClipLength(project, trackId, clipId, lengthBeats)),
+    doubleClip: (trackId, clipId) => edit((project) => doubleClip(project, trackId, clipId)),
   }
 })
 

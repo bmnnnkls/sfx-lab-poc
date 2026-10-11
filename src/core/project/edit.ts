@@ -2,6 +2,7 @@ import { clearSampleReferences, createDefaultPatch, createSamplerPatch } from '.
 import type { Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 import { clamp, createId } from '../shared'
+import { createNote, shiftedCopies, trimNotesToLength } from './note-edit'
 import type { Clip, Note, Project, Track } from './types'
 
 export const MIN_TEMPO = 40
@@ -11,11 +12,13 @@ export const MAX_NAME_LENGTH = 80
 export const MIN_VOICES = 1
 export const MAX_VOICES = 16
 export const DEFAULT_VOICES = 8
+export const MIN_CLIP_BEATS = 1
+export const MAX_CLIP_BEATS = 256
 
-const updateTrack = (project: Project, trackId: string, change: (track: Track) => Track): Project => ({
-  ...project,
-  tracks: project.tracks.map((track) => (track.id === trackId ? change(track) : track)),
-})
+const updateTrack = (project: Project, trackId: string, change: (track: Track) => Track): Project => {
+  const tracks = project.tracks.map((track) => (track.id === trackId ? change(track) : track))
+  return tracks.every((track, index) => track === project.tracks[index]) ? project : { ...project, tracks }
+}
 
 export const createClip = (name: string, lengthBeats: number, notes: readonly Note[] = []): Clip => ({
   id: createId('clip'),
@@ -76,6 +79,43 @@ export const setClipAt = (
     clips: track.clips.map((existing, index) => (index === scene ? clip : existing)),
   }))
 
+const updateClip = (
+  project: Project,
+  trackId: string,
+  clipId: string,
+  change: (clip: Clip) => Clip,
+): Project =>
+  updateTrack(project, trackId, (track) => {
+    const clips = track.clips.map((clip) => (clip?.id === clipId ? change(clip) : clip))
+    // Keep identity when nothing changed, so a no-op edit doesn't create an undo step.
+    return clips.every((clip, index) => clip === track.clips[index]) ? track : { ...track, clips }
+  })
+
+/** Resizes a clip. Shortening trims notes that no longer fit (undo restores them). */
+export const setClipLength = (
+  project: Project,
+  trackId: string,
+  clipId: string,
+  lengthBeats: number,
+): Project =>
+  updateClip(project, trackId, clipId, (clip) => {
+    const length = clamp(lengthBeats, MIN_CLIP_BEATS, MAX_CLIP_BEATS)
+    if (length === clip.lengthBeats) return clip
+    return { ...clip, lengthBeats: length, notes: trimNotesToLength(clip.notes, length) }
+  })
+
+/** Doubles a clip's length and repeats its notes into the new half ("double loop"). */
+export const doubleClip = (project: Project, trackId: string, clipId: string): Project =>
+  updateClip(project, trackId, clipId, (clip) => {
+    const length = clip.lengthBeats * 2
+    if (length > MAX_CLIP_BEATS) return clip
+    return {
+      ...clip,
+      lengthBeats: length,
+      notes: [...clip.notes, ...shiftedCopies(clip.notes, clip.lengthBeats)],
+    }
+  })
+
 export const setClipNotes = (
   project: Project,
   trackId: string,
@@ -120,9 +160,7 @@ const SAMPLER_NOTE = 60
 
 /** A ready-to-play track: a sampler loaded with `sample` and a one-bar clip that triggers it. */
 export const addSamplerTrack = (project: Project, sample: SampleInfo): Project => {
-  const clip = createClip(sample.name, 4, [
-    { pitch: SAMPLER_NOTE, start: 0, duration: 1, velocity: 0.9 },
-  ])
+  const clip = createClip(sample.name, 4, [createNote(SAMPLER_NOTE, 0, 1)])
   const track = createTrack(sample.name, project.sceneCount, createSamplerPatch(sample.id))
   return addTrack(project, { ...track, clips: track.clips.map((slot, scene) => (scene === 0 ? clip : slot)) })
 }

@@ -5,11 +5,15 @@ import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
 
 const MIN_NOTE_BEATS = 1 / 16
 
-const sanitizeNote = (raw: unknown, lengthBeats: number): Note | null => {
+const sanitizeNote = (raw: unknown, lengthBeats: number, usedIds: Set<string>): Note | null => {
   if (!isRecord(raw)) return null
   const start = finiteNumber(raw.start, NaN)
   if (Number.isNaN(start) || start < 0 || start >= lengthBeats) return null
+  // Files from before notes had ids get fresh ones; duplicates are re-id'd so selections stay unambiguous.
+  const id = typeof raw.id === 'string' && !usedIds.has(raw.id) ? raw.id : createId('note')
+  usedIds.add(id)
   return {
+    id,
     pitch: Math.round(clamp(finiteNumber(raw.pitch, 60), 0, 127)),
     start,
     duration: clamp(finiteNumber(raw.duration, 0.25), MIN_NOTE_BEATS, lengthBeats),
@@ -41,9 +45,10 @@ export const sanitizeClip = (
   if (rawNotes.length > LIMITS.notesPerClip) {
     warn(`${where} / ${name}: only the first ${LIMITS.notesPerClip} notes were kept`)
   }
+  const noteIds = new Set<string>()
   const notes = rawNotes
     .slice(0, LIMITS.notesPerClip)
-    .map((note) => sanitizeNote(note, lengthBeats))
+    .map((note) => sanitizeNote(note, lengthBeats, noteIds))
     .filter((note): note is Note => note !== null)
   const dropped = Math.min(rawNotes.length, LIMITS.notesPerClip) - notes.length
   if (dropped > 0) warn(`${where} / ${name}: dropped ${dropped} invalid note(s)`)

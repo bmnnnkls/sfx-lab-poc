@@ -2,6 +2,8 @@ import type { Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 
 export interface Note {
+  /** Stable identity, so selections and held notes survive edits and undo. */
+  readonly id: string
   /** MIDI pitch, 60 = middle C. */
   readonly pitch: number
   /** Start within the clip, in beats. */

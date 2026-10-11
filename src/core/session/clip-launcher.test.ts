@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { Clip } from '../project'
+import { type Clip, createNote } from '../project'
 import { ClipLauncher } from './clip-launcher'
 
 const clip = (id: string, lengthBeats = 4): Clip => ({
   id,
   name: id,
   lengthBeats,
-  notes: [
-    { pitch: 60, start: 0, duration: 1, velocity: 1 },
-    { pitch: 64, start: 2, duration: 4, velocity: 1 },
-  ],
+  notes: [createNote(60, 0, 1, 1), createNote(64, 2, 4, 1)],
 })
 
 describe('ClipLauncher', () => {
@@ -81,5 +78,75 @@ describe('ClipLauncher', () => {
     launcher.collectEvents(1, 5)
     expect(launcher.status()).toMatchObject({ playingClipId: null, queued: null })
     expect(launcher.collectEvents(5, 9)).toEqual([])
+  })
+})
+
+describe('ClipLauncher editing while playing', () => {
+  /** A clip with one long note (beats 0..3) that is sounding at beat 1.5. */
+  const setup = () => {
+    const sustained = createNote(60, 0, 3)
+    const clip: Clip = { id: 'a', name: 'a', lengthBeats: 4, notes: [sustained] }
+    const launcher = new ClipLauncher()
+    launcher.launch(clip)
+    launcher.collectEvents(0, 1.5)
+    return { launcher, clip, sustained }
+  }
+  const withNotes = (clip: Clip, notes: Clip['notes']): Clip => ({ ...clip, notes })
+  const offs = (events: ReturnType<ClipLauncher['collectEvents']>) =>
+    events.filter((e) => e.kind === 'noteOff').map((e) => [e.beat, 'pitch' in e ? e.pitch : null])
+
+  it('releases a sounding note that is deleted', () => {
+    const { launcher, clip } = setup()
+    launcher.syncClips([withNotes(clip, [])])
+
+    expect(offs(launcher.collectEvents(1.5, 2))).toEqual([[1.5, 60]])
+    expect(offs(launcher.collectEvents(2, 3.5))).toEqual([]) // and the original noteOff never fires
+  })
+
+  it('releases a sounding note that is moved or re-pitched, then plays it at its new place', () => {
+    const { launcher, clip, sustained } = setup()
+    launcher.syncClips([withNotes(clip, [{ ...sustained, start: 2, duration: 1 }])])
+    const events = launcher.collectEvents(1.5, 4)
+
+    expect(offs(events).slice(0, 1)).toEqual([[1.5, 60]])
+    expect(events.filter((e) => e.kind === 'noteOn').map((e) => e.beat)).toEqual([2])
+
+    const repitched = setup()
+    repitched.launcher.syncClips([withNotes(repitched.clip, [{ ...repitched.sustained, pitch: 67 }])])
+    expect(offs(repitched.launcher.collectEvents(1.5, 2))).toEqual([[1.5, 60]])
+  })
+
+  it('releases a note shortened to end in the past, but not one merely changed to end later', () => {
+    const shortened = setup()
+    shortened.launcher.syncClips([withNotes(shortened.clip, [{ ...shortened.sustained, duration: 1 }])])
+    expect(offs(shortened.launcher.collectEvents(1.5, 2))).toEqual([[1.5, 60]])
+
+    const lengthened = setup()
+    lengthened.launcher.syncClips([withNotes(lengthened.clip, [{ ...lengthened.sustained, duration: 3.5 }])])
+    const events = lengthened.launcher.collectEvents(1.5, 4)
+    expect(offs(events)).toEqual([[3.5, 60]]) // keeps sounding, ends at its new end
+  })
+
+  it('leaves notes alone when an unrelated part of the clip changes', () => {
+    const { launcher, clip, sustained } = setup()
+    launcher.syncClips([withNotes(clip, [sustained, createNote(72, 3.5, 0.25)])])
+    const events = launcher.collectEvents(1.5, 4)
+
+    expect(offs(events)).toEqual([[3, 60], [3.75, 72]])
+  })
+
+  it('releases everything when the playing clip disappears', () => {
+    const { launcher } = setup()
+    launcher.syncClips([])
+    expect(offs(launcher.collectEvents(1.5, 2))).toEqual([[1.5, 60]])
+    expect(launcher.status().playingClipId).toBeNull()
+  })
+
+  it('does not release a note whose first loop pass already ended', () => {
+    const { launcher, clip, sustained } = setup()
+    launcher.collectEvents(1.5, 3.5) // note ended at 3
+    launcher.syncClips([withNotes(clip, [sustained])])
+
+    expect(offs(launcher.collectEvents(3.5, 4))).toEqual([])
   })
 })

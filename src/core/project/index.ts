@@ -2,8 +2,10 @@ export type { Clip, Note, Project, Track } from './types'
 export {
   DEFAULT_SCENE_COUNT,
   DEFAULT_VOICES,
+  MAX_CLIP_BEATS,
   MAX_NAME_LENGTH,
   MAX_VOICES,
+  MIN_CLIP_BEATS,
   MIN_VOICES,
   MAX_TEMPO,
   MIN_TEMPO,
@@ -16,7 +18,9 @@ export {
   createTrack,
   removeSample,
   removeTrack,
+  doubleClip,
   setClipAt,
+  setClipLength,
   setClipNotes,
   setTempo,
   setTrackPatch,
@@ -24,3 +28,16 @@ export {
   setTrackVolume,
 } from './edit'
 export { createDemoProject } from './demo-project'
+export {
+  MAX_PITCH,
+  MIN_PITCH,
+  createNote,
+  moveNotes,
+  notesEqual,
+  removeNotes,
+  resizeNotesEnd,
+  resizeNotesStart,
+  shiftedCopies,
+  snapDown,
+  trimNotesToLength,
+} from './note-edit'

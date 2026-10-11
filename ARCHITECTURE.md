@@ -42,7 +42,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `dsp` | node library: definitions (ports, params, factory) + processors | `nodeDefinitions`, `requireNodeDefinition`, types |
 | `patch` | immutable node-graph model + pure edit operations | `Patch`, `addNode`, `connect`, `canConnect`, … |
 | `instrument` | compiles a `Patch` into a polyphonic synth: voice pool + shared effects | `Instrument`, `classifyStages` |
-| `project` | the saveable document: tracks, clips, notes, tempo, name | `Project`, edit functions, `createDemoProject` |
+| `project` | the saveable document: tracks, clips, notes, tempo, name; pure note/clip edit operations | `Project`, edit functions, `moveNotes`, `resizeNotesEnd`, `setClipLength`, … |
 | `transport` | sample-accurate beat clock | `Transport` |
 | `session` | clip launching: quantized start/stop, looping, note events | `ClipLauncher` |
 | `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` | `Engine`, `EngineCommand`, `EngineStatus` |
@@ -94,6 +94,32 @@ Each folder exposes one `index.ts`; everything else in it is private.
   optional field with a safe default needs no format-version bump).
 * Measured on the engine alone (Node, this container): 3 tracks / ~3 voices ≈ 2 % of the real-time budget, 8 tracks ×
   16 voices ≈ 25 %.
+
+## Editing clips (piano roll)
+
+* **Gestures are pure functions of the pointer.** `ui/clip-editor/note-gestures.ts` describes draw / move /
+  resize-start / resize-end as `applyGesture(gesture, pointer, grid) -> notes`, computed from the notes *as they
+  were when the drag began*, so results never drift and are unit-tested without a DOM. The note arithmetic itself
+  (`moveNotes`, `resizeNotesEnd`, `trimNotesToLength`, …) lives in `core/project/note-edit.ts`.
+* **One surface, one hook.** `PianoRoll` is a single pointer-driven element (grid lines are CSS gradients, not
+  thousands of cells). `use-piano-roll-interaction.ts` owns the mouse and keyboard behaviour: click-drag on empty
+  space draws a note as long as the drag; drag a note to move; drag its end handles to resize; Shift-click
+  multi-selects and groups move/resize together (a group is stopped at the clip edges, never squashed);
+  double-click or right-click deletes; Delete, arrows (Shift = octave), Ctrl+A, Ctrl+D, Esc work on the selection.
+* **A gesture is one undo step.** While dragging, edits live in a local `draft` that is shown on screen and
+  committed once on release. That keeps undo per-gesture and avoids sending a clip update to the engine on every
+  mouse move. A double-click only deletes when the second click doesn't turn into a drag.
+* **Notes have stable ids** (`Note.id`) so selection survives edits and undo, and so the clip launcher can tell
+  which notes are sounding. Files from before this get fresh ids on load.
+* **Clip length** is in beats (1–256), shown with bars. Lengthening keeps notes; shortening trims notes that no
+  longer fit (undo restores them); **Double** doubles the length and repeats the notes into the new half. The length
+  field applies on Enter/blur, never per keystroke, because typing "16" would otherwise pass through "1" and trim.
+  Long clips get horizontal zoom (slider or Ctrl+wheel), a bar ruler and a sticky keyboard.
+* **Editing a playing clip never leaves a note stuck.** The launcher remembers which notes it has started. When
+  `syncClips` swaps in edited clip data it releases any sounding note that was deleted, moved, re-pitched or cut
+  short, and lets one that merely got longer ring to its new end. Without this, deleting a held note would
+  leave its voice sounding forever (its note-off is never generated).
+* No-op edits return the same project object (`updateTrack`/`updateClip`), so they don't create empty undo steps.
 
 ## Undo / redo
 
@@ -207,6 +233,8 @@ from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off
 ## Known POC limits (deliberate)
 
 * One clip plays per track. Polyphony has simple voice stealing and no unison, glide or legato modes.
+* The piano roll has no marquee selection, velocity editing, copy/paste or note audition, assumes 4/4 for the ruler,
+  and cannot draw several notes at once.
 * Samples are mono (stereo is mixed down), at most 120 s / 32 MB per file, with no trimming or loop-point editing.
   Bytes stay in IndexedDB after a sample is removed from a project (so undo works); there is no cleanup yet.
   `decodeAudioData` resamples to 48 kHz, and the sample's reported rate is that decoded rate.

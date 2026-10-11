@@ -30,7 +30,7 @@ describe('sample library edits', () => {
 
     expect(track.name).toBe('Kick')
     expect(track.patch.nodes.find((n) => n.type === 'sampler')?.sampleId).toBe(sample.id)
-    expect(track.clips[0]?.notes).toEqual([{ pitch: 60, start: 0, duration: 1, velocity: 0.9 }])
+    expect(track.clips[0]?.notes).toMatchObject([{ pitch: 60, start: 0, duration: 1, velocity: 0.9 }])
     expect(track.clips.slice(1).every((slot) => slot === null)).toBe(true)
     expect(track.clips).toHaveLength(project.sceneCount)
   })

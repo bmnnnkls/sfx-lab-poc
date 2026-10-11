@@ -1,13 +1,14 @@
 import { createDefaultPatch, setNodeParam } from '../patch'
 import type { Patch } from '../patch'
 import { DEFAULT_SCENE_COUNT, addTrack, createClip, createTrack, setClipAt } from './edit'
+import { createNote } from './note-edit'
 import type { Note, Project } from './types'
 
 const SCENES = DEFAULT_SCENE_COUNT
 
 const notes = (pitches: ReadonlyArray<number | null>, step: number, length: number): Note[] =>
   pitches.flatMap((pitch, index) =>
-    pitch === null ? [] : [{ pitch, start: index * step, duration: length, velocity: 0.9 }],
+    pitch === null ? [] : [createNote(pitch, index * step, length)],
   )
 
 const tweak = (patch: Patch, type: string, params: Record<string, number>): Patch => {
@@ -33,8 +34,8 @@ export const createDemoProject = (): Project => {
     [bass, 1, createClip('Walk', 4, notes([36, 38, 39, 41, 43, 41, 39, 38], 0.5, 0.4))],
     [lead, 0, createClip('Arp', 4, notes([60, 63, 67, 72, 67, 63, 60, 63], 0.5, 0.3))],
     [lead, 2, createClip('Hook', 4, notes([72, null, 70, 67, null, 63, 67, null], 0.5, 0.4))],
-    [pad, 0, createClip('Cm', 8, [60, 63, 67].map((pitch) => ({ pitch, start: 0, duration: 8, velocity: 0.7 })))],
-    [pad, 1, createClip('Ab', 8, [56, 60, 63].map((pitch) => ({ pitch, start: 0, duration: 8, velocity: 0.7 })))],
+    [pad, 0, createClip('Cm', 8, [60, 63, 67].map((pitch) => createNote(pitch, 0, 8, 0.7)))],
+    [pad, 1, createClip('Ab', 8, [56, 60, 63].map((pitch) => createNote(pitch, 0, 8, 0.7)))],
   ] as const
 
   project = [bass, lead, pad].reduce(addTrack, project)

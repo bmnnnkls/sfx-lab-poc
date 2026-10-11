@@ -111,7 +111,9 @@ describe('sanitizing', () => {
     expect(loaded.tracks[0]?.volume).toBe(1)
     expect(node.x).toBe(0)
     expect(node.params).toMatchObject({ cutoff: 20000, resonance: 0.707 })
-    expect(loaded.tracks[0]?.clips[0]?.notes).toEqual([{ pitch: 127, start: 0, duration: 1 / 16, velocity: 1 }])
+    expect(loaded.tracks[0]?.clips[0]?.notes).toEqual([
+      { id: expect.stringMatching(/^note_/), pitch: 127, start: 0, duration: 1 / 16, velocity: 1 },
+    ])
     expect(warnings.join('\n')).toMatch(/dropped 2 invalid note/)
   })
 
@@ -181,5 +183,33 @@ describe('samples in files', () => {
 
   it('loads older files that have no sample library', () => {
     expect(parseOk(envelope(project({}))).project.samples).toEqual([])
+  })
+})
+
+describe('note ids in files', () => {
+  const clipWith = (notes: unknown[]) => ({
+    id: 'c', name: 'C', lengthBeats: 4, notes,
+  })
+  const load = (notes: unknown[]) =>
+    parseOk(envelope(project({ tracks: [{ id: 't', name: 'T', patch: {}, clips: [clipWith(notes)] }] }))).project.tracks[0]!.clips[0]!.notes
+
+  it('keeps saved ids and gives older files (no ids) fresh unique ones, without warnings', () => {
+    const kept = load([{ id: 'mine', pitch: 60, start: 0, duration: 1, velocity: 1 }])
+    expect(kept[0]!.id).toBe('mine')
+
+    const old = load([
+      { pitch: 60, start: 0, duration: 1, velocity: 1 },
+      { pitch: 62, start: 1, duration: 1, velocity: 1 },
+    ])
+    expect(new Set(old.map((n) => n.id)).size).toBe(2)
+    expect(old.every((n) => n.id.startsWith('note_'))).toBe(true)
+  })
+
+  it('re-ids duplicate note ids so selections stay unambiguous', () => {
+    const notes = load([
+      { id: 'same', pitch: 60, start: 0, duration: 1, velocity: 1 },
+      { id: 'same', pitch: 62, start: 1, duration: 1, velocity: 1 },
+    ])
+    expect(new Set(notes.map((n) => n.id)).size).toBe(2)
   })
 })

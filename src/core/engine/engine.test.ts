@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultPatch, createSamplerPatch } from '../patch'
-import { createClip } from '../project'
+import { createClip, createNote } from '../project'
 import { Engine } from './engine'
 
 const SAMPLE_RATE = 48000
 
 const setup = () => {
   const engine = new Engine(SAMPLE_RATE)
-  const clip = createClip('c', 4, [{ pitch: 69, start: 0, duration: 1, velocity: 1 }])
+  const clip = createClip('c', 4, [createNote(69, 0, 1, 1)])
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
   engine.apply({ type: 'track/add', trackId: 't', patch: createDefaultPatch(), clips: [clip], volume: 1, voices: 8 })
   return { engine, clip }
@@ -44,7 +44,7 @@ describe('Engine', () => {
 
   it('starts the note on the exact sample of its beat', () => {
     const { engine } = setup()
-    const second = createClip('later', 4, [{ pitch: 69, start: 1, duration: 1, velocity: 1 }])
+    const second = createClip('later', 4, [createNote(69, 1, 1, 1)])
     engine.apply({ type: 'track/setClips', trackId: 't', clips: [second] })
     engine.apply({ type: 'clip/launch', trackId: 't', clipId: second.id })
 
@@ -93,7 +93,7 @@ describe('Engine samples', () => {
 
   const samplerSetup = () => {
     const engine = new Engine(SAMPLE_RATE)
-    const clip = createClip('hit', 4, [{ pitch: 60, start: 0, duration: 1, velocity: 1 }])
+    const clip = createClip('hit', 4, [createNote(60, 0, 1, 1)])
     engine.apply({ type: 'transport/setTempo', bpm: 120 })
     engine.apply({ type: 'track/add', trackId: 't', patch: createSamplerPatch(SAMPLE.id), clips: [clip], volume: 1, voices: 4 })
     return { engine, clip }
