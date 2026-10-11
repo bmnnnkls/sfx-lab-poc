@@ -1,5 +1,7 @@
 # Handoff: track effects, stereo, sends and returns
 
+> **Status: all six steps are built** (see `ARCHITECTURE.md` for how, `docs/TASKS.md` "Effects follow-ups" for what is left). The text below is the original brief, kept as the record of what was decided; where the built design differs (a separate `Return in` / `Master in` source instead of reusing `Track in`, `Track out` as a stereo sink, `mix-order.ts` for the loop rules, two engine orders), `ARCHITECTURE.md` is right.
+
 For the next session. Read this first, then `ARCHITECTURE.md` (how things are built) and `docs/TASKS.md` (what is
 open). Nothing of the work below has been started; the repository is clean on branch `claude/admiring-ride-46010w`
 (last commit: "Record the agreed send design, build order and the stereo step in docs/TASKS.md").
