@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
 import { describeNode, noteGraphFrom } from '../patch'
-import { type Project, createDemoProject, editPatchAt, groupNodesAsModule } from '../project'
+import { type Project, createDemoProject, createReturnTrack, editPatchAt, groupNodesAsModule } from '../project'
 import { parseProject, serializeProject } from './project-file'
 
 const parseOk = (text: string) => {
@@ -155,6 +155,77 @@ describe('stereo in files', () => {
     const result = parseOk(serializeProject(withFx))
     expect(result.project).toEqual(withFx)
     expect(result.warnings).toEqual([])
+  })
+})
+
+describe('return tracks and sends in files', () => {
+  const node = (id: string, type: string, extra: Record<string, unknown> = {}) => ({ id, type, x: 0, y: 0, params: {}, ...extra })
+  const wire = (id: string, from: string, to: string, fromPort = 'out', toPort = 'in') => ({ id, from: { node: from, port: fromPort }, to: { node: to, port: toPort } })
+  /** A graph that takes the track's sound straight through and also sends it to `target`. */
+  const sending = (target: unknown) => ({
+    nodes: [node('i', 'trackIn'), node('s', 'send', { trackId: target }), node('o', 'trackOut')],
+    connections: [wire('a', 'i', 'o'), wire('b', 'i', 's')],
+  })
+  const returnTrack = (id: string, extra: Record<string, unknown> = {}) => ({ id, name: id, kind: 'return', volume: 0.6, ...extra })
+  const instrument = (id: string, fx: unknown) => ({ id, name: id, patch: {}, clips: [], fx })
+  const load = (tracks: unknown[]) => parseOk(envelope(project({ tracks })))
+  const target = (loaded: ReturnType<typeof load>, track: string, node = 's') => loaded.project.tracks.find((t) => t.id === track)!.fx.nodes.find((n) => n.id === node)?.trackId
+
+  it('round-trips a project with a return track and a Send to it', () => {
+    const base = createDemoProject()
+    const ret = createReturnTrack('Return A')
+    const bass = base.tracks[0]!
+    const withSend = {
+      ...base,
+      tracks: [{ ...bass, fx: noteGraphFrom([{ id: 'i', type: 'trackIn' }, { id: 's', type: 'send', trackId: ret.id, params: { amount: 0.4 } }, { id: 'o', type: 'trackOut' }], ['i.out>o.in', 'i.out>s.in']) }, ...base.tracks.slice(1), ret],
+    }
+    const result = parseOk(serializeProject(withSend))
+    expect(result.project).toEqual(withSend)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('loads a return track without effects with the default return graph', () => {
+    const loaded = load([returnTrack('r')])
+    const track = loaded.project.tracks[0]!
+    expect(track.kind).toBe('return')
+    expect(track.volume).toBe(0.6)
+    expect(track.fx.nodes.map((n) => n.type)).toEqual(['returnIn', 'trackOut'])
+    expect(track).not.toHaveProperty('clips')
+  })
+
+  it('keeps a valid Send and ignores clips a return track should not have', () => {
+    const loaded = load([instrument('t', sending('r')), returnTrack('r', { clips: [{ id: 'c' }] })])
+    expect(target(loaded, 't')).toBe('r')
+    expect(loaded.project.tracks[1]).not.toHaveProperty('clips')
+    expect(loaded.warnings).toEqual([])
+  })
+
+  it('drops a Send to a missing track, to an instrument track, and to its own track, with a warning each', () => {
+    const loaded = load([instrument('t', sending('ghost')), instrument('u', sending('t')), returnTrack('r', { fx: sending('r') })])
+    expect(target(loaded, 't')).toBeUndefined()
+    expect(target(loaded, 'u')).toBeUndefined()
+    expect(target(loaded, 'r')).toBeUndefined()
+    expect(loaded.warnings.filter((w) => /Send/.test(w))).toHaveLength(3)
+  })
+
+  it('drops the Send that would close a loop between two returns, keeping the other', () => {
+    const loaded = load([returnTrack('r1', { fx: sending('r2') }), returnTrack('r2', { fx: sending('r1') })])
+    expect([target(loaded, 'r1'), target(loaded, 'r2')].filter((t) => t !== undefined)).toHaveLength(1)
+    expect(loaded.warnings.join('\n')).toMatch(/feed each other/)
+  })
+
+  it('survives a garbage trackId on a Send', () => {
+    for (const bad of [5, null, {}, [], '']) {
+      expect(() => load([instrument('t', sending(bad)), returnTrack('r')])).not.toThrow()
+      expect(target(load([instrument('t', sending(bad)), returnTrack('r')]), 't')).toBeUndefined()
+    }
+  })
+
+  it('still repairs notes taken from other tracks, which share the repair', () => {
+    const tapping = (source: string) => ({ ...instrument('t', undefined), noteGraph: { nodes: [node('n', 'trackNotes', { trackId: source }), node('o', 'noteOut')], connections: [wire('w', 'n', 'o')] } })
+    const loaded = load([tapping('t')])
+    expect((loaded.project.tracks[0] as InstrumentTrack).noteGraph.nodes.find((n) => n.id === 'n')?.trackId).toBeUndefined()
+    expect(loaded.warnings.join('\n')).toMatch(/notes from track/)
   })
 })
 

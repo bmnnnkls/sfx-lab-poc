@@ -20,6 +20,7 @@ import {
   commit,
   createAudioTrack,
   createClip,
+  createReturnTrack,
   createDemoProject,
   createHistory,
   createTrack,
@@ -59,6 +60,8 @@ interface ProjectActions {
   addTrack(): void
   /** Adds an empty audio track. */
   addAudioTrack(): void
+  /** Adds a return track: a place for other tracks to send sound to, with its own effects. */
+  addReturnTrack(): void
   removeTrack(trackId: string): void
   setTrackVolume(trackId: string, volume: number): void
   addSamples(samples: readonly SampleInfo[]): void
@@ -159,6 +162,11 @@ export const useProjectStore = create<ProjectState>((set) => {
       edit((project) =>
         addTrack(project, createAudioTrack(`Audio ${project.tracks.length + 1}`, project.sceneCount)),
       ),
+    addReturnTrack: () =>
+      edit((project) => {
+        const count = project.tracks.filter((track) => track.kind === 'return').length
+        return addTrack(project, createReturnTrack(`Return ${String.fromCharCode(65 + (count % 26))}`))
+      }),
     removeTrack: (trackId) => edit((project) => removeTrack(project, trackId)),
     setTrackVolume: (trackId, volume) =>
       edit((project) => setTrackVolume(project, trackId, volume), `volume:${trackId}`),

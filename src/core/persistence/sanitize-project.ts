@@ -9,13 +9,13 @@ import {
   type Project,
   type Track,
 } from '../project'
-import { type ModuleDefinition, createDefaultFxGraph, createDefaultNoteGraph } from '../patch'
+import { type ModuleDefinition, createDefaultFxGraph, createDefaultNoteGraph, createDefaultReturnGraph } from '../patch'
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
 import { sanitizeAudioClip } from './sanitize-audio-clip'
 import { sanitizeClip } from './sanitize-clip'
-import { repairNoteTaps } from './sanitize-note-taps'
+import { repairTrackReferences } from './sanitize-track-references'
 import { sanitizeModules } from './sanitize-modules'
 import { sanitizePatch } from './sanitize-patch'
 import { sanitizeSamples } from './sanitize-samples'
@@ -43,7 +43,14 @@ const sanitizeTrack = (
   const usedClipIds = new Set<string>()
   const volume = clamp(finiteNumber(raw.volume, 0.8), 0, 1)
   // Files from before insert graphs existed have none: the sound passes through untouched.
-  const fx = isRecord(raw.fx) ? sanitizePatch(raw.fx, `${where} effects`, sampleIds, modules, warn) : createDefaultFxGraph()
+  const isReturn = raw.kind === 'return'
+  const fx = isRecord(raw.fx)
+    ? sanitizePatch(raw.fx, `${where} effects`, sampleIds, modules, warn)
+    : isReturn
+      ? createDefaultReturnGraph()
+      : createDefaultFxGraph()
+
+  if (isReturn) return { kind: 'return', id, name, volume, fx }
 
   // Files from before audio tracks existed have no `kind`: they are instrument tracks.
   if (raw.kind === 'audio') {
@@ -105,6 +112,6 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     sceneCount,
     samples,
     modules,
-    tracks: repairNoteTaps(tracks, modules, warn),
+    tracks: repairTrackReferences(tracks, modules, warn),
   }
 }

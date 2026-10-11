@@ -146,7 +146,7 @@ export const NodeView = ({
       </div>
 
       {shape.usesSample && <SamplePicker sampleId={node.sampleId} onChange={onSampleChange} />}
-      {shape.usesTrack && <TrackPicker ownerTrackId={ownerTrackId} trackId={node.trackId} onChange={onTrackChange} />}
+      {shape.usesTrack && <TrackPicker pick={shape.usesTrack} ownerTrackId={ownerTrackId} trackId={node.trackId} onChange={onTrackChange} />}
 
       {shape.params.map((spec) => (
         <ParamControl

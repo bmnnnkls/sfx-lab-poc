@@ -85,6 +85,7 @@ export const compileStage = (
       const dsp = definition.create(sampleRate)
       for (const [paramId, value] of Object.entries(node.params)) dsp.setParam(paramId, value)
       if (node.sampleId !== undefined) dsp.setSample?.(node.sampleId)
+      if (node.trackId !== undefined) dsp.setTrack?.(node.trackId)
       return dsp
     })
 

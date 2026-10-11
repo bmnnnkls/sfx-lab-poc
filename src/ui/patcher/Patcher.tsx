@@ -19,5 +19,13 @@ export const Patcher = () => {
       </p>
     )
   }
+  if (track.kind === 'return') {
+    return (
+      <p className={styles.empty}>
+        “{track.name}” is a return track: it has no instrument. Other tracks send sound to it, and its effects are in the
+        Effects tab.
+      </p>
+    )
+  }
   return <GraphEditor key={track.id} track={track} graph="patch" />
 }

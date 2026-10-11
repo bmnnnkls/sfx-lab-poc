@@ -15,6 +15,9 @@ export const NoteEffectsPanel = () => {
   const track =
     tracks.find((candidate) => candidate.id === selectedId) ?? tracks.find((candidate) => candidate.kind === 'instrument')
   if (!track) return <p className={styles.empty}>Add an instrument track to give it a note graph.</p>
+  if (track.kind === 'return') {
+    return <p className={styles.empty}>“{track.name}” is a return track, so it has no notes to process.</p>
+  }
   if (track.kind === 'audio') {
     return (
       <p className={styles.empty}>

@@ -1,16 +1,20 @@
 import { useEngineControls, useProjectStore } from '@state'
+import { useMemo } from 'react'
 import { PopupMenu } from '../shared/menu'
 import { ClipSlot } from './ClipSlot'
 import styles from './SessionView.module.css'
 import { TrackHeader } from './TrackHeader'
+import { sessionOrder } from './track-order'
 
 /** The clip-launcher grid: tracks as columns, scenes as rows. */
 export const SessionView = () => {
   const controls = useEngineControls()
-  const tracks = useProjectStore((state) => state.project.tracks)
+  const projectTracks = useProjectStore((state) => state.project.tracks)
+  const tracks = useMemo(() => sessionOrder(projectTracks), [projectTracks])
   const sceneCount = useProjectStore((state) => state.project.sceneCount)
   const addTrack = useProjectStore((state) => state.addTrack)
   const addAudioTrack = useProjectStore((state) => state.addAudioTrack)
+  const addReturnTrack = useProjectStore((state) => state.addReturnTrack)
 
   const columns = `repeat(${tracks.length}, minmax(150px, 1fr)) 56px`
 
@@ -23,6 +27,7 @@ export const SessionView = () => {
         entries={[
           { label: 'Instrument track', onSelect: addTrack },
           { label: 'Audio track', onSelect: addAudioTrack },
+          { label: 'Return track', onSelect: addReturnTrack },
         ]}
       >
         <button className={styles.addTrack} aria-label="Add track">
@@ -38,7 +43,8 @@ export const SessionView = () => {
 }
 
 const SceneRow = ({ scene, onLaunch }: { scene: number; onLaunch: () => void }) => {
-  const tracks = useProjectStore((state) => state.project.tracks)
+  const projectTracks = useProjectStore((state) => state.project.tracks)
+  const tracks = useMemo(() => sessionOrder(projectTracks), [projectTracks])
   return (
     <>
       {tracks.map((track) => (

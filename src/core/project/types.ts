@@ -82,7 +82,16 @@ export interface AudioTrack extends TrackBase {
   readonly clips: readonly (AudioClip | null)[]
 }
 
-export type Track = InstrumentTrack | AudioTrack
+/**
+ * A return (send/aux) track: no clips. Its insert graph starts at `Return in`, the sum of what other tracks send to it
+ * (with Send nodes), so one reverb or delay can serve several tracks. It is mixed like any track, after the tracks that
+ * send to it.
+ */
+export interface ReturnTrack extends TrackBase {
+  readonly kind: 'return'
+}
+
+export type Track = InstrumentTrack | AudioTrack | ReturnTrack
 
 /** The saveable document. Everything the user authors lives here. */
 export interface Project {

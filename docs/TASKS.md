@@ -55,7 +55,7 @@ update or replace a module's definition from a file; show where a module is used
 
 ## Effects on tracks, sends and returns (sound in, sound out)
 
-Status: **designed, not started.**
+Status: **steps 1-3 built** (insert graph, stereo, return tracks and the Send node: see `ARCHITECTURE.md`); steps 4-6 open.
 
 * **What exists:** effect nodes (filter, delay, reverb, LFO, gain) and modules with audio ports already work *inside an
   instrument's patch*. What is missing is somewhere to put an effect on a track's *output*, and audio tracks (samples)
@@ -86,7 +86,7 @@ Full handoff for whoever builds this: [`HANDOFF-track-effects-and-stereo.md`](HA
 
 1. ~~Insert graph per track (`Track in -> effects -> Track out`, instrument and audio tracks).~~ Done (see `ARCHITECTURE.md`).
 2. ~~**Stereo** (moved up: returns are where reverbs live, so build them stereo once).~~ Done (see `ARCHITECTURE.md`); chorus and other stereo modulation effects are still open.
-3. Return tracks and the Send node (engine primitive, ordering, loop rules, persistence).
+3. ~~Return tracks and the Send node (engine primitive, ordering, loop rules, persistence).~~ Done (see `ARCHITECTURE.md`).
 4. The send knob row on track headers.
 5. Master effects graph.
 6. *Track audio* node.

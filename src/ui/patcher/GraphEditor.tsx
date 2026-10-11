@@ -1,4 +1,6 @@
 import {
+  RETURN_IN_TYPE,
+  TRACK_IN_TYPE,
   type ModuleLibrary,
   type Patch,
   type PatchTarget,
@@ -49,13 +51,14 @@ const graphOf = (track: Track, graph: TrackGraph): Patch =>
 const VOICE_OPTIONS = [1, 2, 3, 4, 6, 8, 12, 16]
 
 /** What each kind of graph may offer in its palette: the insert graph has its own ends and no note-driven sources. */
-const paletteFor = (graph: TrackGraph) => {
+const paletteFor = (graph: TrackGraph, kind: Track['kind']) => {
   if (graph === 'notes') return noteNodeDefinitions
-  return nodeDefinitions.filter((definition) =>
-    graph === 'fx'
-      ? definition.type !== 'note' && definition.type !== 'output' && definition.usesSample !== true
-      : definition.insertOnly !== true,
-  )
+  return nodeDefinitions.filter((definition) => {
+    if (graph !== 'fx') return definition.insertOnly !== true
+    // A return track starts at Return in, every other track at Track in.
+    if (definition.type === (kind === 'return' ? TRACK_IN_TYPE : RETURN_IN_TYPE)) return false
+    return definition.type !== 'note' && definition.type !== 'output' && definition.usesSample !== true
+  })
 }
 
 interface GraphEditorProps {
@@ -114,7 +117,7 @@ export const GraphEditor = ({ track, graph, aside }: GraphEditorProps) => {
       path: known.slice(0, index + 1) as string[],
     })),
   )
-  const palette = paletteFor(graph)
+  const palette = paletteFor(graph, track.kind)
 
   return (
     <div className={styles.patcher} data-editing={definition ? 'module' : 'track'} data-domain={domain} data-graph={graph}>

@@ -5,7 +5,7 @@ import type { AudioTrack, InstrumentTrack, Project, Track } from '../project'
 /** Identity of a patch's wiring, ignoring params and canvas positions. */
 const structureOf = (patch: Patch): string =>
   JSON.stringify([
-    patch.nodes.map((node) => [node.id, node.type, node.stereo ?? false]),
+    patch.nodes.map((node) => [node.id, node.type, node.stereo ?? false, node.trackId ?? null]),
     patch.connections.map(({ from, to }) => [from.node, from.port, to.node, to.port]),
   ])
 
@@ -104,27 +104,27 @@ const diffTrack = (prev: Track, next: Track, before: ModuleLibrary, after: Modul
   return commands
 }
 
-const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
-  track.kind === 'audio'
-    ? {
-        type: 'track/add',
-        kind: 'audio',
-        trackId: track.id,
-        fx: flattenPatch(track.fx, modules),
-        clips: track.clips,
-        volume: track.volume,
-      }
-    : {
+const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand => {
+  const fx = flattenPatch(track.fx, modules)
+  switch (track.kind) {
+    case 'return':
+      return { type: 'track/add', kind: 'return', trackId: track.id, fx, volume: track.volume }
+    case 'audio':
+      return { type: 'track/add', kind: 'audio', trackId: track.id, fx, clips: track.clips, volume: track.volume }
+    case 'instrument':
+      return {
         type: 'track/add',
         kind: 'instrument',
         trackId: track.id,
         patch: flattenPatch(track.patch, modules),
         noteGraph: flattenPatch(track.noteGraph, modules),
-        fx: flattenPatch(track.fx, modules),
+        fx,
         clips: track.clips,
         volume: track.volume,
         voices: track.voices,
       }
+  }
+}
 
 /** Commands that bring an engine holding `prev` (null = empty) in line with `next`. */
 export const diffProject = (prev: Project | null, next: Project): EngineCommand[] => {

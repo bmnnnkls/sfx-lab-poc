@@ -44,14 +44,25 @@ export interface NoteState {
   trigger: number
 }
 
+/** Where a Send node puts its signal: the engine adds it, scaled, to the input of the return track `trackId`. */
+export interface SendSink {
+  /** `source` is a mono or a stereo buffer; a mono one is added to both channels. */
+  add(trackId: string, source: Float32Array, amount: number, frames: number): void
+}
+
 export interface ProcessContext {
   /** Number of samples to render in this call (<= buffer length). */
   readonly frames: number
   readonly sampleRate: number
   readonly note: Readonly<NoteState>
   readonly samples: SampleLookup
-  /** The signal a track's insert graph is processing; only `trackIn` reads it. Absent elsewhere (silence). */
+  /**
+   * The signal a track's insert graph is processing: mono for an instrument or audio track (read by `trackIn`),
+   * stereo for a return track (read by `returnIn`). Absent elsewhere (silence).
+   */
   readonly input?: Float32Array
+  /** Where Send nodes put their signal. Absent where there is nowhere to send to (an instrument's own patch). */
+  readonly sends?: SendSink
 }
 
 /**
@@ -65,6 +76,8 @@ export interface DspNode {
   setParam(id: string, value: number): void
   /** Only for nodes with `usesSample`: choose which library sample to play. */
   setSample?(sampleId: string | null): void
+  /** Only for nodes with `usesTrack`: choose which track the node refers to. */
+  setTrack?(trackId: string | null): void
   process(
     context: ProcessContext,
     inputs: ReadonlyArray<Float32Array | null>,
@@ -94,6 +107,8 @@ export interface NodeDefinition {
    * the same parameters, and its signal ports become stereo (see `stereoPorts`).
    */
   readonly stereoCapable?: boolean
+  /** The node refers to a track: a Send picks one of the return tracks. */
+  readonly usesTrack?: 'return'
   /** The node plays library samples; the patcher shows a sample picker and stores `sampleId`. */
   readonly usesSample?: boolean
   create(sampleRate: number): DspNode

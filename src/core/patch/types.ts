@@ -13,7 +13,7 @@ export interface PatchNode {
   readonly params: Readonly<Record<string, number>>
   /** For sample-playing nodes: id of the project sample to play. */
   readonly sampleId?: string
-  /** For `trackNotes` nodes: which track the notes are taken from. */
+  /** For `trackNotes` nodes: which track the notes are taken from. For `send` nodes: which return track they send to. */
   readonly trackId?: string
   /**
    * For nodes that can run in stereo (filter, gain, delay): two copies of the node, one per channel, with the same

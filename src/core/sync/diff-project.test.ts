@@ -1,12 +1,14 @@
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
-import { createDefaultFxGraph, exposeKnob, moveNode, noteGraphFrom, renameModule, setModulePatch, setNodeParam, setNodeSample, setNodeStereo } from '../patch'
+import { createDefaultFxGraph, exposeKnob, moveNode, noteGraphFrom, renameModule, setModulePatch, setNodeParam, setNodeSample, setNodeStereo, setNodeTrack } from '../patch'
 import {
   addModuleUse,
   editPatchAt,
   groupNodesAsModule,
   updateModule,
   createDemoProject,
+  createReturnTrack,
+  removeTrack,
   setClipAt,
   setTempo,
   setTrackPatch,
@@ -113,6 +115,42 @@ describe('diffProject', () => {
 
     it('a default graph for a fresh track is what the model starts with', () => {
       expect(createAudioTrack('x', 1).fx.nodes.map((n) => n.type)).toEqual(createDefaultFxGraph().nodes.map((n) => n.type))
+    })
+  })
+
+  describe('return tracks and sends', () => {
+    const ret = createReturnTrack('Return A')
+    const withReturn = addTrack(project, ret)
+    const send = noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 's', type: 'send', trackId: ret.id }, { id: 'out', type: 'trackOut' }], ['in.out>out.in', 'in.out>s.in'])
+
+    it('adds a return track as a return track: effects and volume, no clips or patch', () => {
+      const add = diffProject(project, withReturn).find((c) => c.type === 'track/add')!
+      expect(add).toMatchObject({ type: 'track/add', kind: 'return', trackId: ret.id, volume: ret.volume })
+      expect(add).not.toHaveProperty('clips')
+      expect(add).not.toHaveProperty('patch')
+    })
+
+    it('maps the effects and the volume of a return to setFx / setParam / setVolume', () => {
+      const withReverb = editPatchAt(withReturn, { trackId: ret.id, graph: 'fx' }, (fx) => ({ ...fx, nodes: [...fx.nodes, ...noteGraphFrom([{ id: 'r', type: 'reverb' }], []).nodes] }))
+      expect(diffProject(withReturn, withReverb).map((c) => c.type)).toEqual(['track/setFx'])
+      expect(diffProject(withReturn, setVolume(withReturn, ret.id, 0.3)).map((c) => c.type)).toEqual(['track/setVolume'])
+    })
+
+    it('a Send gets its return from the node, and a new target rebuilds the graph while a new amount does not', () => {
+      const sending = editPatchAt(withReturn, { trackId: track.id, graph: 'fx' }, () => send)
+      expect(diffProject(withReturn, sending).map((c) => c.type)).toEqual(['track/setFx'])
+      const quieter = editPatchAt(sending, { trackId: track.id, graph: 'fx' }, (fx) => setNodeParam(fx, 's', 'amount', 0.4))
+      expect(diffProject(sending, quieter)).toEqual([{ type: 'track/setParam', trackId: track.id, nodeId: 's', paramId: 'amount', value: 0.4 }])
+      const other = createReturnTrack('Return B')
+      const both = addTrack(sending, other)
+      const retargeted = editPatchAt(both, { trackId: track.id, graph: 'fx' }, (fx) => setNodeTrack(fx, 's', other.id))
+      expect(diffProject(both, retargeted).map((c) => c.type)).toEqual(['track/setFx'])
+    })
+
+    it('removing a return removes it from the engine and clears the Sends to it in one go', () => {
+      const sending = editPatchAt(withReturn, { trackId: track.id, graph: 'fx' }, () => send)
+      const removed = removeTrack(sending, ret.id)
+      expect(diffProject(sending, removed).map((c) => c.type)).toEqual(['track/remove', 'track/setFx'])
     })
   })
 

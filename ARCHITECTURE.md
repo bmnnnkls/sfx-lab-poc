@@ -273,6 +273,37 @@ sit on any track. It reuses the typed-port machinery the note graph introduced.
 * **Decision for later.** A return track starts from a stereo source (its sends are stereo), so it will have its own
   `Return in` node rather than reuse the mono `Track in`; then mono effects on a return need the L R switch, as expected.
 
+## Return tracks and sends
+
+A **return track** (`ReturnTrack`, `kind: 'return'`) has no clips: it is a volume and an insert graph that starts at
+**Return in**, the sum of what other tracks have sent to it, and ends at Track out. One reverb or delay can serve many
+tracks; a return track *is* the bus, so there are no bus names.
+
+* **One primitive.** "Add this much of this signal to return track X" is `SendSink.add` (`dsp/types.ts`), implemented by the
+  engine's `AudioBoard` (`engine/audio-board.ts`): one stereo buffer per return track, cleared before every stretch the
+  engine mixes (`mixSegment`, so it follows the segments a block is split into), added to by senders, read by the return as its
+  input. The **Send** node uses it from anywhere in an insert graph (its `trackId` is the return, `amount` the level, its
+  input is stereo so a mono signal is accepted; where it sits is where the signal is taken, before or after other effects).
+  The per-track send knobs of the next step use the same call, post-fader.
+* **Return in is stereo**, so mono effects on a return need the **L R** switch (or use *Stereo reverb*, *Ping-pong delay*,
+  *Width*); `Track in` stays mono for instrument and audio tracks. The editor offers `Track in` on every track but returns
+  and `Return in` only on returns.
+* **Order** (`Engine.runOrder`). A track runs after the tracks it takes notes from, and a return after every track that sends
+  to it (`PlayableTrack.sendTargets()`, read from the flattened insert graph). Mixing now follows that order too. A loop
+  between returns degrades to the plain order (the later one reads a buffer that is not complete); the editor and files
+  prevent it. Sending to a missing return does nothing.
+* **Rules** are the same as for notes taken from other tracks. `sendableReturns` offers each Send the other returns that do
+  not send back to its track (any track may send to any return; a return may send to a later one); `repairTrackReferences`
+  (`persistence/sanitize-track-references.ts`, shared with notes) drops a Send to a missing track, to its own track, to a track
+  that is not a return, or that would close a loop; `removeTrack` clears the `trackId` of Sends everywhere (also inside
+  modules), and undo restores track and sends together.
+* **Commands.** `track/add` has a `return` variant (`fx`, `volume`); a return's effects and volume use the same
+  `track/setFx` / `setParam` / `setVolume` as other tracks. Re-pointing a Send changes the graph's structure (its `trackId`
+  counts, so it is `track/setFx`); turning its Amount is a `setParam`.
+* **UI.** The `+` menu adds a **Return track**; returns are drawn after the clip tracks with a dashed header, hatched empty
+  slots and no stop button. The Instrument and Notes tabs say a return has neither; the Effects tab edits its graph. The
+  Send node shows a picker of return tracks (`NodeShape.usesTrack` says which kind of track a node picks: `notes` or `return`).
+
 ## Editing clips (piano roll)
 
 * **Gestures are pure functions of the pointer.** `ui/clip-editor/note-gestures.ts` describes draw / move /
@@ -496,7 +527,7 @@ from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off
 
 **Add another kind of track** — extend the `Track` union, add its runtime implementing `PlayableTrack`, a `track/add`
 variant and diff in `core/sync`, a sanitizer in `persistence`, and a slot variant in the session grid; `Engine` and the
-launcher queue need no changes.
+launcher queue need no changes (the return track was added this way; TypeScript finds every `switch` on `kind`).
 
 **Add a UI feature** — new folder under `ui/`, read state via `@state` hooks, mount it from `Workspace` or
 `EditorPanel`.

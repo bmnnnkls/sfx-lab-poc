@@ -1,10 +1,11 @@
 import { RIGHT } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
-import type { Patch } from '../patch'
+import { type Patch, sendTargets } from '../patch'
 import type { AudioClip } from '../project'
 import type { SampleLookup } from '../sample'
 import { AudioClipLauncher, type AudioEvent, type LauncherStatus } from '../session'
 import { fadeGain, readRegion, regionOf, repitchPosition } from './audio-clip-playback'
+import type { AudioBoard } from './audio-board'
 import type { MixTiming, PlayableTrack, ScheduledAction } from './playable-track'
 
 /** A clip that stops (or is replaced) keeps sounding for this long, fading to silence, instead of cutting dead. */
@@ -36,6 +37,7 @@ export class AudioTrackRuntime implements PlayableTrack {
   private tail: Tail | null = null
   private readonly tailFrames: number
   private fx: FxGraph
+  private targets: string[]
   /** The clip audio of the current stretch, before the insert graph. */
   private readonly scratch = new Float32Array(MAX_BLOCK_FRAMES)
 
@@ -50,10 +52,16 @@ export class AudioTrackRuntime implements PlayableTrack {
     this.volume = volume
     this.tailFrames = Math.max(1, Math.round(TAIL_SECONDS * sampleRate))
     this.fx = new FxGraph(fx, sampleRate, samples)
+    this.targets = sendTargets(fx)
   }
 
   setFx(fx: Patch): void {
     this.fx = new FxGraph(fx, this.sampleRate, this.samples)
+    this.targets = sendTargets(fx)
+  }
+
+  sendTargets(): string[] {
+    return this.targets
   }
 
   setParam(nodeId: string, paramId: string, value: number): void {
@@ -125,7 +133,7 @@ export class AudioTrackRuntime implements PlayableTrack {
   }
 
   /** The clip audio goes through the insert graph (which keeps ringing after the clip ends), then the fader. */
-  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, timing: MixTiming): void {
+  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, timing: MixTiming, board: AudioBoard): void {
     this.scratch.fill(0, 0, frames)
     if (this.tail) {
       const alive = this.mixVoice(this.tail.voice, frames, timing, this.tail)
@@ -134,7 +142,7 @@ export class AudioTrackRuntime implements PlayableTrack {
     }
     if (this.playing && !this.mixVoice(this.playing, frames, timing)) this.playing = null
 
-    const signal = this.fx.process(this.scratch, frames)
+    const signal = this.fx.process(this.scratch, frames, board)
     for (let i = 0; i < frames; i++) {
       left[offset + i] = (left[offset + i] ?? 0) + (signal[i] ?? 0) * this.volume
       right[offset + i] = (right[offset + i] ?? 0) + (signal[RIGHT + i] ?? 0) * this.volume

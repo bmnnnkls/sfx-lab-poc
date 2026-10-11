@@ -1,11 +1,12 @@
 import { RIGHT } from '../dsp'
 import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
-import type { Patch } from '../patch'
+import { type Patch, sendTargets } from '../patch'
 import type { Clip } from '../project'
 import type { SampleLookup } from '../sample'
 import { ClipLauncher, type LauncherStatus, type NoteEvent } from '../session'
-import type { PlayableTrack, ScheduledAction } from './playable-track'
+import type { AudioBoard } from './audio-board'
+import type { MixTiming, PlayableTrack, ScheduledAction } from './playable-track'
 
 /** How long an audition note sounds before it is released. */
 const AUDITION_SECONDS = 0.3
@@ -18,6 +19,7 @@ export class TrackRuntime implements PlayableTrack {
   clips: readonly (Clip | null)[]
   private instrument: Instrument
   private fx: FxGraph
+  private targets: string[]
   private audition: { pitch: number; framesLeft: number } | null = null
 
   constructor(
@@ -33,6 +35,7 @@ export class TrackRuntime implements PlayableTrack {
   ) {
     this.instrument = new Instrument(patch, sampleRate, voices, samples)
     this.fx = new FxGraph(fx, sampleRate, samples)
+    this.targets = sendTargets(fx)
     this.clips = clips
     this.volume = volume
     this.graph.sync(noteGraph)
@@ -45,6 +48,11 @@ export class TrackRuntime implements PlayableTrack {
 
   setFx(fx: Patch): void {
     this.fx = new FxGraph(fx, this.sampleRate, this.samples)
+    this.targets = sendTargets(fx)
+  }
+
+  sendTargets(): string[] {
+    return this.targets
   }
 
   tapSources(): string[] {
@@ -139,8 +147,8 @@ export class TrackRuntime implements PlayableTrack {
   }
 
   /** Adds `frames` samples of this track, through its insert graph and scaled by its volume, into the stereo buses. */
-  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number): void {
-    const signal = this.fx.process(this.instrument.render(frames), frames)
+  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, _timing: MixTiming, board: AudioBoard): void {
+    const signal = this.fx.process(this.instrument.render(frames), frames, board)
     for (let i = 0; i < frames; i++) {
       left[offset + i] = (left[offset + i] ?? 0) + (signal[i] ?? 0) * this.volume
       right[offset + i] = (right[offset + i] ?? 0) + (signal[RIGHT + i] ?? 0) * this.volume

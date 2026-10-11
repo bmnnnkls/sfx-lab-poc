@@ -23,7 +23,7 @@ export const nodeHeight = (definition: NodeShape, isModule = false): number =>
   portRowCount(definition) * PORT_ROW_HEIGHT +
   definition.params.length * PARAM_ROW_HEIGHT +
   (definition.usesSample ? SAMPLE_PICKER_HEIGHT : 0) +
-  (definition.usesTrack ? TRACK_PICKER_HEIGHT : 0) +
+  (definition.usesTrack !== undefined ? TRACK_PICKER_HEIGHT : 0) +
   (isModule ? MODULE_FOOTER_HEIGHT : 0)
 
 /** Canvas position of a port's connection dot. Layout is fixed, so no DOM measuring is needed. */

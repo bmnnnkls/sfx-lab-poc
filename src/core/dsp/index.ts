@@ -2,6 +2,8 @@ export { nodeDefinitions, findNodeDefinition, requireNodeDefinition } from './re
 export { OUTPUT_NODE_TYPE } from './nodes/output.node'
 export { TRACK_IN_TYPE } from './nodes/track-in.node'
 export { TRACK_OUT_TYPE } from './nodes/track-out.node'
+export { RETURN_IN_TYPE } from './nodes/return-in.node'
+export { SEND_TYPE } from './nodes/send.node'
 export type {
   DspNode,
   NodeDefinition,
@@ -10,6 +12,7 @@ export type {
   PortKind,
   PortSpec,
   ProcessContext,
+  SendSink,
 } from './types'
 export { Params } from './params'
 export { MAX_BLOCK_FRAMES } from './block'

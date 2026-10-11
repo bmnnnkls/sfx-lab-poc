@@ -13,7 +13,7 @@ describe('note nodes in a patch', () => {
     expect(split.inputs.map((p) => [p.id, p.kind])).toEqual([['in', 'notes']])
     expect(split.outputs.map((p) => p.id)).toEqual(['inside', 'outside'])
     expect(split.domain).toBe('notes')
-    expect(describeNode(createNode('trackNotes', 0, 0))!.usesTrack).toBe(true)
+    expect(describeNode(createNode('trackNotes', 0, 0))!.usesTrack).toBe('notes')
     expect(describeNode(createNode('arpeggiator', 0, 0))!.bypassable).toBe(true)
     expect(describeNode(createNode('rangeSplit', 0, 0))!.bypassable).toBe(false) // two outputs: nothing sensible to pass through
     expect(describeNode(createNode('oscillator', 0, 0))!.domain).toBeUndefined()

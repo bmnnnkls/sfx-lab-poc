@@ -1,4 +1,4 @@
-import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode } from '@core'
+import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode } from '@core'
 import { useEngineControls, useProjectStore, useSelectionStore } from '@state'
 import styles from './SessionView.module.css'
 
@@ -11,17 +11,19 @@ export const TrackHeader = ({ track }: { track: Track }) => {
   const setTab = useSelectionStore((state) => state.setTab)
   const modules = useProjectStore((state) => state.project.modules)
   // Everything in a graph except where the notes or the sound come in and go out counts as an effect.
-  const soundEffects = track.fx.nodes.filter((node) => node.type !== TRACK_IN_TYPE && node.type !== TRACK_OUT_TYPE)
+  const ENDS = new Set([TRACK_IN_TYPE, TRACK_OUT_TYPE, RETURN_IN_TYPE])
+  const soundEffects = track.fx.nodes.filter((node) => !ENDS.has(node.type))
   const effects =
     track.kind === 'instrument'
       ? track.noteGraph.nodes.filter((node) => node.type !== CLIP_NOTES_TYPE && node.type !== NOTE_OUT_TYPE)
       : []
 
   return (
-    <div className={`${styles.header} ${selected ? styles.selected : ''}`}>
+    <div className={`${styles.header} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnHeader : ''}`}>
       <button className={styles.trackName} onClick={() => selectTrack(track.id)}>
         {track.name}
         {track.kind === 'audio' && <span className={styles.audioTag}> audio</span>}
+        {track.kind === 'return' && <span className={styles.audioTag}> return</span>}
       </button>
       {soundEffects.length > 0 && (
         <button
@@ -58,9 +60,11 @@ export const TrackHeader = ({ track }: { track: Track }) => {
         aria-label={`${track.name} volume`}
         onChange={(event) => setVolume(track.id, Number(event.target.value))}
       />
-      <button onClick={() => controls.stopTrack(track.id)} aria-label={`Stop ${track.name}`}>
-        ■
-      </button>
+      {track.kind !== 'return' && (
+        <button onClick={() => controls.stopTrack(track.id)} aria-label={`Stop ${track.name}`}>
+          ■
+        </button>
+      )}
       <button onClick={() => removeTrack(track.id)} aria-label={`Remove ${track.name}`}>
         ×
       </button>

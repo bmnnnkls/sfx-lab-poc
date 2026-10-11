@@ -5,10 +5,11 @@ export type {
   InstrumentTrack,
   Note,
   Project,
+  ReturnTrack,
   Track,
   WarpMode,
 } from './types'
-export { isAudioTrack, isInstrumentTrack } from './track-kind'
+export { isAudioTrack, isInstrumentTrack, isReturnTrack } from './track-kind'
 export {
   DEFAULT_FADE_SECONDS,
   MAX_FADE_SECONDS,
@@ -43,6 +44,7 @@ export {
   addTrack,
   createAudioTrack,
   createClip,
+  createReturnTrack,
   createTrack,
   removeSample,
   removeTrack,
@@ -72,6 +74,7 @@ export {
   updateModule,
 } from './module-edit'
 export { readsNotesFrom, tapSourcesOf, tappableTracks } from './note-taps'
+export { sendTargetsOf, sendableReturns, sendsReach } from './sends'
 export { createDemoProject } from './demo-project'
 export {
   DEFAULT_VELOCITY,

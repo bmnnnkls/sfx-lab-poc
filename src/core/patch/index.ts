@@ -11,6 +11,8 @@ export {
 export { type NodeDomain, type NodeShape, describeNode, findModule, kindsConnect, moduleDomain } from './node-shape'
 export { createDefaultNoteGraph } from './default-note-graph'
 export { createDefaultFxGraph } from './default-fx-graph'
+export { createDefaultReturnGraph } from './default-return-graph'
+export { sendTargets } from './send-targets'
 export { type NoteGraphNodeSpec, noteGraphFrom } from './note-graph-builder'
 export { containsModule, expandModuleUse, flattenPatch, modulesUsedBy, unlinkModuleUse } from './flatten'
 export {

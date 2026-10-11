@@ -4,6 +4,7 @@ import {
   createDefaultFxGraph,
   createDefaultNoteGraph,
   createDefaultPatch,
+  createDefaultReturnGraph,
   createSamplerPatch,
 } from '../patch'
 import type { ModuleDefinition, Patch } from '../patch'
@@ -12,7 +13,7 @@ import { clamp, createId } from '../shared'
 import { createNote, notesEqual, shiftedCopies, trimNotesToLength } from './note-edit'
 import { clampAudioClip, createAudioClip } from './audio-clip'
 import { MAX_CLIP_BEATS, MIN_CLIP_BEATS } from './limits'
-import type { AudioClip, AudioTrack, Clip, InstrumentTrack, Note, Project, Track } from './types'
+import type { AudioClip, AudioTrack, Clip, InstrumentTrack, Note, Project, ReturnTrack, Track } from './types'
 
 export { MAX_CLIP_BEATS, MIN_CLIP_BEATS }
 
@@ -84,12 +85,24 @@ export const createAudioTrack = (name: string, sceneCount: number): AudioTrack =
   clips: Array.from({ length: sceneCount }, () => null),
 })
 
+/** A return track: where other tracks send sound to share one effect. Starts with its input wired straight to its output. */
+export const createReturnTrack = (name: string): ReturnTrack => ({
+  kind: 'return',
+  id: createId('track'),
+  name,
+  volume: 0.8,
+  fx: createDefaultReturnGraph(),
+})
+
 export const addTrack = (project: Project, track: Track): Project => ({
   ...project,
   tracks: [...project.tracks, track],
 })
 
-/** Removes a track, and the "notes from this track" inputs of other tracks' note graphs that pointed at it. */
+/**
+ * Removes a track, and what other tracks pointed at it: "notes from this track" inputs of note graphs and the return a
+ * Send node sends to (also inside modules). Undo restores all of it.
+ */
 export const removeTrack = (project: Project, trackId: string): Project => ({
   ...project,
   modules: mapModules(project.modules, (module) => {
@@ -98,10 +111,12 @@ export const removeTrack = (project: Project, trackId: string): Project => ({
   }),
   tracks: project.tracks
     .filter((track) => track.id !== trackId)
-    .map((track) => {
-      if (track.kind !== 'instrument') return track
-      const noteGraph = clearTrackReferences(track.noteGraph, trackId)
-      return noteGraph === track.noteGraph ? track : { ...track, noteGraph }
+    .map((track): Track => {
+      const fx = clearTrackReferences(track.fx, trackId)
+      const base = fx === track.fx ? track : { ...track, fx }
+      if (base.kind !== 'instrument') return base
+      const noteGraph = clearTrackReferences(base.noteGraph, trackId)
+      return noteGraph === base.noteGraph ? base : { ...base, noteGraph }
     }),
 })
 
@@ -214,6 +229,7 @@ export const removeSample = (project: Project, sampleId: string): Project => ({
   tracks: project.tracks.map((track): Track => {
     const fx = clearSampleReferences(track.fx, sampleId)
     const base = fx === track.fx ? track : { ...track, fx }
+    if (base.kind === 'return') return base
     if (base.kind === 'audio') {
       const clips = base.clips.map((clip) => (clip?.sampleId === sampleId ? null : clip))
       return clips.some((clip, index) => clip !== base.clips[index]) ? { ...base, clips } : base

@@ -30,6 +30,17 @@
   border-color: var(--accent);
 }
 
+.returnHeader {
+  border-style: dashed;
+}
+
+.returnSlot {
+  min-height: 34px;
+  border-radius: var(--radius);
+  background: repeating-linear-gradient(135deg, transparent 0 6px, var(--border) 6px 7px);
+  opacity: 0.35;
+}
+
 .addTrack,
 .scene {
   align-self: stretch;

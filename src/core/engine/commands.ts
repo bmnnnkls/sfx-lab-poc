@@ -26,6 +26,13 @@ export type EngineCommand =
       readonly clips: readonly (AudioClip | null)[]
       readonly volume: number
     }
+  | {
+      readonly type: 'track/add'
+      readonly kind: 'return'
+      readonly trackId: string
+      readonly fx: Patch
+      readonly volume: number
+    }
   | { readonly type: 'track/remove'; readonly trackId: string }
   | { readonly type: 'track/setPatch'; readonly trackId: string; readonly patch: Patch }
   | { readonly type: 'track/setFx'; readonly trackId: string; readonly graph: Patch }
