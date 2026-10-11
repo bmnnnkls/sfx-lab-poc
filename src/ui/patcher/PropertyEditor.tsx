@@ -1,5 +1,7 @@
 import {
   CONTROL_DISPLAYS,
+  CONTROL_SIZES,
+  type ControlSize,
   type ControlDisplay,
   MAX_NODE_NAME,
   MAX_UNIT,
@@ -7,7 +9,11 @@ import {
   type Patch,
   type PatchNode,
   describeNode,
+  defaultPanelSize,
   nodeTitles,
+  panelItems,
+  resizePanelControl,
+  setPanelShow,
   setNodeBypassed,
   setNodeDisplay,
   setNodeName,
@@ -171,6 +177,8 @@ const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCre
         </div>
       )}
 
+      {shape.panelKind !== undefined && <PanelSettings node={node} modules={modules} edit={edit} />}
+
       <div className={styles.params}>
         {rows.length === 0 && <p className={styles.hint}>Nothing to set on this node.</p>}
         {rows.map((row) => (
@@ -183,6 +191,38 @@ const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCre
           />
         ))}
       </div>
+    </div>
+  )
+}
+
+/** Where a control sits on the front panel: whether it shows, and how big. (Its place in the order is set on the panel.) */
+const PanelSettings = ({ node, modules, edit }: { node: PatchNode; modules: ModuleLibrary; edit: Edit }) => {
+  const item = panelItems({ nodes: [node], connections: [] }, modules)[0]
+  if (!item) return null
+  return (
+    <div className={styles.group}>
+      <label className={styles.switches} data-tooltip="Show this control on the front panel. It keeps working in the graph either way.">
+        <input
+          type="checkbox"
+          checked={item.shown}
+          onChange={(event) => edit((current, library) => setPanelShow(current, library, node.id, event.target.checked))}
+        />
+        Show on panel
+      </label>
+      <label className={styles.field}>
+        <span>Size</span>
+        <select
+          aria-label="Panel size"
+          value={item.size}
+          onChange={(event) => edit((current, library) => resizePanelControl(current, library, node.id, event.target.value as ControlSize))}
+        >
+          {CONTROL_SIZES.map((size) => (
+            <option key={size} value={size}>
+              {size === defaultPanelSize(item.kind) ? `${size} (default)` : size}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   )
 }

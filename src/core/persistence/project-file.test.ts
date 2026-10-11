@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
-import { addNode, buildPanel, createNode, describeNode, noteGraphFrom } from '../patch'
+import { addNode, createNode, describeNode, noteGraphFrom } from '../patch'
 import { type Project, createDemoProject, createReturnTrack, editPatchAt, groupNodesAsModule } from '../project'
 import { parseProject, serializeProject } from './project-file'
 
@@ -762,145 +762,57 @@ describe('mixer settings in files', () => {
   })
 })
 
-describe('front panels in files', () => {
-  const read = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8')
-  const instrument = (extra: Record<string, unknown>) =>
-    project({
-      tracks: [
-        {
-          id: 't',
-          name: 'T',
-          patch: {
-            nodes: [
-              { id: 'o', type: 'oscillator', x: 0, y: 0, params: {} },
-              { id: 'f', type: 'filter', x: 0, y: 0, params: {} },
-            ],
-            connections: [],
-            ...extra,
-          },
-          clips: [],
-        },
-      ],
-    })
-  const panelOf = (loaded: { tracks: readonly unknown[] }) => (loaded.tracks[0] as InstrumentTrack).patch.panel
+describe('the front panel in files', () => {
+  const instrument = (nodes: unknown[]) =>
+    project({ tracks: [{ id: 't', name: 'T', patch: { nodes: [{ id: 'o', type: 'oscillator', x: 0, y: 0, params: {} }, ...nodes], connections: [] }, clips: [] }] })
+  const nodesOf = (loaded: { tracks: readonly unknown[] }) => (loaded.tracks[0] as InstrumentTrack).patch.nodes
 
-  it('reads the committed fixture without warnings, every kind of control intact', () => {
-    const { project: loaded, warnings } = parseOk(read('v1-panel.sfxlab.json'))
+  it('keeps where a control sits: hidden, size and order', () => {
+    const { project: loaded, warnings } = parseOk(envelope(instrument([
+      { id: 'k', type: 'control', x: 0, y: 0, params: {}, panel: { show: false, size: 'L', order: 3 } },
+    ])))
     expect(warnings).toEqual([])
-    expect(panelOf(loaded)).toEqual([
-      { id: 'c1', kind: 'xy', label: 'Tone', bind: { node: 'n3', param: 'cutoff' }, bindY: { node: 'n3', param: 'resonance' }, size: 'L' },
-      { id: 'c2', kind: 'selector', label: 'Wave', bind: { node: 'n2', param: 'waveform' }, size: 'S' },
-      { id: 'c3', kind: 'slider', label: 'Pitch', bind: { node: 'n2', param: 'frequency' }, size: 'M', orientation: 'horizontal' },
-      { id: 'c4', kind: 'knob', label: 'Detune', bind: { node: 'n2', param: 'detune' }, size: 'S' },
-    ])
+    expect(nodesOf(loaded).find((n) => n.id === 'k')!.panel).toEqual({ show: false, size: 'L', order: 3 })
   })
 
-  it('files without a panel load without one, and no key is written for none', () => {
-    const { project: loaded, warnings } = parseOk(read('v1-minimal.sfxlab.json'))
-    expect(warnings).toEqual([])
-    expect('panel' in (loaded.tracks[0] as InstrumentTrack).patch).toBe(false)
-    expect(serializeProject(loaded)).not.toContain('panel')
+  it('drops what is malformed, and the field where nothing is left; show can only be false', () => {
+    const { project: loaded } = parseOk(envelope(instrument([
+      { id: 'a', type: 'control', x: 0, y: 0, params: {}, panel: { show: true, size: 'XL', order: -1 } },
+      { id: 'b', type: 'control', x: 0, y: 0, params: {}, panel: { order: 1.5 } },
+      { id: 'c', type: 'control', x: 0, y: 0, params: {}, panel: 'nope' },
+      { id: 'd', type: 'xyPad', x: 0, y: 0, params: {}, panel: { size: 'M', order: 2 } },
+    ])))
+    const get = (id: string) => nodesOf(loaded).find((n) => n.id === id)!
+    expect(['a', 'b', 'c'].map((id) => 'panel' in get(id))).toEqual([false, false, false])
+    expect(get('d').panel).toEqual({ size: 'M', order: 2 })
   })
 
-  it('round-trips panels on the instrument, an insert graph, the master and a module', () => {
+  it('keeps no panel on a node that is not a control', () => {
+    const { project: loaded } = parseOk(envelope(instrument([])))
+    const raw = JSON.parse(envelope(instrument([])))
+    raw.project.tracks[0].patch.nodes[0].panel = { size: 'L' }
+    expect('panel' in nodesOf(parseOk(JSON.stringify(raw)).project)[0]!).toBe(false)
+    expect(loaded).toBeDefined()
+  })
+
+  it('ignores the front panel older versions stored on the patch, without a warning', () => {
+    const raw = JSON.parse(envelope(instrument([])))
+    raw.project.tracks[0].patch.panel = [{ id: 'c', kind: 'knob', bind: { node: 'o', param: 'frequency' } }]
+    const result = parseOk(JSON.stringify(raw))
+    expect(result.warnings).toEqual([])
+    expect('panel' in (result.project.tracks[0] as InstrumentTrack).patch).toBe(false)
+  })
+
+  it('round-trips a panel of control nodes', () => {
     const base = createDemoProject()
     const bass = base.tracks[0] as InstrumentTrack
-    const filterId = bass.patch.nodes.find((node) => node.type === 'filter')!.id
-    const oscId = bass.patch.nodes.find((node) => node.type === 'oscillator')!.id
-    let built = editPatchAt(base, { trackId: bass.id }, (patch, modules) =>
-      buildPanel(patch, modules),
-    )
-    built = editPatchAt(built, { trackId: bass.id, graph: 'fx' }, (fx) => addNode(fx, createNode('filter', 0, 100)))
-    built = editPatchAt(built, { trackId: bass.id, graph: 'fx' }, (fx, modules) => buildPanel(fx, modules))
-    built = editPatchAt(built, { master: true }, (fx) => addNode(fx, createNode('gain', 0, 100)))
-    built = editPatchAt(built, { master: true }, (fx, modules) => buildPanel(fx, modules))
-    built = groupNodesAsModule(built, { trackId: bass.id }, [oscId, filterId], 'Core')
-    const moduleId = built.modules[0]!.id
-    built = editPatchAt(built, { moduleId }, (patch, modules) => buildPanel(patch, modules))
-    expect(built.modules[0]!.patch.panel?.length).toBeGreaterThan(0)
-
+    const built = editPatchAt(base, { trackId: bass.id }, (patch) => {
+      const a = { ...createNode('control', 0, 400), id: 'ka', panel: { order: 1 } }
+      const b = { ...createNode('xyPad', 0, 500), id: 'kb', panel: { size: 'L' as const, order: 0 }, unit: 'Hz' }
+      return [a, b].reduce(addNode, patch)
+    })
     const result = parseOk(serializeProject(built))
     expect(result.warnings).toEqual([])
     expect(result.project).toEqual(built)
-  })
-
-  it('drops controls that do not fit and says so; keeps the ones that do', () => {
-    const good = { id: 'ok', kind: 'knob', label: 'Cut', bind: { node: 'f', param: 'cutoff' }, size: 'S' }
-    const bad = [
-      'junk',
-      null,
-      { id: 'a', kind: 'dial', bind: { node: 'f', param: 'cutoff' } }, // unknown kind
-      { id: 'b', kind: 'knob', bind: { node: 'zzz', param: 'cutoff' } }, // no such node
-      { id: 'c', kind: 'knob', bind: { node: 'f', param: 'nope' } }, // no such parameter
-      { id: 'd', kind: 'knob', bind: { node: 'f', param: 'mode' } }, // an enum is not a knob
-      { id: 'e', kind: 'selector', bind: { node: 'f', param: 'cutoff' } }, // a number is not a selector
-      { id: 'f', kind: 'xy', bind: { node: 'f', param: 'cutoff' } }, // a pad without Y
-      { id: 'g', kind: 'xy', bind: { node: 'f', param: 'cutoff' }, bindY: { node: 'f', param: 'cutoff' } },
-      { id: 'h', kind: 'knob', bind: 'f.cutoff' },
-    ]
-    const { project: loaded, warnings } = parseOk(envelope(instrument({ panel: [...bad, good] })))
-    expect(panelOf(loaded)).toEqual([good])
-    expect(warnings.join('\n')).toMatch(/dropped 10 panel control\(s\)/)
-  })
-
-  it('repairs what can be repaired: size, label, duplicate ids, stray fields', () => {
-    const { project: loaded } = parseOk(
-      envelope(
-        instrument({
-          panel: [
-            { id: 'x', kind: 'knob', label: '   ', bind: { node: 'f', param: 'cutoff' }, size: 'HUGE', orientation: 'horizontal', bindY: { node: 'f', param: 'resonance' } },
-            { id: 'x', kind: 'xy', bind: { node: 'f', param: 'cutoff' }, bindY: { node: 'f', param: 'resonance' }, orientation: 'horizontal' },
-          ],
-        }),
-      ),
-    )
-    const panel = panelOf(loaded)!
-    // The first has a stray Y on a knob, which does not fit: it is dropped, not repaired.
-    expect(panel).toHaveLength(1)
-    expect(panel[0]).toMatchObject({ id: 'x', kind: 'xy', label: 'Cutoff / Res', size: 'M' })
-    expect('orientation' in panel[0]!).toBe(false)
-  })
-
-  it('gives a blank label the parameter\'s name and a repeated id a new one', () => {
-    const { project: loaded } = parseOk(
-      envelope(
-        instrument({
-          panel: [
-            { id: 'x', kind: 'knob', label: '', bind: { node: 'f', param: 'cutoff' }, size: 'HUGE' },
-            { id: 'x', kind: 'knob', bind: { node: 'f', param: 'resonance' } },
-          ],
-        }),
-      ),
-    )
-    const panel = panelOf(loaded)!
-    expect(panel.map((control) => control.label)).toEqual(['Cutoff', 'Res'])
-    expect(panel.map((control) => control.size)).toEqual(['S', 'S'])
-    expect(new Set(panel.map((control) => control.id)).size).toBe(2)
-    expect(panel[0]!.id).toBe('x')
-  })
-
-  it('keeps at most the limit, and a panel that is not a list is no panel', () => {
-    const many = Array.from({ length: 300 }, (_, index) => ({ id: `c${index}`, kind: 'knob', bind: { node: 'f', param: 'cutoff' } }))
-    const { project: loaded, warnings } = parseOk(envelope(instrument({ panel: many })))
-    expect(panelOf(loaded)).toHaveLength(128)
-    expect(warnings.join('\n')).toMatch(/only the first 128 panel controls/)
-    for (const odd of ['text', 7, { a: 1 }, null]) {
-      const result = parseOk(envelope(instrument({ panel: odd })))
-      expect(panelOf(result.project)).toBeUndefined()
-      expect(result.warnings).toEqual([])
-    }
-  })
-
-  it('drops a control on a module knob the module no longer has', () => {
-    const base = createDemoProject()
-    const bass = base.tracks[0] as InstrumentTrack
-    const grouped = groupNodesAsModule(base, { trackId: bass.id }, bass.patch.nodes.filter((node) => node.type !== 'note' && node.type !== 'output').map((node) => node.id), 'Core')
-    const use = (grouped.tracks[0] as InstrumentTrack).patch.nodes.find((node) => node.type === 'module')!
-    const text = serializeProject(grouped)
-    const doc = JSON.parse(text)
-    doc.project.tracks[0].patch.panel = [{ id: 'k', kind: 'knob', bind: { node: use.id, param: 'gone:knob' } }]
-    const { project: loaded, warnings } = parseOk(JSON.stringify(doc))
-    expect(panelOf(loaded)).toBeUndefined()
-    expect(warnings.join('\n')).toMatch(/dropped 1 panel control/)
   })
 })

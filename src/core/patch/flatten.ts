@@ -1,7 +1,6 @@
 import { createId } from '../shared'
 import { MODULE_NODE_TYPE, type ModuleDefinition, type ModuleLibrary } from './module-types'
 import { describeNode, findModule } from './node-shape'
-import { dropControlsOfNodes } from './panel'
 import type { Patch, PatchConnection, PatchNode } from './types'
 
 /** Safety valve: a malformed library (a module containing itself) must not expand forever. */
@@ -38,10 +37,7 @@ export const expandModuleUse = (
 
   const others = patch.nodes.filter((node) => node !== use)
   if (!definition) {
-    return dropControlsOfNodes(
-      { ...patch, nodes: others, connections: patch.connections.filter((c) => c.from.node !== useId && c.to.node !== useId) },
-      new Set([useId]),
-    )
+    return { ...patch, nodes: others, connections: patch.connections.filter((c) => c.from.node !== useId && c.to.node !== useId) }
   }
 
   const idOf = new Map(definition.patch.nodes.map((node) => [node.id, newId(node.id, 'node')]))
@@ -74,8 +70,7 @@ export const expandModuleUse = (
       to: { node: inner(connection.to.node), port: connection.to.port },
     })
   }
-  // The use is gone, and so are the controls on its knobs (the panel can bind the inner nodes' own parameters instead).
-  return dropControlsOfNodes({ ...patch, nodes: [...others, ...copies], connections }, new Set([useId]))
+  return { ...patch, nodes: [...others, ...copies], connections }
 }
 
 /**
@@ -84,10 +79,7 @@ export const expandModuleUse = (
  * parameter change reaches the engine as a plain parameter change.
  */
 export const flattenPatch = (patch: Patch, modules: ModuleLibrary): Patch => {
-  // The panel is a view of the patch, not part of the sound: the engine gets the graph without it.
-  if (!patch.nodes.some((node) => node.type === MODULE_NODE_TYPE)) {
-    return patch.panel === undefined ? patch : { nodes: patch.nodes, connections: patch.connections }
-  }
+  if (!patch.nodes.some((node) => node.type === MODULE_NODE_TYPE)) return patch
 
   let flat: Patch = { nodes: patch.nodes, connections: patch.connections }
   for (let expansions = 0; expansions < MAX_EXPANSIONS; expansions++) {

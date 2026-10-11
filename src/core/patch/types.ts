@@ -1,4 +1,18 @@
-import type { PanelControl } from './panel-types'
+/** How big a control is on the panel: knobs and sliders grow with it, a pad is 2x2, 3x2 or 3x3 cells. */
+export const CONTROL_SIZES = ['S', 'M', 'L'] as const
+export type ControlSize = (typeof CONTROL_SIZES)[number]
+
+/**
+ * Where a control node sits on the front panel. Absent: on the panel, its kind's default size, after the controls that
+ * have an `order`, in patch order. Only what differs from that is stored.
+ */
+export interface NodePanel {
+  /** `false` keeps the control off the panel (it still works in the graph). */
+  readonly show?: false
+  readonly size?: ControlSize
+  /** Position among the panel's controls; a reorder numbers all of them. */
+  readonly order?: number
+}
 
 /** How a control node is drawn on the panel. */
 export const CONTROL_DISPLAYS = ['knob', 'slider', 'slider-horizontal'] as const
@@ -23,6 +37,8 @@ export interface PatchNode {
   readonly unitY?: string
   /** For a *Control* node: how the panel draws it. Absent: a knob. */
   readonly display?: ControlDisplay
+  /** For control nodes: where it sits on the front panel. */
+  readonly panel?: NodePanel
   /** What the user calls this node. Absent: the node's type label, numbered when alike ("Oscillator 2"). */
   readonly name?: string
   /** For sample-playing nodes: id of the project sample to play. */
@@ -50,6 +66,4 @@ export interface PatchConnection {
 export interface Patch {
   readonly nodes: readonly PatchNode[]
   readonly connections: readonly PatchConnection[]
-  /** The front panel: controls bound to this patch's parameters, in order. Absent until one is made. A view only: the engine never sees it. */
-  readonly panel?: readonly PanelControl[]
 }

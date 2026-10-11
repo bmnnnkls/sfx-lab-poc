@@ -1,51 +1,66 @@
 import {
-  type ControlDraft,
   type ModuleLibrary,
   type Patch,
-  addControl,
-  buildPanel,
-  moveControl,
-  removeControl,
-  renameControl,
-  resizeControl,
-  setControlOrientation,
+  createBlankControl,
+  createControlFor,
+  createXyFor,
+  movePanelControl,
+  nodeTitles,
+  panelItems,
+  removeNode,
+  resizePanelControl,
+  setNodeDisplay,
+  setNodeName,
   setNodeParam,
+  setPanelShow,
+  spotBelow,
 } from '@core'
 import { useMemo, useState } from 'react'
-import { AddControl } from './AddControl'
+import { AddControl, type AddDraft } from './AddControl'
 import { ControlCell, type ParamChange } from './ControlCell'
 import styles from './panel.module.css'
-import { nodeTitles } from '@core'
 
 interface PanelViewProps {
   patch: Patch
   modules: ModuleLibrary
-  /** Identifies the graph, so a drag in the panel merges with a drag of the same parameter in the graph view. */
+  /** Identifies the graph, so a drag in the panel merges with a drag of the same parameter in the property editor. */
   scope: string
   /** Applies a change to the patch being shown (one undo step per merge key). */
   edit(change: (patch: Patch, modules: ModuleLibrary) => Patch, mergeKey?: string): void
 }
 
 /**
- * The front panel: the patch's parameters as knobs, sliders, pads and selectors instead of nodes and wires. In *Play* the
- * board is just the controls; *Edit* adds the tools to build it. The board is a view: turning a control sets the node's
- * parameter, exactly as the slider in the graph does.
+ * The front panel: the patch's control nodes as knobs, sliders, pads and switches, arranged. In *Play* the board is just
+ * the controls; *Edit* adds the tools to build and arrange it. A control here IS the node: turning it writes the node's
+ * value, exactly as the property editor does (the same undo key), so there is nothing to keep in step.
  */
 export const PanelView = ({ patch, modules, scope, edit }: PanelViewProps) => {
   const [editing, setEditing] = useState(false)
-  const controls = patch.panel ?? []
+  const items = useMemo(() => panelItems(patch, modules), [patch, modules])
   const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
+  const shown = items.filter((item) => item.shown)
+  const hidden = items.filter((item) => !item.shown)
 
-  const set = (changes: readonly ParamChange[], mergeKey: string) => {
-    // A single parameter shares its undo key with the graph view's slider; a pad (two at once) has its own.
-    const key = changes.length === 1 && changes[0] ? `param:${scope}:${changes[0].binding.node}:${changes[0].binding.param}` : `${mergeKey}:${scope}`
-    edit(
-      (current) => changes.reduce((next, change) => setNodeParam(next, change.binding.node, change.binding.param, change.value), current),
-      key,
-    )
+  const set = (nodeId: string, changes: readonly ParamChange[]) => {
+    // One parameter shares its undo key with the property editor's slider; a pad (two at once) has its own.
+    const key = changes.length === 1 && changes[0] ? `param:${scope}:${nodeId}:${changes[0].param}` : `xy:${scope}:${nodeId}`
+    edit((current) => changes.reduce((next, change) => setNodeParam(next, nodeId, change.param, change.value), current), key)
   }
-  const add = (draft: ControlDraft) => edit((current, library) => addControl(current, library, draft))
-  const empty = controls.length === 0
+
+  const add = (draft: AddDraft) =>
+    edit((current, library) => {
+      const at = spotBelow(current, panelItems(current, library).length)
+      if (draft.kind === 'switch') return createBlankControl(current, 'switch', at).patch
+      if (draft.kind === 'xy') {
+        if (draft.x && draft.y) return createXyFor(current, library, { node: draft.x.node, port: draft.x.port }, draft.y, { at })?.patch ?? current
+        return createBlankControl(current, 'xy', at).patch
+      }
+      if (draft.x) {
+        const display = draft.kind === 'knob' ? 'knob' : draft.kind
+        return createControlFor(current, library, draft.x.node, draft.x.port, { at, display })?.patch ?? current
+      }
+      return createBlankControl(current, draft.kind, at).patch
+    })
 
   return (
     <div className={styles.panel} data-testid="front-panel" data-editing={editing || undefined}>
@@ -53,49 +68,57 @@ export const PanelView = ({ patch, modules, scope, edit }: PanelViewProps) => {
         <button aria-pressed={editing} onClick={() => setEditing((on) => !on)} title={editing ? 'Back to playing' : 'Add, remove and arrange controls'}>
           {editing ? 'Done' : 'Edit panel'}
         </button>
-        {editing && (
-          <>
-            <button
-              onClick={() => edit((current, library) => buildPanel(current, library))}
-              title="Add a control for every parameter that does not have one yet"
-            >
-              Build from graph
-            </button>
-            <AddControl patch={patch} modules={modules} onAdd={add} />
-          </>
-        )}
+        {editing && <AddControl patch={patch} modules={modules} onAdd={add} />}
       </div>
-      {empty ? (
+      {editing && hidden.length > 0 && (
+        <div className={styles.hiddenTray} role="group" aria-label="Hidden controls">
+          <span className={styles.hint}>Hidden:</span>
+          {hidden.map((item) => (
+            <button key={item.node.id} aria-label={`Show ${titles.get(item.node.id)}`} onClick={() => edit((current, library) => setPanelShow(current, library, item.node.id, true))}>
+              {titles.get(item.node.id)}
+            </button>
+          ))}
+        </div>
+      )}
+      {shown.length === 0 ? (
         <div className={styles.empty}>
-          <p>This patch has no front panel yet.</p>
+          <p>{items.length === 0 ? 'This patch has no controls yet.' : 'Every control is hidden.'}</p>
           <p>
-            <button onClick={() => edit((current, library) => buildPanel(current, library))}>Build from graph</button> makes a control for every
-            parameter; then delete the ones you do not want, or use Edit panel to add your own knobs, sliders and XY pads.
+            A control is a node: right-click a parameter socket in the graph and choose <em>Create knob</em>, or use <em>Edit panel</em> to add a
+            knob, slider, XY pad or switch here and wire it in the graph.
           </p>
         </div>
       ) : (
         <div className={styles.board} role="group" aria-label="Front panel">
-          {controls.map((control, index) => (
-            <ControlCell
-              key={control.id}
-              control={control}
-              patch={patch}
-              modules={modules}
-              titles={titles}
-              editing={editing}
-              first={index === 0}
-              last={index === controls.length - 1}
-              onSet={set}
-              actions={{
-                rename: (label) => edit((current) => renameControl(current, control.id, label)),
-                resize: (size) => edit((current) => resizeControl(current, control.id, size)),
-                setOrientation: (orientation) => edit((current) => setControlOrientation(current, control.id, orientation)),
-                remove: () => edit((current) => removeControl(current, control.id)),
-                move: (delta) => edit((current) => moveControl(current, control.id, index + delta)),
-                dropped: (draggedId) => edit((current) => moveControl(current, draggedId, index)),
-              }}
-            />
-          ))}
+          {shown.map((item, index) => {
+            const id = item.node.id
+            const position = items.indexOf(item)
+            return (
+              <ControlCell
+                key={id}
+                item={item}
+                modules={modules}
+                title={titles.get(id) ?? item.node.type}
+                editing={editing}
+                first={index === 0}
+                last={index === shown.length - 1}
+                onSet={(changes) => set(id, changes)}
+                actions={{
+                  rename: (name) => edit((current) => setNodeName(current, id, name)),
+                  resize: (size) => edit((current, library) => resizePanelControl(current, library, id, size)),
+                  setHorizontal: (horizontal) => edit((current) => setNodeDisplay(current, id, horizontal ? 'slider-horizontal' : 'slider')),
+                  hide: () => edit((current, library) => setPanelShow(current, library, id, false)),
+                  remove: () => edit((current) => removeNode(current, id)),
+                  // Moves among the visible ones: the neighbour's place in the whole order is where it goes.
+                  move: (delta) => {
+                    const neighbour = shown[index + delta]
+                    if (neighbour) edit((current, library) => movePanelControl(current, library, id, items.indexOf(neighbour)))
+                  },
+                  dropped: (draggedId) => edit((current, library) => movePanelControl(current, library, draggedId, position)),
+                }}
+              />
+            )
+          })}
         </div>
       )}
     </div>

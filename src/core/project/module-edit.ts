@@ -5,7 +5,6 @@ import {
   createModuleUse,
   groupIntoModule,
   pruneModuleInterface,
-  prunePanel,
   pruneModuleUses,
   unlinkModuleUse,
 } from '../patch'
@@ -35,8 +34,8 @@ export const patchAt = (project: Project, target: PatchTarget): Patch | undefine
   return project.modules.find((candidate) => candidate.id === target.moduleId)?.patch
 }
 
-/** A patch with everything that pointed at a vanished module port, knob or node removed: wires, knob values and panel controls. */
-const tidy = (patch: Patch, library: readonly ModuleDefinition[]): Patch => prunePanel(pruneModuleUses(patch, library), library)
+/** A patch with everything that pointed at a vanished module port, knob or node removed: wires and knob values. */
+const tidy = (patch: Patch, library: readonly ModuleDefinition[]): Patch => pruneModuleUses(patch, library)
 
 /**
  * Brings everything that refers to a module's interface back in line after a definition changed: a module

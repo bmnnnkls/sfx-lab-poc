@@ -132,3 +132,11 @@
   padding: 1px 4px;
   font-size: 11px;
 }
+
+.hiddenTray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px;
+}

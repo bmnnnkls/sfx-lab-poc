@@ -1,5 +1,15 @@
-export { CONTROL_DISPLAYS, type ControlDisplay, type Patch, type PatchConnection, type PatchNode, type PortRef } from './types'
-export { createControlFor, type ControlForOptions } from './control-for'
+export {
+  CONTROL_DISPLAYS,
+  CONTROL_SIZES,
+  type ControlDisplay,
+  type ControlSize,
+  type NodePanel,
+  type Patch,
+  type PatchConnection,
+  type PatchNode,
+  type PortRef,
+} from './types'
+export { createBlankControl, createControlFor, createXyFor, type ControlForOptions } from './control-for'
 export { nodeTitles } from './titles'
 export {
   MODULE_NODE_TYPE,
@@ -60,30 +70,15 @@ export {
 } from './edit'
 export { isDownstream, topologicalOrder } from './graph'
 export {
-  CONTROL_KINDS,
-  CONTROL_SIZES,
-  type ControlDraft,
-  type ControlKind,
-  type ControlSize,
-  MAX_PANEL_CONTROLS,
-  type PanelControl,
-  type ParamBinding,
-} from './panel-types'
-export {
-  addControl,
-  buildPanel,
-  controlFits,
-  defaultControlLabel,
-  defaultControlSize,
-  dropControlsOfNodes,
-  moveControl,
-  prunePanel,
-  rebindControl,
-  removeControl,
-  renameControl,
-  resizeControl,
-  resolveBinding,
-  setControlOrientation,
+  type PanelItem,
+  type PanelKind,
+  defaultPanelSize,
+  movePanelControl,
+  numberPanel,
+  panelItems,
+  resizePanelControl,
+  setPanelShow,
+  spotBelow,
 } from './panel'
 export { createDefaultPatch } from './default-patch'
 export { createSamplerPatch } from './sampler-patch'

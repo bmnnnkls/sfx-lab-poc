@@ -1,7 +1,7 @@
 # Handoff: the Front panel (sliders, knobs and XY pads as an alternative to the graph)
 
-> **Status: built, and partly superseded by `HANDOFF-control-nodes.md`** (the panel will be built from control nodes instead of
-> `Patch.panel`; the widgets and the board stay).
+> **Status: built, then superseded by `HANDOFF-control-nodes.md` (step 5): the panel is now the patch's control nodes, `Patch.panel` and its
+> bindings are gone; the widgets and the board stayed.** What follows is the original brief, kept as the record.
 >
 > Earlier status: **built** (see `ARCHITECTURE.md`, "Front panel", for how it works; `docs/TASKS.md`, "Front panel follow-ups", for what is left).
 > The text below is the original brief, kept as the record of what was decided. The user accepted all the proposals marked

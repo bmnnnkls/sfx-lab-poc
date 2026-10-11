@@ -5,6 +5,8 @@ import {
   type Patch,
   type PortRef,
   CONTROL_DISPLAYS,
+  CONTROL_SIZES,
+  type NodePanel,
   MAX_NODE_NAME,
   MAX_UNIT,
   addNode,
@@ -14,7 +16,6 @@ import {
 } from '../patch'
 import { clamp } from '../shared'
 import { LIMITS } from './format'
-import { sanitizePanel } from './sanitize-panel'
 import { type Raw, type Warn, asList, finiteNumber, isRecord } from './raw'
 
 const sanitizeParams = (specs: readonly ParamSpec[], raw: unknown): Record<string, number> => {
@@ -25,6 +26,19 @@ const sanitizeParams = (specs: readonly ParamSpec[], raw: unknown): Record<strin
       clamp(finiteNumber(source[spec.id], spec.default), spec.min, spec.max),
     ]),
   )
+}
+
+/** Where a control node sits on the front panel: only what differs from the defaults is kept, and only well-formed values. */
+const readPanel = (raw: unknown): NodePanel | undefined => {
+  if (!isRecord(raw)) return undefined
+  const size = CONTROL_SIZES.find((candidate) => candidate === raw.size)
+  const order = typeof raw.order === 'number' && Number.isInteger(raw.order) && raw.order >= 0 && raw.order < 100000 ? raw.order : undefined
+  const panel: NodePanel = {
+    ...(raw.show === false ? { show: false as const } : {}),
+    ...(size === undefined ? {} : { size }),
+    ...(order === undefined ? {} : { order }),
+  }
+  return Object.keys(panel).length === 0 ? undefined : panel
 }
 
 const readPortRef = (raw: unknown): PortRef | null =>
@@ -93,6 +107,7 @@ export const sanitizePatch = (
     const unitOf = (value: unknown) => ((definition.panelKind === 'value' || definition.panelKind === 'xy') && typeof value === 'string' ? value.trim().slice(0, MAX_UNIT) : '')
     const unit = unitOf(rawNode.unit)
     const unitY = definition.panelKind === 'xy' ? unitOf(rawNode.unitY) : ''
+    const panel = definition.panelKind === undefined ? undefined : readPanel(rawNode.panel)
     const display = definition.panelKind === 'value' ? CONTROL_DISPLAYS.find((candidate) => candidate === rawNode.display) : undefined
     patch = addNode(patch, {
       id: rawNode.id,
@@ -100,6 +115,7 @@ export const sanitizePatch = (
       ...(name === '' ? {} : { name }),
       ...(unit === '' ? {} : { unit }),
       ...(unitY === '' ? {} : { unitY }),
+      ...(panel === undefined ? {} : { panel }),
       ...(display === undefined || display === 'knob' ? {} : { display }),
       ...(moduleId === undefined ? {} : { moduleId }),
       x: finiteNumber(rawNode.x, 0),
@@ -131,6 +147,5 @@ export const sanitizePatch = (
   }
   if (dropped > 0) warn(`${where}: dropped ${dropped} invalid connection(s)`)
 
-  const panel = sanitizePanel(source.panel, patch, modules, where, warn)
-  return panel.length > 0 ? { ...patch, panel } : patch
+  return patch
 }

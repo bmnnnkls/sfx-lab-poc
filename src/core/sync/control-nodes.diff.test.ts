@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addNode, connect, createNode, flattenPatch, groupIntoModule, noteGraphFrom, setNodeName, setNodeParam } from '../patch'
+import { addNode, connect, createNode, flattenPatch, groupIntoModule, movePanelControl, noteGraphFrom, resizePanelControl, setNodeName, setNodeParam, setPanelShow } from '../patch'
 import { type InstrumentTrack, createDemoProject, editPatchAt, groupNodesAsModule, setTrackPatch } from '../project'
 import { diffProject } from './diff-project'
 
@@ -43,6 +43,18 @@ describe('control nodes and the engine commands', () => {
     const named = setTrackPatch(project, track.id, setNodeName(track.patch, filter.id, 'Bright'))
     expect(named).not.toBe(project)
     expect(diffProject(project, named)).toEqual([])
+  })
+
+  it('where a control sits on the front panel is not sound: hiding, resizing and reordering send nothing', () => {
+    const { control, project: wired } = withControl()
+    const track2 = wired.tracks[0] as InstrumentTrack
+    const hidden = setTrackPatch(wired, track.id, setPanelShow(track2.patch, [], control.id, false))
+    expect(hidden).not.toBe(wired)
+    expect(diffProject(wired, hidden)).toEqual([])
+    const sized = setTrackPatch(hidden, track.id, resizePanelControl((hidden.tracks[0] as InstrumentTrack).patch, [], control.id, 'L'))
+    expect(diffProject(hidden, sized)).toEqual([])
+    const moved = setTrackPatch(sized, track.id, movePanelControl((sized.tracks[0] as InstrumentTrack).patch, [], control.id, 0))
+    expect(diffProject(sized, moved)).toEqual([])
   })
 
   it('a control in the master graph and in an insert graph turns into master/setParam and track/setParam', () => {
