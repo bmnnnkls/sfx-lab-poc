@@ -31,6 +31,7 @@ export { sendTargets } from './send-targets'
 export { audioSources } from './audio-sources'
 export { type NoteGraphNodeSpec, noteGraphFrom } from './note-graph-builder'
 export { engineNoteGraph } from './bake'
+export { DRAWBAR_MODULE_ID, type ExampleModule, OVERTONE_MODULE_ID, exampleModules, findExampleModule } from './example-modules'
 export { containsModule, expandModuleUse, flattenPatch, modulesUsedBy, unlinkModuleUse } from './flatten'
 export {
   type GroupResult,

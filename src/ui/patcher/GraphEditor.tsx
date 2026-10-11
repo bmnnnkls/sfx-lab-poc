@@ -23,6 +23,8 @@ import {
   noteNodeDefinitions,
   nodeDefinitions,
   removeNode,
+  exampleModules,
+  findExampleModule,
 } from '@core'
 import { useProjectStore } from '@state'
 import { type ReactNode, useRef, useState } from 'react'
@@ -157,6 +159,8 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
     ? buildCatalog(
         palette.filter((definition) => accepts(describeNode(createNode(definition.type, 0, 0), modules))),
         placeable.filter((module) => accepts(describeNode(createModuleUse(module, 0, 0), modules))),
+        // Examples ship with the app; they are sound modules, and a dropped wire is not offered them (a use is placed, then wired by hand).
+        domain === 'audio' && dropped === undefined ? exampleModules : [],
       )
     : null
 
@@ -165,10 +169,16 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
     setPicker(null)
   }
   /** Adds what the picker chose where it was asked for, selects it and, for a dropped wire, wires it in. */
-  const addFromPicker = (entry: { kind: 'node' | 'module'; ref: string }) => {
+  const addFromPicker = (entry: { kind: 'node' | 'module' | 'example'; ref: string }) => {
     if (!picker) return
     const wanted = picker.from ? { x: picker.at.x + 16, y: Math.max(0, picker.at.y - 40) } : centredOn(picker.at)
     const { x, y } = freeSpot(patch, modules, wanted)
+    if (entry.kind === 'example') {
+      const example = findExampleModule(entry.ref)
+      if (example) store().addExampleModule(target, example.definition, x, y)
+      setPicker(null)
+      return
+    }
     const module = entry.kind === 'module' ? modules.find((candidate) => candidate.id === entry.ref) : undefined
     if (entry.kind === 'module' && !module) return
     if (module && !picker.from) {

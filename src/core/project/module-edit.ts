@@ -129,6 +129,17 @@ export const addModuleUse = (project: Project, target: PatchTarget, moduleId: st
   return setPatchAt(project, target, { ...patch, nodes: [...patch.nodes, createModuleUse(definition, x, y)] })
 }
 
+/**
+ * Puts a use of an example module into a patch, first copying its definition into the project's library when it is not there yet
+ * (one edit, so one undo step). A definition already in the library is used as it is, including any changes made to it.
+ */
+export const addExampleModuleUse = (project: Project, target: PatchTarget, example: ModuleDefinition, x: number, y: number): Project => {
+  const installed = project.modules.some((candidate) => candidate.id === example.id) ? project : { ...project, modules: [...project.modules, example] }
+  const next = addModuleUse(installed, target, example.id, x, y)
+  // A use that was refused (the target is gone) must not leave the library changed either.
+  return next === installed ? project : next
+}
+
 /** Turns a use into an independent copy of the module's contents; the definition and other uses are untouched. */
 export const unlinkModuleNode = (project: Project, target: PatchTarget, nodeId: string): Project => {
   const patch = patchAt(project, target)

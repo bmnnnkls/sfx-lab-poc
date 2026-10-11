@@ -519,6 +519,14 @@ plain cards; the property editor, the panel built from control nodes and the nod
   card (in the picture area; `nodeHeight` reserves it) and on the front panel (`PanelKind` led / display / bar, so they are arranged, sized
   and hidden like controls); inside a module's own editor there is no track to read from, so the faces stay idle (a module used in a track reports as
   `<use>/<inner>`, which is also the id of its stand-in on that track's panel). Values reach the UI at the status rate (about 30 a second).
+* **Example modules** (`patch/example-modules.ts`; the picker's last category, *Examples*). Modules that ship with the app: *Overtone oscillator*
+  (eight sine partials at 1x to 8x the pitch, level 1/k, one level knob each) and *Drawbar organ* (nine drawbars at the footages 16', 5 1/3', 8',
+  4', 2 2/3', 2', 1 3/5', 1 1/3', 1', registered 16' / 5 1/3' / 8'), both built by one `additive` builder from a list of partials: a pitch
+  input that fans out to a `multiply` (the ratio), a sine oscillator and a level `gain` per partial, summed in an output gain. Ids are plain
+  (`base`, `ratio0`, `sine0`, `level0`, ..., `sum`; wires `<module>-w<n>`) so the definition is the same every time. Choosing one calls
+  `addExampleModuleUse`, which **copies the definition into the project's library the first time** (project data stays self-contained) and
+  adds a use, as one undo step; later uses share the library's copy, even after it was edited. Examples are offered in sound graphs only, and
+  not for a dropped wire. Their spectra are tested by rendering them (a Goertzel filter at each partial).
 * **Names.** `PatchNode.name?` (trimmed, at most 60 characters, absent when blank; `setNodeName`, same patch when unchanged;
   read by the sanitizer). Nothing shows it yet. It is not sound: renaming sends no engine command.
 * **Words** (`dsp/node-docs.ts`, `notefx/node-docs.ts`, `dsp/document.ts`). Every node has a one-sentence `description`, a `category`
