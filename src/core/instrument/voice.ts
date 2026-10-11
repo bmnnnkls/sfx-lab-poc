@@ -1,7 +1,7 @@
 import { type NoteState } from '../dsp'
 import type { SampleLookup } from '../sample'
 import { midiToFrequency } from '../shared'
-import { type CompiledStage, processStage } from './compile'
+import { type CompiledStage, processStage, setStageParam, setStageSample } from './compile'
 
 /** Below this peak level (about -80 dB) a released voice counts as silent. */
 const SILENCE_LEVEL = 1e-4
@@ -65,11 +65,11 @@ export class Voice {
   }
 
   setParam(nodeId: string, paramId: string, value: number): void {
-    this.stage.byId.get(nodeId)?.setParam(paramId, value)
+    setStageParam(this.stage, nodeId, paramId, value)
   }
 
   setSample(nodeId: string, sampleId: string | null): void {
-    this.stage.byId.get(nodeId)?.setSample?.(sampleId)
+    setStageSample(this.stage, nodeId, sampleId)
   }
 
   render(frames: number): void {

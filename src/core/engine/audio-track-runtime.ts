@@ -1,3 +1,4 @@
+import { RIGHT } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
 import type { Patch } from '../patch'
 import type { AudioClip } from '../project'
@@ -135,9 +136,8 @@ export class AudioTrackRuntime implements PlayableTrack {
 
     const signal = this.fx.process(this.scratch, frames)
     for (let i = 0; i < frames; i++) {
-      const value = (signal[i] ?? 0) * this.volume
-      left[offset + i] = (left[offset + i] ?? 0) + value
-      right[offset + i] = (right[offset + i] ?? 0) + value
+      left[offset + i] = (left[offset + i] ?? 0) + (signal[i] ?? 0) * this.volume
+      right[offset + i] = (right[offset + i] ?? 0) + (signal[RIGHT + i] ?? 0) * this.volume
     }
   }
 

@@ -24,6 +24,7 @@ interface NodeViewProps {
   onSampleChange(sampleId: string | null): void
   onTrackChange(trackId: string | null): void
   onBypassChange(bypassed: boolean): void
+  onStereoChange(stereo: boolean): void
   onWireStart(from: PortRef): void
   onWireEnd(to: PortRef): void
 }
@@ -42,6 +43,7 @@ export const NodeView = ({
   onSampleChange,
   onTrackChange,
   onBypassChange,
+  onStereoChange,
   onWireStart,
   onWireEnd,
 }: NodeViewProps) => {
@@ -73,6 +75,18 @@ export const NodeView = ({
             </em>
           )}
         </span>
+        {shape.stereoCapable && (
+          <button
+            className={`${styles.bypass} ${styles.stereoToggle}`}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => onStereoChange(node.stereo !== true)}
+            aria-pressed={node.stereo === true}
+            aria-label={`${shape.label}: ${node.stereo === true ? 'stereo' : 'mono'}`}
+            title={node.stereo === true ? 'Runs in stereo (one copy per channel). Click for mono.' : 'Runs in mono. Click to run in stereo (one copy per channel).'}
+          >
+            {node.stereo === true ? 'L R' : 'M'}
+          </button>
+        )}
         {shape.bypassable && (
           <button
             className={styles.bypass}

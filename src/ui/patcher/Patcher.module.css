@@ -320,6 +320,10 @@
   stroke: var(--accent);
 }
 
+.stereoWire {
+  stroke-width: 3.5;
+}
+
 .nodeBypassed {
   opacity: 0.55;
 }
@@ -329,6 +333,11 @@
   margin-right: 4px;
   padding: 0 6px;
   line-height: 18px;
+}
+
+.stereoToggle {
+  min-width: 28px;
+  font-size: 10px;
 }
 
 .trackPicker {

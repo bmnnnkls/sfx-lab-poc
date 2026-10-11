@@ -85,27 +85,11 @@ Status: **designed, not started.**
 Full handoff for whoever builds this: [`HANDOFF-track-effects-and-stereo.md`](HANDOFF-track-effects-and-stereo.md).
 
 1. ~~Insert graph per track (`Track in -> effects -> Track out`, instrument and audio tracks).~~ Done (see `ARCHITECTURE.md`).
-2. **Stereo** (moved up: returns are where reverbs live, so build them stereo once).
+2. ~~**Stereo** (moved up: returns are where reverbs live, so build them stereo once).~~ Done (see `ARCHITECTURE.md`); chorus and other stereo modulation effects are still open.
 3. Return tracks and the Send node (engine primitive, ordering, loop rules, persistence).
 4. The send knob row on track headers.
 5. Master effects graph.
 6. *Track audio* node.
-
-### Stereo (step 2)
-
-Today the engine is mono per track and the two output channels carry the same signal, so sends and returns are only half
-as useful (no pan, no wide reverbs). Proposed design, to be settled when we get there:
-
-* A third port kind, `stereo` (a left/right pair), next to `signal` and `notes`; only like kinds connect, and modules
-  inherit the kind of their ports, as they already do for `notes`.
-* Instruments stay mono (voices are summed to one signal); stereo begins in the insert graph. *Pan* (mono to stereo),
-  *Width*, a stereo reverb (decorrelated left and right delay lengths) and a ping-pong delay are the nodes that create
-  or need it.
-* Any existing mono effect (filter, gain, delay, LFO-modulated things) is usable in stereo by running two copies of it
-  with the same parameters, one per channel, so there is no second set of filters to write. A mono-to-stereo or
-  stereo-to-mono conversion is explicit (*Pan*, *Mono sum*); *Track out* accepts either and duplicates a mono signal.
-* Sends and returns carry stereo; a mono send is duplicated to both channels. Audio-track samples stay mono until
-  they are panned.
 
 ## Note graph follow-ups
 

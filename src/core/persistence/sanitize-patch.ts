@@ -94,6 +94,7 @@ export const sanitizePatch = (
       ...(sampleId === undefined ? {} : { sampleId }),
       ...(definition.usesTrack === true && typeof rawNode.trackId === 'string' ? { trackId: rawNode.trackId } : {}),
       ...(definition.bypassable === true && rawNode.bypassed === true ? { bypassed: true } : {}),
+      ...(definition.stereoCapable === true && rawNode.stereo === true ? { stereo: true } : {}),
     })
   }
 

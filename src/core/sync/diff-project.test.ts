@@ -1,6 +1,6 @@
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
-import { createDefaultFxGraph, exposeKnob, moveNode, noteGraphFrom, renameModule, setModulePatch, setNodeParam, setNodeSample } from '../patch'
+import { createDefaultFxGraph, exposeKnob, moveNode, noteGraphFrom, renameModule, setModulePatch, setNodeParam, setNodeSample, setNodeStereo } from '../patch'
 import {
   addModuleUse,
   editPatchAt,
@@ -90,6 +90,13 @@ describe('diffProject', () => {
       const delay = first.tracks[0]!.fx.nodes.find((n) => n.type === 'delay')!
       const next = editPatchAt(first, { trackId: track.id, graph: 'fx' }, (fx) => setNodeParam(fx, delay.id, 'feedback', 0.7))
       expect(diffProject(first, next)).toEqual([{ type: 'track/setParam', trackId: track.id, nodeId: delay.id, paramId: 'feedback', value: 0.7 }])
+    })
+
+    it('switching a node to stereo rebuilds the graph, since its ports change', () => {
+      const first = withFx(effect('filter'))
+      const filter = first.tracks[0]!.fx.nodes.find((n) => n.type === 'filter')!
+      const next = editPatchAt(first, { trackId: track.id, graph: 'fx' }, (fx) => setNodeStereo(fx, filter.id, true))
+      expect(diffProject(first, next).map((c) => c.type)).toEqual(['track/setFx'])
     })
 
     it('ignores moving a node of the insert graph', () => {

@@ -15,6 +15,11 @@ export interface PatchNode {
   readonly sampleId?: string
   /** For `trackNotes` nodes: which track the notes are taken from. */
   readonly trackId?: string
+  /**
+   * For nodes that can run in stereo (filter, gain, delay): two copies of the node, one per channel, with the same
+   * settings. Its signal ports are then stereo ports (see `describeNode`).
+   */
+  readonly stereo?: boolean
   /** For note effects: notes pass through untouched while this is true. */
   readonly bypassed?: boolean
   /** For `module` nodes: which module definition this is a use of. `params` then holds the exposed knobs. */

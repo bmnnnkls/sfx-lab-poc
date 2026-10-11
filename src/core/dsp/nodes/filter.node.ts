@@ -101,9 +101,10 @@ export const filterNode: NodeDefinition = {
   label: 'Filter',
   inputs: [
     { id: 'in', label: 'In' },
-    { id: 'cutoff', label: 'Cutoff' },
+    { id: 'cutoff', label: 'Cutoff', control: true },
   ],
   outputs: [{ id: 'out', label: 'Out' }],
   params: PARAMS,
+  stereoCapable: true,
   create: () => new Filter(),
 }

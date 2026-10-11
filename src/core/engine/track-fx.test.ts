@@ -99,3 +99,40 @@ describe('insert graph of an instrument track', () => {
     expect(rms(render(engine, 12000))).toBeGreaterThan(0.02)
   })
 })
+
+describe('stereo in the engine', () => {
+  const rmsOf = (buffer: Float32Array) => rms(buffer)
+  const renderBoth = (engine: Engine, frames: number) => {
+    const left = new Float32Array(frames)
+    const right = new Float32Array(frames)
+    engine.render(left, right)
+    return { left, right }
+  }
+
+  it('a pan in the graph moves an audio track toward one side', () => {
+    const panned = (pan: number) => renderBoth(audioEngine(effect('pan', { pan })), 4800)
+    const hardLeft = panned(-1)
+    expect(rmsOf(hardLeft.left)).toBeGreaterThan(0.05)
+    expect(rmsOf(hardLeft.right)).toBeLessThan(1e-9)
+    const hardRight = panned(1)
+    expect(rmsOf(hardRight.left)).toBeLessThan(1e-9)
+    expect(rmsOf(hardRight.right)).toBeGreaterThan(0.05)
+  })
+
+  it('an untouched track still comes out the same in both channels', () => {
+    const { left, right } = renderBoth(audioEngine(createDefaultFxGraph()), 4800)
+    expect(left).toEqual(right)
+  })
+
+  it('a stereo reverb on a mono sample gives different left and right channels', () => {
+    const { left, right } = renderBoth(audioEngine(effect('stereoReverb', { mix: 1, size: 0.8 })), 24000)
+    expect(rmsOf(left)).toBeGreaterThan(0.005)
+    expect(left).not.toEqual(right)
+  })
+
+  it('the master soft clip and the peak work per channel', () => {
+    const engine = audioEngine(effect('pan', { pan: -1 }))
+    renderBoth(engine, 4800)
+    expect(engine.status().peak).toBeGreaterThan(0.05)
+  })
+})

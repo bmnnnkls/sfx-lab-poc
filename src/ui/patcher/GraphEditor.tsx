@@ -17,6 +17,7 @@ import {
   setNodeBypassed,
   setNodeParam,
   setNodeSample,
+  setNodeStereo,
   setNodeTrack,
 } from '@core'
 import { useProjectStore } from '@state'
@@ -198,6 +199,7 @@ export const GraphEditor = ({ track, graph, aside }: GraphEditorProps) => {
           onSampleChange={(id, sampleId) => edit((current) => setNodeSample(current, id, sampleId))}
           onTrackChange={(id, trackId) => edit((current) => setNodeTrack(current, id, trackId))}
           onBypassChange={(id, bypassed) => edit((current) => setNodeBypassed(current, id, bypassed))}
+          onStereoChange={(id, stereo) => edit((current, library) => setNodeStereo(current, id, stereo, library))}
           onConnect={(from, to) => edit((current, library) => connect(current, from, to, { modules: library }))}
           onDisconnect={(id) => edit((current) => disconnect(current, id))}
           onOpenModule={(moduleId) => enter([...known, moduleId])}

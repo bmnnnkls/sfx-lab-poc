@@ -115,6 +115,49 @@ describe('insert graphs in files', () => {
   })
 })
 
+describe('stereo in files', () => {
+  const fx = (nodes: unknown[], connections: unknown[] = []) =>
+    parseOk(envelope(project({ tracks: [{ id: 't', name: 'T', patch: {}, clips: [], fx: { nodes, connections } }] }))).project.tracks[0]!.fx
+  const node = (id: string, type: string, extra: Record<string, unknown> = {}) => ({ id, type, x: 0, y: 0, params: {}, ...extra })
+
+  it('keeps the stereo switch on nodes that can run in stereo, with the wires that need it', () => {
+    const patch = fx(
+      [node('i', 'trackIn'), node('p', 'pan'), node('f', 'filter', { stereo: true }), node('o', 'trackOut')],
+      [
+        { id: 'a', from: { node: 'i', port: 'out' }, to: { node: 'p', port: 'in' } },
+        { id: 'b', from: { node: 'p', port: 'out' }, to: { node: 'f', port: 'in' } },
+        { id: 'c', from: { node: 'f', port: 'out' }, to: { node: 'o', port: 'in' } },
+      ],
+    )
+    expect(patch.nodes.find((n) => n.id === 'f')?.stereo).toBe(true)
+    expect(patch.connections.map((c) => c.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('drops a stereo wire into a mono input, and ignores the switch on a node that cannot go stereo', () => {
+    const patch = fx(
+      [node('i', 'trackIn'), node('p', 'pan', { stereo: true }), node('f', 'filter'), node('o', 'trackOut')],
+      [
+        { id: 'a', from: { node: 'i', port: 'out' }, to: { node: 'p', port: 'in' } },
+        { id: 'b', from: { node: 'p', port: 'out' }, to: { node: 'f', port: 'in' } }, // stereo -> mono: not allowed
+      ],
+    )
+    expect(patch.nodes.find((n) => n.id === 'p')).not.toHaveProperty('stereo')
+    expect(patch.connections.map((c) => c.id)).toEqual(['a'])
+  })
+
+  it('round-trips a stereo graph', () => {
+    const base = createDemoProject()
+    const stereoFx = noteGraphFrom(
+      [{ id: 'i', type: 'trackIn' }, { id: 'p', type: 'pan', params: { pan: 0.4 } }, { id: 'r', type: 'stereoReverb' }, { id: 'o', type: 'trackOut' }],
+      ['i.out>p.in', 'p.out>r.in', 'r.out>o.in'],
+    )
+    const withFx = { ...base, tracks: base.tracks.map((track) => ({ ...track, fx: stereoFx })) }
+    const result = parseOk(serializeProject(withFx))
+    expect(result.project).toEqual(withFx)
+    expect(result.warnings).toEqual([])
+  })
+})
+
 describe('rejecting bad files', () => {
   it.each([
     ['not json', 'nope{', /not valid JSON/],

@@ -7,7 +7,7 @@ import {
   type ModulePort,
   exposedPortId,
 } from './module-types'
-import { describeNode, findModule } from './node-shape'
+import { describeNode, findModule, kindsConnect } from './node-shape'
 import type { Patch, PatchConnection, PatchNode, PortRef } from './types'
 
 export interface GroupResult {
@@ -139,7 +139,19 @@ export const pruneModuleUses = (patch: Patch, modules: ModuleLibrary): Patch => 
     const definition = findModule(modules, node.moduleId)
     return Boolean(definition?.[direction].some((port) => port.id === ref.port))
   }
-  const connections = patch.connections.filter((c) => portExists(c.from, 'outputs') && portExists(c.to, 'inputs'))
+  // A module's port takes the kind of the inner port it stands for, which changes when that node goes stereo.
+  const kindOf = (ref: PortRef, direction: 'inputs' | 'outputs') => {
+    const node = patch.nodes.find((candidate) => candidate.id === ref.node)
+    return node && describeNode(node, modules)?.[direction].find((port) => port.id === ref.port)?.kind
+  }
+  const touchesModule = (c: PatchConnection) =>
+    [c.from.node, c.to.node].some((id) => patch.nodes.find((node) => node.id === id)?.type === MODULE_NODE_TYPE)
+  const connections = patch.connections.filter(
+    (c) =>
+      portExists(c.from, 'outputs') &&
+      portExists(c.to, 'inputs') &&
+      (!touchesModule(c) || kindsConnect(kindOf(c.from, 'outputs'), kindOf(c.to, 'inputs'))),
+  )
 
   let changed = connections.length !== patch.connections.length
   const nodes = patch.nodes.map((node) => {

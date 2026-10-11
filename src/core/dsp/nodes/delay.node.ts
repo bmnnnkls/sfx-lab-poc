@@ -56,5 +56,6 @@ export const delayNode: NodeDefinition = {
   outputs: [{ id: 'out', label: 'Out' }],
   params: PARAMS,
   shared: true,
+  stereoCapable: true,
   create: (sampleRate) => new Delay(sampleRate),
 }

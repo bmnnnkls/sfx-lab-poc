@@ -1,3 +1,4 @@
+import { RIGHT } from '../dsp'
 import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
 import type { Patch } from '../patch'
@@ -141,9 +142,8 @@ export class TrackRuntime implements PlayableTrack {
   mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number): void {
     const signal = this.fx.process(this.instrument.render(frames), frames)
     for (let i = 0; i < frames; i++) {
-      const sample = (signal[i] ?? 0) * this.volume
-      left[offset + i] = (left[offset + i] ?? 0) + sample
-      right[offset + i] = (right[offset + i] ?? 0) + sample
+      left[offset + i] = (left[offset + i] ?? 0) + (signal[i] ?? 0) * this.volume
+      right[offset + i] = (right[offset + i] ?? 0) + (signal[RIGHT + i] ?? 0) * this.volume
     }
     if (this.audition) {
       this.audition.framesLeft -= frames

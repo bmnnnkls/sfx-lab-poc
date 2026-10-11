@@ -1,7 +1,7 @@
 import { type NoteState } from '../dsp'
 import type { Patch } from '../patch'
 import type { SampleLookup } from '../sample'
-import { MAX_BLOCK_FRAMES, compileStage, processStage } from './compile'
+import { MAX_BLOCK_FRAMES, compileStage, processStage, setStageParam, setStageSample } from './compile'
 import { planStages } from './stages'
 import { Voice } from './voice'
 import { VoicePool } from './voice-pool'
@@ -69,12 +69,12 @@ export class Instrument {
 
   setParam(nodeId: string, paramId: string, value: number): void {
     for (const voice of this.pool.voices) voice.setParam(nodeId, paramId, value)
-    this.shared.byId.get(nodeId)?.setParam(paramId, value)
+    setStageParam(this.shared, nodeId, paramId, value)
   }
 
   setSample(nodeId: string, sampleId: string | null): void {
     for (const voice of this.pool.voices) voice.setSample(nodeId, sampleId)
-    this.shared.byId.get(nodeId)?.setSample?.(sampleId)
+    setStageSample(this.shared, nodeId, sampleId)
   }
 
   /** Renders `frames` samples (<= MAX_BLOCK_FRAMES) and returns the shared mono buffer. */

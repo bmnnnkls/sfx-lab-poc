@@ -4,10 +4,19 @@ export interface PortSpec {
   readonly label: string
   /** What travels through the port. Absent means an audio-rate `signal`. Only ports of the same kind connect. */
   readonly kind?: PortKind
+  /**
+   * A modulation input (a `cv`). When the node runs in stereo it stays one mono signal that both channels follow,
+   * instead of becoming a left/right pair.
+   */
+  readonly control?: boolean
 }
 
-/** `signal`: audio-rate buffers (the patcher). `notes`: streams of note events (the note graph). */
-export type PortKind = 'signal' | 'notes'
+/**
+ * `signal`: audio-rate buffers (the patcher). `stereo`: a left/right pair of them (see `stereo.ts`); a `signal`
+ * output may feed a `stereo` input (it is heard in both channels), never the reverse. `notes`: streams of note events
+ * (the note graph).
+ */
+export type PortKind = 'signal' | 'stereo' | 'notes'
 
 import type { SampleLookup } from '../sample'
 
@@ -78,8 +87,13 @@ export interface NodeDefinition {
   readonly shared?: boolean
   /** Whatever is wired into this node's input is audible: the sum of all sinks is what the graph produces. */
   readonly sink?: boolean
-  /** Only meaningful in a track's insert graph (`trackIn`, `trackOut`); the instrument's palette leaves it out. */
+  /** Only meaningful in a track's insert graph (the track's ends, stereo nodes); the instrument's palette leaves it out. */
   readonly insertOnly?: boolean
+  /**
+   * The node can run in stereo (`PatchNode.stereo`): the compiler then runs two copies of it, one per channel, with
+   * the same parameters, and its signal ports become stereo (see `stereoPorts`).
+   */
+  readonly stereoCapable?: boolean
   /** The node plays library samples; the patcher shows a sample picker and stores `sampleId`. */
   readonly usesSample?: boolean
   create(sampleRate: number): DspNode

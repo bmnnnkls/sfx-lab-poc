@@ -5,7 +5,7 @@ import type { AudioTrack, InstrumentTrack, Project, Track } from '../project'
 /** Identity of a patch's wiring, ignoring params and canvas positions. */
 const structureOf = (patch: Patch): string =>
   JSON.stringify([
-    patch.nodes.map((node) => [node.id, node.type]),
+    patch.nodes.map((node) => [node.id, node.type, node.stereo ?? false]),
     patch.connections.map(({ from, to }) => [from.node, from.port, to.node, to.port]),
   ])
 

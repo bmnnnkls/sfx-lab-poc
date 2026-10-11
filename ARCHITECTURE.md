@@ -241,6 +241,38 @@ work in it unchanged (a module whose ports are `signal` goes anywhere sound goes
 * **UI.** The **Effects** tab sits beside Instrument and Notes and works for every track. A track header shows **fx N**
   (sound effects, opens the Effects tab) and **notes N** (note-graph processing, opens the Notes tab).
 
+## Stereo
+
+Instruments and samples are mono; stereo starts in the insert graph, so a pan, a wide reverb or a ping-pong delay can
+sit on any track. It reuses the typed-port machinery the note graph introduced.
+
+* **Port kind `stereo`**, beside `signal` and `notes`. A `signal` output may feed a `stereo` input (it is heard in both
+  channels); a `stereo` output never feeds a `signal` input, the way back is the explicit *Mono sum* node. Modules inherit
+  the kind of their ports like for notes, so a module that ends in a stereo node has a stereo port, and if an inner node is
+  switched to or from stereo the wires that stop fitting are pruned (`pruneModuleUses`).
+* **Buffers** (`dsp/stereo.ts`). A stereo port is one `Float32Array(256)` laid out planar, left then right (`buffer[i]`,
+  `buffer[RIGHT + i]`), so allocation, seeding and summing work unchanged. `compileStage` allocates stereo buffers for
+  stereo ports and, for a stereo input with several sources or a mono source, sums into a buffer of its own (a mono
+  source is added to both channels). Nodes that make or read stereo index with `RIGHT`; `leftOf`/`rightOf` are views for
+  compile time and tests (they allocate, so per-block code does not call them).
+* **Every effect without rewriting it.** `PatchNode.stereo` (like `bypassed`): on a node that opts in with
+  `NodeDefinition.stereoCapable` (filter, gain, delay) the compiler creates two processors with the same parameters, each
+  on one channel of the node's stereo ports, so `describeNode` reports those ports as `stereo`. A port marked `control`
+  (`cv`, filter `cutoff`) stays one mono signal that both channels follow, so one LFO moves both. The node header shows an
+  **M / L R** switch; `setNodeStereo` flips it and removes the wires that no longer fit.
+* **New nodes** (all `insertOnly`, so the instrument palette leaves them out): *Pan* (mono to stereo, constant-power law,
+  -3 dB in each channel at the centre), *Width* (mid/side; 0 mono, 1 unchanged, 2 wider), *Stereo reverb* (Freeverb with the
+  right tank's delays 23 samples longer, sharing `ReverbTank` with the mono reverb, so a mono source comes out with
+  different channels yet a sum that is a clean reverb), *Ping-pong delay* and *Mono sum*.
+* **Engine.** `Track out` is a stereo sink and `FxGraph.process` returns a stereo buffer (a mono signal reaching it is
+  duplicated, bit for bit, so untouched tracks sound as before); `mixInto` adds the two channels separately. The master
+  soft clip and the peak meter were already per channel.
+* **Files.** `stereo` is kept only on nodes that can run in stereo, and the wires are rebuilt through `connect`, so a stereo
+  output wired into a mono input in a hand-edited file is dropped with a warning. `diffProject` counts the switch as wiring
+  (the graph is rebuilt), a knob is still a `setParam`.
+* **Decision for later.** A return track starts from a stereo source (its sends are stereo), so it will have its own
+  `Return in` node rather than reuse the mono `Track in`; then mono effects on a return need the L R switch, as expected.
+
 ## Editing clips (piano roll)
 
 * **Gestures are pure functions of the pointer.** `ui/clip-editor/note-gestures.ts` describes draw / move /
@@ -477,7 +509,7 @@ launcher queue need no changes.
 * One clip plays per track. Polyphony has simple voice stealing and no unison, glide or legato modes.
 * Audio clips have no time-stretch (only re-pitch or original speed), no loop crossfade (a loop whose ends don't
   match will click unless you add fades) and no recording. Trim is non-destructive but there are no separate loop
-  points inside the region. Audio is mono.
+  points inside the region. Audio clips are mono (they are duplicated to both channels, or panned in the insert graph).
 * The piano roll assumes 4/4 for the ruler and its clipboard is not shared with the OS clipboard. Groove tools are
   destructive edits (undoable), not a reusable groove pool; swing and quantize use the toolbar grid, which has no
   triplet options yet.
@@ -487,7 +519,7 @@ launcher queue need no changes.
 * Sample hashing needs a secure context (https or localhost).
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
 * Oscillators are naive (alias at high pitches); no band-limiting or oversampling. The LFO cannot sync to the tempo
-  (`ProcessContext` carries none) and the reverb is mono. Filter cutoff has a linear slider over 20 Hz–20 kHz.
+  (`ProcessContext` carries none); the plain Reverb is mono (use *Stereo reverb* in an insert graph). Filter cutoff has a linear slider over 20 Hz–20 kHz.
 * Launch quantisation is fixed at one bar; no recording or plugin hosting.
 * History is per session (not saved) and does not cover selection or transport.
 * One autosaved project per browser. Two tabs on the same site overwrite each other (last write wins).
@@ -497,5 +529,5 @@ launcher queue need no changes.
 ## Natural next steps
 
 1. Unused-sample cleanup, loop points inside a clip, 2. offline bounce using `Engine` directly,
-3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (band-limited oscillators, tempo-synced LFO, stereo reverb),
+3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (band-limited oscillators, tempo-synced LFO, chorus / stereo modulation effects),
 5. WASM DSP nodes (Faust/RNBO).

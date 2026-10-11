@@ -1,7 +1,7 @@
 import { createId } from '../shared'
 import { isDownstream } from './graph'
 import type { ModuleLibrary } from './module-types'
-import { describeNode } from './node-shape'
+import { describeNode, kindsConnect } from './node-shape'
 import type { Patch, PatchNode, PortRef } from './types'
 
 const defaultParams = (type: string): Record<string, number> => {
@@ -88,6 +88,27 @@ export const setNodeBypassed = (patch: Patch, nodeId: string, bypassed: boolean)
       }
     : patch
 
+/**
+ * Runs a node in stereo (two copies, one per channel) or back in mono. Its ports change kind with it, so wires that
+ * no longer fit (a stereo output into a mono input, say) are removed; the rest stay.
+ */
+export const setNodeStereo = (patch: Patch, nodeId: string, stereo: boolean, modules: ModuleLibrary = []): Patch => {
+  const node = patch.nodes.find((candidate) => candidate.id === nodeId)
+  if (!node || (node.stereo === true) === stereo || describeNode(node, modules)?.stereoCapable !== true) return patch
+  const { stereo: _previous, ...rest } = node
+  const changed: Patch = {
+    ...patch,
+    nodes: patch.nodes.map((candidate) => (candidate === node ? (stereo ? { ...rest, stereo } : rest) : candidate)),
+  }
+  const fits = ({ from, to }: Patch['connections'][number]): boolean => {
+    if (from.node !== nodeId && to.node !== nodeId) return true
+    const source = findPort(changed, from, 'outputs', modules)
+    const target = findPort(changed, to, 'inputs', modules)
+    return source !== undefined && target !== undefined && kindsConnect(source.kind, target.kind)
+  }
+  return { ...changed, connections: changed.connections.filter(fits) }
+}
+
 export const moveNode = (patch: Patch, nodeId: string, x: number, y: number): Patch => ({
   ...patch,
   nodes: patch.nodes.map((node) => (node.id === nodeId ? { ...node, x, y } : node)),
@@ -116,8 +137,7 @@ export const canConnect = (patch: Patch, from: PortRef, to: PortRef, modules: Mo
   const source = findPort(patch, from, 'outputs', modules)
   const target = findPort(patch, to, 'inputs', modules)
   if (!source || !target) return false
-  // Sound connects to sound and notes to notes, never across.
-  if ((source.kind ?? 'signal') !== (target.kind ?? 'signal')) return false
+  if (!kindsConnect(source.kind, target.kind)) return false
   const duplicate = patch.connections.some(
     (c) =>
       c.from.node === from.node &&

@@ -12,3 +12,5 @@ export type {
   ProcessContext,
 } from './types'
 export { Params } from './params'
+export { MAX_BLOCK_FRAMES } from './block'
+export { RIGHT, STEREO_FRAMES, isStereoBuffer, leftOf, rightOf, stereoPorts } from './stereo'

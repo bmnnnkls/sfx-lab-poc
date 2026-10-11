@@ -30,6 +30,7 @@ interface PatchCanvasProps {
   onSampleChange(nodeId: string, sampleId: string | null): void
   onTrackChange(nodeId: string, trackId: string | null): void
   onBypassChange(nodeId: string, bypassed: boolean): void
+  onStereoChange(nodeId: string, stereo: boolean): void
   onConnect(from: PortRef, to: PortRef): void
   onDisconnect(connectionId: string): void
   onOpenModule(moduleId: string): void
@@ -67,6 +68,7 @@ export const PatchCanvas = ({
   onSampleChange,
   onTrackChange,
   onBypassChange,
+  onStereoChange,
   onConnect,
   onDisconnect,
   onOpenModule,
@@ -173,6 +175,7 @@ export const PatchCanvas = ({
             onSampleChange={(sampleId) => onSampleChange(node.id, sampleId)}
             onTrackChange={(trackId) => onTrackChange(node.id, trackId)}
             onBypassChange={(bypassed) => onBypassChange(node.id, bypassed)}
+            onStereoChange={(stereo) => onStereoChange(node.id, stereo)}
             onWireStart={(from) => setPending({ from, pointer: { x: node.x, y: node.y } })}
             onWireEnd={(to) => pending && onConnect(pending.from, to)}
           />

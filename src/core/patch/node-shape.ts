@@ -1,4 +1,4 @@
-import { type NodeDefinition, type ParamSpec, type PortSpec, findNodeDefinition } from '../dsp'
+import { type NodeDefinition, type ParamSpec, type PortKind, type PortSpec, findNodeDefinition, stereoPorts } from '../dsp'
 import { findNoteNode } from '../notefx'
 import { MODULE_NODE_TYPE, type ModuleDefinition, type ModuleLibrary, type ModulePort } from './module-types'
 import type { PatchNode } from './types'
@@ -7,13 +7,20 @@ import type { PatchNode } from './types'
 export type NodeDomain = 'audio' | 'notes'
 
 /** What the editor and the connection rules need to know about a node: its ports and parameters. */
-export type NodeShape = Pick<NodeDefinition, 'label' | 'inputs' | 'outputs' | 'params' | 'usesSample'> & {
+export type NodeShape = Pick<NodeDefinition, 'label' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
   /** The node reads notes from another track; the editor shows a track picker. */
   readonly usesTrack?: boolean
   /** A note effect that can be switched off (notes then pass straight through). */
   readonly bypassable?: boolean
   readonly domain?: NodeDomain
 }
+
+/**
+ * Sound connects to sound, stereo to stereo and notes to notes, never across. A mono signal may also feed a stereo
+ * input (it is heard in both channels); going back to mono is the explicit *Mono sum* node.
+ */
+export const kindsConnect = (from: PortKind = 'signal', to: PortKind = 'signal'): boolean =>
+  from === to || (from === 'signal' && to === 'stereo')
 
 export const findModule = (modules: ModuleLibrary, id: string | undefined): ModuleDefinition | undefined =>
   id === undefined ? undefined : modules.find((candidate) => candidate.id === id)
@@ -61,7 +68,8 @@ export const moduleDomain = (definition: ModuleDefinition, modules: ModuleLibrar
 export const describeNode = (node: PatchNode, modules: ModuleLibrary = []): NodeShape | undefined => {
   if (node.type !== MODULE_NODE_TYPE) {
     const audio = findNodeDefinition(node.type)
-    if (audio) return audio
+    // A node running in stereo has stereo ports; everything else about it is the same.
+    if (audio) return node.stereo === true && audio.stereoCapable === true ? { ...audio, ...stereoPorts(audio) } : audio
     const note = findNoteNode(node.type)
     return (
       note && {

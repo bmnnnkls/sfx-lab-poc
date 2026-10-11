@@ -11,7 +11,7 @@ class TrackOut implements DspNode {
 export const trackOutNode: NodeDefinition = {
   type: TRACK_OUT_TYPE,
   label: 'Track out',
-  inputs: [{ id: 'in', label: 'In' }],
+  inputs: [{ id: 'in', label: 'In', kind: 'stereo' }],
   outputs: [],
   params: [],
   sink: true,

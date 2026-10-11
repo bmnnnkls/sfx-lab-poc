@@ -29,9 +29,10 @@ export const gainNode: NodeDefinition = {
   label: 'Gain',
   inputs: [
     { id: 'in', label: 'In' },
-    { id: 'cv', label: 'CV' },
+    { id: 'cv', label: 'CV', control: true },
   ],
   outputs: [{ id: 'out', label: 'Out' }],
   params: PARAMS,
+  stereoCapable: true,
   create: () => new Gain(),
 }

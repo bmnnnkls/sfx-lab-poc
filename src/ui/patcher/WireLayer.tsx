@@ -21,11 +21,15 @@ const portPoint = (
   return node && shape ? portPosition(node, shape, direction, ref.port) : null
 }
 
-const isNoteWire = (patch: Patch, modules: ModuleLibrary, ref: PortRef): boolean => {
+/** What a wire carries, from the output it starts at: notes and stereo wires are drawn differently from sound. */
+const wireKind = (patch: Patch, modules: ModuleLibrary, ref: PortRef): string | undefined => {
   const node = patch.nodes.find((candidate) => candidate.id === ref.node)
   const shape = node && describeNode(node, modules)
-  return shape?.outputs.find((port) => port.id === ref.port)?.kind === 'notes'
+  return shape?.outputs.find((port) => port.id === ref.port)?.kind
 }
+
+const wireClass = (kind: string | undefined): string =>
+  kind === 'notes' ? styles.noteWire ?? '' : kind === 'stereo' ? styles.stereoWire ?? '' : ''
 
 export const WireLayer = ({ patch, modules, pending, onDisconnect }: WireLayerProps) => {
   const pendingStart = pending ? portPoint(patch, modules, pending.from, 'outputs') : null
@@ -39,7 +43,7 @@ export const WireLayer = ({ patch, modules, pending, onDisconnect }: WireLayerPr
         const path = wirePath(from, to)
         return (
           <g key={connection.id}>
-            <path d={path} className={`${styles.wire} ${isNoteWire(patch, modules, connection.from) ? styles.noteWire : ''}`} />
+            <path d={path} className={`${styles.wire} ${wireClass(wireKind(patch, modules, connection.from))}`} />
             <path
               d={path}
               className={styles.wireHit}

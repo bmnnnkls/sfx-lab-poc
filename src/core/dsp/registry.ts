@@ -5,11 +5,16 @@ import { gainNode } from './nodes/gain.node'
 import { lfoNode } from './nodes/lfo.node'
 import { noteNode } from './nodes/note.node'
 import { oscillatorNode } from './nodes/oscillator.node'
+import { monoSumNode } from './nodes/mono-sum.node'
 import { outputNode } from './nodes/output.node'
+import { panNode } from './nodes/pan.node'
+import { pingPongNode } from './nodes/ping-pong.node'
 import { reverbNode } from './nodes/reverb.node'
 import { samplerNode } from './nodes/sampler.node'
+import { stereoReverbNode } from './nodes/stereo-reverb.node'
 import { trackInNode } from './nodes/track-in.node'
 import { trackOutNode } from './nodes/track-out.node'
+import { widthNode } from './nodes/width.node'
 import type { NodeDefinition } from './types'
 
 export const nodeDefinitions: readonly NodeDefinition[] = [
@@ -25,6 +30,11 @@ export const nodeDefinitions: readonly NodeDefinition[] = [
   outputNode,
   trackInNode,
   trackOutNode,
+  panNode,
+  widthNode,
+  stereoReverbNode,
+  pingPongNode,
+  monoSumNode,
 ]
 
 const byType = new Map(nodeDefinitions.map((definition) => [definition.type, definition]))
