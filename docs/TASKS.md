@@ -53,6 +53,26 @@ bypass-all toggle, auditioning notes through the chain, effects on audio-clip-fr
 Smaller follow-ups: drag several selected nodes together; delete/duplicate selection with the keyboard; a way to
 update or replace a module's definition from a file; show where a module is used from the module list.
 
+## Effects on tracks, sends and returns (sound in, sound out)
+
+Status: **designed, not started.**
+
+* **What exists:** effect nodes (filter, delay, reverb, LFO, gain) and modules with audio ports already work *inside an
+  instrument's patch*. What is missing is somewhere to put an effect on a track's *output*, and audio tracks (samples)
+  cannot be processed at all.
+* **Insert graph per track:** every track (instrument and audio) gets a second sound graph after its own sound:
+  `Track in -> effects -> Track out`, edited with the same editor and the same modules as everything else.
+  Default is the two wired together (nothing changes).
+* **Sends and returns:** a *Send* node (to a named bus, with an amount) can sit anywhere in a track's insert graph; a
+  new **return track** (no clips) starts with a *Bus* node reading that bus, then effects, then out. Several tracks can
+  send to one reverb. Order of evaluation follows the same rule as notes taken from other tracks: senders first, loops
+  refused (a one-block delay could make feedback legal later).
+* **Master:** the same graph on the final mix (limiter, glue reverb), as a special return.
+* **Modules:** an effect module is simply a module whose ports are `signal`; it can go in an instrument, an insert
+  graph or a return. No new module machinery.
+* **Limits to settle first:** the engine is mono per track (the two channels carry the same signal); sends and returns
+  are most useful in stereo (pan, wide reverb), which is a separate change.
+
 ## Note graph follow-ups
 
 The note graph is built (see `ARCHITECTURE.md`). Ideas that did not make it in:
