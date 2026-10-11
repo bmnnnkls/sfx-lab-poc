@@ -70,8 +70,42 @@ Status: **designed, not started.**
 * **Master:** the same graph on the final mix (limiter, glue reverb), as a special return.
 * **Modules:** an effect module is simply a module whose ports are `signal`; it can go in an instrument, an insert
   graph or a return. No new module machinery.
-* **Limits to settle first:** the engine is mono per track (the two channels carry the same signal); sends and returns
-  are most useful in stereo (pan, wide reverb), which is a separate change.
+### Decisions (from the discussion)
+
+* **Sends:** both a per-track **send knob** and **Send / Track audio nodes**, as one mechanism: a return track *is* the
+  bus (no bus names); the engine has one primitive, "add this much of this signal to return track X", which the knob
+  (post-fader, one per existing return, shown only when returns exist) and the Send node (anywhere in the insert graph,
+  so before or after other effects) both use, and they add together. *Track audio* is a source that takes another
+  track's sound (before or after its effects), the mirror of *Track notes*, giving sidechains and parallel chains.
+  Loops are refused with the same rule as notes taken from other tracks.
+* **Master effects:** yes, the same graph on the final mix.
+
+### Build order
+
+1. Insert graph per track (`Track in -> effects -> Track out`, instrument and audio tracks).
+2. Return tracks and the Send node (engine primitive, ordering, loop rules, persistence).
+3. The send knob row on track headers.
+4. Master effects graph.
+5. *Track audio* node.
+6. **Stereo** (see below).
+
+### Stereo (step 6)
+
+Today the engine is mono per track and the two output channels carry the same signal, so sends and returns are only half
+as useful (no pan, no wide reverbs). Proposed design, to be settled when we get there:
+
+* A third port kind, `stereo` (a left/right pair), next to `signal` and `notes`; only like kinds connect, and modules
+  inherit the kind of their ports, as they already do for `notes`.
+* Instruments stay mono (voices are summed to one signal); stereo begins in the insert graph. *Pan* (mono to stereo),
+  *Width*, a stereo reverb (decorrelated left and right delay lengths) and a ping-pong delay are the nodes that create
+  or need it.
+* Any existing mono effect (filter, gain, delay, LFO-modulated things) is usable in stereo by running two copies of it
+  with the same parameters, one per channel, so there is no second set of filters to write. A mono-to-stereo or
+  stereo-to-mono conversion is explicit (*Pan*, *Mono sum*); *Track out* accepts either and duplicates a mono signal.
+* Sends and returns carry stereo; a mono send is duplicated to both channels. Audio-track samples stay mono until
+  they are panned.
+* **Suggested order change:** do this as step 2, before returns and sends. Returns are where reverbs live, and building
+  them mono first means rebuilding their buffers, ports and tests once more.
 
 ## Note graph follow-ups
 
