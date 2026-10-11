@@ -25,9 +25,11 @@ import { mapRangeNode, mixNode, quantizeNode } from './nodes/math/shaping'
 import { smoothNode } from './nodes/math/smooth.node'
 import { switchNode } from './nodes/switch.node'
 import { xyPadNode } from './nodes/xy-pad.node'
+import { documented } from './document'
+import { nodeDocs } from './node-docs'
 import type { NodeDefinition } from './types'
 
-export const nodeDefinitions: readonly NodeDefinition[] = [
+const plainDefinitions: readonly NodeDefinition[] = [
   noteNode,
   oscillatorNode,
   samplerNode,
@@ -66,6 +68,9 @@ export const nodeDefinitions: readonly NodeDefinition[] = [
   midiToHzNode,
   hzToMidiNode,
 ]
+
+/** Every node type, with the words that go with it (`node-docs.ts`) attached. */
+export const nodeDefinitions: readonly NodeDefinition[] = plainDefinitions.map((definition) => documented(definition, nodeDocs[definition.type]))
 
 const byType = new Map(nodeDefinitions.map((definition) => [definition.type, definition]))
 

@@ -12,6 +12,7 @@ import {
 import { type PointerEvent, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
 import { NodeView } from './NodeView'
+import { nodeTitles } from '../panel/panel-values'
 import { drivenParams, visibleShape } from './visible-shape'
 import styles from './Patcher.module.css'
 import { WireLayer } from './WireLayer'
@@ -97,6 +98,7 @@ export const PatchCanvas = ({
     }
     return map
   }, [patch, modules, showSockets])
+  const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
   const visible = patch.nodes.filter((node) => shapes.has(node.id))
 
   const width = Math.max(...visible.map((node) => node.x + NODE_WIDTH), 0) + PADDING
@@ -164,7 +166,7 @@ export const PatchCanvas = ({
             key={node.id}
             node={node}
             shape={shapes.get(node.id)!}
-            driven={drivenParams(node.id, shapes.get(node.id)!, patch)}
+            driven={drivenParams(node.id, shapes.get(node.id)!, patch, (id) => titles.get(id) ?? '')}
             shared={isShared(node)}
             selected={selected.has(node.id)}
             ownerTrackId={ownerTrackId}

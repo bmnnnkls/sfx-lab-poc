@@ -487,6 +487,22 @@ plain cards; the property editor, the panel built from control nodes and the nod
   lowest note, for 0 or less; fractional notes work. Math nodes are global-capable.
 * **Names.** `PatchNode.name?` (trimmed, at most 60 characters, absent when blank; `setNodeName`, same patch when unchanged;
   read by the sanitizer). Nothing shows it yet. It is not sound: renaming sends no engine command.
+* **Words** (`dsp/node-docs.ts`, `notefx/node-docs.ts`, `dsp/document.ts`). Every node has a one-sentence `description`, a `category`
+  (*Sources, Controls, Modulation, Math, Filters, Effects, Routing*; the note graph uses only Sources, Effects and Routing;
+  modules are `Modules`) and optional `keywords` for search, and every port and
+  parameter a `description`. They are written once in one table per registry and attached by the registry (`documented`), not
+  scattered over the node files; **a test fails when a registered node, port or parameter has no entry, or an entry names
+  something that is gone** (so adding a node means adding its words). A parameter socket takes its parameter's description and
+  carries `PortSpec.range` (min, max, default, unit) so a knob can be made from it. `NodeShape` carries description, category and
+  keywords for modules and note nodes too.
+* **Tooltips** (`ui/shared/tooltip/`). Anything with a `data-tooltip` attribute gets the app's one tooltip (`TooltipLayer`, mounted
+  in `Workspace`): the text is one string, a row per line (`tooltip-text.ts`: what it is, then `Range 20 Hz to 20000 Hz · default
+  2000 Hz · logarithmic` or the options of an enum, then, if a wire is involved, `Driven by Control: the wire replaces this value.`
+  or how to wire a socket). It shows after the pointer rests 350 ms, at once on keyboard focus, hides on leaving, pressing,
+  scrolling and Escape, links its target with `aria-describedby` while shown, ignores touch, and is placed by a pure function
+  (`tooltip-position.ts`: under the target, above if there is no room, kept inside the window). A control's range shown is its
+  live one (`liveSpec`). Used on cards (node title, ports, sockets, parameter rows) and on the palette buttons.
+  Browser check: `docs/browser-checks/tooltips.mjs`.
 * **Cards.** A card draws a parameter socket only when it is wired, or all of them while the **Sockets** toggle (a checkbox in the
   toolbar, remembered like the Graph | Panel switch) is on (`ui/patcher/visible-shape.ts`; `portPosition` indexes the visible
   shape). A slider whose parameter is driven is disabled.
@@ -734,7 +750,7 @@ through a patch, as before) or an **audio track**.
 ## Common changes
 
 **Add a DSP node** — create `core/dsp/nodes/<name>.node.ts` exporting a `NodeDefinition`, add it to
-`core/dsp/registry.ts` (every numeric parameter then has a socket automatically; `paramSockets: false` opts out, `global: true` lets it run in the global stage; an elementwise math node is a few lines with `mathNode`). Set `shared: true` if it is an effect whose state must outlive individual notes (reverb,
+`core/dsp/registry.ts` (add its words to `node-docs.ts` or the completeness test fails; every numeric parameter then has a socket automatically; `paramSockets: false` opts out, `global: true` lets it run in the global stage; an elementwise math node is a few lines with `mathNode`). Set `shared: true` if it is an effect whose state must outlive individual notes (reverb,
 chorus, …). The patcher palette, parameter UI, engine and file loader pick it up automatically.
 
 **Add an engine capability** — add a variant to `EngineCommand`, handle it in `Engine.apply`, and (if it comes

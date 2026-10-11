@@ -1,4 +1,5 @@
 import { type NodeShape, type PatchNode, type PortRef, liveSpec } from '@core'
+import { nodeTooltip, portTooltip } from '../shared/tooltip/tooltip-text'
 import { HEADER_HEIGHT, MODULE_FOOTER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT } from './geometry'
 import { ParamControl } from './ParamControl'
 import { SamplePicker } from './SamplePicker'
@@ -9,8 +10,8 @@ import { useNodeDrag } from './use-node-drag'
 interface NodeViewProps {
   node: PatchNode
   shape: NodeShape
-  /** Parameters a wire is driving; their sliders are disabled, since the stored value is ignored meanwhile. */
-  driven: ReadonlySet<string>
+  /** Parameters a wire is driving, with what drives each; their sliders are disabled, since the stored value is ignored meanwhile. */
+  driven: ReadonlyMap<string, string>
   /** Runs once on the mix of all voices (effects), rather than once per voice. */
   shared: boolean
   selected: boolean
@@ -52,6 +53,11 @@ export const NodeView = ({
 }: NodeViewProps) => {
   const drag = useNodeDrag(node.x, node.y, onMove)
   const rows = Math.max(shape.inputs.length, shape.outputs.length)
+  // A socket shows its parameter's facts; a control's own range is the live one.
+  const paramSpecOf = (paramId: string | undefined) => {
+    const spec = shape.params.find((candidate) => candidate.id === paramId)
+    return spec && liveSpec(spec, node.params)
+  }
 
   return (
     <div
@@ -69,7 +75,7 @@ export const NodeView = ({
           drag.onPointerDown(event)
         }}
       >
-        <span className={styles.nodeTitle}>
+        <span className={styles.nodeTitle} data-tooltip={nodeTooltip(shape) || undefined}>
           {shape.label}
           {moduleActions && <em className={styles.moduleTag}>module</em>}
           {shared && (
@@ -122,6 +128,7 @@ export const NodeView = ({
                 <span
                   className={`${styles.port} ${styles.inPort} ${input.kind === 'control' ? styles.controlPort : ''}`}
                   data-testid={`in-${node.id}-${input.id}`}
+                  data-tooltip={portTooltip(input, paramSpecOf(input.param), input.param === undefined ? undefined : driven.get(input.param)) || undefined}
                   onPointerUp={() => onWireEnd({ node: node.id, port: input.id })}
                 >
                   <i className={styles.dot} />
@@ -134,6 +141,7 @@ export const NodeView = ({
                 <span
                   className={`${styles.port} ${styles.outPort} ${output.kind === 'control' ? styles.controlPort : ''}`}
                   data-testid={`out-${node.id}-${output.id}`}
+                  data-tooltip={portTooltip(output) || undefined}
                   onPointerDown={(event) => {
                     event.stopPropagation()
                     onWireStart({ node: node.id, port: output.id })
@@ -156,7 +164,7 @@ export const NodeView = ({
           key={spec.id}
           spec={liveSpec(spec, node.params)}
           value={node.params[spec.id] ?? spec.default}
-          driven={driven.has(spec.id)}
+          drivenBy={driven.get(spec.id)}
           onChange={(value) => onParamChange(spec.id, value)}
         />
       ))}

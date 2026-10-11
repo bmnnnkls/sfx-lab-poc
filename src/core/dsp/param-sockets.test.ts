@@ -29,7 +29,16 @@ describe('parameter sockets', () => {
 
   it('a socket carries the parameter label, so a card and a tooltip can name it', () => {
     const gain = paramSockets(requireNodeDefinition('gain'))
-    expect(gain).toEqual([{ id: 'param:gain', label: 'Gain', kind: 'control', param: 'gain' }])
+    expect(gain).toEqual([
+      {
+        id: 'param:gain',
+        label: 'Gain',
+        kind: 'control',
+        param: 'gain',
+        description: requireNodeDefinition('gain').params[0]!.description,
+        range: { min: 0, max: 2, default: 1 },
+      },
+    ])
   })
 })
 

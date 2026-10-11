@@ -3,7 +3,7 @@ import styles from './Patcher.module.css'
 
 interface NodePaletteProps {
   /** The kinds of node that can be added to the graph being edited. */
-  definitions: readonly { type: string; label: string }[]
+  definitions: readonly { type: string; label: string; description?: string }[]
   /** Modules that may be placed in the graph being edited. */
   modules: ModuleLibrary
   onAdd(type: string): void
@@ -15,13 +15,13 @@ export const NodePalette = ({ definitions, modules, onAdd, onAddModule }: NodePa
   <div className={styles.palette}>
     <span className={styles.paletteLabel}>Add</span>
     {definitions.map((definition) => (
-      <button key={definition.type} onClick={() => onAdd(definition.type)}>
+      <button key={definition.type} onClick={() => onAdd(definition.type)} data-tooltip={definition.description}>
         {definition.label}
       </button>
     ))}
     {modules.length > 0 && <span className={styles.paletteLabel}>Modules</span>}
     {modules.map((module) => (
-      <button key={module.id} onClick={() => onAddModule(module.id)} title="Add a use of this module">
+      <button key={module.id} onClick={() => onAddModule(module.id)} data-tooltip="Add a use of this module.">
         {module.name}
       </button>
     ))}

@@ -5,6 +5,8 @@ export { TRACK_OUT_TYPE } from './nodes/track-out.node'
 export { MASTER_IN_TYPE, RETURN_IN_TYPE } from './nodes/return-in.node'
 export { SEND_TYPE } from './nodes/send.node'
 export { TRACK_AUDIO_TYPE } from './nodes/track-audio.node'
+export { type NodeDocs, documented } from './document'
+export { NODE_CATEGORIES, type NodeCategory } from './types'
 export type {
   DspNode,
   NodeDefinition,

@@ -1,4 +1,4 @@
-import { type NodeDefinition, type ParamSpec, type PortKind, type PortSpec, findNodeDefinition, paramSockets, stereoPorts } from '../dsp'
+import { type NodeCategory, type NodeDefinition, type ParamSpec, type PortKind, type PortSpec, findNodeDefinition, paramSockets, stereoPorts } from '../dsp'
 import { findNoteNode } from '../notefx'
 import { MODULE_NODE_TYPE, type ModuleDefinition, type ModuleLibrary, type ModulePort } from './module-types'
 import type { PatchNode } from './types'
@@ -7,7 +7,9 @@ import type { PatchNode } from './types'
 export type NodeDomain = 'audio' | 'notes'
 
 /** What the editor and the connection rules need to know about a node: its ports and parameters. */
-export type NodeShape = Pick<NodeDefinition, 'label' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
+export type NodeShape = Pick<NodeDefinition, 'label' | 'description' | 'keywords' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
+  /** Where the picker files it; a module's is `Modules`. */
+  readonly category?: NodeCategory | 'Modules'
   /** The node refers to another track and the editor shows a track picker: `notes` takes notes from an instrument track, `return` sends to a return track, `audio` takes another track's sound. */
   readonly usesTrack?: 'notes' | 'return' | 'audio'
   /** A note effect that can be switched off (notes then pass straight through). */
@@ -92,6 +94,9 @@ export const describeNode = (node: PatchNode, modules: ModuleLibrary = []): Node
     return (
       note && {
         label: note.label,
+        description: note.description,
+        category: note.category,
+        keywords: note.keywords,
         inputs: note.inputs,
         outputs: note.outputs,
         params: note.params,
@@ -105,6 +110,7 @@ export const describeNode = (node: PatchNode, modules: ModuleLibrary = []): Node
   if (!definition) return undefined
   return {
     label: definition.name,
+    category: 'Modules',
     inputs: outsidePorts(definition, definition.inputs, 'inputs', modules),
     outputs: outsidePorts(definition, definition.outputs, 'outputs', modules),
     params: knobSpecs(definition, modules),

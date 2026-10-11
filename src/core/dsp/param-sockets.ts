@@ -21,7 +21,14 @@ export const paramSockets = (definition: Pick<NodeDefinition, 'params' | 'paramS
     ? []
     : definition.params
         .filter(hasSocket)
-        .map((spec) => ({ id: paramPortId(spec.id), label: spec.label, kind: 'control' as const, param: spec.id }))
+        .map((spec) => ({
+          id: paramPortId(spec.id),
+          label: spec.label,
+          kind: 'control' as const,
+          param: spec.id,
+          ...(spec.description === undefined ? {} : { description: spec.description }),
+          range: { min: spec.min, max: spec.max, default: spec.default, ...(spec.unit === undefined ? {} : { unit: spec.unit }) },
+        }))
 
 /** The spec with a range taken from the node's own parameters (`ParamSpec.range`); the spec itself when it has none. */
 export const liveSpec = (spec: ParamSpec, values: Readonly<Record<string, number>>): ParamSpec => {

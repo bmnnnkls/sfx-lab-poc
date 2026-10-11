@@ -2,6 +2,10 @@
 export interface PortSpec {
   readonly id: string
   readonly label: string
+  /** One plain sentence: what the port is for. Shown in the tooltip. */
+  readonly description?: string
+  /** On a parameter socket: the parameter's range, default and unit, so a knob can be made from the socket. */
+  readonly range?: { readonly min: number; readonly max: number; readonly default: number; readonly unit?: string }
   /** What travels through the port. Absent means an audio-rate `signal`. Only ports of the same kind connect. */
   readonly kind?: PortKind
   /**
@@ -31,6 +35,8 @@ import type { SampleLookup } from '../sample'
 export interface ParamSpec {
   readonly id: string
   readonly label: string
+  /** One plain sentence: what the parameter does. Shown in the tooltip. */
+  readonly description?: string
   readonly min: number
   readonly max: number
   readonly default: number
@@ -105,10 +111,19 @@ export interface DspNode {
   ): void
 }
 
+/** How the node picker groups nodes. A module is placed under `Modules`, which the picker adds. */
+export const NODE_CATEGORIES = ['Sources', 'Controls', 'Modulation', 'Math', 'Filters', 'Effects', 'Routing'] as const
+export type NodeCategory = (typeof NODE_CATEGORIES)[number]
+
 /** Everything the app needs to know about a node type: its shape and how to build it. */
 export interface NodeDefinition {
   readonly type: string
   readonly label: string
+  /** One plain sentence: what the node does. Shown in the picker and the tooltip. */
+  readonly description?: string
+  readonly category?: NodeCategory
+  /** Extra words the picker's search matches (other names for the same thing). */
+  readonly keywords?: readonly string[]
   readonly inputs: readonly PortSpec[]
   readonly outputs: readonly PortSpec[]
   readonly params: readonly ParamSpec[]

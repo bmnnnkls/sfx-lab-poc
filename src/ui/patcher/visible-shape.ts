@@ -13,11 +13,15 @@ export const visibleShape = (shape: NodeShape, nodeId: string, patch: Patch, sho
   return inputs.length === shape.inputs.length ? shape : { ...shape, inputs }
 }
 
-/** The parameters of a node that a wire is driving: their stored value is ignored while the wire is there. */
-export const drivenParams = (nodeId: string, shape: NodeShape, patch: Patch): ReadonlySet<string> =>
-  new Set(
-    patch.connections.flatMap((c) => {
-      const param = c.to.node === nodeId ? shape.inputs.find((port) => port.id === c.to.port)?.param : undefined
-      return param === undefined ? [] : [param]
-    }),
-  )
+/**
+ * The parameters of a node that a wire is driving, each with what drives it ("Control", "Control 2, Add"): their stored
+ * value is ignored while the wire is there. `titleOf` names a node.
+ */
+export const drivenParams = (nodeId: string, shape: NodeShape, patch: Patch, titleOf: (id: string) => string): ReadonlyMap<string, string> => {
+  const sources = new Map<string, string[]>()
+  for (const c of patch.connections) {
+    const param = c.to.node === nodeId ? shape.inputs.find((port) => port.id === c.to.port)?.param : undefined
+    if (param !== undefined) sources.set(param, [...(sources.get(param) ?? []), titleOf(c.from.node)])
+  }
+  return new Map([...sources].map(([param, titles]) => [param, [...new Set(titles)].join(', ')]))
+}

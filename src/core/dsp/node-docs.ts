@@ -1,0 +1,413 @@
+import type { NodeDocs } from './document'
+
+/** What every sound node, port and parameter is for, in plain sentences. See `document.ts`. */
+export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
+  // ---- Sources
+  note: {
+    category: 'Sources',
+    description: 'The note being played on this voice: its pitch, whether the key is held, and how hard it was hit.',
+    keywords: ['midi', 'keyboard', 'pitch', 'trigger'],
+    outputs: {
+      frequency: 'The pitch of the note in Hz. Wire it to an oscillator or sampler Freq.',
+      gate: '1 while the key is held, 0 after it is released. Wire it to an envelope.',
+      velocity: 'How hard the key was hit, from 0 to 1.',
+    },
+  },
+  oscillator: {
+    category: 'Sources',
+    description: 'Makes a tone: a sine, saw, square or triangle wave at a pitch.',
+    keywords: ['synth', 'wave', 'sine', 'saw', 'square', 'triangle', 'tone', 'vco'],
+    inputs: {
+      freq: 'The pitch in Hz, replacing the Freq parameter. Wire the Note here to play notes.',
+      pitch: 'Bends the pitch up or down by Pitch CV semitones per unit (vibrato: wire an LFO here).',
+    },
+    outputs: { out: 'The tone.' },
+    params: {
+      waveform: 'The shape of the wave: sine is pure, saw and square are bright, triangle is in between.',
+      frequency: 'The pitch when nothing is wired to Freq.',
+      detune: 'Shifts the pitch in cents (hundredths of a semitone), to tune or thicken.',
+      pitchAmount: 'How many semitones one unit at the Pitch input bends the pitch.',
+    },
+  },
+  sampler: {
+    category: 'Sources',
+    description: 'Plays a recorded sound from the library, speeded up or slowed down to match the note.',
+    keywords: ['sample', 'audio', 'wav', 'recording', 'drum'],
+    inputs: {
+      freq: 'The pitch of the note; the sample is re-pitched to it, relative to Root note.',
+      gate: 'Starts the sample when it rises; in Hold and Loop modes letting go stops it.',
+    },
+    outputs: { out: 'The sample.' },
+    params: {
+      mode: 'One-shot plays to the end whatever the gate does, Hold stops when the gate falls, Loop repeats until it falls.',
+      root: 'The note at which the sample plays at its original speed.',
+      start: 'Where playback begins, as a fraction of the sample.',
+      tune: 'Fine tuning in cents.',
+    },
+  },
+
+  // ---- Controls
+  control: {
+    category: 'Controls',
+    description: 'A knob or slider as a node: it outputs a value you set, in its own range, to wire into any parameter.',
+    keywords: ['knob', 'slider', 'value', 'constant', 'parameter'],
+    outputs: { out: 'The value, as it is (not 0 to 1). Constant for the whole block.' },
+    params: {
+      value: 'The value this control outputs.',
+      min: 'The lowest value it can take.',
+      max: 'The highest value it can take.',
+      curve: 'How a knob maps its position onto the range: linear, logarithmic (equal ratios, for frequencies) or exponential.',
+      step: 'Snap the value to multiples of this step (0 for none).',
+      default: 'The value a reset returns to.',
+    },
+  },
+  xyPad: {
+    category: 'Controls',
+    description: 'Two controls on one pad: drag a point to set two values at once.',
+    keywords: ['pad', 'xy', 'two', 'controller'],
+    outputs: { x: 'The horizontal value, in its own range.', y: 'The vertical value, in its own range.' },
+    params: {
+      x: 'The horizontal value.',
+      xMin: 'The lowest horizontal value.',
+      xMax: 'The highest horizontal value.',
+      xCurve: 'How the horizontal position maps onto its range.',
+      xStep: 'Snap the horizontal value to multiples of this step (0 for none).',
+      xDefault: 'The horizontal value a reset returns to.',
+      y: 'The vertical value.',
+      yMin: 'The lowest vertical value.',
+      yMax: 'The highest vertical value.',
+      yCurve: 'How the vertical position maps onto its range.',
+      yStep: 'Snap the vertical value to multiples of this step (0 for none).',
+      yDefault: 'The vertical value a reset returns to.',
+    },
+  },
+  switch: {
+    category: 'Controls',
+    description: 'An on/off switch: it outputs 1 while on and 0 while off.',
+    keywords: ['toggle', 'button', 'on', 'off', 'momentary'],
+    outputs: { out: '1 while on, 0 while off.' },
+    params: {
+      on: 'Whether the switch is on.',
+      mode: 'A toggle stays where it is put; a momentary switch is on only while it is held.',
+    },
+  },
+
+  // ---- Modulation
+  envelope: {
+    category: 'Modulation',
+    description: 'Shapes a value over the life of a note: rises when the key goes down, falls when it is let go.',
+    keywords: ['adsr', 'attack', 'release', 'contour'],
+    inputs: { gate: 'Starts the attack when it rises and the release when it falls.' },
+    outputs: { out: 'From 0 to 1. Wire it to a Gain CV for a volume shape, or to a filter cutoff.' },
+    params: {
+      attack: 'Time to rise from silence to full level.',
+      decay: 'Time to fall from full level to the sustain level.',
+      sustain: 'The level held while the key is down.',
+      release: 'Time to fall to silence after the key is let go.',
+    },
+  },
+  lfo: {
+    category: 'Modulation',
+    description: 'A slow wave that moves other things: vibrato, tremolo, filter sweeps.',
+    keywords: ['oscillator', 'wobble', 'vibrato', 'tremolo', 'modulation', 'sweep'],
+    inputs: { gate: 'A rising edge restarts the cycle, so every note gets the same movement. Unwired, it runs freely.' },
+    outputs: {
+      out: 'Swings above and below zero by Depth (vibrato, panning).',
+      uni: 'Stays between 0 and Depth (tremolo, cutoff sweeps).',
+    },
+    params: {
+      shape: 'The shape of the wave; random holds a new random value each cycle.',
+      rate: 'Cycles per second.',
+      depth: 'How far the output swings.',
+    },
+  },
+
+  // ---- Filters
+  filter: {
+    category: 'Filters',
+    description: 'Cuts the highs, the lows, or everything but a band around a chosen frequency.',
+    keywords: ['lowpass', 'highpass', 'bandpass', 'eq', 'tone', 'vcf'],
+    inputs: {
+      in: 'The sound to filter.',
+      cutoff: 'Moves the cutoff up or down in octaves, CV amt per unit (an envelope or an LFO sweeps the sound).',
+    },
+    outputs: { out: 'The filtered sound.' },
+    params: {
+      mode: 'Lowpass lets lows through, highpass lets highs through, bandpass keeps a band around the cutoff.',
+      cutoff: 'The frequency where the filter starts to cut.',
+      resonance: 'Emphasis around the cutoff: above 1 it rings, high values whistle.',
+      cvAmount: 'How many octaves one unit at the Cutoff input moves the cutoff.',
+    },
+  },
+
+  // ---- Effects
+  gain: {
+    category: 'Effects',
+    description: 'Makes a signal louder or quieter. With an envelope on CV it is the volume of a note.',
+    keywords: ['volume', 'level', 'amplifier', 'vca', 'tremolo'],
+    inputs: {
+      in: 'The sound to scale.',
+      cv: 'Multiplies the level: an envelope here shapes each note, an LFO makes tremolo.',
+    },
+    outputs: { out: 'The scaled sound.' },
+    params: { gain: 'How loud the sound comes out: 1 leaves it as it is, 0 is silence, 2 doubles it.' },
+  },
+  delay: {
+    category: 'Effects',
+    description: 'Repeats the sound after a short time, as echoes. Runs once on the mix of all voices.',
+    keywords: ['echo', 'repeat', 'feedback'],
+    inputs: { in: 'The sound to echo.' },
+    outputs: { out: 'The sound mixed with its echoes.' },
+    params: {
+      time: 'The gap between echoes.',
+      feedback: 'How much of each echo is fed back to make more echoes (never quite 1, so they die away).',
+      mix: 'How much echo is heard against the dry sound.',
+    },
+  },
+  reverb: {
+    category: 'Effects',
+    description: 'Puts the sound in a room: a smooth tail that rings on after it stops. Mono, one for all voices.',
+    keywords: ['room', 'hall', 'space', 'tail'],
+    inputs: { in: 'The sound to put in the room.' },
+    outputs: { out: 'The sound with the room around it.' },
+    params: {
+      size: 'The size of the room: a bigger one has a longer tail.',
+      damping: 'How quickly the highs die away in the tail: more makes it darker.',
+      predelay: 'The gap before the reverb starts.',
+      mix: 'How much reverb is heard against the dry sound.',
+    },
+  },
+  pan: {
+    category: 'Effects',
+    description: 'Places a mono sound between the left and right speakers. Its output is stereo.',
+    keywords: ['stereo', 'left', 'right', 'position', 'balance'],
+    inputs: { in: 'The mono sound to place.' },
+    outputs: { out: 'The sound, in stereo.' },
+    params: { pan: 'Where the sound sits: -1 is hard left, 0 the centre, 1 hard right.' },
+  },
+  width: {
+    category: 'Effects',
+    description: 'Makes a stereo sound narrower or wider.',
+    keywords: ['stereo', 'spread', 'mid', 'side', 'mono'],
+    inputs: { in: 'The stereo sound.' },
+    outputs: { out: 'The sound at its new width.' },
+    params: { width: '0 makes it mono, 1 leaves it as it is, 2 makes it wider.' },
+  },
+  stereoReverb: {
+    category: 'Effects',
+    description: 'A reverb with a different room on each side, so the tail is wide. Runs once on the mix.',
+    keywords: ['room', 'hall', 'space', 'tail', 'wide'],
+    inputs: { in: 'The sound to put in the room (a mono sound is heard on both sides).' },
+    outputs: { out: 'The sound with the room around it, in stereo.' },
+    params: {
+      size: 'The size of the room: a bigger one has a longer tail.',
+      damping: 'How quickly the highs die away in the tail: more makes it darker.',
+      predelay: 'The gap before the reverb starts.',
+      mix: 'How much reverb is heard against the dry sound.',
+    },
+  },
+  pingPong: {
+    category: 'Effects',
+    description: 'An echo that bounces from the left speaker to the right and back.',
+    keywords: ['echo', 'stereo', 'bounce', 'repeat'],
+    inputs: { in: 'The sound to echo (a mono sound is heard on both sides).' },
+    outputs: { out: 'The sound mixed with its bouncing echoes, in stereo.' },
+    params: {
+      time: 'The gap between echoes.',
+      feedback: 'How much of each echo is fed back to make more echoes (never quite 1, so they die away).',
+      mix: 'How much echo is heard against the dry sound.',
+    },
+  },
+
+  // ---- Math
+  add: {
+    category: 'Math',
+    description: 'Adds two values, sample by sample. Unwired, an operand is its own parameter.',
+    keywords: ['plus', 'sum', 'offset', '+'],
+    inputs: { a: 'The first value.', b: 'The second value.' },
+    outputs: { out: 'A plus B.' },
+    params: { a: 'The first value while nothing is wired to A.', b: 'The second value while nothing is wired to B.' },
+  },
+  multiply: {
+    category: 'Math',
+    description: 'Multiplies two values, sample by sample: scale a control, or ring-modulate two sounds.',
+    keywords: ['times', 'scale', 'product', 'ring', '*'],
+    inputs: { a: 'The first value.', b: 'The second value.' },
+    outputs: { out: 'A times B.' },
+    params: { a: 'The first value while nothing is wired to A.', b: 'The second value while nothing is wired to B.' },
+  },
+  invert: {
+    category: 'Math',
+    description: 'Flips the sign of a value: 1 becomes -1, a rise becomes a fall.',
+    keywords: ['negate', 'minus', 'flip', 'reverse'],
+    inputs: { in: 'The value to flip.' },
+    outputs: { out: 'The value with its sign flipped.' },
+    params: { in: 'The value to flip while nothing is wired to In.' },
+  },
+  min: {
+    category: 'Math',
+    description: 'Passes the smaller of two values.',
+    keywords: ['lower', 'smaller', 'least'],
+    inputs: { a: 'The first value.', b: 'The second value.' },
+    outputs: { out: 'The smaller of A and B.' },
+    params: { a: 'The first value while nothing is wired to A.', b: 'The second value while nothing is wired to B.' },
+  },
+  max: {
+    category: 'Math',
+    description: 'Passes the larger of two values.',
+    keywords: ['higher', 'larger', 'greatest'],
+    inputs: { a: 'The first value.', b: 'The second value.' },
+    outputs: { out: 'The larger of A and B.' },
+    params: { a: 'The first value while nothing is wired to A.', b: 'The second value while nothing is wired to B.' },
+  },
+  clamp: {
+    category: 'Math',
+    description: 'Keeps a value between a lowest and a highest limit.',
+    keywords: ['limit', 'range', 'bound', 'ceiling', 'floor'],
+    inputs: { in: 'The value to limit.' },
+    outputs: { out: 'The value, held inside the limits.' },
+    params: {
+      in: 'The value to limit while nothing is wired to In.',
+      min: 'The lowest value let through.',
+      max: 'The highest value let through.',
+    },
+  },
+  mapRange: {
+    category: 'Math',
+    description: 'Turns one range into another: a 0 to 127 knob into 100 to 5000 Hz, with an optional curve.',
+    keywords: ['scale', 'remap', 'convert', 'range', 'curve', 'rescale'],
+    inputs: { in: 'The value to convert.' },
+    outputs: { out: 'The value in the new range.' },
+    params: {
+      in: 'The value to convert while nothing is wired to In.',
+      inMin: 'The input value that maps to Out min.',
+      inMax: 'The input value that maps to Out max.',
+      outMin: 'The output when the input is at In min.',
+      outMax: 'The output when the input is at In max.',
+      curve: 'Linear is a straight line; log gives equal ratios per step (between positive numbers); exp starts slow and ends fast.',
+    },
+  },
+  quantize: {
+    category: 'Math',
+    description: 'Snaps a value to the nearest step, for stepped controls and whole notes.',
+    keywords: ['round', 'snap', 'steps', 'grid', 'stepped'],
+    inputs: { in: 'The value to snap.' },
+    outputs: { out: 'The value on the nearest step.' },
+    params: {
+      in: 'The value to snap while nothing is wired to In.',
+      step: 'The distance between steps (0 lets the value pass).',
+      offset: 'Where the steps start.',
+    },
+  },
+  smooth: {
+    category: 'Math',
+    description: 'Slows down changes in a value, so a jump becomes a glide. Remembers where it was.',
+    keywords: ['slew', 'glide', 'lag', 'portamento', 'lowpass', 'filter'],
+    inputs: { in: 'The value to smooth.' },
+    outputs: { out: 'The smoothed value.' },
+    params: {
+      in: 'The value to smooth while nothing is wired to In.',
+      mode: 'Smooth approaches the target with a time constant; slew moves at a fixed rate until it arrives.',
+      time: 'In smooth mode: how long it takes to cover about two thirds of the way to a new value.',
+      rate: 'In slew mode: the most the value may change per second.',
+    },
+  },
+  mix: {
+    category: 'Math',
+    description: 'Crossfades between two values: 0 gives A, 1 gives B.',
+    keywords: ['crossfade', 'blend', 'lerp', 'interpolate', 'wet', 'dry'],
+    inputs: { a: 'The value at Mix 0.', b: 'The value at Mix 1.', t: 'How far from A to B, from 0 to 1.' },
+    outputs: { out: 'A blended with B.' },
+    params: {
+      a: 'The first value while nothing is wired to A.',
+      b: 'The second value while nothing is wired to B.',
+      t: 'The balance while nothing is wired to Mix: 0 is all A, 1 is all B.',
+    },
+  },
+  compare: {
+    category: 'Math',
+    description: 'Outputs 1 while A is above the threshold and 0 otherwise.',
+    keywords: ['threshold', 'greater', 'trigger', 'gate', 'schmitt', '>'],
+    inputs: { a: 'The value to test.', b: 'The threshold.' },
+    outputs: { out: '1 while A is above the threshold, otherwise 0.' },
+    params: {
+      a: 'The value to test while nothing is wired to A.',
+      b: 'The threshold while nothing is wired to it.',
+    },
+  },
+  midiToHz: {
+    category: 'Math',
+    description: 'Turns a MIDI note number into a frequency in Hz. Fractional notes work: 60.5 is a quarter tone up.',
+    keywords: ['pitch', 'note', 'frequency', 'tuning', 'convert', 'midi'],
+    inputs: { note: 'The note number (69 is A4).' },
+    outputs: { out: 'The frequency in Hz.' },
+    params: {
+      note: 'The note while nothing is wired to Note.',
+      tuning: 'The frequency of A4 (440 Hz is standard).',
+    },
+  },
+  hzToMidi: {
+    category: 'Math',
+    description: 'Turns a frequency in Hz into a MIDI note number, which may be fractional. Zero or less gives note 0.',
+    keywords: ['pitch', 'note', 'frequency', 'tuning', 'convert', 'midi'],
+    inputs: { hz: 'The frequency in Hz.' },
+    outputs: { out: 'The note number (69 is A4).' },
+    params: {
+      hz: 'The frequency while nothing is wired to Hz.',
+      tuning: 'The frequency of A4 (440 Hz is standard).',
+    },
+  },
+
+  // ---- Routing
+  output: {
+    category: 'Routing',
+    description: 'The sound of the instrument: everything wired here is what you hear from this track.',
+    keywords: ['out', 'speaker', 'end', 'sink'],
+    inputs: { in: 'The sound that leaves the instrument.' },
+  },
+  trackIn: {
+    category: 'Routing',
+    description: 'The start of a track\'s effects: the sound of the track itself, in mono.',
+    keywords: ['input', 'start', 'source'],
+    outputs: { out: 'The track\'s sound.' },
+  },
+  trackOut: {
+    category: 'Routing',
+    description: 'The end of the effects: what reaches the fader. A mono signal is heard in both channels.',
+    keywords: ['output', 'end', 'sink', 'fader'],
+    inputs: { in: 'The sound that leaves the effects, in stereo.' },
+  },
+  returnIn: {
+    category: 'Routing',
+    description: 'The start of a return track: the sum of everything the tracks have sent to it, in stereo.',
+    keywords: ['input', 'start', 'bus', 'aux', 'send'],
+    outputs: { out: 'The sum of the sends, in stereo.' },
+  },
+  masterIn: {
+    category: 'Routing',
+    description: 'The start of the master effects: the mix of every track and return, in stereo.',
+    keywords: ['input', 'start', 'bus', 'mix', 'final'],
+    outputs: { out: 'The mix, in stereo.' },
+  },
+  send: {
+    category: 'Routing',
+    description: 'Sends a copy of the sound to a return track, so one reverb or delay can serve many tracks.',
+    keywords: ['aux', 'bus', 'return', 'reverb send'],
+    inputs: { in: 'The sound to send (a mono sound is sent to both sides).' },
+    params: { amount: 'How much is sent.' },
+  },
+  trackAudio: {
+    category: 'Routing',
+    description: 'Another track\'s sound, brought here to be processed in parallel or used as a control.',
+    keywords: ['sidechain', 'parallel', 'tap', 'take', 'other track'],
+    outputs: { out: 'The other track\'s sound, in stereo.' },
+    params: { tap: 'Take it before or after that track\'s own effects (both before its fader).' },
+  },
+  monoSum: {
+    category: 'Routing',
+    description: 'Adds the two channels of a stereo sound into one mono signal.',
+    keywords: ['mono', 'mixdown', 'stereo to mono', 'collapse'],
+    inputs: { in: 'The stereo sound.' },
+    outputs: { out: 'Left and right added together.' },
+  },
+}

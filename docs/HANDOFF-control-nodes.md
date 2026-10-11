@@ -1,7 +1,7 @@
 # Handoff: control nodes, a property editor and a panel built from them
 
 > **Status: in progress; the design is agreed** (replace semantics confirmed, math nodes and a searchable quick-add added).
-> **Step 1 is built** (see "Build order" and `ARCHITECTURE.md`, "Control nodes, parameter sockets and the global stage"); steps 2 onward are not.
+> **Steps 1 and 2 are built** (see "Build order" and `ARCHITECTURE.md`, "Control nodes, parameter sockets and the global stage"); steps 3 onward are not.
 > The build is paused for the user's check-in before **step 4**.
 > Written after the front panel (`HANDOFF-front-panel.md`, built and merged) was tried and the
 > user said what they actually want. Decisions marked **(confirm)** are the planner's proposals the user has not answered yet (the build
@@ -15,9 +15,9 @@ conditions": commands, layering test, browser checks) first. They apply unchange
 ## Start here (for a fresh session)
 
 **State.** Branch `claude/determined-turing-ypq9ix` was restarted from `main` (`0929605`, PR #2 merged). **Step 1 of the build order is
-done** (the engine, the model, parameter sockets, the global stage, the control and math nodes, `PatchNode.name`); the rest of the
-design is not. On `main` already: the controls widgets (`ui/controls`), the board (`ui/panel`), the Graph | Panel switch and
-`Patch.panel`, which step 5 replaces. 694 unit tests passed at `0929605`; 812 pass after step 1.
+done** (the engine, the model, parameter sockets, the global stage, the control and math nodes, `PatchNode.name`) and **step 2** (words,
+categories, tooltips); the rest of the design is not. On `main` already: the controls widgets (`ui/controls`), the board (`ui/panel`), the Graph | Panel switch and
+`Patch.panel`, which step 5 replaces. 694 unit tests passed at `0929605`; 881 pass after step 2.
 
 **Setup and checks** (from the repo root; running vitest inside `src/` breaks the `@core` alias):
 
@@ -274,8 +274,13 @@ The toolbar's row of one button per node (`NodePalette`) does not survive 30+ no
    generation, replace semantics, block-rate feed, **a control into N voices is not N times the value**, global / voice classification,
    flatten and diff (a knob turn is one `track/setParam`), save / load, old files identical. The old palette strip lists the new nodes
    and the old sliders stay on cards for now, so everything is usable. Browser check: `docs/browser-checks/controls.mjs`.
-2. **Descriptions, categories and tooltips**: `description` on every node, param and port, a `category` on every node, the
-   completeness test (nothing registered without them), the tooltip component, used in the palette and on cards.
+2. **Descriptions, categories and tooltips (done)**: `description` on every node, param and port, a `category` on every node, the
+   completeness test (nothing registered without them), the tooltip component, used in the palette and on cards. Differences from
+   the plan: the words live in one table per registry (`dsp/node-docs.ts`, `notefx/node-docs.ts`), attached by the registries, rather
+   than inside each node file (about 190 strings; the test checks both directions); the tooltip is a `data-tooltip` attribute and
+   one `TooltipLayer`, not a wrapper component per use; the note nodes got the words too, but still no sockets; `curve` in the
+   tooltip is "logarithmic" when the slider is log (`param-scale`), there is no separate curve field on a `ParamSpec`. Browser
+   check: `docs/browser-checks/tooltips.mjs`.
 3. **Quick-add**: `node-catalog.ts` with tests, `QuickAdd.tsx`, double-click / Add / Shift+A, the old strip removed. Update the
    browser checks that click a palette button (`fx`, `master`, `modules`, `notegraph`, `returns`, `sends`, `stereo`, `trackaudio`, `mod`,
    `panel`) through one `addNode(type)` helper per script, and add `quickadd.mjs`.

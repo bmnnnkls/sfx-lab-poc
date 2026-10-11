@@ -29,9 +29,16 @@ describe('visibleShape', () => {
     expect(visibleShape(shape, control.id, patch, false)).toBe(shape)
   })
 
-  it('lists the driven parameters', () => {
+  it('lists the driven parameters with what drives them', () => {
     const { filter, control, patch, shape } = setup()
-    expect([...drivenParams(filter.id, shape, patch)]).toEqual(['resonance'])
-    expect(drivenParams(control.id, describeNode(control)!, patch).size).toBe(0)
+    const titleOf = (id: string) => (id === control.id ? 'Control' : 'Other')
+    expect([...drivenParams(filter.id, shape, patch, titleOf)]).toEqual([['resonance', 'Control']])
+    expect(drivenParams(control.id, describeNode(control)!, patch, titleOf).size).toBe(0)
+  })
+
+  it('names each driver once, however many wires it has', () => {
+    const { filter, control, patch, shape } = setup()
+    const twice = connect(patch, { node: control.id, port: 'out' }, { node: filter.id, port: 'param:cutoff' })
+    expect([...drivenParams(filter.id, shape, twice, () => 'Control')].map(([, from]) => from)).toEqual(['Control', 'Control'])
   })
 })

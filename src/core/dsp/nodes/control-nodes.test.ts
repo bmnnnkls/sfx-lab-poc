@@ -43,7 +43,7 @@ describe('control', () => {
   it('has no sockets of its own and one control output', () => {
     const definition = requireNodeDefinition('control')
     expect(definition.paramSockets).toBe(false)
-    expect(definition.outputs).toEqual([{ id: 'out', label: 'Out', kind: 'control' }])
+    expect(definition.outputs).toMatchObject([{ id: 'out', label: 'Out', kind: 'control' }])
   })
 })
 

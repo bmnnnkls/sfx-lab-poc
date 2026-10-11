@@ -1,0 +1,23 @@
+.tooltip {
+  position: fixed;
+  z-index: 100;
+  max-width: 280px;
+  padding: 6px 8px;
+  color: var(--text);
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.first {
+  color: var(--text);
+}
+
+.row {
+  margin-top: 3px;
+  color: var(--text-dim);
+}

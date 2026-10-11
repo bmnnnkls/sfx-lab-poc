@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { EditorPanel } from './editor-panel/EditorPanel'
 import { SessionView } from './session-view/SessionView'
 import { Splitter } from './shared/Splitter'
+import { TooltipLayer } from './shared/tooltip/TooltipLayer'
 import { useStoredState } from './shared/use-stored-state'
 import { useUndoShortcuts } from './shortcuts/use-undo-shortcuts'
 import { ToastStack } from './toasts/ToastStack'
@@ -41,6 +42,7 @@ export const Workspace = () => {
         <EditorPanel />
       </section>
       <ToastStack />
+      <TooltipLayer />
     </div>
   )
 }
