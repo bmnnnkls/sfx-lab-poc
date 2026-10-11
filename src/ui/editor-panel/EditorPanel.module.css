@@ -1,0 +1,27 @@
+.panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs button {
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.body {
+  min-height: 0;
+  overflow: hidden;
+}

@@ -54,6 +54,7 @@ export class ClipLauncher {
   status(): LauncherStatus {
     return {
       playingClipId: this.playback?.clip.id ?? null,
+      startBeat: this.playback?.startBeat ?? null,
       queued: this.queued ? (this.queued.clip?.id ?? 'stop') : null,
     }
   }

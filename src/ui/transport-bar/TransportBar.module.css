@@ -1,0 +1,39 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  margin-right: 12px;
+  color: var(--accent);
+}
+
+.active {
+  color: var(--play);
+  border-color: var(--play);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+}
+
+.field input {
+  width: 64px;
+}
+
+.position {
+  min-width: 56px;
+  padding: 4px 10px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}

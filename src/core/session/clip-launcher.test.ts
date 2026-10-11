@@ -22,7 +22,7 @@ describe('ClipLauncher', () => {
     launcher.launch(clip('a'))
 
     expect(launcher.collectEvents(0.5, 3.5)).toEqual([])
-    expect(launcher.status()).toEqual({ playingClipId: null, queued: 'a' })
+    expect(launcher.status()).toMatchObject({ playingClipId: null, queued: 'a' })
 
     const events = launcher.collectEvents(3.5, 4.5)
     expect(events.map((e) => [e.beat, e.kind])).toEqual([
@@ -79,7 +79,7 @@ describe('ClipLauncher', () => {
     launcher.stop()
 
     launcher.collectEvents(1, 5)
-    expect(launcher.status()).toEqual({ playingClipId: null, queued: null })
+    expect(launcher.status()).toMatchObject({ playingClipId: null, queued: null })
     expect(launcher.collectEvents(5, 9)).toEqual([])
   })
 })

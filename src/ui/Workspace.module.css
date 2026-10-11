@@ -1,0 +1,15 @@
+.workspace {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) minmax(0, 1.1fr);
+  height: 100%;
+}
+
+.session {
+  overflow: auto;
+  border-bottom: 1px solid var(--border);
+}
+
+.editor {
+  min-height: 0;
+  background: var(--panel);
+}

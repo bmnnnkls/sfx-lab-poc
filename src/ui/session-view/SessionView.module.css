@@ -1,0 +1,75 @@
+.grid {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  align-content: start;
+}
+
+.header {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 4px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.header input[type='range'] {
+  grid-column: 1 / -1;
+  order: 5;
+  padding: 0;
+}
+
+.trackName {
+  text-align: left;
+  font-weight: 600;
+}
+
+.selected {
+  border-color: var(--accent);
+}
+
+.addTrack,
+.scene {
+  align-self: stretch;
+}
+
+.slot {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 2px;
+  padding: 3px;
+  min-height: 34px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.empty {
+  grid-template-columns: 1fr;
+  opacity: 0.55;
+}
+
+.launch {
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.playing {
+  border-color: var(--play);
+  background: rgba(61, 220, 132, 0.12);
+}
+
+.queued {
+  border-color: var(--queued);
+  animation: blink 0.5s steps(2, jump-none) infinite;
+}
+
+@keyframes blink {
+  50% {
+    background: rgba(245, 213, 36, 0.18);
+  }
+}

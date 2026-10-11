@@ -80,6 +80,6 @@ describe('Engine', () => {
     render(engine, 240000)
     expect(peak(render(engine, 4800).left)).toBeLessThan(1e-3)
     expect(engine.status()).toMatchObject({ playing: false, beat: 0 })
-    expect(engine.status().tracks.t).toEqual({ playingClipId: null, queued: null })
+    expect(engine.status().tracks.t).toMatchObject({ playingClipId: null, queued: null })
   })
 })

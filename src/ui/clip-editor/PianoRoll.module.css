@@ -1,0 +1,66 @@
+.scroller {
+  height: 100%;
+  overflow: auto;
+}
+
+.roll {
+  position: relative;
+}
+
+.row {
+  display: flex;
+}
+
+.key {
+  flex: none;
+  width: 44px;
+  padding-left: 4px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--text-dim);
+  background: var(--panel-raised);
+  border-bottom: 1px solid var(--border);
+}
+
+.black {
+  background: var(--bg);
+}
+
+.cell {
+  flex: none;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-left: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 0;
+  background: transparent;
+}
+
+.cell:hover {
+  background: var(--accent-soft);
+}
+
+.blackRow {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.beat {
+  border-left-color: var(--border);
+}
+
+.note {
+  position: absolute;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--play);
+  pointer-events: none;
+}

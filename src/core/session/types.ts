@@ -7,6 +7,8 @@ export type NoteEvent =
 /** What the UI needs to draw a track's launch state. */
 export interface LauncherStatus {
   readonly playingClipId: string | null
+  /** Transport beat at which the playing clip's loop began, for playhead display. */
+  readonly startBeat: number | null
   /** Clip id waiting for the next quantize boundary, 'stop' for a queued stop, or null. */
   readonly queued: string | 'stop' | null
 }
