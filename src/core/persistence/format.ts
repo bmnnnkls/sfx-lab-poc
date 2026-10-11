@@ -9,6 +9,8 @@ export const LIMITS = {
   tracks: 64,
   scenes: 64,
   samples: 256,
+  modules: 128,
+  portsPerModule: 64,
   nodesPerPatch: 200,
   notesPerClip: 5000,
   clipBeats: { min: 0.25, max: 256 },

@@ -1,5 +1,5 @@
 import { clearSampleReferences, createDefaultPatch, createSamplerPatch } from '../patch'
-import type { Patch } from '../patch'
+import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 import { clamp, createId } from '../shared'
 import { createNote, notesEqual, shiftedCopies, trimNotesToLength } from './note-edit'
@@ -16,6 +16,15 @@ export const MAX_NAME_LENGTH = 80
 export const MIN_VOICES = 1
 export const MAX_VOICES = 16
 export const DEFAULT_VOICES = 8
+
+/** `change` applied to every module; the same array when none of them changed. */
+export const mapModules = (
+  modules: readonly ModuleDefinition[],
+  change: (module: ModuleDefinition) => ModuleDefinition,
+): readonly ModuleDefinition[] => {
+  const next = modules.map(change)
+  return next.every((module, index) => module === modules[index]) ? modules : next
+}
 
 const updateTrack = (project: Project, trackId: string, change: (track: Track) => Track): Project => {
   const tracks = project.tracks.map((track) => (track.id === trackId ? change(track) : track))
@@ -159,7 +168,7 @@ export const setProjectName = (project: Project, name: string): Project => ({
 /** A blank project with a single empty track. */
 export const createEmptyProject = (): Project =>
   addTrack(
-    { name: 'Untitled', tempo: 120, sceneCount: DEFAULT_SCENE_COUNT, samples: [], tracks: [] },
+    { name: 'Untitled', tempo: 120, sceneCount: DEFAULT_SCENE_COUNT, samples: [], modules: [], tracks: [] },
     createTrack('Track 1', DEFAULT_SCENE_COUNT),
   )
 
@@ -177,6 +186,10 @@ export const addSamples = (project: Project, samples: readonly SampleInfo[]): Pr
 export const removeSample = (project: Project, sampleId: string): Project => ({
   ...project,
   samples: project.samples.filter((sample) => sample.id !== sampleId),
+  modules: mapModules(project.modules, (module) => {
+    const patch = clearSampleReferences(module.patch, sampleId)
+    return patch === module.patch ? module : { ...module, patch }
+  }),
   tracks: project.tracks.map((track): Track => {
     if (track.kind === 'audio') {
       const clips = track.clips.map((clip) => (clip?.sampleId === sampleId ? null : clip))

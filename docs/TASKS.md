@@ -5,7 +5,8 @@ Things we have decided are worth doing but have not started. Newest first. Move 
 
 ## Reusable modules (sub-patches with inputs and outputs)
 
-Status: **design agreed in outline, not started.** Discussed after trim/fades and LFO/reverb.
+Status: **steps 1 and 2 are built** (modules in the project: group, use by reference, edit in place, interface panel,
+unlink, nesting, persistence; see `ARCHITECTURE.md`). Steps 3 and 4 are open.
 
 ### Decisions so far
 
@@ -52,10 +53,13 @@ chain that transforms the `NoteEvent` stream (`noteOn` / `noteOff` / `allOff`, p
 
 ### Suggested order
 
-1. Group selection into a module (copy-on-use) with exposed knobs and flattening.
-2. Module library inside the project, uses by reference, "unlink".
-3. Personal library and import/export.
-4. Typed ports and the per-track MIDI effect chain.
+1. ~~Group selection into a module with exposed knobs and flattening.~~ Done.
+2. ~~Module library inside the project, uses by reference, "unlink".~~ Done.
+3. Personal library and import/export. **Open.**
+4. Typed ports and the per-track MIDI effect chain. **Open.**
+
+Smaller follow-ups: drag several selected nodes together; delete/duplicate selection with the keyboard; a way to
+update or replace a module's definition from a file; show where a module is used from the module list.
 
 ## Browser (end-to-end) tests in the repo
 

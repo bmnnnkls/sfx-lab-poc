@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
-import { createDemoProject } from '../project'
+import { createDemoProject, groupNodesAsModule } from '../project'
 import { parseProject, serializeProject } from './project-file'
 
 const parseOk = (text: string) => {
@@ -286,5 +286,68 @@ describe('audio tracks in files', () => {
     const { project: loaded } = parseOk(envelope(raw))
     expect(parseOk(serializeProject(loaded)).project).toEqual(loaded)
     expect((loaded.tracks[0] as unknown as { clips: Array<Record<string, unknown>> }).clips[0]).toMatchObject({ start: 0.25, end: 0.75, fadeIn: 0.05, fadeOut: 0.1 })
+  })
+})
+
+describe('modules in files', () => {
+  const grouped = () => {
+    const demo = createDemoProject()
+    const bass = demo.tracks[0] as InstrumentTrack
+    const ids = ['oscillator', 'filter'].map((type) => bass.patch.nodes.find((node) => node.type === type)!.id)
+    return groupNodesAsModule(demo, { trackId: bass.id }, ids, 'Core')
+  }
+
+  it('round-trips modules and their uses exactly', () => {
+    const original = grouped()
+    const result = parseOk(serializeProject(original, 2))
+    expect(result.project).toEqual(original)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('files from before modules existed load with an empty library', () => {
+    const result = parseOk(envelope(project({ tracks: [] })))
+    expect(result.project.modules).toEqual([])
+  })
+
+  it('drops uses of modules that are missing from the file, with a warning', () => {
+    const original = grouped()
+    const raw = JSON.parse(serializeProject(original))
+    raw.project.modules = []
+    const result = parseOk(JSON.stringify(raw))
+    const track = result.project.tracks[0] as InstrumentTrack
+    expect(track.patch.nodes.some((node) => node.type === 'module')).toBe(false)
+    expect(result.warnings.join(' ')).toMatch(/module that is not in the project/)
+  })
+
+  it('drops ports and knobs that point at nothing', () => {
+    const raw = JSON.parse(serializeProject(grouped()))
+    raw.project.modules[0].inputs.push({ id: 'x', label: 'Ghost', inner: { node: 'nope', port: 'in' } })
+    raw.project.modules[0].knobs.push({ id: 'y', label: 'Ghost', node: 'nope', param: 'cutoff' })
+    const result = parseOk(JSON.stringify(raw))
+    expect(result.project.modules[0]!.inputs).toHaveLength(1)
+    expect(result.project.modules[0]!.knobs).toHaveLength(0)
+  })
+
+  it('loads nested modules regardless of the order they are listed in', () => {
+    const inner = grouped()
+    const track = inner.tracks[0] as InstrumentTrack
+    const use = track.patch.nodes.find((node) => node.type === 'module')!
+    const nested = groupNodesAsModule(inner, { trackId: track.id }, [use.id], 'Outer')
+    expect(nested.modules).toHaveLength(2)
+
+    const raw = JSON.parse(serializeProject(nested))
+    raw.project.modules.reverse() // the outer module now comes before the one it uses
+    const result = parseOk(JSON.stringify(raw))
+    expect(result.project.modules.map((module) => module.name).sort()).toEqual(['Core', 'Outer'])
+    expect(result.warnings).toEqual([])
+  })
+
+  it('drops a module that contains itself instead of looping', () => {
+    const raw = JSON.parse(serializeProject(grouped()))
+    const module = raw.project.modules[0]
+    module.patch.nodes.push({ id: 'self', type: 'module', moduleId: module.id, x: 0, y: 0, params: {} })
+    const result = parseOk(JSON.stringify(raw))
+    expect(result.project.modules).toEqual([])
+    expect(result.warnings.join(' ')).toMatch(/contain themselves/)
   })
 })

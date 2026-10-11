@@ -1,5 +1,13 @@
-import { type ParamSpec, findNodeDefinition } from '../dsp'
-import { type Patch, type PortRef, addNode, connect } from '../patch'
+import type { ParamSpec } from '../dsp'
+import {
+  MODULE_NODE_TYPE,
+  type ModuleLibrary,
+  type Patch,
+  type PortRef,
+  addNode,
+  connect,
+  describeNode,
+} from '../patch'
 import { clamp } from '../shared'
 import { LIMITS } from './format'
 import { type Raw, type Warn, asList, finiteNumber, isRecord } from './raw'
@@ -28,6 +36,7 @@ export const sanitizePatch = (
   raw: unknown,
   where: string,
   sampleIds: ReadonlySet<string>,
+  modules: ModuleLibrary,
   warn: Warn,
 ): Patch => {
   const source: Raw = isRecord(raw) ? raw : {}
@@ -44,22 +53,29 @@ export const sanitizePatch = (
       warn(`${where}: skipped a malformed or duplicate node`)
       continue
     }
-    const definition = typeof rawNode.type === 'string' ? findNodeDefinition(rawNode.type) : undefined
+    const type = typeof rawNode.type === 'string' ? rawNode.type : ''
+    const moduleId = type === MODULE_NODE_TYPE && typeof rawNode.moduleId === 'string' ? rawNode.moduleId : undefined
+    const definition = describeNode({ id: rawNode.id, type, x: 0, y: 0, params: {}, moduleId }, modules)
     if (!definition) {
-      warn(`${where}: skipped unknown node type "${String(rawNode.type)}"`)
+      warn(
+        type === MODULE_NODE_TYPE
+          ? `${where}: skipped a use of a module that is not in the project`
+          : `${where}: skipped unknown node type "${type}"`,
+      )
       continue
     }
     nodeIds.add(rawNode.id)
 
     let sampleId: string | undefined
-    if (definition.usesSample && typeof rawNode.sampleId === 'string') {
+    if (definition.usesSample === true && typeof rawNode.sampleId === 'string') {
       if (sampleIds.has(rawNode.sampleId)) sampleId = rawNode.sampleId
       else warn(`${where}: a ${definition.label} pointed at a sample that is not in the project`)
     }
 
     patch = addNode(patch, {
       id: rawNode.id,
-      type: definition.type,
+      type,
+      ...(moduleId === undefined ? {} : { moduleId }),
       x: finiteNumber(rawNode.x, 0),
       y: finiteNumber(rawNode.y, 0),
       params: sanitizeParams(definition.params, rawNode.params),
@@ -76,7 +92,7 @@ export const sanitizePatch = (
     const id =
       typeof connection.id === 'string' && !wireIds.has(connection.id) ? connection.id : undefined
 
-    const next = from && to ? connect(patch, from, to, id) : patch
+    const next = from && to ? connect(patch, from, to, { id, modules }) : patch
     if (next === patch) {
       dropped++
     } else {

@@ -1,12 +1,15 @@
 import {
   type Clip,
   type History,
+  type ModuleDefinition,
   type Note,
   type Patch,
+  type PatchTarget,
   type Project,
   type AudioClipChanges,
   type SampleInfo,
   addAudioClip,
+  addModuleUse,
   addAudioTrackWithClip,
   setAudioClipAt,
   addSamplerTrack,
@@ -21,6 +24,11 @@ import {
   createHistory,
   createTrack,
   doubleClip,
+  editPatchAt,
+  groupNodesAsModule,
+  removeModule,
+  unlinkModuleNode,
+  updateModule,
   redo,
   removeSample,
   removeTrack,
@@ -29,7 +37,6 @@ import {
   setClipNotes,
   setProjectName,
   setTempo,
-  setTrackPatch,
   setTrackVoices,
   setTrackVolume,
   undo,
@@ -71,7 +78,26 @@ interface ProjectActions {
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
    * Rapid edits sharing a `mergeKey` (a slider or node drag) collapse into one undo step.
    */
-  updatePatch(trackId: string, edit: (patch: Patch) => Patch, mergeKey?: string): void
+  updatePatch(
+    trackId: string,
+    edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
+    mergeKey?: string,
+  ): void
+  /** Like `updatePatch`, for a patch inside a module (which changes every use of that module). */
+  updateModulePatch(
+    moduleId: string,
+    edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
+    mergeKey?: string,
+  ): void
+  /** Replaces the selected nodes of a patch by one use of a new module. */
+  groupNodes(target: PatchTarget, nodeIds: readonly string[]): void
+  addModuleUse(target: PatchTarget, moduleId: string, x: number, y: number): void
+  /** Turns a use into an independent copy of the module's contents. */
+  unlinkModule(target: PatchTarget, nodeId: string): void
+  /** Changes a module's definition or interface; every use follows. */
+  updateModule(moduleId: string, change: (module: ModuleDefinition) => ModuleDefinition, mergeKey?: string): void
+  /** Deletes a module that nothing uses. */
+  deleteModule(moduleId: string): void
   createClip(trackId: string, scene: number): Clip
   deleteClip(trackId: string, scene: number): void
   setClipNotes(trackId: string, clipId: string, notes: readonly Note[]): void
@@ -140,10 +166,14 @@ export const useProjectStore = create<ProjectState>((set) => {
     setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
 
     updatePatch: (trackId, change, mergeKey) =>
-      edit((project) => {
-        const track = project.tracks.find((candidate) => candidate.id === trackId)
-        return track?.kind === 'instrument' ? setTrackPatch(project, trackId, change(track.patch)) : project
-      }, mergeKey),
+      edit((project) => editPatchAt(project, { trackId }, change), mergeKey),
+    updateModulePatch: (moduleId, change, mergeKey) =>
+      edit((project) => editPatchAt(project, { moduleId }, change), mergeKey),
+    groupNodes: (target, nodeIds) => edit((project) => groupNodesAsModule(project, target, nodeIds)),
+    addModuleUse: (target, moduleId, x, y) => edit((project) => addModuleUse(project, target, moduleId, x, y)),
+    unlinkModule: (target, nodeId) => edit((project) => unlinkModuleNode(project, target, nodeId)),
+    updateModule: (moduleId, change, mergeKey) => edit((project) => updateModule(project, moduleId, change), mergeKey),
+    deleteModule: (moduleId) => edit((project) => removeModule(project, moduleId)),
 
     createClip: (trackId, scene) => {
       const clip = createClip(`Clip ${scene + 1}`, DEFAULT_CLIP_BEATS)

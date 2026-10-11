@@ -9,11 +9,13 @@ import {
   type Project,
   type Track,
 } from '../project'
+import type { ModuleDefinition } from '../patch'
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
 import { sanitizeAudioClip } from './sanitize-audio-clip'
 import { sanitizeClip } from './sanitize-clip'
+import { sanitizeModules } from './sanitize-modules'
 import { sanitizePatch } from './sanitize-patch'
 import { sanitizeSamples } from './sanitize-samples'
 
@@ -23,6 +25,7 @@ const sanitizeTrack = (
   sceneCount: number,
   usedTrackIds: Set<string>,
   sampleIds: ReadonlySet<string>,
+  modules: readonly ModuleDefinition[],
   warn: Warn,
 ): Track | null => {
   if (!isRecord(raw)) {
@@ -62,7 +65,7 @@ const sanitizeTrack = (
     name,
     volume,
     voices: Math.round(clamp(finiteNumber(raw.voices, DEFAULT_VOICES), MIN_VOICES, MAX_VOICES)),
-    patch: sanitizePatch(raw.patch, where, sampleIds, warn),
+    patch: sanitizePatch(raw.patch, where, sampleIds, modules, warn),
     clips,
   }
 }
@@ -80,11 +83,12 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
 
   const samples = sanitizeSamples(raw.samples, warn)
   const sampleIds = new Set(samples.map((sample) => sample.id))
+  const modules = sanitizeModules(raw.modules, sampleIds, warn)
 
   const usedTrackIds = new Set<string>()
   const tracks = rawTracks
     .slice(0, LIMITS.tracks)
-    .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, sampleIds, warn))
+    .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, sampleIds, modules, warn))
     .filter((track): track is Track => track !== null)
 
   return {
@@ -92,6 +96,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     tempo: clamp(finiteNumber(raw.tempo, 120), MIN_TEMPO, MAX_TEMPO),
     sceneCount,
     samples,
+    modules,
     tracks,
   }
 }

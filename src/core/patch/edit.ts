@@ -1,6 +1,8 @@
-import { findNodeDefinition, requireNodeDefinition } from '../dsp'
+import { requireNodeDefinition } from '../dsp'
 import { createId } from '../shared'
 import { isDownstream } from './graph'
+import type { ModuleLibrary } from './module-types'
+import { describeNode } from './node-shape'
 import type { Patch, PatchNode, PortRef } from './types'
 
 const defaultParams = (type: string): Record<string, number> =>
@@ -66,16 +68,21 @@ export const setNodeParam = (
   ),
 })
 
-const hasPort = (patch: Patch, ref: PortRef, direction: 'inputs' | 'outputs'): boolean => {
+const hasPort = (
+  patch: Patch,
+  ref: PortRef,
+  direction: 'inputs' | 'outputs',
+  modules: ModuleLibrary,
+): boolean => {
   const node = patch.nodes.find((candidate) => candidate.id === ref.node)
-  const definition = node && findNodeDefinition(node.type)
-  return Boolean(definition?.[direction].some((port) => port.id === ref.port))
+  const shape = node && describeNode(node, modules)
+  return Boolean(shape?.[direction].some((port) => port.id === ref.port))
 }
 
 /** An output port may feed any number of inputs; an input sums all of its sources. */
-export const canConnect = (patch: Patch, from: PortRef, to: PortRef): boolean => {
+export const canConnect = (patch: Patch, from: PortRef, to: PortRef, modules: ModuleLibrary = []): boolean => {
   if (from.node === to.node) return false
-  if (!hasPort(patch, from, 'outputs') || !hasPort(patch, to, 'inputs')) return false
+  if (!hasPort(patch, from, 'outputs', modules) || !hasPort(patch, to, 'inputs', modules)) return false
   const duplicate = patch.connections.some(
     (c) =>
       c.from.node === from.node &&
@@ -86,15 +93,16 @@ export const canConnect = (patch: Patch, from: PortRef, to: PortRef): boolean =>
   return !duplicate && !isDownstream(patch, to.node, from.node)
 }
 
+export interface ConnectOptions {
+  readonly id?: string
+  /** Needed to connect to ports of module uses. */
+  readonly modules?: ModuleLibrary
+}
+
 /** Adds a connection, or returns the patch unchanged when it is not allowed. */
-export const connect = (
-  patch: Patch,
-  from: PortRef,
-  to: PortRef,
-  id: string = createId('wire'),
-): Patch =>
-  canConnect(patch, from, to)
-    ? { ...patch, connections: [...patch.connections, { id, from, to }] }
+export const connect = (patch: Patch, from: PortRef, to: PortRef, options: ConnectOptions = {}): Patch =>
+  canConnect(patch, from, to, options.modules)
+    ? { ...patch, connections: [...patch.connections, { id: options.id ?? createId('wire'), from, to }] }
     : patch
 
 export const disconnect = (patch: Patch, connectionId: string): Patch => ({

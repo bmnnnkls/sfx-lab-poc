@@ -117,6 +117,46 @@ output you wire into another node's input.
   damping darkening the tail, boundedness with loud noise at maximum settings and no NaN.
 * Added ports are appended and saved by id, so old files and patches load unchanged.
 
+## Modules (reusable sub-patches)
+
+A **module** is a saved sub-patch with chosen inputs, outputs and knobs. It is defined once in the project and
+*used* any number of times; editing the definition changes every use. A use can be turned into an independent
+copy (**Unlink**). Modules nest.
+
+* **Model** (`core/patch`). `Project.modules: ModuleDefinition[]`, each `{ id, name, patch, inputs, outputs, knobs }`.
+  A `ModulePort` maps an outside port to an inner node's port, a `ModuleKnob` an outside knob to an inner node's
+  parameter (ids are `<inner node>:<port or param>`, so they stay stable when labels change). A use is a `PatchNode`
+  with `type: 'module'` and `moduleId`; its `params` hold the knob settings. Old files have no `modules` and load with
+  an empty library.
+* **One question answered in one place.** What ports and parameters does this node have? is `describeNode(node,
+  modules)`: built-in types come from the DSP registry, module uses from their definition. The connection rules
+  (`canConnect`), wire geometry and node views all go through it, so a module node behaves like any other node.
+* **The engine never sees modules.** `flattenPatch(patch, modules)` replaces each use by its contents, recursively,
+  with inner node ids `<use id>/<inner id>`, and bakes in the use's knob values. `diffProject` flattens before
+  diffing, so a knob turned on a module arrives as an ordinary `track/setParam` on an inner node, and editing a
+  definition updates every track that uses it (only tracks whose flattened patch really changed get commands). The
+  voice/shared stage split works unchanged: a module with a reverb inside makes what follows it shared. A test
+  renders a patch and its grouped version and requires identical samples.
+* **Grouping** (`groupIntoModule`). The connections that crossed the selection's edge become the module's ports, so
+  the surrounding patch keeps working exactly as before; nothing is exposed as a knob until you choose to.
+  `unlinkModuleUse` expands one use into plain nodes with fresh ids.
+* **Consistency** (`project/module-edit.ts`, `reconcileModules`). Deleting an inner node or un-exposing a port prunes
+  the ports, knobs, wires and knob values that referred to it, in every track and in other modules. A module that is
+  in use cannot be deleted. A module cannot be placed inside itself or inside something it contains
+  (`containsModule`); a malformed library that does so anyway is cut off after a bounded number of expansions.
+* **Persistence** (`persistence/sanitize-modules.ts`). Modules are read before the tracks. Since a module may use
+  another, each is built once the ones it uses are, whatever order the file lists them in; a module that contains
+  itself is dropped with a warning. Ports and knobs pointing at nothing are dropped, uses of unknown modules are
+  skipped. This is an optional field with a safe default, so the format version did not change.
+* **UI** (`ui/patcher`). Shift-click a node header or drag a box on empty canvas to select; **Group into module**
+  replaces the selection. A module node shows *Edit* and *Unlink*. *Edit* opens the module's inside in the same
+  patcher (breadcrumb to go back out, nesting works), with a name field, where it is used, and **Ports & knobs**:
+  tick any inner port or parameter to show it on the module, and name it. The palette lists the project's modules.
+  Changes go through the same undo history; slider drags merge into one step.
+* **Limits.** Selected nodes are not dragged together. There is no module library outside the project yet, so
+  sharing between projects means copying the file (see `docs/TASKS.md`). Cycle detection on the outer patch treats a
+  module as one node (any input may reach any output), which can refuse a wiring that would in fact be fine.
+
 ## Editing clips (piano roll)
 
 * **Gestures are pure functions of the pointer.** `ui/clip-editor/note-gestures.ts` describes draw / move /

@@ -1,4 +1,4 @@
-import type { Patch } from '../patch'
+import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 
 export interface Note {
@@ -81,5 +81,7 @@ export interface Project {
   readonly sceneCount: number
   /** The sample library: audio used (or usable) by this project. Bytes are stored separately. */
   readonly samples: readonly SampleInfo[]
+  /** Reusable sub-patches. Patches use them by id, so editing one changes every use. */
+  readonly modules: readonly ModuleDefinition[]
   readonly tracks: readonly Track[]
 }

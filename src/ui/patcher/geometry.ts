@@ -1,11 +1,11 @@
-import type { NodeDefinition } from '@core'
-import type { PatchNode } from '@core'
+import type { NodeShape, PatchNode } from '@core'
 
 export const NODE_WIDTH = 176
 export const HEADER_HEIGHT = 28
 export const PORT_ROW_HEIGHT = 22
 export const PARAM_ROW_HEIGHT = 34
 export const SAMPLE_PICKER_HEIGHT = 64
+export const MODULE_FOOTER_HEIGHT = 34
 const BODY_PADDING = 6
 
 export interface Point {
@@ -13,20 +13,21 @@ export interface Point {
   readonly y: number
 }
 
-const portRowCount = (definition: NodeDefinition): number =>
+const portRowCount = (definition: NodeShape): number =>
   Math.max(definition.inputs.length, definition.outputs.length)
 
-export const nodeHeight = (definition: NodeDefinition): number =>
+export const nodeHeight = (definition: NodeShape, isModule = false): number =>
   HEADER_HEIGHT +
   BODY_PADDING * 2 +
   portRowCount(definition) * PORT_ROW_HEIGHT +
   definition.params.length * PARAM_ROW_HEIGHT +
-  (definition.usesSample ? SAMPLE_PICKER_HEIGHT : 0)
+  (definition.usesSample ? SAMPLE_PICKER_HEIGHT : 0) +
+  (isModule ? MODULE_FOOTER_HEIGHT : 0)
 
 /** Canvas position of a port's connection dot. Layout is fixed, so no DOM measuring is needed. */
 export const portPosition = (
   node: PatchNode,
-  definition: NodeDefinition,
+  definition: NodeShape,
   direction: 'inputs' | 'outputs',
   portId: string,
 ): Point => {

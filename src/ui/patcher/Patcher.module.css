@@ -4,10 +4,20 @@
   height: 100%;
 }
 
+.header {
+  display: grid;
+}
+
+.editorBodySingle {
+  min-height: 0;
+  display: grid;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px 16px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
 }
@@ -173,4 +183,129 @@
   align-content: center;
   gap: 4px;
   padding: 4px 10px;
+}
+
+.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.marquee {
+  position: absolute;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  pointer-events: none;
+}
+
+.nodeTitle {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.moduleTag {
+  margin-left: 8px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--wire);
+  border: 1px solid var(--wire);
+  border-radius: 8px;
+}
+
+.moduleFooter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-top: 1px solid var(--border);
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.crumb {
+  padding: 2px 8px;
+}
+
+.crumbCurrent {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.moduleBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.moduleName {
+  width: 180px;
+}
+
+.usage {
+  color: var(--text-dim);
+}
+
+.editorBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+.interface {
+  width: 260px;
+  padding: 10px 12px;
+  overflow: auto;
+  border-left: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.interface h4 {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.interfaceNode {
+  display: grid;
+  gap: 4px;
+}
+
+.interfaceRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.interfaceRow input[type='text'] {
+  min-width: 0;
+}
+
+.interfaceKind {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.selectionHint {
+  color: var(--text-dim);
 }

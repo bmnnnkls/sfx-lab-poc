@@ -1,32 +1,34 @@
-import { type Patch, type PortRef, requireNodeDefinition } from '@core'
+import { type ModuleLibrary, type Patch, type PortRef, describeNode } from '@core'
 import { type Point, portPosition, wirePath } from './geometry'
 import styles from './Patcher.module.css'
 
 interface WireLayerProps {
   patch: Patch
+  modules: ModuleLibrary
   /** A wire currently being dragged from an output port to the pointer. */
   pending: { from: PortRef; pointer: Point } | null
   onDisconnect(connectionId: string): void
 }
 
-const outputPoint = (patch: Patch, ref: PortRef): Point | null => {
+const portPoint = (
+  patch: Patch,
+  modules: ModuleLibrary,
+  ref: PortRef,
+  direction: 'inputs' | 'outputs',
+): Point | null => {
   const node = patch.nodes.find((candidate) => candidate.id === ref.node)
-  return node ? portPosition(node, requireNodeDefinition(node.type), 'outputs', ref.port) : null
+  const shape = node && describeNode(node, modules)
+  return node && shape ? portPosition(node, shape, direction, ref.port) : null
 }
 
-const inputPoint = (patch: Patch, ref: PortRef): Point | null => {
-  const node = patch.nodes.find((candidate) => candidate.id === ref.node)
-  return node ? portPosition(node, requireNodeDefinition(node.type), 'inputs', ref.port) : null
-}
-
-export const WireLayer = ({ patch, pending, onDisconnect }: WireLayerProps) => {
-  const pendingStart = pending ? outputPoint(patch, pending.from) : null
+export const WireLayer = ({ patch, modules, pending, onDisconnect }: WireLayerProps) => {
+  const pendingStart = pending ? portPoint(patch, modules, pending.from, 'outputs') : null
 
   return (
     <svg className={styles.wires}>
       {patch.connections.map((connection) => {
-        const from = outputPoint(patch, connection.from)
-        const to = inputPoint(patch, connection.to)
+        const from = portPoint(patch, modules, connection.from, 'outputs')
+        const to = portPoint(patch, modules, connection.to, 'inputs')
         if (!from || !to) return null
         const path = wirePath(from, to)
         return (

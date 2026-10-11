@@ -1,5 +1,5 @@
 import type { EngineCommand } from '../engine'
-import type { Patch } from '../patch'
+import { type ModuleLibrary, type Patch, flattenPatch } from '../patch'
 import type { AudioTrack, InstrumentTrack, Project, Track } from '../project'
 
 /** Identity of a patch's wiring, ignoring params and canvas positions. */
@@ -9,7 +9,21 @@ const structureOf = (patch: Patch): string =>
     patch.connections.map(({ from, to }) => [from.node, from.port, to.node, to.port]),
   ])
 
-const diffPatch = (trackId: string, prev: Patch, next: Patch): EngineCommand[] => {
+/**
+ * The engine only knows plain nodes, so module uses are expanded first. A knob on a module then reaches the
+ * engine as an ordinary parameter change of an inner node, and editing a module's definition updates every
+ * track that uses it.
+ */
+const diffPatch = (
+  trackId: string,
+  prevPatch: Patch,
+  prevModules: ModuleLibrary,
+  nextPatch: Patch,
+  nextModules: ModuleLibrary,
+): EngineCommand[] => {
+  if (prevPatch === nextPatch && prevModules === nextModules) return []
+  const prev = flattenPatch(prevPatch, prevModules)
+  const next = flattenPatch(nextPatch, nextModules)
   if (prev === next) return []
   if (structureOf(prev) !== structureOf(next)) return [{ type: 'track/setPatch', trackId, patch: next }]
 
@@ -37,8 +51,13 @@ const diffPatch = (trackId: string, prev: Patch, next: Patch): EngineCommand[] =
 const sameClips = (a: readonly unknown[], b: readonly unknown[]): boolean =>
   a === b || (a.length === b.length && a.every((clip, index) => clip === b[index]))
 
-const diffInstrumentTrack = (prev: InstrumentTrack, next: InstrumentTrack): EngineCommand[] => {
-  const commands = diffPatch(next.id, prev.patch, next.patch)
+const diffInstrumentTrack = (
+  prev: InstrumentTrack,
+  next: InstrumentTrack,
+  prevModules: ModuleLibrary,
+  nextModules: ModuleLibrary,
+): EngineCommand[] => {
+  const commands = diffPatch(next.id, prev.patch, prevModules, next.patch, nextModules)
   if (!sameClips(prev.clips, next.clips)) {
     commands.push({ type: 'track/setClips', trackId: next.id, clips: next.clips })
   }
@@ -53,10 +72,10 @@ const diffAudioTrack = (prev: AudioTrack, next: AudioTrack): EngineCommand[] =>
     ? []
     : [{ type: 'track/setAudioClips', trackId: next.id, clips: next.clips }]
 
-const diffTrack = (prev: Track, next: Track): EngineCommand[] => {
+const diffTrack = (prev: Track, next: Track, prevModules: ModuleLibrary, nextModules: ModuleLibrary): EngineCommand[] => {
   const commands =
     prev.kind === 'instrument' && next.kind === 'instrument'
-      ? diffInstrumentTrack(prev, next)
+      ? diffInstrumentTrack(prev, next, prevModules, nextModules)
       : prev.kind === 'audio' && next.kind === 'audio'
         ? diffAudioTrack(prev, next)
         : []
@@ -66,14 +85,14 @@ const diffTrack = (prev: Track, next: Track): EngineCommand[] => {
   return commands
 }
 
-const addTrackCommand = (track: Track): EngineCommand =>
+const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
   track.kind === 'audio'
     ? { type: 'track/add', kind: 'audio', trackId: track.id, clips: track.clips, volume: track.volume }
     : {
         type: 'track/add',
         kind: 'instrument',
         trackId: track.id,
-        patch: track.patch,
+        patch: flattenPatch(track.patch, modules),
         clips: track.clips,
         volume: track.volume,
         voices: track.voices,
@@ -84,6 +103,7 @@ export const diffProject = (prev: Project | null, next: Project): EngineCommand[
   const commands: EngineCommand[] = []
   if (prev?.tempo !== next.tempo) commands.push({ type: 'transport/setTempo', bpm: next.tempo })
 
+  const prevModules = prev?.modules ?? []
   const prevTracks = new Map((prev?.tracks ?? []).map((track) => [track.id, track]))
   const nextIds = new Set(next.tracks.map((track) => track.id))
 
@@ -93,11 +113,11 @@ export const diffProject = (prev: Project | null, next: Project): EngineCommand[
   for (const track of next.tracks) {
     const before = prevTracks.get(track.id)
     if (!before) {
-      commands.push(addTrackCommand(track))
+      commands.push(addTrackCommand(track, next.modules))
     } else if (before.kind !== track.kind) {
-      commands.push({ type: 'track/remove', trackId: track.id }, addTrackCommand(track))
-    } else if (before !== track) {
-      commands.push(...diffTrack(before, track))
+      commands.push({ type: 'track/remove', trackId: track.id }, addTrackCommand(track, next.modules))
+    } else if (before !== track || prevModules !== next.modules) {
+      commands.push(...diffTrack(before, track, prevModules, next.modules))
     }
   }
   return commands

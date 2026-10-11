@@ -1,7 +1,11 @@
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
-import { moveNode, setNodeParam, setNodeSample } from '../patch'
+import { exposeKnob, moveNode, setModulePatch, setNodeParam, setNodeSample } from '../patch'
 import {
+  addModuleUse,
+  editPatchAt,
+  groupNodesAsModule,
+  updateModule,
   createDemoProject,
   setClipAt,
   setTempo,
@@ -99,6 +103,51 @@ describe('diffProject', () => {
     it('adding an empty audio track works too', () => {
       const next = addTrack(project, createAudioTrack('Empty', project.sceneCount))
       expect(diffProject(project, next).at(-1)).toMatchObject({ type: 'track/add', kind: 'audio', clips: [null, null, null, null] })
+    })
+  })
+
+  describe('with modules', () => {
+    const ids = ['oscillator', 'filter'].map((type) => track.patch.nodes.find((n) => n.type === type)!.id)
+    const grouped = groupNodesAsModule(project, { trackId: track.id }, ids, 'Core')
+    const second = addModuleUse(grouped, { trackId: (project.tracks[1] as InstrumentTrack).id }, grouped.modules[0]!.id, 0, 0)
+
+    it('sends the engine plain nodes, never a module', () => {
+      const commands = diffProject(null, grouped)
+      const add = commands.find((c) => c.type === 'track/add' && c.trackId === track.id)!
+      expect(add.type === 'track/add' && add.kind === 'instrument' && add.patch.nodes.some((n) => n.type === 'module')).toBe(false)
+    })
+
+    it('grouping renames the inner nodes for the engine, so it rebuilds that one track (and nothing else)', () => {
+      expect(diffProject(project, grouped).map((c) => [c.type, 'trackId' in c ? c.trackId : ''])).toEqual([
+        ['track/setPatch', track.id],
+      ])
+    })
+
+    it('a knob on a module use arrives as an ordinary parameter change', () => {
+      const knob = grouped.modules[0]!
+      const filter = knob.patch.nodes.find((n) => n.type === 'filter')!
+      const exposed = updateModule(grouped, knob.id, (m) => exposeKnob(m, filter.id, 'cutoff', 'Tone'))
+      const useId = (exposed.tracks[0] as InstrumentTrack).patch.nodes.find((n) => n.type === 'module')!.id
+      const tuned = editPatchAt(exposed, { trackId: track.id }, (patch) => setNodeParam(patch, useId, `${filter.id}:cutoff`, 4321))
+
+      expect(diffProject(exposed, tuned)).toEqual([
+        { type: 'track/setParam', trackId: track.id, nodeId: `${useId}/${filter.id}`, paramId: 'cutoff', value: 4321 },
+      ])
+    })
+
+    it('editing a module definition updates every track that uses it, and only them', () => {
+      const definition = second.modules[0]!
+      const filter = definition.patch.nodes.find((n) => n.type === 'filter')!
+      const edited = updateModule(second, definition.id, (m) => setModulePatch(m, setNodeParam(m.patch, filter.id, 'cutoff', 999)))
+      const commands = diffProject(second, edited)
+      expect(commands.map((c) => ('trackId' in c ? c.trackId : ''))).toEqual([track.id, (project.tracks[1] as InstrumentTrack).id])
+      expect(commands.every((c) => c.type === 'track/setParam' && c.value === 999)).toBe(true)
+    })
+
+    it('rewiring inside a module rebuilds the patch of the tracks that use it', () => {
+      const definition = second.modules[0]!
+      const edited = updateModule(second, definition.id, (m) => setModulePatch(m, { ...m.patch, connections: [] }))
+      expect(diffProject(second, edited).every((c) => c.type === 'track/setPatch')).toBe(true)
     })
   })
 })

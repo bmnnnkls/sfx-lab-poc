@@ -58,6 +58,18 @@ export {
   updateAudioClip,
   type AudioClipChanges,
 } from './edit'
+export {
+  type PatchTarget,
+  addModuleUse,
+  editPatchAt,
+  groupNodesAsModule,
+  moduleUsage,
+  patchAt,
+  reconcileModules,
+  removeModule,
+  unlinkModuleNode,
+  updateModule,
+} from './module-edit'
 export { createDemoProject } from './demo-project'
 export {
   DEFAULT_VELOCITY,
