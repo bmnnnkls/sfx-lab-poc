@@ -1,5 +1,6 @@
 import type { Patch } from '../patch'
 import type { Clip } from '../project'
+import type { SampleData } from '../sample'
 
 /** Everything the outside world can ask the engine to do. Plain data, safe to post across threads. */
 export type EngineCommand =
@@ -26,6 +27,16 @@ export type EngineCommand =
       readonly paramId: string
       readonly value: number
     }
+  | {
+      readonly type: 'track/setSample'
+      readonly trackId: string
+      readonly nodeId: string
+      readonly sampleId: string | null
+    }
   | { readonly type: 'track/stop'; readonly trackId: string }
+  | { readonly type: 'sample/add'; readonly sample: SampleData }
+  | { readonly type: 'sample/remove'; readonly sampleId: string }
+  | { readonly type: 'sample/preview'; readonly sampleId: string }
+  | { readonly type: 'sample/stopPreview' }
   | { readonly type: 'clip/launch'; readonly trackId: string; readonly clipId: string }
   | { readonly type: 'scene/launch'; readonly scene: number }

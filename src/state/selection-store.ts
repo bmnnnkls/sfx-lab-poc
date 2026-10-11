@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type EditorTab = 'device' | 'clip'
+export type EditorTab = 'device' | 'clip' | 'samples'
 
 interface SelectionState {
   readonly trackId: string | null

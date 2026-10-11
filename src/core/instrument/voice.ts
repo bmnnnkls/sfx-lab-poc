@@ -1,4 +1,5 @@
 import { type NoteState } from '../dsp'
+import type { SampleLookup } from '../sample'
 import { midiToFrequency } from '../shared'
 import { type CompiledStage, processStage } from './compile'
 
@@ -17,7 +18,7 @@ export class Voice {
   /** Allocation order, used to steal the oldest voice. */
   startedAt = 0
 
-  private readonly note: NoteState = { frequency: 440, velocity: 0, gate: false }
+  private readonly note: NoteState = { frequency: 440, velocity: 0, gate: false, trigger: 0 }
   private readonly sinks: readonly Float32Array[]
   private silentFrames = 0
   private releasedFrames = 0
@@ -26,6 +27,7 @@ export class Voice {
     private readonly stage: CompiledStage,
     boundaryKeys: readonly string[],
     private readonly sampleRate: number,
+    private readonly samples: SampleLookup,
   ) {
     this.sinks = [
       ...stage.outputSources,
@@ -51,6 +53,7 @@ export class Voice {
     this.note.frequency = midiToFrequency(pitch)
     this.note.velocity = velocity
     this.note.gate = true
+    this.note.trigger++
     this.silentFrames = 0
     this.releasedFrames = 0
   }
@@ -65,8 +68,17 @@ export class Voice {
     this.stage.byId.get(nodeId)?.setParam(paramId, value)
   }
 
+  setSample(nodeId: string, sampleId: string | null): void {
+    this.stage.byId.get(nodeId)?.setSample?.(sampleId)
+  }
+
   render(frames: number): void {
-    processStage(this.stage, { frames, sampleRate: this.sampleRate, note: this.note })
+    processStage(this.stage, {
+      frames,
+      sampleRate: this.sampleRate,
+      note: this.note,
+      samples: this.samples,
+    })
     if (this.released) this.checkFinished(frames)
   }
 

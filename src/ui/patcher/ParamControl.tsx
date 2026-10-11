@@ -1,5 +1,5 @@
 import type { ParamSpec } from '@core'
-import { formatParam, fromSlider, toSlider } from './param-scale'
+import { formatParam, fromSlider, snapToStep, toSlider } from './param-scale'
 import styles from './Patcher.module.css'
 
 interface ParamControlProps {
@@ -30,7 +30,9 @@ export const ParamControl = ({ spec, value, onChange }: ParamControlProps) => (
         min={0}
         max={SLIDER_RESOLUTION}
         value={Math.round(toSlider(spec, value) * SLIDER_RESOLUTION)}
-        onChange={(event) => onChange(fromSlider(spec, Number(event.target.value) / SLIDER_RESOLUTION))}
+        onChange={(event) =>
+          onChange(snapToStep(spec, fromSlider(spec, Number(event.target.value) / SLIDER_RESOLUTION)))
+        }
       />
     )}
   </label>

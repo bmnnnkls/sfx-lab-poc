@@ -4,6 +4,9 @@ import {
   type Note,
   type Patch,
   type Project,
+  type SampleInfo,
+  addSamplerTrack,
+  addSamples,
   addTrack,
   canRedo,
   canUndo,
@@ -13,6 +16,7 @@ import {
   createHistory,
   createTrack,
   redo,
+  removeSample,
   removeTrack,
   setClipAt,
   setClipNotes,
@@ -39,6 +43,10 @@ interface ProjectActions {
   addTrack(): void
   removeTrack(trackId: string): void
   setTrackVolume(trackId: string, volume: number): void
+  addSamples(samples: readonly SampleInfo[]): void
+  removeSample(sampleId: string): void
+  /** Adds a track with a sampler playing `sample`, plus a clip that triggers it. */
+  addSamplerTrack(sample: SampleInfo): void
   setTrackVoices(trackId: string, voices: number): void
   /**
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
@@ -90,6 +98,9 @@ export const useProjectStore = create<ProjectState>((set) => {
     setTrackVolume: (trackId, volume) =>
       edit((project) => setTrackVolume(project, trackId, volume), `volume:${trackId}`),
 
+    addSamples: (samples) => edit((project) => addSamples(project, samples)),
+    removeSample: (sampleId) => edit((project) => removeSample(project, sampleId)),
+    addSamplerTrack: (sample) => edit((project) => addSamplerTrack(project, sample)),
     setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
 
     updatePatch: (trackId, change, mergeKey) =>

@@ -167,3 +167,10 @@
   border: 1px solid var(--accent);
   border-radius: 8px;
 }
+
+.samplePicker {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 4px 10px;
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createNode, requireNodeDefinition } from '@core'
-import { NODE_WIDTH, portPosition } from './geometry'
-import { fromSlider, toSlider } from './param-scale'
+import { NODE_WIDTH, SAMPLE_PICKER_HEIGHT, nodeHeight, portPosition } from './geometry'
+import { formatParam, fromSlider, snapToStep, toSlider } from './param-scale'
 
 describe('patcher geometry', () => {
   it('places inputs on the left edge and outputs on the right edge', () => {
@@ -27,5 +27,24 @@ describe('param scale', () => {
 
   it('uses a logarithmic curve for wide ranges', () => {
     expect(toSlider(cutoff, Math.sqrt(20 * 20000))).toBeCloseTo(0.5, 6)
+  })
+})
+
+describe('sampler node layout', () => {
+  it('reserves room for the sample picker', () => {
+    expect(nodeHeight(requireNodeDefinition('sampler'))).toBeGreaterThan(
+      nodeHeight(requireNodeDefinition('gain')) + SAMPLE_PICKER_HEIGHT - 1,
+    )
+  })
+})
+
+describe('param display', () => {
+  const root = requireNodeDefinition('sampler').params.find((p) => p.id === 'root')!
+
+  it('shows MIDI note parameters by name and snaps them to whole notes', () => {
+    expect(formatParam(root, 60)).toBe('C4')
+    expect(formatParam(root, 69)).toBe('A4')
+    expect(snapToStep(root, 60.4)).toBe(60)
+    expect(snapToStep(root, 60.6)).toBe(61)
   })
 })

@@ -1,4 +1,5 @@
 import type { Patch } from '../patch'
+import type { SampleInfo } from '../sample'
 
 export interface Note {
   /** MIDI pitch, 60 = middle C. */
@@ -33,5 +34,7 @@ export interface Project {
   readonly name: string
   readonly tempo: number
   readonly sceneCount: number
+  /** The sample library: audio used (or usable) by this project. Bytes are stored separately. */
+  readonly samples: readonly SampleInfo[]
   readonly tracks: readonly Track[]
 }

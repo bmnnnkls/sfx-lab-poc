@@ -5,6 +5,7 @@ export const NODE_WIDTH = 176
 export const HEADER_HEIGHT = 28
 export const PORT_ROW_HEIGHT = 22
 export const PARAM_ROW_HEIGHT = 34
+export const SAMPLE_PICKER_HEIGHT = 64
 const BODY_PADDING = 6
 
 export interface Point {
@@ -19,7 +20,8 @@ export const nodeHeight = (definition: NodeDefinition): number =>
   HEADER_HEIGHT +
   BODY_PADDING * 2 +
   portRowCount(definition) * PORT_ROW_HEIGHT +
-  definition.params.length * PARAM_ROW_HEIGHT
+  definition.params.length * PARAM_ROW_HEIGHT +
+  (definition.usesSample ? SAMPLE_PICKER_HEIGHT : 0)
 
 /** Canvas position of a port's connection dot. Layout is fixed, so no DOM measuring is needed. */
 export const portPosition = (

@@ -5,11 +5,13 @@ import { gainNode } from './nodes/gain.node'
 import { noteNode } from './nodes/note.node'
 import { oscillatorNode } from './nodes/oscillator.node'
 import { outputNode } from './nodes/output.node'
+import { samplerNode } from './nodes/sampler.node'
 import type { NodeDefinition } from './types'
 
 export const nodeDefinitions: readonly NodeDefinition[] = [
   noteNode,
   oscillatorNode,
+  samplerNode,
   envelopeNode,
   gainNode,
   filterNode,

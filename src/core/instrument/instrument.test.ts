@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { type Patch, addNode, connect, createNode, setNodeParam } from '../patch'
+import { SampleBank } from '../sample'
 import { Instrument } from './instrument'
 
 const SAMPLE_RATE = 48000
@@ -64,7 +65,7 @@ const rms = (signal: Float32Array) => Math.sqrt(signal.reduce((sum, v) => sum + 
 
 describe('polyphonic Instrument', () => {
   it('plays every note of a chord at once', () => {
-    const instrument = new Instrument(buildPatch(), SAMPLE_RATE, 8)
+    const instrument = new Instrument(buildPatch(), SAMPLE_RATE, 8, new SampleBank())
     for (const pitch of [60, 64, 67]) instrument.noteOn(pitch)
     const signal = render(instrument, 0.25)
 
@@ -77,7 +78,7 @@ describe('polyphonic Instrument', () => {
   })
 
   it('with a single voice only the newest note sounds', () => {
-    const instrument = new Instrument(buildPatch(), SAMPLE_RATE, 1)
+    const instrument = new Instrument(buildPatch(), SAMPLE_RATE, 1, new SampleBank())
     for (const pitch of [60, 64, 67]) instrument.noteOn(pitch)
     const signal = render(instrument, 0.25)
 
@@ -86,7 +87,7 @@ describe('polyphonic Instrument', () => {
   })
 
   it('steals the oldest voice when more notes arrive than voices exist', () => {
-    const instrument = new Instrument(buildPatch(), SAMPLE_RATE, 2)
+    const instrument = new Instrument(buildPatch(), SAMPLE_RATE, 2, new SampleBank())
     for (const pitch of [60, 64, 67]) instrument.noteOn(pitch)
     const signal = render(instrument, 0.25)
 
@@ -96,7 +97,7 @@ describe('polyphonic Instrument', () => {
   })
 
   it('releases only the voice for the note that ended, then frees it once silent', () => {
-    const instrument = new Instrument(buildPatch(), SAMPLE_RATE, 8)
+    const instrument = new Instrument(buildPatch(), SAMPLE_RATE, 8, new SampleBank())
     instrument.noteOn(60)
     instrument.noteOn(64)
     render(instrument, 0.1)
@@ -110,7 +111,7 @@ describe('polyphonic Instrument', () => {
   })
 
   it('keeps shared effects ringing after the voices that fed them are gone', () => {
-    const instrument = new Instrument(buildPatch({ delay: true }), SAMPLE_RATE, 8)
+    const instrument = new Instrument(buildPatch({ delay: true }), SAMPLE_RATE, 8, new SampleBank())
     instrument.noteOn(69)
     render(instrument, 0.1)
     instrument.noteOff(69)
@@ -125,11 +126,11 @@ describe('polyphonic Instrument', () => {
   })
 
   it('mixes voices into one shared effect rather than one echo per voice', () => {
-    const one = new Instrument(buildPatch({ delay: true }), SAMPLE_RATE, 8)
+    const one = new Instrument(buildPatch({ delay: true }), SAMPLE_RATE, 8, new SampleBank())
     one.noteOn(60)
     const solo = render(one, 0.3)
 
-    const chord = new Instrument(buildPatch({ delay: true }), SAMPLE_RATE, 8)
+    const chord = new Instrument(buildPatch({ delay: true }), SAMPLE_RATE, 8, new SampleBank())
     chord.noteOn(60)
     chord.noteOn(60)
     const doubled = render(chord, 0.3)
@@ -139,7 +140,7 @@ describe('polyphonic Instrument', () => {
   })
 
   it('frees a voice that never goes quiet after its safety timeout', () => {
-    const instrument = new Instrument(buildPatch({ envelope: false }), SAMPLE_RATE, 4)
+    const instrument = new Instrument(buildPatch({ envelope: false }), SAMPLE_RATE, 4, new SampleBank())
     instrument.noteOn(60)
     instrument.noteOff(60)
     render(instrument, 9)
@@ -151,7 +152,7 @@ describe('polyphonic Instrument', () => {
   it('applies voice-node parameter changes to every voice', () => {
     const patch = buildPatch()
     const gain = patch.nodes.find((n) => n.type === 'gain')!
-    const instrument = new Instrument(patch, SAMPLE_RATE, 4)
+    const instrument = new Instrument(patch, SAMPLE_RATE, 4, new SampleBank())
     instrument.noteOn(60)
     instrument.noteOn(64)
     const loud = rms(render(instrument, 0.2))
@@ -165,7 +166,7 @@ describe('polyphonic Instrument', () => {
   it('applies shared-node parameter changes too', () => {
     const patch = buildPatch({ delay: true })
     const echo = patch.nodes.find((n) => n.type === 'delay')!
-    const instrument = new Instrument(patch, SAMPLE_RATE, 4)
+    const instrument = new Instrument(patch, SAMPLE_RATE, 4, new SampleBank())
     instrument.noteOn(60)
 
     // Fully wet: nothing is audible until the 100 ms echo arrives.
@@ -173,5 +174,26 @@ describe('polyphonic Instrument', () => {
 
     instrument.setParam(echo.id, 'mix', 0)
     expect(rms(render(instrument, 0.05))).toBeGreaterThan(0.05)
+  })
+
+  it('a note that steals a still-held voice restarts the sampler', () => {
+    const bank = new SampleBank()
+    bank.set({ id: 'ramp', sampleRate: SAMPLE_RATE, data: Float32Array.from({ length: 20000 }, (_, i) => i / 20000) })
+
+    const note = createNode('note', 0, 0)
+    const sampler = { ...createNode('sampler', 0, 0), sampleId: 'ramp' }
+    const out = createNode('output', 0, 0)
+    let patch = [note, sampler, out].reduce(addNode, empty)
+    patch = connect(patch, { node: note.id, port: 'frequency' }, { node: sampler.id, port: 'freq' })
+    patch = connect(patch, { node: note.id, port: 'gate' }, { node: sampler.id, port: 'gate' })
+    patch = connect(patch, { node: sampler.id, port: 'out' }, { node: out.id, port: 'in' })
+
+    const instrument = new Instrument(patch, SAMPLE_RATE, 1, bank)
+    instrument.noteOn(60)
+    render(instrument, 0.2) // well into the ramp (~0.48)
+    instrument.noteOn(60) // single voice, still held: stolen by the new note
+
+    const restarted = render(instrument, 0.01)
+    expect(restarted[10]).toBeLessThan(0.05)
   })
 })

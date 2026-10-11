@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react'
 
 /** File-level operations on the whole project. Implemented in `app/`, consumed by `ui/`. */
 export interface ProjectFiles {
-  exportProject(): void
+  exportProject(): Promise<void>
   importProject(): Promise<void>
   newProject(): void
   loadDemo(): void

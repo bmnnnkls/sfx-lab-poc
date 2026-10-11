@@ -42,3 +42,18 @@
   opacity: 0.35;
   cursor: default;
 }
+
+.meter {
+  width: 90px;
+  height: 8px;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.meterFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--play), var(--queued) 75%, #ff6b6b);
+  transition: width 60ms linear;
+}

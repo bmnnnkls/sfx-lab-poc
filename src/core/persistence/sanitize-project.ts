@@ -14,12 +14,14 @@ import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
 import { sanitizeClip } from './sanitize-clip'
 import { sanitizePatch } from './sanitize-patch'
+import { sanitizeSamples } from './sanitize-samples'
 
 const sanitizeTrack = (
   raw: unknown,
   index: number,
   sceneCount: number,
   usedTrackIds: Set<string>,
+  sampleIds: ReadonlySet<string>,
   warn: Warn,
 ): Track | null => {
   if (!isRecord(raw)) {
@@ -43,7 +45,7 @@ const sanitizeTrack = (
     name,
     volume: clamp(finiteNumber(raw.volume, 0.8), 0, 1),
     voices: Math.round(clamp(finiteNumber(raw.voices, DEFAULT_VOICES), MIN_VOICES, MAX_VOICES)),
-    patch: sanitizePatch(raw.patch, where, warn),
+    patch: sanitizePatch(raw.patch, where, sampleIds, warn),
     clips,
   }
 }
@@ -59,16 +61,20 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
   const rawTracks = asList(raw.tracks)
   if (rawTracks.length > LIMITS.tracks) warn(`Only the first ${LIMITS.tracks} tracks were kept`)
 
+  const samples = sanitizeSamples(raw.samples, warn)
+  const sampleIds = new Set(samples.map((sample) => sample.id))
+
   const usedTrackIds = new Set<string>()
   const tracks = rawTracks
     .slice(0, LIMITS.tracks)
-    .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, warn))
+    .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, sampleIds, warn))
     .filter((track): track is Track => track !== null)
 
   return {
     name: nonEmptyText(raw.name, 'Untitled', MAX_NAME_LENGTH),
     tempo: clamp(finiteNumber(raw.tempo, 120), MIN_TEMPO, MAX_TEMPO),
     sceneCount,
+    samples,
     tracks,
   }
 }

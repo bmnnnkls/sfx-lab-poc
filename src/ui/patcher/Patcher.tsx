@@ -1,4 +1,13 @@
-import { addNode, connect, createNode, disconnect, moveNode, removeNode, setNodeParam } from '@core'
+import {
+  addNode,
+  connect,
+  createNode,
+  disconnect,
+  moveNode,
+  removeNode,
+  setNodeParam,
+  setNodeSample,
+} from '@core'
 import { useProjectStore, useSelectionStore } from '@state'
 import { NodePalette } from './NodePalette'
 import { PatchCanvas } from './PatchCanvas'
@@ -52,6 +61,7 @@ export const Patcher = () => {
         onParamChange={(id, paramId, value) =>
           edit((patch) => setNodeParam(patch, id, paramId, value), `param:${track.id}:${id}:${paramId}`)
         }
+        onSampleChange={(id, sampleId) => edit((patch) => setNodeSample(patch, id, sampleId))}
         onConnect={(from, to) => edit((patch) => connect(patch, from, to))}
         onDisconnect={(id) => edit((patch) => disconnect(patch, id))}
       />

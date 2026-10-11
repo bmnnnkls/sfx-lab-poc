@@ -28,6 +28,8 @@ Use a Chromium-based browser or Firefox. Audio starts on your first click (brows
    Use **File → Export / Import** to move projects as `.sfxlab.json` files, and **File → Restore previous**
    to swap back after a replace (import / new / demo).
    **Undo / redo** with ↶ ↷ or `Ctrl/⌘+Z` / `Ctrl/⌘+Shift+Z`: dragging a slider or node is a single step.
-4. Click **✎** on a clip to open it in the **Clip** tab and click cells to add/remove notes while it plays.
+4. Open the **Samples** tab: **Add demo samples** (or import/drag in your own audio), press ▶ to audition, and
+   **New sampler track** to get a playable track. Projects with samples export as a `.sfxlab` package.
+5. Click **✎** on a clip to open it in the **Clip** tab and click cells to add/remove notes while it plays.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how it is put together and where to add things.

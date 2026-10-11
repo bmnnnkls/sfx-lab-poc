@@ -33,7 +33,7 @@ const ALLOWED: Record<string, readonly string[]> = {
 const EXTERNAL_ALLOWED: Record<string, readonly string[]> = {
   core: [],
   audio: [],
-  storage: [],
+  storage: ['fflate'],
   state: ['react', 'zustand'],
   ui: ['react', 'react-dom'],
   app: ['react', 'react-dom'],

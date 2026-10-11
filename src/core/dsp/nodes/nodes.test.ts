@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { SampleBank } from '../../sample'
 import { requireNodeDefinition } from '../registry'
 
 const SAMPLE_RATE = 48000
 const context = (frames: number, gate = false) => ({
   frames,
   sampleRate: SAMPLE_RATE,
-  note: { frequency: 440, velocity: 1, gate },
+  note: { frequency: 440, velocity: 1, gate, trigger: 0 },
+  samples: new SampleBank(),
 })
 
 const run = (type: string, input: Float32Array | null, params: Record<string, number> = {}) => {
@@ -73,5 +75,21 @@ describe('dsp nodes', () => {
 
     expect(out[12000]).toBeCloseTo(1, 3)
     expect(out[0]).toBe(0)
+  })
+})
+
+describe('note node trigger', () => {
+  it('dips the gate for one sample when a note starts on a voice whose gate is already high', () => {
+    const node = requireNodeDefinition('note').create(SAMPLE_RATE)
+    const outputs = () => [new Float32Array(4), new Float32Array(4), new Float32Array(4)]
+    const render = (trigger: number) => {
+      const out = outputs()
+      node.process({ ...context(4, true), note: { frequency: 440, velocity: 1, gate: true, trigger }, samples: new SampleBank() }, [], out)
+      return out[1]!
+    }
+
+    expect(Array.from(render(1))).toEqual([0, 1, 1, 1]) // new note
+    expect(Array.from(render(1))).toEqual([1, 1, 1, 1]) // same note continues
+    expect(Array.from(render(2))).toEqual([0, 1, 1, 1]) // stolen by a new note
   })
 })

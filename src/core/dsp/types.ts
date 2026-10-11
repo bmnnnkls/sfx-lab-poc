@@ -4,6 +4,8 @@ export interface PortSpec {
   readonly label: string
 }
 
+import type { SampleLookup } from '../sample'
+
 /** Static description of a user-editable node parameter. */
 export interface ParamSpec {
   readonly id: string
@@ -15,6 +17,8 @@ export interface ParamSpec {
   readonly unit?: string
   /** When present the parameter is an enum; its value is an index into this list. */
   readonly options?: readonly string[]
+  /** How to show the value: `midiNote` renders 60 as "C4". */
+  readonly format?: 'midiNote'
 }
 
 /** The note currently held by an instrument, shared with every node in its patch. */
@@ -22,6 +26,8 @@ export interface NoteState {
   frequency: number
   velocity: number
   gate: boolean
+  /** Increments on every note start, so a note that steals a still-held voice can be seen as new. */
+  trigger: number
 }
 
 export interface ProcessContext {
@@ -29,6 +35,7 @@ export interface ProcessContext {
   readonly frames: number
   readonly sampleRate: number
   readonly note: Readonly<NoteState>
+  readonly samples: SampleLookup
 }
 
 /**
@@ -40,6 +47,8 @@ export interface ProcessContext {
  */
 export interface DspNode {
   setParam(id: string, value: number): void
+  /** Only for nodes with `usesSample`: choose which library sample to play. */
+  setSample?(sampleId: string | null): void
   process(
     context: ProcessContext,
     inputs: ReadonlyArray<Float32Array | null>,
@@ -60,5 +69,7 @@ export interface NodeDefinition {
    * shared node is shared too.
    */
   readonly shared?: boolean
+  /** The node plays library samples; the patcher shows a sample picker and stores `sampleId`. */
+  readonly usesSample?: boolean
   create(sampleRate: number): DspNode
 }

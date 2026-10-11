@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { moveNode, setNodeParam } from '../patch'
+import { moveNode, setNodeParam, setNodeSample } from '../patch'
 import {
   createDemoProject,
   setClipAt,
@@ -37,6 +37,15 @@ describe('diffProject', () => {
     const next = setTrackPatch(project, track.id, moveNode(track.patch, node.id, 500, 500))
 
     expect(diffProject(project, next)).toEqual([])
+  })
+
+  it('maps a sample change on a node to setSample, without rebuilding the patch', () => {
+    const osc = track.patch.nodes.find((n) => n.type === 'oscillator')!
+    const next = setTrackPatch(project, track.id, setNodeSample(track.patch, osc.id, 'f'.repeat(64)))
+
+    expect(diffProject(project, next)).toEqual([
+      { type: 'track/setSample', trackId: track.id, nodeId: osc.id, sampleId: 'f'.repeat(64) },
+    ])
   })
 
   it('maps a voice-count change to its own command', () => {

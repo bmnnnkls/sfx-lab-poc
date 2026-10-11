@@ -11,9 +11,6 @@ export const pitchRows = (): number[] =>
 const BLACK_KEYS = new Set([1, 3, 6, 8, 10])
 export const isBlackKey = (pitch: number): boolean => BLACK_KEYS.has(pitch % 12)
 
-const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-export const pitchName = (pitch: number): string => `${NAMES[pitch % 12]}${Math.floor(pitch / 12) - 1}`
-
 /** Notes whose start falls on `step`-aligned cell `column` and cover `pitch`. */
 export const findNoteAt = (notes: readonly Note[], pitch: number, beat: number): Note | undefined =>
   notes.find((note) => note.pitch === pitch && beat >= note.start && beat < note.start + note.duration)

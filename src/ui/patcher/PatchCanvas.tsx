@@ -10,6 +10,7 @@ interface PatchCanvasProps {
   onMoveNode(nodeId: string, x: number, y: number): void
   onRemoveNode(nodeId: string): void
   onParamChange(nodeId: string, paramId: string, value: number): void
+  onSampleChange(nodeId: string, sampleId: string | null): void
   onConnect(from: PortRef, to: PortRef): void
   onDisconnect(connectionId: string): void
 }
@@ -22,6 +23,7 @@ export const PatchCanvas = ({
   onMoveNode,
   onRemoveNode,
   onParamChange,
+  onSampleChange,
   onConnect,
   onDisconnect,
 }: PatchCanvasProps) => {
@@ -58,6 +60,7 @@ export const PatchCanvas = ({
             onMove={(x, y) => onMoveNode(node.id, x, y)}
             onRemove={() => onRemoveNode(node.id)}
             onParamChange={(paramId, value) => onParamChange(node.id, paramId, value)}
+            onSampleChange={(sampleId) => onSampleChange(node.id, sampleId)}
             onWireStart={(from) => setPending({ from, pointer: { x: node.x, y: node.y } })}
             onWireEnd={(to) => pending && onConnect(pending.from, to)}
           />

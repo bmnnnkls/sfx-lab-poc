@@ -24,7 +24,12 @@ const readPortRef = (raw: unknown): PortRef | null =>
  * invariant (known node types, valid ports, no cycles) is enforced by the same code
  * the editor uses. Anything that doesn't fit is dropped and reported.
  */
-export const sanitizePatch = (raw: unknown, where: string, warn: Warn): Patch => {
+export const sanitizePatch = (
+  raw: unknown,
+  where: string,
+  sampleIds: ReadonlySet<string>,
+  warn: Warn,
+): Patch => {
   const source: Raw = isRecord(raw) ? raw : {}
   let patch: Patch = { nodes: [], connections: [] }
 
@@ -45,12 +50,20 @@ export const sanitizePatch = (raw: unknown, where: string, warn: Warn): Patch =>
       continue
     }
     nodeIds.add(rawNode.id)
+
+    let sampleId: string | undefined
+    if (definition.usesSample && typeof rawNode.sampleId === 'string') {
+      if (sampleIds.has(rawNode.sampleId)) sampleId = rawNode.sampleId
+      else warn(`${where}: a ${definition.label} pointed at a sample that is not in the project`)
+    }
+
     patch = addNode(patch, {
       id: rawNode.id,
       type: definition.type,
       x: finiteNumber(rawNode.x, 0),
       y: finiteNumber(rawNode.y, 0),
       params: sanitizeParams(definition.params, rawNode.params),
+      ...(sampleId === undefined ? {} : { sampleId }),
     })
   }
 

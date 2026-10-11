@@ -13,14 +13,22 @@ const diffPatch = (trackId: string, prev: Patch, next: Patch): EngineCommand[] =
   if (prev === next) return []
   if (structureOf(prev) !== structureOf(next)) return [{ type: 'track/setPatch', trackId, patch: next }]
 
-  // Same wiring: push only changed params so knobs can move without rebuilding the voice.
+  // Same wiring: push only what changed so knobs and pickers work without rebuilding the voice.
   const commands: EngineCommand[] = []
   for (const node of next.nodes) {
-    const before = prev.nodes.find((candidate) => candidate.id === node.id)?.params ?? {}
+    const before = prev.nodes.find((candidate) => candidate.id === node.id)
     for (const [paramId, value] of Object.entries(node.params)) {
-      if (before[paramId] !== value) {
+      if (before?.params[paramId] !== value) {
         commands.push({ type: 'track/setParam', trackId, nodeId: node.id, paramId, value })
       }
+    }
+    if (before?.sampleId !== node.sampleId) {
+      commands.push({
+        type: 'track/setSample',
+        trackId,
+        nodeId: node.id,
+        sampleId: node.sampleId ?? null,
+      })
     }
   }
   return commands

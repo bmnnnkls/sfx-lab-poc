@@ -8,6 +8,7 @@ export const CURRENT_VERSION = 1
 export const LIMITS = {
   tracks: 64,
   scenes: 64,
+  samples: 256,
   nodesPerPatch: 200,
   notesPerClip: 5000,
   clipBeats: { min: 0.25, max: 256 },

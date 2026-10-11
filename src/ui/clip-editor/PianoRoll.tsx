@@ -1,4 +1,4 @@
-import type { Note } from '@core'
+import { type Note, pitchName } from '@core'
 import { useStatusStore } from '@state'
 import { useEffect, useRef } from 'react'
 import {
@@ -6,7 +6,6 @@ import {
   ROW_HEIGHT,
   centerPitch,
   isBlackKey,
-  pitchName,
   pitchRows,
   scrollTopFor,
   toggleNote,

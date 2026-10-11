@@ -1,12 +1,13 @@
 import { type NoteState } from '../dsp'
 import type { Patch } from '../patch'
+import type { SampleLookup } from '../sample'
 import { MAX_BLOCK_FRAMES, compileStage, processStage } from './compile'
 import { planStages } from './stages'
 import { Voice } from './voice'
 import { VoicePool } from './voice-pool'
 
 /** Shared-stage nodes have no note of their own; they see a silent, ungated one. */
-const NO_NOTE: Readonly<NoteState> = { frequency: 0, velocity: 0, gate: false }
+const NO_NOTE: Readonly<NoteState> = { frequency: 0, velocity: 0, gate: false, trigger: 0 }
 
 /**
  * A polyphonic synth built from a patch. The patch is split in two (see `planStages`):
@@ -23,6 +24,7 @@ export class Instrument {
     patch: Patch,
     private readonly sampleRate: number,
     voiceCount: number,
+    private readonly samples: SampleLookup,
   ) {
     const plan = planStages(patch)
 
@@ -37,7 +39,13 @@ export class Instrument {
     this.pool = new VoicePool(
       Array.from(
         { length: Math.max(1, Math.floor(voiceCount)) },
-        () => new Voice(compileStage(patch, plan.voiceOrder, sampleRate), plan.boundaries, sampleRate),
+        () =>
+          new Voice(
+            compileStage(patch, plan.voiceOrder, sampleRate),
+            plan.boundaries,
+            sampleRate,
+            samples,
+          ),
       ),
     )
   }
@@ -64,6 +72,11 @@ export class Instrument {
     this.shared.byId.get(nodeId)?.setParam(paramId, value)
   }
 
+  setSample(nodeId: string, sampleId: string | null): void {
+    for (const voice of this.pool.voices) voice.setSample(nodeId, sampleId)
+    this.shared.byId.get(nodeId)?.setSample?.(sampleId)
+  }
+
   /** Renders `frames` samples (<= MAX_BLOCK_FRAMES) and returns the shared mono buffer. */
   render(frames: number): Float32Array {
     this.mix.fill(0, 0, frames)
@@ -79,7 +92,12 @@ export class Instrument {
       }
     }
 
-    processStage(this.shared, { frames, sampleRate: this.sampleRate, note: NO_NOTE })
+    processStage(this.shared, {
+      frames,
+      sampleRate: this.sampleRate,
+      note: NO_NOTE,
+      samples: this.samples,
+    })
     for (const source of this.shared.outputSources) this.accumulate(this.mix, source, frames)
     return this.mix
   }

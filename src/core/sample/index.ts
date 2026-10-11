@@ -1,0 +1,5 @@
+export type { SampleData, SampleInfo, SampleLookup } from './types'
+export { SampleBank } from './sample-bank'
+export { computePeaks, toMono } from './audio-math'
+export { encodeWav } from './wav'
+export { createDemoSamples, type DemoSample } from './demo-samples'

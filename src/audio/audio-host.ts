@@ -12,7 +12,7 @@ export class AudioHost {
   private context: AudioContext | null = null
   private node: AudioWorkletNode | null = null
   private starting: Promise<void> | null = null
-  private readonly queue: EngineCommand[] = []
+  private readonly queue: Array<{ command: EngineCommand; transfer: Transferable[] }> = []
   private readonly listeners = new Set<StatusListener>()
 
   get isRunning(): boolean {
@@ -25,13 +25,14 @@ export class AudioHost {
     return this.starting.then(() => this.context?.resume()).then(() => undefined)
   }
 
-  send(command: EngineCommand): void {
+  /** `transfer` lists buffers to hand over to the audio thread without copying (they become unusable here). */
+  send(command: EngineCommand, transfer: Transferable[] = []): void {
     if (!this.node) {
-      this.queue.push(command)
+      this.queue.push({ command, transfer })
       return
     }
     const message: HostMessage = { kind: 'command', command }
-    this.node.port.postMessage(message)
+    this.node.port.postMessage(message, transfer)
   }
 
   onStatus(listener: StatusListener): () => void {
@@ -54,6 +55,6 @@ export class AudioHost {
 
     this.context = context
     this.node = node
-    for (const command of this.queue.splice(0)) this.send(command)
+    for (const { command, transfer } of this.queue.splice(0)) this.send(command, transfer)
   }
 }

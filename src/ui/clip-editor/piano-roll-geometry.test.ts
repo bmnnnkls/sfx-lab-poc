@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { centerPitch, pitchName, toggleNote } from './piano-roll-geometry'
+import { pitchName } from '@core'
+import { centerPitch, toggleNote } from './piano-roll-geometry'
 
 describe('piano roll geometry', () => {
   it('names pitches', () => {

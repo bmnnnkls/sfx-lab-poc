@@ -1,6 +1,7 @@
 import { type PatchNode, type PortRef, requireNodeDefinition } from '@core'
 import { HEADER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT } from './geometry'
 import { ParamControl } from './ParamControl'
+import { SamplePicker } from './SamplePicker'
 import styles from './Patcher.module.css'
 import { useNodeDrag } from './use-node-drag'
 
@@ -11,11 +12,21 @@ interface NodeViewProps {
   onMove(x: number, y: number): void
   onRemove(): void
   onParamChange(paramId: string, value: number): void
+  onSampleChange(sampleId: string | null): void
   onWireStart(from: PortRef): void
   onWireEnd(to: PortRef): void
 }
 
-export const NodeView = ({ node, shared, onMove, onRemove, onParamChange, onWireStart, onWireEnd }: NodeViewProps) => {
+export const NodeView = ({
+  node,
+  shared,
+  onMove,
+  onRemove,
+  onParamChange,
+  onSampleChange,
+  onWireStart,
+  onWireEnd,
+}: NodeViewProps) => {
   const definition = requireNodeDefinition(node.type)
   const drag = useNodeDrag(node.x, node.y, onMove)
   const rows = Math.max(definition.inputs.length, definition.outputs.length)
@@ -76,6 +87,8 @@ export const NodeView = ({ node, shared, onMove, onRemove, onParamChange, onWire
           )
         })}
       </div>
+
+      {definition.usesSample && <SamplePicker sampleId={node.sampleId} onChange={onSampleChange} />}
 
       {definition.params.map((spec) => (
         <ParamControl

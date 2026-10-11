@@ -140,3 +140,46 @@ describe('sanitizing', () => {
     expect(loaded.tracks[0]?.patch).toEqual({ nodes: [], connections: [] })
   })
 })
+
+describe('samples in files', () => {
+  const id = 'c'.repeat(64)
+  const sampleEntry = { id, name: 'Kick', extension: 'wav', durationSeconds: 1.5, sampleRate: 44100, channels: 2, bytes: 5000 }
+  const samplerPatch = (sampleId: unknown) => ({
+    nodes: [{ id: 's', type: 'sampler', x: 0, y: 0, params: {}, sampleId }],
+    connections: [],
+  })
+  const track = (patch: unknown) => ({ id: 't', name: 'T', patch, clips: [] })
+
+  it('round-trips the library and sampler references', () => {
+    const raw = project({ samples: [sampleEntry], tracks: [track(samplerPatch(id))] })
+    const { project: loaded, warnings } = parseOk(envelope(raw))
+
+    expect(warnings).toEqual([])
+    expect(loaded.samples).toEqual([sampleEntry])
+    expect(loaded.tracks[0]?.patch.nodes[0]?.sampleId).toBe(id)
+    expect(parseOk(serializeProject(loaded)).project).toEqual(loaded)
+  })
+
+  it('drops invalid library entries and says so', () => {
+    const raw = project({
+      samples: [sampleEntry, sampleEntry, { id: 'not-a-hash', name: 'x' }, 'junk', { ...sampleEntry, id: 'd'.repeat(64), extension: '../etc', sampleRate: 1e9, channels: 99 }],
+    })
+    const { project: loaded, warnings } = parseOk(envelope(raw))
+
+    expect(loaded.samples.map((s) => s.id)).toEqual([id, 'd'.repeat(64)])
+    expect(loaded.samples[1]).toMatchObject({ extension: 'bin', sampleRate: 192000, channels: 8 })
+    expect(warnings.join('\n')).toMatch(/Skipped 3 invalid sample entries/)
+  })
+
+  it('drops a sampler reference to a sample that is not in the library', () => {
+    const raw = project({ samples: [], tracks: [track(samplerPatch(id))] })
+    const { project: loaded, warnings } = parseOk(envelope(raw))
+
+    expect(loaded.tracks[0]?.patch.nodes[0]?.sampleId).toBeUndefined()
+    expect(warnings.join('\n')).toMatch(/pointed at a sample that is not in the project/)
+  })
+
+  it('loads older files that have no sample library', () => {
+    expect(parseOk(envelope(project({}))).project.samples).toEqual([])
+  })
+})

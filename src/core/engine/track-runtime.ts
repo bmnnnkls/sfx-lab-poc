@@ -1,6 +1,7 @@
 import { Instrument } from '../instrument'
 import type { Patch } from '../patch'
 import type { Clip } from '../project'
+import type { SampleLookup } from '../sample'
 import { ClipLauncher, type NoteEvent } from '../session'
 
 /** Live, audio-thread counterpart of a project Track: voice + clip player + level. */
@@ -16,20 +17,21 @@ export class TrackRuntime {
     volume: number,
     private voices: number,
     private readonly sampleRate: number,
+    private readonly samples: SampleLookup,
   ) {
-    this.instrument = new Instrument(patch, sampleRate, voices)
+    this.instrument = new Instrument(patch, sampleRate, voices, samples)
     this.clips = clips
     this.volume = volume
   }
 
   setPatch(patch: Patch): void {
     this.patch = patch
-    this.instrument = new Instrument(patch, this.sampleRate, this.voices)
+    this.instrument = new Instrument(patch, this.sampleRate, this.voices, this.samples)
   }
 
   setVoices(voices: number): void {
     this.voices = voices
-    this.instrument = new Instrument(this.patch, this.sampleRate, voices)
+    this.instrument = new Instrument(this.patch, this.sampleRate, voices, this.samples)
   }
 
   setClips(clips: readonly (Clip | null)[]): void {
@@ -39,6 +41,10 @@ export class TrackRuntime {
 
   setParam(nodeId: string, paramId: string, value: number): void {
     this.instrument.setParam(nodeId, paramId, value)
+  }
+
+  setSample(nodeId: string, sampleId: string | null): void {
+    this.instrument.setSample(nodeId, sampleId)
   }
 
   launchClip(clipId: string): void {

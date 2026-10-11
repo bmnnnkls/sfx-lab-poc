@@ -26,6 +26,29 @@ export const removeNode = (patch: Patch, nodeId: string): Patch => ({
   ),
 })
 
+/** Points a sample-playing node at a library sample (or none). */
+export const setNodeSample = (patch: Patch, nodeId: string, sampleId: string | null): Patch => ({
+  ...patch,
+  nodes: patch.nodes.map((node) => {
+    if (node.id !== nodeId) return node
+    const { sampleId: _previous, ...rest } = node
+    return sampleId === null ? rest : { ...rest, sampleId }
+  }),
+})
+
+/** Clears every node's reference to a sample (when it is removed from the library). */
+export const clearSampleReferences = (patch: Patch, sampleId: string): Patch =>
+  patch.nodes.some((node) => node.sampleId === sampleId)
+    ? {
+        ...patch,
+        nodes: patch.nodes.map((node) => {
+          if (node.sampleId !== sampleId) return node
+          const { sampleId: _removed, ...rest } = node
+          return rest
+        }),
+      }
+    : patch
+
 export const moveNode = (patch: Patch, nodeId: string, x: number, y: number): Patch => ({
   ...patch,
   nodes: patch.nodes.map((node) => (node.id === nodeId ? { ...node, x, y } : node)),

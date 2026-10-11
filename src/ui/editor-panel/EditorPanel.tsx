@@ -1,6 +1,7 @@
 import { useSelectionStore } from '@state'
 import { ClipEditor } from '../clip-editor/ClipEditor'
 import { Patcher } from '../patcher/Patcher'
+import { SamplesPanel } from '../samples/SamplesPanel'
 import styles from './EditorPanel.module.css'
 
 /** Bottom panel: switches between the selected track's patcher and the selected clip's piano roll. */
@@ -17,8 +18,13 @@ export const EditorPanel = () => {
         <button className={tab === 'clip' ? styles.active : ''} onClick={() => setTab('clip')}>
           Clip
         </button>
+        <button className={tab === 'samples' ? styles.active : ''} onClick={() => setTab('samples')}>
+          Samples
+        </button>
       </nav>
-      <div className={styles.body}>{tab === 'device' ? <Patcher /> : <ClipEditor />}</div>
+      <div className={styles.body}>
+        {tab === 'device' ? <Patcher /> : tab === 'clip' ? <ClipEditor /> : <SamplesPanel />}
+      </div>
     </div>
   )
 }

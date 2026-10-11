@@ -1,0 +1,25 @@
+.thumb {
+  position: relative;
+  flex: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.thumb canvas {
+  display: block;
+}
+
+.message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: #ff9a6b;
+}
+
+.thumb[data-status='loading'] .message {
+  color: var(--text-dim);
+}

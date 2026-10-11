@@ -51,6 +51,7 @@ export const compileStage = (
 
     const dsp = definition.create(sampleRate)
     for (const [paramId, value] of Object.entries(node.params)) dsp.setParam(paramId, value)
+    if (node.sampleId !== undefined) dsp.setSample?.(node.sampleId)
 
     const outputs = definition.outputs.map((port) => {
       const buffer = newBuffer()

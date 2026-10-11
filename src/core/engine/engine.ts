@@ -1,7 +1,9 @@
 import { MAX_BLOCK_FRAMES } from '../instrument'
+import { SampleBank } from '../sample'
 import type { NoteEvent } from '../session'
 import { Transport } from '../transport'
 import type { EngineCommand } from './commands'
+import { SamplePreview } from './sample-preview'
 import type { EngineStatus } from './status'
 import { TrackRuntime } from './track-runtime'
 
@@ -19,9 +21,13 @@ interface ScheduledEvent {
 export class Engine {
   private readonly transport: Transport
   private readonly tracks = new Map<string, TrackRuntime>()
+  private readonly samples = new SampleBank()
+  private readonly preview: SamplePreview
+  private peak = 0
 
   constructor(private readonly sampleRate: number) {
     this.transport = new Transport(sampleRate)
+    this.preview = new SamplePreview(sampleRate)
   }
 
   apply(command: EngineCommand): void {
@@ -44,6 +50,7 @@ export class Engine {
             command.volume,
             command.voices,
             this.sampleRate,
+            this.samples,
           ),
         )
         break
@@ -67,6 +74,23 @@ export class Engine {
       case 'track/setParam':
         this.tracks.get(command.trackId)?.setParam(command.nodeId, command.paramId, command.value)
         break
+      case 'track/setSample':
+        this.tracks.get(command.trackId)?.setSample(command.nodeId, command.sampleId)
+        break
+      case 'sample/add':
+        this.samples.set(command.sample)
+        break
+      case 'sample/remove':
+        this.samples.delete(command.sampleId)
+        break
+      case 'sample/preview': {
+        const sample = this.samples.get(command.sampleId)
+        if (sample) this.preview.start(sample)
+        break
+      }
+      case 'sample/stopPreview':
+        this.preview.stop()
+        break
       case 'track/stop':
         this.tracks.get(command.trackId)?.launcher.stop()
         break
@@ -89,14 +113,19 @@ export class Engine {
       const frames = Math.min(MAX_BLOCK_FRAMES, left.length - offset)
       this.renderBlock(left, right, offset, frames)
     }
+    this.preview.mixInto(left, right)
     softClip(left)
     softClip(right)
+    this.peak = Math.max(this.peak, peakOf(left), peakOf(right))
   }
 
+  /** Snapshot for display. Reading it also resets the output-level peak. */
   status(): EngineStatus {
     const tracks: Record<string, ReturnType<TrackRuntime['launcher']['status']>> = {}
     for (const [id, track] of this.tracks) tracks[id] = track.launcher.status()
-    return { playing: this.transport.playing, beat: this.transport.positionBeats, tracks }
+    const peak = this.peak
+    this.peak = 0 // each snapshot reports the level since the previous one
+    return { playing: this.transport.playing, beat: this.transport.positionBeats, peak, tracks }
   }
 
   private stopTransport(): void {
@@ -138,4 +167,10 @@ export class Engine {
 
 const softClip = (buffer: Float32Array): void => {
   for (let i = 0; i < buffer.length; i++) buffer[i] = Math.tanh(buffer[i] ?? 0)
+}
+
+const peakOf = (buffer: Float32Array): number => {
+  let peak = 0
+  for (let i = 0; i < buffer.length; i++) peak = Math.max(peak, Math.abs(buffer[i] ?? 0))
+  return peak
 }

@@ -11,6 +11,8 @@ export interface PatchNode {
   readonly x: number
   readonly y: number
   readonly params: Readonly<Record<string, number>>
+  /** For sample-playing nodes: id of the project sample to play. */
+  readonly sampleId?: string
 }
 
 export interface PatchConnection {

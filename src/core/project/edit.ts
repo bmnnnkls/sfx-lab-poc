@@ -1,5 +1,6 @@
-import { createDefaultPatch } from '../patch'
+import { clearSampleReferences, createDefaultPatch, createSamplerPatch } from '../patch'
 import type { Patch } from '../patch'
+import type { SampleInfo } from '../sample'
 import { clamp, createId } from '../shared'
 import type { Clip, Note, Project, Track } from './types'
 
@@ -94,6 +95,34 @@ export const setProjectName = (project: Project, name: string): Project => ({
 /** A blank project with a single empty track. */
 export const createEmptyProject = (): Project =>
   addTrack(
-    { name: 'Untitled', tempo: 120, sceneCount: DEFAULT_SCENE_COUNT, tracks: [] },
+    { name: 'Untitled', tempo: 120, sceneCount: DEFAULT_SCENE_COUNT, samples: [], tracks: [] },
     createTrack('Track 1', DEFAULT_SCENE_COUNT),
   )
+
+/** Adds samples to the library, ignoring any whose id is already there. */
+export const addSamples = (project: Project, samples: readonly SampleInfo[]): Project => {
+  const known = new Set(project.samples.map((sample) => sample.id))
+  const fresh = samples.filter((sample) => !known.has(sample.id))
+  return fresh.length === 0 ? project : { ...project, samples: [...project.samples, ...fresh] }
+}
+
+/** Removes a sample from the library and clears every node that was playing it. */
+export const removeSample = (project: Project, sampleId: string): Project => ({
+  ...project,
+  samples: project.samples.filter((sample) => sample.id !== sampleId),
+  tracks: project.tracks.map((track) => {
+    const patch = clearSampleReferences(track.patch, sampleId)
+    return patch === track.patch ? track : { ...track, patch }
+  }),
+})
+
+const SAMPLER_NOTE = 60
+
+/** A ready-to-play track: a sampler loaded with `sample` and a one-bar clip that triggers it. */
+export const addSamplerTrack = (project: Project, sample: SampleInfo): Project => {
+  const clip = createClip(sample.name, 4, [
+    { pitch: SAMPLER_NOTE, start: 0, duration: 1, velocity: 0.9 },
+  ])
+  const track = createTrack(sample.name, project.sceneCount, createSamplerPatch(sample.id))
+  return addTrack(project, { ...track, clips: track.clips.map((slot, scene) => (scene === 0 ? clip : slot)) })
+}

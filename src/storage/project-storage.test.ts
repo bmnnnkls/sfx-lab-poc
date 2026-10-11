@@ -1,7 +1,6 @@
 import { createDemoProject, createEmptyProject, serializeProject } from '@core'
 import { describe, expect, it } from 'vitest'
 import { type KeyValueStore, createMemoryStore } from './key-value-store'
-import { projectFileName } from './project-file'
 import { ProjectStorage } from './project-storage'
 
 describe('ProjectStorage', () => {
@@ -56,12 +55,5 @@ describe('ProjectStorage', () => {
     const store = createMemoryStore()
     store.setItem('sfxlab:project', serializeProject(createEmptyProject(), 2))
     expect(new ProjectStorage(store).loadCurrent().status).toBe('loaded')
-  })
-})
-
-describe('projectFileName', () => {
-  it('slugifies the project name', () => {
-    expect(projectFileName('My Cool Project!')).toBe('my-cool-project.sfxlab.json')
-    expect(projectFileName('  ')).toBe('project.sfxlab.json')
   })
 })
