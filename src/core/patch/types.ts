@@ -1,3 +1,5 @@
+import type { PanelControl } from './panel-types'
+
 export interface PortRef {
   readonly node: string
   readonly port: string
@@ -36,4 +38,6 @@ export interface PatchConnection {
 export interface Patch {
   readonly nodes: readonly PatchNode[]
   readonly connections: readonly PatchConnection[]
+  /** The front panel: controls bound to this patch's parameters, in order. Absent until one is made. A view only: the engine never sees it. */
+  readonly panel?: readonly PanelControl[]
 }

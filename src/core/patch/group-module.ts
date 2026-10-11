@@ -8,6 +8,7 @@ import {
   exposedPortId,
 } from './module-types'
 import { describeNode, findModule, kindsConnect } from './node-shape'
+import { dropControlsOfNodes } from './panel'
 import type { Patch, PatchConnection, PatchNode, PortRef } from './types'
 
 export interface GroupResult {
@@ -88,13 +89,15 @@ export const groupIntoModule = (
   return {
     module,
     use,
-    patch: {
+    // Controls bound to the nodes that moved into the module go with them (the module's knobs are the new way in).
+    patch: dropControlsOfNodes({
+      ...patch,
       nodes: [...patch.nodes.filter((node) => !insideIds.has(node.id)), use],
       connections: [
         ...patch.connections.filter((c) => !insideIds.has(c.from.node) && !insideIds.has(c.to.node)),
         ...rewired,
       ],
-    },
+    }, insideIds),
   }
 }
 
@@ -163,5 +166,5 @@ export const pruneModuleUses = (patch: Patch, modules: ModuleLibrary): Patch => 
     changed = true
     return { ...node, params: Object.fromEntries(Object.entries(node.params).filter(([id]) => valid.has(id))) }
   })
-  return changed ? { nodes, connections } : patch
+  return changed ? { ...patch, nodes, connections } : patch
 }

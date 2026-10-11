@@ -2,6 +2,7 @@ import { createId } from '../shared'
 import { isDownstream } from './graph'
 import type { ModuleLibrary } from './module-types'
 import { describeNode, kindsConnect } from './node-shape'
+import { dropControlsOfNodes } from './panel'
 import type { Patch, PatchNode, PortRef } from './types'
 
 const defaultParams = (type: string): Record<string, number> => {
@@ -23,12 +24,15 @@ export const addNode = (patch: Patch, node: PatchNode): Patch => ({
   nodes: [...patch.nodes, node],
 })
 
-export const removeNode = (patch: Patch, nodeId: string): Patch => ({
-  nodes: patch.nodes.filter((node) => node.id !== nodeId),
-  connections: patch.connections.filter(
-    ({ from, to }) => from.node !== nodeId && to.node !== nodeId,
-  ),
-})
+export const removeNode = (patch: Patch, nodeId: string): Patch =>
+  dropControlsOfNodes(
+    {
+      ...patch,
+      nodes: patch.nodes.filter((node) => node.id !== nodeId),
+      connections: patch.connections.filter(({ from, to }) => from.node !== nodeId && to.node !== nodeId),
+    },
+    new Set([nodeId]),
+  )
 
 /** Points a sample-playing node at a library sample (or none). */
 export const setNodeSample = (patch: Patch, nodeId: string, sampleId: string | null): Patch => ({

@@ -1,3 +1,5 @@
+import { MAX_PANEL_CONTROLS } from '../patch'
+
 /** Identifies our files so the importer can reject anything else with a clear message. */
 export const FORMAT = 'sfx-lab-project'
 
@@ -12,6 +14,7 @@ export const LIMITS = {
   modules: 128,
   portsPerModule: 64,
   nodesPerPatch: 200,
+  controlsPerPatch: MAX_PANEL_CONTROLS,
   notesPerClip: 5000,
   clipBeats: { min: 0.25, max: 256 },
 } as const
