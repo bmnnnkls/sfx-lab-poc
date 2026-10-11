@@ -15,7 +15,7 @@ npm run build      # typecheck + production build
 
 ## Live demo (GitHub Pages)
 
-Pushes deploy automatically via `.github/workflows/deploy-pages.yml`. One-time setup: repo **Settings → Pages → Source: GitHub Actions**. The site is then at `https://<user>.github.io/sfx-lab-poc/`.
+Pushes to `main` deploy automatically via `.github/workflows/deploy-pages.yml`. One-time setup: repo **Settings → Pages → Source: GitHub Actions**, and `main` must be an allowed branch under **Settings → Environments → github-pages → Deployment branches** (otherwise the deploy job fails with "not allowed to deploy ... due to environment protection rules"). The site is then at `https://<user>.github.io/sfx-lab-poc/`.
 
 Use a Chromium-based browser or Firefox. Audio starts on your first click (browser autoplay policy).
 
