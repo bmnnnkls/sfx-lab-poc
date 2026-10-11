@@ -13,6 +13,10 @@ export interface PatchNode {
   readonly params: Readonly<Record<string, number>>
   /** For sample-playing nodes: id of the project sample to play. */
   readonly sampleId?: string
+  /** For `trackNotes` nodes: which track the notes are taken from. */
+  readonly trackId?: string
+  /** For note effects: notes pass through untouched while this is true. */
+  readonly bypassed?: boolean
   /** For `module` nodes: which module definition this is a use of. `params` then holds the exposed knobs. */
   readonly moduleId?: string
 }

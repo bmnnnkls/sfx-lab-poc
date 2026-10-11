@@ -9,15 +9,13 @@ import {
   type Project,
   type Track,
 } from '../project'
-import type { NoteModuleDefinition } from '../notefx'
-import type { ModuleDefinition } from '../patch'
+import { type ModuleDefinition, createDefaultNoteGraph } from '../patch'
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
 import { sanitizeAudioClip } from './sanitize-audio-clip'
 import { sanitizeClip } from './sanitize-clip'
-import { sanitizeNoteEffects } from './sanitize-note-effects'
-import { sanitizeNoteModules } from './sanitize-note-modules'
+import { repairNoteTaps } from './sanitize-note-taps'
 import { sanitizeModules } from './sanitize-modules'
 import { sanitizePatch } from './sanitize-patch'
 import { sanitizeSamples } from './sanitize-samples'
@@ -29,7 +27,6 @@ const sanitizeTrack = (
   usedTrackIds: Set<string>,
   sampleIds: ReadonlySet<string>,
   modules: readonly ModuleDefinition[],
-  noteModules: readonly NoteModuleDefinition[],
   warn: Warn,
 ): Track | null => {
   if (!isRecord(raw)) {
@@ -70,7 +67,9 @@ const sanitizeTrack = (
     volume,
     voices: Math.round(clamp(finiteNumber(raw.voices, DEFAULT_VOICES), MIN_VOICES, MAX_VOICES)),
     patch: sanitizePatch(raw.patch, where, sampleIds, modules, warn),
-    noteEffects: sanitizeNoteEffects(raw.noteEffects, where, noteModules, warn),
+    noteGraph: isRecord(raw.noteGraph)
+      ? sanitizePatch(raw.noteGraph, where, sampleIds, modules, warn, 'notes')
+      : createDefaultNoteGraph(),
     clips,
   }
 }
@@ -89,12 +88,11 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
   const samples = sanitizeSamples(raw.samples, warn)
   const sampleIds = new Set(samples.map((sample) => sample.id))
   const modules = sanitizeModules(raw.modules, sampleIds, warn)
-  const noteModules = sanitizeNoteModules(raw.noteModules, warn)
 
   const usedTrackIds = new Set<string>()
   const tracks = rawTracks
     .slice(0, LIMITS.tracks)
-    .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, sampleIds, modules, noteModules, warn))
+    .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, sampleIds, modules, warn))
     .filter((track): track is Track => track !== null)
 
   return {
@@ -103,7 +101,6 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     sceneCount,
     samples,
     modules,
-    noteModules,
-    tracks,
+    tracks: repairNoteTaps(tracks, modules, warn),
   }
 }

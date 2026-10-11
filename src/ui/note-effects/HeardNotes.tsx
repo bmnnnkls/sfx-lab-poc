@@ -1,4 +1,4 @@
-import { type HeardNote, type InstrumentTrack, heardNotes, pitchName } from '@core'
+import { createDefaultNoteGraph, type HeardNote, type InstrumentTrack, flattenPatch, heardNotes, noteTapSources, pitchName } from '@core'
 import { useProjectStore, useSelectionStore } from '@state'
 import { useMemo, useState } from 'react'
 import styles from './NoteEffects.module.css'
@@ -55,7 +55,7 @@ const Lane = ({ notes, beats, low, high, className, title }: {
 /** Shows a clip as written and as the instrument will hear it after the chain. Uses the engine's own code. */
 export const HeardNotes = ({ track }: { track: InstrumentTrack }) => {
   const selectedClipId = useSelectionStore((state) => state.clipId)
-  const modules = useProjectStore((state) => state.project.noteModules)
+  const modules = useProjectStore((state) => state.project.modules)
   const withNotes = track.clips.flatMap((clip) => (clip && clip.notes.length > 0 ? [clip] : []))
   const [chosen, setChosen] = useState<string | null>(null)
   const clip =
@@ -65,11 +65,13 @@ export const HeardNotes = ({ track }: { track: InstrumentTrack }) => {
 
   const view = useMemo(() => {
     if (!clip) return null
-    const input = heardNotes(clip, [])
-    const output = heardNotes(clip, track.noteEffects, modules)
+    const input = heardNotes(clip, createDefaultNoteGraph())
+    const output = heardNotes(clip, track.noteGraph, modules)
     const pitches = [...input, ...output].map((note) => note.pitch)
     return { input, output, low: Math.min(...pitches) - 1, high: Math.max(...pitches) + 1, beats: clip.lengthBeats }
-  }, [clip, track.noteEffects, modules])
+  }, [clip, track.noteGraph, modules])
+
+  const fromOtherTracks = noteTapSources(flattenPatch(track.noteGraph, modules)).length > 0
 
   if (!clip || !view) {
     return <p className={styles.hint}>Add notes to one of this track’s clips to see what the instrument will hear.</p>
@@ -92,6 +94,7 @@ export const HeardNotes = ({ track }: { track: InstrumentTrack }) => {
         <span className={styles.legend}>
           <i className={styles.swatchIn} /> clip notes <i className={styles.swatchOut} /> after the chain
         </span>
+        {fromOtherTracks && <span className={styles.legend}>Notes from other tracks are not shown.</span>}
         <span className={styles.count} data-testid="heard-count">
           {view.input.length} in, {view.output.length} out
         </span>

@@ -1,7 +1,7 @@
 import type { ParamSpec } from '../dsp'
 import { clamp } from '../shared'
 import { MappingProcessor, type MappedNote } from './stateless'
-import type { NoteEffectDefinition } from './types'
+import { NOTE_IN, NOTE_OUT, type NoteNodeDefinition } from './types'
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
 
@@ -110,30 +110,42 @@ class Velocity extends MappingProcessor {
   }
 }
 
-export const transposeEffect: NoteEffectDefinition = {
+export const transposeEffect: NoteNodeDefinition = {
   type: 'transpose',
   label: 'Transpose',
+  role: 'effect',
+  inputs: NOTE_IN,
+  outputs: NOTE_OUT,
   params: TRANSPOSE_PARAMS,
   create: () => new Transpose(),
 }
 
-export const scaleLockEffect: NoteEffectDefinition = {
+export const scaleLockEffect: NoteNodeDefinition = {
   type: 'scaleLock',
   label: 'Scale lock',
+  role: 'effect',
+  inputs: NOTE_IN,
+  outputs: NOTE_OUT,
   params: SCALE_PARAMS,
   create: () => new ScaleLock(),
 }
 
-export const chordEffect: NoteEffectDefinition = {
+export const chordEffect: NoteNodeDefinition = {
   type: 'chord',
   label: 'Chord',
+  role: 'effect',
+  inputs: NOTE_IN,
+  outputs: NOTE_OUT,
   params: CHORD_PARAMS,
   create: () => new Chord(),
 }
 
-export const velocityEffect: NoteEffectDefinition = {
+export const velocityEffect: NoteNodeDefinition = {
   type: 'velocity',
   label: 'Velocity',
+  role: 'effect',
+  inputs: NOTE_IN,
+  outputs: NOTE_OUT,
   params: VELOCITY_PARAMS,
   create: () => new Velocity(),
 }

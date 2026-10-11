@@ -70,25 +70,7 @@ export {
   unlinkModuleNode,
   updateModule,
 } from './module-edit'
-export {
-  type NoteChainTarget,
-  addNoteModuleUse,
-  chainAt,
-  editNoteChain,
-  groupEffectsAsModule,
-  noteModuleUsage,
-  reconcileNoteModules,
-  removeNoteModule,
-  unlinkNoteModule,
-  updateNoteModule,
-} from './note-module-edit'
-export {
-  addNoteEffect,
-  moveNoteEffect,
-  removeNoteEffect,
-  setNoteEffectBypassed,
-  setNoteEffectParam,
-} from './note-effect-edit'
+export { readsNotesFrom, tapSourcesOf, tappableTracks } from './note-taps'
 export { createDemoProject } from './demo-project'
 export {
   DEFAULT_VELOCITY,

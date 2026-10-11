@@ -2,7 +2,12 @@
 export interface PortSpec {
   readonly id: string
   readonly label: string
+  /** What travels through the port. Absent means an audio-rate `signal`. Only ports of the same kind connect. */
+  readonly kind?: PortKind
 }
+
+/** `signal`: audio-rate buffers (the patcher). `notes`: streams of note events (the note graph). */
+export type PortKind = 'signal' | 'notes'
 
 import type { SampleLookup } from '../sample'
 

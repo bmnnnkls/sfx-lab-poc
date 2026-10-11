@@ -1,17 +1,23 @@
 import { arpeggiatorEffect } from './arpeggiator'
 import { echoEffect } from './echo'
 import { chordEffect, scaleLockEffect, transposeEffect, velocityEffect } from './effects'
-import type { NoteEffectDefinition } from './types'
+import { clipNotesNode, noteOutNode, rangeSplitNode, trackNotesNode } from './nodes'
+import type { NoteNodeDefinition } from './types'
 
-export const noteEffectDefinitions: readonly NoteEffectDefinition[] = [
+/** Every kind of node the note graph knows: where notes come from, where they go, and what happens in between. */
+export const noteNodeDefinitions: readonly NoteNodeDefinition[] = [
+  clipNotesNode,
+  trackNotesNode,
   scaleLockEffect,
   transposeEffect,
   chordEffect,
   velocityEffect,
   arpeggiatorEffect,
   echoEffect,
+  rangeSplitNode,
+  noteOutNode,
 ]
 
-const byType = new Map(noteEffectDefinitions.map((definition) => [definition.type, definition]))
+const byType = new Map(noteNodeDefinitions.map((definition) => [definition.type, definition]))
 
-export const findNoteEffect = (type: string): NoteEffectDefinition | undefined => byType.get(type)
+export const findNoteNode = (type: string): NoteNodeDefinition | undefined => byType.get(type)

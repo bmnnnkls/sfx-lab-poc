@@ -47,6 +47,8 @@ export const expandModuleUse = (
     id: inner(node.id),
     x: use.x + node.x,
     y: use.y + node.y,
+    // Bypassing a use bypasses everything inside it.
+    ...(use.bypassed === true ? { bypassed: true } : {}),
   }))
 
   const connections: PatchConnection[] = []

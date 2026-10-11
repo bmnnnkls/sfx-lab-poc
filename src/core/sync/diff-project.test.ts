@@ -1,14 +1,7 @@
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
-import { exposeNoteKnob, renameNoteModule, setNoteEffectParamIn, setNoteModuleEffects } from '../notefx'
-import { exposeKnob, moveNode, setModulePatch, setNodeParam, setNodeSample } from '../patch'
+import { exposeKnob, moveNode, noteGraphFrom, renameModule, setModulePatch, setNodeParam, setNodeSample } from '../patch'
 import {
-  addNoteEffect,
-  addNoteModuleUse,
-  editNoteChain,
-  groupEffectsAsModule,
-  updateNoteModule as updateNoteModuleDef,
-  setNoteEffectParam,
   addModuleUse,
   editPatchAt,
   groupNodesAsModule,
@@ -158,64 +151,73 @@ describe('diffProject', () => {
     })
   })
 
-  describe('MIDI effects', () => {
-    it('sends the whole chain with a new track', () => {
-      const withFx = addNoteEffect(project, track.id, 'chord')
-      const add = diffProject(null, withFx).find((c) => c.type === 'track/add' && c.trackId === track.id)!
-      expect(add.type === 'track/add' && add.kind === 'instrument' && add.noteEffects.map((e) => e.type)).toEqual(['chord'])
+  describe('note graphs', () => {
+    const noteTarget = { trackId: track.id, graph: 'notes' as const }
+    const withArp = editPatchAt(project, noteTarget, () =>
+      noteGraphFrom(
+        [{ id: 'c', type: 'clipNotes' }, { id: 'a', type: 'arpeggiator' }, { id: 'o', type: 'noteOut' }],
+        ['c.out>a.in', 'a.out>o.in'],
+      ),
+    )
+
+    it('sends the whole graph with a new track', () => {
+      const add = diffProject(null, withArp).find((c) => c.type === 'track/add' && c.trackId === track.id)!
+      expect(add.type === 'track/add' && add.kind === 'instrument' && add.noteGraph.nodes.map((n) => n.type)).toEqual(['clipNotes', 'arpeggiator', 'noteOut'])
     })
 
-    it('sends the new chain when it changes, and nothing else', () => {
-      const withFx = addNoteEffect(project, track.id, 'transpose')
-      const commands = diffProject(project, withFx)
+    it('sends the new graph when it changes, and nothing else', () => {
+      const commands = diffProject(project, withArp)
       expect(commands).toHaveLength(1)
-      expect(commands[0]).toMatchObject({ type: 'track/setNoteEffects', trackId: track.id })
-
-      const id = (withFx.tracks[0] as InstrumentTrack).noteEffects[0]!.id
-      const turned = setNoteEffectParam(withFx, track.id, id, 'semitones', 5)
-      expect(diffProject(withFx, turned).map((c) => c.type)).toEqual(['track/setNoteEffects'])
-      expect(diffProject(turned, turned)).toEqual([])
+      expect(commands[0]).toMatchObject({ type: 'track/setNoteGraph', trackId: track.id })
+      expect(diffProject(withArp, withArp)).toEqual([])
     })
-  })
 
-  describe('MIDI effect modules', () => {
-    const chained = ['scaleLock', 'chord', 'arpeggiator'].reduce((p, type) => addNoteEffect(p, track.id, type), project)
-    const ids = (chained.tracks[0] as InstrumentTrack).noteEffects.slice(1).map((e) => e.id)
-    const grouped = groupEffectsAsModule(chained, { trackId: track.id }, ids, 'Chord arp')
+    it('a knob turn sends the graph again, with the same node ids (so running nodes keep their state)', () => {
+      const turned = editPatchAt(withArp, noteTarget, (patch) => setNodeParam(patch, 'a', 'gate', 0.9))
+      const [command] = diffProject(withArp, turned)
+      expect(command).toMatchObject({ type: 'track/setNoteGraph' })
+      expect(command!.type === 'track/setNoteGraph' && command.graph.nodes.map((n) => n.id)).toEqual(['c', 'a', 'o'])
+    })
 
-    it('sends the engine plain effects, never a module', () => {
+    it('moving nodes on the canvas sends nothing', () => {
+      const moved = editPatchAt(withArp, noteTarget, (patch) => moveNode(patch, 'a', 500, 500))
+      expect(diffProject(withArp, moved)).toEqual([])
+    })
+
+    it('sends the engine plain nodes, never a module, and edits to a module reach every track using it', () => {
+      const grouped = groupNodesAsModule(withArp, noteTarget, ['a'], 'Arp box')
       const add = diffProject(null, grouped).find((c) => c.type === 'track/add' && c.trackId === track.id)!
-      expect(add.type === 'track/add' && add.kind === 'instrument' && add.noteEffects.map((e) => e.type)).toEqual(['scaleLock', 'chord', 'arpeggiator'])
+      expect(add.type === 'track/add' && add.kind === 'instrument' && add.noteGraph.nodes.some((n) => n.type === 'module')).toBe(false)
+
+      const lead = (project.tracks[1] as InstrumentTrack).id
+      const withUse = addModuleUse(grouped, { trackId: lead, graph: 'notes' }, grouped.modules[0]!.id, 0, 0)
+      const moduleId = withUse.modules[0]!.id
+      const inner = withUse.modules[0]!.patch.nodes.find((n) => n.type === 'arpeggiator')!
+      const edited = updateModule(withUse, moduleId, (m) => setModulePatch(m, setNodeParam(m.patch, inner.id, 'rate', 3)))
+      expect(diffProject(withUse, edited).map((c) => [c.type, 'trackId' in c ? c.trackId : ''])).toEqual([
+        ['track/setNoteGraph', track.id],
+        ['track/setNoteGraph', lead],
+      ])
     })
 
-    it('grouping renames the inner effects for the engine, so the chain is sent once', () => {
-      expect(diffProject(chained, grouped).map((c) => c.type)).toEqual(['track/setNoteEffects'])
-    })
-
-    it('editing the module updates every track that uses it', () => {
-      const second = addNoteModuleUse(grouped, { trackId: (project.tracks[1] as InstrumentTrack).id }, grouped.noteModules[0]!.id)
-      const edited = updateNoteModuleDef(second, second.noteModules[0]!.id, (m) => setNoteModuleEffects(m, m.effects.slice(0, 1)))
-      const commands = diffProject(second, edited)
-      expect(commands.map((c) => ('trackId' in c ? c.trackId : ''))).toEqual([track.id, (project.tracks[1] as InstrumentTrack).id])
-      expect(commands.every((c) => c.type === 'track/setNoteEffects')).toBe(true)
-    })
-
-    it('a module knob arrives as a changed chain with the same ids (so the running arpeggio keeps its state)', () => {
-      const module = grouped.noteModules[0]!
-      const arp = module.effects[1]!
-      const exposed = updateNoteModuleDef(grouped, module.id, (m) => exposeNoteKnob(m, arp.id, 'gate', 'Length'))
-      const useId = (exposed.tracks[0] as InstrumentTrack).noteEffects.find((e) => e.type === 'module')!.id
-      const tuned = editNoteChain(exposed, { trackId: track.id }, (effects, modules) => setNoteEffectParamIn(effects, useId, `${arp.id}:gate`, 0.95, modules))
+    it('a module knob arrives as a changed graph with the same ids', () => {
+      const grouped = groupNodesAsModule(withArp, noteTarget, ['a'], 'Arp box')
+      const module = grouped.modules[0]!
+      const inner = module.patch.nodes.find((n) => n.type === 'arpeggiator')!
+      const exposed = updateModule(grouped, module.id, (m) => exposeKnob(m, inner.id, 'gate', 'Length'))
+      const useId = (exposed.tracks[0] as InstrumentTrack).noteGraph.nodes.find((n) => n.type === 'module')!.id
+      const tuned = editPatchAt(exposed, noteTarget, (patch) => setNodeParam(patch, useId, `${inner.id}:gate`, 0.95))
       const [command] = diffProject(exposed, tuned)
-      expect(command).toMatchObject({ type: 'track/setNoteEffects' })
-      const before = diffProject(null, exposed).find((c) => c.type === 'track/add' && c.trackId === track.id)!
-      const ids = (c: unknown) => ((c as { noteEffects?: { id: string }[]; effects?: { id: string }[] }).noteEffects ?? (c as { effects: { id: string }[] }).effects).map((e) => e.id)
-      expect(ids(command)).toEqual(ids(before))
+      expect(command).toMatchObject({ type: 'track/setNoteGraph' })
+      const ids = (c: unknown) => (c as { graph: { nodes: { id: string }[] } }).graph.nodes.map((n) => n.id)
+      const initial = diffProject(null, exposed).find((c) => c.type === 'track/add' && c.trackId === track.id) as unknown as { noteGraph: { nodes: { id: string }[] } }
+      expect(ids(command)).toEqual(initial.noteGraph.nodes.map((n) => n.id))
     })
 
-    it('nothing is sent when a module edit does not change what plays', () => {
-      const edited = updateNoteModuleDef(grouped, grouped.noteModules[0]!.id, (m) => renameNoteModule(m, 'Other name'))
-      expect(diffProject(grouped, edited)).toEqual([])
+    it('nothing is sent when a module edit does not change what plays (a rename)', () => {
+      const grouped = groupNodesAsModule(withArp, noteTarget, ['a'], 'Arp box')
+      const renamed = updateModule(grouped, grouped.modules[0]!.id, (m) => renameModule(m, 'Other'))
+      expect(diffProject(grouped, renamed)).toEqual([])
     })
   })
 })

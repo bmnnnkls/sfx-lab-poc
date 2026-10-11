@@ -1,42 +1,15 @@
-export type { NoteEffect, NoteEffectDefinition, NoteProcessor } from './types'
+export type { NoteGraphSpec, TapBoard } from './graph'
+export { NoteGraph, noteTapSources } from './graph'
+export type { NoteNodeDefinition, NoteNodeRole, NoteProcessor } from './types'
+export { NOTE_IN, NOTE_OUT } from './types'
+export { noteNodeDefinitions, findNoteNode } from './registry'
 export {
-  NOTE_MODULE_TYPE,
-  type NoteModuleDefinition,
-  type NoteModuleKnob,
-  type NoteModuleLibrary,
-  noteKnobId,
-} from './module-types'
-export { type NoteEffectShape, describeNoteEffect, findNoteModule } from './effect-shape'
-export {
-  containsNoteModule,
-  expandNoteModuleUse,
-  flattenNoteEffects,
-  noteModulesUsedBy,
-  unlinkNoteModuleUse,
-} from './flatten'
-export {
-  type NoteGroupResult,
-  createNoteModuleUse,
-  groupIntoNoteModule,
-  isContiguous,
-  pruneNoteModuleKnobs,
-  pruneNoteModuleUses,
-} from './group'
-export {
-  MAX_NOTE_EFFECTS,
-  appendNewNoteEffect,
-  exposeNoteKnob,
-  hideNoteKnob,
-  labelNoteKnob,
-  moveNoteEffectIn,
-  removeNoteEffectFrom,
-  renameNoteModule,
-  setNoteEffectBypassedIn,
-  setNoteEffectParamIn,
-  setNoteModuleEffects,
-} from './chain-edit'
-export { noteEffectDefinitions, findNoteEffect } from './registry'
-export { NoteChain } from './chain'
+  CLIP_NOTES_TYPE,
+  NOTE_OUT_TYPE,
+  RANGE_SPLIT_TYPE,
+  TAP_AFTER_GRAPH,
+  TRACK_NOTES_TYPE,
+} from './nodes'
+export { Merger } from './merge'
 export { CHORDS, SCALES, snapToScale } from './effects'
 export { arpSequence } from './arpeggiator'
-export { createNoteEffect } from './create'

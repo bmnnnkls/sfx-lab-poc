@@ -1,4 +1,4 @@
-import { clearSampleReferences, createDefaultPatch, createSamplerPatch } from '../patch'
+import { clearSampleReferences, clearTrackReferences, createDefaultNoteGraph, createDefaultPatch, createSamplerPatch } from '../patch'
 import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 import { clamp, createId } from '../shared'
@@ -63,7 +63,7 @@ export const createTrack = (
   volume: 0.8,
   voices,
   patch,
-  noteEffects: [],
+  noteGraph: createDefaultNoteGraph(),
   clips: Array.from({ length: sceneCount }, () => null),
 })
 
@@ -80,9 +80,20 @@ export const addTrack = (project: Project, track: Track): Project => ({
   tracks: [...project.tracks, track],
 })
 
+/** Removes a track, and the "notes from this track" inputs of other tracks' note graphs that pointed at it. */
 export const removeTrack = (project: Project, trackId: string): Project => ({
   ...project,
-  tracks: project.tracks.filter((track) => track.id !== trackId),
+  modules: mapModules(project.modules, (module) => {
+    const patch = clearTrackReferences(module.patch, trackId)
+    return patch === module.patch ? module : { ...module, patch }
+  }),
+  tracks: project.tracks
+    .filter((track) => track.id !== trackId)
+    .map((track) => {
+      if (track.kind !== 'instrument') return track
+      const noteGraph = clearTrackReferences(track.noteGraph, trackId)
+      return noteGraph === track.noteGraph ? track : { ...track, noteGraph }
+    }),
 })
 
 export const setTempo = (project: Project, tempo: number): Project => ({
@@ -169,7 +180,7 @@ export const setProjectName = (project: Project, name: string): Project => ({
 /** A blank project with a single empty track. */
 export const createEmptyProject = (): Project =>
   addTrack(
-    { name: 'Untitled', tempo: 120, sceneCount: DEFAULT_SCENE_COUNT, samples: [], modules: [], noteModules: [], tracks: [] },
+    { name: 'Untitled', tempo: 120, sceneCount: DEFAULT_SCENE_COUNT, samples: [], modules: [], tracks: [] },
     createTrack('Track 1', DEFAULT_SCENE_COUNT),
   )
 

@@ -1,18 +1,20 @@
-import { type ModuleLibrary, nodeDefinitions } from '@core'
+import type { ModuleLibrary } from '@core'
 import styles from './Patcher.module.css'
 
 interface NodePaletteProps {
-  /** Modules that may be placed in the patch being edited. */
+  /** The kinds of node that can be added to the graph being edited. */
+  definitions: readonly { type: string; label: string }[]
+  /** Modules that may be placed in the graph being edited. */
   modules: ModuleLibrary
   onAdd(type: string): void
   onAddModule(moduleId: string): void
 }
 
-/** One button per node type, then one per module; clicking adds that node to the patch. */
-export const NodePalette = ({ modules, onAdd, onAddModule }: NodePaletteProps) => (
+/** One button per node type, then one per module; clicking adds that node to the graph. */
+export const NodePalette = ({ definitions, modules, onAdd, onAddModule }: NodePaletteProps) => (
   <div className={styles.palette}>
     <span className={styles.paletteLabel}>Add</span>
-    {nodeDefinitions.map((definition) => (
+    {definitions.map((definition) => (
       <button key={definition.type} onClick={() => onAdd(definition.type)}>
         {definition.label}
       </button>

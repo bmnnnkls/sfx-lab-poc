@@ -5,6 +5,7 @@ export type {
   NodeDefinition,
   NoteState,
   ParamSpec,
+  PortKind,
   PortSpec,
   ProcessContext,
 } from './types'

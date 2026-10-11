@@ -1,4 +1,3 @@
-import type { NoteEffect, NoteModuleDefinition } from '../notefx'
 import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 
@@ -63,8 +62,11 @@ export interface InstrumentTrack extends TrackBase {
   /** Maximum simultaneous notes; further notes steal the oldest voice. */
   readonly voices: number
   readonly patch: Patch
-  /** MIDI effects between the clips and the instrument, applied in order. */
-  readonly noteEffects: readonly NoteEffect[]
+  /**
+   * The note graph between the clips and the instrument: nodes (effects, splits, notes from other tracks) wired
+   * from `clipNotes` to `noteOut`. A fresh track has just those two, wired together.
+   */
+  readonly noteGraph: Patch
   /** One slot per scene (row) of the session grid; null = empty slot. */
   readonly clips: readonly (Clip | null)[]
 }
@@ -84,9 +86,7 @@ export interface Project {
   readonly sceneCount: number
   /** The sample library: audio used (or usable) by this project. Bytes are stored separately. */
   readonly samples: readonly SampleInfo[]
-  /** Reusable sub-patches. Patches use them by id, so editing one changes every use. */
+  /** Reusable sub-patches (of sound or of notes). Patches use them by id, so editing one changes every use. */
   readonly modules: readonly ModuleDefinition[]
-  /** Reusable chains of MIDI effects, used by id from tracks' chains (and other such modules). */
-  readonly noteModules: readonly NoteModuleDefinition[]
   readonly tracks: readonly Track[]
 }

@@ -6,6 +6,7 @@ import {
   type PortRef,
   addNode,
   connect,
+  type NodeDomain,
   describeNode,
 } from '../patch'
 import { clamp } from '../shared'
@@ -38,7 +39,10 @@ export const sanitizePatch = (
   sampleIds: ReadonlySet<string>,
   modules: ModuleLibrary,
   warn: Warn,
+  /** `any`: a module's inside, which takes the domain of the first node it holds. */
+  domain: NodeDomain | 'any' = 'audio',
 ): Patch => {
+  let active: NodeDomain | undefined = domain === 'any' ? undefined : domain
   const source: Raw = isRecord(raw) ? raw : {}
   let patch: Patch = { nodes: [], connections: [] }
 
@@ -56,7 +60,14 @@ export const sanitizePatch = (
     const type = typeof rawNode.type === 'string' ? rawNode.type : ''
     const moduleId = type === MODULE_NODE_TYPE && typeof rawNode.moduleId === 'string' ? rawNode.moduleId : undefined
     const definition = describeNode({ id: rawNode.id, type, x: 0, y: 0, params: {}, moduleId }, modules)
-    if (!definition) {
+    // A patch holds sound nodes and a note graph holds note nodes. A module that is still empty fits either.
+    const nodeDomain = definition && (type === MODULE_NODE_TYPE ? definition.domain : (definition.domain ?? 'audio'))
+    const fits = definition && (active === undefined || nodeDomain === undefined || nodeDomain === active)
+    if (!definition || !fits) {
+      if (definition) {
+        warn(`${where}: skipped a ${definition.label} node that does not belong with the others (sound and notes do not mix)`)
+        continue
+      }
       warn(
         type === MODULE_NODE_TYPE
           ? `${where}: skipped a use of a module that is not in the project`
@@ -65,6 +76,7 @@ export const sanitizePatch = (
       continue
     }
     nodeIds.add(rawNode.id)
+    active ??= nodeDomain
 
     let sampleId: string | undefined
     if (definition.usesSample === true && typeof rawNode.sampleId === 'string') {
@@ -80,6 +92,8 @@ export const sanitizePatch = (
       y: finiteNumber(rawNode.y, 0),
       params: sanitizeParams(definition.params, rawNode.params),
       ...(sampleId === undefined ? {} : { sampleId }),
+      ...(definition.usesTrack === true && typeof rawNode.trackId === 'string' ? { trackId: rawNode.trackId } : {}),
+      ...(definition.bypassable === true && rawNode.bypassed === true ? { bypassed: true } : {}),
     })
   }
 

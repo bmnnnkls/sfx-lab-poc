@@ -42,7 +42,7 @@ const sanitizeModule = (raw: Raw, id: string, sampleIds: ReadonlySet<string>, li
   const definition: ModuleDefinition = {
     id,
     name,
-    patch: sanitizePatch(raw.patch, where, sampleIds, library, warn),
+    patch: sanitizePatch(raw.patch, where, sampleIds, library, warn, 'any'),
     inputs: readPorts(raw.inputs),
     outputs: readPorts(raw.outputs),
     knobs: readKnobs(raw.knobs),

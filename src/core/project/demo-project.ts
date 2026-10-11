@@ -19,7 +19,7 @@ const tweak = (patch: Patch, type: string, params: Record<string, number>): Patc
 
 /** A small starter session so the app makes sound on the first click. */
 export const createDemoProject = (): Project => {
-  let project: Project = { name: 'Demo project', samples: [], modules: [], noteModules: [], tempo: 110, sceneCount: SCENES, tracks: [] }
+  let project: Project = { name: 'Demo project', samples: [], modules: [], tempo: 110, sceneCount: SCENES, tracks: [] }
 
   const bass = createTrack('Bass', SCENES, tweak(createDefaultPatch(), 'filter', { cutoff: 700 }))
   const lead = createTrack('Lead', SCENES, tweak(createDefaultPatch(), 'oscillator', { waveform: 2 }))

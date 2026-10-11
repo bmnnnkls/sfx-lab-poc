@@ -1,7 +1,7 @@
 import { Params, type ParamSpec } from '../dsp'
 import type { NoteEvent } from '../session'
 import { EventQueue, compareEvents } from './events'
-import type { NoteEffectDefinition, NoteProcessor } from './types'
+import { NOTE_IN, NOTE_OUT, type NoteNodeDefinition, type NoteProcessor } from './types'
 
 const TIMES = ['1/16', '1/8', 'dotted 1/8', '1/4', '1/2'] as const
 const TIME_BEATS = [0.25, 0.5, 0.75, 1, 2]
@@ -51,9 +51,12 @@ class Echo implements NoteProcessor {
   }
 }
 
-export const echoEffect: NoteEffectDefinition = {
+export const echoEffect: NoteNodeDefinition = {
   type: 'echo',
   label: 'Echo',
+  role: 'effect',
+  inputs: NOTE_IN,
+  outputs: NOTE_OUT,
   params: PARAMS,
   create: () => new Echo(),
 }

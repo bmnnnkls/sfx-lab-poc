@@ -8,16 +8,22 @@ import {
   pruneModuleUses,
   unlinkModuleUse,
 } from '../patch'
-import { mapModules, setTrackPatch } from './edit'
+import { mapModules, setTrackPatch, updateInstrument } from './edit'
 import type { Project } from './types'
 
-/** Where a patch lives: an instrument track, or a module's inside. */
-export type PatchTarget = { readonly trackId: string } | { readonly moduleId: string }
+/**
+ * Where a patch lives: a track's sound patch (`graph` absent or 'audio'), a track's note graph (`graph: 'notes'`),
+ * or a module's inside.
+ */
+export type PatchTarget =
+  | { readonly trackId: string; readonly graph?: 'audio' | 'notes' }
+  | { readonly moduleId: string }
 
 export const patchAt = (project: Project, target: PatchTarget): Patch | undefined => {
   if ('trackId' in target) {
     const track = project.tracks.find((candidate) => candidate.id === target.trackId)
-    return track?.kind === 'instrument' ? track.patch : undefined
+    if (track?.kind !== 'instrument') return undefined
+    return target.graph === 'notes' ? track.noteGraph : track.patch
   }
   return project.modules.find((candidate) => candidate.id === target.moduleId)?.patch
 }
@@ -43,14 +49,21 @@ export const reconcileModules = (project: Project): Project => {
   const tracks = project.tracks.map((track) => {
     if (track.kind !== 'instrument') return track
     const patch = pruneModuleUses(track.patch, modules)
-    return patch === track.patch ? track : { ...track, patch }
+    const noteGraph = pruneModuleUses(track.noteGraph, modules)
+    return patch === track.patch && noteGraph === track.noteGraph ? track : { ...track, patch, noteGraph }
   })
   const tracksSame = tracks.every((track, index) => track === project.tracks[index])
   return modules === project.modules && tracksSame ? project : { ...project, modules, ...(tracksSame ? {} : { tracks }) }
 }
 
 const setPatchAt = (project: Project, target: PatchTarget, patch: Patch): Project => {
-  if ('trackId' in target) return reconcileModules(setTrackPatch(project, target.trackId, patch))
+  if ('trackId' in target) {
+    return reconcileModules(
+      target.graph === 'notes'
+        ? updateInstrument(project, target.trackId, (track) => (track.noteGraph === patch ? track : { ...track, noteGraph: patch }))
+        : setTrackPatch(project, target.trackId, patch),
+    )
+  }
   return updateModule(project, target.moduleId, (module) => ({ ...module, patch }))
 }
 
@@ -108,10 +121,11 @@ export const unlinkModuleNode = (project: Project, target: PatchTarget, nodeId: 
 /** Everything that uses a module directly: how many times, and in which tracks and modules. */
 export const moduleUsage = (project: Project, moduleId: string) => {
   const count = (patch: Patch) => patch.nodes.filter((node) => node.moduleId === moduleId).length
-  const tracks = project.tracks.flatMap((track) => (track.kind === 'instrument' && count(track.patch) > 0 ? [track] : []))
+  const inTrack = (track: Project['tracks'][number]) => (track.kind === 'instrument' ? count(track.patch) + count(track.noteGraph) : 0)
+  const tracks = project.tracks.filter((track) => inTrack(track) > 0)
   const modules = project.modules.filter((module) => module.id !== moduleId && count(module.patch) > 0)
   const uses =
-    tracks.reduce((sum, track) => sum + (track.kind === 'instrument' ? count(track.patch) : 0), 0) +
+    tracks.reduce((sum, track) => sum + inTrack(track), 0) +
     modules.reduce((sum, module) => sum + count(module.patch), 0)
   return { uses, tracks: tracks.map((track) => track.name), modules: modules.map((module) => module.name) }
 }

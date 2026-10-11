@@ -19,11 +19,17 @@ interface PatchCanvasProps {
   patch: Patch
   modules: ModuleLibrary
   selected: ReadonlySet<string>
+  /** The track whose graph this is. */
+  ownerTrackId: string
+  /** Sound patches have voice / shared stages to show; note graphs do not. */
+  showStages: boolean
   onSelectionChange(selected: ReadonlySet<string>): void
   onMoveNode(nodeId: string, x: number, y: number): void
   onRemoveNode(nodeId: string): void
   onParamChange(nodeId: string, paramId: string, value: number): void
   onSampleChange(nodeId: string, sampleId: string | null): void
+  onTrackChange(nodeId: string, trackId: string | null): void
+  onBypassChange(nodeId: string, bypassed: boolean): void
   onConnect(from: PortRef, to: PortRef): void
   onDisconnect(connectionId: string): void
   onOpenModule(moduleId: string): void
@@ -52,11 +58,15 @@ export const PatchCanvas = ({
   patch,
   modules,
   selected,
+  ownerTrackId,
+  showStages,
   onSelectionChange,
   onMoveNode,
   onRemoveNode,
   onParamChange,
   onSampleChange,
+  onTrackChange,
+  onBypassChange,
   onConnect,
   onDisconnect,
   onOpenModule,
@@ -67,7 +77,7 @@ export const PatchCanvas = ({
   const [box, setBox] = useState<Box | null>(null)
 
   // Which stage a node runs in is decided on the flattened patch; a module counts as shared when any of its insides is.
-  const stages = useMemo(() => classifyStages(flattenPatch(patch, modules)), [patch, modules])
+  const stages = useMemo(() => (showStages ? classifyStages(flattenPatch(patch, modules)) : new Map()), [patch, modules, showStages])
   const isShared = (node: PatchNode): boolean => {
     if (node.type !== MODULE_NODE_TYPE) return stages.get(node.id) === 'shared'
     return [...stages].some(([id, stage]) => stage === 'shared' && id.startsWith(`${node.id}/`))
@@ -150,6 +160,7 @@ export const PatchCanvas = ({
             shape={shapes.get(node.id)!}
             shared={isShared(node)}
             selected={selected.has(node.id)}
+            ownerTrackId={ownerTrackId}
             moduleActions={
               node.type === MODULE_NODE_TYPE && node.moduleId
                 ? { onOpen: () => onOpenModule(node.moduleId!), onUnlink: () => onUnlinkModule(node.id) }
@@ -160,6 +171,8 @@ export const PatchCanvas = ({
             onRemove={() => onRemoveNode(node.id)}
             onParamChange={(paramId, value) => onParamChange(node.id, paramId, value)}
             onSampleChange={(sampleId) => onSampleChange(node.id, sampleId)}
+            onTrackChange={(trackId) => onTrackChange(node.id, trackId)}
+            onBypassChange={(bypassed) => onBypassChange(node.id, bypassed)}
             onWireStart={(from) => setPending({ from, pointer: { x: node.x, y: node.y } })}
             onWireEnd={(to) => pending && onConnect(pending.from, to)}
           />

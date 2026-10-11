@@ -1,4 +1,5 @@
 import { MAX_BLOCK_FRAMES } from '../instrument'
+import type { TapBoard } from '../notefx'
 import { SampleBank } from '../sample'
 import type { LauncherStatus } from '../session'
 import { Transport } from '../transport'
@@ -25,6 +26,9 @@ export class Engine {
   private readonly samples = new SampleBank()
   private readonly preview: SamplePreview
   private peak = 0
+  /** Tracks in the order they run: those that take notes from others come after them. Rebuilt when tracks change. */
+  private order: PlayableTrack[] | null = null
+  private readonly board: TapBoard = new Map()
 
   constructor(private readonly sampleRate: number) {
     this.transport = new Transport(sampleRate)
@@ -43,13 +47,15 @@ export class Engine {
         this.transport.setTempo(command.bpm)
         break
       case 'track/add':
+        this.order = null
         this.tracks.set(
           command.trackId,
           command.kind === 'audio'
             ? new AudioTrackRuntime(command.clips, command.volume, this.samples, this.sampleRate)
             : new TrackRuntime(
+                command.trackId,
                 command.patch,
-                command.noteEffects,
+                command.noteGraph,
                 command.clips,
                 command.volume,
                 command.voices,
@@ -59,13 +65,15 @@ export class Engine {
         )
         break
       case 'track/remove':
+        this.order = null
         this.tracks.delete(command.trackId)
         break
       case 'track/setPatch':
         this.instrument(command.trackId)?.setPatch(command.patch)
         break
-      case 'track/setNoteEffects':
-        this.instrument(command.trackId)?.setNoteEffects(command.effects)
+      case 'track/setNoteGraph':
+        this.instrument(command.trackId)?.setNoteGraph(command.graph)
+        this.order = null
         break
       case 'track/setVoices':
         this.instrument(command.trackId)?.setVoices(command.voices)
@@ -163,8 +171,9 @@ export class Engine {
     const from = this.transport.positionBeats
     const to = this.transport.beatAfter(frames)
     const scheduled: ScheduledEvent[] = []
-    for (const track of this.tracks.values()) {
-      for (const action of track.schedule(from, to)) {
+    this.board.clear()
+    for (const track of this.runOrder()) {
+      for (const action of track.schedule(from, to, this.board)) {
         scheduled.push({ frame: this.transport.frameOf(action.beat, frames), action })
       }
     }
@@ -186,6 +195,30 @@ export class Engine {
     if (frames <= 0) return
     const timing = { beat: this.transport.beatAfter(cursor), beatsPerSample: this.transport.beatsPerSample }
     for (const track of this.tracks.values()) track.mixInto(left, right, blockOffset + cursor, frames, timing)
+  }
+
+  /**
+   * Tracks sorted so each runs after the tracks it takes notes from. Tracks that depend on each other in a loop
+   * (the editor prevents this) are put last and simply read nothing from one another.
+   */
+  private runOrder(): readonly PlayableTrack[] {
+    if (this.order) return this.order
+    const needs = new Map([...this.tracks].map(([id, track]) => [id, track.tapSources().filter((source) => this.tracks.has(source))]))
+    const done = new Set<string>()
+    const order: PlayableTrack[] = []
+    let progress = true
+    while (progress) {
+      progress = false
+      for (const [id, track] of this.tracks) {
+        if (done.has(id) || !(needs.get(id) ?? []).every((source) => done.has(source))) continue
+        done.add(id)
+        order.push(track)
+        progress = true
+      }
+    }
+    for (const [id, track] of this.tracks) if (!done.has(id)) order.push(track)
+    this.order = order
+    return order
   }
 
   private instrument(trackId: string): TrackRuntime | undefined {

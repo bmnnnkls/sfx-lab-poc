@@ -157,68 +157,63 @@ copy (**Unlink**). Modules nest.
   sharing between projects means copying the file (see `docs/TASKS.md`). Cycle detection on the outer patch treats a
   module as one node (any input may reach any output), which can refuse a wiring that would in fact be fine.
 
-## MIDI effects (the note chain)
+## The note graph (MIDI effects)
 
-Each instrument track has an ordered chain of **MIDI effects** that rewrite its notes between the clip player
-and the instrument. They cannot be nodes in the patcher: voices are allocated before a patch runs, and a patch only
-ever sees one voice's frequency and gate, while an arpeggiator or chord needs all the notes together.
+Each instrument track has a **note graph** between its clips and its instrument: nodes wired together, in which notes
+can be transformed, split, merged, and mixed with the notes of other tracks. It is a graph, not a chain, because
+splitting a stream, treating the branches differently and joining them again is exactly what people want to do.
 
 ```
-clip player → [effect] → [effect] → … → voices → patch → out
+clip notes ─┬─ transpose ─┐
+            └─ arpeggiator ┴─ to instrument          (notes from another track can join anywhere)
 ```
 
-* **Model** (`core/notefx`). `InstrumentTrack.noteEffects: NoteEffect[]`, each `{ id, type, params, bypassed }`. A
-  registry of `NoteEffectDefinition`s (label, parameter specs, `create()`) is the single list of what exists, like the
-  DSP node registry. Old files load with empty chains.
-* **Processors** work on beat ranges. `NoteProcessor.process(events, from, to)` turns the note events of the range
-  `[from, to)` into output events, with the same contiguity rule as the clip launcher, so effects may keep state and
-  may emit events that fall in a later range (an arpeggio's note-off, an echo's repeat). Everything is in beats, so it
-  follows tempo and stays sample-accurate. Results are the same however time is cut into ranges (tested).
-* **Effects**: *Scale lock* (7 scales, nearest note, ties go down), *Transpose*, *Chord* (8 types), *Velocity*
-  (scale and offset), *Arpeggiator* (rate 1/4–1/32, up / down / up-down / as played / random, octaves, gate; the grid
-  is anchored to the transport, a new chord restarts the pattern, a chord that starts on a step is heard on that
-  step), *Echo* (repeats on the grid with decay). The one-note-in, notes-out ones share `MappingProcessor`, which
-  remembers what each note became so the matching note-off ends exactly those notes even if a knob moved meanwhile.
-* **No hanging notes.** Knob changes keep running state (turning Gate never restarts an arpeggio). Adding, removing,
-  reordering or re-typing an effect restarts the chain and emits an all-notes-off first. An all-notes-off from the
-  clip player cancels pending arpeggio and echo notes. Stopping the transport resets the chain.
-* **Engine** (`TrackRuntime`). `schedule(from, to)` runs the launcher's events through the `NoteChain`; with nothing
-  active the chain hands back the same array. Command `track/setNoteEffects` carries the whole chain (it is small);
-  `track/add` includes it. `diffProject` emits it whenever the list changes.
-* **Preview** (`engine/heard-notes.ts`). `heardNotes(clip, effects)` runs the real clip player and the real chain over
-  two loops and returns the second, so what the **Notes** tab draws cannot disagree with what plays.
-* **UI.** The **Notes** tab shows the selected instrument track's chain left to right (clip → effects → instrument),
-  each effect a card with its parameters, bypass, move and remove, and an *Add effect* menu. Below it a piano roll
-  shows the clip as written and as the instrument hears it. A track with effects gets an **fx N** badge on its header;
-  clicking it opens the Notes tab. Persistence sanitizes unknown types, clamps parameters and repairs ids.
-* **MIDI effect modules.** A saved, reusable chain: `Project.noteModules: NoteModuleDefinition[]`, each `{ id, name,
-  effects, knobs }`. A use is a `NoteEffect` of type `module` with `moduleId`, whose `params` hold the knob settings.
-  Same semantics as the patch modules above (edits propagate, **Unlink** makes an independent copy, modules nest, a
-  module cannot contain itself, a module in use cannot be deleted) but simpler, because a chain is linear: notes in,
-  notes out, so a module has no ports, only the knobs it chooses to show. It is a separate library from the audio
-  patch modules (a patch cannot hold a chain and the reverse), so no typed ports were needed.
-  * `describeNoteEffect(effect, modules)` answers what name and parameters an entry has (registry or definition), and
-    is what the cards and the parameter edits use. `flattenNoteEffects` expands uses, recursively, with ids
-    `<use id>/<inner id>` and the use's knob values and bypass baked in; `diffProject` flattens before diffing, so the
-    engine only sees plain effects, and turning a module knob reaches it as the same chain with one value changed
-    (the running arpeggio keeps its state). Editing a definition updates every track that uses it, and sends nothing
-    when the flattened chain did not change (a rename).
-  * `groupIntoNoteModule` takes a **contiguous run** of effects (anything else would reorder the chain) and puts one
-    use where they were. `chain-edit.ts` holds the pure chain edits (add, remove, move, set parameter, bypass, expose
-    knob) used for both a track's chain and a module's inside; `project/note-module-edit.ts` applies them to either
-    (`NoteChainTarget`) and keeps everything consistent (`reconcileNoteModules`: a knob that vanished takes its stored
-    values with it).
-  * Persistence builds modules in dependency order (shared with the patch modules via `buildInDependencyOrder`), so
-    they load in any file order; one that contains itself is dropped with a warning. Optional field, no format bump.
-  * UI: in the Notes tab tick effects (they must be neighbours) and **Group into module**. A module card has *Edit*
-    and *Unlink*; *Edit* opens its inside in the same editor with a breadcrumb, a name field, where it is used, and a
-    **Knobs** panel to choose which parameters show on every use. The *Add effect* menu lists the project's modules.
-    `heardNotes` takes the module library, so the preview matches.
+It cannot be nodes of the sound patch: voices are allocated before a patch runs, and a patch only ever sees one
+voice's frequency and gate, while an arpeggiator or chord needs all the notes together.
 
-* **Limits.** Auditioning a note in the piano roll skips the chain. The effects themselves are built in; you
-  compose them into modules but cannot yet patch a new kind of effect from parts (`docs/TASKS.md`). An event that falls exactly on a 128-sample block edge can land one sample early or
-  late depending on where blocks start (float rounding in the transport clock); in the worklet blocks are always
-  aligned, so this only shows up when comparing odd render sizes in tests.
+* **Same machinery as the sound patch** (`core/patch`). A note graph is a `Patch` (`InstrumentTrack.noteGraph`) whose
+  nodes come from the note registry instead of the DSP registry. Ports have a **kind**, `signal` or `notes`; `canConnect`
+  only joins ports of the same kind, so sound cannot be wired into notes. `describeNode` answers for both kinds of node.
+  Selecting, wiring, grouping into modules, editing modules in place and persistence are shared; one `GraphEditor`
+  component edits either (the Instrument tab shows the sound patch, the **Notes** tab the note graph).
+* **Nodes** (`core/notefx`, one registry, `NoteNodeDefinition { role, inputs, outputs, params, create() }`):
+  *Clip notes* (this track's clip player, the only source of its own notes), *Track notes* (another track: take its clip
+  notes, or what leaves its own graph), *To instrument* (the sink), *Scale lock*, *Transpose*, *Chord*, *Velocity*,
+  *Arpeggiator*, *Echo*, and *Range split* (notes inside / outside a pitch and velocity range go to two outputs; a
+  note-off follows its note-on even if the range is edited while it sounds). A graph with no *To instrument* is silent.
+* **Evaluation** (`NoteGraph`). Each beat range `[from, to)` runs the graph in dependency order. A node's processor
+  turns the events of the range into output events, with state across ranges (an arpeggio's note-off, an echo's repeat),
+  and may emit events for a later range. Everything is in beats, so it follows tempo and stays sample-accurate. The result
+  is the same however time is cut into ranges (tested). An output may feed several inputs (a split, nothing special needed)
+  and an input may have several sources (a merge).
+* **Merging** (`Merger`). The instrument matches note-offs by pitch, so two overlapping notes of one pitch would cut each
+  other short. A merge counts overlapping notes per pitch: a note-on for a pitch already sounding re-triggers it unless it
+  starts at the very same beat (then it is the same note arriving twice, e.g. a branch that changes nothing), and a
+  note-off is passed on only when the last overlapping note of that pitch ends.
+* **No hanging notes.** Knob changes keep running state (turning Gate never restarts an arpeggio). Adding, removing or
+  rewiring nodes restarts the graph and emits an all-notes-off first. An all-notes-off from the clip player cancels pending
+  arpeggio and echo notes. Stopping the transport resets the graph. A node on a cycle never runs.
+* **Between tracks.** Each block, every track writes what its clip player produced and what left its graph on a shared
+  `TapBoard`; *Track notes* nodes read it. The engine runs a track after the tracks it reads from (`runOrder`, rebuilt
+  when tracks or graphs change; a loop between tracks degrades to reading nothing). The editor only offers tracks that
+  would not make a loop (`tappableTracks`), persistence drops references to missing tracks, to itself, and to loops, and
+  removing a track clears the inputs that read from it, also inside modules. The source track keeps sounding as normal.
+* **Modules of notes.** The same modules as for sound: grouping nodes gives a module whose ports inherit their kind
+  (`notes`), and `moduleDomain` says which kind of patch it belongs to, so the Notes tab only offers note modules and the
+  Instrument tab only sound ones. A module cannot mix the two (persistence enforces it).
+* **Engine** (`TrackRuntime`). `schedule(from, to, board)` runs the launcher's events through the `NoteGraph`; with just
+  clip notes wired to the instrument the graph hands back the same array. `track/setNoteGraph` carries the flattened graph;
+  `diffProject` sends it only when behaviour changed (moving nodes or renaming a module sends nothing).
+* **Preview** (`engine/heard-notes.ts`). `heardNotes(clip, graph, modules)` runs the real clip player and graph over two
+  loops and returns the second, so the Notes tab's piano roll cannot disagree with what plays. It shows this track's own
+  clip through its graph; notes taken from other tracks are not part of it (the tab says so).
+* **UI.** Nodes have a bypass switch, *Track notes* has a track picker, note wires are drawn in the accent colour, and a
+  track with processing nodes gets an **fx N** badge that opens the Notes tab. New nodes are placed in the first free
+  slot on a grid below the existing ones.
+* **Limits.** Auditioning a note in the piano roll skips the graph. Nodes cannot yet be moved together. An event that falls
+  exactly on a 128-sample block edge can land one sample early or late depending on where blocks start (float rounding in
+  the transport clock); in the worklet blocks are always aligned, so only odd render sizes in tests show it. Files from the
+  short-lived linear chain version (`noteEffects`) are not migrated; they load with the default graph.
 
 ## Editing clips (piano roll)
 

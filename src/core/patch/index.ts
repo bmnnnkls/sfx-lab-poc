@@ -8,7 +8,9 @@ export {
   exposedKnobId,
   exposedPortId,
 } from './module-types'
-export { type NodeShape, describeNode, findModule } from './node-shape'
+export { type NodeDomain, type NodeShape, describeNode, findModule, moduleDomain } from './node-shape'
+export { createDefaultNoteGraph } from './default-note-graph'
+export { type NoteGraphNodeSpec, noteGraphFrom } from './note-graph-builder'
 export { containsModule, expandModuleUse, flattenPatch, modulesUsedBy, unlinkModuleUse } from './flatten'
 export {
   type GroupResult,
@@ -38,6 +40,9 @@ export {
   removeNode,
   setNodeParam,
   setNodeSample,
+  setNodeTrack,
+  setNodeBypassed,
+  clearTrackReferences,
   clearSampleReferences,
 } from './edit'
 export { isDownstream, topologicalOrder } from './graph'

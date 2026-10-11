@@ -21,6 +21,12 @@ const portPoint = (
   return node && shape ? portPosition(node, shape, direction, ref.port) : null
 }
 
+const isNoteWire = (patch: Patch, modules: ModuleLibrary, ref: PortRef): boolean => {
+  const node = patch.nodes.find((candidate) => candidate.id === ref.node)
+  const shape = node && describeNode(node, modules)
+  return shape?.outputs.find((port) => port.id === ref.port)?.kind === 'notes'
+}
+
 export const WireLayer = ({ patch, modules, pending, onDisconnect }: WireLayerProps) => {
   const pendingStart = pending ? portPoint(patch, modules, pending.from, 'outputs') : null
 
@@ -33,7 +39,7 @@ export const WireLayer = ({ patch, modules, pending, onDisconnect }: WireLayerPr
         const path = wirePath(from, to)
         return (
           <g key={connection.id}>
-            <path d={path} className={styles.wire} />
+            <path d={path} className={`${styles.wire} ${isNoteWire(patch, modules, connection.from) ? styles.noteWire : ''}`} />
             <path
               d={path}
               className={styles.wireHit}

@@ -1,4 +1,5 @@
-import { NoteChain, type NoteEffect, type NoteModuleLibrary, flattenNoteEffects } from '../notefx'
+import { NoteGraph } from '../notefx'
+import { type ModuleLibrary, type Patch, flattenPatch } from '../patch'
 import type { Clip } from '../project'
 import { ClipLauncher, type NoteEvent } from '../session'
 
@@ -12,20 +13,21 @@ export interface HeardNote {
 }
 
 /**
- * What the instrument hears while `clip` loops through `effects`, for display: the same clip player and the
- * same effects the engine runs, so the preview cannot disagree with the sound. It runs two passes and
+ * What the instrument hears while `clip` loops through the note `graph`, for display: the same clip player and the
+ * same graph the engine runs, so the preview cannot disagree with the sound. It runs two passes and
  * reports the second, so what a note leaves behind (echo repeats, an arpeggio) at the end of one pass is shown
  * where it lands in the next. Notes still sounding at the very end are cut there.
  */
-export const heardNotes = (clip: Clip, effects: readonly NoteEffect[], modules: NoteModuleLibrary = []): HeardNote[] => {
+export const heardNotes = (clip: Clip, graph: Patch, modules: ModuleLibrary = []): HeardNote[] => {
   const length = clip.lengthBeats
   const end = length * 2
 
   const launcher = new ClipLauncher()
   launcher.launch(clip)
-  const chain = new NoteChain()
-  chain.sync(flattenNoteEffects(effects, modules))
-  const events = chain.process(launcher.collectEvents(0, end), 0, end)
+  const noteGraph = new NoteGraph()
+  noteGraph.sync(flattenPatch(graph, modules))
+  // Notes taken from other tracks are not part of this preview: it shows this track's own clip through its graph.
+  const events = noteGraph.process(launcher.collectEvents(0, end), 0, end, new Map())
 
   const open = new Map<number, { start: number; velocity: number }[]>()
   const notes: HeardNote[] = []

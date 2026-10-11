@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
-import { addNoteEffect, createDemoProject, groupEffectsAsModule, groupNodesAsModule } from '../project'
+import { describeNode, noteGraphFrom } from '../patch'
+import { type Project, createDemoProject, editPatchAt, groupNodesAsModule } from '../project'
 import { parseProject, serializeProject } from './project-file'
 
 const parseOk = (text: string) => {
@@ -352,97 +353,96 @@ describe('modules in files', () => {
   })
 })
 
-describe('MIDI effects in files', () => {
-  const withChain = () => {
+describe('note graphs in files', () => {
+  /** The bass track with a split, an effect on one branch, and notes from the lead mixed back in. */
+  const withGraph = () => {
     const demo = createDemoProject()
-    const bass = demo.tracks[0]!.id
-    return ['scaleLock', 'arpeggiator'].reduce((p, type) => addNoteEffect(p, bass, type), demo)
+    const [bass, lead] = demo.tracks as InstrumentTrack[]
+    const graph = noteGraphFrom(
+      [
+        { id: 'c', type: 'clipNotes' },
+        { id: 's', type: 'rangeSplit', params: { lowPitch: 55 } },
+        { id: 'a', type: 'arpeggiator', params: { rate: 2 } },
+        { id: 't', type: 'trackNotes', trackId: lead!.id, params: { tap: 1 } },
+        { id: 'o', type: 'noteOut' },
+      ],
+      ['c.out>s.in', 's.inside>a.in', 'a.out>o.in', 's.outside>o.in', 't.out>o.in'],
+    )
+    return { project: editPatchAt(demo, { trackId: bass!.id, graph: 'notes' }, () => graph), bass: bass!, lead: lead! }
   }
+  const graphOf = (project: Project, index = 0) => (project.tracks[index] as InstrumentTrack).noteGraph
 
-  it('round-trips the chain exactly', () => {
-    const original = withChain()
-    const result = parseOk(serializeProject(original, 2))
-    expect(result.project).toEqual(original)
+  it('every track starts with the clip notes wired to the instrument', () => {
+    const graph = graphOf(createDemoProject())
+    expect(graph.nodes.map((node) => node.type)).toEqual(['clipNotes', 'noteOut'])
+    expect(graph.connections).toHaveLength(1)
+  })
+
+  it('round-trips a graph with splits, merges and a track reference exactly', () => {
+    const { project } = withGraph()
+    const result = parseOk(serializeProject(project, 2))
+    expect(result.project).toEqual(project)
     expect(result.warnings).toEqual([])
   })
 
-  it('files from before MIDI effects load with empty chains', () => {
+  it('files without a note graph load with the default one', () => {
     const raw = JSON.parse(serializeProject(createDemoProject()))
-    for (const track of raw.project.tracks) delete track.noteEffects
+    for (const track of raw.project.tracks) delete track.noteGraph
     const result = parseOk(JSON.stringify(raw))
-    expect((result.project.tracks[0] as InstrumentTrack).noteEffects).toEqual([])
+    expect(graphOf(result.project).nodes.map((node) => node.type)).toEqual(['clipNotes', 'noteOut'])
     expect(result.warnings).toEqual([])
   })
 
-  it('skips unknown effects, clamps parameters and repairs ids, with warnings', () => {
-    const raw = JSON.parse(serializeProject(withChain()))
-    const chain = raw.project.tracks[0].noteEffects
-    chain[0].params.root = 99
-    chain[1].id = chain[0].id
-    chain.push({ id: 'z', type: 'nope', params: {} })
+  it('drops an input that points at a missing track, or at its own track', () => {
+    const { project, bass } = withGraph()
+    const raw = JSON.parse(serializeProject(project))
+    raw.project.tracks[0].noteGraph.nodes.find((n: { id: string }) => n.id === 't').trackId = 'ghost'
+    let result = parseOk(JSON.stringify(raw))
+    expect(graphOf(result.project).nodes.find((n) => n.id === 't')!.trackId).toBeUndefined()
+    expect(result.warnings.join(' ')).toMatch(/missing track or at itself/)
+
+    raw.project.tracks[0].noteGraph.nodes.find((n: { id: string }) => n.id === 't').trackId = bass.id
+    result = parseOk(JSON.stringify(raw))
+    expect(graphOf(result.project).nodes.find((n) => n.id === 't')!.trackId).toBeUndefined()
+  })
+
+  it('drops an input that would make two tracks feed each other', () => {
+    const { project, bass, lead } = withGraph()
+    const raw = JSON.parse(serializeProject(project))
+    raw.project.tracks[1].noteGraph.nodes.push({ id: 'back', type: 'trackNotes', x: 0, y: 0, params: { tap: 0 }, trackId: bass.id })
     const result = parseOk(JSON.stringify(raw))
-    const effects = (result.project.tracks[0] as InstrumentTrack).noteEffects
-    expect(effects.map((e) => e.type)).toEqual(['scaleLock', 'arpeggiator'])
-    expect(effects[0]!.params.root).toBe(11)
-    expect(new Set(effects.map((e) => e.id)).size).toBe(2)
-    expect(result.warnings.join(' ')).toMatch(/unknown MIDI effect "nope"/)
-  })
-})
-
-describe('MIDI effect modules in files', () => {
-  const grouped = () => {
-    const demo = createDemoProject()
-    const bass = demo.tracks[0]!.id
-    const chained = ['scaleLock', 'chord', 'arpeggiator'].reduce((p, type) => addNoteEffect(p, bass, type), demo)
-    const ids = (chained.tracks[0] as InstrumentTrack).noteEffects.slice(1).map((effect) => effect.id)
-    return groupEffectsAsModule(chained, { trackId: bass }, ids, 'Chord arp')
-  }
-
-  it('round-trips modules and uses', () => {
-    const original = grouped()
-    const result = parseOk(serializeProject(original, 2))
-    expect(result.project).toEqual(original)
-    expect(result.warnings).toEqual([])
+    const taps = [0, 1].flatMap((index) => graphOf(result.project, index).nodes.filter((n) => n.trackId !== undefined))
+    expect(taps).toHaveLength(1) // one of the two was dropped
+    expect(result.warnings.join(' ')).toMatch(/feed each other/)
+    expect([bass.id, lead.id]).toContain(taps[0]!.trackId)
   })
 
-  it('older files load with an empty library', () => {
+  it('keeps sound nodes out of a note graph and note nodes out of a patch', () => {
     const raw = JSON.parse(serializeProject(createDemoProject()))
-    delete raw.project.noteModules
-    expect(parseOk(JSON.stringify(raw)).project.noteModules).toEqual([])
-  })
-
-  it('drops uses of a module that is missing, with a warning', () => {
-    const raw = JSON.parse(serializeProject(grouped()))
-    raw.project.noteModules = []
+    raw.project.tracks[0].noteGraph.nodes.push({ id: 'osc', type: 'oscillator', x: 0, y: 0, params: {} })
+    raw.project.tracks[0].patch.nodes.push({ id: 'arp', type: 'arpeggiator', x: 0, y: 0, params: {} })
     const result = parseOk(JSON.stringify(raw))
-    expect((result.project.tracks[0] as InstrumentTrack).noteEffects.some((effect) => effect.type === 'module')).toBe(false)
-    expect(result.warnings.join(' ')).toMatch(/MIDI effect module that is not in the project/)
+    expect(graphOf(result.project).nodes.some((n) => n.type === 'oscillator')).toBe(false)
+    expect((result.project.tracks[0] as InstrumentTrack).patch.nodes.some((n) => n.type === 'arpeggiator')).toBe(false)
+    expect(result.warnings.join(' ')).toMatch(/sound and notes do not mix/)
   })
 
-  it('loads nested modules in any order and drops one that contains itself', () => {
-    const base = grouped()
-    const track = base.tracks[0] as InstrumentTrack
-    const use = track.noteEffects.find((effect) => effect.type === 'module')!
-    const nested = groupEffectsAsModule(base, { trackId: track.id }, [use.id], 'Outer')
-    const raw = JSON.parse(serializeProject(nested))
-    raw.project.noteModules.reverse()
-    const ok = parseOk(JSON.stringify(raw))
-    expect(ok.project.noteModules.map((module) => module.name).sort()).toEqual(['Chord arp', 'Outer'])
-    expect(ok.warnings).toEqual([])
-
-    const looping = JSON.parse(serializeProject(base))
-    const module = looping.project.noteModules[0]
-    module.effects.push({ id: 'self', type: 'module', moduleId: module.id, params: {}, bypassed: false })
-    const result = parseOk(JSON.stringify(looping))
-    expect(result.project.noteModules).toEqual([])
-    expect(result.warnings.join(' ')).toMatch(/contain themselves/)
+  it('drops wires between sound and note ports', () => {
+    const { project } = withGraph()
+    const raw = JSON.parse(serializeProject(project))
+    raw.project.tracks[0].noteGraph.connections.push({ id: 'bad', from: { node: 'c', port: 'out' }, to: { node: 'nowhere', port: 'in' } })
+    expect(parseOk(JSON.stringify(raw)).warnings.join(' ')).toMatch(/dropped 1 invalid connection/)
   })
 
-  it('drops knobs that point at nothing', () => {
-    const raw = JSON.parse(serializeProject(grouped()))
-    raw.project.noteModules[0].knobs.push({ id: 'x', label: 'Ghost', effect: 'nope', param: 'gate' })
-    const result = parseOk(JSON.stringify(raw))
-    expect(result.project.noteModules[0]!.knobs).toEqual([])
-    expect(result.warnings.join(' ')).toMatch(/dropped knobs/)
+  it('round-trips a module of note nodes, with its ports typed as notes', () => {
+    const { project, bass } = withGraph()
+    const ids = ['a']
+    const grouped = groupNodesAsModule(project, { trackId: bass.id, graph: 'notes' }, ids, 'Arp box')
+    expect(grouped.modules).toHaveLength(1)
+    const result = parseOk(serializeProject(grouped))
+    expect(result.project).toEqual(grouped)
+    expect(result.warnings).toEqual([])
+    const use = graphOf(result.project).nodes.find((n) => n.type === 'module')!
+    expect(describeNode(use, result.project.modules)!.inputs[0]!.kind).toBe('notes')
   })
 })

@@ -1,22 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import type { NoteEvent } from '../session'
-import { NoteChain } from './chain'
-import { findNoteEffect } from './registry'
-import type { NoteEffect, NoteProcessor } from './types'
+import { findNoteNode } from './registry'
+import type { NoteProcessor } from './types'
 
 const on = (beat: number, pitch: number, velocity = 0.8): NoteEvent => ({ beat, kind: 'noteOn', pitch, velocity })
 const off = (beat: number, pitch: number): NoteEvent => ({ beat, kind: 'noteOff', pitch })
 const allOff = (beat: number): NoteEvent => ({ beat, kind: 'allOff' })
 
 const make = (type: string, params: Record<string, number> = {}): NoteProcessor => {
-  const processor = findNoteEffect(type)!.create()
+  const processor = findNoteNode(type)!.create()
   for (const [id, value] of Object.entries(params)) processor.setParam(id, value)
   return processor
 }
 const ons = (events: NoteEvent[]) => events.filter((event) => event.kind === 'noteOn') as Extract<NoteEvent, { kind: 'noteOn' }>[]
 const summary = (events: NoteEvent[]) => events.map((e) => `${e.beat}:${e.kind === 'allOff' ? 'X' : (e.kind === 'noteOn' ? '+' : '-') + e.pitch}`)
 
-const effect = (id: string, type: string, params: Record<string, number> = {}, bypassed = false): NoteEffect => ({ id, type, params, bypassed })
 
 describe('transpose', () => {
   it('moves notes and their note-offs together', () => {
@@ -195,76 +193,3 @@ describe('echo', () => {
   })
 })
 
-describe('NoteChain', () => {
-  it('gives the same events however the time is cut into ranges', () => {
-    const input = [on(0, 57), on(0, 61), on(0, 64), off(3.5, 57), off(3.5, 61), off(3.5, 64)]
-    const effects = [effect('a', 'arpeggiator', { pattern: 4, rate: 2 }), effect('b', 'echo')]
-    const run = (cuts: number[]) => {
-      const chain = new NoteChain()
-      chain.sync(effects)
-      return cuts.slice(0, -1).flatMap((from, i) => {
-        const to = cuts[i + 1]!
-        return summary(chain.process(input.filter((e) => e.beat >= from && e.beat < to), from, to))
-      })
-    }
-    const fine = Array.from({ length: 65 }, (_, i) => i * 0.0625)
-    expect(run(fine)).toEqual(run([0, 1, 2, 3, 4]))
-    expect(run(fine)).toEqual(run([0, 0.37, 1.91, 2.5, 4]))
-    expect(run(fine).length).toBeGreaterThan(40)
-  })
-
-  it('with no effects hands back the very same events', () => {
-    const chain = new NoteChain()
-    chain.sync([])
-    const input = [on(0, 60)]
-    expect(chain.process(input, 0, 1)).toBe(input)
-  })
-
-  it('applies effects in order', () => {
-    const chain = new NoteChain()
-    chain.sync([effect('a', 'transpose', { semitones: 1 }), effect('b', 'scaleLock', { root: 0, scale: 0 })])
-    chain.process([], 0, 0) // consume the start-up all-off
-    expect(summary(chain.process([on(0, 60)], 0, 1))).toEqual(['0:+60']) // 61 snaps back down to 60 (tie goes down)
-
-    const reversed = new NoteChain()
-    reversed.sync([effect('b', 'scaleLock', { root: 0, scale: 0 }), effect('a', 'transpose', { semitones: 1 })])
-    reversed.process([], 0, 0)
-    expect(summary(reversed.process([on(0, 60)], 0, 1))).toEqual(['0:+61'])
-  })
-
-  it('turning a knob keeps the running state, so an arpeggio does not restart', () => {
-    const chain = new NoteChain()
-    const base = effect('arp', 'arpeggiator', { rate: 1, gate: 0.5 })
-    chain.sync([base])
-    const first = chain.process([on(0, 60), on(0, 64), on(0, 67)], 0, 1)
-    expect(ons(first).map((e) => e.pitch)).toEqual([60, 64])
-    chain.sync([{ ...base, params: { ...base.params, gate: 0.9 } }])
-    const second = chain.process([], 1, 2)
-    expect(ons(second).map((e) => e.pitch)).toEqual([67, 60]) // carried on from where it was
-  })
-
-  it('adding or removing an effect restarts and silences, so nothing is left hanging', () => {
-    const chain = new NoteChain()
-    chain.sync([effect('a', 'transpose', { semitones: 2 })])
-    chain.process([on(0, 60)], 0, 1)
-    chain.sync([effect('a', 'transpose', { semitones: 2 }), effect('b', 'chord')])
-    const out = chain.process([], 1, 2)
-    expect(out[0]).toEqual(allOff(1))
-    expect(chain.process([], 2, 3)).toEqual([]) // only once
-  })
-
-  it('a bypassed effect lets notes through unchanged', () => {
-    const chain = new NoteChain()
-    chain.sync([effect('a', 'transpose', { semitones: 7 }, true)])
-    chain.process([], 0, 0)
-    expect(summary(chain.process([on(0, 60)], 0, 1))).toEqual(['0:+60'])
-    expect(chain.isEmpty).toBe(true)
-  })
-
-  it('unknown effect types are ignored instead of breaking the chain', () => {
-    const chain = new NoteChain()
-    chain.sync([effect('x', 'nope'), effect('a', 'transpose', { semitones: 1 })])
-    chain.process([], 0, 0)
-    expect(summary(chain.process([on(0, 60)], 0, 1))).toEqual(['0:+61'])
-  })
-})

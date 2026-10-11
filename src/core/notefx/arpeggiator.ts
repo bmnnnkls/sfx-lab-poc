@@ -1,7 +1,7 @@
 import { Params, type ParamSpec } from '../dsp'
 import type { NoteEvent } from '../session'
 import { EventQueue, compareEvents } from './events'
-import type { NoteEffectDefinition, NoteProcessor } from './types'
+import { NOTE_IN, NOTE_OUT, type NoteNodeDefinition, type NoteProcessor } from './types'
 
 const RATES = ['1/4', '1/8', '1/16', '1/32'] as const
 /** Step length in beats for each rate. */
@@ -124,9 +124,12 @@ class Arpeggiator implements NoteProcessor {
   }
 }
 
-export const arpeggiatorEffect: NoteEffectDefinition = {
+export const arpeggiatorEffect: NoteNodeDefinition = {
   type: 'arpeggiator',
   label: 'Arpeggiator',
+  role: 'effect',
+  inputs: NOTE_IN,
+  outputs: NOTE_OUT,
   params: PARAMS,
   create: () => new Arpeggiator(),
 }

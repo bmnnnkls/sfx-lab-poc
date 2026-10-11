@@ -2,6 +2,7 @@ import type { NodeShape, PatchNode, PortRef } from '@core'
 import { HEADER_HEIGHT, MODULE_FOOTER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT } from './geometry'
 import { ParamControl } from './ParamControl'
 import { SamplePicker } from './SamplePicker'
+import { TrackPicker } from './TrackPicker'
 import styles from './Patcher.module.css'
 import { useNodeDrag } from './use-node-drag'
 
@@ -11,6 +12,8 @@ interface NodeViewProps {
   /** Runs once on the mix of all voices (effects), rather than once per voice. */
   shared: boolean
   selected: boolean
+  /** The track whose graph this node is in (for the track picker). */
+  ownerTrackId: string
   /** Present for uses of a module: open its inside / make this use an independent copy. */
   moduleActions?: { onOpen(): void; onUnlink(): void }
   /** `additive` is true when Shift/Ctrl/Cmd was held, to add to or remove from the selection. */
@@ -19,6 +22,8 @@ interface NodeViewProps {
   onRemove(): void
   onParamChange(paramId: string, value: number): void
   onSampleChange(sampleId: string | null): void
+  onTrackChange(trackId: string | null): void
+  onBypassChange(bypassed: boolean): void
   onWireStart(from: PortRef): void
   onWireEnd(to: PortRef): void
 }
@@ -28,12 +33,15 @@ export const NodeView = ({
   shape,
   shared,
   selected,
+  ownerTrackId,
   moduleActions,
   onSelect,
   onMove,
   onRemove,
   onParamChange,
   onSampleChange,
+  onTrackChange,
+  onBypassChange,
   onWireStart,
   onWireEnd,
 }: NodeViewProps) => {
@@ -42,7 +50,7 @@ export const NodeView = ({
 
   return (
     <div
-      className={`${styles.node} ${selected ? styles.selected : ''}`}
+      className={`${styles.node} ${selected ? styles.selected : ''} ${node.bypassed ? styles.nodeBypassed : ''}`}
       style={{ left: node.x, top: node.y, width: NODE_WIDTH }}
       data-testid={`node-${node.id}`}
       data-selected={selected}
@@ -65,6 +73,18 @@ export const NodeView = ({
             </em>
           )}
         </span>
+        {shape.bypassable && (
+          <button
+            className={styles.bypass}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => onBypassChange(!node.bypassed)}
+            aria-pressed={node.bypassed === true}
+            aria-label={`${node.bypassed ? 'Enable' : 'Bypass'} ${shape.label}`}
+            title={node.bypassed ? 'Switch on' : 'Bypass: let notes through unchanged'}
+          >
+            {node.bypassed ? 'Off' : 'On'}
+          </button>
+        )}
         <button
           className={styles.remove}
           onPointerDown={(event) => event.stopPropagation()}
@@ -112,6 +132,7 @@ export const NodeView = ({
       </div>
 
       {shape.usesSample && <SamplePicker sampleId={node.sampleId} onChange={onSampleChange} />}
+      {shape.usesTrack && <TrackPicker ownerTrackId={ownerTrackId} trackId={node.trackId} onChange={onTrackChange} />}
 
       {shape.params.map((spec) => (
         <ParamControl

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createClip, createNote, type AudioClip } from '../project'
-import { createDefaultPatch } from '../patch'
+import { createDefaultNoteGraph, createDefaultPatch } from '../patch'
 import { Engine } from './engine'
 
 const SAMPLE_RATE = 48000
@@ -218,7 +218,7 @@ describe('audio clips in the engine', () => {
   it('mix with instrument tracks, each launched independently', () => {
     const { engine, clip } = setup(dc(4 * BEAT))
     const midi = createClip('m', 4, [createNote(69, 0, 2)])
-    engine.apply({ type: 'track/add', kind: 'instrument', trackId: 'i', patch: createDefaultPatch(), noteEffects: [], clips: [midi], volume: 1, voices: 4 })
+    engine.apply({ type: 'track/add', kind: 'instrument', trackId: 'i', patch: createDefaultPatch(), noteGraph: createDefaultNoteGraph(), clips: [midi], volume: 1, voices: 4 })
     engine.apply({ type: 'clip/launch', trackId: 'a', clipId: clip.id })
     const audioOnly = Math.max(...render(engine, 4800))
     engine.apply({ type: 'transport/stop' })

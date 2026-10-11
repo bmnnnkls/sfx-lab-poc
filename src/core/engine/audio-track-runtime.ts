@@ -84,6 +84,10 @@ export class AudioTrackRuntime implements PlayableTrack {
     }
   }
 
+  tapSources(): string[] {
+    return []
+  }
+
   schedule(from: number, to: number): ScheduledAction[] {
     return this.launcher
       .collectEvents(from, to)

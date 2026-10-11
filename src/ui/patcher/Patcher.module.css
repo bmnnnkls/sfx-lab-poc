@@ -8,10 +8,6 @@
   display: grid;
 }
 
-.editorBodySingle {
-  min-height: 0;
-  display: grid;
-}
 
 .toolbar {
   display: flex;
@@ -262,9 +258,19 @@
 }
 
 .editorBody {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   min-height: 0;
+}
+
+.editorBody > .scroller {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* A preview beside the canvas takes a fixed share; the canvas keeps what is left. */
+.editorBody > .aside {
+  flex: 0 0 42%;
+  max-width: 600px;
 }
 
 .interface {
@@ -308,4 +314,32 @@
 
 .selectionHint {
   color: var(--text-dim);
+}
+
+.noteWire {
+  stroke: var(--accent);
+}
+
+.nodeBypassed {
+  opacity: 0.55;
+}
+
+.bypass {
+  margin-left: auto;
+  margin-right: 4px;
+  padding: 0 6px;
+  line-height: 18px;
+}
+
+.trackPicker {
+  display: grid;
+  align-content: center;
+  padding: 4px 10px;
+}
+
+.aside {
+  min-width: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border-left: 1px solid var(--border);
 }

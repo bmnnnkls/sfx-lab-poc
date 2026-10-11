@@ -6,6 +6,7 @@ export const PORT_ROW_HEIGHT = 22
 export const PARAM_ROW_HEIGHT = 34
 export const SAMPLE_PICKER_HEIGHT = 64
 export const MODULE_FOOTER_HEIGHT = 34
+export const TRACK_PICKER_HEIGHT = 40
 const BODY_PADDING = 6
 
 export interface Point {
@@ -22,6 +23,7 @@ export const nodeHeight = (definition: NodeShape, isModule = false): number =>
   portRowCount(definition) * PORT_ROW_HEIGHT +
   definition.params.length * PARAM_ROW_HEIGHT +
   (definition.usesSample ? SAMPLE_PICKER_HEIGHT : 0) +
+  (definition.usesTrack ? TRACK_PICKER_HEIGHT : 0) +
   (isModule ? MODULE_FOOTER_HEIGHT : 0)
 
 /** Canvas position of a port's connection dot. Layout is fixed, so no DOM measuring is needed. */

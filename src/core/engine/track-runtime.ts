@@ -1,5 +1,5 @@
 import { Instrument } from '../instrument'
-import { type NoteEffect, NoteChain } from '../notefx'
+import { NoteGraph, type TapBoard } from '../notefx'
 import type { Patch } from '../patch'
 import type { Clip } from '../project'
 import type { SampleLookup } from '../sample'
@@ -12,15 +12,16 @@ const AUDITION_SECONDS = 0.3
 /** Live, audio-thread counterpart of a project Track: voice + clip player + level. */
 export class TrackRuntime implements PlayableTrack {
   private readonly launcher = new ClipLauncher()
-  private readonly chain = new NoteChain()
+  private readonly graph = new NoteGraph()
   volume: number
   clips: readonly (Clip | null)[]
   private instrument: Instrument
   private audition: { pitch: number; framesLeft: number } | null = null
 
   constructor(
+    private readonly trackId: string,
     private patch: Patch,
-    noteEffects: readonly NoteEffect[],
+    noteGraph: Patch,
     clips: readonly (Clip | null)[],
     volume: number,
     private voices: number,
@@ -30,12 +31,16 @@ export class TrackRuntime implements PlayableTrack {
     this.instrument = new Instrument(patch, sampleRate, voices, samples)
     this.clips = clips
     this.volume = volume
-    this.chain.sync(noteEffects)
+    this.graph.sync(noteGraph)
   }
 
-  /** Replaces the MIDI effect chain. Knob changes keep running state; structural changes restart it. */
-  setNoteEffects(effects: readonly NoteEffect[]): void {
-    this.chain.sync(effects)
+  /** Replaces the note graph. Knob changes keep running state; structural changes restart it. */
+  setNoteGraph(graph: Patch): void {
+    this.graph.sync(graph)
+  }
+
+  tapSources(): string[] {
+    return this.graph.tapSources()
   }
 
   setPatch(patch: Patch): void {
@@ -76,8 +81,10 @@ export class TrackRuntime implements PlayableTrack {
     return this.launcher.status()
   }
 
-  schedule(from: number, to: number): ScheduledAction[] {
-    const events = this.chain.process(this.launcher.collectEvents(from, to), from, to)
+  schedule(from: number, to: number, board: TapBoard): ScheduledAction[] {
+    const clipEvents = this.launcher.collectEvents(from, to)
+    const events = this.graph.process(clipEvents, from, to, board)
+    board.set(this.trackId, { clip: clipEvents, out: events })
     return events.map((event) => ({ beat: event.beat, run: () => this.apply(event) }))
   }
 
@@ -90,7 +97,7 @@ export class TrackRuntime implements PlayableTrack {
   /** Returns to silence and an idle launcher (transport stopped). */
   reset(): void {
     this.launcher.reset()
-    this.chain.reset()
+    this.graph.reset()
     this.audition = null
     this.instrument.allNotesOff()
   }

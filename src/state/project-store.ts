@@ -2,9 +2,6 @@ import {
   type Clip,
   type History,
   type ModuleDefinition,
-  type NoteChainTarget,
-  type NoteEffect,
-  type NoteModuleDefinition,
   type Note,
   type Patch,
   type PatchTarget,
@@ -13,17 +10,6 @@ import {
   type SampleInfo,
   addAudioClip,
   addModuleUse,
-  addNoteEffect,
-  addNoteModuleUse,
-  editNoteChain,
-  groupEffectsAsModule,
-  removeNoteModule,
-  unlinkNoteModule,
-  updateNoteModule,
-  moveNoteEffect,
-  removeNoteEffect,
-  setNoteEffectBypassed,
-  setNoteEffectParam,
   addAudioTrackWithClip,
   setAudioClipAt,
   addSamplerTrack,
@@ -89,36 +75,16 @@ interface ProjectActions {
   updateAudioClip(trackId: string, clipId: string, changes: AudioClipChanges): void
   setTrackVoices(trackId: string, voices: number): void
   /**
-   * Edits a chain of MIDI effects (a track's, or the inside of a MIDI effect module) with the module library in
-   * hand. Rapid edits sharing a `mergeKey` (a slider drag) collapse into one undo step.
-   */
-  editNoteChain(
-    target: NoteChainTarget,
-    change: (effects: readonly NoteEffect[], modules: readonly NoteModuleDefinition[]) => readonly NoteEffect[],
-    mergeKey?: string,
-  ): void
-  /** Replaces a run of neighbouring effects by one use of a new MIDI effect module. */
-  groupNoteEffects(target: NoteChainTarget, ids: readonly string[]): void
-  addNoteModuleUse(target: NoteChainTarget, moduleId: string): void
-  /** Turns a use into an independent copy of the module's effects. */
-  unlinkNoteModule(target: NoteChainTarget, useId: string): void
-  /** Changes a MIDI effect module's definition or knobs; every use follows. */
-  updateNoteModule(moduleId: string, change: (module: NoteModuleDefinition) => NoteModuleDefinition, mergeKey?: string): void
-  /** Deletes a MIDI effect module that nothing uses. */
-  deleteNoteModule(moduleId: string): void
-  /** Appends a MIDI effect to the end of a track's chain. */
-  addNoteEffect(trackId: string, type: string): void
-  removeNoteEffect(trackId: string, effectId: string): void
-  /** Moves an effect along the chain (negative = earlier). */
-  moveNoteEffect(trackId: string, effectId: string, delta: number): void
-  /** Rapid changes of one parameter (a slider drag) merge into one undo step. */
-  setNoteEffectParam(trackId: string, effectId: string, paramId: string, value: number): void
-  setNoteEffectBypassed(trackId: string, effectId: string, bypassed: boolean): void
-  /**
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
    * Rapid edits sharing a `mergeKey` (a slider or node drag) collapse into one undo step.
    */
   updatePatch(
+    trackId: string,
+    edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
+    mergeKey?: string,
+  ): void
+  /** Like `updatePatch`, for the track's note graph (what happens to notes before the instrument). */
+  updateNoteGraph(
     trackId: string,
     edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
     mergeKey?: string,
@@ -203,23 +169,12 @@ export const useProjectStore = create<ProjectState>((set) => {
         (project) => updateAudioClip(project, trackId, clipId, changes),
         `audio:${clipId}:${Object.keys(changes).sort().join(',')}`,
       ),
-    editNoteChain: (target, change, mergeKey) => edit((project) => editNoteChain(project, target, change), mergeKey),
-    groupNoteEffects: (target, ids) => edit((project) => groupEffectsAsModule(project, target, ids)),
-    addNoteModuleUse: (target, moduleId) => edit((project) => addNoteModuleUse(project, target, moduleId)),
-    unlinkNoteModule: (target, useId) => edit((project) => unlinkNoteModule(project, target, useId)),
-    updateNoteModule: (moduleId, change, mergeKey) => edit((project) => updateNoteModule(project, moduleId, change), mergeKey),
-    deleteNoteModule: (moduleId) => edit((project) => removeNoteModule(project, moduleId)),
-    addNoteEffect: (trackId, type) => edit((project) => addNoteEffect(project, trackId, type)),
-    removeNoteEffect: (trackId, effectId) => edit((project) => removeNoteEffect(project, trackId, effectId)),
-    moveNoteEffect: (trackId, effectId, delta) => edit((project) => moveNoteEffect(project, trackId, effectId, delta)),
-    setNoteEffectParam: (trackId, effectId, paramId, value) =>
-      edit((project) => setNoteEffectParam(project, trackId, effectId, paramId, value), `fx:${effectId}:${paramId}`),
-    setNoteEffectBypassed: (trackId, effectId, bypassed) =>
-      edit((project) => setNoteEffectBypassed(project, trackId, effectId, bypassed)),
     setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
 
     updatePatch: (trackId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { trackId }, change), mergeKey),
+    updateNoteGraph: (trackId, change, mergeKey) =>
+      edit((project) => editPatchAt(project, { trackId, graph: 'notes' }, change), mergeKey),
     updateModulePatch: (moduleId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { moduleId }, change), mergeKey),
     groupNodes: (target, nodeIds) => edit((project) => groupNodesAsModule(project, target, nodeIds)),
