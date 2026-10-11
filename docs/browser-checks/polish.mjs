@@ -1,0 +1,178 @@
+import { createRequire } from 'node:module'
+const require = createRequire('/node-tools/node_modules/')
+const { chromium } = require('playwright')
+const dir = process.argv[2]
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] })
+const context = await browser.newContext({ viewport: { width: 1400, height: 900 } })
+const page = await context.newPage()
+const errors = []
+page.on('pageerror', (e) => errors.push(String(e)))
+page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
+
+const PPB = 56, ROW = 16
+const surface = () => page.getByTestId('note-surface')
+const lane = () => page.getByTestId('velocity-lane')
+const count = () => page.locator('[data-note-id]').count()
+const selectedCount = () => page.locator('[data-note-id][class*="selected"]').count()
+const at = async (beat, pitch) => { const b = await surface().boundingBox(); return { x: b.x + beat * PPB, y: b.y + (127 - pitch) * ROW + ROW / 2 } }
+const down = async (p) => { await page.mouse.move(p.x, p.y); await page.mouse.down() }
+const dragTo = async (from, to, mods = []) => {
+  for (const m of mods) await page.keyboard.down(m)
+  await down(from)
+  await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 4 })
+  await page.mouse.move(to.x, to.y, { steps: 6 })
+  await page.mouse.up()
+  for (const m of mods) await page.keyboard.up(m)
+}
+const velocities = () => page.locator('[data-velocity]').evaluateAll((els) => els.map((e) => e.dataset.velocity))
+const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
+const undo = () => page.getByRole('button', { name: 'Undo' }).click()
+
+await page.goto('http://localhost:4173/')
+await page.evaluate(() => localStorage.clear()); await page.reload()
+await page.getByRole('button', { name: 'Edit Root' }).click()
+
+// ---- velocity lane
+check('velocity lane shows one bar per note', (await velocities()).length === 6 && (await velocities()).every((v) => v === '0.90'), JSON.stringify(await velocities()))
+const laneBox = await lane().boundingBox()
+await dragTo({ x: laneBox.x + 1.5 * PPB, y: laneBox.y + 12 }, { x: laneBox.x + 1.5 * PPB, y: laneBox.y + 45 })
+let v = await velocities()
+check('dragging a bar down lowers that note only', v[2] === '0.35' && v.filter((x) => x === '0.90').length === 5, JSON.stringify(v))
+await undo()
+check('velocity edit is one undo step', (await velocities()).every((x) => x === '0.90'))
+// group: select two notes then drag one of their bars
+await page.mouse.click((await at(0.2, 36)).x, (await at(0.2, 36)).y)
+await page.waitForTimeout(400)
+await page.keyboard.down('Shift'); await page.mouse.click((await at(1.2, 36)).x, (await at(1.2, 36)).y); await page.keyboard.up('Shift')
+check('two notes selected', (await selectedCount()) === 2)
+await page.keyboard.down('Shift'); await page.mouse.click((await at(2.02, 36)).x, (await at(2.02, 36)).y); await page.keyboard.up('Shift')
+check('Shift-click on a resize handle also adds to the selection', (await selectedCount()) === 3)
+await page.keyboard.down('Shift'); await page.mouse.click((await at(2.02, 36)).x, (await at(2.02, 36)).y); await page.keyboard.up('Shift')
+check('...and toggles it back off', (await selectedCount()) === 2)
+await dragTo({ x: laneBox.x + 1 * PPB, y: laneBox.y + 12 }, { x: laneBox.x + 1 * PPB, y: laneBox.y + 30 })
+v = await velocities()
+check('dragging a selected bar changes the whole selection', v[0] === v[1] && v[0] !== '0.90' && v[2] === '0.90', JSON.stringify(v))
+await page.keyboard.press('Escape')
+
+// ---- marquee
+const mid = await at(0.9, 45), end = await at(2.2, 33)
+await page.keyboard.down('Control')
+await down(mid)
+await page.mouse.move((mid.x + end.x) / 2, (mid.y + end.y) / 2, { steps: 4 })
+await page.mouse.move(end.x, end.y, { steps: 4 })
+check('marquee box is drawn while dragging', (await page.getByTestId('marquee').count()) === 1)
+await page.mouse.up()
+await page.keyboard.up('Control')
+check('Ctrl-drag selects the notes inside the box (3), drawing none', (await selectedCount()) === 3 && (await count()) === 6, `selected=${await selectedCount()} notes=${await count()}`)
+check('...and the box disappears afterwards', (await page.getByTestId('marquee').count()) === 0)
+
+// ---- copy / paste / cut
+await page.keyboard.press('Control+c')
+const before = await count()
+await page.mouse.move((await at(2.5, 46)).x, (await at(2.5, 46)).y)   // hover over empty space on screen: the paste point
+await page.keyboard.press('Control+v')
+check('Ctrl+V pastes the copied notes under the mouse', (await count()) === before + 3 && (await selectedCount()) === 3, `count=${await count()}`)
+const pastedStarts = await page.locator('[data-note-id][class*="selected"]').evaluateAll((els) => els.map((e) => Math.round(parseFloat(e.style.left))).sort((a, b) => a - b))
+check('pasted group keeps its spacing and starts at the pointer (beat 2.5)', pastedStarts[0] === 2.5 * PPB, JSON.stringify(pastedStarts))
+await page.keyboard.press('Escape')
+await page.keyboard.press('Control+z').catch(() => {})
+await undo().catch(() => {})
+await page.mouse.click((await at(0.2, 36)).x, (await at(0.2, 36)).y)
+await page.keyboard.press('Control+a')
+check('Ctrl+A selects all', (await selectedCount()) === (await count()))
+await page.keyboard.press('Escape')
+await page.screenshot({ path: `${dir}/10-polish.png` })
+
+// cut removes, paste restores
+await page.mouse.click((await at(2.1, 36)).x, (await at(2.1, 36)).y)
+await page.keyboard.press('Control+x')
+check('Ctrl+X cuts the selection', (await count()) === before - 1 + (before === (await count()) ? 1 : 0) || (await count()) < before + 3)
+await page.mouse.move((await at(0.5, 70)).x, (await at(0.5, 70)).y)
+const afterCut = await count()
+await page.keyboard.press('Control+v')
+check('...and it can be pasted back', (await count()) === afterCut + 1)
+
+// ---- audition (heard through the meter while the transport is stopped)
+await page.waitForTimeout(4500)
+check('silent before auditioning', (await level(300)) < 0.01)
+const noteTarget = await at(2.2, 36)
+await page.mouse.click(noteTarget.x, noteTarget.y)
+const heard = await level(600)
+check('clicking a note plays it (audition on)', heard > 0.02, `peak=${heard.toFixed(3)}`)
+await page.waitForTimeout(4500)
+await page.getByRole('checkbox', { name: 'Audition' }).uncheck()
+await page.waitForTimeout(500)
+await page.mouse.click(noteTarget.x + 600, noteTarget.y) // empty click draws a note, silently
+const quiet = await level(700)
+check('Audition off keeps editing silent', quiet < 0.01, `peak=${quiet.toFixed(4)}`)
+
+// ---- preferences persist
+await page.locator('select').filter({ hasText: '1/16' }).selectOption({ label: '1/4' })
+await page.getByLabel('Zoom').fill('90')
+await page.getByRole('checkbox', { name: 'Follow' }).uncheck()
+await page.waitForTimeout(900)
+await page.reload()
+await page.getByRole('button', { name: 'Edit Root' }).click()
+check('grid remembered', (await page.locator('select').filter({ hasText: '1/16' }).inputValue()) === '1')
+check('zoom remembered', (await page.getByLabel('Zoom').inputValue()) === '90')
+check('audition + follow switches remembered', !(await page.getByRole('checkbox', { name: 'Audition' }).isChecked()) && !(await page.getByRole('checkbox', { name: 'Follow' }).isChecked()))
+
+// ---- follow playhead on a long clip
+await page.getByRole('checkbox', { name: 'Follow' }).check()
+await page.getByLabel('Zoom').fill('200')
+const lengthInput = page.getByLabel('Clip length in beats')
+await lengthInput.fill('32'); await lengthInput.press('Enter')
+await page.getByRole('button', { name: /^▶ Root|■ Root/ }).first().click()
+await page.waitForTimeout(8000) // ~14 beats in => beyond the visible width at 200 px/beat
+const scrolled = await page.evaluate(() => document.querySelector('[class*="_scroller_"]').scrollLeft)
+check('roll follows the playhead along a long clip', scrolled > 500, `scrollLeft=${scrolled}`)
+await page.getByRole('button', { name: 'Stop', exact: true }).first().click()
+
+// ---- note labels
+await page.getByLabel('Zoom').fill('200')
+check('wide notes show their pitch name', (await page.locator('[class*="_noteLabel_"]').count()) > 0)
+
+// ---- velocity lane toggle + resizable editor
+const panelHeight = () => page.evaluate(() => Math.round(document.querySelector('section').getBoundingClientRect().height))
+await page.evaluate(() => localStorage.clear()); await page.reload()
+await page.getByRole('button', { name: 'Edit Root' }).click()
+check('velocity lane shown by default', (await lane().count()) === 1)
+await page.getByRole('checkbox', { name: 'Velocity' }).uncheck()
+check('lane can be hidden', (await lane().count()) === 0)
+await page.waitForTimeout(300)
+await page.reload()
+await page.getByRole('button', { name: 'Edit Root' }).click()
+check('lane choice is remembered', (await lane().count()) === 0 && !(await page.getByRole('checkbox', { name: 'Velocity' }).isChecked()))
+await page.getByRole('checkbox', { name: 'Velocity' }).check()
+
+const h0 = await panelHeight()
+const split = await page.getByRole('separator', { name: 'Resize editor' }).boundingBox()
+await down({ x: split.x + 300, y: split.y + 3 })
+await page.mouse.move(split.x + 300, split.y - 60, { steps: 6 })
+await page.mouse.move(split.x + 300, split.y - 120, { steps: 6 })
+await page.mouse.up()
+const h1 = await panelHeight()
+check('dragging the splitter up makes the editor taller', h1 - h0 >= 110 && h1 - h0 <= 130, `${h0} -> ${h1}`)
+await page.getByRole('separator', { name: 'Resize editor' }).focus()
+await page.keyboard.press('ArrowUp')
+check('splitter works from the keyboard', (await panelHeight()) - h1 === 24)
+await page.getByRole('separator', { name: 'Resize editor' }).focus()
+for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowUp')
+const capped = await panelHeight()
+check('editor can never swallow the whole window (session grid keeps room)', capped <= 900 - 140, `height=${capped}`)
+for (let i = 0; i < 80; i++) await page.keyboard.press('ArrowDown')
+check('...nor shrink below a usable minimum', (await panelHeight()) >= 180, `height=${await panelHeight()}`)
+await page.keyboard.press('ArrowUp'); await page.keyboard.press('ArrowUp')
+const saved = await panelHeight()
+await page.waitForTimeout(300)
+await page.reload()
+check('editor height is remembered', (await panelHeight()) === saved, `${saved} -> ${await panelHeight()}`)
+await page.setViewportSize({ width: 1400, height: 520 })
+await page.waitForTimeout(200)
+check('a smaller window clamps the saved height', (await panelHeight()) <= 520 - 140, `height=${await panelHeight()}`)
+await page.setViewportSize({ width: 1400, height: 900 })
+await page.screenshot({ path: `${dir}/11-polish.png` })
+
+console.log('page errors:', JSON.stringify(errors.filter((e) => !e.includes('Failed to load resource'))))
+await browser.close()

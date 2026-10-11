@@ -82,14 +82,16 @@ Status: **designed, not started.**
 
 ### Build order
 
-1. Insert graph per track (`Track in -> effects -> Track out`, instrument and audio tracks).
-2. Return tracks and the Send node (engine primitive, ordering, loop rules, persistence).
-3. The send knob row on track headers.
-4. Master effects graph.
-5. *Track audio* node.
-6. **Stereo** (see below).
+Full handoff for whoever builds this: [`HANDOFF-track-effects-and-stereo.md`](HANDOFF-track-effects-and-stereo.md).
 
-### Stereo (step 6)
+1. Insert graph per track (`Track in -> effects -> Track out`, instrument and audio tracks).
+2. **Stereo** (moved up: returns are where reverbs live, so build them stereo once).
+3. Return tracks and the Send node (engine primitive, ordering, loop rules, persistence).
+4. The send knob row on track headers.
+5. Master effects graph.
+6. *Track audio* node.
+
+### Stereo (step 2)
 
 Today the engine is mono per track and the two output channels carry the same signal, so sends and returns are only half
 as useful (no pan, no wide reverbs). Proposed design, to be settled when we get there:
@@ -104,8 +106,6 @@ as useful (no pan, no wide reverbs). Proposed design, to be settled when we get 
   stereo-to-mono conversion is explicit (*Pan*, *Mono sum*); *Track out* accepts either and duplicates a mono signal.
 * Sends and returns carry stereo; a mono send is duplicated to both channels. Audio-track samples stay mono until
   they are panned.
-* **Suggested order change:** do this as step 2, before returns and sends. Returns are where reverbs live, and building
-  them mono first means rebuilding their buffers, ports and tests once more.
 
 ## Note graph follow-ups
 
