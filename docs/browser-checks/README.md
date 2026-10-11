@@ -30,7 +30,8 @@ sandbox's. Change them (or install `playwright`) elsewhere.
 | `fx.mjs` | the insert graph (Effects tab) on an audio track: default pass-through, a gain, a reverb tail that rings after the clip stops and survives a knob turn, persistence |
 | `stereo.mjs` | stereo: per-channel level of the real output, pan, mono-into-stereo rules and the M / L R switch, stereo reverb, persistence |
 | `returns.mjs` | return tracks and the Send node: the + menu, a return's effects, a send to it heard through a turned-down track, the tail after the clip stops, removing the return and undo, loop refusal, persistence |
-| `sends.mjs` | send knobs: shown only when returns exist, per return, post-fader, one undo step per drag, removed with the return, persistence |
+| `sends.mjs` | send knobs (in the Mixer tab): shown only when returns exist, per return with its real name, none left in the headers, post-fader, one undo step per drag, removed with the return, persistence |
+| `mixer.mjs` | the Mixer tab: a strip per track, return and master in order; fader, pan per output channel, mute (also stops the sends), solo (a soloed track keeps its return), master volume 0 / 1, per-track meters, undo, persistence |
 | `master.mjs` | the Master strip: its graph on the final mix, a master gain silencing every track, a master reverb tail, undo, persistence |
 | `trackaudio.mjs` | the Track audio node: another track's sound heard through a track turned all the way down, before/after Take, loop refusal (picker and send knob), removal and undo, persistence |
 | `notegraph.mjs` | the note graph: split, merge, bypass, notes from another track (real audio), loop refusal, note modules, persistence |

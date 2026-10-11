@@ -38,6 +38,10 @@ import {
   setClipNotes,
   setProjectName,
   setTempo,
+  setMasterVolume,
+  setTrackMuted,
+  setTrackPan,
+  setTrackSoloed,
   setTrackVoices,
   setTrackSend,
   setTrackVolume,
@@ -65,6 +69,12 @@ interface ProjectActions {
   addReturnTrack(): void
   removeTrack(trackId: string): void
   setTrackVolume(trackId: string, volume: number): void
+  /** Pans a track, -1 (left) .. 1 (right); dragging is one undo step. */
+  setTrackPan(trackId: string, pan: number): void
+  setTrackMuted(trackId: string, muted: boolean): void
+  setTrackSoloed(trackId: string, soloed: boolean): void
+  /** The master fader, 0..1; dragging is one undo step. */
+  setMasterVolume(volume: number): void
   /** Sets a track's send knob for a return track (0..1); dragging one knob is one undo step. */
   setTrackSend(trackId: string, returnId: string, level: number): void
   addSamples(samples: readonly SampleInfo[]): void
@@ -178,6 +188,11 @@ export const useProjectStore = create<ProjectState>((set) => {
     removeTrack: (trackId) => edit((project) => removeTrack(project, trackId)),
     setTrackVolume: (trackId, volume) =>
       edit((project) => setTrackVolume(project, trackId, volume), `volume:${trackId}`),
+
+    setTrackPan: (trackId, pan) => edit((project) => setTrackPan(project, trackId, pan), `pan:${trackId}`),
+    setTrackMuted: (trackId, muted) => edit((project) => setTrackMuted(project, trackId, muted)),
+    setTrackSoloed: (trackId, soloed) => edit((project) => setTrackSoloed(project, trackId, soloed)),
+    setMasterVolume: (volume) => edit((project) => setMasterVolume(project, volume), 'master-volume'),
 
     setTrackSend: (trackId, returnId, level) =>
       edit((project) => setTrackSend(project, trackId, returnId, level), `send:${trackId}:${returnId}`),

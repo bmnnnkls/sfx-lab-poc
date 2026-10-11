@@ -1,5 +1,6 @@
 import { useSelectionStore } from '@state'
 import { ClipEditor } from '../clip-editor/ClipEditor'
+import { MixerPanel } from '../mixer/MixerPanel'
 import { FxPanel } from '../patcher/FxPanel'
 import { NoteEffectsPanel } from '../note-effects/NoteEffectsPanel'
 import { Patcher } from '../patcher/Patcher'
@@ -26,12 +27,15 @@ export const EditorPanel = () => {
         <button className={tab === 'clip' ? styles.active : ''} onClick={() => setTab('clip')}>
           Clip
         </button>
+        <button className={tab === 'mixer' ? styles.active : ''} onClick={() => setTab('mixer')} title="Mixer: a channel strip for every track, the returns and the master">
+          Mixer
+        </button>
         <button className={tab === 'samples' ? styles.active : ''} onClick={() => setTab('samples')}>
           Samples
         </button>
       </nav>
       <div className={styles.body}>
-        {tab === 'device' ? <Patcher /> : tab === 'fx' ? <FxPanel /> : tab === 'notes' ? <NoteEffectsPanel /> : tab === 'clip' ? <ClipEditor /> : <SamplesPanel />}
+        {tab === 'device' ? <Patcher /> : tab === 'fx' ? <FxPanel /> : tab === 'notes' ? <NoteEffectsPanel /> : tab === 'clip' ? <ClipEditor /> : tab === 'mixer' ? <MixerPanel /> : <SamplesPanel />}
       </div>
     </div>
   )

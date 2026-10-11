@@ -1,5 +1,7 @@
 # Handoff: the Mixer view (master volume, pan, mute/solo, meters)
 
+> **Status: built** (see `ARCHITECTURE.md`, "Mixer", for how and for the answers to the open questions; `docs/TASKS.md` "Effects follow-ups" for what is left). The text below is the original brief, kept as the record of what was decided.
+
 For the next session. Read this first, then `ARCHITECTURE.md` (how things are built) and `docs/TASKS.md` ("Effects
 follow-ups"). Nothing of the work below has been started. Work on the branch **`feature/mixer-view`** (cut from `main` at
 `461c588`); merge back to `main` when it is done. `main` deploys to GitHub Pages on every push (the `github-pages`
