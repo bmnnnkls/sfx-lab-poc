@@ -10,6 +10,7 @@ import {
   removeTrack,
   setClipAt,
   setClipNotes,
+  setProjectName,
   setTempo,
   setTrackPatch,
   setTrackVolume,
@@ -19,6 +20,9 @@ import { create } from 'zustand'
 const DEFAULT_CLIP_BEATS = 4
 
 interface ProjectActions {
+  /** Swaps in a whole different project (import, new, restore, startup load). */
+  replaceProject(project: Project): void
+  setName(name: string): void
   setTempo(bpm: number): void
   addTrack(): void
   removeTrack(trackId: string): void
@@ -42,6 +46,8 @@ export const useProjectStore = create<ProjectState>((set) => {
   return {
     project: createDemoProject(),
 
+    replaceProject: (project) => set({ project }),
+    setName: (name) => edit((project) => setProjectName(project, name)),
     setTempo: (bpm) => edit((project) => setTempo(project, bpm)),
     addTrack: () =>
       edit((project) =>

@@ -12,6 +12,7 @@ export default defineConfig({
     alias: {
       '@core': fromRoot('./src/core'),
       '@audio': fromRoot('./src/audio'),
+      '@storage': fromRoot('./src/storage'),
       '@state': fromRoot('./src/state'),
       '@ui': fromRoot('./src/ui'),
     },

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 /**
  * Enforces the layering described in ARCHITECTURE.md:
- *   core  <-  audio, state  <-  ui  <-  app
+ *   core  <-  audio, storage, state  <-  ui  <-  app
  * and that modules inside core are only reached through their `index.ts`.
  */
 
@@ -24,14 +24,16 @@ const layerOf = (file: string): string => relative(SRC, file).split(sep)[0] ?? '
 const ALLOWED: Record<string, readonly string[]> = {
   core: [],
   audio: ['@core'],
+  storage: ['@core'],
   state: ['@core'],
   ui: ['@core', '@state'],
-  app: ['@core', '@audio', '@state', '@ui'],
+  app: ['@core', '@audio', '@storage', '@state', '@ui'],
 }
 
 const EXTERNAL_ALLOWED: Record<string, readonly string[]> = {
   core: [],
   audio: [],
+  storage: [],
   state: ['react', 'zustand'],
   ui: ['react', 'react-dom'],
   app: ['react', 'react-dom'],

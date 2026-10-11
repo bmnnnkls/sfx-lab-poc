@@ -3,31 +3,32 @@
 ## Layers
 
 ```
-            ┌────────┐
-            │  app   │  composition root: creates the AudioHost, wires stores ⇄ engine, renders <Workspace/>
-            └───┬────┘
-      ┌─────────┼──────────┐
-      ▼         ▼          ▼
-  ┌──────┐  ┌───────┐  ┌───────┐
-  │  ui  │─▶│ state │  │ audio │   browser integration: AudioContext, AudioWorklet, message protocol
-  └──┬───┘  └───┬───┘  └───┬───┘
-     │          │          │
-     └──────────┴────┬─────┘
-                     ▼
-                ┌────────┐
-                │  core  │   pure TypeScript: no DOM, no React, no Web Audio. Runs in Node tests too.
-                └────────┘
+                 ┌────────┐
+                 │  app   │  composition root: builds services, wires stores ⇄ engine ⇄ storage, renders <Workspace/>
+                 └───┬────┘
+      ┌──────────────┼───────────────┐
+      ▼              ▼               ▼
+  ┌──────┐      ┌─────────┐    ┌──────────────────────┐
+  │  ui  │─────▶│  state  │    │  audio      storage  │   browser integration:
+  └──┬───┘      └────┬────┘    │  (worklet)  (saving) │   AudioContext/worklet, localStorage/files
+     │               │         └──────────┬───────────┘
+     └───────────────┴────────┬───────────┘
+                              ▼
+                         ┌────────┐
+                         │  core  │   pure TypeScript: no DOM, no React, no Web Audio. Runs in Node tests too.
+                         └────────┘
 ```
 
 Dependencies only point down. This is **enforced by `tests/architecture.test.ts`**, which also checks that
-other `core` modules are reached only through their `index.ts` and that `core`/`audio` import no third-party
-packages. If you need to break a rule, change the rule on purpose, not by accident.
+other `core` modules are reached only through their `index.ts` and that `core`/`audio`/`storage` import no
+third-party packages. If you need to break a rule, change the rule on purpose, not by accident.
 
 | Layer | Owns | May import |
 |---|---|---|
-| `core` | the document model, DSP, audio engine, scheduling | itself only |
+| `core` | the document model, DSP, audio engine, scheduling, file format | itself only |
 | `audio` | `AudioContext`, worklet shell, thread protocol | `@core` |
-| `state` | zustand stores, `EngineControls` interface | `@core` |
+| `storage` | `localStorage` adapter, autosaver, file download/upload | `@core` |
+| `state` | zustand stores, `EngineControls` / `ProjectFiles` interfaces | `@core` |
 | `ui` | React components | `@core`, `@state` |
 | `app` | wiring | everything |
 
@@ -41,24 +42,24 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `dsp` | node library: definitions (ports, params, factory) + processors | `nodeDefinitions`, `requireNodeDefinition`, types |
 | `patch` | immutable node-graph model + pure edit operations | `Patch`, `addNode`, `connect`, `canConnect`, … |
 | `instrument` | compiles a `Patch` to a runnable mono voice | `Instrument` |
-| `project` | the saveable document: tracks, clips, notes, tempo | `Project`, edit functions, `createDemoProject` |
+| `project` | the saveable document: tracks, clips, notes, tempo, name | `Project`, edit functions, `createDemoProject` |
 | `transport` | sample-accurate beat clock | `Transport` |
 | `session` | clip launching: quantized start/stop, looping, note events | `ClipLauncher` |
 | `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` | `Engine`, `EngineCommand`, `EngineStatus` |
 | `sync` | diffs two `Project`s into `EngineCommand`s | `diffProject` |
+| `persistence` | project file format: envelope, versioned migrations, sanitizing | `serializeProject`, `parseProject` |
 
 ### Data flow
 
 ```
  UI event ──▶ state (zustand project store, pure edits from core)
-                 │ subscribe
-                 ▼
-          app/project-sync ──diffProject──▶ AudioHost.send(EngineCommand)
-                                                   │ postMessage
-                                                   ▼
-                                  AudioWorklet: Engine.apply(command)
-                                  AudioWorklet: Engine.render(L, R)   (every 128 frames)
-                                                   │ status @ ~30 Hz
+                 │ subscribe                                   │ subscribe
+                 ▼                                             ▼
+          app/project-sync ──diffProject──▶ AudioHost     app/autosave ──(500 ms debounce)──▶ ProjectStorage
+                                              │ postMessage                                    (localStorage)
+                                              ▼
+                             AudioWorklet: Engine.apply(command) / Engine.render(L, R)
+                                              │ status @ ~30 Hz
  UI ◀── state (status store) ◀── AudioHost.onStatus ◀┘
 ```
 
@@ -70,6 +71,49 @@ Each folder exposes one `index.ts`; everything else in it is private.
   come from beat ranges `[from, to)` that are contiguous across blocks, so each fires exactly once.
 * **The `Engine` has no browser dependency**, so the same code is unit-tested in Node, and could render
   offline (bounce/export) without changes.
+
+## Saving, loading, import/export
+
+* **One format, one gate.** Autosave, export and import all use `core/persistence`. Files are
+  `{ "format": "sfx-lab-project", "version": N, "project": … }`. `parseProject(text)` is the *only* way
+  untrusted text becomes a `Project`: it checks the envelope, refuses newer versions with a clear message,
+  runs `migrations.ts` (`MIGRATIONS[n]` upgrades v*n* → v*n+1*), then **sanitizes** by rebuilding patches through
+  the normal edit functions (`addNode`/`connect`). So unknown nodes, bad ports, cycles, out-of-range params and
+  oversize inputs are dropped or clamped and reported as warnings, instead of crashing the audio worklet.
+  It never throws.
+* **To change the saved shape:** bump `CURRENT_VERSION`, add a migration, and commit a new fixture beside
+  `persistence/fixtures/v1-minimal.sfxlab.json` — the old fixture must keep loading.
+* **Autosave:** `app/autosave.ts` subscribes to the project store; `storage/autosaver.ts` debounces (500 ms)
+  and flushes on tab hide / `pagehide`. The header shows Saved / Saving… / Not saved.
+* **Startup:** `app/services.ts` loads the saved project *before* the first render. Unreadable data is copied
+  to `sfxlab:corrupt` (never silently overwritten) and the demo project is used, with a toast explaining why.
+* **Replacing the project** (import / new / demo / restore) goes through one function in `app/project-files.ts`:
+  it saves the outgoing project to a **one-slot backup**, stops the transport, resets selection, then swaps.
+  *File → Restore previous* swaps back (and the slot then holds what you just left).
+* If browser storage is unavailable (private mode), the app keeps working in memory and says so.
+* Ids are random (`createId`), so ids from saved projects never collide with new ones.
+
+## Planned: sample packages
+
+Audio samples are large and binary, so they must not live inside the project JSON or `localStorage`.
+The format is designed so today's file becomes the `project.json` of a package:
+
+1. **Content-addressed samples.** A sample's id is the SHA-256 of its file bytes. Clips reference it
+   (`{ sampleId }`) with only light metadata (name, duration, sample rate). Identical files dedupe for free.
+2. **Local store:** IndexedDB `samples` (id → Blob), written once at import time. Autosave keeps writing only the
+   small project JSON, so it stays fast.
+3. **Export:** a project that uses samples exports as a zip, `name.sfxlab`: `project.json` (the same envelope,
+   version bumped when `sampleId` appears) + `samples/<sha256>.<ext>` holding the *original* bytes (no
+   re-encoding). Projects without samples keep exporting as plain `.sfxlab.json`. Use `fflate` (~8 kB) for zipping.
+4. **Import:** sniff the first bytes (`PK` = zip, `{` = JSON), unzip, verify each sample's hash matches its
+   file name, add missing ones to IndexedDB, then run the same `parseProject`. A missing sample becomes a warning
+   and a silent placeholder clip, not a failure.
+5. **Layering:** `core` owns the `SampleRef` types and parsing rules; `storage/` gains the IndexedDB sample store
+   and the zip reader/writer; decoding (`decodeAudioData`) happens on the main thread and the engine receives raw
+   channel data via a command with transferable `ArrayBuffer`s.
+
+(Embedding base64 samples in the JSON would work for a handful of tiny SFX but bloats files by a third and
+every autosave; not recommended beyond a stopgap.)
 
 ## Conventions
 
@@ -83,7 +127,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 ## Common changes
 
 **Add a DSP node** — create `core/dsp/nodes/<name>.node.ts` exporting a `NodeDefinition`, add it to
-`core/dsp/registry.ts`. The patcher palette, parameter UI and engine pick it up automatically.
+`core/dsp/registry.ts`. The patcher palette, parameter UI, engine and file loader pick it up automatically.
 
 **Add an engine capability** — add a variant to `EngineCommand`, handle it in `Engine.apply`, and (if it comes
 from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off UI action, expose it on
@@ -92,16 +136,21 @@ from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off
 **Add a UI feature** — new folder under `ui/`, read state via `@state` hooks, mount it from `Workspace` or
 `EditorPanel`.
 
+**Add a field to the project** — add it to `project/types.ts`, give it a safe default in
+`persistence/sanitize-*.ts`, and add a migration only if old files would otherwise load wrongly.
+
 ## Known POC limits (deliberate)
 
 * Instruments are **monophonic** (last-note priority); one clip plays per track.
 * Oscillators are naive (alias at high pitches); no band-limiting or oversampling.
-* Launch quantisation is fixed at one bar; no recording, audio clips, plugin hosting or undo/redo.
-* No persistence: the project resets on reload (`Project` is plain JSON, so saving is straightforward).
+* Launch quantisation is fixed at one bar; no recording, audio clips or plugin hosting.
+* No undo/redo (the one-slot backup is the only safety net for replacing a project).
+* One autosaved project per browser. Two tabs on the same site overwrite each other (last write wins).
+  `localStorage` holds ~5 MB, plenty for projects, not for samples (see above).
 * Targets desktop Chromium/Firefox. Safari/iOS quirks are untested.
 
 ## Natural next steps
 
-1. Polyphony (voice pool per instrument), 2. save/load + undo/redo on the project store,
-3. sample/audio clips (decode on main thread, stream via `SharedArrayBuffer`),
-4. offline bounce using `Engine` directly, 5. MIDI input via Web MIDI, 6. WASM DSP nodes (Faust/RNBO).
+1. Sample clips + package format (above), 2. undo/redo (projects are immutable snapshots, so a history stack is
+small), 3. polyphony (voice pool per instrument), 4. offline bounce using `Engine` directly,
+5. MIDI input via Web MIDI, 6. WASM DSP nodes (Faust/RNBO).

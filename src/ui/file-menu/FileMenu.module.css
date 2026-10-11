@@ -1,0 +1,75 @@
+.file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.name {
+  width: 180px;
+}
+
+.indicator {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.saved {
+  color: var(--play);
+}
+
+.unsaved {
+  color: var(--queued);
+}
+
+.error,
+.memoryOnly {
+  color: #ff6b6b;
+}
+
+.menu {
+  position: relative;
+}
+
+.menu summary {
+  padding: 4px 10px;
+  list-style: none;
+  cursor: pointer;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.items {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  display: grid;
+  gap: 2px;
+  min-width: 200px;
+  margin-top: 4px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.items button {
+  text-align: left;
+  border-color: transparent;
+}
+
+.items button:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.items button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.items hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--border);
+}

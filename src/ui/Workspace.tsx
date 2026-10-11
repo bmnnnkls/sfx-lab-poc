@@ -1,5 +1,6 @@
 import { EditorPanel } from './editor-panel/EditorPanel'
 import { SessionView } from './session-view/SessionView'
+import { ToastStack } from './toasts/ToastStack'
 import { TransportBar } from './transport-bar/TransportBar'
 import styles from './Workspace.module.css'
 
@@ -12,5 +13,6 @@ export const Workspace = () => (
     <section className={styles.editor}>
       <EditorPanel />
     </section>
+    <ToastStack />
   </div>
 )

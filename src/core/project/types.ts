@@ -28,6 +28,7 @@ export interface Track {
 
 /** The saveable document. Everything the user authors lives here. */
 export interface Project {
+  readonly name: string
   readonly tempo: number
   readonly sceneCount: number
   readonly tracks: readonly Track[]

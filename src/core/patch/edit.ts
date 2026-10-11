@@ -64,9 +64,14 @@ export const canConnect = (patch: Patch, from: PortRef, to: PortRef): boolean =>
 }
 
 /** Adds a connection, or returns the patch unchanged when it is not allowed. */
-export const connect = (patch: Patch, from: PortRef, to: PortRef): Patch =>
+export const connect = (
+  patch: Patch,
+  from: PortRef,
+  to: PortRef,
+  id: string = createId('wire'),
+): Patch =>
   canConnect(patch, from, to)
-    ? { ...patch, connections: [...patch.connections, { id: createId('wire'), from, to }] }
+    ? { ...patch, connections: [...patch.connections, { id, from, to }] }
     : patch
 
 export const disconnect = (patch: Patch, connectionId: string): Patch => ({

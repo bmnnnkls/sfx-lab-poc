@@ -1,0 +1,40 @@
+.stack {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+  padding: 10px 12px;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+.info {
+  border-left-color: var(--play);
+}
+
+.warning {
+  border-left-color: var(--queued);
+}
+
+.error {
+  border-left-color: #ff6b6b;
+}
+
+.body ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--text-dim);
+}

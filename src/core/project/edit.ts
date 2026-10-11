@@ -5,6 +5,8 @@ import type { Clip, Note, Project, Track } from './types'
 
 export const MIN_TEMPO = 40
 export const MAX_TEMPO = 240
+export const DEFAULT_SCENE_COUNT = 4
+export const MAX_NAME_LENGTH = 80
 
 const updateTrack = (project: Project, trackId: string, change: (track: Track) => Track): Project => ({
   ...project,
@@ -72,3 +74,15 @@ export const setClipNotes = (
     ...track,
     clips: track.clips.map((clip) => (clip?.id === clipId ? { ...clip, notes } : clip)),
   }))
+
+export const setProjectName = (project: Project, name: string): Project => ({
+  ...project,
+  name: name.slice(0, MAX_NAME_LENGTH),
+})
+
+/** A blank project with a single empty track. */
+export const createEmptyProject = (): Project =>
+  addTrack(
+    { name: 'Untitled', tempo: 120, sceneCount: DEFAULT_SCENE_COUNT, tracks: [] },
+    createTrack('Track 1', DEFAULT_SCENE_COUNT),
+  )

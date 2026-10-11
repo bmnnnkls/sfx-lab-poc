@@ -1,9 +1,9 @@
 import { createDefaultPatch, setNodeParam } from '../patch'
 import type { Patch } from '../patch'
-import { addTrack, createClip, createTrack, setClipAt } from './edit'
+import { DEFAULT_SCENE_COUNT, addTrack, createClip, createTrack, setClipAt } from './edit'
 import type { Note, Project } from './types'
 
-const SCENES = 4
+const SCENES = DEFAULT_SCENE_COUNT
 
 const notes = (pitches: ReadonlyArray<number | null>, step: number, length: number): Note[] =>
   pitches.flatMap((pitch, index) =>
@@ -18,7 +18,7 @@ const tweak = (patch: Patch, type: string, params: Record<string, number>): Patc
 
 /** A small starter session so the app makes sound on the first click. */
 export const createDemoProject = (): Project => {
-  let project: Project = { tempo: 110, sceneCount: SCENES, tracks: [] }
+  let project: Project = { name: 'Demo project', tempo: 110, sceneCount: SCENES, tracks: [] }
 
   const bass = createTrack('Bass', SCENES, tweak(createDefaultPatch(), 'filter', { cutoff: 700 }))
   const lead = createTrack('Lead', SCENES, tweak(createDefaultPatch(), 'oscillator', { waveform: 2 }))

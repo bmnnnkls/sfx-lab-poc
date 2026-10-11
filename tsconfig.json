@@ -18,10 +18,12 @@
     "paths": {
       "@core": ["./src/core/index.ts"],
       "@audio": ["./src/audio/index.ts"],
+      "@storage": ["./src/storage/index.ts"],
       "@state": ["./src/state/index.ts"],
       "@ui": ["./src/ui/index.ts"],
       "@core/*": ["./src/core/*"],
       "@audio/*": ["./src/audio/*"],
+      "@storage/*": ["./src/storage/*"],
       "@state/*": ["./src/state/*"],
       "@ui/*": ["./src/ui/*"]
     }
