@@ -1,5 +1,6 @@
 import type { Clip } from '@core'
 import { useEngineControls, useProjectStore, useSelectionStore, useStatusStore } from '@state'
+import { ContextMenu } from '../shared/context-menu'
 import styles from './SessionView.module.css'
 
 interface ClipSlotProps {
@@ -21,27 +22,39 @@ export const ClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
   )
 
   if (!clip) {
+    const create = () => selectClip(trackId, createClip(trackId, scene).id)
     return (
-      <div className={`${styles.slot} ${styles.empty}`}>
-        <button onClick={() => selectClip(trackId, createClip(trackId, scene).id)} aria-label="Create clip">
-          +
-        </button>
-      </div>
+      <ContextMenu entries={[{ label: 'Create clip', onSelect: create }]}>
+        <div className={`${styles.slot} ${styles.empty}`}>
+          <button onClick={create} aria-label="Create clip">
+            +
+          </button>
+        </div>
+      </ContextMenu>
     )
   }
 
   const state = playing ? styles.playing : queued ? styles.queued : ''
   return (
-    <div className={`${styles.slot} ${state}`}>
-      <button className={styles.launch} onClick={() => controls.launchClip(trackId, clip.id)}>
-        {playing ? '■' : '▶'} {clip.name}
-      </button>
-      <button onClick={() => selectClip(trackId, clip.id)} aria-label={`Edit ${clip.name}`}>
-        ✎
-      </button>
-      <button onClick={() => deleteClip(trackId, scene)} aria-label={`Delete ${clip.name}`}>
-        ×
-      </button>
-    </div>
+    <ContextMenu
+      entries={[
+        { label: playing ? 'Restart clip' : 'Launch clip', onSelect: () => controls.launchClip(trackId, clip.id) },
+        { label: 'Edit notes', onSelect: () => selectClip(trackId, clip.id) },
+        { kind: 'separator' },
+        { label: 'Delete clip', danger: true, onSelect: () => deleteClip(trackId, scene) },
+      ]}
+    >
+      <div className={`${styles.slot} ${state}`}>
+        <button className={styles.launch} onClick={() => controls.launchClip(trackId, clip.id)}>
+          {playing ? '■' : '▶'} {clip.name}
+        </button>
+        <button onClick={() => selectClip(trackId, clip.id)} aria-label={`Edit ${clip.name}`}>
+          ✎
+        </button>
+        <button onClick={() => deleteClip(trackId, scene)} aria-label={`Delete ${clip.name}`}>
+          ×
+        </button>
+      </div>
+    </ContextMenu>
   )
 }

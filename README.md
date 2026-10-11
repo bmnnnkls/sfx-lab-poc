@@ -34,6 +34,7 @@ Use a Chromium-based browser or Firefox. Audio starts on your first click (brows
    note to move it, drag its ends to resize, Shift-click to select several, **Del** to delete. Change the clip's
    **Length** (or hit **Double**) for longer clips, and zoom with the slider or Ctrl+wheel. Ctrl-drag selects a box, Ctrl+C / X / V copy, cut and paste at the mouse, and the lane
    under the roll sets velocities. Notes are played as you edit them (toggle **Audition**), and the roll can follow the
-   playhead. Drag the bar above the editor to give it more room. Edit while it plays.
+   playhead. Right-click a note for copy / cut / paste / duplicate / delete (double-click also deletes), and open **Groove** for
+   quantize, swing and humanize. Drag the bar above the editor to give it more room. Edit while it plays.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how it is put together and where to add things.

@@ -2,7 +2,7 @@ import { clearSampleReferences, createDefaultPatch, createSamplerPatch } from '.
 import type { Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 import { clamp, createId } from '../shared'
-import { createNote, shiftedCopies, trimNotesToLength } from './note-edit'
+import { createNote, notesEqual, shiftedCopies, trimNotesToLength } from './note-edit'
 import type { Clip, Note, Project, Track } from './types'
 
 export const MIN_TEMPO = 40
@@ -122,10 +122,10 @@ export const setClipNotes = (
   clipId: string,
   notes: readonly Note[],
 ): Project =>
-  updateTrack(project, trackId, (track) => ({
-    ...track,
-    clips: track.clips.map((clip) => (clip?.id === clipId ? { ...clip, notes } : clip)),
-  }))
+  // Identical notes keep the same project, so e.g. quantizing an already-quantized clip adds no undo step.
+  updateClip(project, trackId, clipId, (clip) =>
+    notesEqual(clip.notes, notes) ? clip : { ...clip, notes },
+  )
 
 export const setProjectName = (project: Project, name: string): Project => ({
   ...project,

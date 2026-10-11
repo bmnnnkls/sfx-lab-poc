@@ -1,7 +1,10 @@
-import { MAX_CLIP_BEATS } from '@core'
+import { MAX_CLIP_BEATS, type Note, humanizeNotes, quantizeNotes, swingNotes } from '@core'
 import { useEngineControls, useProjectStore, useSelectionStore } from '@state'
+import { useEffect, useState } from 'react'
 import { useStoredState } from '../shared/use-stored-state'
 import styles from './ClipEditor.module.css'
+import { DEFAULT_GROOVE, isGrooveSettings } from './groove-settings'
+import { GroovePanel } from './GroovePanel'
 import { LengthField } from './LengthField'
 import { PianoRoll } from './PianoRoll'
 import { DEFAULT_ZOOM, GRID_OPTIONS, MAX_ZOOM, MIN_ZOOM, clampZoom } from './piano-roll-geometry'
@@ -11,7 +14,7 @@ const isGridStep = (value: unknown): value is number =>
 const isZoom = (value: unknown): value is number => typeof value === 'number' && clampZoom(value) === value
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean'
 
-const HINT = 'Drag: draw · Ctrl-drag: select box · drag note / its ends: move / resize · Del · Ctrl+C X V D'
+const HINT = 'Drag: draw · Ctrl-drag: select box · drag note / ends: move / resize · double-click or right-click · Q quantize'
 
 export const ClipEditor = () => {
   const controls = useEngineControls()
@@ -29,11 +32,32 @@ export const ClipEditor = () => {
   const [follow, setFollow] = useStoredState('sfxlab:roll-follow', true, isBoolean)
   const [showVelocity, setShowVelocity] = useStoredState('sfxlab:roll-velocity', true, isBoolean)
 
+  const [groove, setGroove] = useStoredState('sfxlab:groove', DEFAULT_GROOVE, isGrooveSettings)
+
+  // Selected notes are owned here so the toolbar's groove tools act on the same selection as the roll.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  useEffect(() => setSelected(new Set()), [clipId])
+
   const clip = track?.clips.find((candidate) => candidate?.id === clipId)
   if (!track || !clip) return <p className={styles.empty}>Select a clip with ✎ to edit its notes.</p>
 
+  /** Applies a groove tool to the selection, or the whole clip when nothing is selected. */
+  const applyGroove = (tool: (notes: readonly Note[], ids: ReadonlySet<string>) => Note[]) => {
+    const ids = selected.size > 0 ? selected : new Set(clip.notes.map((note) => note.id))
+    setClipNotes(track.id, clip.id, tool(clip.notes, ids))
+  }
+  const quantize = () =>
+    applyGroove((notes, ids) =>
+      quantizeNotes(notes, ids, { step, strength: groove.strength, ends: groove.ends }, clip.lengthBeats),
+    )
+  const swing = () => applyGroove((notes, ids) => swingNotes(notes, ids, step, groove.swing, clip.lengthBeats))
+  const humanize = () =>
+    applyGroove((notes, ids) =>
+      humanizeNotes(notes, ids, { step, timing: groove.humanizeTiming, velocity: groove.humanizeVelocity }, clip.lengthBeats),
+    )
+
   return (
-    <div className={styles.editor}>
+    <div className={styles.editor} data-clip-editor>
       <div className={styles.toolbar}>
         <strong>
           {track.name} / {clip.name}
@@ -62,6 +86,14 @@ export const ClipEditor = () => {
         <LengthField
           lengthBeats={clip.lengthBeats}
           onCommit={(beats) => setClipLength(track.id, clip.id, beats)}
+        />
+        <GroovePanel
+          settings={groove}
+          onSettings={setGroove}
+          scope={selected.size > 0 ? 'selection' : 'clip'}
+          onQuantize={quantize}
+          onSwing={swing}
+          onHumanize={humanize}
         />
         <button
           onClick={() => doubleClip(track.id, clip.id)}
@@ -95,6 +127,9 @@ export const ClipEditor = () => {
         pixelsPerBeat={zoom}
         follow={follow}
         showVelocity={showVelocity}
+        selected={selected}
+        onSelect={setSelected}
+        groove={{ quantize, humanize }}
         onZoom={setZoom}
         onChange={(notes) => setClipNotes(track.id, clip.id, notes)}
         onAudition={audition ? (pitch, velocity) => controls.auditionNote(track.id, pitch, velocity) : undefined}

@@ -20,6 +20,13 @@ const importsOf = (file: string): string[] =>
 
 const layerOf = (file: string): string => relative(SRC, file).split(sep)[0] ?? ''
 
+/** Our own path aliases. Anything else starting with `@` is a scoped third-party package. */
+const ALIASES = new Set(['@core', '@audio', '@storage', '@state', '@ui'])
+const aliasOf = (specifier: string): string | undefined => {
+  const root = specifier.split('/')[0] ?? ''
+  return ALIASES.has(root) ? root : undefined
+}
+
 /** Which `@alias` layers each layer may import. */
 const ALLOWED: Record<string, readonly string[]> = {
   core: [],
@@ -35,7 +42,7 @@ const EXTERNAL_ALLOWED: Record<string, readonly string[]> = {
   audio: [],
   storage: ['fflate'],
   state: ['react', 'zustand'],
-  ui: ['react', 'react-dom'],
+  ui: ['react', 'react-dom', '@radix-ui/react-context-menu'],
   app: ['react', 'react-dom'],
 }
 
@@ -51,7 +58,7 @@ describe('architecture', () => {
       const allowed = ALLOWED[layer]
       if (!allowed) continue // top-level files such as main.tsx are composition glue
       for (const specifier of importsOf(file)) {
-        if (!specifier.startsWith('@')) continue
+        if (!aliasOf(specifier)) continue
         if (!allowed.includes(specifier)) violations.push(`${relative(SRC, file)} imports ${specifier}`)
       }
     }
@@ -65,7 +72,7 @@ describe('architecture', () => {
       const allowed = EXTERNAL_ALLOWED[layer]
       if (!allowed || file.endsWith('.test.ts') || file.endsWith('.test.tsx')) continue
       for (const specifier of importsOf(file)) {
-        const isExternal = !specifier.startsWith('.') && !specifier.startsWith('@')
+        const isExternal = !specifier.startsWith('.') && !aliasOf(specifier)
         const isVite = specifier.startsWith('vite') || specifier.endsWith('.css')
         if (isExternal && !isVite && !allowed.includes(specifier)) {
           violations.push(`${relative(SRC, file)} imports ${specifier}`)

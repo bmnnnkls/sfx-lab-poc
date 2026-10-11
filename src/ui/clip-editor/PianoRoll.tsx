@@ -1,5 +1,7 @@
 import type { Note } from '@core'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
+import { ContextMenu, type MenuEntry } from '../shared/context-menu'
+import { shortcut } from '../shared/shortcut-labels'
 import { NoteView } from './NoteView'
 import { PianoKeys } from './PianoKeys'
 import {
@@ -17,6 +19,7 @@ import styles from './PianoRoll.module.css'
 import { Playhead } from './Playhead'
 import { RowBackground } from './RowBackground'
 import { Ruler } from './Ruler'
+import { useNoteClipboard } from './use-note-clipboard'
 import { usePianoRollInteraction } from './use-piano-roll-interaction'
 import { VelocityLane } from './VelocityLane'
 
@@ -36,6 +39,11 @@ interface PianoRollProps {
   onChange(notes: readonly Note[]): void
   /** Hear a note while editing it; omit to stay silent. */
   onAudition?(pitch: number, velocity: number): void
+  /** Selected note ids; owned by the editor so its toolbar can act on them too. */
+  selected: ReadonlySet<string>
+  onSelect(ids: ReadonlySet<string>): void
+  /** Groove tools offered in the context menu and on Q. Omit to hide them. */
+  groove?: { quantize(): void; humanize(): void }
 }
 
 const ROWS = HIGH_PITCH - LOW_PITCH + 1
@@ -44,7 +52,7 @@ const ROWS = HIGH_PITCH - LOW_PITCH + 1
  * Note editor. Click-drag on empty space draws a note as long as the drag; Ctrl/Cmd-drag selects a
  * box of notes; drag a note to move it, its ends to resize it. Shift-click multi-selects; Delete,
  * arrows, Ctrl+A/C/X/V/D work on the selection; double-click or right-click deletes a note; Ctrl+wheel
- * zooms. The lane underneath sets velocities.
+ * zooms. Right-click opens a context menu. The lane underneath sets velocities.
  */
 export const PianoRoll = ({
   trackId,
@@ -58,18 +66,21 @@ export const PianoRoll = ({
   onZoom,
   onChange,
   onAudition,
+  selected,
+  onSelect,
+  groove,
 }: PianoRollProps) => {
   const scroller = useRef<HTMLDivElement>(null)
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
-  const { surface, visibleNotes, marquee, handlers } = usePianoRollInteraction({
+  const { surface, visibleNotes, marquee, commands, handlers } = usePianoRollInteraction({
     notes,
     lengthBeats,
     step,
     pixelsPerBeat,
     selected,
-    onSelect: setSelected,
+    onSelect,
     onCommit: onChange,
     onAudition,
+    onQuantize: groove?.quantize,
   })
 
   // Open each clip scrolled to where its notes are, not the top of the keyboard.
@@ -79,7 +90,6 @@ export const PianoRoll = ({
   const laneHeightRef = useRef(laneHeight)
   laneHeightRef.current = laneHeight
   useEffect(() => {
-    setSelected(new Set())
     const element = scroller.current
     if (element) {
       element.scrollTop = scrollTopFor(centerPitch(initialNotes.current), element.clientHeight, laneHeightRef.current)
@@ -102,6 +112,26 @@ export const PianoRoll = ({
     return () => element.removeEventListener('wheel', onWheel)
   }, [])
 
+  const clipboard = useNoteClipboard()
+  const hasSelection = selected.size > 0
+  const scope = hasSelection ? 'selection' : 'clip'
+  const menu: MenuEntry[] = [
+    { label: 'Copy', shortcut: shortcut('C'), disabled: !hasSelection, onSelect: commands.copy },
+    { label: 'Cut', shortcut: shortcut('X'), disabled: !hasSelection, onSelect: commands.cut },
+    { label: 'Paste', shortcut: shortcut('V'), disabled: clipboard.length === 0, onSelect: commands.paste },
+    { label: 'Duplicate', shortcut: shortcut('D'), disabled: !hasSelection, onSelect: commands.duplicate },
+    { label: 'Delete', shortcut: 'Del', danger: true, disabled: !hasSelection, onSelect: commands.remove },
+    { kind: 'separator' },
+    { label: 'Select all', shortcut: shortcut('A'), disabled: notes.length === 0, onSelect: commands.selectAll },
+    ...(groove
+      ? ([
+          { kind: 'separator' },
+          { label: `Quantize ${scope}`, shortcut: 'Q', disabled: notes.length === 0, onSelect: groove.quantize },
+          { label: `Humanize ${scope}`, disabled: notes.length === 0, onSelect: groove.humanize },
+        ] satisfies MenuEntry[])
+      : []),
+  ]
+
   const width = lengthBeats * pixelsPerBeat
   const gridLines = {
     '--bar': `${pixelsPerBeat * 4}px`,
@@ -122,14 +152,15 @@ export const PianoRoll = ({
         <Ruler lengthBeats={lengthBeats} pixelsPerBeat={pixelsPerBeat} />
         <PianoKeys />
 
-        <div
-          ref={surface}
-          className={styles.surface}
-          style={{ width, height: ROWS * ROW_HEIGHT }}
-          tabIndex={0}
-          data-testid="note-surface"
-          {...handlers}
-        >
+        <ContextMenu entries={menu}>
+          <div
+            ref={surface}
+            className={styles.surface}
+            style={{ width, height: ROWS * ROW_HEIGHT }}
+            tabIndex={0}
+            data-testid="note-surface"
+            {...handlers}
+          >
           <RowBackground />
           <div className={styles.gridLines} style={gridLines} />
 
@@ -158,7 +189,8 @@ export const PianoRoll = ({
             follow={follow}
             scroller={scroller}
           />
-        </div>
+          </div>
+        </ContextMenu>
 
         {showVelocity && (
           <>
@@ -168,7 +200,7 @@ export const PianoRoll = ({
               selected={selected}
               width={width}
               pixelsPerBeat={pixelsPerBeat}
-              onSelect={setSelected}
+              onSelect={onSelect}
               onCommit={onChange}
             />
           </>

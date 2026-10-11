@@ -21,7 +21,8 @@
 
 Dependencies only point down. This is **enforced by `tests/architecture.test.ts`**, which also checks that
 other `core` modules are reached only through their `index.ts` and that `core`/`audio` import no third-party
-packages (`storage` may use only `fflate`). If you need to break a rule, change the rule on purpose, not by accident.
+packages (`storage` may use only `fflate`). The test knows our five aliases (`@core`, `@audio`, …) apart from scoped
+third-party packages such as `@radix-ui/…`, so those are checked against the same allow-lists. If you need to break a rule, change the rule on purpose, not by accident.
 
 | Layer | Owns | May import |
 |---|---|---|
@@ -29,7 +30,7 @@ packages (`storage` may use only `fflate`). If you need to break a rule, change 
 | `audio` | `AudioContext`, worklet shell, thread protocol, audio-file decoding | `@core` |
 | `storage` | `localStorage`/IndexedDB adapters, autosaver, project files & packages, hashing | `@core` (+ `fflate`) |
 | `state` | zustand stores, `EngineControls` / `ProjectFiles` interfaces | `@core` |
-| `ui` | React components | `@core`, `@state` |
+| `ui` | React components | `@core`, `@state` (+ `react`, `@radix-ui/react-context-menu`) |
 | `app` | wiring | everything |
 
 ## `core` modules (deep modules, small public surface)
@@ -137,6 +138,42 @@ Each folder exposes one `index.ts`; everything else in it is private.
 * **Remembered UI preferences:** grid, zoom, audition, follow, lane visibility and the editor panel height are kept in
   `localStorage` via `useStoredState` (guarded, validated, falls back to defaults). The editor panel is resizable with a
   draggable, keyboard-operable splitter (`ui/shared/Splitter.tsx`); its saved height is clamped to the window on use.
+
+## Context menu (reusable)
+
+* `ui/shared/context-menu` is a small, app-specific right-click menu. Callers pass `entries` (actions with a label,
+  optional shortcut text, `disabled`, `danger`, and separators) and the single element to wrap; they never touch the
+  library. It is a thin wrapper over **Radix UI's headless context menu** (the primitive shadcn/ui is built on), which
+  supplies keyboard navigation, typeahead, focus return and keeping the menu inside the window. (Spartan, which was
+  suggested, is Angular-only, so it can't be used in this React app.) Swapping the library means changing this one
+  folder.
+* **Entries reflect what was clicked.** The wrapped element's own `onContextMenu` runs *before* the menu opens, so it
+  can first select the right-clicked note or record where the click landed (used as the paste position); entries are
+  computed from state on every render.
+* **Anything an entry depends on must be reactive.** The note clipboard used to be a plain module variable, so
+  "Paste" stayed greyed out after copying until something else re-rendered. It is now a subscribable store read with
+  `useSyncExternalStore` (`useNoteClipboard`). The same actions back both the keyboard shortcuts and the menu items
+  (`commands` from `usePianoRollInteraction`), so they can't drift apart.
+* Used by the piano roll (copy / cut / paste / duplicate / delete / select all / quantize / humanize) and by session
+  clip slots (launch / edit / delete, and "create clip" on empty slots). Double-click still deletes a note; right-click
+  opens the menu instead of deleting.
+
+## Groove: quantize, swing, humanize
+
+Pure functions in `core/project/groove.ts`, applied by the **Groove** dropdown (and `Q`, and the context menu) to the
+selected notes, or the whole clip when nothing is selected, using the toolbar grid. Each Apply is one undo step, and
+applying something that changes nothing adds no undo step (`setClipNotes` keeps project identity when notes are equal).
+
+* **Quantize** moves starts (optionally ends) toward the grid by *strength* 0–100 %, so partial strength keeps some of
+  the original feel. At 100 % it is idempotent. Notes are kept inside the clip.
+* **Swing** snaps notes to the grid then delays every other slot: *amount* is where the second step of each pair lands
+  (50 % straight, ~67 % triplet, 75 % hard shuffle). It is idempotent at every amount: a note is matched to the slot it
+  is closest to *as currently placed, delayed or not*. (Re-rounding the raw position broke this at 75 %, where the
+  off-beat sits exactly halfway between two slots.)
+* **Humanize** adds random timing wobble (up to half a grid step at 100 %) and velocity wobble (up to a quarter of the
+  range). The random source is injectable (`random`), so tests reproduce results; in the app each press is a new roll.
+* Amounts are remembered (`sfxlab:groove`, validated on load). The panel stays open across Undo/Redo clicks so
+  "try, undo, try again" works; it closes on Escape or a click elsewhere in the editor.
 
 ## Undo / redo
 
@@ -250,8 +287,9 @@ from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off
 ## Known POC limits (deliberate)
 
 * One clip plays per track. Polyphony has simple voice stealing and no unison, glide or legato modes.
-* The piano roll assumes 4/4 for the ruler, has no per-note-length velocity ramps, no quantize/humanize, and the
-  clipboard is not shared with the OS clipboard.
+* The piano roll assumes 4/4 for the ruler and its clipboard is not shared with the OS clipboard. Groove tools are
+  destructive edits (undoable), not a reusable groove pool; swing and quantize use the toolbar grid, which has no
+  triplet options yet.
 * Samples are mono (stereo is mixed down), at most 120 s / 32 MB per file, with no trimming or loop-point editing.
   Bytes stay in IndexedDB after a sample is removed from a project (so undo works); there is no cleanup yet.
   `decodeAudioData` resamples to 48 kHz, and the sample's reported rate is that decoded rate.

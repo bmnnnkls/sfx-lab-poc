@@ -10,7 +10,7 @@ import {
   snapDown,
   trimNotesToLength,
 } from '@core'
-import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, type MouseEvent, type PointerEvent, useEffect, useRef, useState } from 'react'
 import { type Gesture, type Pointer, applyGesture, beginDraw, marqueeRegion } from './note-gestures'
 import { noteClipboard } from './note-clipboard'
 import { pitchAtY } from './piano-roll-geometry'
@@ -38,6 +38,8 @@ interface Options {
   onCommit(notes: readonly Note[]): void
   /** Hear a note while editing it (placing, grabbing, changing its pitch). */
   onAudition?(pitch: number, velocity: number): void
+  /** Q: snap the selection (or the whole clip) to the grid. */
+  onQuantize?(): void
 }
 
 const noteElementAt = (target: EventTarget): HTMLElement | null =>
@@ -58,6 +60,7 @@ export const usePianoRollInteraction = ({
   onSelect,
   onCommit,
   onAudition,
+  onQuantize,
 }: Options) => {
   const surface = useRef<HTMLDivElement>(null)
   const gesture = useRef<Gesture | null>(null)
@@ -206,12 +209,17 @@ export const usePianoRollInteraction = ({
     }
   }
 
-  const onContextMenu = (event: { target: EventTarget; preventDefault(): void }) => {
-    event.preventDefault()
+  /**
+   * Runs just before the context menu opens: right-clicking a note that isn't selected selects it
+   * (so the menu acts on what was clicked), and where the click landed becomes the paste point.
+   */
+  const onContextMenu = (event: MouseEvent<HTMLDivElement>) => {
+    const bounds = surface.current?.getBoundingClientRect()
+    if (bounds) hoverBeat.current = Math.max(0, snapDown((event.clientX - bounds.left) / pixelsPerBeat, step))
+    lastClick.current = null
     const noteElement = noteElementAt(event.target)
-    if (!noteElement) return
-    onSelect(new Set())
-    onCommit(removeNotes(notes, new Set([noteElement.dataset.noteId as string])))
+    const id = noteElement?.dataset.noteId
+    if (id && !selected.has(id)) onSelect(new Set([id]))
   }
 
   const copySelection = (): readonly Note[] => {
@@ -239,6 +247,20 @@ export const usePianoRollInteraction = ({
     }
   }
 
+  const cut = () => {
+    if (copySelection().length === 0) return
+    onCommit(removeNotes(notes, selected))
+    onSelect(new Set())
+  }
+
+  const remove = () => {
+    if (selected.size === 0) return
+    onCommit(removeNotes(notes, selected))
+    onSelect(new Set())
+  }
+
+  const selectAll = () => onSelect(new Set(notes.map((note) => note.id)))
+
   /** Copies the selection to just after itself (rounded up to the grid) and selects the copies. */
   const duplicateSelection = () => {
     const chosen = notes.filter((note) => selected.has(note.id))
@@ -261,21 +283,19 @@ export const usePianoRollInteraction = ({
       if (gesture.current || marqueeBase.current) finish(false, 0)
       else onSelect(new Set())
     } else if (command && letter === 'a') {
-      onSelect(new Set(notes.map((note) => note.id)))
+      selectAll()
     } else if (command && letter === 'd') {
       duplicateSelection()
     } else if (command && letter === 'c') {
       copySelection()
     } else if (command && letter === 'x') {
-      if (copySelection().length > 0) {
-        onCommit(removeNotes(notes, selected))
-        onSelect(new Set())
-      }
+      cut()
     } else if (command && letter === 'v') {
       paste()
+    } else if (!command && !event.altKey && letter === 'q' && onQuantize) {
+      onQuantize()
     } else if ((key === 'Delete' || key === 'Backspace') && selected.size > 0) {
-      onCommit(removeNotes(notes, selected))
-      onSelect(new Set())
+      remove()
     } else if (key.startsWith('Arrow') && selected.size > 0 && !gesture.current) {
       const octave = event.shiftKey ? 12 : 1
       const [beats, semitones] =
@@ -295,6 +315,15 @@ export const usePianoRollInteraction = ({
     /** The notes to draw: the in-progress gesture if any, else the real ones. */
     visibleNotes: draft ?? notes,
     marquee,
+    /** The editing actions, shared by the keyboard shortcuts and the context menu. */
+    commands: {
+      copy: () => void copySelection(),
+      cut,
+      paste,
+      duplicate: duplicateSelection,
+      remove,
+      selectAll,
+    },
     handlers: {
       onPointerDown,
       onPointerMove,

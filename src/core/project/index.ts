@@ -47,3 +47,10 @@ export {
   trimNotesToLength,
 } from './note-edit'
 export type { NoteRegion } from './note-edit'
+export {
+  humanizeNotes,
+  quantizeNotes,
+  swingNotes,
+  type HumanizeOptions,
+  type QuantizeOptions,
+} from './groove'
