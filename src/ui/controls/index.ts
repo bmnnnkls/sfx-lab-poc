@@ -1,0 +1,5 @@
+export { Fader } from './Fader'
+export { Knob } from './Knob'
+export { Selector } from './Selector'
+export { XYPad } from './XYPad'
+export type { PadPosition } from './control-math'
