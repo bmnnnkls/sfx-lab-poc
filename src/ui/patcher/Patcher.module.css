@@ -149,3 +149,21 @@
 .paramValue {
   color: var(--text);
 }
+
+.voices {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+}
+
+.sharedTag {
+  margin-left: 8px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}

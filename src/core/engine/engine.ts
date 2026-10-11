@@ -38,7 +38,13 @@ export class Engine {
       case 'track/add':
         this.tracks.set(
           command.trackId,
-          new TrackRuntime(command.patch, command.clips, command.volume, this.sampleRate),
+          new TrackRuntime(
+            command.patch,
+            command.clips,
+            command.volume,
+            command.voices,
+            this.sampleRate,
+          ),
         )
         break
       case 'track/remove':
@@ -46,6 +52,9 @@ export class Engine {
         break
       case 'track/setPatch':
         this.tracks.get(command.trackId)?.setPatch(command.patch)
+        break
+      case 'track/setVoices':
+        this.tracks.get(command.trackId)?.setVoices(command.voices)
         break
       case 'track/setClips':
         this.tracks.get(command.trackId)?.setClips(command.clips)

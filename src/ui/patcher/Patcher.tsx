@@ -5,12 +5,14 @@ import { PatchCanvas } from './PatchCanvas'
 import styles from './Patcher.module.css'
 
 const SPAWN_OFFSET = { x: 40, y: 330 }
+const VOICE_OPTIONS = [1, 2, 3, 4, 6, 8, 12, 16]
 
 /** Node-based editor for the selected track's instrument patch. */
 export const Patcher = () => {
   const tracks = useProjectStore((state) => state.project.tracks)
   const selectedId = useSelectionStore((state) => state.trackId)
   const updatePatch = useProjectStore((state) => state.updatePatch)
+  const setTrackVoices = useProjectStore((state) => state.setTrackVoices)
 
   const track = tracks.find((candidate) => candidate.id === selectedId) ?? tracks[0]
   if (!track) return <p className={styles.empty}>Add a track to edit its instrument.</p>
@@ -22,6 +24,19 @@ export const Patcher = () => {
     <div className={styles.patcher}>
       <div className={styles.toolbar}>
         <strong>{track.name}</strong>
+        <label className={styles.voices} title="Maximum simultaneous notes for this instrument">
+          Voices
+          <select
+            value={track.voices}
+            onChange={(event) => setTrackVoices(track.id, Number(event.target.value))}
+          >
+            {VOICE_OPTIONS.map((count) => (
+              <option key={count} value={count}>
+                {count}
+              </option>
+            ))}
+          </select>
+        </label>
         <NodePalette
           onAdd={(type) =>
             edit((patch) =>

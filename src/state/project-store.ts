@@ -19,6 +19,7 @@ import {
   setProjectName,
   setTempo,
   setTrackPatch,
+  setTrackVoices,
   setTrackVolume,
   undo,
 } from '@core'
@@ -38,6 +39,7 @@ interface ProjectActions {
   addTrack(): void
   removeTrack(trackId: string): void
   setTrackVolume(trackId: string, volume: number): void
+  setTrackVoices(trackId: string, voices: number): void
   /**
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
    * Rapid edits sharing a `mergeKey` (a slider or node drag) collapse into one undo step.
@@ -87,6 +89,8 @@ export const useProjectStore = create<ProjectState>((set) => {
     removeTrack: (trackId) => edit((project) => removeTrack(project, trackId)),
     setTrackVolume: (trackId, volume) =>
       edit((project) => setTrackVolume(project, trackId, volume), `volume:${trackId}`),
+
+    setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
 
     updatePatch: (trackId, change, mergeKey) =>
       edit((project) => {

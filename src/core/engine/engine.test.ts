@@ -9,7 +9,7 @@ const setup = () => {
   const engine = new Engine(SAMPLE_RATE)
   const clip = createClip('c', 4, [{ pitch: 69, start: 0, duration: 1, velocity: 1 }])
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
-  engine.apply({ type: 'track/add', trackId: 't', patch: createDefaultPatch(), clips: [clip], volume: 1 })
+  engine.apply({ type: 'track/add', trackId: 't', patch: createDefaultPatch(), clips: [clip], volume: 1, voices: 8 })
   return { engine, clip }
 }
 

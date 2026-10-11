@@ -21,6 +21,8 @@ export interface Track {
   readonly id: string
   readonly name: string
   readonly volume: number
+  /** Maximum simultaneous notes; further notes steal the oldest voice. */
+  readonly voices: number
   readonly patch: Patch
   /** One slot per scene (row) of the session grid; null = empty slot. */
   readonly clips: readonly (Clip | null)[]

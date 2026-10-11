@@ -1,5 +1,5 @@
-import { type Patch, type PortRef, requireNodeDefinition } from '@core'
-import { type PointerEvent, useRef, useState } from 'react'
+import { type Patch, type PortRef, classifyStages, requireNodeDefinition } from '@core'
+import { type PointerEvent, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
 import { NodeView } from './NodeView'
 import styles from './Patcher.module.css'
@@ -27,6 +27,7 @@ export const PatchCanvas = ({
 }: PatchCanvasProps) => {
   const surface = useRef<HTMLDivElement>(null)
   const [pending, setPending] = useState<{ from: PortRef; pointer: Point } | null>(null)
+  const stages = useMemo(() => classifyStages(patch), [patch])
 
   const width = Math.max(...patch.nodes.map((node) => node.x + NODE_WIDTH), 0) + PADDING
   const height =
@@ -53,6 +54,7 @@ export const PatchCanvas = ({
           <NodeView
             key={node.id}
             node={node}
+            shared={stages.get(node.id) === 'shared'}
             onMove={(x, y) => onMoveNode(node.id, x, y)}
             onRemove={() => onRemoveNode(node.id)}
             onParamChange={(paramId, value) => onParamChange(node.id, paramId, value)}

@@ -48,6 +48,8 @@ export class AudioHost {
       if (event.data.kind !== 'status') return
       for (const listener of this.listeners) listener(event.data.status)
     }
+    // An exception inside the worklet would otherwise fail silently and just stop the sound.
+    node.onprocessorerror = (event) => console.error('Audio engine stopped unexpectedly', event)
     node.connect(context.destination)
 
     this.context = context

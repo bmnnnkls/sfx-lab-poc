@@ -34,6 +34,9 @@ const diffTrack = (prev: Track, next: Track): EngineCommand[] => {
   if (!sameClips(prev.clips, next.clips)) {
     commands.push({ type: 'track/setClips', trackId: next.id, clips: next.clips })
   }
+  if (prev.voices !== next.voices) {
+    commands.push({ type: 'track/setVoices', trackId: next.id, voices: next.voices })
+  }
   if (prev.volume !== next.volume) {
     commands.push({ type: 'track/setVolume', trackId: next.id, volume: next.volume })
   }
@@ -60,6 +63,7 @@ export const diffProject = (prev: Project | null, next: Project): EngineCommand[
         patch: track.patch,
         clips: track.clips,
         volume: track.volume,
+        voices: track.voices,
       })
     } else if (before !== track) {
       commands.push(...diffTrack(before, track))

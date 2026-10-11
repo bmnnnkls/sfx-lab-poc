@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { moveNode, setNodeParam } from '../patch'
-import { createDemoProject, setClipAt, setTempo, setTrackPatch, setTrackVolume } from '../project'
+import {
+  createDemoProject,
+  setClipAt,
+  setTempo,
+  setTrackPatch,
+  setTrackVoices,
+  setTrackVolume,
+} from '../project'
 import { diffProject } from './diff-project'
 
 describe('diffProject', () => {
@@ -30,6 +37,11 @@ describe('diffProject', () => {
     const next = setTrackPatch(project, track.id, moveNode(track.patch, node.id, 500, 500))
 
     expect(diffProject(project, next)).toEqual([])
+  })
+
+  it('maps a voice-count change to its own command', () => {
+    const next = setTrackVoices(project, track.id, 3)
+    expect(diffProject(project, next)).toEqual([{ type: 'track/setVoices', trackId: track.id, voices: 3 }])
   })
 
   it('maps clip, volume and tempo edits to their own commands', () => {

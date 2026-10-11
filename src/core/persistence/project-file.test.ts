@@ -40,6 +40,19 @@ describe('project file round trip', () => {
     expect(loaded.tracks[0]?.clips[0]?.notes).toHaveLength(2)
     expect(loaded.tracks[0]?.clips[1]).toBeNull()
   })
+
+  it('gives files saved before polyphony the default voice count, silently', () => {
+    const text = readFileSync(new URL('./fixtures/v1-minimal.sfxlab.json', import.meta.url), 'utf8')
+    const { project: loaded, warnings } = parseOk(text)
+
+    expect(loaded.tracks[0]?.voices).toBe(8)
+    expect(warnings).toEqual([])
+  })
+
+  it('clamps an out-of-range voice count', () => {
+    const raw = project({ tracks: [{ id: 't', name: 'T', voices: 500, patch: {}, clips: [] }] })
+    expect(parseOk(envelope(raw)).project.tracks[0]?.voices).toBe(16)
+  })
 })
 
 describe('rejecting bad files', () => {

@@ -41,7 +41,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `shared` | tiny math/id helpers | `clamp`, `midiToFrequency`, `createId` |
 | `dsp` | node library: definitions (ports, params, factory) + processors | `nodeDefinitions`, `requireNodeDefinition`, types |
 | `patch` | immutable node-graph model + pure edit operations | `Patch`, `addNode`, `connect`, `canConnect`, … |
-| `instrument` | compiles a `Patch` to a runnable mono voice | `Instrument` |
+| `instrument` | compiles a `Patch` into a polyphonic synth: voice pool + shared effects | `Instrument`, `classifyStages` |
 | `project` | the saveable document: tracks, clips, notes, tempo, name | `Project`, edit functions, `createDemoProject` |
 | `transport` | sample-accurate beat clock | `Transport` |
 | `session` | clip launching: quantized start/stop, looping, note events | `ClipLauncher` |
@@ -72,6 +72,27 @@ Each folder exposes one `index.ts`; everything else in it is private.
   come from beat ranges `[from, to)` that are contiguous across blocks, so each fires exactly once.
 * **The `Engine` has no browser dependency**, so the same code is unit-tested in Node, and could render
   offline (bounce/export) without changes.
+
+## Polyphony
+
+* **Each track has a voice pool** (`Track.voices`, 1–16, default 8; set in the Instrument tab). A chord or
+  overlapping notes play on separate voices; when all are busy the new note **steals** a voice: first one that is
+  already releasing, otherwise the oldest.
+* **A patch is split into two stages** (`instrument/stages.ts`). *Voice* nodes are instantiated once per voice;
+  *shared* nodes (effects) are instantiated once and fed the **sum of all voices**. A node is shared if its
+  `NodeDefinition.shared` is true (today: delay) **or anything upstream of it is shared**, which makes the split a
+  clean cut: signals flow from voices into the shared stage, never back. The patcher tags shared nodes.
+  Without this split, a delay would be copied into every voice and its echoes would be chopped off whenever a
+  voice is reused.
+* **Freeing voices:** `Voice` is done once it has been released and its output stayed below −80 dB for 50 ms
+  (this works for any envelope shape), or after a 10 s safety cap (a patch with no envelope never goes quiet).
+  Idle voices cost nothing: only active voices are rendered.
+* **Files:** `compile.ts` builds one stage; `stages.ts` plans the split; `voice.ts` is one note's state and
+  lifetime; `voice-pool.ts` allocates and steals; `instrument.ts` ties them together and sums the output.
+* `voices` is saved in the project; older files without it load with the default and no warning (a new
+  optional field with a safe default needs no format-version bump).
+* Measured on the engine alone (Node, this container): 3 tracks / ~3 voices ≈ 2 % of the real-time budget, 8 tracks ×
+  16 voices ≈ 25 %.
 
 ## Undo / redo
 
@@ -147,7 +168,8 @@ every autosave; not recommended beyond a stopgap.)
 ## Common changes
 
 **Add a DSP node** — create `core/dsp/nodes/<name>.node.ts` exporting a `NodeDefinition`, add it to
-`core/dsp/registry.ts`. The patcher palette, parameter UI, engine and file loader pick it up automatically.
+`core/dsp/registry.ts`. Set `shared: true` if it is an effect whose state must outlive individual notes (reverb,
+chorus, …). The patcher palette, parameter UI, engine and file loader pick it up automatically.
 
 **Add an engine capability** — add a variant to `EngineCommand`, handle it in `Engine.apply`, and (if it comes
 from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off UI action, expose it on
@@ -161,7 +183,8 @@ from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off
 
 ## Known POC limits (deliberate)
 
-* Instruments are **monophonic** (last-note priority); one clip plays per track.
+* One clip plays per track. Polyphony has simple voice stealing and no unison, glide or legato modes.
+* A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
 * Oscillators are naive (alias at high pitches); no band-limiting or oversampling.
 * Launch quantisation is fixed at one bar; no recording, audio clips or plugin hosting.
 * History is per session (not saved) and does not cover selection or transport.
@@ -171,5 +194,6 @@ from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off
 
 ## Natural next steps
 
-1. Sample clips + package format (above), 2. polyphony (voice pool per instrument),
-3. offline bounce using `Engine` directly, 4. MIDI input via Web MIDI, 5. WASM DSP nodes (Faust/RNBO).
+1. Sample clips + package format (above), 2. offline bounce using `Engine` directly,
+3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (LFO, reverb, band-limited oscillators),
+5. WASM DSP nodes (Faust/RNBO).

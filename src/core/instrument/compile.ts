@@ -1,5 +1,5 @@
-import { type DspNode, OUTPUT_NODE_TYPE, requireNodeDefinition } from '../dsp'
-import { type Patch, topologicalOrder } from '../patch'
+import { type DspNode, OUTPUT_NODE_TYPE, type ProcessContext, requireNodeDefinition } from '../dsp'
+import type { Patch } from '../patch'
 
 export const MAX_BLOCK_FRAMES = 128
 
@@ -9,27 +9,37 @@ export interface CompiledNode {
   /** Resolved input buffers, in definition order; null when unconnected. */
   readonly inputs: ReadonlyArray<Float32Array | null>
   readonly outputs: readonly Float32Array[]
-  /** Source buffers that must be summed into `inputs[i]` before processing. */
+  /** Source buffers that must be summed into a node's own input buffer before processing. */
   readonly sums: ReadonlyArray<{ target: Float32Array; sources: readonly Float32Array[] }>
 }
 
-export interface CompiledPatch {
+/** One runnable slice of a patch (all voice nodes, or all shared nodes). */
+export interface CompiledStage {
   /** Nodes in execution order. */
   readonly nodes: readonly CompiledNode[]
-  /** Buffers feeding Output nodes; the instrument's audio is their sum. */
+  /** Every output buffer by `bufferKey`, including any seeded from another stage. */
+  readonly outputBuffers: ReadonlyMap<string, Float32Array>
+  /** Buffers feeding this stage's Output nodes; their sum is the stage's audible output. */
   readonly outputSources: readonly Float32Array[]
   readonly byId: ReadonlyMap<string, DspNode>
 }
 
+export const bufferKey = (nodeId: string, portId: string): string => `${nodeId}:${portId}`
+
 const newBuffer = () => new Float32Array(MAX_BLOCK_FRAMES)
 
-/** Turns an immutable patch into DSP instances wired together with preallocated buffers. */
-export const compilePatch = (patch: Patch, sampleRate: number): CompiledPatch => {
-  const order = topologicalOrder(patch)
-  if (!order) throw new Error('Patch contains a cycle')
-
+/**
+ * Instantiates the nodes in `order` (already topologically sorted) and wires them with
+ * preallocated buffers. `seeded` provides buffers produced elsewhere (voice -> shared boundary).
+ */
+export const compileStage = (
+  patch: Patch,
+  order: readonly string[],
+  sampleRate: number,
+  seeded: ReadonlyMap<string, Float32Array> = new Map(),
+): CompiledStage => {
   const nodesById = new Map(patch.nodes.map((node) => [node.id, node]))
-  const outputBuffers = new Map<string, Float32Array>()
+  const outputBuffers = new Map(seeded)
   const byId = new Map<string, DspNode>()
   const nodes: CompiledNode[] = []
   const outputSources: Float32Array[] = []
@@ -44,7 +54,7 @@ export const compilePatch = (patch: Patch, sampleRate: number): CompiledPatch =>
 
     const outputs = definition.outputs.map((port) => {
       const buffer = newBuffer()
-      outputBuffers.set(`${id}:${port.id}`, buffer)
+      outputBuffers.set(bufferKey(id, port.id), buffer)
       return buffer
     })
 
@@ -52,7 +62,7 @@ export const compilePatch = (patch: Patch, sampleRate: number): CompiledPatch =>
     const inputs = definition.inputs.map((port) => {
       const sources = patch.connections
         .filter((c) => c.to.node === id && c.to.port === port.id)
-        .map((c) => outputBuffers.get(`${c.from.node}:${c.from.port}`))
+        .map((c) => outputBuffers.get(bufferKey(c.from.node, c.from.port)))
         .filter((buffer): buffer is Float32Array => buffer !== undefined)
 
       if (sources.length === 0) return null
@@ -62,15 +72,25 @@ export const compilePatch = (patch: Patch, sampleRate: number): CompiledPatch =>
       return target
     })
 
-    if (node.type === OUTPUT_NODE_TYPE) {
-      // An Output node has a single input; reuse the resolved buffer so sums are honoured.
-      const resolved = inputs[0]
-      if (resolved) outputSources.push(resolved)
-    }
+    if (node.type === OUTPUT_NODE_TYPE && inputs[0]) outputSources.push(inputs[0])
 
     byId.set(id, dsp)
     nodes.push({ id, dsp, inputs, outputs, sums })
   }
 
-  return { nodes, outputSources, byId }
+  return { nodes, outputBuffers, outputSources, byId }
+}
+
+/** Runs every node of a stage for `context.frames` samples. */
+export const processStage = (stage: CompiledStage, context: ProcessContext): void => {
+  const { frames } = context
+  for (const node of stage.nodes) {
+    for (const { target, sources } of node.sums) {
+      target.fill(0, 0, frames)
+      for (const source of sources) {
+        for (let i = 0; i < frames; i++) target[i] = (target[i] ?? 0) + (source[i] ?? 0)
+      }
+    }
+    node.dsp.process(context, node.inputs, node.outputs)
+  }
 }

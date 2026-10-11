@@ -1,8 +1,11 @@
 import {
   DEFAULT_SCENE_COUNT,
+  DEFAULT_VOICES,
   MAX_NAME_LENGTH,
   MAX_TEMPO,
+  MAX_VOICES,
   MIN_TEMPO,
+  MIN_VOICES,
   type Project,
   type Track,
 } from '../project'
@@ -39,6 +42,7 @@ const sanitizeTrack = (
     id,
     name,
     volume: clamp(finiteNumber(raw.volume, 0.8), 0, 1),
+    voices: Math.round(clamp(finiteNumber(raw.voices, DEFAULT_VOICES), MIN_VOICES, MAX_VOICES)),
     patch: sanitizePatch(raw.patch, where, warn),
     clips,
   }

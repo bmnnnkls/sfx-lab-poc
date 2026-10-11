@@ -12,9 +12,11 @@ export type EngineCommand =
       readonly patch: Patch
       readonly clips: readonly (Clip | null)[]
       readonly volume: number
+      readonly voices: number
     }
   | { readonly type: 'track/remove'; readonly trackId: string }
   | { readonly type: 'track/setPatch'; readonly trackId: string; readonly patch: Patch }
+  | { readonly type: 'track/setVoices'; readonly trackId: string; readonly voices: number }
   | { readonly type: 'track/setClips'; readonly trackId: string; readonly clips: readonly (Clip | null)[] }
   | { readonly type: 'track/setVolume'; readonly trackId: string; readonly volume: number }
   | {

@@ -7,6 +7,9 @@ export const MIN_TEMPO = 40
 export const MAX_TEMPO = 240
 export const DEFAULT_SCENE_COUNT = 4
 export const MAX_NAME_LENGTH = 80
+export const MIN_VOICES = 1
+export const MAX_VOICES = 16
+export const DEFAULT_VOICES = 8
 
 const updateTrack = (project: Project, trackId: string, change: (track: Track) => Track): Project => ({
   ...project,
@@ -24,10 +27,12 @@ export const createTrack = (
   name: string,
   sceneCount: number,
   patch: Patch = createDefaultPatch(),
+  voices: number = DEFAULT_VOICES,
 ): Track => ({
   id: createId('track'),
   name,
   volume: 0.8,
+  voices,
   patch,
   clips: Array.from({ length: sceneCount }, () => null),
 })
@@ -49,6 +54,12 @@ export const setTempo = (project: Project, tempo: number): Project => ({
 
 export const setTrackVolume = (project: Project, trackId: string, volume: number): Project =>
   updateTrack(project, trackId, (track) => ({ ...track, volume: clamp(volume, 0, 1) }))
+
+export const setTrackVoices = (project: Project, trackId: string, voices: number): Project =>
+  updateTrack(project, trackId, (track) => ({
+    ...track,
+    voices: Math.round(clamp(voices, MIN_VOICES, MAX_VOICES)),
+  }))
 
 export const setTrackPatch = (project: Project, trackId: string, patch: Patch): Project =>
   updateTrack(project, trackId, (track) => ({ ...track, patch }))

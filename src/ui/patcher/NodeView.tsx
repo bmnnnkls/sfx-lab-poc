@@ -6,6 +6,8 @@ import { useNodeDrag } from './use-node-drag'
 
 interface NodeViewProps {
   node: PatchNode
+  /** Runs once on the mix of all voices (effects), rather than once per voice. */
+  shared: boolean
   onMove(x: number, y: number): void
   onRemove(): void
   onParamChange(paramId: string, value: number): void
@@ -13,7 +15,7 @@ interface NodeViewProps {
   onWireEnd(to: PortRef): void
 }
 
-export const NodeView = ({ node, onMove, onRemove, onParamChange, onWireStart, onWireEnd }: NodeViewProps) => {
+export const NodeView = ({ node, shared, onMove, onRemove, onParamChange, onWireStart, onWireEnd }: NodeViewProps) => {
   const definition = requireNodeDefinition(node.type)
   const drag = useNodeDrag(node.x, node.y, onMove)
   const rows = Math.max(definition.inputs.length, definition.outputs.length)
@@ -21,7 +23,14 @@ export const NodeView = ({ node, onMove, onRemove, onParamChange, onWireStart, o
   return (
     <div className={styles.node} style={{ left: node.x, top: node.y, width: NODE_WIDTH }}>
       <div className={styles.nodeHeader} style={{ height: HEADER_HEIGHT }} {...drag}>
-        <span>{definition.label}</span>
+        <span>
+          {definition.label}
+          {shared && (
+            <em className={styles.sharedTag} title="Runs once on the mixed signal of all voices">
+              shared
+            </em>
+          )}
+        </span>
         <button
           className={styles.remove}
           onPointerDown={(event) => event.stopPropagation()}

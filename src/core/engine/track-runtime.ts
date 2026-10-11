@@ -11,18 +11,25 @@ export class TrackRuntime {
   private instrument: Instrument
 
   constructor(
-    patch: Patch,
+    private patch: Patch,
     clips: readonly (Clip | null)[],
     volume: number,
+    private voices: number,
     private readonly sampleRate: number,
   ) {
-    this.instrument = new Instrument(patch, sampleRate)
+    this.instrument = new Instrument(patch, sampleRate, voices)
     this.clips = clips
     this.volume = volume
   }
 
   setPatch(patch: Patch): void {
-    this.instrument = new Instrument(patch, this.sampleRate)
+    this.patch = patch
+    this.instrument = new Instrument(patch, this.sampleRate, this.voices)
+  }
+
+  setVoices(voices: number): void {
+    this.voices = voices
+    this.instrument = new Instrument(this.patch, this.sampleRate, voices)
   }
 
   setClips(clips: readonly (Clip | null)[]): void {

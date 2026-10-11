@@ -55,5 +55,6 @@ export const delayNode: NodeDefinition = {
   inputs: [{ id: 'in', label: 'In' }],
   outputs: [{ id: 'out', label: 'Out' }],
   params: PARAMS,
+  shared: true,
   create: (sampleRate) => new Delay(sampleRate),
 }

@@ -54,5 +54,11 @@ export interface NodeDefinition {
   readonly inputs: readonly PortSpec[]
   readonly outputs: readonly PortSpec[]
   readonly params: readonly ParamSpec[]
+  /**
+   * Effects such as delay keep state that must outlive any single note, so they run once per
+   * instrument on the sum of all voices instead of once per voice. Everything downstream of a
+   * shared node is shared too.
+   */
+  readonly shared?: boolean
   create(sampleRate: number): DspNode
 }
