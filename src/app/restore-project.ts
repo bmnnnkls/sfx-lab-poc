@@ -7,7 +7,7 @@ export const restoreSavedProject = (storage: ProjectStorage): void => {
   const outcome = storage.loadCurrent()
 
   if (outcome.status === 'loaded') {
-    useProjectStore.getState().replaceProject(outcome.project)
+    useProjectStore.getState().resetProject(outcome.project)
     if (outcome.warnings.length > 0) {
       notify('warning', 'Your saved project needed repairs', outcome.warnings)
     }

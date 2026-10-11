@@ -37,3 +37,8 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
+
+.bar button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

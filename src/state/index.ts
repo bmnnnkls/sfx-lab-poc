@@ -1,4 +1,10 @@
-export { useProjectStore, selectTrack, type ProjectState } from './project-store'
+export {
+  selectCanRedo,
+  selectCanUndo,
+  selectTrack,
+  useProjectStore,
+  type ProjectState,
+} from './project-store'
 export { useSelectionStore, type EditorTab } from './selection-store'
 export { useStatusStore } from './status-store'
 export {

@@ -1,6 +1,7 @@
 import { MAX_TEMPO, MIN_TEMPO } from '@core'
 import { useEngineControls, useProjectStore, useStatusStore } from '@state'
 import { FileMenu } from '../file-menu/FileMenu'
+import { HistoryButtons } from '../history-buttons/HistoryButtons'
 import { formatPosition } from './format-position'
 import styles from './TransportBar.module.css'
 
@@ -31,6 +32,7 @@ export const TransportBar = () => {
         />
       </label>
       <span className={styles.position}>{formatPosition(beat)}</span>
+      <HistoryButtons />
       <FileMenu />
     </header>
   )

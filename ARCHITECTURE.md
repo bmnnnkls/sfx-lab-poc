@@ -48,6 +48,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` | `Engine`, `EngineCommand`, `EngineStatus` |
 | `sync` | diffs two `Project`s into `EngineCommand`s | `diffProject` |
 | `persistence` | project file format: envelope, versioned migrations, sanitizing | `serializeProject`, `parseProject` |
+| `history` | generic undo/redo over immutable snapshots | `createHistory`, `commit`, `undo`, `redo` |
 
 ### Data flow
 
@@ -71,6 +72,25 @@ Each folder exposes one `index.ts`; everything else in it is private.
   come from beat ranges `[from, to)` that are contiguous across blocks, so each fires exactly once.
 * **The `Engine` has no browser dependency**, so the same code is unit-tested in Node, and could render
   offline (bounce/export) without changes.
+
+## Undo / redo
+
+* `core/history` is a generic, pure `History<T>` (`past` / `present` / `future`). The project store holds a
+  `History<Project>`; `project` is always `history.present`. Snapshots are immutable, so unchanged tracks, clips
+  and patches are shared between entries and keeping 200 steps is cheap.
+* **Every document edit is undoable**, including replacing the whole project (import / new / demo / restore).
+  The startup load is not (`resetProject`), so a fresh session starts with an empty history. Selection, transport
+  and the playhead are not part of history.
+* **Drags are one step.** Continuous edits pass a merge key (`param:<track>:<node>:<param>`, `move:<track>:<node>`,
+  `volume:<track>`, `tempo`, `name`); consecutive edits with the same key within 800 ms collapse into a single
+  entry. Discrete actions (add node, connect, toggle note, add track…) pass no key, so each is its own step.
+  An undo or redo always ends the merge, so the next edit starts a new step.
+* **Nothing else needs to know.** Undo/redo just changes `project`, so `diffProject` updates the engine (param
+  changes become `setParam`, structural ones rebuild the voice) and autosave stores the undone state. History
+  itself is not saved: it is empty after a reload.
+* UI: ↶ ↷ buttons in the transport bar and `Ctrl/⌘+Z`, `Ctrl/⌘+Shift+Z`, `Ctrl/⌘+Y` (ignored inside text fields,
+  which keep the browser's own undo).
+* **To make a new continuous control undoable as one step**, pass a stable merge key to its store action.
 
 ## Saving, loading, import/export
 
@@ -144,13 +164,12 @@ from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off
 * Instruments are **monophonic** (last-note priority); one clip plays per track.
 * Oscillators are naive (alias at high pitches); no band-limiting or oversampling.
 * Launch quantisation is fixed at one bar; no recording, audio clips or plugin hosting.
-* No undo/redo (the one-slot backup is the only safety net for replacing a project).
+* History is per session (not saved) and does not cover selection or transport.
 * One autosaved project per browser. Two tabs on the same site overwrite each other (last write wins).
   `localStorage` holds ~5 MB, plenty for projects, not for samples (see above).
 * Targets desktop Chromium/Firefox. Safari/iOS quirks are untested.
 
 ## Natural next steps
 
-1. Sample clips + package format (above), 2. undo/redo (projects are immutable snapshots, so a history stack is
-small), 3. polyphony (voice pool per instrument), 4. offline bounce using `Engine` directly,
-5. MIDI input via Web MIDI, 6. WASM DSP nodes (Faust/RNBO).
+1. Sample clips + package format (above), 2. polyphony (voice pool per instrument),
+3. offline bounce using `Engine` directly, 4. MIDI input via Web MIDI, 5. WASM DSP nodes (Faust/RNBO).

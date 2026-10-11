@@ -15,7 +15,8 @@ export const Patcher = () => {
   const track = tracks.find((candidate) => candidate.id === selectedId) ?? tracks[0]
   if (!track) return <p className={styles.empty}>Add a track to edit its instrument.</p>
 
-  const edit = (change: Parameters<typeof updatePatch>[1]) => updatePatch(track.id, change)
+  const edit = (change: Parameters<typeof updatePatch>[1], mergeKey?: string) =>
+    updatePatch(track.id, change, mergeKey)
 
   return (
     <div className={styles.patcher}>
@@ -31,9 +32,11 @@ export const Patcher = () => {
       </div>
       <PatchCanvas
         patch={track.patch}
-        onMoveNode={(id, x, y) => edit((patch) => moveNode(patch, id, x, y))}
+        onMoveNode={(id, x, y) => edit((patch) => moveNode(patch, id, x, y), `move:${track.id}:${id}`)}
         onRemoveNode={(id) => edit((patch) => removeNode(patch, id))}
-        onParamChange={(id, paramId, value) => edit((patch) => setNodeParam(patch, id, paramId, value))}
+        onParamChange={(id, paramId, value) =>
+          edit((patch) => setNodeParam(patch, id, paramId, value), `param:${track.id}:${id}:${paramId}`)
+        }
         onConnect={(from, to) => edit((patch) => connect(patch, from, to))}
         onDisconnect={(id) => edit((patch) => disconnect(patch, id))}
       />
