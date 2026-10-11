@@ -3,10 +3,15 @@
 Things we have decided are worth doing but have not started. Newest first. Move an item to `ARCHITECTURE.md`
 (as documentation of what exists) when it ships, and delete it here.
 
+## Ideas for the next nodes, controls and effects
+
+A pool of candidate work (live controls inside cards, indicators, analysis nodes, noise including Perlin, granular and glitch
+effects, spectral processing, example modules, workflow), rated by value and cost so we can pick: [`IDEAS-nodes-and-controls.md`](IDEAS-nodes-and-controls.md).
+
 ## Control nodes, property editor, quick-add, node pictures, math nodes
 
-Status: **planned, not started.** Full plan, decisions and build order: [`HANDOFF-control-nodes.md`](HANDOFF-control-nodes.md). It supersedes
-the panel's bindings model (the widgets and the board stay) and takes over most of the follow-ups below.
+Status: **built (steps 1 to 8).** What exists is described in `ARCHITECTURE.md`; the plan and what was left out ("Not done") are in
+[`HANDOFF-control-nodes.md`](HANDOFF-control-nodes.md). It took over most of the front-panel follow-ups below.
 
 ## Front panel follow-ups
 
