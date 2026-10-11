@@ -98,5 +98,7 @@ describe('spanOf', () => {
     expect(spanOf(item({ kind: 'xy', size: 'M' }))).toEqual({ cols: 3, rows: 2 })
     expect(spanOf(item({ kind: 'switch' }))).toEqual({ cols: 1, rows: 1 })
     expect(spanOf(item({ kind: 'switch', size: 'L' }))).toEqual({ cols: 3, rows: 1 })
+    expect(spanOf(item({ kind: 'selector' }))).toEqual({ cols: 2, rows: 1 })
+    expect(spanOf(item({ kind: 'selector', size: 'L' }))).toEqual({ cols: 4, rows: 1 })
   })
 })

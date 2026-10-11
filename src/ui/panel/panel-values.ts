@@ -39,7 +39,7 @@ export interface Span {
 
 const STEP: Record<ControlSize, number> = { S: 0, M: 1, L: 2 }
 
-/** Grid cells a control takes. A knob grows square, a slider along its length, a pad wide; a switch is one cell. */
+/** Grid cells a control takes. A knob grows square, a slider along its length, a pad wide; a switch is one cell and a selector a short row. */
 export const spanOf = (item: Pick<PanelItem, 'kind' | 'size' | 'horizontal'>): Span => {
   const step = STEP[item.size]
   switch (item.kind) {
@@ -51,6 +51,8 @@ export const spanOf = (item: Pick<PanelItem, 'kind' | 'size' | 'horizontal'>): S
       return item.size === 'S' ? { cols: 2, rows: 2 } : item.size === 'M' ? { cols: 3, rows: 2 } : { cols: 3, rows: 3 }
     case 'switch':
       return { cols: step + 1, rows: 1 }
+    case 'selector':
+      return { cols: step + 2, rows: 1 }
   }
 }
 

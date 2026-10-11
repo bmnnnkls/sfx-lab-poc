@@ -55,6 +55,8 @@ export interface ParamSpec {
   readonly unitFrom?: 'unit' | 'unitY'
   /** How a knob or slider maps its position onto the range. Absent: logarithmic for wide positive ranges, else linear (`liveSpec` sets it from a control's own `curve`). */
   readonly curve?: 'linear' | 'log' | 'exp'
+  /** `false`: no socket for this parameter although it is numeric (a setting, or a value the panel owns, such as a switch's state). */
+  readonly socket?: false
 }
 
 /** The note currently held by an instrument, shared with every node in its patch. */
@@ -156,10 +158,10 @@ export interface NodeDefinition {
    */
   readonly global?: boolean
   /**
-   * The node is itself a control that can sit on a panel: `value` (one knob or slider), `xy` (a pad) or `switch`.
+   * The node is itself a control that can sit on a panel: `value` (one knob or slider), `xy` (a pad), `switch` or `selector`.
    * Its parameters are settings (range, step), not knobs.
    */
-  readonly panelKind?: 'value' | 'xy' | 'switch'
+  readonly panelKind?: 'value' | 'xy' | 'switch' | 'selector'
   /**
    * The node may also sit in a note graph (controls and math nodes): there it works out constants that drive the note nodes'
    * parameters, and has no sound of its own.

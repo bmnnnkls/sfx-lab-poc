@@ -38,7 +38,7 @@ describe('searchCatalog', () => {
     expect(searchCatalog(catalog, '').map((entry) => entry.ref)).toEqual(catalog.entries.map((entry) => entry.ref))
     expect(searchCatalog(catalog, '  ')).toHaveLength(catalog.entries.length)
     expect(searchCatalog(catalog, '', 'Filters').map((entry) => entry.label)).toEqual(['Filter'])
-    expect(searchCatalog(catalog, '', 'Controls').map((entry) => entry.label)).toEqual(['Control', 'XY pad', 'Switch'])
+    expect(searchCatalog(catalog, '', 'Controls').map((entry) => entry.label)).toEqual(['Control', 'XY pad', 'Switch', 'Selector'])
   })
 
   it('ranks the label first: equal, then prefix, then the start of a word, then contained', () => {

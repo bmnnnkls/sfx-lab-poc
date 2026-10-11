@@ -24,7 +24,11 @@ describe('parameter sockets', () => {
       const own = new Set(definition.inputs.map((port) => port.id))
       for (const socket of paramSockets(definition)) expect(own.has(socket.id), `${definition.type} ${socket.id}`).toBe(false)
     }
-    for (const type of ['control', 'xyPad', 'switch']) expect(paramSockets(requireNodeDefinition(type))).toEqual([])
+    for (const type of ['control', 'xyPad', 'selector']) expect(paramSockets(requireNodeDefinition(type))).toEqual([])
+  })
+
+  it('a switch has sockets for the two values it outputs, not for its state or its pulse-making mode', () => {
+    expect(paramSockets(requireNodeDefinition('switch')).map((socket) => socket.param)).toEqual(['offValue', 'onValue', 'pulse'])
   })
 
   it('a socket carries the parameter label, so a card and a tooltip can name it', () => {

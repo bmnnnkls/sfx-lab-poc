@@ -395,7 +395,7 @@ slider (the same `track.volume`) and gains no other control; its header only str
 ## Front panel (the control nodes, arranged)
 
 Every graph editor (Instrument, Effects, Notes, the Master's effects, the inside of a module) has a **Graph | Panel** switch.
-*Panel* replaces the canvas with a board of the graph's **control nodes** as knobs, sliders, XY pads and switches. The switch is
+*Panel* replaces the canvas with a board of the graph's **control nodes** as knobs, sliders, XY pads, switches and selectors. The switch is
 remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`): a way of looking, not part of the project.
 
 * **The panel is the control nodes** (`core/patch/panel.ts`). There is no list of controls and no bindings: a knob on the board IS a
@@ -473,7 +473,7 @@ plain cards; the property editor, the panel built from control nodes and the nod
   driving a gain or a delay mix under a three-note chord sounds exactly like the value typed in). Insert graphs and the master
   graph (`FxGraph`) have one copy of every node, so they need no stages; they get feeds from the same `processStage`.
 * **Nodes.** *Control* (`value`, `min`, `max`, `curve`, `step`, `default`; output `out`), *XY pad* (the same per axis, `x` / `xMin`
-  / ..., outputs `x`, `y`) and *Switch* (`on`, `mode` toggle / momentary; output 0 or 1). They output the **real value** in their
+  / ..., outputs `x`, `y`) and *Switch* (`on`, `mode` toggle / momentary / trigger, `offValue` and `onValue` (0 and 1 until set; both have sockets, `on` and the mode do not: `ParamSpec.socket: false`), `pulse`) and *Selector* (`index`, `count`; outputs the chosen position from 0, `panelKind: 'selector'`). A switch in `trigger` mode is a push button: the panel holds it like a momentary switch, and the node outputs the on value for `pulse` seconds from the rising edge of `on` (seen in `setParam`, so a press shorter than a block still pulses). They output the **real value** in their
   own range, clamped and snapped to the step by the node itself, so the specs' own bounds are wide (+-100000) and
   `ParamSpec.range` says "my range is the node's `min` / `max` / `step`" (`liveSpec` resolves it; the cards use it for the
   slider). `curve` (linear / log / exp) is for the knobs' mapping; the engine ignores it. Math nodes (`dsp/nodes/math/`,
@@ -592,7 +592,7 @@ plain cards; the property editor, the panel built from control nodes and the nod
   change (the control holds what the parameter had). It refuses an enum, a parameter without a socket, and one that already has a wire
   (a second would add to the first; the menu leaves it out). A wired socket's menu has **Disconnect** (every wire into it); an
   ordinary input has a menu only when wired; note-graph nodes have no sockets, so nothing to create from there.
-* **Control fields** (`PatchNode.unit`, `unitY`, `display`; `NodeDefinition.panelKind` is `value` / `xy` / `switch`). `unit` is text (at
+* **Control fields** (`PatchNode.unit`, `unitY`, `display`; `NodeDefinition.panelKind` is `value` / `xy` / `switch` / `selector`). `unit` is text (at
   most 16 characters, blank = none; `setNodeUnit`), `display` is `knob` (stored as nothing), `slider` or `slider-horizontal`
   (`setNodeDisplay`); the sanitizer keeps a unit only on a control with a value to show (not a switch), `unitY` only on a pad, and
   `display` only on a *Control*. A control has no separate label: its **name** is its caption on the panel. Optional fields, no

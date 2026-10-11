@@ -2,7 +2,7 @@ import { type ModuleLibrary, type PortRef, type Patch, describeNode, nodeTitles 
 import { useMemo, useState } from 'react'
 import styles from './panel.module.css'
 
-export type AddKind = 'knob' | 'slider' | 'slider-horizontal' | 'xy' | 'switch'
+export type AddKind = 'knob' | 'slider' | 'slider-horizontal' | 'xy' | 'switch' | 'selector'
 
 export interface AddDraft {
   readonly kind: AddKind
@@ -42,7 +42,8 @@ export const AddControl = ({ patch, modules, onAdd }: { patch: Patch; modules: M
   const x = choices.find((choice) => choice.id === first)
   const y = choices.find((choice) => choice.id === second)
   // A pad with one parameter chosen would be half wired: ask for both or neither.
-  const ready = kind === 'switch' || (kind === 'xy' ? (x === undefined) === (y === undefined) && (x === undefined || x.id !== y?.id) : true)
+  const blank = kind === 'switch' || kind === 'selector'
+  const ready = blank || (kind === 'xy' ? (x === undefined) === (y === undefined) && (x === undefined || x.id !== y?.id) : true)
 
   return (
     <form
@@ -51,7 +52,7 @@ export const AddControl = ({ patch, modules, onAdd }: { patch: Patch; modules: M
       onSubmit={(event) => {
         event.preventDefault()
         if (!ready) return
-        onAdd({ kind, ...(kind === 'switch' || !x ? {} : { x: x.ref }), ...(kind === 'xy' && y ? { y: y.ref } : {}) })
+        onAdd({ kind, ...(blank || !x ? {} : { x: x.ref }), ...(kind === 'xy' && y ? { y: y.ref } : {}) })
         setFirst('')
         setSecond('')
       }}
@@ -62,8 +63,9 @@ export const AddControl = ({ patch, modules, onAdd }: { patch: Patch; modules: M
         <option value="slider-horizontal">Slider, sideways</option>
         <option value="xy">XY pad</option>
         <option value="switch">Switch</option>
+        <option value="selector">Selector</option>
       </select>
-      {kind !== 'switch' && (
+      {!blank && (
         <select aria-label="Parameter" value={first} onChange={(event) => setFirst(event.target.value)}>
           <option value="">{kind === 'xy' ? 'X parameter (or none)…' : 'Parameter (or none)…'}</option>
           {choices.map((choice) => (

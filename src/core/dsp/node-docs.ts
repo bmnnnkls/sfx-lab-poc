@@ -83,12 +83,25 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
   },
   switch: {
     category: 'Controls',
-    description: 'An on/off switch: it outputs 1 while on and 0 while off.',
-    keywords: ['toggle', 'button', 'on', 'off', 'momentary'],
-    outputs: { out: '1 while on, 0 while off.' },
+    description: 'An on/off switch or push button: it outputs one value while off and another while on (0 and 1 until you set them).',
+    keywords: ['toggle', 'button', 'push', 'trigger', 'on', 'off', 'momentary', 'pulse'],
+    outputs: { out: 'The off value while off, the on value while on. As a trigger, the on value for a short pulse after each press.' },
     params: {
       on: 'Whether the switch is on.',
-      mode: 'A toggle stays where it is put; a momentary switch is on only while it is held.',
+      mode: 'A toggle stays where it is put; a momentary switch is on only while held; a trigger sends one short pulse per press.',
+      offValue: 'What the switch outputs while it is off.',
+      onValue: 'What the switch outputs while it is on.',
+      pulse: 'How long a trigger stays on after a press, in seconds.',
+    },
+  },
+  selector: {
+    category: 'Controls',
+    description: 'A row of buttons as a node: it outputs the number of the chosen one, counting from 0.',
+    keywords: ['choose', 'radio', 'option', 'pick', 'switch', 'index', 'buttons'],
+    outputs: { out: 'The chosen position, from 0. Constant for the whole block.' },
+    params: {
+      index: 'The chosen position, counting from 0.',
+      count: 'How many positions there are.',
     },
   },
 

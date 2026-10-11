@@ -56,7 +56,7 @@ export const PanelView = ({ patch, modules, scope, edit }: PanelViewProps) => {
   const add = (draft: AddDraft) =>
     edit((current, library) => {
       const at = spotBelow(current, panelItems(current, library).length)
-      if (draft.kind === 'switch') return createBlankControl(current, 'switch', at).patch
+      if (draft.kind === 'switch' || draft.kind === 'selector') return createBlankControl(current, draft.kind, at).patch
       if (draft.kind === 'xy') {
         if (draft.x && draft.y) return createXyFor(current, library, { node: draft.x.node, port: draft.x.port }, draft.y, { at })?.patch ?? current
         return createBlankControl(current, 'xy', at).patch

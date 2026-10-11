@@ -1,6 +1,6 @@
 import { type ControlSize, type ModuleLibrary, type PanelItem, describeNode } from '@core'
 import { type DragEvent, useState } from 'react'
-import { Fader, Knob, Toggle, XYPad } from '../controls'
+import { Fader, Knob, Selector, Toggle, XYPad } from '../controls'
 import styles from './panel.module.css'
 import { axisSpec, defaultPosition, keyStep, knobWidth, positionOf, readValue, spanOf, valueAt } from './panel-values'
 
@@ -119,10 +119,21 @@ export const ControlCell = ({ item, modules, title, editing, first, last, onSet,
           <Toggle
             label={title}
             on={(node.params.on ?? 0) >= 0.5}
-            momentary={Math.round(node.params.mode ?? 0) === 1}
+            momentary={Math.round(node.params.mode ?? 0) >= 1}
             onChange={(on) => onSet([{ param: 'on', value: on ? 1 : 0 }])}
           />
         )
+      case 'selector': {
+        const count = Math.max(2, Math.round(node.params.count ?? 4))
+        return (
+          <Selector
+            label={title}
+            options={Array.from({ length: count }, (_, position) => String(position + 1))}
+            index={Math.min(count - 1, Math.max(0, Math.round(node.params.index ?? 0)))}
+            onChange={(position) => onSet([{ param: 'index', value: position }])}
+          />
+        )
+      }
     }
   })()
 

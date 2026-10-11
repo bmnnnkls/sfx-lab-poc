@@ -25,6 +25,7 @@ import { sampleHoldNode } from './nodes/math/sample-hold.node'
 import { hzToMidiNode, midiToHzNode } from './nodes/math/midi'
 import { mapRangeNode, mixNode, quantizeNode } from './nodes/math/shaping'
 import { smoothNode } from './nodes/math/smooth.node'
+import { selectorNode } from './nodes/selector.node'
 import { switchNode } from './nodes/switch.node'
 import { xyPadNode } from './nodes/xy-pad.node'
 import { documented } from './document'
@@ -56,6 +57,7 @@ const plainDefinitions: readonly NodeDefinition[] = [
   controlNode,
   xyPadNode,
   switchNode,
+  selectorNode,
   addNode,
   multiplyNode,
   invertNode,

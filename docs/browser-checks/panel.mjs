@@ -156,6 +156,30 @@ await view('Panel')
 await toggle.click()
 check('and off again', (await toggle.getAttribute('aria-checked')) === 'false')
 
+// ---- a push button: the Switch's trigger mode is held on the panel like a momentary switch
+await view('Graph')
+await selectNode('Switch')
+await properties().getByLabel('Mode', { exact: true }).selectOption({ label: 'trigger' })
+await view('Panel')
+check('a trigger switch is a push button: on only while pressed', (await toggle.getAttribute('data-momentary')) === 'true')
+await toggle.dispatchEvent('pointerdown')
+check('pressed, it is on', (await toggle.getAttribute('aria-checked')) === 'true')
+await toggle.dispatchEvent('pointerup')
+check('released, it is off again', (await toggle.getAttribute('aria-checked')) === 'false')
+
+// ---- a selector: buttons that output the chosen position
+await page.getByRole('button', { name: 'Edit panel' }).click()
+await addControl('selector')
+await page.getByRole('button', { name: 'Done' }).click()
+const choices = page.getByRole('radiogroup').first().getByRole('radio')
+check('a selector is added with four positions, the first chosen', (await choices.count()) === 4 && (await choices.nth(0).getAttribute('aria-checked')) === 'true')
+await choices.nth(2).click()
+check('choosing a button chooses it', (await choices.nth(2).getAttribute('aria-checked')) === 'true' && (await choices.nth(0).getAttribute('aria-checked')) === 'false')
+await view('Graph')
+await selectNode('Selector')
+check('and writes the node\'s Position (counting from 0)', (await valueField('Position').inputValue()) === '2')
+await view('Panel')
+
 // ---- edit mode: rename, resize, move, hide, remove
 await page.getByRole('button', { name: 'Edit panel' }).click()
 const nameField = page.getByLabel('Name of Res / Detune', { exact: true })
