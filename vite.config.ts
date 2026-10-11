@@ -5,6 +5,8 @@ import { defineConfig } from 'vitest/config'
 const fromRoot = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
 export default defineConfig({
+  // Overridden in CI so the app works when served from a sub-path (GitHub Pages).
+  base: process.env.BASE_PATH ?? '/',
   plugins: [react()],
   resolve: {
     alias: {

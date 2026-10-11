@@ -13,6 +13,10 @@ npm test           # unit tests + architecture (layering) test
 npm run build      # typecheck + production build
 ```
 
+## Live demo (GitHub Pages)
+
+Pushes deploy automatically via `.github/workflows/deploy-pages.yml`. One-time setup: repo **Settings → Pages → Source: GitHub Actions**. The site is then at `https://<user>.github.io/sfx-lab-poc/`.
+
 Use a Chromium-based browser or Firefox. Audio starts on your first click (browser autoplay policy).
 
 ## Try it
