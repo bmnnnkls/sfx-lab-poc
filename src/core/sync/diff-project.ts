@@ -15,6 +15,8 @@ const structureOf = (patch: Patch): string =>
  * track that uses it.
  */
 const diffPatch = (
+  /** `patch` is the instrument's sound patch, `fx` the track's insert graph. */
+  slot: 'patch' | 'fx',
   trackId: string,
   prevPatch: Patch,
   prevModules: ModuleLibrary,
@@ -25,7 +27,9 @@ const diffPatch = (
   const prev = flattenPatch(prevPatch, prevModules)
   const next = flattenPatch(nextPatch, nextModules)
   if (prev === next) return []
-  if (structureOf(prev) !== structureOf(next)) return [{ type: 'track/setPatch', trackId, patch: next }]
+  if (structureOf(prev) !== structureOf(next)) {
+    return [slot === 'fx' ? { type: 'track/setFx', trackId, graph: next } : { type: 'track/setPatch', trackId, patch: next }]
+  }
 
   // Same wiring: push only what changed so knobs and pickers work without rebuilding the voice.
   const commands: EngineCommand[] = []
@@ -64,7 +68,7 @@ const diffInstrumentTrack = (
   before: ModuleLibrary,
   after: ModuleLibrary,
 ): EngineCommand[] => {
-  const commands = diffPatch(next.id, prev.patch, before, next.patch, after)
+  const commands = diffPatch('patch', next.id, prev.patch, before, next.patch, after)
   if (!sameClips(prev.clips, next.clips)) {
     commands.push({ type: 'track/setClips', trackId: next.id, clips: next.clips })
   }
@@ -93,6 +97,7 @@ const diffTrack = (prev: Track, next: Track, before: ModuleLibrary, after: Modul
       : prev.kind === 'audio' && next.kind === 'audio'
         ? diffAudioTrack(prev, next)
         : []
+  commands.push(...diffPatch('fx', next.id, prev.fx, before, next.fx, after))
   if (prev.volume !== next.volume) {
     commands.push({ type: 'track/setVolume', trackId: next.id, volume: next.volume })
   }
@@ -101,13 +106,21 @@ const diffTrack = (prev: Track, next: Track, before: ModuleLibrary, after: Modul
 
 const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
   track.kind === 'audio'
-    ? { type: 'track/add', kind: 'audio', trackId: track.id, clips: track.clips, volume: track.volume }
+    ? {
+        type: 'track/add',
+        kind: 'audio',
+        trackId: track.id,
+        fx: flattenPatch(track.fx, modules),
+        clips: track.clips,
+        volume: track.volume,
+      }
     : {
         type: 'track/add',
         kind: 'instrument',
         trackId: track.id,
         patch: flattenPatch(track.patch, modules),
         noteGraph: flattenPatch(track.noteGraph, modules),
+        fx: flattenPatch(track.fx, modules),
         clips: track.clips,
         volume: track.volume,
         voices: track.voices,

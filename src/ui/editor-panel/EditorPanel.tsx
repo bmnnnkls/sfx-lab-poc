@@ -1,5 +1,6 @@
 import { useSelectionStore } from '@state'
 import { ClipEditor } from '../clip-editor/ClipEditor'
+import { FxPanel } from '../patcher/FxPanel'
 import { NoteEffectsPanel } from '../note-effects/NoteEffectsPanel'
 import { Patcher } from '../patcher/Patcher'
 import { SamplesPanel } from '../samples/SamplesPanel'
@@ -16,6 +17,9 @@ export const EditorPanel = () => {
         <button className={tab === 'device' ? styles.active : ''} onClick={() => setTab('device')}>
           Instrument
         </button>
+        <button className={tab === 'fx' ? styles.active : ''} onClick={() => setTab('fx')} title="Effects: process the track's sound after the instrument (or the samples) and before the fader">
+          Effects
+        </button>
         <button className={tab === 'notes' ? styles.active : ''} onClick={() => setTab('notes')} title="MIDI effects: change the notes before they reach the instrument">
           Notes
         </button>
@@ -27,7 +31,7 @@ export const EditorPanel = () => {
         </button>
       </nav>
       <div className={styles.body}>
-        {tab === 'device' ? <Patcher /> : tab === 'notes' ? <NoteEffectsPanel /> : tab === 'clip' ? <ClipEditor /> : <SamplesPanel />}
+        {tab === 'device' ? <Patcher /> : tab === 'fx' ? <FxPanel /> : tab === 'notes' ? <NoteEffectsPanel /> : tab === 'clip' ? <ClipEditor /> : <SamplesPanel />}
       </div>
     </div>
   )

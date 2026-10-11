@@ -1,3 +1,5 @@
+import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
+import type { Patch } from '../patch'
 import type { AudioClip } from '../project'
 import type { SampleLookup } from '../sample'
 import { AudioClipLauncher, type AudioEvent, type LauncherStatus } from '../session'
@@ -32,8 +34,12 @@ export class AudioTrackRuntime implements PlayableTrack {
   private playing: Playing | null = null
   private tail: Tail | null = null
   private readonly tailFrames: number
+  private fx: FxGraph
+  /** The clip audio of the current stretch, before the insert graph. */
+  private readonly scratch = new Float32Array(MAX_BLOCK_FRAMES)
 
   constructor(
+    fx: Patch,
     clips: readonly (AudioClip | null)[],
     volume: number,
     private readonly samples: SampleLookup,
@@ -42,6 +48,19 @@ export class AudioTrackRuntime implements PlayableTrack {
     this.clips = clips
     this.volume = volume
     this.tailFrames = Math.max(1, Math.round(TAIL_SECONDS * sampleRate))
+    this.fx = new FxGraph(fx, sampleRate, samples)
+  }
+
+  setFx(fx: Patch): void {
+    this.fx = new FxGraph(fx, this.sampleRate, this.samples)
+  }
+
+  setParam(nodeId: string, paramId: string, value: number): void {
+    this.fx.setParam(nodeId, paramId, value)
+  }
+
+  setSample(nodeId: string, sampleId: string | null): void {
+    this.fx.setSample(nodeId, sampleId)
   }
 
   setClips(clips: readonly (AudioClip | null)[]): void {
@@ -104,25 +123,26 @@ export class AudioTrackRuntime implements PlayableTrack {
     if (this.playing) this.tail = { voice: this.playing, framesLeft: this.tailFrames, total: this.tailFrames }
   }
 
+  /** The clip audio goes through the insert graph (which keeps ringing after the clip ends), then the fader. */
   mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, timing: MixTiming): void {
+    this.scratch.fill(0, 0, frames)
     if (this.tail) {
-      const alive = this.mixVoice(this.tail.voice, left, right, offset, frames, timing, this.tail)
+      const alive = this.mixVoice(this.tail.voice, frames, timing, this.tail)
       this.tail.framesLeft -= frames
       if (!alive || this.tail.framesLeft <= 0) this.tail = null
     }
-    if (this.playing && !this.mixVoice(this.playing, left, right, offset, frames, timing)) this.playing = null
+    if (this.playing && !this.mixVoice(this.playing, frames, timing)) this.playing = null
+
+    const signal = this.fx.process(this.scratch, frames)
+    for (let i = 0; i < frames; i++) {
+      const value = (signal[i] ?? 0) * this.volume
+      left[offset + i] = (left[offset + i] ?? 0) + value
+      right[offset + i] = (right[offset + i] ?? 0) + value
+    }
   }
 
-  /** Adds `frames` of `voice` to the buses. Returns false once the clip has finished (a non-looping pass ended). */
-  private mixVoice(
-    voice: Playing,
-    left: Float32Array,
-    right: Float32Array,
-    offset: number,
-    frames: number,
-    timing: MixTiming,
-    tail?: Tail,
-  ): boolean {
+  /** Adds `frames` of `voice` to the scratch buffer. Returns false once the clip has finished (a non-looping pass ended). */
+  private mixVoice(voice: Playing, frames: number, timing: MixTiming, tail?: Tail): boolean {
     const sample = this.samples.get(voice.clip.sampleId)
     if (!sample) return true // a sample that hasn't arrived yet just plays silence, then joins in phase
 
@@ -132,7 +152,7 @@ export class AudioTrackRuntime implements PlayableTrack {
     const regionLength = region.endPos - region.startPos
     const fadeInFrames = clip.fadeIn * sample.sampleRate
     const fadeOutFrames = clip.fadeOut * sample.sampleRate
-    const gain = clip.gain * this.volume
+    const gain = clip.gain
     const nativeSpeed = sample.sampleRate / this.sampleRate
     if (voice.position < 0) voice.position = region.startPos
 
@@ -161,8 +181,7 @@ export class AudioTrackRuntime implements PlayableTrack {
         level *= remaining / tail.total
       }
       const value = readRegion(data, position, region, clip.loop) * level
-      left[offset + i] = (left[offset + i] ?? 0) + value
-      right[offset + i] = (right[offset + i] ?? 0) + value
+      this.scratch[i] = (this.scratch[i] ?? 0) + value
     }
     return true
   }

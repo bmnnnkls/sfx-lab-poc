@@ -42,7 +42,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `shared` | tiny math/id helpers | `clamp`, `midiToFrequency`, `createId` |
 | `dsp` | node library: definitions (ports, params, factory) + processors | `nodeDefinitions`, `requireNodeDefinition`, types |
 | `patch` | immutable node-graph model + pure edit operations | `Patch`, `addNode`, `connect`, `canConnect`, … |
-| `instrument` | compiles a `Patch` into a polyphonic synth: voice pool + shared effects | `Instrument`, `classifyStages` |
+| `instrument` | compiles a `Patch` into a polyphonic synth (voice pool + shared effects) or a track's insert graph (`FxGraph`) | `Instrument`, `FxGraph`, `classifyStages` |
 | `project` | the saveable document: tracks, clips, notes, tempo, name; pure note/clip edit operations | `Project`, edit functions, `moveNotes`, `resizeNotesEnd`, `setClipLength`, … |
 | `transport` | sample-accurate beat clock | `Transport` |
 | `session` | clip launching: a shared quantized `LaunchQueue`, the MIDI `ClipLauncher` (note events) and `AudioClipLauncher` (start/stop events) | `ClipLauncher`, `AudioClipLauncher` |
@@ -214,6 +214,32 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
   exactly on a 128-sample block edge can land one sample early or late depending on where blocks start (float rounding in
   the transport clock); in the worklet blocks are always aligned, so only odd render sizes in tests show it. Files from the
   short-lived linear chain version (`noteEffects`) are not migrated; they load with the default graph.
+
+## Effects on tracks (the insert graph)
+
+Every track, instrument or audio, has an **insert graph** (`Track.fx`, a `Patch`) between its own sound and its fader:
+`Track in -> effects -> Track out`. A fresh track has just the two ends wired together, which passes the sound through
+bit for bit. It is the same machinery as everything else: effect nodes (filter, delay, reverb, LFO, gain) and modules
+work in it unchanged (a module whose ports are `signal` goes anywhere sound goes), and one `GraphEditor` edits it in the
+**Effects** tab (`PatchTarget { trackId, graph: 'fx' }`; the other graphs are `'patch'` and `'notes'`).
+
+* **Nodes.** `trackIn` (a source that copies the track's own signal, read from `ProcessContext.input`) and `trackOut`
+  (a sink). `NodeDefinition.sink` marks every node whose input is audible (`output`, `trackOut`), and
+  `NodeDefinition.insertOnly` keeps the two ends out of the Instrument tab's palette. The Effects palette leaves out
+  `note`, `output` and `sampler`, which need a note. A stray one in the wrong graph is harmless: it is silent.
+* **Runtime** (`FxGraph`, `core/instrument`). Compiles the whole patch with `compileStage` (one copy of every node, no
+  voices) and `process(input, frames)` returns what reaches the sinks. It runs every block, also when the track is idle,
+  so reverb and delay tails ring on after the sound stops. `TrackRuntime` runs it on `instrument.render()`;
+  `AudioTrackRuntime` renders its clip into a scratch buffer first (the 5 ms declick tail is unchanged) and runs it on
+  that. The fader comes after the graph.
+* **Commands and diff.** `track/add` carries `fx`; a change of wiring sends `track/setFx` (the graph restarts, and so
+  do its tails); a knob or sample change sends the ordinary `track/setParam` / `track/setSample`, which the track applies
+  to its patch and its insert graph alike (node ids are unique across a track's graphs), so turning a knob never cuts a
+  tail. `diffPatch` in `sync/diff-project.ts` is one function for both slots.
+* **Files.** A missing `fx` loads as the default graph (silently), a stored one goes through `sanitizePatch` in the sound
+  domain, so a note node or an unknown node in it is dropped with a warning. No format-version bump was needed.
+* **UI.** The **Effects** tab sits beside Instrument and Notes and works for every track. A track header shows **fx N**
+  (sound effects, opens the Effects tab) and **notes N** (note-graph processing, opens the Notes tab).
 
 ## Editing clips (piano roll)
 

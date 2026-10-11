@@ -19,5 +19,5 @@ export const Patcher = () => {
       </p>
     )
   }
-  return <GraphEditor key={track.id} track={track} domain="audio" />
+  return <GraphEditor key={track.id} track={track} graph="patch" />
 }

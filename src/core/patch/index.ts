@@ -10,6 +10,7 @@ export {
 } from './module-types'
 export { type NodeDomain, type NodeShape, describeNode, findModule, moduleDomain } from './node-shape'
 export { createDefaultNoteGraph } from './default-note-graph'
+export { createDefaultFxGraph } from './default-fx-graph'
 export { type NoteGraphNodeSpec, noteGraphFrom } from './note-graph-builder'
 export { containsModule, expandModuleUse, flattenPatch, modulesUsedBy, unlinkModuleUse } from './flatten'
 export {

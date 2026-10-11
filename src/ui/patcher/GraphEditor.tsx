@@ -1,9 +1,9 @@
 import {
-  type InstrumentTrack,
   type ModuleLibrary,
-  type NodeDomain,
   type Patch,
   type PatchTarget,
+  type Track,
+  type TrackGraph,
   addNode,
   connect,
   containsModule,
@@ -40,12 +40,30 @@ const spawnPoint = (patch: Patch): { x: number; y: number } => {
   }
   return { x: SLOT.originX, y: SLOT.originY }
 }
+const SUFFIX: Record<TrackGraph, string> = { patch: '', fx: ' effects', notes: ' notes' }
+
+const graphOf = (track: Track, graph: TrackGraph): Patch =>
+  graph === 'fx' || track.kind !== 'instrument' ? track.fx : graph === 'notes' ? track.noteGraph : track.patch
+
 const VOICE_OPTIONS = [1, 2, 3, 4, 6, 8, 12, 16]
 
+/** What each kind of graph may offer in its palette: the insert graph has its own ends and no note-driven sources. */
+const paletteFor = (graph: TrackGraph) => {
+  if (graph === 'notes') return noteNodeDefinitions
+  return nodeDefinitions.filter((definition) =>
+    graph === 'fx'
+      ? definition.type !== 'note' && definition.type !== 'output' && definition.usesSample !== true
+      : definition.insertOnly !== true,
+  )
+}
+
 interface GraphEditorProps {
-  track: InstrumentTrack
-  /** `audio`: the instrument's sound patch. `notes`: the note graph between the clips and the instrument. */
-  domain: NodeDomain
+  track: Track
+  /**
+   * `patch`: the instrument's sound patch. `fx`: the track's insert graph (any track). `notes`: the note graph
+   * between the clips and the instrument.
+   */
+  graph: TrackGraph
   /** Shown beside the canvas (the notes tab puts its preview here). */
   aside?: ReactNode
 }
@@ -54,7 +72,8 @@ interface GraphEditorProps {
  * Node editor for one track's sound patch or note graph, or (one level at a time) the inside of a module it uses.
  * Both kinds of graph share everything: selecting, wiring, grouping into modules, editing modules in place.
  */
-export const GraphEditor = ({ track, domain, aside }: GraphEditorProps) => {
+export const GraphEditor = ({ track, graph, aside }: GraphEditorProps) => {
+  const domain = graph === 'notes' ? 'notes' : 'audio'
   const modules = useProjectStore((state) => state.project.modules)
   const store = useProjectStore.getState
   const setTrackVoices = useProjectStore((state) => state.setTrackVoices)
@@ -67,9 +86,9 @@ export const GraphEditor = ({ track, domain, aside }: GraphEditorProps) => {
   const missing = path.findIndex((id) => !modules.some((module) => module.id === id))
   const known = missing === -1 ? path : path.slice(0, missing)
   const definition = modules.find((module) => module.id === known.at(-1))
-  const target: PatchTarget = definition ? { moduleId: definition.id } : { trackId: track.id, graph: domain }
-  const patch = definition ? definition.patch : domain === 'notes' ? track.noteGraph : track.patch
-  const scope = definition ? definition.id : `${track.id}:${domain}`
+  const target: PatchTarget = definition ? { moduleId: definition.id } : { trackId: track.id, graph }
+  const patch = definition ? definition.patch : graphOf(track, graph)
+  const scope = definition ? definition.id : `${track.id}:${graph}`
 
   const enter = (next: readonly string[]) => {
     setPath(next)
@@ -77,7 +96,8 @@ export const GraphEditor = ({ track, domain, aside }: GraphEditorProps) => {
   }
   const edit = (change: PatchEdit, mergeKey?: string) => {
     if (definition) store().updateModulePatch(definition.id, change, mergeKey)
-    else if (domain === 'notes') store().updateNoteGraph(track.id, change, mergeKey)
+    else if (graph === 'notes') store().updateNoteGraph(track.id, change, mergeKey)
+    else if (graph === 'fx') store().updateFx(track.id, change, mergeKey)
     else store().updatePatch(track.id, change, mergeKey)
   }
 
@@ -86,16 +106,17 @@ export const GraphEditor = ({ track, domain, aside }: GraphEditorProps) => {
     const kind = moduleDomain(module, modules)
     return (kind === undefined || kind === domain) && !(definition && containsModule(modules, module.id, definition.id))
   })
-  const crumbs = [{ label: domain === 'notes' ? `${track.name} notes` : track.name, path: [] as string[] }].concat(
+  const title = `${track.name}${SUFFIX[graph]}`
+  const crumbs = [{ label: title, path: [] as string[] }].concat(
     known.map((id, index) => ({
       label: modules.find((module) => module.id === id)?.name ?? '',
       path: known.slice(0, index + 1) as string[],
     })),
   )
-  const palette = domain === 'notes' ? noteNodeDefinitions : nodeDefinitions
+  const palette = paletteFor(graph)
 
   return (
-    <div className={styles.patcher} data-editing={definition ? 'module' : 'track'} data-domain={domain}>
+    <div className={styles.patcher} data-editing={definition ? 'module' : 'track'} data-domain={domain} data-graph={graph}>
       <div className={styles.header}>
         {known.length > 0 && (
           <nav className={styles.breadcrumb} aria-label="Patch location">
@@ -122,8 +143,8 @@ export const GraphEditor = ({ track, domain, aside }: GraphEditorProps) => {
           />
         )}
         <div className={styles.toolbar}>
-          {!definition && <strong>{domain === 'notes' ? `${track.name} notes` : track.name}</strong>}
-          {!definition && domain === 'audio' && (
+          {!definition && <strong>{title}</strong>}
+          {!definition && graph === 'patch' && track.kind === 'instrument' && (
             <label className={styles.voices} title="Maximum simultaneous notes for this instrument">
               Voices
               <select value={track.voices} onChange={(event) => setTrackVoices(track.id, Number(event.target.value))}>
@@ -167,7 +188,7 @@ export const GraphEditor = ({ track, domain, aside }: GraphEditorProps) => {
           modules={modules}
           selected={selected}
           ownerTrackId={track.id}
-          showStages={domain === 'audio'}
+          showStages={graph === 'patch'}
           onSelectionChange={setSelected}
           onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
           onRemoveNode={(id) => edit((current) => removeNode(current, id))}

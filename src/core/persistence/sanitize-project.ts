@@ -9,7 +9,7 @@ import {
   type Project,
   type Track,
 } from '../project'
-import { type ModuleDefinition, createDefaultNoteGraph } from '../patch'
+import { type ModuleDefinition, createDefaultFxGraph, createDefaultNoteGraph } from '../patch'
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
@@ -42,6 +42,8 @@ const sanitizeTrack = (
   const rawClips = asList(raw.clips)
   const usedClipIds = new Set<string>()
   const volume = clamp(finiteNumber(raw.volume, 0.8), 0, 1)
+  // Files from before insert graphs existed have none: the sound passes through untouched.
+  const fx = isRecord(raw.fx) ? sanitizePatch(raw.fx, `${where} effects`, sampleIds, modules, warn) : createDefaultFxGraph()
 
   // Files from before audio tracks existed have no `kind`: they are instrument tracks.
   if (raw.kind === 'audio') {
@@ -50,6 +52,7 @@ const sanitizeTrack = (
       id,
       name,
       volume,
+      fx,
       clips: Array.from({ length: sceneCount }, (_, scene) =>
         sanitizeAudioClip(rawClips[scene], where, sampleIds, usedClipIds, warn),
       ),
@@ -65,6 +68,7 @@ const sanitizeTrack = (
     id,
     name,
     volume,
+    fx,
     voices: Math.round(clamp(finiteNumber(raw.voices, DEFAULT_VOICES), MIN_VOICES, MAX_VOICES)),
     patch: sanitizePatch(raw.patch, where, sampleIds, modules, warn),
     noteGraph: isRecord(raw.noteGraph)

@@ -54,6 +54,11 @@ interface TrackBase {
   readonly id: string
   readonly name: string
   readonly volume: number
+  /**
+   * The insert graph after the track's own sound and before its fader: `Track in` -> effects -> `Track out`.
+   * A fresh track has just those two, wired together (the sound passes through unchanged).
+   */
+  readonly fx: Patch
 }
 
 /** Plays MIDI clips through a patch (a synth or sampler). */

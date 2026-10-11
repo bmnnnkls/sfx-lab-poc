@@ -57,6 +57,64 @@ describe('project file round trip', () => {
   })
 })
 
+describe('insert graphs in files', () => {
+  const tracks = (extra: Record<string, unknown>) =>
+    project({ tracks: [{ id: 't', name: 'T', patch: {}, clips: [], ...extra }, { id: 'a', name: 'A', kind: 'audio', clips: [], ...extra }] })
+  const types = (patch: { nodes: readonly { type: string }[] }) => patch.nodes.map((node) => node.type)
+
+  it('gives files saved before insert graphs the default graph on every track, silently', () => {
+    const { project: loaded, warnings } = parseOk(envelope(tracks({})))
+    for (const track of loaded.tracks) expect(types(track.fx)).toEqual(['trackIn', 'trackOut'])
+    expect(loaded.tracks[0]!.fx.connections).toHaveLength(1)
+    expect(warnings).toEqual([])
+  })
+
+  it('round-trips a graph with effects, on both kinds of track', () => {
+    const base = createDemoProject()
+    const withFx = {
+      ...base,
+      tracks: base.tracks.map((track) => ({
+        ...track,
+        fx: noteGraphFrom(
+          [{ id: `i${track.id}`, type: 'trackIn' }, { id: `r${track.id}`, type: 'reverb', params: { mix: 0.5 } }, { id: `o${track.id}`, type: 'trackOut' }],
+          [`i${track.id}.out>r${track.id}.in`, `r${track.id}.out>o${track.id}.in`],
+        ),
+      })),
+    }
+    const result = parseOk(serializeProject(withFx))
+    expect(result.project).toEqual(withFx)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('drops note nodes, unknown nodes and bad wires from a hand-edited graph, and says so', () => {
+    const fx = {
+      nodes: [
+        { id: 'i', type: 'trackIn', x: 0, y: 0, params: {} },
+        { id: 'n', type: 'transpose', x: 0, y: 0, params: {} }, // a note node does not belong in sound
+        { id: 'z', type: 'nonsense', x: 0, y: 0, params: {} },
+        { id: 'f', type: 'filter', x: 0, y: 0, params: { cutoff: 1e9 } },
+        { id: 'o', type: 'trackOut', x: 0, y: 0, params: {} },
+      ],
+      connections: [
+        { id: 'w1', from: { node: 'i', port: 'out' }, to: { node: 'f', port: 'in' } },
+        { id: 'w2', from: { node: 'f', port: 'out' }, to: { node: 'o', port: 'in' } },
+        { id: 'w3', from: { node: 'o', port: 'in' }, to: { node: 'i', port: 'out' } }, // backwards
+      ],
+    }
+    const { project: loaded, warnings } = parseOk(envelope(tracks({ fx })))
+    expect(types(loaded.tracks[0]!.fx)).toEqual(['trackIn', 'filter', 'trackOut'])
+    expect(loaded.tracks[0]!.fx.nodes[1]!.params.cutoff).toBe(20000)
+    expect(warnings.join('\n')).toMatch(/do not mix/)
+  })
+
+  it('falls back to the default graph when the stored one is not an object', () => {
+    for (const fx of ['text', 5, [], null]) {
+      const { project: loaded } = parseOk(envelope(tracks({ fx })))
+      expect(types(loaded.tracks[1]!.fx)).toEqual(['trackIn', 'trackOut'])
+    }
+  })
+})
+
 describe('rejecting bad files', () => {
   it.each([
     ['not json', 'nope{', /not valid JSON/],

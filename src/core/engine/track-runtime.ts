@@ -1,4 +1,4 @@
-import { Instrument } from '../instrument'
+import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
 import type { Patch } from '../patch'
 import type { Clip } from '../project'
@@ -16,12 +16,14 @@ export class TrackRuntime implements PlayableTrack {
   volume: number
   clips: readonly (Clip | null)[]
   private instrument: Instrument
+  private fx: FxGraph
   private audition: { pitch: number; framesLeft: number } | null = null
 
   constructor(
     private readonly trackId: string,
     private patch: Patch,
     noteGraph: Patch,
+    fx: Patch,
     clips: readonly (Clip | null)[],
     volume: number,
     private voices: number,
@@ -29,6 +31,7 @@ export class TrackRuntime implements PlayableTrack {
     private readonly samples: SampleLookup,
   ) {
     this.instrument = new Instrument(patch, sampleRate, voices, samples)
+    this.fx = new FxGraph(fx, sampleRate, samples)
     this.clips = clips
     this.volume = volume
     this.graph.sync(noteGraph)
@@ -37,6 +40,10 @@ export class TrackRuntime implements PlayableTrack {
   /** Replaces the note graph. Knob changes keep running state; structural changes restart it. */
   setNoteGraph(graph: Patch): void {
     this.graph.sync(graph)
+  }
+
+  setFx(fx: Patch): void {
+    this.fx = new FxGraph(fx, this.sampleRate, this.samples)
   }
 
   tapSources(): string[] {
@@ -62,10 +69,12 @@ export class TrackRuntime implements PlayableTrack {
 
   setParam(nodeId: string, paramId: string, value: number): void {
     this.instrument.setParam(nodeId, paramId, value)
+    this.fx.setParam(nodeId, paramId, value)
   }
 
   setSample(nodeId: string, sampleId: string | null): void {
     this.instrument.setSample(nodeId, sampleId)
+    this.fx.setSample(nodeId, sampleId)
   }
 
   launchClip(clipId: string): void {
@@ -128,9 +137,9 @@ export class TrackRuntime implements PlayableTrack {
     }
   }
 
-  /** Adds `frames` samples of this track, scaled by its volume, into the stereo buses. */
+  /** Adds `frames` samples of this track, through its insert graph and scaled by its volume, into the stereo buses. */
   mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number): void {
-    const signal = this.instrument.render(frames)
+    const signal = this.fx.process(this.instrument.render(frames), frames)
     for (let i = 0; i < frames; i++) {
       const sample = (signal[i] ?? 0) * this.volume
       left[offset + i] = (left[offset + i] ?? 0) + sample

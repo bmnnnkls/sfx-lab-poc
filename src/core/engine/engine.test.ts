@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultNoteGraph, createDefaultPatch, createSamplerPatch } from '../patch'
+import { createDefaultFxGraph, createDefaultNoteGraph, createDefaultPatch, createSamplerPatch } from '../patch'
 import { createClip, createNote } from '../project'
 import { Engine } from './engine'
 
@@ -9,7 +9,7 @@ const setup = () => {
   const engine = new Engine(SAMPLE_RATE)
   const clip = createClip('c', 4, [createNote(69, 0, 1, 1)])
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
-  engine.apply({ type: 'track/add', kind: 'instrument', trackId: 't', patch: createDefaultPatch(), noteGraph: createDefaultNoteGraph(), clips: [clip], volume: 1, voices: 8 })
+  engine.apply({ type: 'track/add', kind: 'instrument', trackId: 't', patch: createDefaultPatch(), noteGraph: createDefaultNoteGraph(), fx: createDefaultFxGraph(), clips: [clip], volume: 1, voices: 8 })
   return { engine, clip }
 }
 
@@ -95,7 +95,7 @@ describe('Engine samples', () => {
     const engine = new Engine(SAMPLE_RATE)
     const clip = createClip('hit', 4, [createNote(60, 0, 1, 1)])
     engine.apply({ type: 'transport/setTempo', bpm: 120 })
-    engine.apply({ type: 'track/add', kind: 'instrument', trackId: 't', patch: createSamplerPatch(SAMPLE.id), noteGraph: createDefaultNoteGraph(), clips: [clip], volume: 1, voices: 4 })
+    engine.apply({ type: 'track/add', kind: 'instrument', trackId: 't', patch: createSamplerPatch(SAMPLE.id), noteGraph: createDefaultNoteGraph(), fx: createDefaultFxGraph(), clips: [clip], volume: 1, voices: 4 })
     return { engine, clip }
   }
 

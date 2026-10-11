@@ -84,7 +84,7 @@ Status: **designed, not started.**
 
 Full handoff for whoever builds this: [`HANDOFF-track-effects-and-stereo.md`](HANDOFF-track-effects-and-stereo.md).
 
-1. Insert graph per track (`Track in -> effects -> Track out`, instrument and audio tracks).
+1. ~~Insert graph per track (`Track in -> effects -> Track out`, instrument and audio tracks).~~ Done (see `ARCHITECTURE.md`).
 2. **Stereo** (moved up: returns are where reverbs live, so build them stereo once).
 3. Return tracks and the Send node (engine primitive, ordering, loop rules, persistence).
 4. The send knob row on track headers.

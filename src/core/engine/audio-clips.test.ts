@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createClip, createNote, type AudioClip } from '../project'
-import { createDefaultNoteGraph, createDefaultPatch } from '../patch'
+import { createDefaultFxGraph, createDefaultNoteGraph, createDefaultPatch } from '../patch'
 import { Engine } from './engine'
 
 const SAMPLE_RATE = 48000
@@ -33,7 +33,7 @@ const setup = (data: Float32Array = ramp(4 * BEAT), clip: AudioClip = audioClip(
   const engine = new Engine(SAMPLE_RATE)
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
   engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate, data } })
-  engine.apply({ type: 'track/add', kind: 'audio', trackId: 'a', clips: [clip], volume })
+  engine.apply({ type: 'track/add', kind: 'audio', trackId: 'a', fx: createDefaultFxGraph(), clips: [clip], volume })
   return { engine, clip }
 }
 
@@ -162,7 +162,7 @@ describe('audio clips in the engine', () => {
   it('are silent while their sample is missing, then join in phase when it arrives', () => {
     const engine = new Engine(SAMPLE_RATE)
     engine.apply({ type: 'transport/setTempo', bpm: 120 })
-    engine.apply({ type: 'track/add', kind: 'audio', trackId: 'a', clips: [audioClip()], volume: 1 })
+    engine.apply({ type: 'track/add', kind: 'audio', trackId: 'a', fx: createDefaultFxGraph(), clips: [audioClip()], volume: 1 })
     engine.apply({ type: 'clip/launch', trackId: 'a', clipId: 'clip' })
     expect(Math.max(...render(engine, BEAT))).toBe(0)
 
@@ -218,7 +218,7 @@ describe('audio clips in the engine', () => {
   it('mix with instrument tracks, each launched independently', () => {
     const { engine, clip } = setup(dc(4 * BEAT))
     const midi = createClip('m', 4, [createNote(69, 0, 2)])
-    engine.apply({ type: 'track/add', kind: 'instrument', trackId: 'i', patch: createDefaultPatch(), noteGraph: createDefaultNoteGraph(), clips: [midi], volume: 1, voices: 4 })
+    engine.apply({ type: 'track/add', kind: 'instrument', trackId: 'i', patch: createDefaultPatch(), noteGraph: createDefaultNoteGraph(), fx: createDefaultFxGraph(), clips: [midi], volume: 1, voices: 4 })
     engine.apply({ type: 'clip/launch', trackId: 'a', clipId: clip.id })
     const audioOnly = Math.max(...render(engine, 4800))
     engine.apply({ type: 'transport/stop' })

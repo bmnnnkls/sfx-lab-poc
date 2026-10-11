@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultNoteGraph, createDefaultPatch, noteGraphFrom, setNodeParam } from '../patch'
+import { createDefaultFxGraph, createDefaultNoteGraph, createDefaultPatch, noteGraphFrom, setNodeParam } from '../patch'
 import { createClip, createNote } from '../project'
 import { Engine } from './engine'
 
@@ -31,7 +31,7 @@ const setup = (tracks: { id: string; notes: ReturnType<typeof createNote>[]; gra
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
   const clips = new Map(tracks.map((t) => [t.id, createClip(`clip ${t.id}`, 4, t.notes)]))
   for (const t of order === 'given' ? tracks : [...tracks].reverse()) {
-    engine.apply({ type: 'track/add', kind: 'instrument', trackId: t.id, patch: sinePatch(), noteGraph: t.graph ?? createDefaultNoteGraph(), clips: [clips.get(t.id)!], volume: t.volume ?? 1, voices: 8 })
+    engine.apply({ type: 'track/add', kind: 'instrument', trackId: t.id, patch: sinePatch(), noteGraph: t.graph ?? createDefaultNoteGraph(), fx: createDefaultFxGraph(), clips: [clips.get(t.id)!], volume: t.volume ?? 1, voices: 8 })
   }
   return { engine, launch: (id: string) => engine.apply({ type: 'clip/launch', trackId: id, clipId: clips.get(id)!.id }) }
 }

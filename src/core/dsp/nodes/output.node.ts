@@ -14,5 +14,6 @@ export const outputNode: NodeDefinition = {
   inputs: [{ id: 'in', label: 'In' }],
   outputs: [],
   params: [],
+  sink: true,
   create: () => new Output(),
 }

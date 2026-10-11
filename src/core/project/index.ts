@@ -60,6 +60,7 @@ export {
 } from './edit'
 export {
   type PatchTarget,
+  type TrackGraph,
   addModuleUse,
   editPatchAt,
   groupNodesAsModule,

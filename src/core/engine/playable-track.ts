@@ -1,4 +1,5 @@
 import type { TapBoard } from '../notefx'
+import type { Patch } from '../patch'
 import type { LauncherStatus } from '../session'
 
 /** Something to do at an exact transport beat, produced by a track and run by the engine at the right sample. */
@@ -37,6 +38,11 @@ export interface PlayableTrack {
   schedule(from: number, to: number, board: TapBoard): ScheduledAction[]
   /** Ids of the tracks this one takes notes from. */
   tapSources(): string[]
-  /** Adds `frames` samples of this track, scaled by its volume, into the stereo buses. */
+  /** Replaces the insert graph. Structural changes restart it (its tails are lost); knob changes go through `setParam`. */
+  setFx(fx: Patch): void
+  /** Changes a parameter of a node in the track's patch or insert graph (node ids are unique across both). */
+  setParam(nodeId: string, paramId: string, value: number): void
+  setSample(nodeId: string, sampleId: string | null): void
+  /** Adds `frames` samples of this track, scaled by its volume, after its insert graph and fader, into the stereo buses. */
   mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, timing: MixTiming): void
 }

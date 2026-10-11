@@ -8,6 +8,8 @@ import { oscillatorNode } from './nodes/oscillator.node'
 import { outputNode } from './nodes/output.node'
 import { reverbNode } from './nodes/reverb.node'
 import { samplerNode } from './nodes/sampler.node'
+import { trackInNode } from './nodes/track-in.node'
+import { trackOutNode } from './nodes/track-out.node'
 import type { NodeDefinition } from './types'
 
 export const nodeDefinitions: readonly NodeDefinition[] = [
@@ -21,6 +23,8 @@ export const nodeDefinitions: readonly NodeDefinition[] = [
   delayNode,
   reverbNode,
   outputNode,
+  trackInNode,
+  trackOutNode,
 ]
 
 const byType = new Map(nodeDefinitions.map((definition) => [definition.type, definition]))

@@ -8,20 +8,24 @@ import {
   pruneModuleUses,
   unlinkModuleUse,
 } from '../patch'
-import { mapModules, setTrackPatch, updateInstrument } from './edit'
+import { mapModules, setTrackPatch, updateInstrument, updateTrack } from './edit'
 import type { Project } from './types'
 
 /**
- * Where a patch lives: a track's sound patch (`graph` absent or 'audio'), a track's note graph (`graph: 'notes'`),
- * or a module's inside.
+ * Where a patch lives: an instrument track's sound patch (`graph` absent or 'patch'), a track's insert graph
+ * (`graph: 'fx'`, instrument and audio tracks alike), an instrument track's note graph (`graph: 'notes'`), or a
+ * module's inside.
  */
+export type TrackGraph = 'patch' | 'fx' | 'notes'
+
 export type PatchTarget =
-  | { readonly trackId: string; readonly graph?: 'audio' | 'notes' }
+  | { readonly trackId: string; readonly graph?: TrackGraph }
   | { readonly moduleId: string }
 
 export const patchAt = (project: Project, target: PatchTarget): Patch | undefined => {
   if ('trackId' in target) {
     const track = project.tracks.find((candidate) => candidate.id === target.trackId)
+    if (target.graph === 'fx') return track?.fx
     if (track?.kind !== 'instrument') return undefined
     return target.graph === 'notes' ? track.noteGraph : track.patch
   }
@@ -47,10 +51,12 @@ export const reconcileModules = (project: Project): Project => {
   }
 
   const tracks = project.tracks.map((track) => {
-    if (track.kind !== 'instrument') return track
-    const patch = pruneModuleUses(track.patch, modules)
-    const noteGraph = pruneModuleUses(track.noteGraph, modules)
-    return patch === track.patch && noteGraph === track.noteGraph ? track : { ...track, patch, noteGraph }
+    const fx = pruneModuleUses(track.fx, modules)
+    const base = fx === track.fx ? track : { ...track, fx }
+    if (base.kind !== 'instrument') return base
+    const patch = pruneModuleUses(base.patch, modules)
+    const noteGraph = pruneModuleUses(base.noteGraph, modules)
+    return patch === base.patch && noteGraph === base.noteGraph ? base : { ...base, patch, noteGraph }
   })
   const tracksSame = tracks.every((track, index) => track === project.tracks[index])
   return modules === project.modules && tracksSame ? project : { ...project, modules, ...(tracksSame ? {} : { tracks }) }
@@ -59,9 +65,11 @@ export const reconcileModules = (project: Project): Project => {
 const setPatchAt = (project: Project, target: PatchTarget, patch: Patch): Project => {
   if ('trackId' in target) {
     return reconcileModules(
-      target.graph === 'notes'
-        ? updateInstrument(project, target.trackId, (track) => (track.noteGraph === patch ? track : { ...track, noteGraph: patch }))
-        : setTrackPatch(project, target.trackId, patch),
+      target.graph === 'fx'
+        ? updateTrack(project, target.trackId, (track) => (track.fx === patch ? track : { ...track, fx: patch }))
+        : target.graph === 'notes'
+          ? updateInstrument(project, target.trackId, (track) => (track.noteGraph === patch ? track : { ...track, noteGraph: patch }))
+          : setTrackPatch(project, target.trackId, patch),
     )
   }
   return updateModule(project, target.moduleId, (module) => ({ ...module, patch }))
@@ -121,7 +129,8 @@ export const unlinkModuleNode = (project: Project, target: PatchTarget, nodeId: 
 /** Everything that uses a module directly: how many times, and in which tracks and modules. */
 export const moduleUsage = (project: Project, moduleId: string) => {
   const count = (patch: Patch) => patch.nodes.filter((node) => node.moduleId === moduleId).length
-  const inTrack = (track: Project['tracks'][number]) => (track.kind === 'instrument' ? count(track.patch) + count(track.noteGraph) : 0)
+  const inTrack = (track: Project['tracks'][number]) =>
+    count(track.fx) + (track.kind === 'instrument' ? count(track.patch) + count(track.noteGraph) : 0)
   const tracks = project.tracks.filter((track) => inTrack(track) > 0)
   const modules = project.modules.filter((module) => module.id !== moduleId && count(module.patch) > 0)
   const uses =

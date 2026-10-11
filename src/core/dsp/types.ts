@@ -41,6 +41,8 @@ export interface ProcessContext {
   readonly sampleRate: number
   readonly note: Readonly<NoteState>
   readonly samples: SampleLookup
+  /** The signal a track's insert graph is processing; only `trackIn` reads it. Absent elsewhere (silence). */
+  readonly input?: Float32Array
 }
 
 /**
@@ -74,6 +76,10 @@ export interface NodeDefinition {
    * shared node is shared too.
    */
   readonly shared?: boolean
+  /** Whatever is wired into this node's input is audible: the sum of all sinks is what the graph produces. */
+  readonly sink?: boolean
+  /** Only meaningful in a track's insert graph (`trackIn`, `trackOut`); the instrument's palette leaves it out. */
+  readonly insertOnly?: boolean
   /** The node plays library samples; the patcher shows a sample picker and stores `sampleId`. */
   readonly usesSample?: boolean
   create(sampleRate: number): DspNode

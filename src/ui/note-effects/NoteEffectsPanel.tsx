@@ -22,5 +22,5 @@ export const NoteEffectsPanel = () => {
       </p>
     )
   }
-  return <GraphEditor key={track.id} track={track} domain="notes" aside={<HeardNotes track={track} />} />
+  return <GraphEditor key={track.id} track={track} graph="notes" aside={<HeardNotes track={track} />} />
 }

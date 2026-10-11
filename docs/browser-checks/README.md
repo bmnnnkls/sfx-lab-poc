@@ -27,6 +27,7 @@ sandbox's. Change them (or install `playwright`) elsewhere.
 | `menu.mjs` | the context menu and double-click delete |
 | `mod.mjs` | importing a project with LFO + reverb nodes, the node palette |
 | `modules.mjs` | sound modules: group, edit in place, knobs, reuse on another track, unlink, undo, persistence |
+| `fx.mjs` | the insert graph (Effects tab) on an audio track: default pass-through, a gain, a reverb tail that rings after the clip stops and survives a knob turn, persistence |
 | `notegraph.mjs` | the note graph: split, merge, bypass, notes from another track (real audio), loop refusal, note modules, persistence |
 
 ## Conventions inside the scripts

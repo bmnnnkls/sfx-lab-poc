@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { MODULE_NODE_TYPE, exposeKnob, setModulePatch, setNodeParam } from '../patch'
-import { createDemoProject } from '../project'
+import { MODULE_NODE_TYPE, createNode, addNode, connect, exposeKnob, setModulePatch, setNodeParam } from '../patch'
+import { addSamples, addTrack, createAudioTrack, createDemoProject, removeSample } from '../project'
 import {
   addModuleUse,
   editPatchAt,
@@ -25,6 +25,47 @@ const withModule = (): { project: Project; moduleId: string; useId: string } => 
   const use = track.patch.nodes.find((node) => node.type === MODULE_NODE_TYPE)!
   return { project, moduleId: use.moduleId!, useId: use.id }
 }
+
+describe('insert graphs in the project', () => {
+  const fxOf = (project: Project, trackId: string) => patchAt(project, { trackId, graph: 'fx' })!
+
+  it('are reached through the same edit path as every other patch', () => {
+    const next = editPatchAt(demo, { trackId: bass.id, graph: 'fx' }, (fx) => addNode(fx, createNode('reverb', 0, 0)))
+    expect(fxOf(next, bass.id).nodes).toHaveLength(3)
+    expect(fxOf(next, lead.id)).toBe(lead.fx)
+  })
+
+  it('exist on audio tracks too', () => {
+    const project = addTrack(demo, createAudioTrack('Loop', 2))
+    const audio = project.tracks.at(-1)!
+    expect(patchAt(project, { trackId: audio.id, graph: 'fx' })).toBe(audio.fx)
+    expect(patchAt(project, { trackId: audio.id })).toBeUndefined() // an audio track has no instrument patch
+  })
+
+  it('can hold a module, which counts as a use and follows edits of its definition', () => {
+    const inFx = editPatchAt(demo, { trackId: bass.id, graph: 'fx' }, (fx) => addNode(fx, createNode('filter', 0, 0)))
+    const filterId = fxOf(inFx, bass.id).nodes.find((n) => n.type === 'filter')!.id
+    const grouped = groupNodesAsModule(inFx, { trackId: bass.id, graph: 'fx' }, [filterId], 'Dull')
+    const moduleId = grouped.modules.at(-1)!.id
+    expect(moduleUsage(grouped, moduleId).uses).toBe(1)
+    expect(removeModule(grouped, moduleId)).toBe(grouped) // in use
+  })
+
+  it('a sampler left in one loses its sample when the sample is removed', () => {
+    const sample = { id: 's'.repeat(64), name: 'S', extension: 'wav', durationSeconds: 1, sampleRate: 44100, channels: 1, bytes: 1 }
+    const withSampler = editPatchAt(demo, { trackId: bass.id, graph: 'fx' }, (fx) => ({
+      ...addNode(fx, { ...createNode('sampler', 0, 0), sampleId: sample.id }),
+    }))
+    const after = removeSample(addSamples(withSampler, [sample]), sample.id)
+    expect(fxOf(after, bass.id).nodes.some((n) => n.sampleId !== undefined)).toBe(false)
+  })
+
+  it('connect works between its ends', () => {
+    const fx = fxOf(demo, bass.id)
+    const [source, sink] = [fx.nodes.find((n) => n.type === 'trackIn')!, fx.nodes.find((n) => n.type === 'trackOut')!]
+    expect(connect({ ...fx, connections: [] }, { node: source.id, port: 'out' }, { node: sink.id, port: 'in' }).connections).toHaveLength(1)
+  })
+})
 
 describe('project-level module edits', () => {
   it('grouping adds a module to the library and one use to the track', () => {

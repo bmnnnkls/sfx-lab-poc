@@ -51,11 +51,12 @@ export class Engine {
         this.tracks.set(
           command.trackId,
           command.kind === 'audio'
-            ? new AudioTrackRuntime(command.clips, command.volume, this.samples, this.sampleRate)
+            ? new AudioTrackRuntime(command.fx, command.clips, command.volume, this.samples, this.sampleRate)
             : new TrackRuntime(
                 command.trackId,
                 command.patch,
                 command.noteGraph,
+                command.fx,
                 command.clips,
                 command.volume,
                 command.voices,
@@ -70,6 +71,9 @@ export class Engine {
         break
       case 'track/setPatch':
         this.instrument(command.trackId)?.setPatch(command.patch)
+        break
+      case 'track/setFx':
+        this.tracks.get(command.trackId)?.setFx(command.graph)
         break
       case 'track/setNoteGraph':
         this.instrument(command.trackId)?.setNoteGraph(command.graph)
@@ -90,10 +94,10 @@ export class Engine {
         break
       }
       case 'track/setParam':
-        this.instrument(command.trackId)?.setParam(command.nodeId, command.paramId, command.value)
+        this.tracks.get(command.trackId)?.setParam(command.nodeId, command.paramId, command.value)
         break
       case 'track/setSample':
-        this.instrument(command.trackId)?.setSample(command.nodeId, command.sampleId)
+        this.tracks.get(command.trackId)?.setSample(command.nodeId, command.sampleId)
         break
       case 'sample/add':
         this.samples.set(command.sample)

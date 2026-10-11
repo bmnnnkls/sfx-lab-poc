@@ -1,4 +1,4 @@
-import { type DspNode, OUTPUT_NODE_TYPE, type ProcessContext, requireNodeDefinition } from '../dsp'
+import { type DspNode, type ProcessContext, requireNodeDefinition } from '../dsp'
 import type { Patch } from '../patch'
 
 export const MAX_BLOCK_FRAMES = 128
@@ -19,7 +19,7 @@ export interface CompiledStage {
   readonly nodes: readonly CompiledNode[]
   /** Every output buffer by `bufferKey`, including any seeded from another stage. */
   readonly outputBuffers: ReadonlyMap<string, Float32Array>
-  /** Buffers feeding this stage's Output nodes; their sum is the stage's audible output. */
+  /** Buffers feeding this stage's sink nodes (Output, Track out); their sum is the stage's audible output. */
   readonly outputSources: readonly Float32Array[]
   readonly byId: ReadonlyMap<string, DspNode>
 }
@@ -73,7 +73,7 @@ export const compileStage = (
       return target
     })
 
-    if (node.type === OUTPUT_NODE_TYPE && inputs[0]) outputSources.push(inputs[0])
+    if (definition.sink === true && inputs[0]) outputSources.push(inputs[0])
 
     byId.set(id, dsp)
     nodes.push({ id, dsp, inputs, outputs, sums })

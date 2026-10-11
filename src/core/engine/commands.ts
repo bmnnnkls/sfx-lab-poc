@@ -13,6 +13,7 @@ export type EngineCommand =
       readonly trackId: string
       readonly patch: Patch
       readonly noteGraph: Patch
+      readonly fx: Patch
       readonly clips: readonly (Clip | null)[]
       readonly volume: number
       readonly voices: number
@@ -21,11 +22,13 @@ export type EngineCommand =
       readonly type: 'track/add'
       readonly kind: 'audio'
       readonly trackId: string
+      readonly fx: Patch
       readonly clips: readonly (AudioClip | null)[]
       readonly volume: number
     }
   | { readonly type: 'track/remove'; readonly trackId: string }
   | { readonly type: 'track/setPatch'; readonly trackId: string; readonly patch: Patch }
+  | { readonly type: 'track/setFx'; readonly trackId: string; readonly graph: Patch }
   | { readonly type: 'track/setNoteGraph'; readonly trackId: string; readonly graph: Patch }
   | { readonly type: 'track/setVoices'; readonly trackId: string; readonly voices: number }
   | { readonly type: 'track/setClips'; readonly trackId: string; readonly clips: readonly (Clip | null)[] }

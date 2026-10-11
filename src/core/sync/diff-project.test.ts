@@ -1,6 +1,6 @@
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
-import { exposeKnob, moveNode, noteGraphFrom, renameModule, setModulePatch, setNodeParam, setNodeSample } from '../patch'
+import { createDefaultFxGraph, exposeKnob, moveNode, noteGraphFrom, renameModule, setModulePatch, setNodeParam, setNodeSample } from '../patch'
 import {
   addModuleUse,
   editPatchAt,
@@ -69,6 +69,44 @@ describe('diffProject', () => {
       'track/setClips',
       'track/setVolume',
     ])
+  })
+
+  describe('insert graphs', () => {
+    const effect = (type: string) => noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 'e', type, params: {} }, { id: 'out', type: 'trackOut' }], ['in.out>e.in', 'e.out>out.in'])
+    const withFx = (fx: ReturnType<typeof effect>) => editPatchAt(project, { trackId: track.id, graph: 'fx' }, () => fx)
+
+    it('adds every track with its insert graph', () => {
+      const adds = diffProject(null, project).filter((c) => c.type === 'track/add')
+      expect(adds.every((c) => c.fx.nodes.some((n) => n.type === 'trackIn') && c.fx.nodes.some((n) => n.type === 'trackOut'))).toBe(true)
+    })
+
+    it('sends the new graph when its wiring changes, and nothing for the sound patch', () => {
+      const next = withFx(effect('reverb'))
+      expect(diffProject(project, next)).toEqual([{ type: 'track/setFx', trackId: track.id, graph: next.tracks[0]!.fx }])
+    })
+
+    it('maps a knob on an effect to setParam, so its tail survives', () => {
+      const first = withFx(effect('delay'))
+      const delay = first.tracks[0]!.fx.nodes.find((n) => n.type === 'delay')!
+      const next = editPatchAt(first, { trackId: track.id, graph: 'fx' }, (fx) => setNodeParam(fx, delay.id, 'feedback', 0.7))
+      expect(diffProject(first, next)).toEqual([{ type: 'track/setParam', trackId: track.id, nodeId: delay.id, paramId: 'feedback', value: 0.7 }])
+    })
+
+    it('ignores moving a node of the insert graph', () => {
+      const next = editPatchAt(project, { trackId: track.id, graph: 'fx' }, (fx) => moveNode(fx, fx.nodes[0]!.id, 300, 300))
+      expect(diffProject(project, next)).toEqual([])
+    })
+
+    it('treats an audio track the same way', () => {
+      const base = addTrack(project, createAudioTrack('Loop', project.sceneCount))
+      const audio = base.tracks.at(-1)!
+      const next = editPatchAt(base, { trackId: audio.id, graph: 'fx' }, () => effect('filter'))
+      expect(diffProject(base, next)).toEqual([{ type: 'track/setFx', trackId: audio.id, graph: next.tracks.at(-1)!.fx }])
+    })
+
+    it('a default graph for a fresh track is what the model starts with', () => {
+      expect(createAudioTrack('x', 1).fx.nodes.map((n) => n.type)).toEqual(createDefaultFxGraph().nodes.map((n) => n.type))
+    })
   })
 
   describe('audio tracks', () => {

@@ -1,4 +1,11 @@
-import { clearSampleReferences, clearTrackReferences, createDefaultNoteGraph, createDefaultPatch, createSamplerPatch } from '../patch'
+import {
+  clearSampleReferences,
+  clearTrackReferences,
+  createDefaultFxGraph,
+  createDefaultNoteGraph,
+  createDefaultPatch,
+  createSamplerPatch,
+} from '../patch'
 import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 import { clamp, createId } from '../shared'
@@ -26,7 +33,7 @@ export const mapModules = (
   return next.every((module, index) => module === modules[index]) ? modules : next
 }
 
-const updateTrack = (project: Project, trackId: string, change: (track: Track) => Track): Project => {
+export const updateTrack = (project: Project, trackId: string, change: (track: Track) => Track): Project => {
   const tracks = project.tracks.map((track) => (track.id === trackId ? change(track) : track))
   return tracks.every((track, index) => track === project.tracks[index]) ? project : { ...project, tracks }
 }
@@ -61,6 +68,7 @@ export const createTrack = (
   id: createId('track'),
   name,
   volume: 0.8,
+  fx: createDefaultFxGraph(),
   voices,
   patch,
   noteGraph: createDefaultNoteGraph(),
@@ -72,6 +80,7 @@ export const createAudioTrack = (name: string, sceneCount: number): AudioTrack =
   id: createId('track'),
   name,
   volume: 0.8,
+  fx: createDefaultFxGraph(),
   clips: Array.from({ length: sceneCount }, () => null),
 })
 
@@ -203,12 +212,14 @@ export const removeSample = (project: Project, sampleId: string): Project => ({
     return patch === module.patch ? module : { ...module, patch }
   }),
   tracks: project.tracks.map((track): Track => {
-    if (track.kind === 'audio') {
-      const clips = track.clips.map((clip) => (clip?.sampleId === sampleId ? null : clip))
-      return clips.some((clip, index) => clip !== track.clips[index]) ? { ...track, clips } : track
+    const fx = clearSampleReferences(track.fx, sampleId)
+    const base = fx === track.fx ? track : { ...track, fx }
+    if (base.kind === 'audio') {
+      const clips = base.clips.map((clip) => (clip?.sampleId === sampleId ? null : clip))
+      return clips.some((clip, index) => clip !== base.clips[index]) ? { ...base, clips } : base
     }
-    const patch = clearSampleReferences(track.patch, sampleId)
-    return patch === track.patch ? track : { ...track, patch }
+    const patch = clearSampleReferences(base.patch, sampleId)
+    return patch === base.patch ? base : { ...base, patch }
   }),
 })
 

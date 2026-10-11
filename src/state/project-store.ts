@@ -83,6 +83,12 @@ interface ProjectActions {
     edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
     mergeKey?: string,
   ): void
+  /** Like `updatePatch`, for the track's insert graph (the effects after its sound; instrument and audio tracks). */
+  updateFx(
+    trackId: string,
+    edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
+    mergeKey?: string,
+  ): void
   /** Like `updatePatch`, for the track's note graph (what happens to notes before the instrument). */
   updateNoteGraph(
     trackId: string,
@@ -173,6 +179,8 @@ export const useProjectStore = create<ProjectState>((set) => {
 
     updatePatch: (trackId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { trackId }, change), mergeKey),
+    updateFx: (trackId, change, mergeKey) =>
+      edit((project) => editPatchAt(project, { trackId, graph: 'fx' }, change), mergeKey),
     updateNoteGraph: (trackId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { trackId, graph: 'notes' }, change), mergeKey),
     updateModulePatch: (moduleId, change, mergeKey) =>
