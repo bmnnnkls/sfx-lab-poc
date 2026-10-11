@@ -40,3 +40,5 @@ Use a Chromium-based browser or Firefox. Audio starts on your first click (brows
    quantize, swing and humanize. Drag the bar above the editor to give it more room. Edit while it plays.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how it is put together and where to add things.
+
+Open work is tracked in [`docs/TASKS.md`](docs/TASKS.md); how it is built is in [`ARCHITECTURE.md`](ARCHITECTURE.md).
