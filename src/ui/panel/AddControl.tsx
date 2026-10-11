@@ -1,44 +1,48 @@
-import { type ControlDraft, type ControlKind, type ModuleLibrary, type ParamBinding, type Patch, controlFits, describeNode } from '@core'
+import { type ModuleLibrary, type PortRef, type Patch, describeNode, nodeTitles } from '@core'
 import { useMemo, useState } from 'react'
 import styles from './panel.module.css'
-import { nodeTitles } from './panel-values'
+
+export type AddKind = 'knob' | 'slider' | 'slider-horizontal' | 'xy' | 'switch'
+
+export interface AddDraft {
+  readonly kind: AddKind
+  /** The parameter it will drive (the x axis of a pad); none: a blank control, to be wired in the graph. */
+  readonly x?: PortRef
+  readonly y?: PortRef
+}
 
 interface Choice {
   readonly id: string
   readonly text: string
-  readonly binding: ParamBinding
-  readonly enumerated: boolean
+  readonly ref: PortRef
 }
 
-const pack = (binding: ParamBinding): string => `${binding.node}\u0000${binding.param}`
+const pack = (ref: PortRef): string => `${ref.node}\u0000${ref.port}`
 
-/** A small form: pick a parameter (and a second one for a pad), then what to draw it as. */
-export const AddControl = ({ patch, modules, onAdd }: { patch: Patch; modules: ModuleLibrary; onAdd(draft: ControlDraft): void }) => {
+/**
+ * A small form: what kind of control, and optionally the parameter it should drive (a pad takes two). The control is a
+ * node: with a parameter it is made and wired to it, without one it is a blank control to wire in the graph.
+ */
+export const AddControl = ({ patch, modules, onAdd }: { patch: Patch; modules: ModuleLibrary; onAdd(draft: AddDraft): void }) => {
+  // The parameters a control can be made for: numbers with a socket and nothing wired to it yet.
   const choices = useMemo<Choice[]>(() => {
     const titles = nodeTitles(patch, modules)
-    return patch.nodes.flatMap((node) =>
-      (describeNode(node, modules)?.params ?? []).map((spec) => ({
-        id: pack({ node: node.id, param: spec.id }),
-        text: `${titles.get(node.id) ?? node.type}: ${spec.label}`,
-        binding: { node: node.id, param: spec.id },
-        enumerated: spec.options !== undefined,
-      })),
-    )
+    return patch.nodes.flatMap((node) => {
+      const shape = describeNode(node, modules)
+      return (shape?.params ?? [])
+        .filter((spec) => spec.options === undefined && shape?.inputs.some((port) => port.param === spec.id))
+        .filter((spec) => !patch.connections.some((c) => c.to.node === node.id && c.to.port === `param:${spec.id}`))
+        .map((spec) => ({ id: pack({ node: node.id, port: spec.id }), text: `${titles.get(node.id) ?? node.type}: ${spec.label}`, ref: { node: node.id, port: spec.id } }))
+    })
   }, [patch, modules])
 
+  const [kind, setKind] = useState<AddKind>('knob')
   const [first, setFirst] = useState('')
   const [second, setSecond] = useState('')
-  const [kind, setKind] = useState<Exclude<ControlKind, 'selector'>>('knob')
-
-  const chosen = choices.find((choice) => choice.id === first)
-  const chosenY = choices.find((choice) => choice.id === second)
-  const shown: ControlKind = chosen?.enumerated ? 'selector' : kind
-  const draft: ControlDraft | undefined = chosen
-    ? { kind: shown, bind: chosen.binding, ...(shown === 'xy' && chosenY ? { bindY: chosenY.binding } : {}) }
-    : undefined
-  const ready = draft !== undefined && controlFits(patch, modules, draft)
-
-  if (choices.length === 0) return <span className={styles.hint}>Add nodes with parameters first.</span>
+  const x = choices.find((choice) => choice.id === first)
+  const y = choices.find((choice) => choice.id === second)
+  // A pad with one parameter chosen would be half wired: ask for both or neither.
+  const ready = kind === 'switch' || (kind === 'xy' ? (x === undefined) === (y === undefined) && (x === undefined || x.id !== y?.id) : true)
 
   return (
     <form
@@ -46,37 +50,34 @@ export const AddControl = ({ patch, modules, onAdd }: { patch: Patch; modules: M
       aria-label="Add a control"
       onSubmit={(event) => {
         event.preventDefault()
-        if (draft && ready) {
-          onAdd(draft)
-          setFirst('')
-          setSecond('')
-        }
+        if (!ready) return
+        onAdd({ kind, ...(kind === 'switch' || !x ? {} : { x: x.ref }), ...(kind === 'xy' && y ? { y: y.ref } : {}) })
+        setFirst('')
+        setSecond('')
       }}
     >
-      <select aria-label="Parameter" value={first} onChange={(event) => setFirst(event.target.value)}>
-        <option value="">Parameter…</option>
-        {choices.map((choice) => (
-          <option key={choice.id} value={choice.id}>
-            {choice.text}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="Control type"
-        value={shown}
-        disabled={chosen?.enumerated === true}
-        onChange={(event) => setKind(event.target.value as Exclude<ControlKind, 'selector'>)}
-      >
+      <select aria-label="Control type" value={kind} onChange={(event) => setKind(event.target.value as AddKind)}>
         <option value="knob">Knob</option>
         <option value="slider">Slider</option>
+        <option value="slider-horizontal">Slider, sideways</option>
         <option value="xy">XY pad</option>
-        {chosen?.enumerated && <option value="selector">Selector</option>}
+        <option value="switch">Switch</option>
       </select>
-      {shown === 'xy' && (
+      {kind !== 'switch' && (
+        <select aria-label="Parameter" value={first} onChange={(event) => setFirst(event.target.value)}>
+          <option value="">{kind === 'xy' ? 'X parameter (or none)…' : 'Parameter (or none)…'}</option>
+          {choices.map((choice) => (
+            <option key={choice.id} value={choice.id}>
+              {choice.text}
+            </option>
+          ))}
+        </select>
+      )}
+      {kind === 'xy' && (
         <select aria-label="Y parameter" value={second} onChange={(event) => setSecond(event.target.value)}>
           <option value="">Y parameter…</option>
           {choices
-            .filter((choice) => !choice.enumerated && choice.id !== first)
+            .filter((choice) => choice.id !== first)
             .map((choice) => (
               <option key={choice.id} value={choice.id}>
                 {choice.text}

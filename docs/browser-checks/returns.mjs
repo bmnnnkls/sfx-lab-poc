@@ -10,6 +10,19 @@ const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
+
+// The node picker (Add button -> type -> pick). `offers(label)` asks whether it lists a node, without adding anything.
+const addButton = () => page.getByRole('button', { name: 'Add', exact: true })
+const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
+const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
+const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
+const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
+
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const node = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator('[class*="nodeTitle"]', { hasText: new RegExp(`^${title}`) }) }).first()
@@ -24,7 +37,7 @@ const wire = async (fromTitle, toTitle, fromPort = 'out', toPort = 'in') => {
 }
 const wireCount = () => surface.locator('[data-testid^="wire-"]').count()
 const trackBtn = (name) => page.locator('[class*="_trackName_"]').filter({ hasText: new RegExp(`^${name}`) })
-const add = (name) => page.getByRole('button', { name, exact: true }).click()
+const add = addNode
 const effects = () => page.getByRole('button', { name: 'Effects', exact: true }).click()
 const LOOP = 'Demo Drum Loop 120 BPM'
 
@@ -51,7 +64,7 @@ check('it is shown after the clip tracks', (await page.locator('[class*="_trackN
 await trackBtn('Return A').click()
 await effects()
 check('its Effects tab starts at Return in, wired to Track out', (await node('Return in').count()) === 1 && (await node('Track out').count()) === 1 && (await wireCount()) === 1)
-check('its palette offers Return in and Send, but not Track in', (await page.getByRole('button', { name: 'Track in', exact: true }).count()) === 0 && (await page.getByRole('button', { name: 'Send', exact: true }).count()) === 1)
+check('its palette offers Return in and Send, but not Track in', (await offers('Track in')) === false && (await offers('Send')) === true)
 await page.getByRole('button', { name: 'Instrument', exact: true }).click()
 check('the Instrument tab says a return has no instrument', (await page.getByText(/is a return track: it has no instrument/).count()) === 1)
 await effects()
@@ -60,7 +73,8 @@ await surface.locator('[data-testid^="wire-"]').first().click({ force: true })
 await add('Stereo reverb')
 await wire('Return in', 'Stereo reverb')
 await wire('Stereo reverb', 'Track out')
-const knob = (n) => node('Stereo reverb').locator('input[type=range]').nth(n)
+await selectNode('Stereo reverb')
+const knob = (n) => slider(['Size', 'Damp', 'Predelay', 'Mix'][n])
 await knob(0).fill('1000') // size
 await knob(3).fill('1000') // mix: all wet
 check('Return in -> Stereo reverb -> Track out', (await wireCount()) === 2, String(await wireCount()))
@@ -68,9 +82,9 @@ check('Return in -> Stereo reverb -> Track out', (await wireCount()) === 2, Stri
 // ---- send the audio track to it
 await trackBtn('Audio').click()
 await effects()
-check('the audio track has its own Track in / Track out and no Return in in its palette', (await node('Track in').count()) === 1 && (await page.getByRole('button', { name: 'Return in', exact: true }).count()) === 0)
+check('the audio track has its own Track in / Track out and no Return in in its palette', (await node('Track in').count()) === 1 && (await offers('Return in')) === false)
 await add('Send')
-const picker = surface.getByLabel('Send to return track')
+const picker = properties().getByLabel('Send to return track')
 const options = await picker.locator('option').allTextContents()
 check('the Send offers the return tracks', options.includes('Return A') && !options.includes('Audio 4'), JSON.stringify(options))
 await picker.selectOption({ label: 'Return A' })
@@ -108,20 +122,20 @@ await page.getByRole('menuitem', { name: 'Return track' }).click()
 await trackBtn('Return A').click()
 await effects()
 await add('Send')
-const pickerA = surface.getByLabel('Send to return track')
+const pickerA = properties().getByLabel('Send to return track')
 check('a return may send to another return', (await pickerA.locator('option').allTextContents()).includes('Return B'))
 await pickerA.selectOption({ label: 'Return B' })
 await trackBtn('Return B').click()
 await effects()
 await add('Send')
-const optionsB = await surface.getByLabel('Send to return track').locator('option').allTextContents()
+const optionsB = await properties().getByLabel('Send to return track').locator('option').allTextContents()
 check('...but Return B cannot send back to Return A (a loop) or to itself', !optionsB.includes('Return A') && !optionsB.includes('Return B'), JSON.stringify(optionsB))
 
 // ---- persistence
 await page.reload()
 await trackBtn('Audio').click()
 await effects()
-check('the Send and its return survive a reload', (await node('Send').count()) === 1 && (await surface.getByLabel('Send to return track').inputValue()) !== '')
+check('the Send and its return survive a reload', (await node('Send').count()) === 1 && (await (async () => { await selectNode('Send'); return properties().getByLabel('Send to return track').inputValue() })()) !== '')
 
 check('no page errors', errors.length === 0, errors.join(' | '))
 await browser.close()

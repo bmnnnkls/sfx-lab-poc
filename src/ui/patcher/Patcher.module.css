@@ -1,5 +1,7 @@
 .patcher {
   display: grid;
+  /* One column that may be narrower than its content: the canvas scrolls, the editor beside it keeps its width. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
 }
@@ -18,18 +20,6 @@
   border-bottom: 1px solid var(--border);
 }
 
-.palette {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.paletteLabel {
-  color: var(--text-dim);
-  margin-right: 4px;
-}
-
 .empty {
   padding: 16px;
   color: var(--text-dim);
@@ -42,6 +32,9 @@
 
 .surface {
   position: relative;
+  /* Fills the whole canvas, so a double-click or a marquee works on any empty part of it, not only near the nodes. */
+  min-width: 100%;
+  min-height: 100%;
   background-image: radial-gradient(var(--border) 1px, transparent 1px);
   background-size: 20px 20px;
 }
@@ -133,27 +126,6 @@
 
 .outPort .dot {
   margin-right: -6px;
-}
-
-.param {
-  display: grid;
-  gap: 2px;
-  padding: 2px 10px 6px;
-}
-
-.param input[type='range'] {
-  padding: 0;
-}
-
-.paramLabel {
-  display: flex;
-  justify-content: space-between;
-  color: var(--text-dim);
-  font-size: 11px;
-}
-
-.paramValue {
-  color: var(--text);
 }
 
 .voices {
@@ -269,8 +241,8 @@
 
 /* A preview beside the canvas takes a fixed share; the canvas keeps what is left. */
 .editorBody > .aside {
-  flex: 0 0 42%;
-  max-width: 600px;
+  flex: 0 0 30%;
+  max-width: 440px;
 }
 
 .interface {
@@ -324,20 +296,37 @@
   stroke-width: 3.5;
 }
 
+/* A knob's value or a parameter socket: a slow signal, drawn thinner and dashed so it reads as "setting", not "sound". */
+.controlWire {
+  stroke: var(--play);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+}
+
+.controlPort .dot {
+  background: var(--play);
+}
+
+.socketsToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+}
+
 .nodeBypassed {
   opacity: 0.55;
 }
 
-.bypass {
-  margin-left: auto;
-  margin-right: 4px;
-  padding: 0 6px;
-  line-height: 18px;
-}
-
-.stereoToggle {
-  min-width: 28px;
+.stereoTag {
+  margin-left: 8px;
+  padding: 1px 5px;
   font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
 .trackPicker {

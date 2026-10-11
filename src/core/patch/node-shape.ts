@@ -1,5 +1,7 @@
-import { type NodeDefinition, type ParamSpec, type PortKind, type PortSpec, findNodeDefinition, stereoPorts } from '../dsp'
+import { type NodeCategory, type NodeDefinition, type ParamSpec, type PortKind, type PortSpec, findNodeDefinition, liveSpec, paramSockets, stereoPorts } from '../dsp'
 import { findNoteNode } from '../notefx'
+import { controlParamKey, moduleControls } from './module-controls'
+import { nodeTitles } from './titles'
 import { MODULE_NODE_TYPE, type ModuleDefinition, type ModuleLibrary, type ModulePort } from './module-types'
 import type { PatchNode } from './types'
 
@@ -7,7 +9,9 @@ import type { PatchNode } from './types'
 export type NodeDomain = 'audio' | 'notes'
 
 /** What the editor and the connection rules need to know about a node: its ports and parameters. */
-export type NodeShape = Pick<NodeDefinition, 'label' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
+export type NodeShape = Pick<NodeDefinition, 'label' | 'description' | 'keywords' | 'panelKind' | 'inNotes' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
+  /** Where the picker files it; a module's is `Modules`. */
+  readonly category?: NodeCategory | 'Modules'
   /** The node refers to another track and the editor shows a track picker: `notes` takes notes from an instrument track, `return` sends to a return track, `audio` takes another track's sound. */
   readonly usesTrack?: 'notes' | 'return' | 'audio'
   /** A note effect that can be switched off (notes then pass straight through). */
@@ -17,13 +21,40 @@ export type NodeShape = Pick<NodeDefinition, 'label' | 'inputs' | 'outputs' | 'p
 
 /**
  * Sound connects to sound, stereo to stereo and notes to notes, never across. A mono signal may also feed a stereo
- * input (it is heard in both channels); going back to mono is the explicit *Mono sum* node.
+ * input (it is heard in both channels); going back to mono is the explicit *Mono sum* node. A `control` (a knob's
+ * value, a parameter socket) joins controls and mono signals either way: into a signal input it is a constant, and a
+ * signal into a control socket is read once per block. It never meets stereo or notes.
  */
 export const kindsConnect = (from: PortKind = 'signal', to: PortKind = 'signal'): boolean =>
-  from === to || (from === 'signal' && to === 'stereo')
+  from === to || (from === 'signal' && to === 'stereo') || (from === 'control' && to === 'signal') || (from === 'signal' && to === 'control')
 
 export const findModule = (modules: ModuleLibrary, id: string | undefined): ModuleDefinition | undefined =>
   id === undefined ? undefined : modules.find((candidate) => candidate.id === id)
+
+/**
+ * The parameters of a module use that come from the control nodes inside the module (`moduleControls`): one per value of a
+ * control, with the control's own live range, curve and unit, named after it. Those already exposed as a knob keep the knob.
+ */
+const controlSpecs = (definition: ModuleDefinition, known: ReadonlySet<string>): ParamSpec[] => {
+  const titles = nodeTitles(definition.patch, [])
+  return moduleControls(definition).flatMap(({ node, params }) => {
+    const shape = describeNode(node)
+    return params.flatMap((param) => {
+      const id = controlParamKey(node.id, param)
+      const spec = shape?.params.find((candidate) => candidate.id === param)
+      if (!spec || known.has(id)) return []
+      const resolved = resolveSpec(node, spec)
+      const axis = param === 'x' ? ' X' : param === 'y' ? ' Y' : ''
+      return [{ ...resolved, id, label: `${titles.get(node.id) ?? shape?.label ?? ''}${axis}`, default: node.params[param] ?? spec.default }]
+    })
+  })
+}
+
+/** A module use's parameters: its exposed knobs, then the values of the controls inside it. */
+const moduleParams = (definition: ModuleDefinition, modules: ModuleLibrary): ParamSpec[] => {
+  const knobs = knobSpecs(definition, modules)
+  return [...knobs, ...controlSpecs(definition, new Set(knobs.map((spec) => spec.id)))]
+}
 
 /** The shape of a module's knob parameters: the inner node's own spec, renamed, defaulting to its current value. */
 const knobSpecs = (definition: ModuleDefinition, modules: ModuleLibrary): ParamSpec[] =>
@@ -56,9 +87,29 @@ export const moduleDomain = (definition: ModuleDefinition, modules: ModuleLibrar
       const domain = inner && moduleDomain(inner, modules, seen)
       if (domain) return domain
     } else if (findNoteNode(node.type)) return 'notes'
-    else if (findNodeDefinition(node.type)) return 'audio'
+    else if (findNodeDefinition(node.type)) {
+      // Controls and math work in either kind of graph and so do not say which this module is.
+      if (findNodeDefinition(node.type)?.inNotes !== true) return 'audio'
+    }
   }
   return undefined
+}
+
+const soundShapes = new Map<string, NodeShape>()
+
+/**
+ * A sound node's shape: its own ports, then one socket per numeric parameter. A node running in stereo has stereo
+ * ports; everything else about it is the same. Cached, so the shape of a type is one object, as the definition was.
+ */
+const soundShape = (definition: NodeDefinition, stereo: boolean): NodeShape => {
+  const lifted = stereo && definition.stereoCapable === true
+  const key = `${definition.type}:${lifted}`
+  const cached = soundShapes.get(key)
+  if (cached) return cached
+  const ports = lifted ? stereoPorts(definition) : definition
+  const shape: NodeShape = { ...definition, inputs: [...ports.inputs, ...paramSockets(definition)], outputs: ports.outputs }
+  soundShapes.set(key, shape)
+  return shape
 }
 
 /**
@@ -68,13 +119,15 @@ export const moduleDomain = (definition: ModuleDefinition, modules: ModuleLibrar
 export const describeNode = (node: PatchNode, modules: ModuleLibrary = []): NodeShape | undefined => {
   if (node.type !== MODULE_NODE_TYPE) {
     const audio = findNodeDefinition(node.type)
-    // A node running in stereo has stereo ports; everything else about it is the same.
-    if (audio) return node.stereo === true && audio.stereoCapable === true ? { ...audio, ...stereoPorts(audio) } : audio
+    if (audio) return soundShape(audio, node.stereo === true)
     const note = findNoteNode(node.type)
     return (
       note && {
         label: note.label,
-        inputs: note.inputs,
+        description: note.description,
+        category: note.category,
+        keywords: note.keywords,
+        inputs: [...note.inputs, ...paramSockets(note)],
         outputs: note.outputs,
         params: note.params,
         usesTrack: note.usesTrack === true ? 'notes' : undefined,
@@ -87,9 +140,23 @@ export const describeNode = (node: PatchNode, modules: ModuleLibrary = []): Node
   if (!definition) return undefined
   return {
     label: definition.name,
+    category: 'Modules',
     inputs: outsidePorts(definition, definition.inputs, 'inputs', modules),
     outputs: outsidePorts(definition, definition.outputs, 'outputs', modules),
-    params: knobSpecs(definition, modules),
+    params: moduleParams(definition, modules),
     domain: moduleDomain(definition, modules),
   }
+}
+
+/**
+ * A parameter's spec as this node has it: a control's range, step and curve are its own settings (`liveSpec`), its
+ * default is its own `default` setting and its unit is the text the user gave it. The spec itself for everything else.
+ */
+export const resolveSpec = (node: Pick<PatchNode, 'params' | 'unit' | 'unitY'>, spec: ParamSpec): ParamSpec => {
+  const live = liveSpec(spec, node.params)
+  const unit = spec.unitFrom === undefined ? undefined : node[spec.unitFrom]
+  // A control's default is its own `default` setting, not the spec's.
+  const reset = live.range?.reset === undefined ? undefined : node.params[live.range.reset]
+  const resolved = reset === undefined ? live : { ...live, default: reset }
+  return unit === undefined ? resolved : { ...resolved, unit }
 }

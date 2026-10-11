@@ -6,60 +6,50 @@ import {
   TRACK_IN_TYPE,
   type ModuleLibrary,
   type Patch,
+  type PortRef,
   type PatchTarget,
   type Track,
   type TrackGraph,
   addNode,
   connect,
   containsModule,
+  createControlFor,
+  createModuleUse,
   createNode,
+  describeNode,
   disconnect,
   moduleDomain,
   moveNode,
   noteNodeDefinitions,
   nodeDefinitions,
   removeNode,
-  setNodeBypassed,
-  setNodeParam,
-  setNodeSample,
-  setNodeStereo,
-  setNodeTrack,
 } from '@core'
 import { useProjectStore } from '@state'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useRef, useState } from 'react'
 import { PanelView } from '../panel/PanelView'
+import type { MenuEntry } from '../shared/menu'
 import { useStoredState } from '../shared/use-stored-state'
 import { ModuleBar } from './ModuleBar'
 import { ModuleInterface } from './ModuleInterface'
-import { NodePalette } from './NodePalette'
-import { PatchCanvas } from './PatchCanvas'
+import { type Catalog, buildCatalog } from './node-catalog'
+import { PatchCanvas, type PatchCanvasHandle } from './PatchCanvas'
+import { QuickAdd } from './QuickAdd'
+import { NODE_WIDTH, type Point } from './geometry'
+import { PropertyEditor } from './PropertyEditor'
+import { centredOn, freeSpot } from './placement'
+import { targetInput } from './wire-drop'
 import styles from './Patcher.module.css'
 
 type PatchEdit = (patch: Patch, modules: ModuleLibrary) => Patch
 
-/**
- * New nodes go on a grid below the existing ones, in the first slot nothing is sitting on. An insert graph starts with
- * just its two ends in one row, so its grid starts right under them and a new node is in view; the others have a patch
- * several rows high to clear.
- */
-const SLOT = { x: 196, y: 150, columns: 6, originX: 40 }
-const GRID_TOP = { patch: 330, notes: 330, fx: 130 } as const
-
-const spawnPoint = (patch: Patch, graph: TrackGraph): { x: number; y: number } => {
-  const originY = GRID_TOP[graph]
-  for (let index = 0; index < 200; index++) {
-    const x = SLOT.originX + (index % SLOT.columns) * SLOT.x
-    const y = originY + Math.floor(index / SLOT.columns) * SLOT.y
-    if (!patch.nodes.some((node) => Math.abs(node.x - x) < SLOT.x - 20 && Math.abs(node.y - y) < SLOT.y - 20)) return { x, y }
-  }
-  return { x: SLOT.originX, y: originY }
-}
 const SUFFIX: Record<TrackGraph, string> = { patch: '', fx: ' effects', notes: ' notes' }
 
 const graphOf = (track: Track, graph: TrackGraph): Patch =>
   graph === 'fx' || track.kind !== 'instrument' ? track.fx : graph === 'notes' ? track.noteGraph : track.patch
 
 const VOICE_OPTIONS = [1, 2, 3, 4, 6, 8, 12, 16]
+
+const isFlag = (value: unknown): value is boolean => typeof value === 'boolean'
 
 type View = 'graph' | 'panel'
 const isView = (value: unknown): value is View => value === 'graph' || value === 'panel'
@@ -75,7 +65,8 @@ const STARTS = new Set(Object.values(START))
 
 /** What each kind of graph may offer in its palette: the insert graph has its own ends and no note-driven sources. */
 const paletteFor = (graph: TrackGraph, kind: Track['kind'] | 'master') => {
-  if (graph === 'notes') return noteNodeDefinitions
+  // A note graph also takes controls and math: they work out constants that drive the note nodes' parameters.
+  if (graph === 'notes') return [...noteNodeDefinitions, ...nodeDefinitions.filter((definition) => definition.inNotes === true)]
   return nodeDefinitions.filter((definition) => {
     if (graph !== 'fx') return definition.insertOnly !== true
     if (STARTS.has(definition.type)) return definition.type === START[kind]
@@ -112,8 +103,14 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const [path, setPath] = useState<readonly string[]>([])
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [interfaceOpen, setInterfaceOpen] = useState(true)
+  // The node picker: where it opens (window pixels) and where the node goes (canvas coordinates).
+  const [picker, setPicker] = useState<{ anchor: Point; at: Point; fromButton: boolean; from?: PortRef } | null>(null)
+  const canvas = useRef<PatchCanvasHandle>(null)
+  const addButton = useRef<HTMLButtonElement>(null)
   // Remembered per kind of graph (instrument, effects, notes), not per track: it is a way of looking, not part of the project.
   const [view, setView] = useStoredState<View>(`sfxlab.view.${graph}`, 'graph', isView)
+  // Parameter sockets are drawn only when wired, unless this is on; also a way of looking, so not in the project.
+  const [showSockets, setShowSockets] = useStoredState<boolean>('sfxlab.sockets', false, isFlag)
 
   // A module that disappeared (undo, delete) ends the path there.
   const missing = path.findIndex((id) => !modules.some((module) => module.id === id))
@@ -148,6 +145,76 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
     })),
   )
   const palette = paletteFor(graph, track?.kind ?? 'master')
+  // A wire dropped on empty canvas: the picker offers only what can take it, and wires the new node in.
+  const dropped = picker?.from
+  const droppedNode = dropped && patch.nodes.find((node) => node.id === dropped.node)
+  const droppedKind = droppedNode && describeNode(droppedNode, modules)?.outputs.find((port) => port.id === dropped.port)?.kind
+  const droppedLabel = droppedNode && `${describeNode(droppedNode, modules)?.label ?? ''} ${describeNode(droppedNode, modules)?.outputs.find((port) => port.id === dropped?.port)?.label ?? ''}`.trim()
+  const accepts = (shape: ReturnType<typeof describeNode>) => dropped === undefined || (shape !== undefined && targetInput(shape, droppedKind) !== undefined)
+  const catalog: Catalog | null = picker
+    ? buildCatalog(
+        palette.filter((definition) => accepts(describeNode(createNode(definition.type, 0, 0), modules))),
+        placeable.filter((module) => accepts(describeNode(createModuleUse(module, 0, 0), modules))),
+      )
+    : null
+
+  const closePicker = () => {
+    if (picker?.fromButton) addButton.current?.focus()
+    setPicker(null)
+  }
+  /** Adds what the picker chose where it was asked for, selects it and, for a dropped wire, wires it in. */
+  const addFromPicker = (entry: { kind: 'node' | 'module'; ref: string }) => {
+    if (!picker) return
+    const wanted = picker.from ? { x: picker.at.x + 16, y: Math.max(0, picker.at.y - 40) } : centredOn(picker.at)
+    const { x, y } = freeSpot(patch, modules, wanted)
+    const module = entry.kind === 'module' ? modules.find((candidate) => candidate.id === entry.ref) : undefined
+    if (entry.kind === 'module' && !module) return
+    if (module && !picker.from) {
+      store().addModuleUse(target, entry.ref, x, y)
+    } else {
+      const node = module ? createModuleUse(module, x, y) : createNode(entry.ref, x, y)
+      const from = picker.from
+      edit((current, library) => {
+        const added = addNode(current, node)
+        const input = from && targetInput(describeNode(node, library)!, droppedKind)
+        return from && input ? connect(added, from, { node: node.id, port: input.id }, { modules: library }) : added
+      })
+      setSelected(new Set([node.id]))
+    }
+    setPicker(null)
+  }
+
+  /** "Create knob / slider" on a parameter: a control to the left of the node, set up from the parameter and wired in. */
+  const createControl = (nodeId: string, paramId: string, display: 'knob' | 'slider') => {
+    const node = patch.nodes.find((candidate) => candidate.id === nodeId)
+    if (!node) return
+    const at = freeSpot(patch, modules, { x: Math.max(0, node.x - NODE_WIDTH - 40), y: node.y })
+    const made = createControlFor(patch, modules, nodeId, paramId, { at, display })
+    if (!made) return
+    edit(() => made.patch)
+    setSelected(new Set([made.controlId]))
+  }
+  /** Removes every wire into one port (a socket may have several). */
+  const disconnectPort = (nodeId: string, portId: string) =>
+    edit((current) =>
+      current.connections
+        .filter((connection) => connection.to.node === nodeId && connection.to.port === portId)
+        .reduce((next, connection) => disconnect(next, connection.id), current),
+    )
+  const inputMenu = (nodeId: string, portId: string): readonly MenuEntry[] => {
+    const node = patch.nodes.find((candidate) => candidate.id === nodeId)
+    const port = node && describeNode(node, modules)?.inputs.find((candidate) => candidate.id === portId)
+    if (!port) return []
+    const wired = patch.connections.some((connection) => connection.to.node === nodeId && connection.to.port === portId)
+    const entries: MenuEntry[] = []
+    // A parameter that is already wired has its value; a second wire would add to it, so the menu offers no new control.
+    if (port.param !== undefined && !wired) {
+      entries.push({ label: 'Create knob', onSelect: () => createControl(nodeId, port.param!, 'knob') })
+      entries.push({ label: 'Create slider', onSelect: () => createControl(nodeId, port.param!, 'slider') })
+    }
+    if (wired) entries.push({ label: 'Disconnect', danger: true, onSelect: () => disconnectPort(nodeId, portId) })
+    return entries
+  }
 
   return (
     <div className={styles.patcher} data-editing={definition ? 'module' : 'track'} data-domain={domain} data-graph={graph}>
@@ -199,20 +266,28 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             </button>
           </div>
           {view === 'graph' && (
-            <NodePalette
-              definitions={palette}
-              modules={placeable}
-              onAdd={(type) =>
-                edit((current) => {
-                  const { x, y } = spawnPoint(current, graph)
-                  return addNode(current, createNode(type, x, y))
+            <button
+              ref={addButton}
+              aria-haspopup="listbox"
+              aria-expanded={picker !== null}
+              data-tooltip="Add a node. You can also double-click the canvas, or press Shift+A over it."
+              onClick={() => {
+                const rect = addButton.current?.getBoundingClientRect()
+                setPicker({
+                  anchor: { x: rect?.left ?? 40, y: (rect?.bottom ?? 40) + 4 },
+                  at: canvas.current?.visibleCenter() ?? { x: 300, y: 200 },
+                  fromButton: true,
                 })
-              }
-              onAddModule={(moduleId) => {
-                const { x, y } = spawnPoint(patch, graph)
-                store().addModuleUse(target, moduleId, x, y)
               }}
-            />
+            >
+              Add
+            </button>
+          )}
+          {view === 'graph' && (
+            <label className={styles.socketsToggle} title="Show a socket for every parameter, so a wire can drive it (the wire replaces the parameter's value)">
+              <input type="checkbox" checked={showSockets} onChange={(event) => setShowSockets(event.target.checked)} />
+              Sockets
+            </label>
           )}
           {view === 'graph' && (
             <button
@@ -235,30 +310,41 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
           </div>
         ) : (
           <PatchCanvas
+            ref={canvas}
             patch={patch}
             modules={modules}
             selected={selected}
-            ownerTrackId={track?.id ?? ''}
             showStages={graph === 'patch'}
+            showSockets={showSockets}
             onSelectionChange={setSelected}
             onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
             onRemoveNode={(id) => edit((current) => removeNode(current, id))}
-            onParamChange={(id, paramId, value) =>
-              edit((current) => setNodeParam(current, id, paramId, value), `param:${scope}:${id}:${paramId}`)
-            }
-            onSampleChange={(id, sampleId) => edit((current) => setNodeSample(current, id, sampleId))}
-            onTrackChange={(id, trackId) => edit((current) => setNodeTrack(current, id, trackId))}
-            onBypassChange={(id, bypassed) => edit((current) => setNodeBypassed(current, id, bypassed))}
-            onStereoChange={(id, stereo) => edit((current, library) => setNodeStereo(current, id, stereo, library))}
+            inputMenu={inputMenu}
             onConnect={(from, to) => edit((current, library) => connect(current, from, to, { modules: library }))}
             onDisconnect={(id) => edit((current) => disconnect(current, id))}
             onOpenModule={(moduleId) => enter([...known, moduleId])}
             onUnlinkModule={(nodeId) => store().unlinkModule(target, nodeId)}
+            onRequestAdd={({ anchor, at, from }) => setPicker({ anchor, at, fromButton: false, from })}
           />
         )}
         {aside && <div className={styles.aside}>{aside}</div>}
+        {view === 'graph' && (
+          <PropertyEditor
+            patch={patch}
+            modules={modules}
+            selected={selected}
+            scope={scope}
+            ownerTrackId={track?.id ?? ''}
+            edit={edit}
+            onCreateControl={createControl}
+            onUnwire={(nodeId, paramId) => disconnectPort(nodeId, `param:${paramId}`)}
+          />
+        )}
         {definition && interfaceOpen && view === 'graph' && <ModuleInterface definition={definition} />}
       </div>
+      {picker && catalog && (
+        <QuickAdd catalog={catalog} anchor={picker.anchor} heading={droppedLabel ? `Can take ${droppedLabel}` : undefined} onPick={addFromPicker} onClose={closePicker} />
+      )}
     </div>
   )
 }

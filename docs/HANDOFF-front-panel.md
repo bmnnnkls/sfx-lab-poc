@@ -1,6 +1,9 @@
 # Handoff: the Front panel (sliders, knobs and XY pads as an alternative to the graph)
 
-> **Status: built** (see `ARCHITECTURE.md`, "Front panel", for how it works; `docs/TASKS.md`, "Front panel follow-ups", for what is left).
+> **Status: built, then superseded by `HANDOFF-control-nodes.md` (step 5): the panel is now the patch's control nodes, `Patch.panel` and its
+> bindings are gone; the widgets and the board stayed.** What follows is the original brief, kept as the record.
+>
+> Earlier status: **built** (see `ARCHITECTURE.md`, "Front panel", for how it works; `docs/TASKS.md`, "Front panel follow-ups", for what is left).
 > The text below is the original brief, kept as the record of what was decided. The user accepted all the proposals marked
 > **(confirm)**. Differences in the build: reordering is both drag-and-drop (a handle) and move buttons; the pad answers the
 > arrow keys itself (no hidden inputs); a pad's size S / M / L is 2x2 / 3x2 / 3x3 cells; `param-scale.ts` moved to `ui/shared/`. Work on the branch

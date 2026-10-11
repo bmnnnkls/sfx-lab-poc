@@ -18,9 +18,20 @@ import { trackAudioNode } from './nodes/track-audio.node'
 import { trackInNode } from './nodes/track-in.node'
 import { trackOutNode } from './nodes/track-out.node'
 import { widthNode } from './nodes/width.node'
+import { controlNode } from './nodes/control.node'
+import { absNode, addNode, clampNode, compareNode, constantNode, divideNode, invertNode, maxNode, minNode, multiplyNode, subtractNode } from './nodes/math/arithmetic'
+import { dbToGainNode, gainToDbNode, hzToMsNode, msToHzNode, ratioToSemitonesNode, semitonesToRatioNode } from './nodes/math/conversions'
+import { sampleHoldNode } from './nodes/math/sample-hold.node'
+import { hzToMidiNode, midiToHzNode } from './nodes/math/midi'
+import { mapRangeNode, mixNode, quantizeNode } from './nodes/math/shaping'
+import { smoothNode } from './nodes/math/smooth.node'
+import { switchNode } from './nodes/switch.node'
+import { xyPadNode } from './nodes/xy-pad.node'
+import { documented } from './document'
+import { nodeDocs } from './node-docs'
 import type { NodeDefinition } from './types'
 
-export const nodeDefinitions: readonly NodeDefinition[] = [
+const plainDefinitions: readonly NodeDefinition[] = [
   noteNode,
   oscillatorNode,
   samplerNode,
@@ -42,7 +53,37 @@ export const nodeDefinitions: readonly NodeDefinition[] = [
   masterInNode,
   sendNode,
   trackAudioNode,
+  controlNode,
+  xyPadNode,
+  switchNode,
+  addNode,
+  multiplyNode,
+  invertNode,
+  minNode,
+  maxNode,
+  clampNode,
+  mapRangeNode,
+  quantizeNode,
+  smoothNode,
+  mixNode,
+  compareNode,
+  midiToHzNode,
+  hzToMidiNode,
+  subtractNode,
+  divideNode,
+  absNode,
+  constantNode,
+  semitonesToRatioNode,
+  ratioToSemitonesNode,
+  dbToGainNode,
+  gainToDbNode,
+  hzToMsNode,
+  msToHzNode,
+  sampleHoldNode,
 ]
+
+/** Every node type, with the words that go with it (`node-docs.ts`) attached. */
+export const nodeDefinitions: readonly NodeDefinition[] = plainDefinitions.map((definition) => documented(definition, nodeDocs[definition.type]))
 
 const byType = new Map(nodeDefinitions.map((definition) => [definition.type, definition]))
 

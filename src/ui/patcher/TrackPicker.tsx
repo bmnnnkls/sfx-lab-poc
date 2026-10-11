@@ -1,6 +1,5 @@
 import { audioSourceTracks, sendableReturns, tappableTracks } from '@core'
 import { useProjectStore } from '@state'
-import { TRACK_PICKER_HEIGHT } from './geometry'
 import styles from './Patcher.module.css'
 
 interface TrackPickerProps {
@@ -25,7 +24,7 @@ export const TrackPicker = ({ pick, ownerTrackId, trackId, onChange }: TrackPick
   const current = trackId ? project.tracks.find((track) => track.id === trackId) : undefined
 
   return (
-    <div className={styles.trackPicker} style={{ height: TRACK_PICKER_HEIGHT }}>
+    <div className={styles.trackPicker}>
       <select value={trackId ?? ''} aria-label={TEXT[pick].label} onChange={(event) => onChange(event.target.value || null)}>
         <option value="">{choices.length === 0 ? TEXT[pick].none : '(choose a track)'}</option>
         {/* Keep showing the current choice even if it has become unavailable. */}

@@ -1,4 +1,18 @@
-export type { Patch, PatchConnection, PatchNode, PortRef } from './types'
+export {
+  CONTROL_DISPLAYS,
+  CONTROL_SIZES,
+  type ControlDisplay,
+  type ControlSize,
+  type NodePanel,
+  type Patch,
+  type PatchConnection,
+  type PatchNode,
+  type PortRef,
+} from './types'
+export { createBlankControl, createControlFor, createXyFor, type ControlForOptions } from './control-for'
+export { nodeTitles } from './titles'
+export { resolveParams } from './resolve'
+export { type ModuleControl, controlParamKey, moduleControls } from './module-controls'
 export {
   MODULE_NODE_TYPE,
   type ModuleDefinition,
@@ -8,7 +22,7 @@ export {
   exposedKnobId,
   exposedPortId,
 } from './module-types'
-export { type NodeDomain, type NodeShape, describeNode, findModule, kindsConnect, moduleDomain } from './node-shape'
+export { type NodeDomain, type NodeShape, describeNode, findModule, kindsConnect, moduleDomain, resolveSpec } from './node-shape'
 export { createDefaultNoteGraph } from './default-note-graph'
 export { createDefaultFxGraph } from './default-fx-graph'
 export { createDefaultReturnGraph } from './default-return-graph'
@@ -16,6 +30,7 @@ export { createDefaultMasterGraph } from './default-master-graph'
 export { sendTargets } from './send-targets'
 export { audioSources } from './audio-sources'
 export { type NoteGraphNodeSpec, noteGraphFrom } from './note-graph-builder'
+export { engineNoteGraph } from './bake'
 export { containsModule, expandModuleUse, flattenPatch, modulesUsedBy, unlinkModuleUse } from './flatten'
 export {
   type GroupResult,
@@ -47,36 +62,26 @@ export {
   setNodeSample,
   setNodeTrack,
   setNodeBypassed,
+  setNodeName,
+  setNodeUnit,
+  setNodeDisplay,
+  MAX_NODE_NAME,
+  MAX_UNIT,
   setNodeStereo,
   clearTrackReferences,
   clearSampleReferences,
 } from './edit'
 export { isDownstream, topologicalOrder } from './graph'
 export {
-  CONTROL_KINDS,
-  CONTROL_SIZES,
-  type ControlDraft,
-  type ControlKind,
-  type ControlSize,
-  MAX_PANEL_CONTROLS,
-  type PanelControl,
-  type ParamBinding,
-} from './panel-types'
-export {
-  addControl,
-  buildPanel,
-  controlFits,
-  defaultControlLabel,
-  defaultControlSize,
-  dropControlsOfNodes,
-  moveControl,
-  prunePanel,
-  rebindControl,
-  removeControl,
-  renameControl,
-  resizeControl,
-  resolveBinding,
-  setControlOrientation,
+  type PanelItem,
+  type PanelKind,
+  defaultPanelSize,
+  movePanelControl,
+  numberPanel,
+  panelItems,
+  resizePanelControl,
+  setPanelShow,
+  spotBelow,
 } from './panel'
 export { createDefaultPatch } from './default-patch'
 export { createSamplerPatch } from './sampler-patch'

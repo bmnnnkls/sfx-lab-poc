@@ -233,3 +233,15 @@
   background: var(--accent);
   border-color: var(--accent);
 }
+
+/* Toggle */
+.toggle {
+  min-width: 52px;
+  padding: 6px 12px;
+}
+
+.toggle.toggleOn {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}

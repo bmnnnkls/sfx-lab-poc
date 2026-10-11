@@ -1,233 +1,142 @@
 import { describe, expect, it } from 'vitest'
 import {
-  MAX_PANEL_CONTROLS,
   type Patch,
-  type PanelControl,
-  addControl,
   addNode,
-  buildPanel,
-  connect,
-  createDefaultPatch,
+  createBlankControl,
+  createControlFor,
   createNode,
-  disconnect,
-  flattenPatch,
-  moveControl,
-  moveNode,
-  prunePanel,
-  rebindControl,
-  removeControl,
+  createXyFor,
+  movePanelControl,
+  numberPanel,
+  panelItems,
   removeNode,
-  renameControl,
-  resizeControl,
-  setControlOrientation,
-  setNodeBypassed,
-  setNodeParam,
-  setNodeSample,
-  setNodeStereo,
-  setNodeTrack,
+  resizePanelControl,
+  setNodeDisplay,
+  setPanelShow,
+  spotBelow,
 } from '.'
 
-const filter = createNode('filter', 0, 0)
-const osc = createNode('oscillator', 200, 0)
-const base: Patch = { nodes: [filter, osc], connections: [] }
-const cutoff = { node: filter.id, param: 'cutoff' }
-const resonance = { node: filter.id, param: 'resonance' }
-const mode = { node: filter.id, param: 'mode' }
-const freq = { node: osc.id, param: 'frequency' }
+const empty: Patch = { nodes: [], connections: [] }
+const named = (type: string, id: string, extra: Record<string, unknown> = {}) => ({ ...createNode(type, 0, 0), id, ...extra })
+const build = (...nodes: ReturnType<typeof named>[]): Patch => nodes.reduce(addNode, empty)
+const ids = (patch: Patch) => panelItems(patch, []).map((item) => item.node.id)
 
-const controlsOf = (patch: Patch): readonly PanelControl[] => patch.panel ?? []
-
-describe('addControl', () => {
-  it('adds a knob at the end with the parameter name as its label and a size', () => {
-    const next = addControl(base, [], { kind: 'knob', bind: cutoff })
-    expect(controlsOf(next)).toHaveLength(1)
-    expect(controlsOf(next)[0]).toMatchObject({ kind: 'knob', label: 'Cutoff', bind: cutoff, size: 'S' })
-    const again = addControl(next, [], { kind: 'slider', bind: freq, orientation: 'horizontal' })
-    expect(controlsOf(again).map((control) => control.bind)).toEqual([cutoff, freq])
-    expect(controlsOf(again)[1]).toMatchObject({ orientation: 'horizontal' })
+describe('panelItems', () => {
+  it('is the control nodes and nothing else, in patch order until something is ordered', () => {
+    const patch = build(named('gain', 'g'), named('control', 'a'), named('filter', 'f'), named('switch', 's'), named('xyPad', 'p'))
+    expect(ids(patch)).toEqual(['a', 's', 'p'])
   })
 
-  it('an XY pad takes two different numeric parameters, named after both, and is bigger', () => {
-    const next = addControl(base, [], { kind: 'xy', bind: cutoff, bindY: resonance })
-    expect(controlsOf(next)[0]).toMatchObject({ kind: 'xy', label: 'Cutoff / Res', bindY: resonance, size: 'M' })
+  it('says what each is: a knob, a slider (upright or lying down), a pad, a switch', () => {
+    let patch = build(named('control', 'k'), named('control', 'v'), named('control', 'h'), named('xyPad', 'p'), named('switch', 's'))
+    patch = setNodeDisplay(setNodeDisplay(patch, 'v', 'slider'), 'h', 'slider-horizontal')
+    expect(panelItems(patch, []).map((item) => [item.node.id, item.kind, item.horizontal])).toEqual([
+      ['k', 'knob', false], ['v', 'slider', false], ['h', 'slider', true], ['p', 'xy', false], ['s', 'switch', false],
+    ])
   })
 
-  it('uses a given label, trimmed', () => {
-    const next = addControl(base, [], { kind: 'knob', bind: cutoff, label: '  Brightness ' })
-    expect(controlsOf(next)[0]?.label).toBe('Brightness')
+  it('defaults: a pad is M, the rest S; shown unless hidden', () => {
+    const items = panelItems(build(named('control', 'k'), named('xyPad', 'p')), [])
+    expect(items.map((item) => [item.size, item.shown])).toEqual([['S', true], ['M', true]])
   })
 
-  it('refuses what does not fit, returning the same patch', () => {
-    expect(addControl(base, [], { kind: 'knob', bind: { node: 'nope', param: 'cutoff' } })).toBe(base)
-    expect(addControl(base, [], { kind: 'knob', bind: { node: filter.id, param: 'nope' } })).toBe(base)
-    expect(addControl(base, [], { kind: 'knob', bind: mode })).toBe(base) // an enum wants a selector
-    expect(addControl(base, [], { kind: 'selector', bind: cutoff })).toBe(base) // a number is not a selector
-    expect(addControl(base, [], { kind: 'xy', bind: cutoff })).toBe(base) // a pad needs both axes
-    expect(addControl(base, [], { kind: 'xy', bind: cutoff, bindY: cutoff })).toBe(base)
-    expect(addControl(base, [], { kind: 'xy', bind: cutoff, bindY: mode })).toBe(base)
-    expect(addControl(base, [], { kind: 'knob', bind: cutoff, bindY: resonance })).toBe(base) // only a pad has a Y
-  })
-
-  it('takes a selector for an enum parameter', () => {
-    expect(controlsOf(addControl(base, [], { kind: 'selector', bind: mode }))[0]).toMatchObject({ kind: 'selector', label: 'Mode' })
-  })
-
-  it('stops at the limit', () => {
-    let patch = base
-    for (let i = 0; i < MAX_PANEL_CONTROLS + 5; i++) patch = addControl(patch, [], { kind: 'knob', bind: cutoff })
-    expect(controlsOf(patch)).toHaveLength(MAX_PANEL_CONTROLS)
+  it('orders by `order` first, the rest after in patch order', () => {
+    const patch = build(named('control', 'a'), named('control', 'b', { panel: { order: 1 } }), named('control', 'c', { panel: { order: 0 } }), named('control', 'd'))
+    expect(ids(patch)).toEqual(['c', 'b', 'a', 'd'])
   })
 })
 
-describe('editing controls', () => {
-  const withTwo = addControl(addControl(base, [], { kind: 'knob', bind: cutoff }), [], { kind: 'slider', bind: freq })
-  const [first, second] = controlsOf(withTwo) as [PanelControl, PanelControl]
+describe('panel edits', () => {
+  const patch = build(named('control', 'a'), named('control', 'b'), named('xyPad', 'p'))
 
-  it('removes one, and an emptied panel is no panel at all', () => {
-    const one = removeControl(withTwo, first.id)
-    expect(controlsOf(one).map((control) => control.id)).toEqual([second.id])
-    const none = removeControl(one, second.id)
-    expect('panel' in none).toBe(false)
-    expect(removeControl(withTwo, 'missing')).toBe(withTwo)
+  it('hide and show; the field disappears when nothing is left, the same patch when nothing changes', () => {
+    const hidden = setPanelShow(patch, [], 'a', false)
+    expect(panelItems(hidden, [])[0]!.shown).toBe(false)
+    expect(setPanelShow(hidden, [], 'a', false)).toBe(hidden)
+    const back = setPanelShow(hidden, [], 'a', true)
+    expect('panel' in back.nodes[0]!).toBe(false)
+    expect(setPanelShow(patch, [], 'a', true)).toBe(patch)
+    expect(setPanelShow(patch, [], 'nope', false)).toBe(patch)
   })
 
-  it('moves a control, clamped to the ends, and a no-op is the same patch', () => {
-    expect(controlsOf(moveControl(withTwo, first.id, 1)).map((control) => control.id)).toEqual([second.id, first.id])
-    expect(controlsOf(moveControl(withTwo, first.id, 99)).map((control) => control.id)).toEqual([second.id, first.id])
-    expect(controlsOf(moveControl(withTwo, second.id, -5)).map((control) => control.id)).toEqual([second.id, first.id])
-    expect(moveControl(withTwo, first.id, 0)).toBe(withTwo)
-    expect(moveControl(withTwo, 'missing', 0)).toBe(withTwo)
+  it('does nothing to a node that is not a control', () => {
+    const withGain = addNode(patch, named('gain', 'g'))
+    expect(setPanelShow(withGain, [], 'g', false)).toBe(withGain)
+    expect(resizePanelControl(withGain, [], 'g', 'L')).toBe(withGain)
   })
 
-  it('renames (trimmed; blank refused) and resizes', () => {
-    expect(controlsOf(renameControl(withTwo, first.id, ' Tone '))[0]?.label).toBe('Tone')
-    expect(renameControl(withTwo, first.id, '   ')).toBe(withTwo)
-    expect(renameControl(withTwo, first.id, first.label)).toBe(withTwo)
-    expect(controlsOf(resizeControl(withTwo, first.id, 'L'))[0]?.size).toBe('L')
-    expect(resizeControl(withTwo, first.id, first.size)).toBe(withTwo)
+  it('resizes; a kind\'s default size is stored as nothing', () => {
+    const big = resizePanelControl(patch, [], 'a', 'L')
+    expect(panelItems(big, [])[0]!.size).toBe('L')
+    expect(resizePanelControl(big, [], 'a', 'L')).toBe(big)
+    expect('panel' in resizePanelControl(big, [], 'a', 'S').nodes[0]!).toBe(false)
+    expect('panel' in resizePanelControl(resizePanelControl(patch, [], 'p', 'L'), [], 'p', 'M').nodes[2]!).toBe(false)
   })
 
-  it('sets the orientation of a slider only; vertical is stored as nothing', () => {
-    const horizontal = setControlOrientation(withTwo, second.id, 'horizontal')
-    expect(controlsOf(horizontal)[1]?.orientation).toBe('horizontal')
-    const back = setControlOrientation(horizontal, second.id, 'vertical')
-    expect(controlsOf(back)[1] && 'orientation' in controlsOf(back)[1]!).toBe(false)
-    expect(setControlOrientation(withTwo, second.id, 'vertical')).toBe(withTwo)
-    expect(setControlOrientation(withTwo, first.id, 'horizontal')).toBe(withTwo) // a knob has none
+  it('size and visibility are kept apart', () => {
+    const both = setPanelShow(resizePanelControl(patch, [], 'a', 'L'), [], 'a', false)
+    expect(both.nodes[0]!.panel).toEqual({ size: 'L', show: false })
+    expect(setPanelShow(both, [], 'a', true).nodes[0]!.panel).toEqual({ size: 'L' })
   })
 
-  it('rebinds to another parameter of the same kind, refuses a bad one', () => {
-    const next = rebindControl(withTwo, [], first.id, resonance)
-    expect(controlsOf(next)[0]?.bind).toEqual(resonance)
-    expect(rebindControl(withTwo, [], first.id, mode)).toBe(withTwo)
-    expect(rebindControl(withTwo, [], first.id, first.bind)).toBe(withTwo)
-    expect(rebindControl(withTwo, [], first.id, resonance, cutoff)).toBe(withTwo) // a knob cannot gain a Y
+  it('moves one control and numbers the whole board; clamps; same patch when it does not move', () => {
+    const moved = movePanelControl(patch, [], 'p', 0)
+    expect(ids(moved)).toEqual(['p', 'a', 'b'])
+    expect(moved.nodes.map((node) => node.panel?.order)).toEqual([1, 2, 0])
+    expect(ids(movePanelControl(moved, [], 'p', 99))).toEqual(['a', 'b', 'p'])
+    expect(movePanelControl(moved, [], 'p', 0)).toBe(moved)
+    expect(movePanelControl(patch, [], 'nope', 0)).toBe(patch)
+    expect(movePanelControl(patch, [], 'a', Number.NaN)).toBe(patch)
   })
 
-  it('rebinds the two axes of a pad together', () => {
-    const pad = addControl(base, [], { kind: 'xy', bind: cutoff, bindY: resonance })
-    const id = controlsOf(pad)[0]!.id
-    const next = rebindControl(pad, [], id, freq, cutoff)
-    expect(controlsOf(next)[0]).toMatchObject({ bind: freq, bindY: cutoff })
-    expect(rebindControl(pad, [], id, cutoff, resonance)).toBe(pad)
-  })
-})
-
-describe('buildPanel', () => {
-  it('makes a control for every parameter in reading order, a selector for enums', () => {
-    const left = createNode('filter', 0, 0)
-    const right = createNode('oscillator', 400, 0)
-    const lower = createNode('gain', 0, 300)
-    const patch = buildPanel({ nodes: [lower, right, left], connections: [] }, [])
-    const bound = controlsOf(patch).map((control) => `${control.bind.node === left.id ? 'filter' : control.bind.node === right.id ? 'osc' : 'gain'}:${control.bind.param}:${control.kind}`)
-    expect(bound.slice(0, 4)).toEqual(['filter:mode:selector', 'filter:cutoff:knob', 'filter:resonance:knob', 'filter:cvAmount:knob'])
-    expect(bound.filter((entry) => entry.startsWith('osc'))[0]).toBe('osc:waveform:selector')
-    expect(bound.findIndex((entry) => entry.startsWith('osc'))).toBeLessThan(bound.findIndex((entry) => entry.startsWith('gain')))
-    expect(controlsOf(patch).length).toBeGreaterThan(8)
+  it('a control added after a reorder lands at the end', () => {
+    const moved = movePanelControl(patch, [], 'p', 0)
+    expect(ids(addNode(moved, named('switch', 's')))).toEqual(['p', 'a', 'b', 's'])
   })
 
-  it('only adds what is missing, so running it again changes nothing', () => {
-    const once = buildPanel(base, [])
-    expect(buildPanel(once, [])).toBe(once)
-    const curated = addControl(base, [], { kind: 'xy', bind: cutoff, bindY: resonance, label: 'Tone' })
-    const filled = buildPanel(curated, [])
-    expect(controlsOf(filled)[0]?.label).toBe('Tone')
-    const boundCutoff = controlsOf(filled).filter((control) => control.bind.param === 'cutoff' || control.bindY?.param === 'cutoff')
-    expect(boundCutoff).toHaveLength(1) // the pad covers it
+  it('removing a node takes it off the board and leaves the rest in order', () => {
+    expect(ids(removeNode(movePanelControl(patch, [], 'p', 0), 'a'))).toEqual(['p', 'b'])
   })
 
-  it('adds the parameters of nodes added later', () => {
-    const once = buildPanel(base, [])
-    const later = createNode('gain', 0, 400)
-    const grown = buildPanel(addNode(once, later), [])
-    expect(controlsOf(grown).some((control) => control.bind.node === later.id)).toBe(true)
-    expect(controlsOf(grown).slice(0, controlsOf(once).length)).toEqual(controlsOf(once))
-  })
-
-  it('leaves a patch with nothing to bind alone', () => {
-    const empty: Patch = { nodes: [], connections: [] }
-    expect(buildPanel(empty, [])).toBe(empty)
+  it('numberPanel gives every control its place and is a no-op once done', () => {
+    const numbered = numberPanel(patch, [])
+    expect(numbered.nodes.map((node) => node.panel?.order)).toEqual([0, 1, 2])
+    expect(numberPanel(numbered, [])).toBe(numbered)
   })
 })
 
-describe('keeping the panel consistent', () => {
-  const panelled = addControl(
-    addControl(addControl(base, [], { kind: 'knob', bind: cutoff }), [], { kind: 'slider', bind: freq }),
-    [],
-    { kind: 'xy', bind: resonance, bindY: freq },
-  )
-
-  it('removing a node removes the controls on it, a pad whole', () => {
-    const next = removeNode(panelled, osc.id)
-    expect(controlsOf(next).map((control) => control.kind)).toEqual(['knob'])
-    expect(removeNode(panelled, filter.id).panel?.map((control) => control.kind)).toEqual(['slider'])
+describe('making controls', () => {
+  it('a blank control of each kind, with nothing wired', () => {
+    let patch = empty
+    const kinds = ['knob', 'slider', 'slider-horizontal', 'xy', 'switch'] as const
+    for (const kind of kinds) patch = createBlankControl(patch, kind, { x: 10, y: 20 }).patch
+    expect(patch.nodes.map((node) => node.type)).toEqual(['control', 'control', 'control', 'xyPad', 'switch'])
+    expect(panelItems(patch, []).map((item) => `${item.kind}${item.horizontal ? '-h' : ''}`)).toEqual(['knob', 'slider', 'slider-h', 'xy', 'switch'])
+    expect(patch.connections).toEqual([])
   })
 
-  it('removing a node nobody binds changes no panel', () => {
-    const other = createNode('gain', 0, 0)
-    const next = removeNode(addNode(panelled, other), other.id)
-    expect(next.panel).toBe(panelled.panel)
+  it('an XY pad for two parameters takes their ranges and values and is wired to both sockets', () => {
+    const filter = named('filter', 'f', { params: { ...createNode('filter', 0, 0).params, cutoff: 900, resonance: 4 } })
+    const made = createXyFor(build(filter), [], { node: 'f', port: 'cutoff' }, { node: 'f', port: 'resonance' }, { at: { x: 0, y: 0 }, id: 'pad' })!
+    const pad = made.patch.nodes.find((node) => node.id === 'pad')!
+    expect(pad).toMatchObject({ type: 'xyPad', name: 'Cutoff / Res', unit: 'Hz' })
+    expect(pad.params).toMatchObject({ x: 900, xMin: 20, xMax: 20000, xCurve: 1, y: 4, yMin: 0.1, yMax: 20 })
+    expect(made.patch.connections.map((c) => `${c.from.port}>${c.to.port}`).sort()).toEqual(['x>param:cutoff', 'y>param:resonance'])
   })
 
-  it('prunes controls whose parameter vanished and keeps the same patch when all fit', () => {
-    expect(prunePanel(panelled, [])).toBe(panelled)
-    const broken: Patch = { ...panelled, panel: [...controlsOf(panelled), { id: 'x', kind: 'knob', label: 'Ghost', bind: { node: 'gone', param: 'p' }, size: 'S' }] }
-    expect(controlsOf(prunePanel(broken, []))).toHaveLength(3)
+  it('an XY pad is refused for the same parameter twice, an enum, or one that is already driven', () => {
+    const patch = build(named('filter', 'f'))
+    const at = { x: 0, y: 0 }
+    expect(createXyFor(patch, [], { node: 'f', port: 'cutoff' }, { node: 'f', port: 'cutoff' }, { at })).toBeUndefined()
+    expect(createXyFor(patch, [], { node: 'f', port: 'cutoff' }, { node: 'f', port: 'mode' }, { at })).toBeUndefined()
+    const driven = createControlFor(patch, [], 'f', 'resonance', { at })!.patch
+    expect(createXyFor(driven, [], { node: 'f', port: 'cutoff' }, { node: 'f', port: 'resonance' }, { at })).toBeUndefined()
   })
-})
 
-describe('every patch edit keeps the panel', () => {
-  const patch = createDefaultPatch()
-  const filterNode = patch.nodes.find((node) => node.type === 'filter')!
-  const withPanel = addControl(patch, [], { kind: 'knob', bind: { node: filterNode.id, param: 'cutoff' } })
-  const a = createNode('gain', 0, 0)
-  const b = createNode('gain', 0, 0)
-
-  it('keeps it through add, move, param, bypass, stereo, sample, track, connect and disconnect', () => {
-    expect(withPanel.panel).toBeDefined()
-    const edits: Array<(p: Patch) => Patch> = [
-      (p) => addNode(p, a),
-      (p) => moveNode(p, filterNode.id, 5, 5),
-      (p) => setNodeParam(p, filterNode.id, 'cutoff', 500),
-      (p) => setNodeBypassed(p, filterNode.id, true),
-      (p) => setNodeStereo(p, filterNode.id, true, []),
-      (p) => setNodeSample(p, filterNode.id, null),
-      (p) => setNodeTrack(p, filterNode.id, null),
-      (p) => connect(addNode(addNode(p, a), b), { node: a.id, port: 'out' }, { node: b.id, port: 'in' }),
-      (p) => {
-        const wired = connect(addNode(addNode(p, a), b), { node: a.id, port: 'out' }, { node: b.id, port: 'in' })
-        return disconnect(wired, wired.connections.at(-1)!.id)
-      },
-    ]
-    for (const edit of edits) expect(edit(withPanel).panel).toBe(withPanel.panel)
-  })
-})
-
-describe('flattenPatch and the panel', () => {
-  it('never carries the panel to the engine', () => {
-    const panelled = addControl(base, [], { kind: 'knob', bind: cutoff })
-    expect(flattenPatch(panelled, []).panel).toBeUndefined()
-    expect(flattenPatch(panelled, []).nodes).toBe(panelled.nodes)
-    expect(flattenPatch(base, [])).toBe(base)
+  it('spotBelow puts new nodes in a row under everything, wrapping', () => {
+    const patch = addNode(empty, { ...createNode('gain', 0, 300), id: 'g' })
+    expect(spotBelow(patch, 0)).toEqual({ x: 40, y: 480 })
+    expect(spotBelow(patch, 1).x).toBeGreaterThan(spotBelow(patch, 0).x)
+    expect(spotBelow(patch, 6)).toEqual({ x: 40, y: 600 })
   })
 })

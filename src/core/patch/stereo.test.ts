@@ -48,7 +48,9 @@ describe('stereo ports', () => {
 
   it('a node running in stereo has stereo signal ports and keeps its modulation port mono', () => {
     const shape = describeNode({ id: 'x', type: 'gain', x: 0, y: 0, params: {}, stereo: true })!
-    expect(shape.inputs.map((port) => port.kind ?? 'signal')).toEqual(['stereo', 'signal'])
+    // Parameter sockets are mono controls whatever the node does; the node's own ports are what lift.
+    expect(shape.inputs.filter((port) => port.param === undefined).map((port) => port.kind ?? 'signal')).toEqual(['stereo', 'signal'])
+    expect(shape.inputs.filter((port) => port.param !== undefined).every((port) => port.kind === 'control')).toBe(true)
     expect(shape.outputs.map((port) => port.kind ?? 'signal')).toEqual(['stereo'])
   })
 })

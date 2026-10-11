@@ -4,6 +4,11 @@ import {
   type ModuleLibrary,
   type Patch,
   type PortRef,
+  CONTROL_DISPLAYS,
+  CONTROL_SIZES,
+  type NodePanel,
+  MAX_NODE_NAME,
+  MAX_UNIT,
   addNode,
   connect,
   type NodeDomain,
@@ -11,17 +16,34 @@ import {
 } from '../patch'
 import { clamp } from '../shared'
 import { LIMITS } from './format'
-import { sanitizePanel } from './sanitize-panel'
 import { type Raw, type Warn, asList, finiteNumber, isRecord } from './raw'
 
-const sanitizeParams = (specs: readonly ParamSpec[], raw: unknown): Record<string, number> => {
+/**
+ * A node's parameters, each read as a number inside its spec's range. A node has all of them (the default for what the file
+ * lacks); a use of a module only has the ones the file gives, since a use keeps nothing but the values somebody turned and the
+ * rest follow the module's definition.
+ */
+const sanitizeParams = (specs: readonly ParamSpec[], raw: unknown, onlyGiven = false): Record<string, number> => {
   const source = isRecord(raw) ? raw : {}
   return Object.fromEntries(
-    specs.map((spec) => [
+    specs.filter((spec) => !onlyGiven || source[spec.id] !== undefined).map((spec) => [
       spec.id,
       clamp(finiteNumber(source[spec.id], spec.default), spec.min, spec.max),
     ]),
   )
+}
+
+/** Where a control node sits on the front panel: only what differs from the defaults is kept, and only well-formed values. */
+const readPanel = (raw: unknown): NodePanel | undefined => {
+  if (!isRecord(raw)) return undefined
+  const size = CONTROL_SIZES.find((candidate) => candidate === raw.size)
+  const order = typeof raw.order === 'number' && Number.isInteger(raw.order) && raw.order >= 0 && raw.order < 100000 ? raw.order : undefined
+  const panel: NodePanel = {
+    ...(raw.show === false ? { show: false as const } : {}),
+    ...(size === undefined ? {} : { size }),
+    ...(order === undefined ? {} : { order }),
+  }
+  return Object.keys(panel).length === 0 ? undefined : panel
 }
 
 const readPortRef = (raw: unknown): PortRef | null =>
@@ -62,7 +84,7 @@ export const sanitizePatch = (
     const moduleId = type === MODULE_NODE_TYPE && typeof rawNode.moduleId === 'string' ? rawNode.moduleId : undefined
     const definition = describeNode({ id: rawNode.id, type, x: 0, y: 0, params: {}, moduleId }, modules)
     // A patch holds sound nodes and a note graph holds note nodes. A module that is still empty fits either.
-    const nodeDomain = definition && (type === MODULE_NODE_TYPE ? definition.domain : (definition.domain ?? 'audio'))
+    const nodeDomain = definition && (type === MODULE_NODE_TYPE ? definition.domain : definition.inNotes === true ? undefined : (definition.domain ?? 'audio'))
     const fits = definition && (active === undefined || nodeDomain === undefined || nodeDomain === active)
     if (!definition || !fits) {
       if (definition) {
@@ -85,13 +107,25 @@ export const sanitizePatch = (
       else warn(`${where}: a ${definition.label} pointed at a sample that is not in the project`)
     }
 
+    const name = typeof rawNode.name === 'string' ? rawNode.name.trim().slice(0, MAX_NODE_NAME) : ''
+    // The unit and display belong to controls with a value to show (not switches); anywhere else they would only be clutter.
+    const unitOf = (value: unknown) => ((definition.panelKind === 'value' || definition.panelKind === 'xy') && typeof value === 'string' ? value.trim().slice(0, MAX_UNIT) : '')
+    const unit = unitOf(rawNode.unit)
+    const unitY = definition.panelKind === 'xy' ? unitOf(rawNode.unitY) : ''
+    const panel = definition.panelKind === undefined ? undefined : readPanel(rawNode.panel)
+    const display = definition.panelKind === 'value' ? CONTROL_DISPLAYS.find((candidate) => candidate === rawNode.display) : undefined
     patch = addNode(patch, {
       id: rawNode.id,
       type,
+      ...(name === '' ? {} : { name }),
+      ...(unit === '' ? {} : { unit }),
+      ...(unitY === '' ? {} : { unitY }),
+      ...(panel === undefined ? {} : { panel }),
+      ...(display === undefined || display === 'knob' ? {} : { display }),
       ...(moduleId === undefined ? {} : { moduleId }),
       x: finiteNumber(rawNode.x, 0),
       y: finiteNumber(rawNode.y, 0),
-      params: sanitizeParams(definition.params, rawNode.params),
+      params: sanitizeParams(definition.params, rawNode.params, type === MODULE_NODE_TYPE),
       ...(sampleId === undefined ? {} : { sampleId }),
       ...(definition.usesTrack !== undefined && typeof rawNode.trackId === 'string' ? { trackId: rawNode.trackId } : {}),
       ...(definition.bypassable === true && rawNode.bypassed === true ? { bypassed: true } : {}),
@@ -118,6 +152,5 @@ export const sanitizePatch = (
   }
   if (dropped > 0) warn(`${where}: dropped ${dropped} invalid connection(s)`)
 
-  const panel = sanitizePanel(source.panel, patch, modules, where, warn)
-  return panel.length > 0 ? { ...patch, panel } : patch
+  return patch
 }

@@ -1,0 +1,118 @@
+.properties {
+  flex: 0 0 260px;
+  width: 260px;
+  padding: 10px 12px;
+  overflow: auto;
+  border-left: 1px solid var(--border);
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-dim);
+}
+
+.node {
+  display: grid;
+  gap: 10px;
+}
+
+.heading {
+  display: grid;
+  gap: 6px;
+}
+
+.kind {
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+}
+
+.field input,
+.field select {
+  min-width: 0;
+}
+
+.group,
+.params,
+.switches {
+  display: grid;
+  gap: 8px;
+}
+
+.switches {
+  grid-auto-flow: column;
+  justify-content: start;
+  gap: 16px;
+}
+
+.switches label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.row {
+  display: grid;
+  gap: 3px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.row[data-driven='true'] .rowLabel {
+  color: var(--accent);
+}
+
+.rowLabel {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.rowControl {
+  display: grid;
+  grid-template-columns: 78px auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.number {
+  min-width: 0;
+}
+
+.unit {
+  min-width: 18px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.slider {
+  min-width: 0;
+  padding: 0;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rowActions button {
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.drivenBy {
+  flex: 1 1 auto;
+  color: var(--accent);
+  font-size: 11px;
+}

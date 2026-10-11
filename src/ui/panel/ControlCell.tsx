@@ -1,20 +1,23 @@
-import { type ControlSize, type ModuleLibrary, type PanelControl, type ParamBinding, type Patch, resolveBinding } from '@core'
+import { type ControlSize, type ModuleLibrary, type PanelItem, describeNode } from '@core'
 import { type DragEvent, useState } from 'react'
-import { Fader, Knob, Selector, XYPad } from '../controls'
+import { Fader, Knob, Toggle, XYPad } from '../controls'
 import styles from './panel.module.css'
-import { defaultPosition, keyStep, knobWidth, positionOf, readValue, spanOf, valueAt, valueOf } from './panel-values'
+import { axisSpec, defaultPosition, keyStep, knobWidth, positionOf, readValue, spanOf, valueAt } from './panel-values'
 
-/** One value to put into a node parameter. */
+/** One value to put into a parameter of the control's node. */
 export interface ParamChange {
-  readonly binding: ParamBinding
+  readonly param: string
   readonly value: number
 }
 
 /** What the edit mode can do to a control. */
 export interface CellActions {
-  rename(label: string): void
+  rename(name: string): void
   resize(size: ControlSize): void
-  setOrientation(orientation: 'vertical' | 'horizontal'): void
+  /** Turn a slider upright or sideways. */
+  setHorizontal(horizontal: boolean): void
+  hide(): void
+  /** Deletes the node: it goes from the graph too. */
   remove(): void
   /** Move by one place (-1 earlier, 1 later). */
   move(delta: -1 | 1): void
@@ -23,32 +26,32 @@ export interface CellActions {
 }
 
 interface ControlCellProps {
-  control: PanelControl
-  patch: Patch
+  item: PanelItem
   modules: ModuleLibrary
-  /** The node names, as the panel shows them (numbered when alike). */
-  titles: ReadonlyMap<string, string>
+  /** What the control is called: its node's name, or its type numbered when alike. */
+  title: string
   editing: boolean
   first: boolean
   last: boolean
-  onSet(changes: readonly ParamChange[], mergeKey: string): void
+  onSet(changes: readonly ParamChange[]): void
   actions: CellActions
 }
 
 const NEXT_SIZE: Record<ControlSize, ControlSize> = { S: 'M', M: 'L', L: 'S' }
 
-/** The name field of edit mode: edits are kept until Enter or leaving the field, so an emptied field is not refused halfway. */
-const RenameField = ({ label, onCommit }: { label: string; onCommit(label: string): void }) => {
+/** The name field of edit mode: kept until Enter or leaving the field, since a name is trimmed as it is applied. */
+const RenameField = ({ name, placeholder, onCommit }: { name: string; placeholder: string; onCommit(name: string): void }) => {
   const [draft, setDraft] = useState<string | undefined>(undefined)
   const commit = () => {
-    if (draft !== undefined && draft.trim() !== '') onCommit(draft)
+    if (draft !== undefined && draft !== name) onCommit(draft)
     setDraft(undefined)
   }
   return (
     <input
       className={styles.rename}
-      value={draft ?? label}
-      aria-label={`Name of ${label}`}
+      value={draft ?? name}
+      placeholder={placeholder}
+      aria-label={`Name of ${placeholder}`}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => {
@@ -62,81 +65,64 @@ const RenameField = ({ label, onCommit }: { label: string; onCommit(label: strin
   )
 }
 
-/** A control on the board: the widget for its kind, wired to its parameters, with the edit tools around it in edit mode. */
-export const ControlCell = ({ control, patch, modules, titles, editing, first, last, onSet, actions }: ControlCellProps) => {
+/** A control node on the board: the widget for its kind, writing the node's own value, with the edit tools around it in edit mode. */
+export const ControlCell = ({ item, modules, title, editing, first, last, onSet, actions }: ControlCellProps) => {
   const [over, setOver] = useState(false)
-  const x = resolveBinding(patch, modules, control.bind)
-  const y = control.bindY ? resolveBinding(patch, modules, control.bindY) : undefined
-  const span = spanOf(control, x?.options?.length)
-  const caption =
-    control.bindY && control.bindY.node !== control.bind.node
-      ? `${titles.get(control.bind.node) ?? ''} / ${titles.get(control.bindY.node) ?? ''}`
-      : (titles.get(control.bind.node) ?? '')
-  const key = `panel:${control.id}`
+  const { node } = item
+  const shape = describeNode(node, modules)
+  const span = spanOf(item)
 
   const widget = (() => {
-    if (!x || (control.kind === 'xy' && !y)) {
-      return <p className={styles.missing}>{control.label} is not available</p>
-    }
-    const value = valueOf(patch, control.bind, x)
-    switch (control.kind) {
+    if (!shape) return <p className={styles.missing}>{title} is not available</p>
+    switch (item.kind) {
       case 'knob':
-        return (
-          <Knob
-            label={control.label}
-            position={positionOf(x, value)}
-            valueText={readValue(x, value)}
-            defaultPosition={defaultPosition(x)}
-            step={keyStep(x)}
-            onChange={(position) => onSet([{ binding: control.bind, value: valueAt(x, position) }], key)}
-          />
-        )
-      case 'slider':
-        return (
-          <Fader
-            label={control.label}
-            position={positionOf(x, value)}
-            valueText={readValue(x, value)}
-            defaultPosition={defaultPosition(x)}
-            step={keyStep(x)}
-            vertical={control.orientation !== 'horizontal'}
-            onChange={(position) => onSet([{ binding: control.bind, value: valueAt(x, position) }], key)}
-          />
-        )
-      case 'selector':
-        return (
-          <Selector
-            label={control.label}
-            options={x.options ?? []}
-            index={Math.round(value)}
-            onChange={(index) => onSet([{ binding: control.bind, value: index }], key)}
-          />
-        )
+      case 'slider': {
+        const spec = axisSpec(node, shape, 'value')
+        if (!spec) return null
+        const value = node.params.value ?? spec.default
+        const common = {
+          label: title,
+          position: positionOf(spec, value),
+          valueText: readValue(spec, value),
+          defaultPosition: defaultPosition(spec),
+          step: keyStep(spec),
+          onChange: (position: number) => onSet([{ param: 'value', value: valueAt(spec, position) }]),
+        }
+        return item.kind === 'knob' ? <Knob {...common} /> : <Fader {...common} vertical={!item.horizontal} />
+      }
       case 'xy': {
-        if (!y || !control.bindY) return null
-        const yValue = valueOf(patch, control.bindY, y)
-        const bindY = control.bindY
+        const x = axisSpec(node, shape, 'x')
+        const y = axisSpec(node, shape, 'y')
+        if (!x || !y) return null
+        const xValue = node.params.x ?? x.default
+        const yValue = node.params.y ?? y.default
         return (
           <XYPad
-            label={control.label}
-            x={positionOf(x, value)}
+            label={title}
+            x={positionOf(x, xValue)}
             y={positionOf(y, yValue)}
-            valueText={`X ${readValue(x, value)}, Y ${readValue(y, yValue)}`}
+            valueText={`X ${readValue(x, xValue)}, Y ${readValue(y, yValue)}`}
             defaultX={defaultPosition(x)}
             defaultY={defaultPosition(y)}
             step={Math.min(keyStep(x), keyStep(y))}
             onChange={(position) =>
-              onSet(
-                [
-                  { binding: control.bind, value: valueAt(x, position.x) },
-                  { binding: bindY, value: valueAt(y, position.y) },
-                ],
-                key,
-              )
+              onSet([
+                { param: 'x', value: valueAt(x, position.x) },
+                { param: 'y', value: valueAt(y, position.y) },
+              ])
             }
           />
         )
       }
+      case 'switch':
+        return (
+          <Toggle
+            label={title}
+            on={(node.params.on ?? 0) >= 0.5}
+            momentary={Math.round(node.params.mode ?? 0) === 1}
+            onChange={(on) => onSet([{ param: 'on', value: on ? 1 : 0 }])}
+          />
+        )
     }
   })()
 
@@ -149,11 +135,11 @@ export const ControlCell = ({ control, patch, modules, titles, editing, first, l
   return (
     <div
       className={styles.cell}
-      style={{ gridColumn: `span ${span.cols}`, gridRow: `span ${span.rows}`, ['--knob-max' as string]: `${knobWidth(control.size)}px` }}
-      data-kind={control.kind}
+      style={{ gridColumn: `span ${span.cols}`, gridRow: `span ${span.rows}`, ['--knob-max' as string]: `${knobWidth(item.size)}px` }}
+      data-kind={item.kind}
       data-editing={editing || undefined}
       data-drop={over || undefined}
-      data-testid={`control-${control.id}`}
+      data-testid={`control-${node.id}`}
       onDragOver={onDragOver}
       onDragLeave={() => setOver(false)}
       onDrop={(event) => {
@@ -165,47 +151,49 @@ export const ControlCell = ({ control, patch, modules, titles, editing, first, l
         }
       }}
     >
-      <span className={styles.caption} title={caption}>
-        {caption}
-      </span>
       <div className={styles.widget}>{widget}</div>
-      {editing && (
+      {editing && item.via && (
+        <div className={styles.tools}>
+          <span className={styles.hint} data-tooltip="This control is inside a module: move, size, hide and rename it in the module (Edit on its card). Its value here is this use's own.">
+            in a module
+          </span>
+        </div>
+      )}
+      {editing && !item.via && (
         <div className={styles.tools}>
           <span
             className={styles.handle}
             draggable
             title="Drag to reorder"
-            aria-label={`Drag ${control.label} to reorder`}
+            aria-label={`Drag ${title} to reorder`}
             onDragStart={(event) => {
-              event.dataTransfer.setData('text/plain', control.id)
+              event.dataTransfer.setData('text/plain', node.id)
               event.dataTransfer.effectAllowed = 'move'
             }}
           >
             ⠿
           </span>
-          <button aria-label={`Move ${control.label} earlier`} disabled={first} onClick={() => actions.move(-1)}>
+          <button aria-label={`Move ${title} earlier`} disabled={first} onClick={() => actions.move(-1)}>
             ◀
           </button>
-          <button aria-label={`Move ${control.label} later`} disabled={last} onClick={() => actions.move(1)}>
+          <button aria-label={`Move ${title} later`} disabled={last} onClick={() => actions.move(1)}>
             ▶
           </button>
-          {control.kind !== 'selector' && (
-            <button aria-label={`Resize ${control.label}`} title={`Size ${control.size}: click for the next`} onClick={() => actions.resize(NEXT_SIZE[control.size])}>
-              {control.size}
+          <button aria-label={`Resize ${title}`} title={`Size ${item.size}: click for the next`} onClick={() => actions.resize(NEXT_SIZE[item.size])}>
+            {item.size}
+          </button>
+          {item.kind === 'slider' && (
+            <button aria-label={`Turn ${title} ${item.horizontal ? 'upright' : 'sideways'}`} onClick={() => actions.setHorizontal(!item.horizontal)}>
+              {item.horizontal ? '↕' : '↔'}
             </button>
           )}
-          {control.kind === 'slider' && (
-            <button
-              aria-label={`Turn ${control.label} ${control.orientation === 'horizontal' ? 'upright' : 'sideways'}`}
-              onClick={() => actions.setOrientation(control.orientation === 'horizontal' ? 'vertical' : 'horizontal')}
-            >
-              {control.orientation === 'horizontal' ? '↕' : '↔'}
-            </button>
-          )}
-          <button aria-label={`Remove ${control.label}`} title="Remove from the panel" onClick={actions.remove}>
+          <button aria-label={`Hide ${title}`} title="Hide from the panel (it stays in the graph)" onClick={actions.hide}>
+            ◌
+          </button>
+          <button aria-label={`Remove ${title}`} title="Delete the control node, in the graph too" onClick={actions.remove}>
             ×
           </button>
-          <RenameField label={control.label} onCommit={actions.rename} />
+          <RenameField name={node.name ?? ''} placeholder={title} onCommit={actions.rename} />
         </div>
       )}
     </div>

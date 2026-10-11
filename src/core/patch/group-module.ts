@@ -8,7 +8,6 @@ import {
   exposedPortId,
 } from './module-types'
 import { describeNode, findModule, kindsConnect } from './node-shape'
-import { dropControlsOfNodes } from './panel'
 import type { Patch, PatchConnection, PatchNode, PortRef } from './types'
 
 export interface GroupResult {
@@ -89,15 +88,14 @@ export const groupIntoModule = (
   return {
     module,
     use,
-    // Controls bound to the nodes that moved into the module go with them (the module's knobs are the new way in).
-    patch: dropControlsOfNodes({
+    patch: {
       ...patch,
       nodes: [...patch.nodes.filter((node) => !insideIds.has(node.id)), use],
       connections: [
         ...patch.connections.filter((c) => !insideIds.has(c.from.node) && !insideIds.has(c.to.node)),
         ...rewired,
       ],
-    }, insideIds),
+    },
   }
 }
 
@@ -159,8 +157,8 @@ export const pruneModuleUses = (patch: Patch, modules: ModuleLibrary): Patch => 
   let changed = connections.length !== patch.connections.length
   const nodes = patch.nodes.map((node) => {
     if (node.type !== MODULE_NODE_TYPE) return node
-    const definition = findModule(modules, node.moduleId)
-    const valid = new Set(definition?.knobs.map((knob) => knob.id))
+    // The values a use can hold are its module's knobs and the controls inside the module (what `describeNode` lists as its parameters).
+    const valid = new Set(describeNode(node, modules)?.params.map((spec) => spec.id))
     const stale = Object.keys(node.params).filter((id) => !valid.has(id))
     if (stale.length === 0) return node
     changed = true

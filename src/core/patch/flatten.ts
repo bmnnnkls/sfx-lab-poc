@@ -1,25 +1,33 @@
 import { createId } from '../shared'
 import { MODULE_NODE_TYPE, type ModuleDefinition, type ModuleLibrary } from './module-types'
+import { controlParamKey, moduleControls } from './module-controls'
 import { describeNode, findModule } from './node-shape'
-import { dropControlsOfNodes } from './panel'
 import type { Patch, PatchConnection, PatchNode } from './types'
 
 /** Safety valve: a malformed library (a module containing itself) must not expand forever. */
 const MAX_EXPANSIONS = 1000
 
 /** The inner nodes' parameters with this use's knob settings applied. */
-const withKnobs = (use: PatchNode, definition: ModuleDefinition, modules: ModuleLibrary): PatchNode[] =>
-  definition.patch.nodes.map((node) => {
+const withKnobs = (use: PatchNode, definition: ModuleDefinition, modules: ModuleLibrary): PatchNode[] => {
+  const controls = moduleControls(definition)
+  return   definition.patch.nodes.map((node) => {
     const knobs = definition.knobs.filter((knob) => knob.node === node.id)
-    if (knobs.length === 0) return node
+    const control = controls.find((candidate) => candidate.node.id === node.id)
+    if (knobs.length === 0 && !control) return node
     const specs = new Map((describeNode(node, modules)?.params ?? []).map((spec) => [spec.id, spec]))
     const params = { ...node.params }
     for (const knob of knobs) {
       const value = use.params[knob.id]
       if (value !== undefined && specs.has(knob.param)) params[knob.param] = value
     }
+    // An inner control's value is the use's own too, when this use has turned it.
+    for (const param of control?.params ?? []) {
+      const value = use.params[controlParamKey(node.id, param)]
+      if (value !== undefined && specs.has(param)) params[param] = value
+    }
     return { ...node, params }
   })
+}
 
 /**
  * Replaces one use of a module by a copy of its contents: nodes get ids from `newId`, wires into and out of
@@ -38,10 +46,7 @@ export const expandModuleUse = (
 
   const others = patch.nodes.filter((node) => node !== use)
   if (!definition) {
-    return dropControlsOfNodes(
-      { ...patch, nodes: others, connections: patch.connections.filter((c) => c.from.node !== useId && c.to.node !== useId) },
-      new Set([useId]),
-    )
+    return { ...patch, nodes: others, connections: patch.connections.filter((c) => c.from.node !== useId && c.to.node !== useId) }
   }
 
   const idOf = new Map(definition.patch.nodes.map((node) => [node.id, newId(node.id, 'node')]))
@@ -74,8 +79,7 @@ export const expandModuleUse = (
       to: { node: inner(connection.to.node), port: connection.to.port },
     })
   }
-  // The use is gone, and so are the controls on its knobs (the panel can bind the inner nodes' own parameters instead).
-  return dropControlsOfNodes({ ...patch, nodes: [...others, ...copies], connections }, new Set([useId]))
+  return { ...patch, nodes: [...others, ...copies], connections }
 }
 
 /**
@@ -84,10 +88,7 @@ export const expandModuleUse = (
  * parameter change reaches the engine as a plain parameter change.
  */
 export const flattenPatch = (patch: Patch, modules: ModuleLibrary): Patch => {
-  // The panel is a view of the patch, not part of the sound: the engine gets the graph without it.
-  if (!patch.nodes.some((node) => node.type === MODULE_NODE_TYPE)) {
-    return patch.panel === undefined ? patch : { nodes: patch.nodes, connections: patch.connections }
-  }
+  if (!patch.nodes.some((node) => node.type === MODULE_NODE_TYPE)) return patch
 
   let flat: Patch = { nodes: patch.nodes, connections: patch.connections }
   for (let expansions = 0; expansions < MAX_EXPANSIONS; expansions++) {

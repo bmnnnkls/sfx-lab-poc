@@ -1,5 +1,5 @@
 import { NoteGraph } from '../notefx'
-import { type ModuleLibrary, type Patch, flattenPatch } from '../patch'
+import { type ModuleLibrary, type Patch, engineNoteGraph } from '../patch'
 import type { Clip } from '../project'
 import { ClipLauncher, type NoteEvent } from '../session'
 
@@ -25,7 +25,7 @@ export const heardNotes = (clip: Clip, graph: Patch, modules: ModuleLibrary = []
   const launcher = new ClipLauncher()
   launcher.launch(clip)
   const noteGraph = new NoteGraph()
-  noteGraph.sync(flattenPatch(graph, modules))
+  noteGraph.sync(engineNoteGraph(graph, modules))
   // Notes taken from other tracks are not part of this preview: it shows this track's own clip through its graph.
   const events = noteGraph.process(launcher.collectEvents(0, end), 0, end, new Map())
 

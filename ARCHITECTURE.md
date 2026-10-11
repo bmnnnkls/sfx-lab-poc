@@ -80,7 +80,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 * **Each track has a voice pool** (`Track.voices`, 1–16, default 8; set in the Instrument tab). A chord or
   overlapping notes play on separate voices; when all are busy the new note **steals** a voice: first one that is
   already releasing, otherwise the oldest.
-* **A patch is split into two stages** (`instrument/stages.ts`). *Voice* nodes are instantiated once per voice;
+* **A patch is split into stages** (`instrument/stages.ts`; a third, *global*, is described under "Control nodes" below). *Voice* nodes are instantiated once per voice;
   *shared* nodes (effects) are instantiated once and fed the **sum of all voices**. A node is shared if its
   `NodeDefinition.shared` is true (today: delay, reverb) **or anything upstream of it is shared**, which makes the split a
   clean cut: signals flow from voices into the shared stage, never back. The patcher tags shared nodes.
@@ -151,7 +151,7 @@ copy (**Unlink**). Modules nest.
 * **UI** (`ui/patcher`). Shift-click a node header or drag a box on empty canvas to select; **Group into module**
   replaces the selection. A module node shows *Edit* and *Unlink*. *Edit* opens the module's inside in the same
   patcher (breadcrumb to go back out, nesting works), with a name field, where it is used, and **Ports & knobs**:
-  tick any inner port or parameter to show it on the module, and name it. The palette lists the project's modules.
+  tick any inner port or parameter to show it on the module, and name it. The node picker lists the project's modules under *Modules*.
   Changes go through the same undo history; slider drags merge into one step.
 * **Limits.** Selected nodes are not dragged together. There is no module library outside the project yet, so
   sharing between projects means copying the file (see `docs/TASKS.md`). Cycle detection on the outer patch treats a
@@ -207,9 +207,9 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
 * **Preview** (`engine/heard-notes.ts`). `heardNotes(clip, graph, modules)` runs the real clip player and graph over two
   loops and returns the second, so the Notes tab's piano roll cannot disagree with what plays. It shows this track's own
   clip through its graph; notes taken from other tracks are not part of it (the tab says so).
-* **UI.** Nodes have a bypass switch, *Track notes* has a track picker, note wires are drawn in the accent colour, and a
-  track with processing nodes gets an **fx N** badge that opens the Notes tab. New nodes are placed in the first free
-  slot on a grid below the existing ones.
+* **UI.** Nodes have a bypass switch and *Track notes* a track picker (both in the property editor), note wires are drawn in the accent colour, and a
+  track with processing nodes gets an **fx N** badge that opens the Notes tab. New nodes go where the picker was
+  opened (see "Adding nodes" under Control nodes).
 * **Limits.** Auditioning a note in the piano roll skips the graph. Nodes cannot yet be moved together. An event that falls
   exactly on a 128-sample block edge can land one sample early or late depending on where blocks start (float rounding in
   the transport clock); in the worklet blocks are always aligned, so only odd render sizes in tests show it. Files from the
@@ -225,7 +225,7 @@ work in it unchanged (a module whose ports are `signal` goes anywhere sound goes
 
 * **Nodes.** `trackIn` (a source that copies the track's own signal, read from `ProcessContext.input`) and `trackOut`
   (a sink). `NodeDefinition.sink` marks every node whose input is audible (`output`, `trackOut`), and
-  `NodeDefinition.insertOnly` keeps the two ends out of the Instrument tab's palette. The Effects palette leaves out
+  `NodeDefinition.insertOnly` keeps the two ends out of the Instrument tab's picker. The Effects picker leaves out
   `note`, `output` and `sampler`, which need a note. A stray one in the wrong graph is harmless: it is silent.
 * **Runtime** (`FxGraph`, `core/instrument`). Compiles the whole patch with `compileStage` (one copy of every node, no
   voices) and `process(input, frames)` returns what reaches the sinks. It runs every block, also when the track is idle,
@@ -258,9 +258,9 @@ sit on any track. It reuses the typed-port machinery the note graph introduced.
 * **Every effect without rewriting it.** `PatchNode.stereo` (like `bypassed`): on a node that opts in with
   `NodeDefinition.stereoCapable` (filter, gain, delay) the compiler creates two processors with the same parameters, each
   on one channel of the node's stereo ports, so `describeNode` reports those ports as `stereo`. A port marked `control`
-  (`cv`, filter `cutoff`) stays one mono signal that both channels follow, so one LFO moves both. The node header shows an
-  **M / L R** switch; `setNodeStereo` flips it and removes the wires that no longer fit.
-* **New nodes** (all `insertOnly`, so the instrument palette leaves them out): *Pan* (mono to stereo, constant-power law,
+  (`cv`, filter `cutoff`) stays one mono signal that both channels follow, so one LFO moves both. The property editor has a
+  **Stereo** switch (the card shows an **L R** tag); `setNodeStereo` flips it and removes the wires that no longer fit.
+* **New nodes** (all `insertOnly`, so the instrument picker leaves them out): *Pan* (mono to stereo, constant-power law,
   -3 dB in each channel at the centre), *Width* (mid/side; 0 mono, 1 unchanged, 2 wider), *Stereo reverb* (Freeverb with the
   right tank's delays 23 samples longer, sharing `ReverbTank` with the mono reverb, so a mono source comes out with
   different channels yet a sum that is a clean reverb), *Ping-pong delay* and *Mono sum*.
@@ -302,7 +302,7 @@ tracks; a return track *is* the bus, so there are no bus names.
   counts, so it is `track/setFx`); turning its Amount is a `setParam`.
 * **UI.** The `+` menu adds a **Return track**; returns are drawn after the clip tracks with a dashed header, hatched empty
   slots and no stop button. The Instrument and Notes tabs say a return has neither; the Effects tab edits its graph. The
-  Send node shows a picker of return tracks (`NodeShape.usesTrack` says which kind of track a node picks: `notes` or `return`).
+  Send node has a picker of return tracks in the property editor (`NodeShape.usesTrack` says which kind of track a node picks: `notes` or `return`).
 
 ### Send knobs
 
@@ -334,7 +334,7 @@ sends to it; it just processes what the tracks and returns have summed.
   graph; `master/setFx` replaces it (restarting its tails), `master/setParam` and `master/setSample` are the knob and picker
   changes. `diffProject` sends `master/setFx` when a project is loaded, then only what changed, by the same function that
   diffs track graphs (`diffPatch('master', ...)`).
-* **Nodes.** `Master in` is the same stereo source as `Return in` (one implementation, two names). The master's palette
+* **Nodes.** `Master in` is the same stereo source as `Return in` (one implementation, two names). The master's picker
   has `Master in`, not `Track in`, `Return in` or `Send` (the returns are mixed before the master, so there is nothing to
   send to).
 * **Project.** The default graph comes with every new project, files without one load with it silently, and a stored one
@@ -392,55 +392,217 @@ slider (the same `track.volume`) and gains no other control; its header only str
 * **Files.** `sanitizeTrack` reads `pan` (finite, clamped), `muted` and `soloed` (only a real `true` counts) and the
   master's `volume` (clamped, anything else is 1).
 
-## Front panel (knobs, sliders and XY pads instead of the graph)
+## Front panel (the control nodes, arranged)
 
-Every graph editor (Instrument, Effects, Notes, the Master's effects, the inside of a module) has a **Graph | Panel**
-switch. *Panel* replaces the canvas with a board of controls bound to the graph's parameters. The switch is remembered per
-kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`): a way of looking, not part of the project.
+Every graph editor (Instrument, Effects, Notes, the Master's effects, the inside of a module) has a **Graph | Panel** switch.
+*Panel* replaces the canvas with a board of the graph's **control nodes** as knobs, sliders, XY pads and switches. The switch is
+remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`): a way of looking, not part of the project.
 
-* **Model** (`core/patch/panel*.ts`). `Patch.panel?: PanelControl[]`, an ordered list of `{ id, kind, label, bind, bindY?,
-  size, orientation? }`. `kind` is `knob`, `slider`, `xy` (two parameters) or `selector` (a named-values parameter).
-  A binding is `{ node, param }`; for a module use the `param` is one of the module's knobs. The control holds no range, unit
-  or value: those come from the node (`describeNode`) at draw time, so a changed node cannot leave a stale control. A panel
-  lives on the patch, so it follows whatever owns the patch (a track's instrument, insert graph or note graph, the master's
-  graph, a module's definition), and uses the same edit and undo path as every other change to it.
-* **Pure edits** (`panel.ts`): `addControl`, `removeControl`, `moveControl`, `renameControl`, `resizeControl`,
-  `setControlOrientation`, `rebindControl`, `buildPanel`. A refused or no-op edit returns the **same patch** (no empty undo
-  step); an emptied panel is stored as no field. `controlFits` is the one rule for "does this control suit its parameters"
-  (a selector needs an enum, the others a number, a pad two different numbers), used by the editor, pruning and the sanitizer.
-  `buildPanel` adds a control for every parameter that has none (selector for enums, knob otherwise) in reading order, so
-  running it again after adding nodes only adds the new ones.
-* **Staying consistent.** `removeNode`, `groupIntoModule` and `expandModuleUse` (unlink) drop the controls bound to the nodes
-  they remove or move; `reconcileModules` also runs `prunePanel` on every patch, so hiding a module knob, or any change that
-  makes a binding stop fitting, removes its control (a pad with one dead axis goes whole). Several functions used to build a
-  `Patch` from a `{ nodes, connections }` literal and would have dropped the panel: they spread the old patch now, and a test
-  runs every `patch/edit` function over a panelled patch. `flattenPatch` strips the panel on purpose, so the engine never
-  receives it and an edit to the panel alone makes **no engine command** (tested through `diffProject`).
-* **Persistence** (`persistence/sanitize-panel.ts`). Read after the patch's nodes. A control with an unknown kind, a binding to
-  a node or parameter that does not exist, or one that does not suit its kind is dropped, with one warning per patch; a
-  blank label becomes the parameter's name, an unknown size the kind's default, a repeated id a new one, and at most
-  `LIMITS.controlsPerPatch` (128) are kept. Optional field with a safe default, so the **format version did not change** and
-  old files load identically. `fixtures/v1-panel.sfxlab.json` pins the shape.
-* **Widgets** (`ui/controls/`). `Knob`, `Fader`, `XYPad` and `Selector` work on a 0..1 position and know nothing about
-  patches or parameters, so the Mixer could adopt them. All arithmetic (drag, wheel, keys, pad and knob geometry, a
-  per-animation-frame throttle) is pure and tested in `control-math.ts` / `frame-throttle.ts`; the components are thin
-  (vitest runs in `node`, with no DOM, so they are covered by `docs/browser-checks/panel.mjs`). Knob: drag up or down
-  (180 px is the full range, Shift for a tenth), wheel, arrow / Page / Home / End keys, double-click for the default. Fader:
-  press or drag anywhere on the track. Pad: press or drag, arrows move both axes. All have `role="slider"` (the pad a labelled
-  group) with `aria-valuetext`, and `data-position` / `data-x` / `data-y` for the browser checks.
-* **The board** (`ui/panel/`). `panel-values.ts` maps a parameter to a position and back with the same `param-scale.ts`
-  as the graph's slider (moved to `ui/shared/`), so a log-scaled cutoff feels the same everywhere; `spanOf` gives a control its
-  grid cells (a knob grows square, a slider along its length, a pad wide). `ControlCell` draws one control and, in **Edit**
-  mode, its tools (drag handle, move, size, orientation, remove, rename); `AddControl` is the form for new ones (a pad asks
-  for a second parameter); `PanelView` is the grid, the Play / Edit toggle and *Build from graph*. Cells are captioned with
-  their node's name, numbered when alike ("Oscillator 2", in patch order).
-* **Writing a value.** A control calls `setNodeParam` through the editor's own `edit`, with the **same merge key as the graph
-  slider** (`param:<scope>:<node>:<param>`), so one drag is one undo step and a drag in either view merges alike; a pad sets
-  its two parameters in **one** edit (`panel:<control>:<scope>`), so it is one step too. The control sets the base value of
-  the parameter, as the slider does; a modulation wired into the node still adds to it.
-* **Limits.** Layout is an ordered flow with sizes, not free positioning; a panel belongs to one graph (no combined
-  instrument + effects panel); grouping nodes into a module drops their controls rather than rebinding them to the module's
-  knobs; no automation, MIDI mapping, meters or per-control ranges (see `docs/TASKS.md`).
+* **The panel is the control nodes** (`core/patch/panel.ts`). There is no list of controls and no bindings: a knob on the board IS a
+  *Control* node (an XY pad an *XY pad*, a switch a *Switch*; `NodeDefinition.panelKind`), so nothing can fall out of step with the
+  graph. A node adds only where it sits, `PatchNode.panel?: { show?: false, size?: 'S'|'M'|'L', order?: number }` (only what differs from
+  the defaults is stored; the default size is S, M for a pad). `panelItems(patch, modules)` is the one derivation: the control nodes
+  in board order (those with an `order` first, then the rest in patch order, so a control added later lands last), each with its kind
+  (`knob`, `slider`, `xy`, `switch`; a *Control*'s `display` picks knob / slider / sideways slider), size and whether it is shown. The
+  pure edits (`setPanelShow`, `resizePanelControl`, `movePanelControl`, which numbers the whole board, `numberPanel`) return the same
+  patch when nothing changes. A panel therefore follows whatever owns the patch (a track's instrument, insert graph or note graph,
+  the master's graph, a module's definition) and uses the same edit and undo path as everything else.
+* **Making controls** (`core/patch/control-for.ts`). From the panel's *Edit* mode (`AddControl`): pick a kind and, optionally, the
+  parameter(s) it should drive. With a parameter it is `createControlFor` / `createXyFor` (the same function as right-click *Create knob*,
+  with the parameter's range, curve, unit, default and current value, wired in one undo step; a pad takes two parameters and wires
+  both axes); without one it is a blank control (`createBlankControl`) to wire in the graph. Only parameters with a socket and no wire
+  yet are offered. New nodes go in a row under the others (`spotBelow`).
+* **Writing a value.** A knob or slider writes the node's `value` with `setNodeParam` through the editor's own `edit`, with the **same merge
+  key as the property editor's slider** (`param:<scope>:<node>:value`), so one drag is one undo step and a drag in either place merges
+  alike; a pad sets `x` and `y` in **one** edit (`xy:<scope>:<node>`); a switch writes `on` (a *momentary* switch is 1 only while held).
+  What the control does is then whatever is wired from the node: a control's value is **real** (in its own range), and the sound follows
+  through the parameter sockets (`ARCHITECTURE`, "Control nodes"). A panel edit alone makes **no engine command** (tested through
+  `diffProject`); a value change is the ordinary `track/setParam` on the control node.
+* **Persistence.** `PatchNode.panel` is read by the sanitizer for control nodes only (`show` can only be `false`, a size is one of S / M / L,
+  an `order` a small non-negative integer; malformed parts are dropped and an empty field is not stored). The old `Patch.panel` list
+  (bindings to parameters) is gone and an older file's `panel` is simply ignored on load (the demo project was the only user; no
+  migration was written).
+* **Widgets** (`ui/controls/`). `Knob`, `Fader`, `XYPad`, `Selector` and `Toggle` work on a 0..1 position (or on/off) and know nothing about
+  patches, so the Mixer could adopt them. All arithmetic (drag, wheel, keys, pad and knob geometry, a per-animation-frame throttle) is pure
+  and tested in `control-math.ts` / `frame-throttle.ts`; the components are thin (vitest runs in `node`, with no DOM, so they are covered
+  by `docs/browser-checks/panel.mjs`). Knob: drag up or down (180 px is the full range, Shift for a tenth), wheel, arrow / Page / Home / End
+  keys, double-click for the default (the control's own `default`). Fader: press or drag anywhere on the track. Pad: press or drag, arrows
+  move both axes. All have `role="slider"` (the pad a labelled group, the switch `role="switch"`) with `aria-valuetext`, and
+  `data-position` / `data-x` / `data-y` for the browser checks. `Selector` (a named-values choice) has no control node yet.
+* **The board** (`ui/panel/`). `panel-values.ts` maps a parameter to a position and back with the same `param-scale.ts` as the property
+  editor's slider, and `axisSpec` gives an axis its live range, curve and unit (`resolveSpec`) with the node's own `default` as the reset
+  value, so a log-scaled cutoff feels the same everywhere; `spanOf` gives a control its grid cells (a knob grows square, a slider along
+  its length, a pad wide). `ControlCell` draws one control, captioned by its node's name (`nodeTitles`), and, in **Edit** mode, its tools
+  (drag handle, move, size, sideways for a slider, hide, delete, rename = the node's name); hidden controls are listed in a tray with a
+  *Show* button each, and the property editor has *Show on panel* and *Size* for a control node. `PanelView` is the grid, the Play / Edit
+  toggle and the add form.
+* **Limits.** Layout is an ordered flow with sizes, not free positioning; a panel belongs to one graph (no combined instrument +
+  effects panel, and the controls inside a module are not yet shown on the panel of the graph that uses it: step 7); no selector for
+  enum parameters yet; no automation, MIDI mapping, meters or per-control ranges beyond a control's own (see `docs/TASKS.md`).
+
+## Control nodes, parameter sockets and the global stage
+
+A knob is a node you wire, and any numeric parameter can be driven by a wire. (Built so far: the engine, the model and the
+plain cards; the property editor, the panel built from control nodes and the node pictures follow, see
+`docs/HANDOFF-control-nodes.md`.)
+
+* **Parameter sockets** (`dsp/param-sockets.ts`, `describeNode`). Every numeric, non-enum parameter `p` of a **sound** node also
+  appears as an input socket `param:p` of kind `control` (`PortSpec.param` names the parameter). They are generated, not written
+  per node, appended after the node's own inputs; a node can opt out with `NodeDefinition.paramSockets: false` (the control
+  nodes: their range and step are settings, not signals). Note nodes have none yet. Because a socket is an ordinary port to
+  `canConnect`, `flattenPatch`, `diffProject`, modules and the sanitizer, none of them changed.
+* **A wire replaces the value.** Unwired, the node uses its stored parameter; wired, the wire's value is the parameter (several
+  wires add up). The stored value stays in the file and is used again when the wire goes. To add on top of a stored value use
+  an *Add* node. Existing modulation ports (oscillator `freq`, filter `cutoff`, gain `cv`) keep their own meanings.
+* **Block rate.** `compileStage` turns every wired socket into a `ParamFeed` on its `CompiledNode`; `processStage` reads the
+  first sample of each source once per 128-frame block (sources summed) and applies it with `setParam` *only when it changed*
+  (so a node that redesigns itself on `setParam` is not poked every block). **No DSP node changed.** A non-finite value is
+  ignored. Audio-rate modulation keeps using the audio-rate ports. A parameter with a feed is in `CompiledStage.driven`, and
+  `setStageParam` leaves it alone, so a slider on the stored value cannot fight the wire (the engine side of "a driven
+  parameter's `track/setParam` is ignored"; `diffProject` still sends it).
+* **Port kind `control`** (`kindsConnect`): `control` to `control`, `control` to `signal` (a constant buffer), `signal` to
+  `control` (read once per block, so an LFO can drive a socket); never to or from `stereo` or `notes`. Not to be confused with
+  `PortSpec.control`, the older flag on a modulation *input* that keeps it mono in a stereo node (sockets are mono either way).
+  Wires from a control output are drawn dashed green.
+* **The `global` stage** (`planStages`: `voice`, `shared`, `global`). A definition may say `global: true`; the node then runs
+  globally when everything wired into it is global, and a node with nothing wired in (a control, a constant) always does. Shared
+  wins (anything downstream of a shared node stays shared). The global stage is compiled once per `Instrument`, runs once per
+  block **before the voices** (also when none is sounding, so a smoothing node keeps its state), and its output buffers are
+  passed as `seeded` buffers to every voice's stage and to the shared stage. They are read, never summed, which is the point:
+  a voice -> shared boundary adds the voices up, so a value read across it would arrive as N times itself (tested: a control
+  driving a gain or a delay mix under a three-note chord sounds exactly like the value typed in). Insert graphs and the master
+  graph (`FxGraph`) have one copy of every node, so they need no stages; they get feeds from the same `processStage`.
+* **Nodes.** *Control* (`value`, `min`, `max`, `curve`, `step`, `default`; output `out`), *XY pad* (the same per axis, `x` / `xMin`
+  / ..., outputs `x`, `y`) and *Switch* (`on`, `mode` toggle / momentary; output 0 or 1). They output the **real value** in their
+  own range, clamped and snapped to the step by the node itself, so the specs' own bounds are wide (+-100000) and
+  `ParamSpec.range` says "my range is the node's `min` / `max` / `step`" (`liveSpec` resolves it; the cards use it for the
+  slider). `curve` (linear / log / exp) is for the knobs' mapping; the engine ignores it. Math nodes (`dsp/nodes/math/`,
+  one factory `mathNode`): *Add, Multiply, Invert, Min, Max, Clamp, Map range, Quantize, Smooth, Mix, Compare, MIDI to Hz,
+  Hz to MIDI*, then *Subtract, Divide* (by 0 gives 0), *Abs, Constant, Semitones to ratio, Ratio to semitones, dB to gain, Gain to dB,
+  Hz to ms, ms to Hz* (zero gives 0) and *Sample and hold* (catches `in` on a rise of `trigger` through 0.5). Each is elementwise over buffers, so it works on constants, controls and audio alike; an operand is the buffer
+  wired into its port, or, unwired, the parameter of the same id (which has its own socket); the result is never NaN or
+  infinite (rounded to float32 first, so a product that overflows the buffer is 0, not Infinity). *Hz to MIDI* gives 0, the
+  lowest note, for 0 or less; fractional notes work. Math nodes are global-capable.
+* **Names.** `PatchNode.name?` (trimmed, at most 60 characters, absent when blank; `setNodeName`, same patch when unchanged;
+  read by the sanitizer). Nothing shows it yet. It is not sound: renaming sends no engine command.
+* **Words** (`dsp/node-docs.ts`, `notefx/node-docs.ts`, `dsp/document.ts`). Every node has a one-sentence `description`, a `category`
+  (*Sources, Controls, Modulation, Math, Filters, Effects, Routing*; the note graph uses only Sources, Effects and Routing;
+  modules are `Modules`) and optional `keywords` for search, and every port and
+  parameter a `description`. They are written once in one table per registry and attached by the registry (`documented`), not
+  scattered over the node files; **a test fails when a registered node, port or parameter has no entry, or an entry names
+  something that is gone** (so adding a node means adding its words). A parameter socket takes its parameter's description and
+  carries `PortSpec.range` (min, max, default, unit) so a knob can be made from it. `NodeShape` carries description, category and
+  keywords for modules and note nodes too.
+* **Tooltips** (`ui/shared/tooltip/`). Anything with a `data-tooltip` attribute gets the app's one tooltip (`TooltipLayer`, mounted
+  in `Workspace`): the text is one string, a row per line (`tooltip-text.ts`: what it is, then `Range 20 Hz to 20000 Hz · default
+  2000 Hz · logarithmic` or the options of an enum, then, if a wire is involved, `Driven by Control: the wire replaces this value.`
+  or how to wire a socket). It shows after the pointer rests 350 ms, at once on keyboard focus, hides on leaving, pressing,
+  scrolling and Escape, links its target with `aria-describedby` while shown, ignores touch, and is placed by a pure function
+  (`tooltip-position.ts`: under the target, above if there is no room, kept inside the window). A control's range shown is its
+  live one (`liveSpec`). Used on cards (node title, ports, sockets, parameter rows) and on the Add button.
+  Browser check: `docs/browser-checks/tooltips.mjs`.
+* **Adding nodes** (`ui/patcher/node-catalog.ts`, `quick-add-model.ts`, `QuickAdd.tsx`, `placement.ts`). The toolbar's row of one button per
+  node is gone. **Double-click** empty canvas, **Shift+A** with the pointer over it (not while typing in a field), or the toolbar's **Add**
+  button opens one popup: a text field, focused, and a list. Empty, the list is the **categories** with their counts (Enter or a click
+  drills in, Backspace on the empty field goes back up); typing, at any level, ranks **every** node: label equal, label prefix,
+  the start of a word of the label, label contains, the letters in order ("mdhz" finds MIDI to Hz), then category, keywords
+  and description; several words must all be found; ties go to the shorter label, then to the catalog order. Up / Down / Enter /
+  Escape, hover and click all work; a row shows the label, its category and the description. A press outside closes it. What it
+  offers is what the graph allows (`paletteFor` in `GraphEditor`: no note nodes in an insert graph, the ends of an insert graph
+  by kind of track, no *Send* in the master ...) plus the modules that may be placed here (`placeable`), under *Modules*; the
+  note graph has its own three categories. The new node is selected, and adding is one undo step. **Where it goes:** a
+  double-click or Shift+A puts it centred on the pointer, the Add button in the middle of what is on screen; `freeSpot` nudges
+  it down and right until it does not sit on another card, so a row of adds fans out. The logic is a pure model (`catalog` +
+  `step(state, action)`), tested without a DOM; the component forwards events (a `combobox` that owns a `listbox`, with
+  `aria-activedescendant`, rows carry `data-label`). A double-click is detected from two presses on empty canvas (450 ms, 8 px:
+  `PointerEvent.detail` is 0), and the second press puts back the selection the first one cleared and draws no box; the canvas
+  surface now fills the whole scroller, so empty parts far from the nodes count as canvas. Browser check:
+  `docs/browser-checks/quickadd.mjs`. The Notes tab's preview aside is 30% (at most 440 px) so the canvas keeps room next to the property editor.
+* **Cards** (`ui/patcher/NodeView.tsx`). A card is a **title, its sockets and, where it helps, a picture** (below): no sliders, fields, pickers or switches (the
+  height is the header plus the port rows, plus the picture's area, `nodeHeight`). It shows the node's title (`nodeTitles`: its name, else its label numbered when
+  alike) and only state that matters at a glance: `shared`, `L R`, `module`, bypassed (dimmed), and the module's *Edit* / *Unlink*. A
+  parameter socket is drawn only when it is wired, or for all of them while the **Sockets** toggle (a checkbox in the toolbar,
+  remembered like the Graph | Panel switch) is on (`ui/patcher/visible-shape.ts`; `portPosition` indexes the visible shape). A press
+  anywhere on a card but a port or button selects it. The patcher's grid is one column that may be narrower than its content, so the
+  canvas scrolls and the property editor keeps its width.
+* **Controls inside modules** (`core/patch/module-controls.ts`, `ModuleControl`). Two ways in, both from the plan. **Exposed inputs:** any inner
+  socket, `param:` ones included, can be ticked in the module's interface (its row says *socket*); it becomes an input of kind `control` on
+  the use, the parent wires a control or a signal into it, and flattening turns that into a wire into the inner node's socket (nothing
+  new in the engine). **Internal controls on the parent's panel:** every control node directly inside a module that is not hidden
+  (`panel.show` is not false) is offered on the panel of the graph that uses the module, under the module's name ("Voice core: Cutoff"), with
+  **its value stored per use**: the use's `params` hold `<inner node>:<param>` (`controlParamKey`, the same key scheme as a module knob;
+  `value` for a control, `x` and `y` for a pad, `on` for a switch), and until a use is turned the module's own value is the default (and
+  follows the definition when it is edited). `describeNode` lists those values as the use's parameters (the control's live range, curve
+  and unit, named after the control; one already exposed as a knob keeps the knob), so the property editor, persistence and module knobs
+  needed no new path: `flattenPatch` (`withKnobs`) lays the use's values over the inner control, so a turn reaches the engine as the
+  ordinary `setParam` on `<use>/<inner>`. `panelItems` returns, after the graph's own controls, a stand-in per module control (id
+  `<use>/<inner>`, `via: { use, inner }`, `title: "Module: control"`) in the module's own board order; the board writes to the use, and
+  the control is moved, sized, hidden and renamed **inside the module** (the parent's edit mode says so). A use stores only the values
+  somebody turned (the sanitizer reads a use's parameters that are present, not a full set), and `pruneModuleUses` drops a stored
+  value whose control was hidden or deleted. Not offered: controls of a module nested inside the used one (open that module). Browser
+  check: `docs/browser-checks/modulecontrols.mjs`.
+* **Controls in a note graph** (`NodeDefinition.inNotes`, `core/patch/bake.ts`). Control and math nodes may sit in a note graph, and note nodes
+  have parameter sockets for their numeric parameters (descriptions and ranges from the note node docs), so a knob, a switch or *Add* can
+  drive *Transpose*'s semitones or an arpeggio's octaves. They work in either kind of graph, so they do not decide which kind a module is
+  (`moduleDomain`; the sanitizer lets them into both). The note engine knows nothing of them: `engineNoteGraph(patch, modules)` is what
+  every consumer of a note graph (`diffProject`, `heardNotes`, the `track/add` command) gets: modules expanded, then each note node's
+  parameters replaced by what its sockets carry (`resolveParams`: nothing in a note graph moves, so it is always a constant), and the
+  control nodes and their wires left out. So turning a knob is only a changed parameter in a `track/setNoteGraph` (the running graph
+  keeps its state: no restart, no all-notes-off, tested), and wiring a control in or moving it does not change the note wiring at all. The
+  Sockets toggle, *Create knob*, the property editor and the panel work in the Notes tab like anywhere else; its picker offers the
+  Controls and Math categories besides the note nodes. Browser check: `docs/browser-checks/notecontrols.mjs`.
+* **Dropping a wire on empty canvas** opens the same picker, limited to what can take it (`wire-drop.ts` `targetInput`: the first input that
+  accepts what the wire carries, preferring a node's own inputs to parameter sockets; stereo, notes and sound only meet their own kind), headed
+  "Can take <node> <port>"; picking one adds the node at the drop (to the right of the pointer, `freeSpot` finding the room), wires it in
+  and selects it, in one undo step. A module use is offered when one of its ports takes the wire.
+* **Node pictures** (`ui/patcher/previews/`, `core/patch/resolve.ts`). A card shows a small SVG of what the node does with its settings, drawn from
+  the numbers it is *working with*: `resolveParams(patch, nodeId)` takes the stored parameters and replaces each one that a wire drives by
+  what the wire carries, worked out through controls, switches, XY pads and math nodes on them by running the **real DSP nodes for one
+  frame** (so the picture cannot disagree with the engine, including a control's own clamp and step and the parameter's own range). Anything
+  that moves (an LFO, a note, an oscillator into a socket) cannot be a constant: the stored value is kept and the parameter is listed as
+  `moving`, which the card marks with a **~**. The pictures are pure geometry in a fixed 152 x 36 box (`nodePreview(type, values) ->
+  shapes`: polylines, areas, rects, dots, tested for the numbers they must show and for staying inside the box with absurd values):
+  *Oscillator* its wave, with cycles following pitch and detune (one at 20 Hz up to eight); *Filter* the response (the same RBJ biquad as
+  the node, 20 Hz to 20 kHz on a log axis, -36 to +18 dB, a dim 0 dB line); *Envelope* the ADSR (times on a square-root scale so 10 ms and
+  2 s are both visible); *LFO* its shape at its rate and as tall as its depth; *Gain* a bar with a tick at unity, *Pan* a dot, *Width* two
+  dots; *Delay* / *Ping-pong* the echoes (a time apart, each the feedback quieter, the first at the mix); *Reverb* / *Stereo reverb* the
+  decay tail. `hasPreview(type)` says who has one; the card is `PREVIEW_AREA_HEIGHT` taller for it and `nodeHeight` takes that into
+  account (wire ends, the marquee and `freeSpot` all use it). The audio-rate effect of a modulation input (an LFO into `cutoff`) is not
+  drawn: that would need telemetry from the engine. Browser check: `docs/browser-checks/previews.mjs`.
+* **Property editor** (`ui/patcher/PropertyEditor.tsx`, `ParamRow.tsx`, `NumberField.tsx`, `TextField.tsx`, `property-rows.ts`). A docked
+  aside (`role=complementary`, "Properties") beside the canvas in the graph view of every graph, for the **selected** node: nothing
+  selected, a hint; several, the count. For one: its kind and **Name** (an empty field hints the default title; applied on Enter or
+  leaving the field, since a name is trimmed and a keystroke edit would eat a trailing space; Escape reverts), the **Stereo** and
+  **Bypass** switches where the node has them, the sample or track picker, for a control **Unit** and **Display** (an XY pad: **X
+  unit** and **Y unit**), then **one row per parameter**: label, a number field, a slider, the unit, reset, and a choice for an enum.
+  A row says what it is in its tooltip; the **number field** keeps half-typed text as typed, applies every complete number as it is
+  typed and holds it inside the parameter's range (`clampToSpec`; leaving the field shows the stored value); the slider only where
+  one is usable (`showsSlider`: not the wide bounds of a control's own range); **reset** goes to the spec's default, or for a control
+  to its own `default`. A parameter with a wire into its socket is greyed with **Driven by <name>** and an **Unwire** button; an
+  unwired one with a socket has **Knob** and **Slider** buttons (`Create knob for <label>`). Edits use the same `edit` and merge key as
+  the cards' sliders did (`param:<scope>:<node>:<param>`), so a drag, or typing a number, is one undo step; switches and pickers are
+  single steps. Parameter specs are the node's own (`resolveSpec`): a control's range, step, **curve** and **unit** are its settings
+  (`liveSpec` for the first three, `PatchNode.unit` / `unitY` for the unit), and `param-scale` honours `ParamSpec.curve` (a control's
+  linear / log / exp; `exp` is the same bend as *Map range*), falling back to "log for wide positive ranges" without one.
+* **Create knob / slider** (`createControlFor` in `core/patch/control-for.ts`, pure and tested). Right-click a parameter socket that has no
+  wire (`ui/shared/menu` `ContextMenu` around the port): **Create knob**, **Create slider**; the editor's row buttons do the same. It
+  adds a *Control* to the left of the node (`freeSpot` finds the room) named after the parameter (`name`), with the parameter's
+  **range, step, unit and default**, a **log curve** for a wide positive range (else linear), `display: 'slider'` for a slider, holding
+  the parameter's **current value**, and wires it into the socket, in one edit (one undo step), then selects it. The sound does not
+  change (the control holds what the parameter had). It refuses an enum, a parameter without a socket, and one that already has a wire
+  (a second would add to the first; the menu leaves it out). A wired socket's menu has **Disconnect** (every wire into it); an
+  ordinary input has a menu only when wired; note-graph nodes have no sockets, so nothing to create from there.
+* **Control fields** (`PatchNode.unit`, `unitY`, `display`; `NodeDefinition.panelKind` is `value` / `xy` / `switch`). `unit` is text (at
+  most 16 characters, blank = none; `setNodeUnit`), `display` is `knob` (stored as nothing), `slider` or `slider-horizontal`
+  (`setNodeDisplay`); the sanitizer keeps a unit only on a control with a value to show (not a switch), `unitY` only on a pad, and
+  `display` only on a *Control*. A control has no separate label: its **name** is its caption on the panel. Optional fields, no
+  format-version bump. A MIDI-note control shows numbers, not note names, for now (`format: 'midiNote'` is a spec property that a
+  control does not have).
+* **Files.** All optional with safe defaults, no format-version bump: old files have no control nodes, no names and no socket
+  wires and load identically (a test pins it); a wire to a socket that does not exist, to an enum, or that would make a loop is
+  dropped with the usual "invalid connection" warning.
+* **Browser checks:** `docs/browser-checks/properties.mjs` (the editor, the menu, create knob) and `docs/browser-checks/controls.mjs` (a Control wired into Gain's socket silences and restores the real bass,
+  the Sockets toggle, undo, reload).
 
 ## Track audio (taking another track's sound)
 
@@ -463,8 +625,7 @@ not built yet; it would be one more node reading the same source.
   loop (the header disables it). `repairTrackReferences` applies the same test to files (a pointer to a missing track, to its
   own track or that closes a loop is dropped, one at a time, with a warning), and `repairSendLevels` to the knobs.
   `removeTrack` clears the inputs that took from the removed track, also inside modules.
-* **UI.** The node has a track picker (`NodeShape.usesTrack: 'audio'`) and a Take choice. New nodes in an insert graph now
-  appear right under its two ends instead of far below, so they are in view.
+* **UI.** The node has a track picker (`NodeShape.usesTrack: 'audio'`) and a Take choice.
 
 ## Editing clips (piano roll)
 
@@ -594,7 +755,7 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   regardless of the gate, `hold` stops when the gate falls, `loop` repeats until it falls), *Root note* (plays at
   original speed), *Start*, *Tune*. It compensates for the sample's own sample rate, interpolates linearly, and
   fades out in 10 ms on release to avoid clicks. Its sample is a node-level reference (`PatchNode.sampleId`, chosen
-  with a picker in the node), not a numeric param.
+  with a picker in the property editor), not a numeric param.
 * **Three homes for one sample**, all keyed by the **SHA-256 of the original file** (so importing the same file
   twice is a no-op, and ids can't collide):
   1. **Project** — `Project.samples: SampleInfo[]` (name, duration, …) is the library. Saved, undoable, tiny.
@@ -620,7 +781,7 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   Missing/corrupt samples become warnings, not failures.
 * **Persistence of the new fields:** `samples` and `sampleId` are optional with safe defaults (a reference to a
   sample not in the library is dropped with a warning), so no format-version bump was needed.
-* **Add a sample-playing node:** set `usesSample: true` on its definition; the patcher shows the picker and the
+* **Add a sample-playing node:** set `usesSample: true` on its definition; the property editor shows the picker and the
   engine calls `setSample` on it.
 
 ## Audio clips
@@ -680,8 +841,8 @@ through a patch, as before) or an **audio track**.
 ## Common changes
 
 **Add a DSP node** — create `core/dsp/nodes/<name>.node.ts` exporting a `NodeDefinition`, add it to
-`core/dsp/registry.ts`. Set `shared: true` if it is an effect whose state must outlive individual notes (reverb,
-chorus, …). The patcher palette, parameter UI, engine and file loader pick it up automatically.
+`core/dsp/registry.ts` (add its words to `node-docs.ts` or the completeness test fails; every numeric parameter then has a socket automatically; `paramSockets: false` opts out, `global: true` lets it run in the global stage; an elementwise math node is a few lines with `mathNode`). Set `shared: true` if it is an effect whose state must outlive individual notes (reverb,
+chorus, …). The picker, parameter UI, engine and file loader pick it up automatically.
 
 **Add an engine capability** — add a variant to `EngineCommand`, handle it in `Engine.apply`, and (if it comes
 from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off UI action, expose it on

@@ -10,6 +10,19 @@ const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
+
+// The node picker (Add button -> type -> pick). `offers(label)` asks whether it lists a node, without adding anything.
+const addButton = () => page.getByRole('button', { name: 'Add', exact: true })
+const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
+const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
+const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
+const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
+
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 
 await page.goto('http://localhost:4173/')
@@ -46,8 +59,8 @@ check('import accepted (no error toast)', !(await page.getByText(/couldn.t|inval
 await page.getByRole('button', { name: 'Edit Root' }).click()
 await page.getByRole('tab', { name: 'Instrument' }).or(page.getByRole('button', { name: 'Instrument', exact: true })).first().click()
 await page.waitForTimeout(400)
-check('patcher shows LFO nodes', (await page.getByText('LFO', { exact: true }).count()) >= 2)
-check('patcher shows the Reverb node', (await page.getByText('Reverb', { exact: true }).count()) >= 1)
+check('patcher shows LFO nodes', (await page.locator('[class*="nodeTitle"]', { hasText: /^LFO/ }).count()) >= 2)
+check('patcher shows the Reverb node', (await page.locator('[class*="nodeTitle"]', { hasText: /^Reverb/ }).count()) >= 1)
 check('wires are drawn for the new connections', (await page.locator('svg path, svg line').count()) >= 10, String(await page.locator('svg path, svg line').count()))
 await page.screenshot({ path: `${dir}/17-patch-lfo.png` })
 
@@ -60,10 +73,10 @@ await page.getByRole('button', { name: 'Stop all' }).or(page.getByRole('button',
 // tail: stop the transport and the reverb/delay keep ringing briefly (shared stage outlives notes)
 // palette adds the new types
 const before = await page.locator('[data-node-id]').count().catch(() => 0)
-await page.getByRole('button', { name: 'LFO', exact: true }).click()
-await page.getByRole('button', { name: 'Reverb', exact: true }).click()
+await addNode('LFO')
+await addNode('Reverb')
 const after = await page.locator('[data-node-id]').count().catch(() => 0)
-check('the palette offers LFO and Reverb', (await page.getByRole('button', { name: 'LFO', exact: true }).count()) === 1 && (await page.getByRole('button', { name: 'Reverb', exact: true }).count()) === 1, `nodes ${before} -> ${after}`)
+check('the palette offers LFO and Reverb', (await offers('LFO')) === true && (await offers('Reverb')) === true, `nodes ${before} -> ${after}`)
 await page.screenshot({ path: `${dir}/18-palette.png` })
 check('no page errors', errors.length === 0, errors.join(' | '))
 await browser.close()

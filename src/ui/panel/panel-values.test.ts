@@ -1,6 +1,6 @@
-import { type PanelControl, type ParamSpec, addNode, createNode } from '@core'
+import { type PanelItem, type ParamSpec, createNode, describeNode } from '@core'
 import { describe, expect, it } from 'vitest'
-import { defaultPosition, keyStep, knobWidth, nodeTitles, positionOf, spanOf, valueAt, valueOf } from './panel-values'
+import { axisSpec, defaultPosition, keyStep, knobWidth, positionOf, spanOf, valueAt } from './panel-values'
 
 const linear: ParamSpec = { id: 'a', label: 'A', min: 0, max: 10, default: 5 }
 const log: ParamSpec = { id: 'f', label: 'F', min: 20, max: 20000, default: 2000 }
@@ -46,40 +46,41 @@ describe('keyStep', () => {
   })
 })
 
-describe('valueOf', () => {
-  it('reads the node, falling back to the default', () => {
-    const node = { ...createNode('gain', 0, 0), params: { gain: 0.3 } }
-    const patch = addNode({ nodes: [], connections: [] }, node)
-    expect(valueOf(patch, { node: node.id, param: 'gain' }, linear)).toBe(0.3)
-    expect(valueOf(patch, { node: node.id, param: 'other' }, linear)).toBe(5)
-    expect(valueOf(patch, { node: 'gone', param: 'gain' }, linear)).toBe(5)
+describe('axisSpec', () => {
+  it('is a control\'s live range, curve and unit, with its own default as the reset value', () => {
+    const base = createNode('control', 0, 0)
+    const node = { ...base, unit: 'Hz', params: { ...base.params, min: 20, max: 20000, curve: 1, value: 500, default: 440 } }
+    const spec = axisSpec(node, describeNode(node)!, 'value')!
+    expect(spec).toMatchObject({ min: 20, max: 20000, unit: 'Hz', curve: 'log', default: 440 })
+    expect(valueAt(spec, positionOf(spec, 500))).toBeCloseTo(500, 6)
+    expect(valueAt(spec, defaultPosition(spec))).toBeCloseTo(440, 6)
   })
-})
 
-describe('nodeTitles', () => {
-  it('numbers nodes that share a name, in patch order, and leaves single ones alone', () => {
-    const a = createNode('oscillator', 500, 500)
-    const f = createNode('filter', 0, 0)
-    const b = createNode('oscillator', 0, 0)
-    const patch = [a, f, b].reduce(addNode, { nodes: [], connections: [] })
-    const titles = nodeTitles(patch, [])
-    expect(titles.get(a.id)).toBe('Oscillator 1')
-    expect(titles.get(b.id)).toBe('Oscillator 2')
-    expect(titles.get(f.id)).toBe('Filter')
+  it('reads each axis of a pad on its own', () => {
+    const base = createNode('xyPad', 0, 0)
+    const node = { ...base, params: { ...base.params, xMax: 10, yMax: 100, yDefault: 25 } }
+    const shape = describeNode(node)!
+    expect(axisSpec(node, shape, 'x')).toMatchObject({ max: 10 })
+    expect(axisSpec(node, shape, 'y')).toMatchObject({ max: 100, default: 25 })
+    expect(axisSpec(node, shape, 'nope')).toBeUndefined()
+  })
+
+  it('a log curve and an exp curve change where a position lands', () => {
+    const base = createNode('control', 0, 0)
+    const at = (curve: number) => {
+      const node = { ...base, params: { ...base.params, min: 1, max: 100, curve } }
+      return valueAt(axisSpec(node, describeNode(node)!, 'value')!, 0.5)
+    }
+    expect(at(0)).toBeCloseTo(50.5, 6)
+    expect(at(1)).toBeCloseTo(10, 6)
+    expect(at(2)).toBeLessThan(50.5)
   })
 })
 
 describe('spanOf', () => {
-  const control = (extra: Partial<PanelControl>): PanelControl => ({
-    id: 'c',
-    kind: 'knob',
-    label: 'C',
-    bind: { node: 'n', param: 'p' },
-    size: 'S',
-    ...extra,
-  })
+  const item = (extra: Partial<Pick<PanelItem, 'kind' | 'size' | 'horizontal'>>) => ({ kind: 'knob' as const, size: 'S' as const, horizontal: false, ...extra })
   it('grows a knob square', () => {
-    expect([control({}), control({ size: 'M' }), control({ size: 'L' })].map((c) => spanOf(c))).toEqual([
+    expect([item({}), item({ size: 'M' }), item({ size: 'L' })].map(spanOf)).toEqual([
       { cols: 1, rows: 1 },
       { cols: 2, rows: 2 },
       { cols: 3, rows: 3 },
@@ -88,14 +89,14 @@ describe('spanOf', () => {
     expect(knobWidth('M')).toBeLessThan(knobWidth('L'))
   })
   it('grows a slider along its length', () => {
-    expect(spanOf(control({ kind: 'slider' }))).toEqual({ cols: 1, rows: 2 })
-    expect(spanOf(control({ kind: 'slider', size: 'L' }))).toEqual({ cols: 1, rows: 4 })
-    expect(spanOf(control({ kind: 'slider', orientation: 'horizontal', size: 'M' }))).toEqual({ cols: 3, rows: 1 })
+    expect(spanOf(item({ kind: 'slider' }))).toEqual({ cols: 1, rows: 2 })
+    expect(spanOf(item({ kind: 'slider', size: 'L' }))).toEqual({ cols: 1, rows: 4 })
+    expect(spanOf(item({ kind: 'slider', horizontal: true, size: 'M' }))).toEqual({ cols: 3, rows: 1 })
   })
-  it('gives a pad room and a many-option selector a double width', () => {
-    expect(spanOf(control({ kind: 'xy' }))).toEqual({ cols: 2, rows: 2 })
-    expect(spanOf(control({ kind: 'xy', size: 'M' }))).toEqual({ cols: 3, rows: 2 })
-    expect(spanOf(control({ kind: 'selector' }), 2)).toEqual({ cols: 1, rows: 1 })
-    expect(spanOf(control({ kind: 'selector' }), 5)).toEqual({ cols: 2, rows: 1 })
+  it('gives a pad room and a switch one row', () => {
+    expect(spanOf(item({ kind: 'xy' }))).toEqual({ cols: 2, rows: 2 })
+    expect(spanOf(item({ kind: 'xy', size: 'M' }))).toEqual({ cols: 3, rows: 2 })
+    expect(spanOf(item({ kind: 'switch' }))).toEqual({ cols: 1, rows: 1 })
+    expect(spanOf(item({ kind: 'switch', size: 'L' }))).toEqual({ cols: 3, rows: 1 })
   })
 })

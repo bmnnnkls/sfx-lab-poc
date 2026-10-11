@@ -1,12 +1,4 @@
-import {
-  type ControlSize,
-  type ModuleLibrary,
-  type PanelControl,
-  type ParamBinding,
-  type ParamSpec,
-  type Patch,
-  describeNode,
-} from '@core'
+import { type ControlSize, type NodeShape, type PanelItem, type ParamSpec, type PatchNode, resolveSpec } from '@core'
 import { clamp01 } from '../controls/control-math'
 import { formatParam, fromSlider, isLogarithmic, snapToStep, toSlider } from '../shared/param-scale'
 
@@ -14,7 +6,7 @@ import { formatParam, fromSlider, isLogarithmic, snapToStep, toSlider } from '..
 
 export const positionOf = (spec: ParamSpec, value: number): number => clamp01(toSlider(spec, value))
 
-/** The value a position stands for: on the parameter's own scale (log for wide ranges), on its step, inside its range. */
+/** The value a position stands for: on the parameter's own scale (a control's curve, or log for wide ranges), on its step, inside its range. */
 export const valueAt = (spec: ParamSpec, position: number): number =>
   Math.min(spec.max, Math.max(spec.min, snapToStep(spec, fromSlider(spec, clamp01(position)))))
 
@@ -26,28 +18,18 @@ export const keyStep = (spec: ParamSpec): number =>
     ? Math.min(0.25, spec.step / (spec.max - spec.min))
     : 0.01
 
-/** What the node holds for the parameter, or the parameter's default when it holds nothing. */
-export const valueOf = (patch: Patch, binding: ParamBinding, spec: ParamSpec): number =>
-  patch.nodes.find((node) => node.id === binding.node)?.params[binding.param] ?? spec.default
-
 export const readValue = (spec: ParamSpec, value: number): string => formatParam(spec, value)
 
 /**
- * How each node is called on the panel: its name, numbered when the patch has several of the same kind ("Oscillator 2"),
- * in the order of the patch (not of the canvas, so dragging a node about does not renumber the others).
+ * One axis of a control node as the board uses it: its live range, curve and unit (`resolveSpec`), with its own `default`
+ * as the value a double-click returns to. `undefined` when the node does not have the parameter.
  */
-export const nodeTitles = (patch: Patch, modules: ModuleLibrary): Map<string, string> => {
-  const labels = patch.nodes.map((node) => [node.id, describeNode(node, modules)?.label ?? node.type] as const)
-  const total = new Map<string, number>()
-  for (const [, label] of labels) total.set(label, (total.get(label) ?? 0) + 1)
-  const seen = new Map<string, number>()
-  return new Map(
-    labels.map(([id, label]) => {
-      const index = (seen.get(label) ?? 0) + 1
-      seen.set(label, index)
-      return [id, (total.get(label) ?? 1) > 1 ? `${label} ${index}` : label] as const
-    }),
-  )
+export const axisSpec = (node: PatchNode, shape: NodeShape, paramId: string): ParamSpec | undefined => {
+  const spec = shape.params.find((candidate) => candidate.id === paramId)
+  if (!spec) return undefined
+  const resolved = resolveSpec(node, spec)
+  const reset = resolved.range?.reset === undefined ? undefined : node.params[resolved.range.reset]
+  return reset === undefined ? resolved : { ...resolved, default: reset }
 }
 
 export interface Span {
@@ -57,18 +39,18 @@ export interface Span {
 
 const STEP: Record<ControlSize, number> = { S: 0, M: 1, L: 2 }
 
-/** Grid cells a control takes. A knob grows square, a slider along its length, a pad wide; a selector widens for many options. */
-export const spanOf = (control: PanelControl, optionCount = 0): Span => {
-  const step = STEP[control.size]
-  switch (control.kind) {
+/** Grid cells a control takes. A knob grows square, a slider along its length, a pad wide; a switch is one cell. */
+export const spanOf = (item: Pick<PanelItem, 'kind' | 'size' | 'horizontal'>): Span => {
+  const step = STEP[item.size]
+  switch (item.kind) {
     case 'knob':
       return { cols: step + 1, rows: step + 1 }
     case 'slider':
-      return control.orientation === 'horizontal' ? { cols: step + 2, rows: 1 } : { cols: 1, rows: step + 2 }
+      return item.horizontal ? { cols: step + 2, rows: 1 } : { cols: 1, rows: step + 2 }
     case 'xy':
-      return control.size === 'S' ? { cols: 2, rows: 2 } : control.size === 'M' ? { cols: 3, rows: 2 } : { cols: 3, rows: 3 }
-    case 'selector':
-      return { cols: optionCount > 3 ? 2 : 1, rows: 1 }
+      return item.size === 'S' ? { cols: 2, rows: 2 } : item.size === 'M' ? { cols: 3, rows: 2 } : { cols: 3, rows: 3 }
+    case 'switch':
+      return { cols: step + 1, rows: 1 }
   }
 }
 

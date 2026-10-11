@@ -73,7 +73,7 @@ describe('stereo in an insert graph', () => {
     const { left, right } = run(patch, input)
     expect(left.some((v) => v !== 0)).toBe(true)
     expect(left).toEqual(right) // centre pan gives equal channels, and the same modulation reaches both
-    expect(describeNode(patch.nodes.find((n) => n.id === 'f')!)?.inputs.map((p) => p.kind ?? 'signal')).toEqual(['stereo', 'signal'])
+    expect(describeNode(patch.nodes.find((n) => n.id === 'f')!)?.inputs.filter((p) => p.param === undefined).map((p) => p.kind ?? 'signal')).toEqual(['stereo', 'signal'])
   })
 
   it('a stereo delay keeps each channel apart', () => {

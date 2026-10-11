@@ -9,6 +9,20 @@ const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
+
+// The node picker (Add button -> type -> pick). `offers(label)` asks whether it lists a node, without adding anything.
+const addButton = () => page.getByRole('button', { name: 'Add', exact: true })
+const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
+const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
+const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
+const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
+
+// Settings live in the property editor: select the node (click its header), then use its rows.
+const node = (title) => nodeByTitle(title)
+const properties = () => page.getByRole('complementary', { name: 'Properties' })
+const selectNode = (title) => node(title).locator('[class*="nodeHeader"]').first().click()
+const slider = (label) => properties().getByRole('slider', { name: label, exact: true })
+const valueField = (label) => properties().getByRole('textbox', { name: `${label} value`, exact: true })
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const nodeByTitle = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator(`[class*="nodeTitle"]`, { hasText: new RegExp(`^${title}`) }) })
@@ -28,7 +42,7 @@ await header('Filter').click({ modifiers: ['Shift'] })
 check('two nodes selected', (await surface.locator('[data-selected="true"]').count()) === 2)
 await page.getByRole('button', { name: /Group into module \(2\)/ }).click()
 check('a module node replaces them', (await nodeByTitle('Module 1').count()) === 1 && (await nodeByTitle('Oscillator').count()) === 0)
-check('the palette now offers the module', (await page.getByRole('button', { name: 'Module 1', exact: true }).count()) >= 1)
+check('the palette now offers the module', (await offers('Module 1')) === true)
 check('the wiring around it survived (wires drawn)', (await surface.locator('[data-testid^="wire-"]').count()) >= 5, String(await surface.locator('[data-testid^="wire-"]').count()))
 await page.screenshot({ path: `${dir}/19-grouped.png` })
 
@@ -49,13 +63,13 @@ await page.getByTestId(`expose-knob-${filterId}-cutoff`).check()
 await page.getByLabel('Name of Cutoff').fill('Brightness')
 await page.screenshot({ path: `${dir}/20-inside.png` })
 await crumb('Bass').click()
-check('back out: the use is named Wobble core and shows a Brightness knob', (await nodeByTitle('Wobble core').count()) === 1 && (await nodeByTitle('Wobble core').getByText('Brightness').count()) === 1)
+check('back out: the use is named Wobble core and its Brightness knob is in the property editor', (await nodeByTitle('Wobble core').count()) === 1 && (await (async () => { await selectNode('Wobble core'); return slider('Brightness').count() })()) === 1)
 
 // ---- the knob is live (its value display follows, and the instrument keeps playing)
-const knobBox = nodeByTitle('Wobble core').locator('label', { hasText: 'Brightness' })
-const before = await knobBox.locator('[class*="paramValue"]').innerText()
-await knobBox.locator('input[type=range]').fill('900')
-const after = await knobBox.locator('[class*="paramValue"]').innerText()
+await selectNode('Wobble core')
+const before = await valueField('Brightness').inputValue()
+await slider('Brightness').fill('900')
+const after = await valueField('Brightness').inputValue()
 check('turning the module knob changes its value', before !== after, `${before} -> ${after}`)
 await page.locator('[class*="_launch_"]').first().click()
 check('and the instrument keeps sounding', (await level(1500)) > 0.02)
@@ -63,7 +77,7 @@ await page.getByRole('button', { name: /^Stop/ }).first().click().catch(() => {}
 
 // ---- second use on another track shares the definition
 await trackBtn('Lead').click()
-await page.getByRole('button', { name: 'Wobble core', exact: true }).click()
+await addNode('Wobble core')
 check('Lead now has a use of the same module', (await nodeByTitle('Wobble core').count()) === 1)
 await nodeByTitle('Wobble core').getByRole('button', { name: 'Edit' }).click()
 check('usage says used twice, in Bass and Lead', /Used 2× \(Bass, Lead\)/.test(await page.getByTestId('module-usage').innerText()), await page.getByTestId('module-usage').innerText())

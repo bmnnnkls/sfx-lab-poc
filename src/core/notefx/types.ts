@@ -1,4 +1,4 @@
-import type { ParamSpec, PortSpec } from '../dsp'
+import type { NodeCategory, ParamSpec, PortSpec } from '../dsp'
 import type { NoteEvent } from '../session'
 
 /**
@@ -27,6 +27,10 @@ export type NoteNodeRole =
 export interface NoteNodeDefinition {
   readonly type: string
   readonly label: string
+  /** One plain sentence: what the node does. Shown in the picker and the tooltip. */
+  readonly description?: string
+  readonly category?: NodeCategory
+  readonly keywords?: readonly string[]
   readonly role: NoteNodeRole
   readonly inputs: readonly PortSpec[]
   readonly outputs: readonly PortSpec[]
