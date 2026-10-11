@@ -70,6 +70,14 @@ export {
   unlinkModuleNode,
   updateModule,
 } from './module-edit'
+export {
+  MAX_NOTE_EFFECTS,
+  addNoteEffect,
+  moveNoteEffect,
+  removeNoteEffect,
+  setNoteEffectBypassed,
+  setNoteEffectParam,
+} from './note-effect-edit'
 export { createDemoProject } from './demo-project'
 export {
   DEFAULT_VELOCITY,

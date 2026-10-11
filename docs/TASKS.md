@@ -56,7 +56,12 @@ chain that transforms the `NoteEvent` stream (`noteOn` / `noteOff` / `allOff`, p
 1. ~~Group selection into a module with exposed knobs and flattening.~~ Done.
 2. ~~Module library inside the project, uses by reference, "unlink".~~ Done.
 3. Personal library and import/export. **Open.**
-4. Typed ports and the per-track MIDI effect chain. **Open.**
+4. ~~Per-track MIDI effect chain~~ Done for built-in effects (see `ARCHITECTURE.md`). **Still open:** typed ports
+   (`signal` / `notes`) so a MIDI effect can be a *module* (a saved chain or a patched effect), and a note-level
+   patcher for building new effects from parts.
+
+Smaller follow-ups for MIDI effects: more effects (humanize, note length, random pitch, strum), arpeggiator latch, a
+bypass-all toggle, auditioning notes through the chain, effects on audio-clip-free tracks only (audio tracks have no notes).
 
 Smaller follow-ups: drag several selected nodes together; delete/duplicate selection with the keyboard; a way to
 update or replace a module's definition from a file; show where a module is used from the module list.

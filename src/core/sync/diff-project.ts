@@ -61,6 +61,9 @@ const diffInstrumentTrack = (
   if (!sameClips(prev.clips, next.clips)) {
     commands.push({ type: 'track/setClips', trackId: next.id, clips: next.clips })
   }
+  if (prev.noteEffects !== next.noteEffects) {
+    commands.push({ type: 'track/setNoteEffects', trackId: next.id, effects: next.noteEffects })
+  }
   if (prev.voices !== next.voices) {
     commands.push({ type: 'track/setVoices', trackId: next.id, voices: next.voices })
   }
@@ -93,6 +96,7 @@ const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
         kind: 'instrument',
         trackId: track.id,
         patch: flattenPatch(track.patch, modules),
+        noteEffects: track.noteEffects,
         clips: track.clips,
         volume: track.volume,
         voices: track.voices,

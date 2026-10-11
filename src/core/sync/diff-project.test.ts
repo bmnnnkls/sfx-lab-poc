@@ -2,6 +2,8 @@ import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
 import { exposeKnob, moveNode, setModulePatch, setNodeParam, setNodeSample } from '../patch'
 import {
+  addNoteEffect,
+  setNoteEffectParam,
   addModuleUse,
   editPatchAt,
   groupNodesAsModule,
@@ -148,6 +150,26 @@ describe('diffProject', () => {
       const definition = second.modules[0]!
       const edited = updateModule(second, definition.id, (m) => setModulePatch(m, { ...m.patch, connections: [] }))
       expect(diffProject(second, edited).every((c) => c.type === 'track/setPatch')).toBe(true)
+    })
+  })
+
+  describe('MIDI effects', () => {
+    it('sends the whole chain with a new track', () => {
+      const withFx = addNoteEffect(project, track.id, 'chord')
+      const add = diffProject(null, withFx).find((c) => c.type === 'track/add' && c.trackId === track.id)!
+      expect(add.type === 'track/add' && add.kind === 'instrument' && add.noteEffects.map((e) => e.type)).toEqual(['chord'])
+    })
+
+    it('sends the new chain when it changes, and nothing else', () => {
+      const withFx = addNoteEffect(project, track.id, 'transpose')
+      const commands = diffProject(project, withFx)
+      expect(commands).toHaveLength(1)
+      expect(commands[0]).toMatchObject({ type: 'track/setNoteEffects', trackId: track.id })
+
+      const id = (withFx.tracks[0] as InstrumentTrack).noteEffects[0]!.id
+      const turned = setNoteEffectParam(withFx, track.id, id, 'semitones', 5)
+      expect(diffProject(withFx, turned).map((c) => c.type)).toEqual(['track/setNoteEffects'])
+      expect(diffProject(turned, turned)).toEqual([])
     })
   })
 })

@@ -7,7 +7,7 @@
 
 .header {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 4px;
   padding: 6px;
   background: var(--panel);
@@ -93,5 +93,13 @@
   font-size: 10px;
   color: var(--text-dim);
   border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.fxBadge {
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: 8px;
 }

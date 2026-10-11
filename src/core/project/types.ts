@@ -1,3 +1,4 @@
+import type { NoteEffect } from '../notefx'
 import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 
@@ -62,6 +63,8 @@ export interface InstrumentTrack extends TrackBase {
   /** Maximum simultaneous notes; further notes steal the oldest voice. */
   readonly voices: number
   readonly patch: Patch
+  /** MIDI effects between the clips and the instrument, applied in order. */
+  readonly noteEffects: readonly NoteEffect[]
   /** One slot per scene (row) of the session grid; null = empty slot. */
   readonly clips: readonly (Clip | null)[]
 }

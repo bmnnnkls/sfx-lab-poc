@@ -8,3 +8,4 @@ export type {
   PortSpec,
   ProcessContext,
 } from './types'
+export { Params } from './params'

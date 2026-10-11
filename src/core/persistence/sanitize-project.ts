@@ -15,6 +15,7 @@ import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
 import { sanitizeAudioClip } from './sanitize-audio-clip'
 import { sanitizeClip } from './sanitize-clip'
+import { sanitizeNoteEffects } from './sanitize-note-effects'
 import { sanitizeModules } from './sanitize-modules'
 import { sanitizePatch } from './sanitize-patch'
 import { sanitizeSamples } from './sanitize-samples'
@@ -66,6 +67,7 @@ const sanitizeTrack = (
     volume,
     voices: Math.round(clamp(finiteNumber(raw.voices, DEFAULT_VOICES), MIN_VOICES, MAX_VOICES)),
     patch: sanitizePatch(raw.patch, where, sampleIds, modules, warn),
+    noteEffects: sanitizeNoteEffects(raw.noteEffects, where, warn),
     clips,
   }
 }

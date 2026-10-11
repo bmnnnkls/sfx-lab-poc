@@ -32,7 +32,7 @@ const updateTrack = (project: Project, trackId: string, change: (track: Track) =
 }
 
 /** Applies `change` to an instrument track; audio tracks (and unknown ids) are left untouched. */
-const updateInstrument = (
+export const updateInstrument = (
   project: Project,
   trackId: string,
   change: (track: InstrumentTrack) => InstrumentTrack,
@@ -63,6 +63,7 @@ export const createTrack = (
   volume: 0.8,
   voices,
   patch,
+  noteEffects: [],
   clips: Array.from({ length: sceneCount }, () => null),
 })
 

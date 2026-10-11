@@ -10,6 +10,11 @@ import {
   type SampleInfo,
   addAudioClip,
   addModuleUse,
+  addNoteEffect,
+  moveNoteEffect,
+  removeNoteEffect,
+  setNoteEffectBypassed,
+  setNoteEffectParam,
   addAudioTrackWithClip,
   setAudioClipAt,
   addSamplerTrack,
@@ -74,6 +79,14 @@ interface ProjectActions {
   /** Edits an audio clip; rapid edits of the same setting (a slider drag) merge into one undo step. */
   updateAudioClip(trackId: string, clipId: string, changes: AudioClipChanges): void
   setTrackVoices(trackId: string, voices: number): void
+  /** Appends a MIDI effect to the end of a track's chain. */
+  addNoteEffect(trackId: string, type: string): void
+  removeNoteEffect(trackId: string, effectId: string): void
+  /** Moves an effect along the chain (negative = earlier). */
+  moveNoteEffect(trackId: string, effectId: string, delta: number): void
+  /** Rapid changes of one parameter (a slider drag) merge into one undo step. */
+  setNoteEffectParam(trackId: string, effectId: string, paramId: string, value: number): void
+  setNoteEffectBypassed(trackId: string, effectId: string, bypassed: boolean): void
   /**
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
    * Rapid edits sharing a `mergeKey` (a slider or node drag) collapse into one undo step.
@@ -163,6 +176,13 @@ export const useProjectStore = create<ProjectState>((set) => {
         (project) => updateAudioClip(project, trackId, clipId, changes),
         `audio:${clipId}:${Object.keys(changes).sort().join(',')}`,
       ),
+    addNoteEffect: (trackId, type) => edit((project) => addNoteEffect(project, trackId, type)),
+    removeNoteEffect: (trackId, effectId) => edit((project) => removeNoteEffect(project, trackId, effectId)),
+    moveNoteEffect: (trackId, effectId, delta) => edit((project) => moveNoteEffect(project, trackId, effectId, delta)),
+    setNoteEffectParam: (trackId, effectId, paramId, value) =>
+      edit((project) => setNoteEffectParam(project, trackId, effectId, paramId, value), `fx:${effectId}:${paramId}`),
+    setNoteEffectBypassed: (trackId, effectId, bypassed) =>
+      edit((project) => setNoteEffectBypassed(project, trackId, effectId, bypassed)),
     setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
 
     updatePatch: (trackId, change, mergeKey) =>

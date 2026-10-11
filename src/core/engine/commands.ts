@@ -1,3 +1,4 @@
+import type { NoteEffect } from '../notefx'
 import type { Patch } from '../patch'
 import type { AudioClip, Clip } from '../project'
 import type { SampleData } from '../sample'
@@ -12,6 +13,7 @@ export type EngineCommand =
       readonly kind: 'instrument'
       readonly trackId: string
       readonly patch: Patch
+      readonly noteEffects: readonly NoteEffect[]
       readonly clips: readonly (Clip | null)[]
       readonly volume: number
       readonly voices: number
@@ -25,6 +27,7 @@ export type EngineCommand =
     }
   | { readonly type: 'track/remove'; readonly trackId: string }
   | { readonly type: 'track/setPatch'; readonly trackId: string; readonly patch: Patch }
+  | { readonly type: 'track/setNoteEffects'; readonly trackId: string; readonly effects: readonly NoteEffect[] }
   | { readonly type: 'track/setVoices'; readonly trackId: string; readonly voices: number }
   | { readonly type: 'track/setClips'; readonly trackId: string; readonly clips: readonly (Clip | null)[] }
   | { readonly type: 'track/setAudioClips'; readonly trackId: string; readonly clips: readonly (AudioClip | null)[] }

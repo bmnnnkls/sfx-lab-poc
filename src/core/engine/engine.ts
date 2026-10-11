@@ -49,6 +49,7 @@ export class Engine {
             ? new AudioTrackRuntime(command.clips, command.volume, this.samples, this.sampleRate)
             : new TrackRuntime(
                 command.patch,
+                command.noteEffects,
                 command.clips,
                 command.volume,
                 command.voices,
@@ -62,6 +63,9 @@ export class Engine {
         break
       case 'track/setPatch':
         this.instrument(command.trackId)?.setPatch(command.patch)
+        break
+      case 'track/setNoteEffects':
+        this.instrument(command.trackId)?.setNoteEffects(command.effects)
         break
       case 'track/setVoices':
         this.instrument(command.trackId)?.setVoices(command.voices)

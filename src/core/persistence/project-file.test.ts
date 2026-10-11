@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
-import { createDemoProject, groupNodesAsModule } from '../project'
+import { addNoteEffect, createDemoProject, groupNodesAsModule } from '../project'
 import { parseProject, serializeProject } from './project-file'
 
 const parseOk = (text: string) => {
@@ -349,5 +349,42 @@ describe('modules in files', () => {
     const result = parseOk(JSON.stringify(raw))
     expect(result.project.modules).toEqual([])
     expect(result.warnings.join(' ')).toMatch(/contain themselves/)
+  })
+})
+
+describe('MIDI effects in files', () => {
+  const withChain = () => {
+    const demo = createDemoProject()
+    const bass = demo.tracks[0]!.id
+    return ['scaleLock', 'arpeggiator'].reduce((p, type) => addNoteEffect(p, bass, type), demo)
+  }
+
+  it('round-trips the chain exactly', () => {
+    const original = withChain()
+    const result = parseOk(serializeProject(original, 2))
+    expect(result.project).toEqual(original)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('files from before MIDI effects load with empty chains', () => {
+    const raw = JSON.parse(serializeProject(createDemoProject()))
+    for (const track of raw.project.tracks) delete track.noteEffects
+    const result = parseOk(JSON.stringify(raw))
+    expect((result.project.tracks[0] as InstrumentTrack).noteEffects).toEqual([])
+    expect(result.warnings).toEqual([])
+  })
+
+  it('skips unknown effects, clamps parameters and repairs ids, with warnings', () => {
+    const raw = JSON.parse(serializeProject(withChain()))
+    const chain = raw.project.tracks[0].noteEffects
+    chain[0].params.root = 99
+    chain[1].id = chain[0].id
+    chain.push({ id: 'z', type: 'nope', params: {} })
+    const result = parseOk(JSON.stringify(raw))
+    const effects = (result.project.tracks[0] as InstrumentTrack).noteEffects
+    expect(effects.map((e) => e.type)).toEqual(['scaleLock', 'arpeggiator'])
+    expect(effects[0]!.params.root).toBe(11)
+    expect(new Set(effects.map((e) => e.id)).size).toBe(2)
+    expect(result.warnings.join(' ')).toMatch(/unknown MIDI effect "nope"/)
   })
 })

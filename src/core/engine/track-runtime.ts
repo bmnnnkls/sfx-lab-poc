@@ -1,4 +1,5 @@
 import { Instrument } from '../instrument'
+import { type NoteEffect, NoteChain } from '../notefx'
 import type { Patch } from '../patch'
 import type { Clip } from '../project'
 import type { SampleLookup } from '../sample'
@@ -11,6 +12,7 @@ const AUDITION_SECONDS = 0.3
 /** Live, audio-thread counterpart of a project Track: voice + clip player + level. */
 export class TrackRuntime implements PlayableTrack {
   private readonly launcher = new ClipLauncher()
+  private readonly chain = new NoteChain()
   volume: number
   clips: readonly (Clip | null)[]
   private instrument: Instrument
@@ -18,6 +20,7 @@ export class TrackRuntime implements PlayableTrack {
 
   constructor(
     private patch: Patch,
+    noteEffects: readonly NoteEffect[],
     clips: readonly (Clip | null)[],
     volume: number,
     private voices: number,
@@ -27,6 +30,12 @@ export class TrackRuntime implements PlayableTrack {
     this.instrument = new Instrument(patch, sampleRate, voices, samples)
     this.clips = clips
     this.volume = volume
+    this.chain.sync(noteEffects)
+  }
+
+  /** Replaces the MIDI effect chain. Knob changes keep running state; structural changes restart it. */
+  setNoteEffects(effects: readonly NoteEffect[]): void {
+    this.chain.sync(effects)
   }
 
   setPatch(patch: Patch): void {
@@ -68,9 +77,8 @@ export class TrackRuntime implements PlayableTrack {
   }
 
   schedule(from: number, to: number): ScheduledAction[] {
-    return this.launcher
-      .collectEvents(from, to)
-      .map((event) => ({ beat: event.beat, run: () => this.apply(event) }))
+    const events = this.chain.process(this.launcher.collectEvents(from, to), from, to)
+    return events.map((event) => ({ beat: event.beat, run: () => this.apply(event) }))
   }
 
   launchScene(scene: number): void {
@@ -82,6 +90,7 @@ export class TrackRuntime implements PlayableTrack {
   /** Returns to silence and an idle launcher (transport stopped). */
   reset(): void {
     this.launcher.reset()
+    this.chain.reset()
     this.audition = null
     this.instrument.allNotesOff()
   }

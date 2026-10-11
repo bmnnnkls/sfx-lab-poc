@@ -1,5 +1,6 @@
 import { useSelectionStore } from '@state'
 import { ClipEditor } from '../clip-editor/ClipEditor'
+import { NoteEffectsPanel } from '../note-effects/NoteEffectsPanel'
 import { Patcher } from '../patcher/Patcher'
 import { SamplesPanel } from '../samples/SamplesPanel'
 import styles from './EditorPanel.module.css'
@@ -15,6 +16,9 @@ export const EditorPanel = () => {
         <button className={tab === 'device' ? styles.active : ''} onClick={() => setTab('device')}>
           Instrument
         </button>
+        <button className={tab === 'notes' ? styles.active : ''} onClick={() => setTab('notes')} title="MIDI effects: change the notes before they reach the instrument">
+          Notes
+        </button>
         <button className={tab === 'clip' ? styles.active : ''} onClick={() => setTab('clip')}>
           Clip
         </button>
@@ -23,7 +27,7 @@ export const EditorPanel = () => {
         </button>
       </nav>
       <div className={styles.body}>
-        {tab === 'device' ? <Patcher /> : tab === 'clip' ? <ClipEditor /> : <SamplesPanel />}
+        {tab === 'device' ? <Patcher /> : tab === 'notes' ? <NoteEffectsPanel /> : tab === 'clip' ? <ClipEditor /> : <SamplesPanel />}
       </div>
     </div>
   )

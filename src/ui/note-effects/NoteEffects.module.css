@@ -1,0 +1,179 @@
+.panel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  height: 100%;
+  padding: 14px;
+  overflow: auto;
+}
+
+.empty {
+  padding: 16px;
+  color: var(--text-dim);
+}
+
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.arrow {
+  align-self: center;
+  color: var(--accent);
+}
+
+.end {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+  min-width: 110px;
+  padding: 8px 12px;
+  color: var(--text-dim);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.endIn strong {
+  color: var(--text);
+}
+
+.add {
+  align-self: center;
+}
+
+.card {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  width: 214px;
+  padding-bottom: 6px;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.bypassed {
+  opacity: 0.55;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 6px 6px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.actions {
+  display: flex;
+  gap: 2px;
+}
+
+.actions button {
+  padding: 0 6px;
+  line-height: 20px;
+}
+
+.hint {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--text-dim);
+}
+
+.heard {
+  display: grid;
+  gap: 6px;
+}
+
+.heardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.heardHeader h3 {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.clipPicker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+}
+
+.legend,
+.count {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.swatchIn,
+.swatchOut {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin: 0 4px 0 8px;
+  border-radius: 2px;
+}
+
+.swatchIn {
+  background: var(--text-dim);
+}
+
+.swatchOut {
+  background: var(--accent);
+}
+
+.lane {
+  width: 100%;
+  height: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.bar {
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.beat {
+  stroke: var(--border);
+  stroke-width: 0.5;
+}
+
+.pitchLabel {
+  fill: var(--text-dim);
+  font-size: 10px;
+}
+
+.noteIn {
+  fill: var(--text-dim);
+}
+
+.noteOut {
+  fill: var(--accent);
+}
+
+.card > * {
+  min-width: 0;
+}
+
+.card select,
+.card input[type='range'] {
+  width: 100%;
+  box-sizing: border-box;
+}

@@ -157,6 +157,45 @@ copy (**Unlink**). Modules nest.
   sharing between projects means copying the file (see `docs/TASKS.md`). Cycle detection on the outer patch treats a
   module as one node (any input may reach any output), which can refuse a wiring that would in fact be fine.
 
+## MIDI effects (the note chain)
+
+Each instrument track has an ordered chain of **MIDI effects** that rewrite its notes between the clip player
+and the instrument. They cannot be nodes in the patcher: voices are allocated before a patch runs, and a patch only
+ever sees one voice's frequency and gate, while an arpeggiator or chord needs all the notes together.
+
+```
+clip player → [effect] → [effect] → … → voices → patch → out
+```
+
+* **Model** (`core/notefx`). `InstrumentTrack.noteEffects: NoteEffect[]`, each `{ id, type, params, bypassed }`. A
+  registry of `NoteEffectDefinition`s (label, parameter specs, `create()`) is the single list of what exists, like the
+  DSP node registry. Old files load with empty chains.
+* **Processors** work on beat ranges. `NoteProcessor.process(events, from, to)` turns the note events of the range
+  `[from, to)` into output events, with the same contiguity rule as the clip launcher, so effects may keep state and
+  may emit events that fall in a later range (an arpeggio's note-off, an echo's repeat). Everything is in beats, so it
+  follows tempo and stays sample-accurate. Results are the same however time is cut into ranges (tested).
+* **Effects**: *Scale lock* (7 scales, nearest note, ties go down), *Transpose*, *Chord* (8 types), *Velocity*
+  (scale and offset), *Arpeggiator* (rate 1/4–1/32, up / down / up-down / as played / random, octaves, gate; the grid
+  is anchored to the transport, a new chord restarts the pattern, a chord that starts on a step is heard on that
+  step), *Echo* (repeats on the grid with decay). The one-note-in, notes-out ones share `MappingProcessor`, which
+  remembers what each note became so the matching note-off ends exactly those notes even if a knob moved meanwhile.
+* **No hanging notes.** Knob changes keep running state (turning Gate never restarts an arpeggio). Adding, removing,
+  reordering or re-typing an effect restarts the chain and emits an all-notes-off first. An all-notes-off from the
+  clip player cancels pending arpeggio and echo notes. Stopping the transport resets the chain.
+* **Engine** (`TrackRuntime`). `schedule(from, to)` runs the launcher's events through the `NoteChain`; with nothing
+  active the chain hands back the same array. Command `track/setNoteEffects` carries the whole chain (it is small);
+  `track/add` includes it. `diffProject` emits it whenever the list changes.
+* **Preview** (`engine/heard-notes.ts`). `heardNotes(clip, effects)` runs the real clip player and the real chain over
+  two loops and returns the second, so what the **Notes** tab draws cannot disagree with what plays.
+* **UI.** The **Notes** tab shows the selected instrument track's chain left to right (clip → effects → instrument),
+  each effect a card with its parameters, bypass, move and remove, and an *Add effect* menu. Below it a piano roll
+  shows the clip as written and as the instrument hears it. A track with effects gets an **fx N** badge on its header;
+  clicking it opens the Notes tab. Persistence sanitizes unknown types, clamps parameters and repairs ids.
+* **Limits.** Auditioning a note in the piano roll skips the chain. Effects are built in; they are not yet modules or
+  patchable (`docs/TASKS.md`). An event that falls exactly on a 128-sample block edge can land one sample early or
+  late depending on where blocks start (float rounding in the transport clock); in the worklet blocks are always
+  aligned, so this only shows up when comparing odd render sizes in tests.
+
 ## Editing clips (piano roll)
 
 * **Gestures are pure functions of the pointer.** `ui/clip-editor/note-gestures.ts` describes draw / move /

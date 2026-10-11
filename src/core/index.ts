@@ -2,6 +2,7 @@
 export * from './engine'
 export * from './dsp'
 export * from './patch'
+export * from './notefx'
 export * from './project'
 export type { LauncherStatus } from './session'
 export * from './sync'
