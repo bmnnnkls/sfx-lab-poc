@@ -34,7 +34,10 @@ sandbox's. Change them (or install `playwright`) elsewhere.
 | `mixer.mjs` | the Mixer tab: a strip per track, return and master in order; fader, pan per output channel, mute (also stops the sends), solo (a soloed track keeps its return), master volume 0 / 1, per-track meters, undo, persistence |
 | `master.mjs` | the Master strip: its graph on the final mix, a master gain silencing every track, a master reverb tail, undo, persistence |
 | `trackaudio.mjs` | the Track audio node: another track's sound heard through a track turned all the way down, before/after Take, loop refusal (picker and send knob), removal and undo, persistence |
+| `panel.mjs` | the front panel: the Graph / Panel switch, Build from graph, knob drag / keys / wheel / double-click, the same value in the graph view, one undo step per drag, real audio (the Gain knob silences and restores the bass), an XY pad that moves two parameters and undoes together, edit mode (add, rename, resize, reorder, remove), deleting a node removes its controls, separate panels for Instrument and Effects, persistence |
 | `notegraph.mjs` | the note graph: split, merge, bypass, notes from another track (real audio), loop refusal, note modules, persistence |
+
+`mixer.mjs` has one unreliable assertion, "panned hard right": it compares the right channel's level with the centred one over a 900 ms window of a looping drum sample, so it fails whenever that window falls on a quieter part of the loop (it also fails on `main`; the sound itself is right, with the left channel at about 1e-17). Compare the channels within one window instead.
 
 ## Conventions inside the scripts
 

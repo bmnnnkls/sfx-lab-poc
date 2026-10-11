@@ -3,6 +3,18 @@
 Things we have decided are worth doing but have not started. Newest first. Move an item to `ARCHITECTURE.md`
 (as documentation of what exists) when it ships, and delete it here.
 
+## Front panel follow-ups
+
+The front panel is built (see `ARCHITECTURE.md`, "Front panel"; the original brief is `HANDOFF-front-panel.md`). Ideas that did
+not make it in:
+
+* A **combined per-track panel** (instrument + effects on one board).
+* **Free positioning** of controls (today an ordered flow with sizes).
+* Grouping nodes into a module **rebinds** their controls to the module's knobs (today they are dropped).
+* The **Mixer adopting** the same widgets (`ui/controls`) for its faders, pan and sends.
+* **MIDI learn** and **automation** (recording a control's movements), a **dB** fader law.
+* Meters or a scope on the panel, per-control min / max and curves, a panel in the session-view header.
+
 ## Reusable modules (sub-patches with inputs and outputs)
 
 Status: **steps 1 and 2 are built** (modules in the project: group, use by reference, edit in place, interface panel,

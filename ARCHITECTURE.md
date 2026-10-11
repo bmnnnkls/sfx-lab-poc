@@ -392,6 +392,56 @@ slider (the same `track.volume`) and gains no other control; its header only str
 * **Files.** `sanitizeTrack` reads `pan` (finite, clamped), `muted` and `soloed` (only a real `true` counts) and the
   master's `volume` (clamped, anything else is 1).
 
+## Front panel (knobs, sliders and XY pads instead of the graph)
+
+Every graph editor (Instrument, Effects, Notes, the Master's effects, the inside of a module) has a **Graph | Panel**
+switch. *Panel* replaces the canvas with a board of controls bound to the graph's parameters. The switch is remembered per
+kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`): a way of looking, not part of the project.
+
+* **Model** (`core/patch/panel*.ts`). `Patch.panel?: PanelControl[]`, an ordered list of `{ id, kind, label, bind, bindY?,
+  size, orientation? }`. `kind` is `knob`, `slider`, `xy` (two parameters) or `selector` (a named-values parameter).
+  A binding is `{ node, param }`; for a module use the `param` is one of the module's knobs. The control holds no range, unit
+  or value: those come from the node (`describeNode`) at draw time, so a changed node cannot leave a stale control. A panel
+  lives on the patch, so it follows whatever owns the patch (a track's instrument, insert graph or note graph, the master's
+  graph, a module's definition), and uses the same edit and undo path as every other change to it.
+* **Pure edits** (`panel.ts`): `addControl`, `removeControl`, `moveControl`, `renameControl`, `resizeControl`,
+  `setControlOrientation`, `rebindControl`, `buildPanel`. A refused or no-op edit returns the **same patch** (no empty undo
+  step); an emptied panel is stored as no field. `controlFits` is the one rule for "does this control suit its parameters"
+  (a selector needs an enum, the others a number, a pad two different numbers), used by the editor, pruning and the sanitizer.
+  `buildPanel` adds a control for every parameter that has none (selector for enums, knob otherwise) in reading order, so
+  running it again after adding nodes only adds the new ones.
+* **Staying consistent.** `removeNode`, `groupIntoModule` and `expandModuleUse` (unlink) drop the controls bound to the nodes
+  they remove or move; `reconcileModules` also runs `prunePanel` on every patch, so hiding a module knob, or any change that
+  makes a binding stop fitting, removes its control (a pad with one dead axis goes whole). Several functions used to build a
+  `Patch` from a `{ nodes, connections }` literal and would have dropped the panel: they spread the old patch now, and a test
+  runs every `patch/edit` function over a panelled patch. `flattenPatch` strips the panel on purpose, so the engine never
+  receives it and an edit to the panel alone makes **no engine command** (tested through `diffProject`).
+* **Persistence** (`persistence/sanitize-panel.ts`). Read after the patch's nodes. A control with an unknown kind, a binding to
+  a node or parameter that does not exist, or one that does not suit its kind is dropped, with one warning per patch; a
+  blank label becomes the parameter's name, an unknown size the kind's default, a repeated id a new one, and at most
+  `LIMITS.controlsPerPatch` (128) are kept. Optional field with a safe default, so the **format version did not change** and
+  old files load identically. `fixtures/v1-panel.sfxlab.json` pins the shape.
+* **Widgets** (`ui/controls/`). `Knob`, `Fader`, `XYPad` and `Selector` work on a 0..1 position and know nothing about
+  patches or parameters, so the Mixer could adopt them. All arithmetic (drag, wheel, keys, pad and knob geometry, a
+  per-animation-frame throttle) is pure and tested in `control-math.ts` / `frame-throttle.ts`; the components are thin
+  (vitest runs in `node`, with no DOM, so they are covered by `docs/browser-checks/panel.mjs`). Knob: drag up or down
+  (180 px is the full range, Shift for a tenth), wheel, arrow / Page / Home / End keys, double-click for the default. Fader:
+  press or drag anywhere on the track. Pad: press or drag, arrows move both axes. All have `role="slider"` (the pad a labelled
+  group) with `aria-valuetext`, and `data-position` / `data-x` / `data-y` for the browser checks.
+* **The board** (`ui/panel/`). `panel-values.ts` maps a parameter to a position and back with the same `param-scale.ts`
+  as the graph's slider (moved to `ui/shared/`), so a log-scaled cutoff feels the same everywhere; `spanOf` gives a control its
+  grid cells (a knob grows square, a slider along its length, a pad wide). `ControlCell` draws one control and, in **Edit**
+  mode, its tools (drag handle, move, size, orientation, remove, rename); `AddControl` is the form for new ones (a pad asks
+  for a second parameter); `PanelView` is the grid, the Play / Edit toggle and *Build from graph*. Cells are captioned with
+  their node's name, numbered when alike ("Oscillator 2", in patch order).
+* **Writing a value.** A control calls `setNodeParam` through the editor's own `edit`, with the **same merge key as the graph
+  slider** (`param:<scope>:<node>:<param>`), so one drag is one undo step and a drag in either view merges alike; a pad sets
+  its two parameters in **one** edit (`panel:<control>:<scope>`), so it is one step too. The control sets the base value of
+  the parameter, as the slider does; a modulation wired into the node still adds to it.
+* **Limits.** Layout is an ordered flow with sizes, not free positioning; a panel belongs to one graph (no combined
+  instrument + effects panel); grouping nodes into a module drops their controls rather than rebinding them to the module's
+  knobs; no automation, MIDI mapping, meters or per-control ranges (see `docs/TASKS.md`).
+
 ## Track audio (taking another track's sound)
 
 The **Track audio** node is the audio mirror of *Track notes*: a stereo source in an insert graph that plays another track's

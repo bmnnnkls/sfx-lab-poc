@@ -5,6 +5,7 @@ import {
   createModuleUse,
   groupIntoModule,
   pruneModuleInterface,
+  prunePanel,
   pruneModuleUses,
   unlinkModuleUse,
 } from '../patch'
@@ -34,6 +35,9 @@ export const patchAt = (project: Project, target: PatchTarget): Patch | undefine
   return project.modules.find((candidate) => candidate.id === target.moduleId)?.patch
 }
 
+/** A patch with everything that pointed at a vanished module port, knob or node removed: wires, knob values and panel controls. */
+const tidy = (patch: Patch, library: readonly ModuleDefinition[]): Patch => prunePanel(pruneModuleUses(patch, library), library)
+
 /**
  * Brings everything that refers to a module's interface back in line after a definition changed: a module
  * that no longer has a port or knob loses the wires and values that pointed at it, in every track and in
@@ -45,7 +49,7 @@ export const reconcileModules = (project: Project): Project => {
   for (let pass = 0; pass <= modules.length; pass++) {
     const library = modules
     const next = mapModules(library, (module) => {
-      const patch = pruneModuleUses(module.patch, library)
+      const patch = tidy(module.patch, library)
       return pruneModuleInterface(patch === module.patch ? module : { ...module, patch }, library)
     })
     if (next === library) break
@@ -53,15 +57,15 @@ export const reconcileModules = (project: Project): Project => {
   }
 
   const tracks = project.tracks.map((track) => {
-    const fx = pruneModuleUses(track.fx, modules)
+    const fx = tidy(track.fx, modules)
     const base = fx === track.fx ? track : { ...track, fx }
     if (base.kind !== 'instrument') return base
-    const patch = pruneModuleUses(base.patch, modules)
-    const noteGraph = pruneModuleUses(base.noteGraph, modules)
+    const patch = tidy(base.patch, modules)
+    const noteGraph = tidy(base.noteGraph, modules)
     return patch === base.patch && noteGraph === base.noteGraph ? base : { ...base, patch, noteGraph }
   })
   const tracksSame = tracks.every((track, index) => track === project.tracks[index])
-  const master = mapMasterFx(project.master, (fx) => pruneModuleUses(fx, modules))
+  const master = mapMasterFx(project.master, (fx) => tidy(fx, modules))
   return modules === project.modules && tracksSame && master === project.master
     ? project
     : { ...project, modules, master, ...(tracksSame ? {} : { tracks }) }

@@ -11,6 +11,7 @@ import {
 } from '../patch'
 import { clamp } from '../shared'
 import { LIMITS } from './format'
+import { sanitizePanel } from './sanitize-panel'
 import { type Raw, type Warn, asList, finiteNumber, isRecord } from './raw'
 
 const sanitizeParams = (specs: readonly ParamSpec[], raw: unknown): Record<string, number> => {
@@ -117,5 +118,6 @@ export const sanitizePatch = (
   }
   if (dropped > 0) warn(`${where}: dropped ${dropped} invalid connection(s)`)
 
-  return patch
+  const panel = sanitizePanel(source.panel, patch, modules, where, warn)
+  return panel.length > 0 ? { ...patch, panel } : patch
 }

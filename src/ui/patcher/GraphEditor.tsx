@@ -27,6 +27,8 @@ import {
 } from '@core'
 import { useProjectStore } from '@state'
 import { type ReactNode, useState } from 'react'
+import { PanelView } from '../panel/PanelView'
+import { useStoredState } from '../shared/use-stored-state'
 import { ModuleBar } from './ModuleBar'
 import { ModuleInterface } from './ModuleInterface'
 import { NodePalette } from './NodePalette'
@@ -58,6 +60,9 @@ const graphOf = (track: Track, graph: TrackGraph): Patch =>
   graph === 'fx' || track.kind !== 'instrument' ? track.fx : graph === 'notes' ? track.noteGraph : track.patch
 
 const VOICE_OPTIONS = [1, 2, 3, 4, 6, 8, 12, 16]
+
+type View = 'graph' | 'panel'
+const isView = (value: unknown): value is View => value === 'graph' || value === 'panel'
 
 /** Where an insert graph starts: a return track at Return in, the master at Master in, every other track at Track in. */
 const START: Record<Track['kind'] | 'master', string> = {
@@ -107,6 +112,8 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const [path, setPath] = useState<readonly string[]>([])
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [interfaceOpen, setInterfaceOpen] = useState(true)
+  // Remembered per kind of graph (instrument, effects, notes), not per track: it is a way of looking, not part of the project.
+  const [view, setView] = useStoredState<View>(`sfxlab.view.${graph}`, 'graph', isView)
 
   // A module that disappeared (undo, delete) ends the path there.
   const missing = path.findIndex((id) => !modules.some((module) => module.id === id))
@@ -183,56 +190,74 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
               </select>
             </label>
           )}
-          <NodePalette
-            definitions={palette}
-            modules={placeable}
-            onAdd={(type) =>
-              edit((current) => {
-                const { x, y } = spawnPoint(current, graph)
-                return addNode(current, createNode(type, x, y))
-              })
-            }
-            onAddModule={(moduleId) => {
-              const { x, y } = spawnPoint(patch, graph)
-              store().addModuleUse(target, moduleId, x, y)
-            }}
-          />
-          <button
-            disabled={selected.size === 0}
-            title="Turn the selected nodes into a reusable module (Shift-click or drag a box to select)"
-            onClick={() => {
-              store().groupNodes(target, [...selected])
-              setSelected(new Set())
-            }}
-          >
-            Group into module{selected.size > 0 ? ` (${selected.size})` : ''}
-          </button>
+          <div className={styles.viewSwitch} role="group" aria-label="View">
+            <button aria-pressed={view === 'graph'} onClick={() => setView('graph')} title="Nodes and wires">
+              Graph
+            </button>
+            <button aria-pressed={view === 'panel'} onClick={() => setView('panel')} title="Knobs, sliders and XY pads for the parameters">
+              Panel
+            </button>
+          </div>
+          {view === 'graph' && (
+            <NodePalette
+              definitions={palette}
+              modules={placeable}
+              onAdd={(type) =>
+                edit((current) => {
+                  const { x, y } = spawnPoint(current, graph)
+                  return addNode(current, createNode(type, x, y))
+                })
+              }
+              onAddModule={(moduleId) => {
+                const { x, y } = spawnPoint(patch, graph)
+                store().addModuleUse(target, moduleId, x, y)
+              }}
+            />
+          )}
+          {view === 'graph' && (
+            <button
+              disabled={selected.size === 0}
+              title="Turn the selected nodes into a reusable module (Shift-click or drag a box to select)"
+              onClick={() => {
+                store().groupNodes(target, [...selected])
+                setSelected(new Set())
+              }}
+            >
+              Group into module{selected.size > 0 ? ` (${selected.size})` : ''}
+            </button>
+          )}
         </div>
       </div>
-      <div className={styles.editorBody} data-has-aside={Boolean(aside) || (Boolean(definition) && interfaceOpen)}>
-        <PatchCanvas
-          patch={patch}
-          modules={modules}
-          selected={selected}
-          ownerTrackId={track?.id ?? ''}
-          showStages={graph === 'patch'}
-          onSelectionChange={setSelected}
-          onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
-          onRemoveNode={(id) => edit((current) => removeNode(current, id))}
-          onParamChange={(id, paramId, value) =>
-            edit((current) => setNodeParam(current, id, paramId, value), `param:${scope}:${id}:${paramId}`)
-          }
-          onSampleChange={(id, sampleId) => edit((current) => setNodeSample(current, id, sampleId))}
-          onTrackChange={(id, trackId) => edit((current) => setNodeTrack(current, id, trackId))}
-          onBypassChange={(id, bypassed) => edit((current) => setNodeBypassed(current, id, bypassed))}
-          onStereoChange={(id, stereo) => edit((current, library) => setNodeStereo(current, id, stereo, library))}
-          onConnect={(from, to) => edit((current, library) => connect(current, from, to, { modules: library }))}
-          onDisconnect={(id) => edit((current) => disconnect(current, id))}
-          onOpenModule={(moduleId) => enter([...known, moduleId])}
-          onUnlinkModule={(nodeId) => store().unlinkModule(target, nodeId)}
-        />
+      <div className={styles.editorBody} data-has-aside={Boolean(aside) || (Boolean(definition) && interfaceOpen && view === 'graph')}>
+        {view === 'panel' ? (
+          <div className={styles.panelHost}>
+            <PanelView patch={patch} modules={modules} scope={scope} edit={edit} />
+          </div>
+        ) : (
+          <PatchCanvas
+            patch={patch}
+            modules={modules}
+            selected={selected}
+            ownerTrackId={track?.id ?? ''}
+            showStages={graph === 'patch'}
+            onSelectionChange={setSelected}
+            onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
+            onRemoveNode={(id) => edit((current) => removeNode(current, id))}
+            onParamChange={(id, paramId, value) =>
+              edit((current) => setNodeParam(current, id, paramId, value), `param:${scope}:${id}:${paramId}`)
+            }
+            onSampleChange={(id, sampleId) => edit((current) => setNodeSample(current, id, sampleId))}
+            onTrackChange={(id, trackId) => edit((current) => setNodeTrack(current, id, trackId))}
+            onBypassChange={(id, bypassed) => edit((current) => setNodeBypassed(current, id, bypassed))}
+            onStereoChange={(id, stereo) => edit((current, library) => setNodeStereo(current, id, stereo, library))}
+            onConnect={(from, to) => edit((current, library) => connect(current, from, to, { modules: library }))}
+            onDisconnect={(id) => edit((current) => disconnect(current, id))}
+            onOpenModule={(moduleId) => enter([...known, moduleId])}
+            onUnlinkModule={(nodeId) => store().unlinkModule(target, nodeId)}
+          />
+        )}
         {aside && <div className={styles.aside}>{aside}</div>}
-        {definition && interfaceOpen && <ModuleInterface definition={definition} />}
+        {definition && interfaceOpen && view === 'graph' && <ModuleInterface definition={definition} />}
       </div>
     </div>
   )
