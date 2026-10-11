@@ -9,6 +9,7 @@ import {
   pruneModuleInterface,
 } from '../patch'
 import { LIMITS } from './format'
+import { type Entry, buildInDependencyOrder } from './dependency-order'
 import { type Raw, type Warn, asList, isRecord, nonEmptyText } from './raw'
 import { sanitizePatch } from './sanitize-patch'
 
@@ -57,39 +58,28 @@ const referencedModules = (raw: Raw): string[] =>
   )
 
 /**
- * The module library of a file. Modules can contain uses of other modules, so a module is only built once the
- * ones it uses are; a module that (directly or not) contains itself can never be built and is dropped.
+ * The module library of a file. Modules can contain uses of other modules, so each is built once the ones it
+ * uses are; a module that (directly or not) contains itself can never be built and is dropped.
  */
 export const sanitizeModules = (raw: unknown, sampleIds: ReadonlySet<string>, warn: Warn): ModuleDefinition[] => {
   const rawList = asList(raw)
   if (rawList.length > LIMITS.modules) warn(`Only the first ${LIMITS.modules} modules were kept`)
 
   const seen = new Set<string>()
-  const entries: { raw: Raw; id: string; index: number }[] = []
+  const entries: Entry[] = []
   for (const item of rawList.slice(0, LIMITS.modules)) {
     if (!isRecord(item) || typeof item.id !== 'string' || seen.has(item.id)) {
       warn('Skipped a malformed or duplicate module')
       continue
     }
     seen.add(item.id)
-    entries.push({ raw: item, id: item.id, index: entries.length })
+    entries.push({ raw: item, id: item.id })
   }
 
-  const built = new Map<string, { module: ModuleDefinition; index: number }>()
-  let pending = entries
-  while (pending.length > 0) {
-    const pendingIds = new Set(pending.map((entry) => entry.id))
-    // A reference to a module that is not in the file at all is fine: its uses are dropped when the patch is read.
-    const ready = pending.filter((entry) => referencedModules(entry.raw).every((id) => built.has(id) || !pendingIds.has(id)))
-    if (ready.length === 0) {
-      warn(`Dropped ${pending.length} module(s) that contain themselves`)
-      break
-    }
-    for (const entry of ready) {
-      const library = [...built.values()].map((item) => item.module)
-      built.set(entry.id, { module: sanitizeModule(entry.raw, entry.id, sampleIds, library, warn), index: entry.index })
-    }
-    pending = pending.filter((entry) => !built.has(entry.id))
-  }
-  return [...built.values()].sort((a, b) => a.index - b.index).map((item) => item.module)
+  return buildInDependencyOrder<ModuleDefinition>(
+    entries,
+    referencedModules,
+    (entry, library) => sanitizeModule(entry.raw, entry.id, sampleIds, library, warn),
+    (count) => warn(`Dropped ${count} module(s) that contain themselves`),
+  )
 }

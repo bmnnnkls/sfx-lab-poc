@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
-import { addNoteEffect, createDemoProject, groupNodesAsModule } from '../project'
+import { addNoteEffect, createDemoProject, groupEffectsAsModule, groupNodesAsModule } from '../project'
 import { parseProject, serializeProject } from './project-file'
 
 const parseOk = (text: string) => {
@@ -386,5 +386,63 @@ describe('MIDI effects in files', () => {
     expect(effects[0]!.params.root).toBe(11)
     expect(new Set(effects.map((e) => e.id)).size).toBe(2)
     expect(result.warnings.join(' ')).toMatch(/unknown MIDI effect "nope"/)
+  })
+})
+
+describe('MIDI effect modules in files', () => {
+  const grouped = () => {
+    const demo = createDemoProject()
+    const bass = demo.tracks[0]!.id
+    const chained = ['scaleLock', 'chord', 'arpeggiator'].reduce((p, type) => addNoteEffect(p, bass, type), demo)
+    const ids = (chained.tracks[0] as InstrumentTrack).noteEffects.slice(1).map((effect) => effect.id)
+    return groupEffectsAsModule(chained, { trackId: bass }, ids, 'Chord arp')
+  }
+
+  it('round-trips modules and uses', () => {
+    const original = grouped()
+    const result = parseOk(serializeProject(original, 2))
+    expect(result.project).toEqual(original)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('older files load with an empty library', () => {
+    const raw = JSON.parse(serializeProject(createDemoProject()))
+    delete raw.project.noteModules
+    expect(parseOk(JSON.stringify(raw)).project.noteModules).toEqual([])
+  })
+
+  it('drops uses of a module that is missing, with a warning', () => {
+    const raw = JSON.parse(serializeProject(grouped()))
+    raw.project.noteModules = []
+    const result = parseOk(JSON.stringify(raw))
+    expect((result.project.tracks[0] as InstrumentTrack).noteEffects.some((effect) => effect.type === 'module')).toBe(false)
+    expect(result.warnings.join(' ')).toMatch(/MIDI effect module that is not in the project/)
+  })
+
+  it('loads nested modules in any order and drops one that contains itself', () => {
+    const base = grouped()
+    const track = base.tracks[0] as InstrumentTrack
+    const use = track.noteEffects.find((effect) => effect.type === 'module')!
+    const nested = groupEffectsAsModule(base, { trackId: track.id }, [use.id], 'Outer')
+    const raw = JSON.parse(serializeProject(nested))
+    raw.project.noteModules.reverse()
+    const ok = parseOk(JSON.stringify(raw))
+    expect(ok.project.noteModules.map((module) => module.name).sort()).toEqual(['Chord arp', 'Outer'])
+    expect(ok.warnings).toEqual([])
+
+    const looping = JSON.parse(serializeProject(base))
+    const module = looping.project.noteModules[0]
+    module.effects.push({ id: 'self', type: 'module', moduleId: module.id, params: {}, bypassed: false })
+    const result = parseOk(JSON.stringify(looping))
+    expect(result.project.noteModules).toEqual([])
+    expect(result.warnings.join(' ')).toMatch(/contain themselves/)
+  })
+
+  it('drops knobs that point at nothing', () => {
+    const raw = JSON.parse(serializeProject(grouped()))
+    raw.project.noteModules[0].knobs.push({ id: 'x', label: 'Ghost', effect: 'nope', param: 'gate' })
+    const result = parseOk(JSON.stringify(raw))
+    expect(result.project.noteModules[0]!.knobs).toEqual([])
+    expect(result.warnings.join(' ')).toMatch(/dropped knobs/)
   })
 })

@@ -1,5 +1,5 @@
-import { type HeardNote, type InstrumentTrack, heardNotes } from '@core'
-import { useSelectionStore } from '@state'
+import { type HeardNote, type InstrumentTrack, heardNotes, pitchName } from '@core'
+import { useProjectStore, useSelectionStore } from '@state'
 import { useMemo, useState } from 'react'
 import styles from './NoteEffects.module.css'
 
@@ -44,7 +44,9 @@ const Lane = ({ notes, beats, low, high, className, title }: {
           height={Math.max(3, rowHeight - 1)}
           opacity={0.45 + note.velocity * 0.55}
           data-testid={`note-${className}`}
-        />
+        >
+          <title>{`${pitchName(note.pitch)} at beat ${note.start.toFixed(2)}`}</title>
+        </rect>
       ))}
     </svg>
   )
@@ -53,6 +55,7 @@ const Lane = ({ notes, beats, low, high, className, title }: {
 /** Shows a clip as written and as the instrument will hear it after the chain. Uses the engine's own code. */
 export const HeardNotes = ({ track }: { track: InstrumentTrack }) => {
   const selectedClipId = useSelectionStore((state) => state.clipId)
+  const modules = useProjectStore((state) => state.project.noteModules)
   const withNotes = track.clips.flatMap((clip) => (clip && clip.notes.length > 0 ? [clip] : []))
   const [chosen, setChosen] = useState<string | null>(null)
   const clip =
@@ -63,10 +66,10 @@ export const HeardNotes = ({ track }: { track: InstrumentTrack }) => {
   const view = useMemo(() => {
     if (!clip) return null
     const input = heardNotes(clip, [])
-    const output = heardNotes(clip, track.noteEffects)
+    const output = heardNotes(clip, track.noteEffects, modules)
     const pitches = [...input, ...output].map((note) => note.pitch)
     return { input, output, low: Math.min(...pitches) - 1, high: Math.max(...pitches) + 1, beats: clip.lengthBeats }
-  }, [clip, track.noteEffects])
+  }, [clip, track.noteEffects, modules])
 
   if (!clip || !view) {
     return <p className={styles.hint}>Add notes to one of this track’s clips to see what the instrument will hear.</p>

@@ -71,7 +71,18 @@ export {
   updateModule,
 } from './module-edit'
 export {
-  MAX_NOTE_EFFECTS,
+  type NoteChainTarget,
+  addNoteModuleUse,
+  chainAt,
+  editNoteChain,
+  groupEffectsAsModule,
+  noteModuleUsage,
+  reconcileNoteModules,
+  removeNoteModule,
+  unlinkNoteModule,
+  updateNoteModule,
+} from './note-module-edit'
+export {
   addNoteEffect,
   moveNoteEffect,
   removeNoteEffect,

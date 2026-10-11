@@ -1,8 +1,13 @@
 import type { InstrumentTrack } from '../project'
 import { describe, expect, it } from 'vitest'
+import { exposeNoteKnob, renameNoteModule, setNoteEffectParamIn, setNoteModuleEffects } from '../notefx'
 import { exposeKnob, moveNode, setModulePatch, setNodeParam, setNodeSample } from '../patch'
 import {
   addNoteEffect,
+  addNoteModuleUse,
+  editNoteChain,
+  groupEffectsAsModule,
+  updateNoteModule as updateNoteModuleDef,
   setNoteEffectParam,
   addModuleUse,
   editPatchAt,
@@ -170,6 +175,47 @@ describe('diffProject', () => {
       const turned = setNoteEffectParam(withFx, track.id, id, 'semitones', 5)
       expect(diffProject(withFx, turned).map((c) => c.type)).toEqual(['track/setNoteEffects'])
       expect(diffProject(turned, turned)).toEqual([])
+    })
+  })
+
+  describe('MIDI effect modules', () => {
+    const chained = ['scaleLock', 'chord', 'arpeggiator'].reduce((p, type) => addNoteEffect(p, track.id, type), project)
+    const ids = (chained.tracks[0] as InstrumentTrack).noteEffects.slice(1).map((e) => e.id)
+    const grouped = groupEffectsAsModule(chained, { trackId: track.id }, ids, 'Chord arp')
+
+    it('sends the engine plain effects, never a module', () => {
+      const add = diffProject(null, grouped).find((c) => c.type === 'track/add' && c.trackId === track.id)!
+      expect(add.type === 'track/add' && add.kind === 'instrument' && add.noteEffects.map((e) => e.type)).toEqual(['scaleLock', 'chord', 'arpeggiator'])
+    })
+
+    it('grouping renames the inner effects for the engine, so the chain is sent once', () => {
+      expect(diffProject(chained, grouped).map((c) => c.type)).toEqual(['track/setNoteEffects'])
+    })
+
+    it('editing the module updates every track that uses it', () => {
+      const second = addNoteModuleUse(grouped, { trackId: (project.tracks[1] as InstrumentTrack).id }, grouped.noteModules[0]!.id)
+      const edited = updateNoteModuleDef(second, second.noteModules[0]!.id, (m) => setNoteModuleEffects(m, m.effects.slice(0, 1)))
+      const commands = diffProject(second, edited)
+      expect(commands.map((c) => ('trackId' in c ? c.trackId : ''))).toEqual([track.id, (project.tracks[1] as InstrumentTrack).id])
+      expect(commands.every((c) => c.type === 'track/setNoteEffects')).toBe(true)
+    })
+
+    it('a module knob arrives as a changed chain with the same ids (so the running arpeggio keeps its state)', () => {
+      const module = grouped.noteModules[0]!
+      const arp = module.effects[1]!
+      const exposed = updateNoteModuleDef(grouped, module.id, (m) => exposeNoteKnob(m, arp.id, 'gate', 'Length'))
+      const useId = (exposed.tracks[0] as InstrumentTrack).noteEffects.find((e) => e.type === 'module')!.id
+      const tuned = editNoteChain(exposed, { trackId: track.id }, (effects, modules) => setNoteEffectParamIn(effects, useId, `${arp.id}:gate`, 0.95, modules))
+      const [command] = diffProject(exposed, tuned)
+      expect(command).toMatchObject({ type: 'track/setNoteEffects' })
+      const before = diffProject(null, exposed).find((c) => c.type === 'track/add' && c.trackId === track.id)!
+      const ids = (c: unknown) => ((c as { noteEffects?: { id: string }[]; effects?: { id: string }[] }).noteEffects ?? (c as { effects: { id: string }[] }).effects).map((e) => e.id)
+      expect(ids(command)).toEqual(ids(before))
+    })
+
+    it('nothing is sent when a module edit does not change what plays', () => {
+      const edited = updateNoteModuleDef(grouped, grouped.noteModules[0]!.id, (m) => renameNoteModule(m, 'Other name'))
+      expect(diffProject(grouped, edited)).toEqual([])
     })
   })
 })

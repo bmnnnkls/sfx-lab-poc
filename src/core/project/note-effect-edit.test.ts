@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createDemoProject } from './demo-project'
+import { MAX_NOTE_EFFECTS } from '../notefx'
 import {
-  MAX_NOTE_EFFECTS,
   addNoteEffect,
   moveNoteEffect,
   removeNoteEffect,

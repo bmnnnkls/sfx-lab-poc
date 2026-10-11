@@ -1,4 +1,4 @@
-import { type NoteEffect, NoteChain } from '../notefx'
+import { NoteChain, type NoteEffect, type NoteModuleLibrary, flattenNoteEffects } from '../notefx'
 import type { Clip } from '../project'
 import { ClipLauncher, type NoteEvent } from '../session'
 
@@ -17,14 +17,14 @@ export interface HeardNote {
  * reports the second, so what a note leaves behind (echo repeats, an arpeggio) at the end of one pass is shown
  * where it lands in the next. Notes still sounding at the very end are cut there.
  */
-export const heardNotes = (clip: Clip, effects: readonly NoteEffect[]): HeardNote[] => {
+export const heardNotes = (clip: Clip, effects: readonly NoteEffect[], modules: NoteModuleLibrary = []): HeardNote[] => {
   const length = clip.lengthBeats
   const end = length * 2
 
   const launcher = new ClipLauncher()
   launcher.launch(clip)
   const chain = new NoteChain()
-  chain.sync(effects)
+  chain.sync(flattenNoteEffects(effects, modules))
   const events = chain.process(launcher.collectEvents(0, end), 0, end)
 
   const open = new Map<number, { start: number; velocity: number }[]>()

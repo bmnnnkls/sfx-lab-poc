@@ -9,6 +9,8 @@ export interface NoteEffect {
   readonly params: Readonly<Record<string, number>>
   /** A bypassed effect stays in the chain but passes notes through untouched. */
   readonly bypassed: boolean
+  /** For `module` entries: which module definition this is a use of. `params` then holds the exposed knobs. */
+  readonly moduleId?: string
 }
 
 /**

@@ -191,8 +191,32 @@ clip player → [effect] → [effect] → … → voices → patch → out
   each effect a card with its parameters, bypass, move and remove, and an *Add effect* menu. Below it a piano roll
   shows the clip as written and as the instrument hears it. A track with effects gets an **fx N** badge on its header;
   clicking it opens the Notes tab. Persistence sanitizes unknown types, clamps parameters and repairs ids.
-* **Limits.** Auditioning a note in the piano roll skips the chain. Effects are built in; they are not yet modules or
-  patchable (`docs/TASKS.md`). An event that falls exactly on a 128-sample block edge can land one sample early or
+* **MIDI effect modules.** A saved, reusable chain: `Project.noteModules: NoteModuleDefinition[]`, each `{ id, name,
+  effects, knobs }`. A use is a `NoteEffect` of type `module` with `moduleId`, whose `params` hold the knob settings.
+  Same semantics as the patch modules above (edits propagate, **Unlink** makes an independent copy, modules nest, a
+  module cannot contain itself, a module in use cannot be deleted) but simpler, because a chain is linear: notes in,
+  notes out, so a module has no ports, only the knobs it chooses to show. It is a separate library from the audio
+  patch modules (a patch cannot hold a chain and the reverse), so no typed ports were needed.
+  * `describeNoteEffect(effect, modules)` answers what name and parameters an entry has (registry or definition), and
+    is what the cards and the parameter edits use. `flattenNoteEffects` expands uses, recursively, with ids
+    `<use id>/<inner id>` and the use's knob values and bypass baked in; `diffProject` flattens before diffing, so the
+    engine only sees plain effects, and turning a module knob reaches it as the same chain with one value changed
+    (the running arpeggio keeps its state). Editing a definition updates every track that uses it, and sends nothing
+    when the flattened chain did not change (a rename).
+  * `groupIntoNoteModule` takes a **contiguous run** of effects (anything else would reorder the chain) and puts one
+    use where they were. `chain-edit.ts` holds the pure chain edits (add, remove, move, set parameter, bypass, expose
+    knob) used for both a track's chain and a module's inside; `project/note-module-edit.ts` applies them to either
+    (`NoteChainTarget`) and keeps everything consistent (`reconcileNoteModules`: a knob that vanished takes its stored
+    values with it).
+  * Persistence builds modules in dependency order (shared with the patch modules via `buildInDependencyOrder`), so
+    they load in any file order; one that contains itself is dropped with a warning. Optional field, no format bump.
+  * UI: in the Notes tab tick effects (they must be neighbours) and **Group into module**. A module card has *Edit*
+    and *Unlink*; *Edit* opens its inside in the same editor with a breadcrumb, a name field, where it is used, and a
+    **Knobs** panel to choose which parameters show on every use. The *Add effect* menu lists the project's modules.
+    `heardNotes` takes the module library, so the preview matches.
+
+* **Limits.** Auditioning a note in the piano roll skips the chain. The effects themselves are built in; you
+  compose them into modules but cannot yet patch a new kind of effect from parts (`docs/TASKS.md`). An event that falls exactly on a 128-sample block edge can land one sample early or
   late depending on where blocks start (float rounding in the transport clock); in the worklet blocks are always
   aligned, so this only shows up when comparing odd render sizes in tests.
 

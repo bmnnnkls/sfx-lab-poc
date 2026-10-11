@@ -1,4 +1,5 @@
 import type { EngineCommand } from '../engine'
+import { type NoteModuleLibrary, flattenNoteEffects } from '../notefx'
 import { type ModuleLibrary, type Patch, flattenPatch } from '../patch'
 import type { AudioTrack, InstrumentTrack, Project, Track } from '../project'
 
@@ -8,6 +9,14 @@ const structureOf = (patch: Patch): string =>
     patch.nodes.map((node) => [node.id, node.type]),
     patch.connections.map(({ from, to }) => [from.node, from.port, to.node, to.port]),
   ])
+
+/** The shared libraries that tracks refer to by id; the engine only ever sees them expanded. */
+interface Libraries {
+  readonly modules: ModuleLibrary
+  readonly noteModules: NoteModuleLibrary
+}
+
+const sameEffects = (a: readonly unknown[], b: readonly unknown[]): boolean => JSON.stringify(a) === JSON.stringify(b)
 
 /**
  * The engine only knows plain nodes, so module uses are expanded first. A knob on a module then reaches the
@@ -54,15 +63,19 @@ const sameClips = (a: readonly unknown[], b: readonly unknown[]): boolean =>
 const diffInstrumentTrack = (
   prev: InstrumentTrack,
   next: InstrumentTrack,
-  prevModules: ModuleLibrary,
-  nextModules: ModuleLibrary,
+  before: Libraries,
+  after: Libraries,
 ): EngineCommand[] => {
-  const commands = diffPatch(next.id, prev.patch, prevModules, next.patch, nextModules)
+  const commands = diffPatch(next.id, prev.patch, before.modules, next.patch, after.modules)
   if (!sameClips(prev.clips, next.clips)) {
     commands.push({ type: 'track/setClips', trackId: next.id, clips: next.clips })
   }
-  if (prev.noteEffects !== next.noteEffects) {
-    commands.push({ type: 'track/setNoteEffects', trackId: next.id, effects: next.noteEffects })
+  if (prev.noteEffects !== next.noteEffects || before.noteModules !== after.noteModules) {
+    // Module uses are expanded first; the ids of expanded effects are stable, so running effects keep their state.
+    const effects = flattenNoteEffects(next.noteEffects, after.noteModules)
+    if (!sameEffects(flattenNoteEffects(prev.noteEffects, before.noteModules), effects)) {
+      commands.push({ type: 'track/setNoteEffects', trackId: next.id, effects })
+    }
   }
   if (prev.voices !== next.voices) {
     commands.push({ type: 'track/setVoices', trackId: next.id, voices: next.voices })
@@ -75,10 +88,10 @@ const diffAudioTrack = (prev: AudioTrack, next: AudioTrack): EngineCommand[] =>
     ? []
     : [{ type: 'track/setAudioClips', trackId: next.id, clips: next.clips }]
 
-const diffTrack = (prev: Track, next: Track, prevModules: ModuleLibrary, nextModules: ModuleLibrary): EngineCommand[] => {
+const diffTrack = (prev: Track, next: Track, before: Libraries, after: Libraries): EngineCommand[] => {
   const commands =
     prev.kind === 'instrument' && next.kind === 'instrument'
-      ? diffInstrumentTrack(prev, next, prevModules, nextModules)
+      ? diffInstrumentTrack(prev, next, before, after)
       : prev.kind === 'audio' && next.kind === 'audio'
         ? diffAudioTrack(prev, next)
         : []
@@ -88,15 +101,15 @@ const diffTrack = (prev: Track, next: Track, prevModules: ModuleLibrary, nextMod
   return commands
 }
 
-const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
+const addTrackCommand = (track: Track, libraries: Libraries): EngineCommand =>
   track.kind === 'audio'
     ? { type: 'track/add', kind: 'audio', trackId: track.id, clips: track.clips, volume: track.volume }
     : {
         type: 'track/add',
         kind: 'instrument',
         trackId: track.id,
-        patch: flattenPatch(track.patch, modules),
-        noteEffects: track.noteEffects,
+        patch: flattenPatch(track.patch, libraries.modules),
+        noteEffects: flattenNoteEffects(track.noteEffects, libraries.noteModules),
         clips: track.clips,
         volume: track.volume,
         voices: track.voices,
@@ -107,7 +120,7 @@ export const diffProject = (prev: Project | null, next: Project): EngineCommand[
   const commands: EngineCommand[] = []
   if (prev?.tempo !== next.tempo) commands.push({ type: 'transport/setTempo', bpm: next.tempo })
 
-  const prevModules = prev?.modules ?? []
+  const before: Libraries = { modules: prev?.modules ?? [], noteModules: prev?.noteModules ?? [] }
   const prevTracks = new Map((prev?.tracks ?? []).map((track) => [track.id, track]))
   const nextIds = new Set(next.tracks.map((track) => track.id))
 
@@ -115,13 +128,13 @@ export const diffProject = (prev: Project | null, next: Project): EngineCommand[
     if (!nextIds.has(id)) commands.push({ type: 'track/remove', trackId: id })
   }
   for (const track of next.tracks) {
-    const before = prevTracks.get(track.id)
-    if (!before) {
-      commands.push(addTrackCommand(track, next.modules))
-    } else if (before.kind !== track.kind) {
-      commands.push({ type: 'track/remove', trackId: track.id }, addTrackCommand(track, next.modules))
-    } else if (before !== track || prevModules !== next.modules) {
-      commands.push(...diffTrack(before, track, prevModules, next.modules))
+    const existing = prevTracks.get(track.id)
+    if (!existing) {
+      commands.push(addTrackCommand(track, next))
+    } else if (existing.kind !== track.kind) {
+      commands.push({ type: 'track/remove', trackId: track.id }, addTrackCommand(track, next))
+    } else if (existing !== track || before.modules !== next.modules || before.noteModules !== next.noteModules) {
+      commands.push(...diffTrack(existing, track, before, next))
     }
   }
   return commands

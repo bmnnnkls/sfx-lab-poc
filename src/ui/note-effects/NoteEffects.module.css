@@ -62,6 +62,7 @@
 
 .cardHeader {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
@@ -176,4 +177,122 @@
 .card input[type='range'] {
   width: 100%;
   box-sizing: border-box;
+}
+
+.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.tick {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tick strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tick input {
+  margin: 0;
+}
+
+.moduleTag {
+  padding: 1px 5px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--wire);
+  border: 1px solid var(--wire);
+  border-radius: 8px;
+}
+
+.moduleFooter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 0;
+}
+
+.addColumn {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+}
+
+.crumb {
+  padding: 2px 8px;
+}
+
+.crumbCurrent {
+  color: var(--text);
+}
+
+.moduleBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.nameField {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+}
+
+.nameField input {
+  width: 180px;
+}
+
+.usage {
+  color: var(--text-dim);
+}
+
+.knobPanel {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 220px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.knobPanel h4 {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.knobGroup {
+  display: grid;
+  gap: 4px;
+}
+
+.knobRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.knobRow input[type='text'] {
+  min-width: 0;
 }

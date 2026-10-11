@@ -169,7 +169,7 @@ export const setProjectName = (project: Project, name: string): Project => ({
 /** A blank project with a single empty track. */
 export const createEmptyProject = (): Project =>
   addTrack(
-    { name: 'Untitled', tempo: 120, sceneCount: DEFAULT_SCENE_COUNT, samples: [], modules: [], tracks: [] },
+    { name: 'Untitled', tempo: 120, sceneCount: DEFAULT_SCENE_COUNT, samples: [], modules: [], noteModules: [], tracks: [] },
     createTrack('Track 1', DEFAULT_SCENE_COUNT),
   )
 

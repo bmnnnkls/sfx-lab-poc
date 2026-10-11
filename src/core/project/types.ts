@@ -1,4 +1,4 @@
-import type { NoteEffect } from '../notefx'
+import type { NoteEffect, NoteModuleDefinition } from '../notefx'
 import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 
@@ -86,5 +86,7 @@ export interface Project {
   readonly samples: readonly SampleInfo[]
   /** Reusable sub-patches. Patches use them by id, so editing one changes every use. */
   readonly modules: readonly ModuleDefinition[]
+  /** Reusable chains of MIDI effects, used by id from tracks' chains (and other such modules). */
+  readonly noteModules: readonly NoteModuleDefinition[]
   readonly tracks: readonly Track[]
 }
