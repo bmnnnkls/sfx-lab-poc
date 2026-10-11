@@ -87,6 +87,14 @@ export const setNodeName = (patch: Patch, nodeId: string, name: string): Patch =
   return { ...patch, nodes: patch.nodes.map((candidate) => (candidate === node ? (wanted === '' ? rest : { ...rest, name: wanted }) : candidate)) }
 }
 
+/** Keeps a node's settings out of randomizing (`locked`). The same patch when nothing changes. */
+export const setNodeLocked = (patch: Patch, nodeId: string, locked: boolean): Patch => {
+  const node = patch.nodes.find((candidate) => candidate.id === nodeId)
+  if (!node || (node.locked === true) === locked) return patch
+  const { locked: _previous, ...rest } = node
+  return { ...patch, nodes: patch.nodes.map((candidate) => (candidate === node ? (locked ? { ...rest, locked: true as const } : rest) : candidate)) }
+}
+
 /** Sets the unit of a control node's value (`unit`; for an XY pad's y axis `unitY`). Blank removes it; the same patch when nothing changes. */
 export const setNodeUnit = (patch: Patch, nodeId: string, field: 'unit' | 'unitY', text: string): Patch => {
   const wanted = text.trim().slice(0, MAX_UNIT)

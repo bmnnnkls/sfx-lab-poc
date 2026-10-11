@@ -129,6 +129,7 @@ export const sanitizePatch = (
       ...(sampleId === undefined ? {} : { sampleId }),
       ...(definition.usesTrack !== undefined && typeof rawNode.trackId === 'string' ? { trackId: rawNode.trackId } : {}),
       ...(definition.bypassable === true && rawNode.bypassed === true ? { bypassed: true } : {}),
+      ...(rawNode.locked === true ? { locked: true as const } : {}),
       ...(definition.stereoCapable === true && rawNode.stereo === true ? { stereo: true } : {}),
     })
   }

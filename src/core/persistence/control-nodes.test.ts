@@ -209,6 +209,20 @@ describe('control nodes in a saved project', () => {
     })
   })
 
+  it('keeps a node locked against randomizing, and nothing else that is not `true`', () => {
+    const text = rawWith((patch) => {
+      patch.nodes.push(
+        { id: 'a', type: 'gain', x: 0, y: 0, params: {}, locked: true },
+        { id: 'b', type: 'gain', x: 0, y: 0, params: {}, locked: false },
+        { id: 'c', type: 'gain', x: 0, y: 0, params: {}, locked: 'yes' },
+      )
+    })
+    const nodes = (parseOk(text).project.tracks[0] as InstrumentTrack).patch.nodes
+    expect(nodes.find((node) => node.id === 'a')?.locked).toBe(true)
+    expect('locked' in nodes.find((node) => node.id === 'b')!).toBe(false)
+    expect('locked' in nodes.find((node) => node.id === 'c')!).toBe(false)
+  })
+
   it('files saved before control nodes load exactly as they did: no warnings, no new nodes, same wiring', () => {
     const result = parseOk(serializeProject(demo))
     expect(result.warnings).toEqual([])

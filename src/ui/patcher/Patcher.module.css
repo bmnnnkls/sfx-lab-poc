@@ -380,3 +380,29 @@
   padding: 0 12px;
   box-sizing: border-box;
 }
+
+/* Randomize / Mutate and the seed, at the end of the toolbar. */
+.randomize {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.randomize label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.randomize input[type='number'] {
+  width: 64px;
+}
+
+.lastSeed {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}

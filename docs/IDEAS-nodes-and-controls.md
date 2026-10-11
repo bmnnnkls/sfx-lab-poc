@@ -6,6 +6,20 @@ When an item ships, document it in `ARCHITECTURE.md`, then tick or delete it her
 **How to read it.** Each item has an ID (reply with "A1, C1–C4, G2"), a value (★ to ★★★) and a rough cost (S: a node and its
 tests; M: a node plus new plumbing, or several nodes; L: a new subsystem). `?` marks something not verified against the code.
 
+**Built (marked ✓ in the tables)**: A2 to A4, B0 to B3, C1 to C4 and C10 to C13, D1 with G1, G2 and G4, E1 and F1. What differs from the lists, and what it
+left behind:
+
+* **A3 (push button)** is the Switch's `trigger` mode; "latch" is not a separate mode, since a toggle plus the *Flip-flop* (C11) is a latch.
+* **G4 (Geiger)** is one node with two outputs: `Click` (crackle) and `Trigger` (a gate for envelopes and samplers).
+* **C10** is *Random* (a value that stays until a rise on `Roll`); **G3** (smooth random with glides) is not built.
+* **E1** shipped as two modules under a new picker category, *Examples* (an overtone oscillator and a drawbar organ); E8 (a bigger library) is not built.
+* **F1** randomizes and mutates the graph on show, with a seed and a per-node lock; per-*parameter* locks and a randomize on the panel's controls only are not built.
+* **Left for later, found while building:** the DSP has no tempo, so *Clock* counts in Hz or BPM but cannot follow the project's tempo (a `tempo` in
+  `ProcessContext` would fix it, and make C12's "tempo-synced" real); noise and the other seeded sources start from the same seed in every voice of a
+  chord (a per-voice salt would decorrelate them); an indicator inside a module's own editor has no live value (a module is only live where it is used);
+  indicators in a voice are absent, not stale, when no voice sounds (so a LED driven by a voice-stage follower goes dark between notes).
+* **Not selected, so not built:** A1 (the live widget inside the card), A5 to A7, B4 and B5, C5 to C9, D2 to D12, E2 to E9, F2 to F8, G5 to G14, H.
+
 **Where we are** (control-nodes work, steps 1–8, see `HANDOFF-control-nodes.md` and `ARCHITECTURE.md`): controls, XY pad and
 switch; parameter sockets on every numeric parameter; a global stage; math nodes (arithmetic, shaping, MIDI, unit conversions,
 sample & hold, smooth, quantize, map range, mix); a property editor, quick-add, node pictures; a panel built from control nodes;
@@ -42,9 +56,9 @@ widget lives in the panel and the property editor). Both views edit the same nod
 | ID | What | ★ | Cost |
 | --- | --- | --- | --- |
 | A1 | The real widget inside the card (knob, fader, XY pad, switch), sized by the node's panel size. Needs a drag guard so turning a knob does not move the node, and care under canvas zoom. | ★★★ | M |
-| A2 | **Extend the Switch:** an `off` value and an `on` value, both parameters with sockets (so "set via props or other inputs" works), instead of a fixed 0 and 1. | ★★★ | S |
-| A3 | **Push-button modes on the Switch:** momentary (exists), *trigger* (a one-block pulse on press), *latch*. A trigger fires samplers and envelopes. | ★★★ | S |
-| A4 | Selector / radio with N positions that outputs the index. | ★★ | S |
+| A2 ✓ | **Extend the Switch:** an `off` value and an `on` value, both parameters with sockets (so "set via props or other inputs" works), instead of a fixed 0 and 1. | ★★★ | S |
+| A3 ✓ | **Push-button modes on the Switch:** momentary (exists), *trigger* (a one-block pulse on press), *latch*. A trigger fires samplers and envelopes. | ★★★ | S |
+| A4 ✓ | Selector / radio with N positions that outputs the index. | ★★ | S |
 | A5 | On-screen keys and drum pads that emit notes or gates, so patches can be played without a MIDI keyboard (needs a way for a control node to feed the note path). | ★★ | M |
 | A6 | Step sequencer row (8 to 32 values) driven by a clock (C12). | ★★ | M |
 | A7 | Number box: type a value, scroll to nudge. | ★ | S |
@@ -53,10 +67,10 @@ widget lives in the panel and the property editor). Both views edit the same nod
 
 | ID | What | ★ | Cost |
 | --- | --- | --- | --- |
-| B0 | **Engine to UI readout path** for arbitrary values. Level meters work because the engine already reports peaks; a node's picture is computed on the main thread from one frame and cannot update live. Everything below needs this. | ★★★ | M |
-| B1 | LED: on/off at a threshold, brightness proportional to the value, or colour by range. | ★★★ | S |
-| B2 | Number display: int or float, decimals, unit, note name for MIDI values. | ★★★ | S |
-| B3 | Bar / level meter. | ★★ | M |
+| B0 ✓ | **Engine to UI readout path** for arbitrary values. Level meters work because the engine already reports peaks; a node's picture is computed on the main thread from one frame and cannot update live. Everything below needs this. | ★★★ | M |
+| B1 ✓ | LED: on/off at a threshold, brightness proportional to the value, or colour by range. | ★★★ | S |
+| B2 ✓ | Number display: int or float, decimals, unit, note name for MIDI values. | ★★★ | S |
+| B3 ✓ | Bar / level meter. | ★★ | M |
 | B4 | Mini scope tracing a control's recent history; gate and clock lamp. | ★★ | M |
 | B5 | Audio scope and spectrum as a node picture or panel widget. | ★★ | L |
 
@@ -64,25 +78,25 @@ widget lives in the panel and the property editor). Both views edit the same nod
 
 | ID | What | ★ | Cost |
 | --- | --- | --- | --- |
-| C1 | **Envelope follower** (peak or RMS, attack and release). Auto-wah, ducking, level to LED. | ★★★ | S |
-| C2 | **Level in dB** (measured, not converted). | ★★★ | S |
-| C3 | **Pitch detector** (Hz and confidence; autocorrelation or YIN). With the existing "Hz to MIDI", a pitch-follower synth. | ★★★ | M |
-| C4 | **Threshold / Schmitt trigger:** control to gate, with hysteresis. | ★★★ | S |
+| C1 ✓ | **Envelope follower** (peak or RMS, attack and release). Auto-wah, ducking, level to LED. | ★★★ | S |
+| C2 ✓ | **Level in dB** (measured, not converted). | ★★★ | S |
+| C3 ✓ | **Pitch detector** (Hz and confidence; autocorrelation or YIN). With the existing "Hz to MIDI", a pitch-follower synth. | ★★★ | M |
+| C4 ✓ | **Threshold / Schmitt trigger:** control to gate, with hysteresis. | ★★★ | S |
 | C5 | Onset / transient detector that pulses on hits (triggers samplers from audio). | ★★ | M |
 | C6 | Zero-crossing rate (a cheap noisiness measure). | ★★ | S |
 | C7 | Spectral centroid (brightness) and band energies (low, mid, high). Needs H1 for the accurate version; a filter-bank version is cheap. | ★★ | M |
 | C8 | Peak hold, clip detector, stereo correlation and balance. | ★ | S |
 | C9 | Spectral flux; loudness (LUFS-style). | ★ | M |
-| C10 | Random control (seeded; re-roll button). See also G-noise below. | ★★ | S |
-| C11 | Edge detect, flip-flop, counter. | ★★ | S |
-| C12 | Control clock and divider (tempo-synced). | ★★ | S |
-| C13 | Control delay. | ★ | S |
+| C10 ✓ | Random control (seeded; re-roll button). See also G-noise below. | ★★ | S |
+| C11 ✓ | Edge detect, flip-flop, counter. | ★★ | S |
+| C12 ✓ | Control clock and divider (tempo-synced). | ★★ | S |
+| C13 ✓ | Control delay. | ★ | S |
 
 ## D. Synthesis building blocks
 
 | ID | What | ★ | Cost |
 | --- | --- | --- | --- |
-| D1 | **Noise:** see section G. | ★★★ | S |
+| D1 ✓ | **Noise:** see section G. | ★★★ | S |
 | D2 | Distortion / waveshaper, bit-crusher, sample-rate reducer. Part of this may build from the math nodes (`quantize`, shaping) `?`. | ★★★ | M |
 | D3 | More filter types: notch, peak, low and high shelf, all-pass; a steeper (24 dB) slope; comb filter. | ★★★ | M |
 | D4 | Phase-modulation input on the oscillator, plus hard sync. FM through today's Pitch input (semitones) probably works but is not linear phase FM `?`. | ★★ | M |
@@ -102,7 +116,7 @@ entry in the quick-add picker would surface them (E8).
 
 | ID | What | ★ | Notes |
 | --- | --- | --- | --- |
-| E1 | **Overtone oscillator:** N oscillators at note frequency x ratio, each with a level, mixed. Variants: harmonic series, odd-only, 9-drawbar organ. | ★★★ | Buildable now. |
+| E1 ✓ | **Overtone oscillator:** N oscillators at note frequency x ratio, each with a level, mixed. Variants: harmonic series, odd-only, 9-drawbar organ. | ★★★ | Buildable now. |
 | E2 | **FM pair:** carrier and modulator with ratio and index knobs. | ★★★ | Best after D4. |
 | E3 | Supersaw / unison from detuned saws. | ★★ | Buildable now; D12 makes it one node. |
 | E4 | Subtractive mono synth (osc and sub, filter envelope, amp envelope) as a starter template. | ★★ | Buildable now. |
@@ -116,7 +130,7 @@ entry in the quick-add picker would surface them (E8).
 
 | ID | What | ★ | Cost |
 | --- | --- | --- | --- |
-| F1 | **Randomize / mutate**, jsfxr-style: re-roll parameters within their ranges, with a seed and a lock per control. | ★★★ | M |
+| F1 ✓ | **Randomize / mutate**, jsfxr-style: re-roll parameters within their ranges, with a seed and a lock per control. | ★★★ | M |
 | F2 | **Export to WAV** (offline render of the current patch or clip), and batch export of variations. | ★★★ | M |
 | F3 | Control presets / snapshots, with morphing between two via an XY pad. | ★★ | M |
 | F4 | Web MIDI input: CC into control nodes, MIDI learn on panel controls, MIDI keyboard for notes. | ★★ | M |
@@ -135,10 +149,10 @@ All seeded, so renders repeat.
 
 | ID | What | ★ | Cost |
 | --- | --- | --- | --- |
-| G1 | **White, pink and brown noise** (audio rate). Hats, wind, snares, most SFX. | ★★★ | S |
-| G2 | **Perlin / value / simplex noise as a control signal:** rate, octaves, persistence (fractal), seed. Smooth, organic wobble for cutoff, pitch, pan. A 2D variant takes a second input (e.g. an XY pad or an LFO) so a point can wander across a noise field. | ★★★ | S |
+| G1 ✓ | **White, pink and brown noise** (audio rate). Hats, wind, snares, most SFX. | ★★★ | S |
+| G2 ✓ | **Perlin / value / simplex noise as a control signal:** rate, octaves, persistence (fractal), seed. Smooth, organic wobble for cutoff, pitch, pan. A 2D variant takes a second input (e.g. an XY pad or an LFO) so a point can wander across a noise field. | ★★★ | S |
 | G3 | Smooth random (random target values with glides) and stepped random with a clock. Partly covered by the LFO's `random` shape and sample & hold. | ★★ | S |
-| G4 | Crackle / dust / velvet noise (sparse random impulses with density): vinyl, rain, geiger. | ★★ | S |
+| G4 ✓ | Crackle / dust / velvet noise (sparse random impulses with density): vinyl, rain, geiger. | ★★ | S |
 | G5 | Noise as an audio-rate oscillator: sample-and-hold noise at a pitch (the classic "crunchy noise" voice), and band-limited noise via a filter. | ★ | S |
 
 ### Granular

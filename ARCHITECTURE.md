@@ -527,6 +527,16 @@ plain cards; the property editor, the panel built from control nodes and the nod
   `addExampleModuleUse`, which **copies the definition into the project's library the first time** (project data stays self-contained) and
   adds a use, as one undo step; later uses share the library's copy, even after it was edited. Examples are offered in sound graphs only, and
   not for a dropped wire. Their spectra are tested by rendering them (a Goertzel filter at each partial).
+* **Randomize and mutate** (`patch/randomize.ts`, `ui/patcher/RandomizeBar.tsx`). `randomizeParams(patch, modules, { seed, amount })` is pure and
+  seeded (`createRng`): `amount` 1 (the default) picks each setting anywhere in its range, a smaller one moves it by up to that part of its range,
+  both **in the way a knob feels it** (`toSlider` / `fromSlider`, moved down to core as `dsp/param-scale.ts`, so a frequency is spread over octaves,
+  not hertz) and on its step, rounded to six significant digits. A choice changes with the chance `amount`. Left alone: a node with `locked`
+  (`PatchNode.locked?: true`, `setNodeLocked`, a checkbox in the property editor), a setting a wire drives, a range wider than 50000 (a math
+  operand is a free number, not a knob), and on control nodes everything but the value (and a selector's value stays among its positions);
+  switches and indicators are not rolled. It returns the same patch when nothing changes (amount 0). The toolbar has *Randomize*, *Mutate*
+  (a touch / some / a lot) and a seed (0 to 9999): the seed shown is the one the next press uses, then it moves on and the one just used
+  stays beside it as "last N", so a result can be got back by typing its number. One press is one undo step; it works on the graph on show
+  (the sound patch, the insert graph, the notes, the inside of a module).
 * **Names.** `PatchNode.name?` (trimmed, at most 60 characters, absent when blank; `setNodeName`, same patch when unchanged;
   read by the sanitizer). Nothing shows it yet. It is not sound: renaming sends no engine command.
 * **Words** (`dsp/node-docs.ts`, `notefx/node-docs.ts`, `dsp/document.ts`). Every node has a one-sentence `description`, a `category`

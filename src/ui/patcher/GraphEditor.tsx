@@ -25,6 +25,7 @@ import {
   removeNode,
   exampleModules,
   findExampleModule,
+  randomizeParams,
 } from '@core'
 import { useProjectStore } from '@state'
 import { type ReactNode, useRef, useState } from 'react'
@@ -37,6 +38,7 @@ import { type Catalog, buildCatalog } from './node-catalog'
 import { PatchCanvas, type PatchCanvasHandle } from './PatchCanvas'
 import { QuickAdd } from './QuickAdd'
 import { NODE_WIDTH, type Point } from './geometry'
+import { RandomizeBar } from './RandomizeBar'
 import { PropertyEditor } from './PropertyEditor'
 import { centredOn, freeSpot } from './placement'
 import { targetInput } from './wire-drop'
@@ -313,6 +315,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
               Group into module{selected.size > 0 ? ` (${selected.size})` : ''}
             </button>
           )}
+          <RandomizeBar onRoll={(seed, amount) => edit((current, library) => randomizeParams(current, library, { seed, amount }))} />
         </div>
       </div>
       <div className={styles.editorBody} data-has-aside={Boolean(aside) || (Boolean(definition) && interfaceOpen && view === 'graph')}>
