@@ -64,6 +64,11 @@ describe('card height', () => {
     expect(PREVIEW_AREA_HEIGHT).toBeGreaterThan(36)
   })
 
+  it('an indicator always has room for its live face', () => {
+    const led = describeNode(createNode('led', 0, 0))!
+    expect(nodeHeight(led)).toBe(nodeHeight({ ...led, indicator: undefined }) + PREVIEW_AREA_HEIGHT)
+  })
+
   it('is a header and the port rows: settings live in the property editor, not on the card', () => {
     const gain = describeNode(createNode('gain', 0, 0))!
     const rows = Math.max(gain.inputs.length, gain.outputs.length)

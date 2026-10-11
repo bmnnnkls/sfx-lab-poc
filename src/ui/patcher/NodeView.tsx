@@ -2,8 +2,9 @@ import type { MenuEntry } from '../shared/menu'
 import { ContextMenu } from '../shared/menu'
 import type { NodeShape, PatchNode, PortRef } from '@core'
 import { nodeTooltip, portTooltip } from '../shared/tooltip/tooltip-text'
-import { HEADER_HEIGHT, MODULE_FOOTER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT } from './geometry'
+import { HEADER_HEIGHT, MODULE_FOOTER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT, PREVIEW_AREA_HEIGHT } from './geometry'
 import styles from './Patcher.module.css'
+import { IndicatorFace } from '../shared/indicators/IndicatorFace'
 import { NodePreview } from './previews/NodePreview'
 import type { Preview } from './previews'
 import { useNodeDrag } from './use-node-drag'
@@ -17,6 +18,8 @@ interface NodeViewProps {
   driven: ReadonlyMap<string, string>
   /** A picture of what the node does with its settings, when it has one (`previews/`); `moving` when a moving signal drives a setting. */
   picture?: { preview: Preview; moving: boolean }
+  /** Where an indicator card gets its live value: the track the engine reports it under (absent inside a module). */
+  readoutTrack?: string
   /** Runs once on the mix of all voices (effects), rather than once per voice. */
   shared: boolean
   selected: boolean
@@ -43,6 +46,7 @@ export const NodeView = ({
   title,
   driven,
   picture,
+  readoutTrack,
   shared,
   selected,
   moduleActions,
@@ -144,6 +148,11 @@ export const NodeView = ({
       </div>
 
       {picture && <NodePreview preview={picture.preview} moving={picture.moving} />}
+      {shape.indicator === true && (shape.panelKind === 'led' || shape.panelKind === 'display' || shape.panelKind === 'bar') && (
+        <div className={styles.indicatorFace} style={{ height: PREVIEW_AREA_HEIGHT }}>
+          <IndicatorFace node={node} kind={shape.panelKind} label={title} track={readoutTrack} showLabel={false} />
+        </div>
+      )}
 
       {moduleActions && (
         <div className={styles.moduleFooter} style={{ height: MODULE_FOOTER_HEIGHT }}>

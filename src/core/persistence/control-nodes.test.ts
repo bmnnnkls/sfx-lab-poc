@@ -110,6 +110,9 @@ describe('control nodes in a saved project', () => {
         { id: 'pad', type: 'xyPad', x: 0, y: 0, params: {}, unit: 'Hz', unitY: '%', display: 'slider' },
         { id: 'sw', type: 'switch', x: 0, y: 0, params: {}, unit: 'Hz', display: 'slider' },
         { id: 'sel', type: 'selector', x: 0, y: 0, params: { index: 7, count: 99 }, unit: 'Hz', panel: { size: 'L' } },
+        { id: 'dsp', type: 'display', x: 0, y: 0, params: { decimals: 99 }, unit: 'dB' },
+        { id: 'bar', type: 'bar', x: 0, y: 0, params: {}, unit: '%' },
+        { id: 'led', type: 'led', x: 0, y: 0, params: {}, unit: 'x' },
       )
       patch.nodes[0]!.unit = 'Hz'
       patch.nodes[0]!.display = 'slider'
@@ -121,6 +124,9 @@ describe('control nodes in a saved project', () => {
     expect('display' in get('pad')).toBe(false)
     expect('unit' in get('sw') || 'display' in get('sw')).toBe(false)
     expect('unit' in get('sel')).toBe(false)
+    expect(get('dsp')).toMatchObject({ unit: 'dB', params: { decimals: 6 } })
+    expect(get('bar')).toMatchObject({ unit: '%' })
+    expect('unit' in get('led')).toBe(false)
     expect(get('sel')).toMatchObject({ panel: { size: 'L' }, params: { index: 7, count: 16 } })
     expect('unit' in nodes[0]! || 'display' in nodes[0]!).toBe(false)
   })

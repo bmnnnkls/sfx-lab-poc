@@ -53,6 +53,11 @@ export const spanOf = (item: Pick<PanelItem, 'kind' | 'size' | 'horizontal'>): S
       return { cols: step + 1, rows: 1 }
     case 'selector':
       return { cols: step + 2, rows: 1 }
+    case 'led':
+      return { cols: step + 1, rows: 1 }
+    case 'display':
+    case 'bar':
+      return { cols: step + 2, rows: 1 }
   }
 }
 

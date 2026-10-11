@@ -1,6 +1,7 @@
 import { followerNode } from './nodes/analysis/follower.node'
 import { levelNode } from './nodes/analysis/level.node'
 import { pitchNode } from './nodes/analysis/pitch.node'
+import { barNode, displayNode, ledNode } from './nodes/indicator.nodes'
 import { delayNode } from './nodes/delay.node'
 import { envelopeNode } from './nodes/envelope.node'
 import { filterNode } from './nodes/filter.node'
@@ -70,6 +71,9 @@ const plainDefinitions: readonly NodeDefinition[] = [
   xyPadNode,
   switchNode,
   selectorNode,
+  ledNode,
+  displayNode,
+  barNode,
   addNode,
   multiplyNode,
   invertNode,

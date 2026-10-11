@@ -2,7 +2,7 @@ import { type ModuleLibrary, type PortRef, type Patch, describeNode, nodeTitles 
 import { useMemo, useState } from 'react'
 import styles from './panel.module.css'
 
-export type AddKind = 'knob' | 'slider' | 'slider-horizontal' | 'xy' | 'switch' | 'selector'
+export type AddKind = 'knob' | 'slider' | 'slider-horizontal' | 'xy' | 'switch' | 'selector' | 'led' | 'display' | 'bar'
 
 export interface AddDraft {
   readonly kind: AddKind
@@ -42,7 +42,7 @@ export const AddControl = ({ patch, modules, onAdd }: { patch: Patch; modules: M
   const x = choices.find((choice) => choice.id === first)
   const y = choices.find((choice) => choice.id === second)
   // A pad with one parameter chosen would be half wired: ask for both or neither.
-  const blank = kind === 'switch' || kind === 'selector'
+  const blank = kind !== 'knob' && kind !== 'slider' && kind !== 'slider-horizontal' && kind !== 'xy'
   const ready = blank || (kind === 'xy' ? (x === undefined) === (y === undefined) && (x === undefined || x.id !== y?.id) : true)
 
   return (
@@ -64,6 +64,9 @@ export const AddControl = ({ patch, modules, onAdd }: { patch: Patch; modules: M
         <option value="xy">XY pad</option>
         <option value="switch">Switch</option>
         <option value="selector">Selector</option>
+        <option value="led">LED</option>
+        <option value="display">Number display</option>
+        <option value="bar">Bar meter</option>
       </select>
       {!blank && (
         <select aria-label="Parameter" value={first} onChange={(event) => setFirst(event.target.value)}>

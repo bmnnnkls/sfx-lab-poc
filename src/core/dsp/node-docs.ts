@@ -133,6 +133,41 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     },
   },
 
+  // ---- Indicators
+  led: {
+    category: 'Indicators',
+    description: 'A light that shows a value: on or off at a threshold, or dim to bright. Wire a gate, a trigger or a level to it.',
+    keywords: ['lamp', 'light', 'indicator', 'gate', 'trigger', 'status', 'display', 'monitor'],
+    inputs: { in: 'The value to show.' },
+    params: {
+      mode: 'On/off lights up above the threshold; brightness follows the value between the two ends.',
+      threshold: 'In on/off mode, the value at which the light turns on.',
+      low: 'In brightness mode, the value at which the light is dark.',
+      high: 'In brightness mode, the value at which the light is brightest.',
+      colour: 'The colour of the light.',
+    },
+  },
+  display: {
+    category: 'Indicators',
+    description: 'Shows a value as a number, or as a note name for a MIDI note: see what a wire carries while the sound plays.',
+    keywords: ['number', 'readout', 'meter', 'value', 'text', 'monitor', 'indicator', 'probe', 'note name'],
+    inputs: { in: 'The value to show.' },
+    params: {
+      decimals: 'How many digits to show after the point.',
+      style: 'Show the value as a number, or round it to a MIDI note and show its name (60 is C4).',
+    },
+  },
+  bar: {
+    category: 'Indicators',
+    description: 'A bar that fills as a value rises: a level meter for any control, gate or signal.',
+    keywords: ['meter', 'level', 'progress', 'fill', 'indicator', 'monitor', 'vu'],
+    inputs: { in: 'The value to show.' },
+    params: {
+      min: 'The value at which the bar is empty.',
+      max: 'The value at which the bar is full.',
+    },
+  },
+
   // ---- Modulation
   perlin: {
     category: 'Modulation',

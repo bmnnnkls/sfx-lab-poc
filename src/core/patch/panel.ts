@@ -11,7 +11,7 @@ import type { ControlSize, Patch, PatchNode } from './types'
  * pure edits and the one derivation (`panelItems`); every edit returns the same patch when nothing changes.
  */
 
-export type PanelKind = 'knob' | 'slider' | 'xy' | 'switch' | 'selector'
+export type PanelKind = 'knob' | 'slider' | 'xy' | 'switch' | 'selector' | 'led' | 'display' | 'bar'
 
 /** A control as the board draws it. */
 export interface PanelItem {
@@ -31,7 +31,7 @@ export interface PanelItem {
   readonly title?: string
 }
 
-const DEFAULT_SIZE: Record<PanelKind, ControlSize> = { knob: 'S', slider: 'S', switch: 'S', selector: 'S', xy: 'M' }
+const DEFAULT_SIZE: Record<PanelKind, ControlSize> = { knob: 'S', slider: 'S', switch: 'S', selector: 'S', led: 'S', display: 'S', bar: 'S', xy: 'M' }
 
 /** The size a control of this kind has until it is resized (an XY pad needs room). */
 export const defaultPanelSize = (kind: PanelKind): ControlSize => DEFAULT_SIZE[kind]
@@ -49,6 +49,12 @@ const kindOf = (node: PatchNode, modules: ModuleLibrary): Pick<PanelItem, 'kind'
       return { kind: 'switch', horizontal: false }
     case 'selector':
       return { kind: 'selector', horizontal: false }
+    case 'led':
+      return { kind: 'led', horizontal: false }
+    case 'display':
+      return { kind: 'display', horizontal: false }
+    case 'bar':
+      return { kind: 'bar', horizontal: false }
     default:
       return undefined
   }

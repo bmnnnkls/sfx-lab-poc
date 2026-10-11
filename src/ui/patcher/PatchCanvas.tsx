@@ -28,6 +28,8 @@ interface PatchCanvasProps {
   showStages: boolean
   /** Draw every parameter socket, not only the wired ones. */
   showSockets: boolean
+  /** Where indicator cards get their live value (see `PanelView`). */
+  readoutTrack?: string
   onSelectionChange(selected: ReadonlySet<string>): void
   onMoveNode(nodeId: string, x: number, y: number): void
   onRemoveNode(nodeId: string): void
@@ -77,6 +79,7 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
   selected,
   showStages,
   showSockets,
+  readoutTrack,
   onSelectionChange,
   onMoveNode,
   onRemoveNode,
@@ -232,6 +235,7 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
             shape={shapes.get(node.id)!}
             title={titles.get(node.id) ?? node.type}
             picture={pictures.get(node.id)}
+            readoutTrack={readoutTrack}
             driven={drivenParams(node.id, shapes.get(node.id)!, patch, (id) => titles.get(id) ?? '')}
             inputMenu={(portId) => inputMenu(node.id, portId)}
             shared={isShared(node)}

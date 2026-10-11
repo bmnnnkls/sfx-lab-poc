@@ -20,7 +20,7 @@ export const nodeHeight = (definition: NodeShape, isModule = false, hasPicture =
   HEADER_HEIGHT +
   BODY_PADDING * 2 +
   portRowCount(definition) * PORT_ROW_HEIGHT +
-  (hasPicture ? PREVIEW_AREA_HEIGHT : 0) +
+  (hasPicture || definition.indicator === true ? PREVIEW_AREA_HEIGHT : 0) +
   (isModule ? MODULE_FOOTER_HEIGHT : 0)
 
 /** Canvas position of a port's connection dot. Layout is fixed, so no DOM measuring is needed. */

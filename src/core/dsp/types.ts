@@ -110,6 +110,8 @@ export interface DspNode {
   setSample?(sampleId: string | null): void
   /** Only for nodes with `usesTrack`: choose which track the node refers to. */
   setTrack?(trackId: string | null): void
+  /** Only for indicators (`NodeDefinition.indicator`): the latest value the node saw, which the engine reports to the screen. */
+  readout?(): number
   process(
     context: ProcessContext,
     inputs: ReadonlyArray<Float32Array | null>,
@@ -118,7 +120,7 @@ export interface DspNode {
 }
 
 /** How the node picker groups nodes. A module is placed under `Modules`, which the picker adds. */
-export const NODE_CATEGORIES = ['Sources', 'Controls', 'Modulation', 'Math', 'Logic', 'Analysis', 'Filters', 'Effects', 'Routing'] as const
+export const NODE_CATEGORIES = ['Sources', 'Controls', 'Indicators', 'Modulation', 'Math', 'Logic', 'Analysis', 'Filters', 'Effects', 'Routing'] as const
 export type NodeCategory = (typeof NODE_CATEGORIES)[number]
 
 /** Everything the app needs to know about a node type: its shape and how to build it. */
@@ -161,7 +163,9 @@ export interface NodeDefinition {
    * The node is itself a control that can sit on a panel: `value` (one knob or slider), `xy` (a pad), `switch` or `selector`.
    * Its parameters are settings (range, step), not knobs.
    */
-  readonly panelKind?: 'value' | 'xy' | 'switch' | 'selector'
+  readonly panelKind?: 'value' | 'xy' | 'switch' | 'selector' | 'led' | 'display' | 'bar'
+  /** The node only shows a value (an LED, a display, a bar): it has a `readout()` the engine reports, and no outputs. */
+  readonly indicator?: true
   /**
    * The node may also sit in a note graph (controls and math nodes): there it works out constants that drive the note nodes'
    * parameters, and has no sound of its own.

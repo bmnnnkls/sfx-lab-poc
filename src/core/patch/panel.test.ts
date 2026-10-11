@@ -108,10 +108,10 @@ describe('panel edits', () => {
 describe('making controls', () => {
   it('a blank control of each kind, with nothing wired', () => {
     let patch = empty
-    const kinds = ['knob', 'slider', 'slider-horizontal', 'xy', 'switch', 'selector'] as const
+    const kinds = ['knob', 'slider', 'slider-horizontal', 'xy', 'switch', 'selector', 'led', 'display', 'bar'] as const
     for (const kind of kinds) patch = createBlankControl(patch, kind, { x: 10, y: 20 }).patch
-    expect(patch.nodes.map((node) => node.type)).toEqual(['control', 'control', 'control', 'xyPad', 'switch', 'selector'])
-    expect(panelItems(patch, []).map((item) => `${item.kind}${item.horizontal ? '-h' : ''}`)).toEqual(['knob', 'slider', 'slider-h', 'xy', 'switch', 'selector'])
+    expect(patch.nodes.map((node) => node.type)).toEqual(['control', 'control', 'control', 'xyPad', 'switch', 'selector', 'led', 'display', 'bar'])
+    expect(panelItems(patch, []).map((item) => `${item.kind}${item.horizontal ? '-h' : ''}`)).toEqual(['knob', 'slider', 'slider-h', 'xy', 'switch', 'selector', 'led', 'display', 'bar'])
     expect(patch.connections).toEqual([])
   })
 

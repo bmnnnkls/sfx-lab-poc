@@ -395,7 +395,7 @@ slider (the same `track.volume`) and gains no other control; its header only str
 ## Front panel (the control nodes, arranged)
 
 Every graph editor (Instrument, Effects, Notes, the Master's effects, the inside of a module) has a **Graph | Panel** switch.
-*Panel* replaces the canvas with a board of the graph's **control nodes** as knobs, sliders, XY pads, switches and selectors. The switch is
+*Panel* replaces the canvas with a board of the graph's **control nodes** as knobs, sliders, XY pads, switches and selectors, and its **indicators** (LEDs, number displays, bar meters). The switch is
 remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`): a way of looking, not part of the project.
 
 * **The panel is the control nodes** (`core/patch/panel.ts`). There is no list of controls and no bindings: a knob on the board IS a
@@ -508,10 +508,21 @@ plain cards; the property editor, the panel built from control nodes and the nod
   input averaged down to about 12 kHz, a 1024-sample window looked at every 256, parabolic interpolation; outputs `frequency`, which holds the
   last pitch it was sure about and is 0 until the first, and `confidence`; about 50 ms of lag; a pitch above its range comes out as a
   subharmonic inside it).
+* **Indicators and the readout path** (`dsp/nodes/indicator.nodes.ts`, category *Indicators*). *LED* (on/off at a threshold, or dark-to-bright between two
+  values; four colours), *Number display* (decimals, or a MIDI note name; the unit is the node's own `unit`, kept by the sanitizer for
+  displays and bars) and *Bar meter* (fills between two values) are **sinks with no outputs** that remember the last sample they saw
+  (`DspNode.readout()`, `NodeDefinition.indicator`). The engine reports them in `EngineStatus.readouts[trackId][nodeId]` (the master bus
+  is `master`): `Instrument.readouts()` and `FxGraph.readouts()` collect them from the compiled stages (`stageReadouts`), `PlayableTrack.readouts()`
+  merges a track's patch and insert graph, and tracks with none are left out. Global and shared indicators report every block; one in a
+  voice reports only while a voice sounds (the latest sounding voice wins), so it is **absent, not stale**, when nothing plays: the face shows
+  a dash, a dark LED, an empty bar. Reading changes nothing (unlike `peaks`). The UI shows the same `IndicatorFace` (`ui/shared/indicators/`) on the
+  card (in the picture area; `nodeHeight` reserves it) and on the front panel (`PanelKind` led / display / bar, so they are arranged, sized
+  and hidden like controls); inside a module's own editor there is no track to read from, so the faces stay idle (a module used in a track reports as
+  `<use>/<inner>`, which is also the id of its stand-in on that track's panel). Values reach the UI at the status rate (about 30 a second).
 * **Names.** `PatchNode.name?` (trimmed, at most 60 characters, absent when blank; `setNodeName`, same patch when unchanged;
   read by the sanitizer). Nothing shows it yet. It is not sound: renaming sends no engine command.
 * **Words** (`dsp/node-docs.ts`, `notefx/node-docs.ts`, `dsp/document.ts`). Every node has a one-sentence `description`, a `category`
-  (*Sources, Controls, Modulation, Math, Logic, Analysis, Filters, Effects, Routing*; the note graph uses only Sources, Effects and Routing;
+  (*Sources, Controls, Modulation, Math, Logic, Analysis, Filters, Effects, Routing*, and Indicators after Controls; the note graph uses only Sources, Effects and Routing;
   modules are `Modules`) and optional `keywords` for search, and every port and
   parameter a `description`. They are written once in one table per registry and attached by the registry (`documented`), not
   scattered over the node files; **a test fails when a registered node, port or parameter has no entry, or an entry names

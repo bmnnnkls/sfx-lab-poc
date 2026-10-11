@@ -1,6 +1,7 @@
 import { type ControlSize, type ModuleLibrary, type PanelItem, describeNode } from '@core'
 import { type DragEvent, useState } from 'react'
 import { Fader, Knob, Selector, Toggle, XYPad } from '../controls'
+import { IndicatorFace } from '../shared/indicators/IndicatorFace'
 import styles from './panel.module.css'
 import { axisSpec, defaultPosition, keyStep, knobWidth, positionOf, readValue, spanOf, valueAt } from './panel-values'
 
@@ -31,6 +32,8 @@ interface ControlCellProps {
   /** What the control is called: its node's name, or its type numbered when alike. */
   title: string
   editing: boolean
+  /** Where an indicator gets its live value (see `PanelView`). */
+  readoutTrack?: string
   first: boolean
   last: boolean
   onSet(changes: readonly ParamChange[]): void
@@ -66,7 +69,7 @@ const RenameField = ({ name, placeholder, onCommit }: { name: string; placeholde
 }
 
 /** A control node on the board: the widget for its kind, writing the node's own value, with the edit tools around it in edit mode. */
-export const ControlCell = ({ item, modules, title, editing, first, last, onSet, actions }: ControlCellProps) => {
+export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions }: ControlCellProps) => {
   const [over, setOver] = useState(false)
   const { node } = item
   const shape = describeNode(node, modules)
@@ -123,6 +126,10 @@ export const ControlCell = ({ item, modules, title, editing, first, last, onSet,
             onChange={(on) => onSet([{ param: 'on', value: on ? 1 : 0 }])}
           />
         )
+      case 'led':
+      case 'display':
+      case 'bar':
+        return <IndicatorFace node={node} kind={item.kind} label={title} track={readoutTrack} />
       case 'selector': {
         const count = Math.max(2, Math.round(node.params.count ?? 4))
         return (

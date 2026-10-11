@@ -27,6 +27,8 @@ interface PanelViewProps {
   modules: ModuleLibrary
   /** Identifies the graph, so a drag in the panel merges with a drag of the same parameter in the property editor. */
   scope: string
+  /** The track whose engine reports the live values of indicators (`master` for the master bus); absent inside a module, where there are none. */
+  readoutTrack?: string
   /** Applies a change to the patch being shown (one undo step per merge key). */
   edit(change: (patch: Patch, modules: ModuleLibrary) => Patch, mergeKey?: string): void
 }
@@ -36,7 +38,7 @@ interface PanelViewProps {
  * the controls; *Edit* adds the tools to build and arrange it. A control here IS the node: turning it writes the node's
  * value, exactly as the property editor does (the same undo key), so there is nothing to keep in step.
  */
-export const PanelView = ({ patch, modules, scope, edit }: PanelViewProps) => {
+export const PanelView = ({ patch, modules, scope, readoutTrack, edit }: PanelViewProps) => {
   const [editing, setEditing] = useState(false)
   const items = useMemo(() => panelItems(patch, modules), [patch, modules])
   const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
@@ -56,7 +58,7 @@ export const PanelView = ({ patch, modules, scope, edit }: PanelViewProps) => {
   const add = (draft: AddDraft) =>
     edit((current, library) => {
       const at = spotBelow(current, panelItems(current, library).length)
-      if (draft.kind === 'switch' || draft.kind === 'selector') return createBlankControl(current, draft.kind, at).patch
+      if (draft.kind !== 'knob' && draft.kind !== 'slider' && draft.kind !== 'slider-horizontal' && draft.kind !== 'xy') return createBlankControl(current, draft.kind, at).patch
       if (draft.kind === 'xy') {
         if (draft.x && draft.y) return createXyFor(current, library, { node: draft.x.node, port: draft.x.port }, draft.y, { at })?.patch ?? current
         return createBlankControl(current, 'xy', at).patch
@@ -107,6 +109,7 @@ export const PanelView = ({ patch, modules, scope, edit }: PanelViewProps) => {
                 modules={modules}
                 title={item.title ?? titles.get(id) ?? item.node.type}
                 editing={editing}
+                readoutTrack={readoutTrack}
                 first={ownIndex === 0}
                 last={ownIndex === ownShown.length - 1}
                 onSet={(changes) => set(item, changes)}

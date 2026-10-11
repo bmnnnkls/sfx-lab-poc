@@ -119,6 +119,8 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const target: PatchTarget = definition ? { moduleId: definition.id } : track ? { trackId: track.id, graph } : { master: true }
   const patch = definition ? definition.patch : track ? graphOf(track, graph) : masterFx
   const scope = definition ? definition.id : `${track?.id ?? 'master'}:${graph}`
+  // Indicators show live values reported per track (the master bus is `master`); a module's inside has no track of its own.
+  const readoutTrack = definition ? undefined : (track?.id ?? 'master')
 
   const enter = (next: readonly string[]) => {
     setPath(next)
@@ -306,7 +308,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
       <div className={styles.editorBody} data-has-aside={Boolean(aside) || (Boolean(definition) && interfaceOpen && view === 'graph')}>
         {view === 'panel' ? (
           <div className={styles.panelHost}>
-            <PanelView patch={patch} modules={modules} scope={scope} edit={edit} />
+            <PanelView patch={patch} modules={modules} scope={scope} readoutTrack={readoutTrack} edit={edit} />
           </div>
         ) : (
           <PatchCanvas
@@ -316,6 +318,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             selected={selected}
             showStages={graph === 'patch'}
             showSockets={showSockets}
+            readoutTrack={readoutTrack}
             onSelectionChange={setSelected}
             onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
             onRemoveNode={(id) => edit((current) => removeNode(current, id))}
