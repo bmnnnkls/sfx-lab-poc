@@ -10,6 +10,13 @@ const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
+
+// The node picker (Add button -> type -> pick). `offers(label)` asks whether it lists a node, without adding anything.
+const addButton = () => page.getByRole('button', { name: 'Add', exact: true })
+const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
+const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
+const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
+const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const node = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator('[class*="nodeTitle"]', { hasText: new RegExp(`^${title}`) }) }).first()
@@ -23,7 +30,7 @@ const wire = async (fromTitle, toTitle, fromPort = 'out', toPort = 'in') => {
   await page.mouse.up()
 }
 const trackBtn = (name) => page.locator('[class*="_trackName_"]').filter({ hasText: new RegExp(`^${name}`) })
-const add = (name) => page.getByRole('button', { name, exact: true }).click()
+const add = addNode
 const effects = () => page.getByRole('button', { name: 'Effects', exact: true }).click()
 const knob = (track, target) => page.getByLabel(`${track} send to ${target}`)
 const LOOP = 'Demo Drum Loop 120 BPM'

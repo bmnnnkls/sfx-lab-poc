@@ -10,6 +10,13 @@ const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
+
+// The node picker (Add button -> type -> pick). `offers(label)` asks whether it lists a node, without adding anything.
+const addButton = () => page.getByRole('button', { name: 'Add', exact: true })
+const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
+const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
+const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
+const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const node = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator('[class*="nodeTitle"]', { hasText: new RegExp(`^${title}`) }) }).first()
@@ -23,7 +30,7 @@ const wire = async (fromTitle, toTitle, fromPort = 'out', toPort = 'in') => {
   await page.mouse.up()
 }
 const wireCount = () => surface.locator('[data-testid^="wire-"]').count()
-const add = (name) => page.getByRole('button', { name, exact: true }).click()
+const add = addNode
 const LOOP = 'Demo Drum Loop 120 BPM'
 
 await page.goto('http://localhost:4173/')
@@ -43,7 +50,7 @@ const master = page.getByRole('button', { name: 'Master', exact: true })
 check('the session view has a Master strip', (await master.count()) === 1)
 await master.click()
 check('selecting it opens the Effects tab on the master graph', (await page.getByText('Master effects', { exact: true }).count()) === 1 && (await node('Master in').count()) === 1 && (await node('Track out').count()) === 1 && (await wireCount()) === 1)
-check('its palette has Master in but not Track in, Return in or Send', (await page.getByRole('button', { name: 'Master in', exact: true }).count()) === 1 && (await page.getByRole('button', { name: 'Track in', exact: true }).count()) === 0 && (await page.getByRole('button', { name: 'Return in', exact: true }).count()) === 0 && (await page.getByRole('button', { name: 'Send', exact: true }).count()) === 0)
+check('its palette has Master in but not Track in, Return in or Send', (await offers('Master in')) === true && (await offers('Track in')) === false && (await offers('Return in')) === false && (await offers('Send')) === false)
 await page.getByRole('button', { name: 'Instrument', exact: true }).click()
 check('the Instrument tab says the master has no instrument', (await page.getByText(/master bus has no instrument/).count()) === 1)
 await page.getByRole('button', { name: 'Effects', exact: true }).click()

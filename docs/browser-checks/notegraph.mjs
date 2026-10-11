@@ -9,6 +9,13 @@ const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
+
+// The node picker (Add button -> type -> pick). `offers(label)` asks whether it lists a node, without adding anything.
+const addButton = () => page.getByRole('button', { name: 'Add', exact: true })
+const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
+const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
+const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
+const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const node = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator('[class*="nodeTitle"]', { hasText: new RegExp(`^${title}`) }) }).first()
@@ -36,7 +43,7 @@ const base = await counts()
 check('so the instrument hears the clip as written', base.input === base.output && base.input > 0, JSON.stringify(base))
 
 // ---- split: add a transpose on a second branch
-await page.getByRole('button', { name: 'Transpose', exact: true }).click()
+await addNode('Transpose')
 await wire('Clip notes', 'Transpose')
 await wire('Transpose', 'To instrument')
 check('wiring made a second branch (3 wires)', (await wireCount()) === 3, String(await wireCount()))
@@ -55,12 +62,12 @@ check('and enabling brings the octave back', (await counts()).output === base.ou
 
 // ---- ports of other kinds do not accept the wire
 await page.getByRole('button', { name: 'Instrument', exact: true }).click()
-check('the Instrument tab offers sound nodes, not note nodes', (await page.getByRole('button', { name: 'Oscillator', exact: true }).count()) === 1 && (await page.getByRole('button', { name: 'Range split', exact: true }).count()) === 0)
+check('the Instrument tab offers sound nodes, not note nodes', (await offers('Oscillator')) === true && (await offers('Range split')) === false)
 await page.getByRole('button', { name: 'Notes', exact: true }).click()
-check('the Notes tab offers note nodes, not sound nodes', (await page.getByRole('button', { name: 'Range split', exact: true }).count()) === 1 && (await page.getByRole('button', { name: 'Oscillator', exact: true }).count()) === 0)
+check('the Notes tab offers note nodes, not sound nodes', (await offers('Range split')) === true && (await offers('Oscillator')) === false)
 
 // ---- notes from another track
-await page.getByRole('button', { name: 'Track notes', exact: true }).click()
+await addNode('Track notes')
 const picker = surface.getByLabel('Take notes from track')
 const options = await picker.locator('option').allTextContents()
 check('the track picker offers the other instrument tracks, not this one', options.includes('Lead') && options.includes('Pad') && !options.includes('Bass'), JSON.stringify(options))
@@ -73,7 +80,7 @@ check('the track header shows the effect count (transpose + track notes)', (awai
 // ---- Lead cannot read from Bass (that would be a loop)
 await trackBtn('Lead').click()
 await page.getByRole('button', { name: 'Notes', exact: true }).click()
-await page.getByRole('button', { name: 'Track notes', exact: true }).click()
+await addNode('Track notes')
 const leadOptions = await surface.getByLabel('Take notes from track').locator('option').allTextContents()
 check('Lead is not offered Bass, which already takes notes from Lead', !leadOptions.includes('Bass') && leadOptions.includes('Pad'), JSON.stringify(leadOptions))
 
@@ -94,9 +101,9 @@ await header('Transpose').click()
 await page.getByRole('button', { name: /^Group into module \(1\)/ }).click()
 check('the transpose became a module', (await node('Module 1').count()) === 1 && (await node('Transpose').count()) === 0)
 check('the module keeps its note ports (the graph is still wired)', (await wireCount()) === 4, String(await wireCount()))
-check('the module is offered in the Notes tab', (await page.getByRole('button', { name: 'Module 1', exact: true }).count()) >= 1)
+check('the module is offered in the Notes tab', (await offers('Module 1')) === true)
 await page.getByRole('button', { name: 'Instrument', exact: true }).click()
-check('but not among the Instrument tab\'s sound nodes', (await page.getByRole('button', { name: 'Module 1', exact: true }).count()) === 0)
+check('but not among the Instrument tab\'s sound nodes', (await offers('Module 1')) === false)
 await page.getByRole('button', { name: 'Notes', exact: true }).click()
 await node('Module 1').getByRole('button', { name: 'Edit' }).click()
 check('editing it opens the note nodes inside', (await node('Transpose').count()) === 1)

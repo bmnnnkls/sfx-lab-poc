@@ -11,6 +11,13 @@ page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
 
+// The node picker (Add button -> type -> pick). `offers(label)` asks whether it lists a node, without adding anything.
+const addButton = () => page.getByRole('button', { name: 'Add', exact: true })
+const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
+const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
+const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
+const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
+
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const slider = (name) => page.getByRole('slider', { name, exact: true })
 const pad = (name) => page.getByRole('group', { name, exact: true })
@@ -154,7 +161,7 @@ check('undo brings the node and its controls back', (await slider('Cutoff').coun
 // ---- Effects tab and the master have their own panels
 await tab('Effects')
 check('the Effects tab remembers its own view (graph)', (await page.getByTestId('patch-surface').count()) === 1)
-await page.getByRole('button', { name: 'Reverb', exact: true }).click()
+await addNode('Reverb')
 await view('Panel')
 await page.getByRole('button', { name: 'Build from graph' }).first().click()
 check('an effect gets its own panel, separate from the instrument\'s', (await slider('Size').count()) === 1 && (await slider('Cutoff').count()) === 0)

@@ -26,34 +26,20 @@ import {
   setNodeTrack,
 } from '@core'
 import { useProjectStore } from '@state'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useRef, useState } from 'react'
 import { PanelView } from '../panel/PanelView'
 import { useStoredState } from '../shared/use-stored-state'
 import { ModuleBar } from './ModuleBar'
 import { ModuleInterface } from './ModuleInterface'
-import { NodePalette } from './NodePalette'
-import { PatchCanvas } from './PatchCanvas'
+import { type Catalog, buildCatalog } from './node-catalog'
+import { PatchCanvas, type PatchCanvasHandle } from './PatchCanvas'
+import { QuickAdd } from './QuickAdd'
+import { type Point } from './geometry'
+import { centredOn, freeSpot } from './placement'
 import styles from './Patcher.module.css'
 
 type PatchEdit = (patch: Patch, modules: ModuleLibrary) => Patch
 
-/**
- * New nodes go on a grid below the existing ones, in the first slot nothing is sitting on. An insert graph starts with
- * just its two ends in one row, so its grid starts right under them and a new node is in view; the others have a patch
- * several rows high to clear.
- */
-const SLOT = { x: 196, y: 150, columns: 6, originX: 40 }
-const GRID_TOP = { patch: 330, notes: 330, fx: 130 } as const
-
-const spawnPoint = (patch: Patch, graph: TrackGraph): { x: number; y: number } => {
-  const originY = GRID_TOP[graph]
-  for (let index = 0; index < 200; index++) {
-    const x = SLOT.originX + (index % SLOT.columns) * SLOT.x
-    const y = originY + Math.floor(index / SLOT.columns) * SLOT.y
-    if (!patch.nodes.some((node) => Math.abs(node.x - x) < SLOT.x - 20 && Math.abs(node.y - y) < SLOT.y - 20)) return { x, y }
-  }
-  return { x: SLOT.originX, y: originY }
-}
 const SUFFIX: Record<TrackGraph, string> = { patch: '', fx: ' effects', notes: ' notes' }
 
 const graphOf = (track: Track, graph: TrackGraph): Patch =>
@@ -114,6 +100,10 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const [path, setPath] = useState<readonly string[]>([])
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [interfaceOpen, setInterfaceOpen] = useState(true)
+  // The node picker: where it opens (window pixels) and where the node goes (canvas coordinates).
+  const [picker, setPicker] = useState<{ anchor: Point; at: Point; fromButton: boolean } | null>(null)
+  const canvas = useRef<PatchCanvasHandle>(null)
+  const addButton = useRef<HTMLButtonElement>(null)
   // Remembered per kind of graph (instrument, effects, notes), not per track: it is a way of looking, not part of the project.
   const [view, setView] = useStoredState<View>(`sfxlab.view.${graph}`, 'graph', isView)
   // Parameter sockets are drawn only when wired, unless this is on; also a way of looking, so not in the project.
@@ -152,6 +142,25 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
     })),
   )
   const palette = paletteFor(graph, track?.kind ?? 'master')
+  const catalog: Catalog | null = picker ? buildCatalog(palette, placeable) : null
+
+  const closePicker = () => {
+    if (picker?.fromButton) addButton.current?.focus()
+    setPicker(null)
+  }
+  /** Adds what the picker chose where it was asked for, and selects it. */
+  const addFromPicker = (entry: { kind: 'node' | 'module'; ref: string }) => {
+    if (!picker) return
+    const { x, y } = freeSpot(patch, modules, centredOn(picker.at))
+    if (entry.kind === 'module') {
+      store().addModuleUse(target, entry.ref, x, y)
+    } else {
+      const node = createNode(entry.ref, x, y)
+      edit((current) => addNode(current, node))
+      setSelected(new Set([node.id]))
+    }
+    setPicker(null)
+  }
 
   return (
     <div className={styles.patcher} data-editing={definition ? 'module' : 'track'} data-domain={domain} data-graph={graph}>
@@ -203,20 +212,22 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             </button>
           </div>
           {view === 'graph' && (
-            <NodePalette
-              definitions={palette}
-              modules={placeable}
-              onAdd={(type) =>
-                edit((current) => {
-                  const { x, y } = spawnPoint(current, graph)
-                  return addNode(current, createNode(type, x, y))
+            <button
+              ref={addButton}
+              aria-haspopup="listbox"
+              aria-expanded={picker !== null}
+              data-tooltip="Add a node. You can also double-click the canvas, or press Shift+A over it."
+              onClick={() => {
+                const rect = addButton.current?.getBoundingClientRect()
+                setPicker({
+                  anchor: { x: rect?.left ?? 40, y: (rect?.bottom ?? 40) + 4 },
+                  at: canvas.current?.visibleCenter() ?? { x: 300, y: 200 },
+                  fromButton: true,
                 })
-              }
-              onAddModule={(moduleId) => {
-                const { x, y } = spawnPoint(patch, graph)
-                store().addModuleUse(target, moduleId, x, y)
               }}
-            />
+            >
+              Add
+            </button>
           )}
           {view === 'graph' && graph !== 'notes' && (
             <label className={styles.socketsToggle} title="Show a socket for every parameter, so a wire can drive it (the wire replaces the parameter's value)">
@@ -245,6 +256,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
           </div>
         ) : (
           <PatchCanvas
+            ref={canvas}
             patch={patch}
             modules={modules}
             selected={selected}
@@ -265,11 +277,13 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             onDisconnect={(id) => edit((current) => disconnect(current, id))}
             onOpenModule={(moduleId) => enter([...known, moduleId])}
             onUnlinkModule={(nodeId) => store().unlinkModule(target, nodeId)}
+            onRequestAdd={({ anchor, at }) => setPicker({ anchor, at, fromButton: false })}
           />
         )}
         {aside && <div className={styles.aside}>{aside}</div>}
         {definition && interfaceOpen && view === 'graph' && <ModuleInterface definition={definition} />}
       </div>
+      {picker && catalog && <QuickAdd catalog={catalog} anchor={picker.anchor} onPick={addFromPicker} onClose={closePicker} />}
     </div>
   )
 }

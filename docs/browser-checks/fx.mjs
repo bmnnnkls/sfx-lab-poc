@@ -10,6 +10,13 @@ const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
+
+// The node picker (Add button -> type -> pick). `offers(label)` asks whether it lists a node, without adding anything.
+const addButton = () => page.getByRole('button', { name: 'Add', exact: true })
+const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
+const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
+const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
+const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const node = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator('[class*="nodeTitle"]', { hasText: new RegExp(`^${title}`) }) }).first()
@@ -43,9 +50,9 @@ await trackBtn('Audio').click()
 // ---- the Effects tab
 await page.getByRole('button', { name: 'Effects', exact: true }).click()
 check('the Effects tab shows Track in wired to Track out for an audio track', (await node('Track in').count()) === 1 && (await node('Track out').count()) === 1 && (await wireCount()) === 1)
-check('its palette offers effects and the ends, but no note or sampler nodes', (await page.getByRole('button', { name: 'Reverb', exact: true }).count()) === 1 && (await page.getByRole('button', { name: 'Track in', exact: true }).count()) === 1 && (await page.getByRole('button', { name: 'Note', exact: true }).count()) === 0 && (await page.getByRole('button', { name: 'Sampler', exact: true }).count()) === 0)
+check('its palette offers effects and the ends, but no note or sampler nodes', (await offers('Reverb')) === true && (await offers('Track in')) === true && (await offers('Note')) === false && (await offers('Sampler')) === false)
 await page.getByRole('button', { name: 'Instrument', exact: true }).click()
-check('the Instrument tab no longer offers Track in / Track out', (await page.getByRole('button', { name: 'Track in', exact: true }).count()) === 0)
+check('the Instrument tab of an audio track has no node picker, so it cannot offer Track in / Track out', (await addButton().count()) === 0)
 await page.getByRole('button', { name: 'Effects', exact: true }).click()
 
 // ---- the untouched graph changes nothing
@@ -55,7 +62,7 @@ const dry = await level(2000)
 check('the loop is audible through the default graph', dry > 0.1, `peak=${dry.toFixed(3)}`)
 
 // ---- a gain of zero between the ends silences the track (the direct wire is cut first)
-await page.getByRole('button', { name: 'Gain', exact: true }).click()
+await addNode('Gain')
 await surface.locator('[data-testid^="wire-"]').first().click({ force: true })
 check('clicking the direct wire removes it', (await wireCount()) === 0)
 await wire('Track in', 'Gain')
@@ -72,7 +79,7 @@ await page.screenshot({ path: `${dir}/fx-gain.png` })
 
 // ---- a reverb replaces the gain: the tail rings on after the clip is stopped, and a knob turn does not cut it
 await page.getByRole('button', { name: 'Remove Gain' }).click()
-await page.getByRole('button', { name: 'Reverb', exact: true }).click()
+await addNode('Reverb')
 await wire('Track in', 'Reverb')
 await wire('Reverb', 'Track out')
 const knob = (n) => node('Reverb').locator('input[type=range]').nth(n)

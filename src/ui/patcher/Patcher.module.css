@@ -18,18 +18,6 @@
   border-bottom: 1px solid var(--border);
 }
 
-.palette {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.paletteLabel {
-  color: var(--text-dim);
-  margin-right: 4px;
-}
-
 .empty {
   padding: 16px;
   color: var(--text-dim);
@@ -42,6 +30,9 @@
 
 .surface {
   position: relative;
+  /* Fills the whole canvas, so a double-click or a marquee works on any empty part of it, not only near the nodes. */
+  min-width: 100%;
+  min-height: 100%;
   background-image: radial-gradient(var(--border) 1px, transparent 1px);
   background-size: 20px 20px;
 }

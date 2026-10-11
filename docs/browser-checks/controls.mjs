@@ -11,13 +11,20 @@ page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
 
+// The node picker (Add button -> type -> pick). `offers(label)` asks whether it lists a node, without adding anything.
+const addButton = () => page.getByRole('button', { name: 'Add', exact: true })
+const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
+const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
+const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
+const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
+
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const tab = (name) => page.getByRole('button', { name, exact: true }).first().click()
 const track = (name) => page.locator('[class*="_trackName_"]', { hasText: name }).first().click()
 const node = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator('[class*="nodeTitle"]', { hasText: new RegExp(`^${title}`) }) }).first()
 const idOf = async (title) => (await node(title).getAttribute('data-testid')).replace(/^node-/, '')
-const add = (name) => page.getByRole('button', { name, exact: true }).click()
+const add = addNode
 const range = (title, n = 0) => node(title).locator('input[type=range]').nth(n)
 const sockets = () => page.getByRole('checkbox', { name: 'Sockets' })
 const wire = async (fromTitle, toTitle, fromPort, toPort) => {
@@ -34,14 +41,14 @@ await page.goto('http://localhost:4173/')
 await page.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('sfxlab'); q.onsuccess = q.onerror = q.onblocked = () => r() }) })
 await page.reload()
 await track('Bass')
-// A new node lands below the patch, so give the editor room: the splitter, from the keyboard.
+// Wiring to a socket needs both ends on screen, and the demo's cards are tall: give the editor room (the splitter, from the keyboard).
 await page.getByRole('separator', { name: 'Resize editor' }).focus()
 for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowUp')
 const wiresBefore = await wireCount()
 
 // ---- the new nodes are offered; a card with no sockets of its own shows only what it has
 for (const name of ['Control', 'XY pad', 'Switch', 'Add', 'Multiply', 'Invert', 'Min', 'Max', 'Clamp', 'Map range', 'Quantize', 'Smooth', 'Mix', 'Compare', 'MIDI to Hz', 'Hz to MIDI']) {
-  check(`the palette offers ${name}`, (await page.getByRole('button', { name, exact: true }).count()) === 1)
+  check(`the picker offers ${name}`, await offers(name))
 }
 await add('Control')
 check('a Control card appears with a Value slider', (await node('Control').count()) === 1 && (await range('Control', 0).count()) === 1)

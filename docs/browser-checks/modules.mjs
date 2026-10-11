@@ -9,6 +9,13 @@ const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
+
+// The node picker (Add button -> type -> pick). `offers(label)` asks whether it lists a node, without adding anything.
+const addButton = () => page.getByRole('button', { name: 'Add', exact: true })
+const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
+const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
+const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
+const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const surface = page.getByTestId('patch-surface')
 const nodeByTitle = (title) => surface.locator('[data-testid^="node-"]').filter({ has: page.locator(`[class*="nodeTitle"]`, { hasText: new RegExp(`^${title}`) }) })
@@ -28,7 +35,7 @@ await header('Filter').click({ modifiers: ['Shift'] })
 check('two nodes selected', (await surface.locator('[data-selected="true"]').count()) === 2)
 await page.getByRole('button', { name: /Group into module \(2\)/ }).click()
 check('a module node replaces them', (await nodeByTitle('Module 1').count()) === 1 && (await nodeByTitle('Oscillator').count()) === 0)
-check('the palette now offers the module', (await page.getByRole('button', { name: 'Module 1', exact: true }).count()) >= 1)
+check('the palette now offers the module', (await offers('Module 1')) === true)
 check('the wiring around it survived (wires drawn)', (await surface.locator('[data-testid^="wire-"]').count()) >= 5, String(await surface.locator('[data-testid^="wire-"]').count()))
 await page.screenshot({ path: `${dir}/19-grouped.png` })
 
@@ -63,7 +70,7 @@ await page.getByRole('button', { name: /^Stop/ }).first().click().catch(() => {}
 
 // ---- second use on another track shares the definition
 await trackBtn('Lead').click()
-await page.getByRole('button', { name: 'Wobble core', exact: true }).click()
+await addNode('Wobble core')
 check('Lead now has a use of the same module', (await nodeByTitle('Wobble core').count()) === 1)
 await nodeByTitle('Wobble core').getByRole('button', { name: 'Edit' }).click()
 check('usage says used twice, in Bass and Lead', /Used 2× \(Bass, Lead\)/.test(await page.getByTestId('module-usage').innerText()), await page.getByTestId('module-usage').innerText())

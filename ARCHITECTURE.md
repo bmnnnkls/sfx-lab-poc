@@ -151,7 +151,7 @@ copy (**Unlink**). Modules nest.
 * **UI** (`ui/patcher`). Shift-click a node header or drag a box on empty canvas to select; **Group into module**
   replaces the selection. A module node shows *Edit* and *Unlink*. *Edit* opens the module's inside in the same
   patcher (breadcrumb to go back out, nesting works), with a name field, where it is used, and **Ports & knobs**:
-  tick any inner port or parameter to show it on the module, and name it. The palette lists the project's modules.
+  tick any inner port or parameter to show it on the module, and name it. The node picker lists the project's modules under *Modules*.
   Changes go through the same undo history; slider drags merge into one step.
 * **Limits.** Selected nodes are not dragged together. There is no module library outside the project yet, so
   sharing between projects means copying the file (see `docs/TASKS.md`). Cycle detection on the outer patch treats a
@@ -208,8 +208,8 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
   loops and returns the second, so the Notes tab's piano roll cannot disagree with what plays. It shows this track's own
   clip through its graph; notes taken from other tracks are not part of it (the tab says so).
 * **UI.** Nodes have a bypass switch, *Track notes* has a track picker, note wires are drawn in the accent colour, and a
-  track with processing nodes gets an **fx N** badge that opens the Notes tab. New nodes are placed in the first free
-  slot on a grid below the existing ones.
+  track with processing nodes gets an **fx N** badge that opens the Notes tab. New nodes go where the picker was
+  opened (see "Adding nodes" under Control nodes).
 * **Limits.** Auditioning a note in the piano roll skips the graph. Nodes cannot yet be moved together. An event that falls
   exactly on a 128-sample block edge can land one sample early or late depending on where blocks start (float rounding in
   the transport clock); in the worklet blocks are always aligned, so only odd render sizes in tests show it. Files from the
@@ -225,7 +225,7 @@ work in it unchanged (a module whose ports are `signal` goes anywhere sound goes
 
 * **Nodes.** `trackIn` (a source that copies the track's own signal, read from `ProcessContext.input`) and `trackOut`
   (a sink). `NodeDefinition.sink` marks every node whose input is audible (`output`, `trackOut`), and
-  `NodeDefinition.insertOnly` keeps the two ends out of the Instrument tab's palette. The Effects palette leaves out
+  `NodeDefinition.insertOnly` keeps the two ends out of the Instrument tab's picker. The Effects picker leaves out
   `note`, `output` and `sampler`, which need a note. A stray one in the wrong graph is harmless: it is silent.
 * **Runtime** (`FxGraph`, `core/instrument`). Compiles the whole patch with `compileStage` (one copy of every node, no
   voices) and `process(input, frames)` returns what reaches the sinks. It runs every block, also when the track is idle,
@@ -260,7 +260,7 @@ sit on any track. It reuses the typed-port machinery the note graph introduced.
   on one channel of the node's stereo ports, so `describeNode` reports those ports as `stereo`. A port marked `control`
   (`cv`, filter `cutoff`) stays one mono signal that both channels follow, so one LFO moves both. The node header shows an
   **M / L R** switch; `setNodeStereo` flips it and removes the wires that no longer fit.
-* **New nodes** (all `insertOnly`, so the instrument palette leaves them out): *Pan* (mono to stereo, constant-power law,
+* **New nodes** (all `insertOnly`, so the instrument picker leaves them out): *Pan* (mono to stereo, constant-power law,
   -3 dB in each channel at the centre), *Width* (mid/side; 0 mono, 1 unchanged, 2 wider), *Stereo reverb* (Freeverb with the
   right tank's delays 23 samples longer, sharing `ReverbTank` with the mono reverb, so a mono source comes out with
   different channels yet a sum that is a clean reverb), *Ping-pong delay* and *Mono sum*.
@@ -334,7 +334,7 @@ sends to it; it just processes what the tracks and returns have summed.
   graph; `master/setFx` replaces it (restarting its tails), `master/setParam` and `master/setSample` are the knob and picker
   changes. `diffProject` sends `master/setFx` when a project is loaded, then only what changed, by the same function that
   diffs track graphs (`diffPatch('master', ...)`).
-* **Nodes.** `Master in` is the same stereo source as `Return in` (one implementation, two names). The master's palette
+* **Nodes.** `Master in` is the same stereo source as `Return in` (one implementation, two names). The master's picker
   has `Master in`, not `Track in`, `Return in` or `Send` (the returns are mixed before the master, so there is nothing to
   send to).
 * **Project.** The default graph comes with every new project, files without one load with it silently, and a stored one
@@ -501,8 +501,25 @@ plain cards; the property editor, the panel built from control nodes and the nod
   or how to wire a socket). It shows after the pointer rests 350 ms, at once on keyboard focus, hides on leaving, pressing,
   scrolling and Escape, links its target with `aria-describedby` while shown, ignores touch, and is placed by a pure function
   (`tooltip-position.ts`: under the target, above if there is no room, kept inside the window). A control's range shown is its
-  live one (`liveSpec`). Used on cards (node title, ports, sockets, parameter rows) and on the palette buttons.
+  live one (`liveSpec`). Used on cards (node title, ports, sockets, parameter rows) and on the Add button.
   Browser check: `docs/browser-checks/tooltips.mjs`.
+* **Adding nodes** (`ui/patcher/node-catalog.ts`, `quick-add-model.ts`, `QuickAdd.tsx`, `placement.ts`). The toolbar's row of one button per
+  node is gone. **Double-click** empty canvas, **Shift+A** with the pointer over it (not while typing in a field), or the toolbar's **Add**
+  button opens one popup: a text field, focused, and a list. Empty, the list is the **categories** with their counts (Enter or a click
+  drills in, Backspace on the empty field goes back up); typing, at any level, ranks **every** node: label equal, label prefix,
+  the start of a word of the label, label contains, the letters in order ("mdhz" finds MIDI to Hz), then category, keywords
+  and description; several words must all be found; ties go to the shorter label, then to the catalog order. Up / Down / Enter /
+  Escape, hover and click all work; a row shows the label, its category and the description. A press outside closes it. What it
+  offers is what the graph allows (`paletteFor` in `GraphEditor`: no note nodes in an insert graph, the ends of an insert graph
+  by kind of track, no *Send* in the master ...) plus the modules that may be placed here (`placeable`), under *Modules*; the
+  note graph has its own three categories. The new node is selected, and adding is one undo step. **Where it goes:** a
+  double-click or Shift+A puts it centred on the pointer, the Add button in the middle of what is on screen; `freeSpot` nudges
+  it down and right until it does not sit on another card, so a row of adds fans out. The logic is a pure model (`catalog` +
+  `step(state, action)`), tested without a DOM; the component forwards events (a `combobox` that owns a `listbox`, with
+  `aria-activedescendant`, rows carry `data-label`). A double-click is detected from two presses on empty canvas (450 ms, 8 px:
+  `PointerEvent.detail` is 0), and the second press puts back the selection the first one cleared and draws no box; the canvas
+  surface now fills the whole scroller, so empty parts far from the nodes count as canvas. Browser check:
+  `docs/browser-checks/quickadd.mjs`.
 * **Cards.** A card draws a parameter socket only when it is wired, or all of them while the **Sockets** toggle (a checkbox in the
   toolbar, remembered like the Graph | Panel switch) is on (`ui/patcher/visible-shape.ts`; `portPosition` indexes the visible
   shape). A slider whose parameter is driven is disabled.
@@ -533,8 +550,7 @@ not built yet; it would be one more node reading the same source.
   loop (the header disables it). `repairTrackReferences` applies the same test to files (a pointer to a missing track, to its
   own track or that closes a loop is dropped, one at a time, with a warning), and `repairSendLevels` to the knobs.
   `removeTrack` clears the inputs that took from the removed track, also inside modules.
-* **UI.** The node has a track picker (`NodeShape.usesTrack: 'audio'`) and a Take choice. New nodes in an insert graph now
-  appear right under its two ends instead of far below, so they are in view.
+* **UI.** The node has a track picker (`NodeShape.usesTrack: 'audio'`) and a Take choice.
 
 ## Editing clips (piano roll)
 
@@ -751,7 +767,7 @@ through a patch, as before) or an **audio track**.
 
 **Add a DSP node** — create `core/dsp/nodes/<name>.node.ts` exporting a `NodeDefinition`, add it to
 `core/dsp/registry.ts` (add its words to `node-docs.ts` or the completeness test fails; every numeric parameter then has a socket automatically; `paramSockets: false` opts out, `global: true` lets it run in the global stage; an elementwise math node is a few lines with `mathNode`). Set `shared: true` if it is an effect whose state must outlive individual notes (reverb,
-chorus, …). The patcher palette, parameter UI, engine and file loader pick it up automatically.
+chorus, …). The picker, parameter UI, engine and file loader pick it up automatically.
 
 **Add an engine capability** — add a variant to `EngineCommand`, handle it in `Engine.apply`, and (if it comes
 from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off UI action, expose it on

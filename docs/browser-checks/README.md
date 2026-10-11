@@ -36,6 +36,7 @@ sandbox's. Change them (or install `playwright`) elsewhere.
 | `trackaudio.mjs` | the Track audio node: another track's sound heard through a track turned all the way down, before/after Take, loop refusal (picker and send knob), removal and undo, persistence |
 | `panel.mjs` | the front panel: the Graph / Panel switch, Build from graph, knob drag / keys / wheel / double-click, the same value in the graph view, one undo step per drag, real audio (the Gain knob silences and restores the bass), an XY pad that moves two parameters and undoes together, edit mode (add, rename, resize, reorder, remove), deleting a node removes its controls, separate panels for Instrument and Effects, persistence |
 | `controls.mjs` | control nodes and parameter sockets: the new nodes in the palette, a Control card with its live-range slider, the Sockets toggle, a Control wired into Gain's socket silencing and restoring the real bass (the wire replaces the parameter's value), the driven slider disabled, unwiring, undo, persistence |
+| `quickadd.mjs` | the node picker: Add, double-click and Shift+A open it, categories with counts, drilling in and back, ranked search (prefix, letters in order, keywords), keys and mouse, the node lands where asked and is selected, a row of adds fans out, the double-click keeps the selection and draws no box, a single click and a drag still work, what each graph offers, undo, persistence |
 | `tooltips.mjs` | tooltips: palette buttons, parameter rows (range, unit, default, curve), enums, ports, node titles, sockets free and driven, a control's live range, Escape / press / pointer-leave hide, keyboard focus, `aria-describedby`, inside the window |
 | `notegraph.mjs` | the note graph: split, merge, bypass, notes from another track (real audio), loop refusal, note modules, persistence |
 
@@ -47,6 +48,7 @@ sandbox's. Change them (or install `playwright`) elsewhere.
 * State is reset with `localStorage.clear()` and `indexedDB.deleteDatabase('sfxlab')` before the first reload.
 * `level(ms)` returns the peak of the output meter (`[data-peak]`) over a window: use it to assert sound and silence.
   After stopping a track wait about 9 s (release tails) before asserting silence.
+* Nodes are added through the picker: every script that adds one has the same few lines, `addNode(label)` (Add, type the label, click the row `[role=option][data-label="<label>"]`) and `offers(label)` (does it list that node? closes it again), so only those change if the picker does.
 * Nodes are found by their title; wires are made by mouse from `[data-testid="out-<node>-<port>"]` to
   `[data-testid="in-<node>-<port>"]` (see `wire()` in `notegraph.mjs`).
 * Role-based locators with prefix-sharing names need `exact: true`.

@@ -1,7 +1,7 @@
 # Handoff: control nodes, a property editor and a panel built from them
 
 > **Status: in progress; the design is agreed** (replace semantics confirmed, math nodes and a searchable quick-add added).
-> **Steps 1 and 2 are built** (see "Build order" and `ARCHITECTURE.md`, "Control nodes, parameter sockets and the global stage"); steps 3 onward are not.
+> **Steps 1, 2 and 3 are built** (see "Build order" and `ARCHITECTURE.md`, "Control nodes, parameter sockets and the global stage"); steps 4 onward are not.
 > The build is paused for the user's check-in before **step 4**.
 > Written after the front panel (`HANDOFF-front-panel.md`, built and merged) was tried and the
 > user said what they actually want. Decisions marked **(confirm)** are the planner's proposals the user has not answered yet (the build
@@ -16,8 +16,8 @@ conditions": commands, layering test, browser checks) first. They apply unchange
 
 **State.** Branch `claude/determined-turing-ypq9ix` was restarted from `main` (`0929605`, PR #2 merged). **Step 1 of the build order is
 done** (the engine, the model, parameter sockets, the global stage, the control and math nodes, `PatchNode.name`) and **step 2** (words,
-categories, tooltips); the rest of the design is not. On `main` already: the controls widgets (`ui/controls`), the board (`ui/panel`), the Graph | Panel switch and
-`Patch.panel`, which step 5 replaces. 694 unit tests passed at `0929605`; 881 pass after step 2.
+categories, tooltips) and **step 3** (the node picker); the rest of the design is not. On `main` already: the controls widgets (`ui/controls`), the board (`ui/panel`), the Graph | Panel switch and
+`Patch.panel`, which step 5 replaces. 694 unit tests passed at `0929605`; 914 pass after step 3.
 
 **Setup and checks** (from the repo root; running vitest inside `src/` breaks the `@core` alias):
 
@@ -281,9 +281,15 @@ The toolbar's row of one button per node (`NodePalette`) does not survive 30+ no
    one `TooltipLayer`, not a wrapper component per use; the note nodes got the words too, but still no sockets; `curve` in the
    tooltip is "logarithmic" when the slider is log (`param-scale`), there is no separate curve field on a `ParamSpec`. Browser
    check: `docs/browser-checks/tooltips.mjs`.
-3. **Quick-add**: `node-catalog.ts` with tests, `QuickAdd.tsx`, double-click / Add / Shift+A, the old strip removed. Update the
+3. **Quick-add (done)**: `node-catalog.ts` with tests, `QuickAdd.tsx`, double-click / Add / Shift+A, the old strip removed. Update the
    browser checks that click a palette button (`fx`, `master`, `modules`, `notegraph`, `returns`, `sends`, `stereo`, `trackaudio`, `mod`,
-   `panel`) through one `addNode(type)` helper per script, and add `quickadd.mjs`.
+   `panel`) through one `addNode(type)` helper per script, and add `quickadd.mjs`. Differences from the plan: the popup's behaviour is
+   a pure model (`quick-add-model.ts`) besides the catalog; a new node goes where it was asked for and `freeSpot` fans out a row
+   of adds, so the old grid slots (`spawnPoint`) are gone; "the same popup opens for a node with nothing selected" was not built (it
+   was unclear what it meant; Shift+A needs the pointer over the canvas); the double-click is timed by hand because `PointerEvent.detail`
+   is 0, and the canvas surface now fills the scroller; the checks that make a wire to a socket (`controls`, `tooltips`) still
+   enlarge the editor first (the demo's cards are taller than the default editor), the others needed nothing; the tooltips check
+   moved from palette buttons to the Add button. "Wire-drop quick-add" is still step 8.
 4. **Property editor, compact cards, context menu.** The aside; sliders, pickers and switches leave the cards; "Create knob /
    slider" on sockets; the Sockets toggle; node names editable. Update the browser checks that drive node sliders.
 5. **The panel from control nodes**: `PatchNode.panel`, re-point `PanelView`, delete `Patch.panel` and its machinery, the legacy

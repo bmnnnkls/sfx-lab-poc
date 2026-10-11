@@ -11,6 +11,13 @@ page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const check = (label, ok, extra = '') => console.log(`${ok ? 'PASS' : 'FAIL'}  ${label} ${extra}`)
 
+// The node picker (Add button -> type -> pick). `offers(label)` asks whether it lists a node, without adding anything.
+const addButton = () => page.getByRole('button', { name: 'Add', exact: true })
+const pickerField = () => page.getByRole('combobox', { name: 'Add a node' })
+const optionFor = (label) => page.locator(`[role=option][data-label="${label}"]`)
+const addNode = async (label) => { await addButton().click(); await pickerField().fill(label); await optionFor(label).first().click() }
+const offers = async (label) => { await addButton().click(); await pickerField().fill(label); const found = (await optionFor(label).count()) > 0; await page.keyboard.press('Escape'); return found }
+
 const surface = page.getByTestId('patch-surface')
 const tip = () => page.getByRole('tooltip')
 const track = (name) => page.locator('[class*="_trackName_"]', { hasText: name }).first().click()
@@ -23,13 +30,14 @@ await page.goto('http://localhost:4173/')
 await page.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('sfxlab'); q.onsuccess = q.onerror = q.onblocked = () => r() }) })
 await page.reload()
 await track('Bass')
+// Wiring to a socket needs both ends on screen, and the demo's cards are tall: give the editor room (the splitter, from the keyboard).
 await page.getByRole('separator', { name: 'Resize editor' }).focus()
 for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowUp')
 
-// ---- the palette
+// ---- the Add button
 check('no tooltip until something is hovered', (await tip().count()) === 0)
-await hover(page.getByRole('button', { name: 'Filter', exact: true }))
-check('a palette button says what the node does', (await tip().count()) === 1 && /Cuts the highs/.test(await tip().innerText()), await tip().count() ? (await texts())[0] : '')
+await hover(addButton())
+check('the Add button says how to add a node', (await tip().count()) === 1 && /double-click the canvas/.test(await tip().innerText()), await tip().count() ? (await texts())[0] : '')
 await page.mouse.move(5, 5)
 await page.waitForTimeout(200)
 check('moving away hides it', (await tip().count()) === 0)
@@ -57,7 +65,7 @@ await hover(node('Gain').getByTestId(`in-${await idOf('Gain')}-param:gain`))
 lines = await texts()
 check('a socket describes its parameter, its range, and how to use it', /How loud/.test(lines[0] ?? '') && lines[1] === 'Range 0 to 2 · default 1' && /^Wire a control or a signal here/.test(lines[2] ?? ''), lines.join(' | '))
 
-await page.getByRole('button', { name: 'Control', exact: true }).click()
+await addNode('Control')
 const a = await page.getByTestId(`out-${await idOf('Control')}-out`).boundingBox()
 const b = await page.getByTestId(`in-${await idOf('Gain')}-param:gain`).boundingBox()
 await page.mouse.move(a.x + a.width - 4, a.y + a.height / 2)
@@ -75,18 +83,17 @@ check('a control shows its own range, not the wide bounds of its spec', (await t
 // ---- dismissing, keyboard, and what it links to
 await page.keyboard.press('Escape')
 check('Escape hides it', (await tip().count()) === 0)
-await hover(page.getByRole('button', { name: 'Gain', exact: true }))
-check('while it shows the target is linked to it', (await page.getByRole('button', { name: 'Gain', exact: true }).getAttribute('aria-describedby')) === 'app-tooltip')
-await page.getByRole('button', { name: 'Gain', exact: true }).hover()
+await hover(addButton())
+check('while it shows the target is linked to it', (await addButton().getAttribute('aria-describedby')) === 'app-tooltip')
 await page.mouse.down()
 check('pressing hides it', (await tip().count()) === 0)
 await page.mouse.up()
-await page.keyboard.press('Tab')
-await page.getByRole('button', { name: 'Reverb', exact: true }).focus()
+await page.keyboard.press('Escape')
+await page.mouse.move(5, 5)
+await page.getByRole('checkbox', { name: 'Sockets' }).focus()
 await page.keyboard.press('Shift+Tab')
-await page.keyboard.press('Tab')
 await page.waitForTimeout(100)
-check('keyboard focus shows it at once, without the wait', (await tip().count()) === 1 && /room/.test(await tip().innerText()), await tip().count() ? (await texts())[0] : '')
+check('keyboard focus shows it at once, without the wait', (await tip().count()) === 1 && /double-click the canvas/.test(await tip().innerText()), await tip().count() ? (await texts())[0] : '')
 await page.screenshot({ path: `${dir}/tooltips-focus.png` })
 
 check('no page errors', errors.length === 0, errors.join(' | '))

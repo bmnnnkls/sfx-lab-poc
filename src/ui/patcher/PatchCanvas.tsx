@@ -9,7 +9,7 @@ import {
   describeNode,
   flattenPatch,
 } from '@core'
-import { type PointerEvent, useMemo, useRef, useState } from 'react'
+import { type PointerEvent, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
 import { NodeView } from './NodeView'
 import { nodeTitles } from '../panel/panel-values'
@@ -39,7 +39,18 @@ interface PatchCanvasProps {
   onDisconnect(connectionId: string): void
   onOpenModule(moduleId: string): void
   onUnlinkModule(nodeId: string): void
+  /** The user asked for the node picker: double-click on empty canvas, or Shift+A over it. `at` is in canvas coordinates, `anchor` in window pixels. */
+  onRequestAdd(request: { anchor: Point; at: Point }): void
 }
+
+export interface PatchCanvasHandle {
+  /** The middle of what is on screen, in canvas coordinates: where the Add button puts a node. */
+  visibleCenter(): Point
+}
+
+/** Two presses on empty canvas this close in time and place are a double-click. */
+const DOUBLE_MS = 450
+const DOUBLE_PX = 8
 
 const PADDING = 120
 /** Smaller drags on empty canvas are clicks (which clear the selection) rather than selection boxes. */
@@ -59,7 +70,7 @@ const boxOf = ({ from, to }: Box) => ({
 })
 
 /** Scrollable node canvas: nodes as HTML, wires as SVG, wiring by dragging output -> input. */
-export const PatchCanvas = ({
+export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(function PatchCanvas({
   patch,
   modules,
   selected,
@@ -78,10 +89,36 @@ export const PatchCanvas = ({
   onDisconnect,
   onOpenModule,
   onUnlinkModule,
-}: PatchCanvasProps) => {
+  onRequestAdd,
+}, handle) {
   const surface = useRef<HTMLDivElement>(null)
+  const scroller = useRef<HTMLDivElement>(null)
+  /** The last empty-canvas press and the selection it was about to clear, to tell a double-click and to keep the selection through it. */
+  const lastPress = useRef<{ time: number; at: Point; selection: ReadonlySet<string> } | null>(null)
+  const pointer = useRef<{ client: Point; canvas: Point; over: boolean }>({ client: { x: 0, y: 0 }, canvas: { x: 0, y: 0 }, over: false })
   const [pending, setPending] = useState<{ from: PortRef; pointer: Point } | null>(null)
   const [box, setBox] = useState<Box | null>(null)
+
+  useImperativeHandle(handle, () => ({
+    visibleCenter: () => {
+      const view = scroller.current
+      return view ? { x: view.scrollLeft + view.clientWidth / 2, y: view.scrollTop + view.clientHeight / 2 } : { x: 300, y: 200 }
+    },
+  }))
+
+  // Shift+A over the canvas opens the picker at the pointer (not while typing in a field).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'a' || !event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return
+      const target = event.target
+      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
+      if (!pointer.current.over) return
+      event.preventDefault()
+      onRequestAdd({ anchor: pointer.current.client, at: pointer.current.canvas })
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  })
 
   // Which stage a node runs in is decided on the flattened patch; a module counts as shared when any of its insides is.
   const stages = useMemo(() => (showStages ? classifyStages(flattenPatch(patch, modules)) : new Map()), [patch, modules, showStages])
@@ -137,7 +174,12 @@ export const PatchCanvas = ({
   }
 
   return (
-    <div className={styles.scroller}>
+    <div
+      ref={scroller}
+      className={styles.scroller}
+      onPointerEnter={() => (pointer.current.over = true)}
+      onPointerLeave={() => (pointer.current.over = false)}
+    >
       <div
         ref={surface}
         className={styles.surface}
@@ -145,11 +187,22 @@ export const PatchCanvas = ({
         data-testid="patch-surface"
         onPointerDown={(event) => {
           if (event.target !== event.currentTarget || event.button !== 0) return
-          event.currentTarget.setPointerCapture(event.pointerId)
           const point = pointerIn(event)
+          const last = lastPress.current
+          if (last && event.timeStamp - last.time < DOUBLE_MS && Math.hypot(point.x - last.at.x, point.y - last.at.y) < DOUBLE_PX) {
+            // A double-click: the first press already cleared the selection, so put it back, draw no box, and ask for the picker.
+            lastPress.current = null
+            onSelectionChange(last.selection)
+            onRequestAdd({ anchor: { x: event.clientX, y: event.clientY }, at: point })
+            return
+          }
+          lastPress.current = { time: event.timeStamp, at: point, selection: selected }
+          event.currentTarget.setPointerCapture(event.pointerId)
           setBox({ from: point, to: point, additive: event.shiftKey || event.ctrlKey || event.metaKey })
         }}
         onPointerMove={(event) => {
+          pointer.current.client = { x: event.clientX, y: event.clientY }
+          pointer.current.canvas = pointerIn(event)
           if (box) setBox({ ...box, to: pointerIn(event) })
           else if (pending) setPending({ ...pending, pointer: pointerIn(event) })
         }}
@@ -201,4 +254,4 @@ export const PatchCanvas = ({
       </div>
     </div>
   )
-}
+})
