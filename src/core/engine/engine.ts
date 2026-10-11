@@ -91,6 +91,9 @@ export class Engine {
       case 'sample/stopPreview':
         this.preview.stop()
         break
+      case 'track/audition':
+        this.tracks.get(command.trackId)?.auditionNote(command.pitch, command.velocity)
+        break
       case 'track/stop':
         this.tracks.get(command.trackId)?.launcher.stop()
         break

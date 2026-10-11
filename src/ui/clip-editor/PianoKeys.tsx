@@ -1,9 +1,10 @@
 import { pitchName } from '@core'
+import { memo } from 'react'
 import { ROW_HEIGHT, isBlackKey, pitchRows } from './piano-roll-geometry'
 import styles from './PianoRoll.module.css'
 
 /** The keyboard strip on the left; stays put while the roll scrolls horizontally. */
-export const PianoKeys = () => (
+export const PianoKeys = memo(() => (
   <div className={styles.keys}>
     {pitchRows().map((pitch) => (
       <div
@@ -15,4 +16,4 @@ export const PianoKeys = () => (
       </div>
     ))}
   </div>
-)
+))

@@ -114,3 +114,53 @@ export const notesEqual = (a: readonly Note[], b: readonly Note[]): boolean =>
       note.velocity === other.velocity
     )
   })
+
+export const MIN_VELOCITY = 0.02
+
+/** Sets the velocity (0..1) of the notes in `ids`. */
+export const setVelocity = (
+  notes: readonly Note[],
+  ids: ReadonlySet<string>,
+  velocity: number,
+): Note[] =>
+  notes.map((note) =>
+    ids.has(note.id) ? { ...note, velocity: clamp(velocity, MIN_VELOCITY, 1) } : note,
+  )
+
+export interface NoteRegion {
+  readonly fromBeat: number
+  readonly toBeat: number
+  readonly lowPitch: number
+  readonly highPitch: number
+}
+
+/** Ids of notes that overlap a time and pitch region (for rubber-band selection). */
+export const notesInRegion = (notes: readonly Note[], region: NoteRegion): Set<string> =>
+  new Set(
+    notes
+      .filter(
+        (note) =>
+          note.start < region.toBeat &&
+          note.start + note.duration > region.fromBeat &&
+          note.pitch >= region.lowPitch &&
+          note.pitch <= region.highPitch,
+      )
+      .map((note) => note.id),
+  )
+
+/**
+ * Pastes `copied` so its earliest note lands at `atBeat`, keeping pitches and spacing. Copies get
+ * fresh ids; anything that would start past the clip end is dropped and overruns are trimmed.
+ */
+export const pasteNotes = (
+  notes: readonly Note[],
+  copied: readonly Note[],
+  atBeat: number,
+  lengthBeats: number,
+): { notes: Note[]; pastedIds: Set<string> } => {
+  if (copied.length === 0) return { notes: [...notes], pastedIds: new Set() }
+  const first = Math.min(...copied.map((note) => note.start))
+  const offset = Math.max(0, atBeat) - first
+  const pasted = trimNotesToLength(shiftedCopies(copied, offset), lengthBeats)
+  return { notes: [...notes, ...pasted], pastedIds: new Set(pasted.map((note) => note.id)) }
+}

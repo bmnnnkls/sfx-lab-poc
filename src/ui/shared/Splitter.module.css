@@ -1,0 +1,13 @@
+.splitter {
+  height: 6px;
+  cursor: row-resize;
+  background: var(--border);
+  touch-action: none;
+}
+
+.splitter:hover,
+.splitter:focus-visible,
+.splitter:active {
+  background: var(--accent);
+  outline: none;
+}

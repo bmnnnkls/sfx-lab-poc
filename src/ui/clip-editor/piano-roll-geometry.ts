@@ -3,6 +3,8 @@ import type { Note } from '@core'
 export const KEY_WIDTH = 48
 export const RULER_HEIGHT = 22
 export const ROW_HEIGHT = 16
+/** Height of the velocity lane docked under the roll. */
+export const LANE_HEIGHT = 72
 export const LOW_PITCH = 0
 export const HIGH_PITCH = 127
 export const BEATS_PER_BAR = 4
@@ -39,9 +41,18 @@ export const centerPitch = (notes: readonly Note[]): number => {
   return Math.round((Math.min(...pitches) + Math.max(...pitches)) / 2)
 }
 
-/** Scroll offset that vertically centres `pitch` in a viewport of `viewportHeight`. */
-export const scrollTopFor = (pitch: number, viewportHeight: number): number =>
-  Math.max(0, RULER_HEIGHT + rowOfPitch(pitch) * ROW_HEIGHT - viewportHeight / 2)
+/**
+ * Scroll offset that vertically centres `pitch` in the part of the viewport the notes are actually
+ * visible in: the ruler sticks to the top and the velocity lane (if shown) to the bottom.
+ */
+export const scrollTopFor = (
+  pitch: number,
+  viewportHeight: number,
+  laneHeight: number = LANE_HEIGHT,
+): number => {
+  const visible = viewportHeight - RULER_HEIGHT - laneHeight
+  return Math.max(0, rowOfPitch(pitch) * ROW_HEIGHT + ROW_HEIGHT / 2 - visible / 2)
+}
 
 export const clampZoom = (pixelsPerBeat: number): number =>
   Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pixelsPerBeat))

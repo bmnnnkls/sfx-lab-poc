@@ -1,4 +1,5 @@
-import type { Note } from '@core'
+import { type Note, pitchName } from '@core'
+import { memo } from 'react'
 import { ROW_HEIGHT, rowOfPitch } from './piano-roll-geometry'
 import styles from './PianoRoll.module.css'
 
@@ -15,7 +16,9 @@ const MAX_HANDLE = 6
  * All pointer handling lives on the surface (see `usePianoRollInteraction`), which finds
  * the note and part through these data attributes.
  */
-export const NoteView = ({ note, pixelsPerBeat, selected }: NoteViewProps) => {
+const MIN_LABEL_WIDTH = 30
+
+export const NoteView = memo(({ note, pixelsPerBeat, selected }: NoteViewProps) => {
   const width = Math.max(4, note.duration * pixelsPerBeat - 1)
   const handle = Math.min(MAX_HANDLE, width / 3)
 
@@ -32,8 +35,9 @@ export const NoteView = ({ note, pixelsPerBeat, selected }: NoteViewProps) => {
         opacity: 0.55 + 0.45 * note.velocity,
       }}
     >
+      {width >= MIN_LABEL_WIDTH && <span className={styles.noteLabel}>{pitchName(note.pitch)}</span>}
       <span className={styles.handle} data-part="start" style={{ left: 0, width: handle }} />
       <span className={styles.handle} data-part="end" style={{ right: 0, width: handle }} />
     </div>
   )
-}
+})

@@ -4,12 +4,16 @@ import type { Clip } from '../project'
 import type { SampleLookup } from '../sample'
 import { ClipLauncher, type NoteEvent } from '../session'
 
+/** How long an audition note sounds before it is released. */
+const AUDITION_SECONDS = 0.3
+
 /** Live, audio-thread counterpart of a project Track: voice + clip player + level. */
 export class TrackRuntime {
   readonly launcher = new ClipLauncher()
   volume: number
   clips: readonly (Clip | null)[]
   private instrument: Instrument
+  private audition: { pitch: number; framesLeft: number } | null = null
 
   constructor(
     private patch: Patch,
@@ -25,11 +29,13 @@ export class TrackRuntime {
   }
 
   setPatch(patch: Patch): void {
+    this.audition = null
     this.patch = patch
     this.instrument = new Instrument(patch, this.sampleRate, this.voices, this.samples)
   }
 
   setVoices(voices: number): void {
+    this.audition = null
     this.voices = voices
     this.instrument = new Instrument(this.patch, this.sampleRate, voices, this.samples)
   }
@@ -61,7 +67,20 @@ export class TrackRuntime {
   /** Returns to silence and an idle launcher (transport stopped). */
   reset(): void {
     this.launcher.reset()
+    this.audition = null
     this.instrument.allNotesOff()
+  }
+
+  /** Plays one short note through this track's instrument (hearing a note while editing it). */
+  auditionNote(pitch: number, velocity: number): void {
+    this.endAudition()
+    this.instrument.noteOn(pitch, velocity)
+    this.audition = { pitch, framesLeft: Math.round(AUDITION_SECONDS * this.sampleRate) }
+  }
+
+  private endAudition(): void {
+    if (this.audition) this.instrument.noteOff(this.audition.pitch)
+    this.audition = null
   }
 
   apply(event: NoteEvent): void {
@@ -85,6 +104,10 @@ export class TrackRuntime {
       const sample = (signal[i] ?? 0) * this.volume
       left[offset + i] = (left[offset + i] ?? 0) + sample
       right[offset + i] = (right[offset + i] ?? 0) + sample
+    }
+    if (this.audition) {
+      this.audition.framesLeft -= frames
+      if (this.audition.framesLeft <= 0) this.endAudition()
     }
   }
 }

@@ -29,15 +29,21 @@ export {
 } from './edit'
 export { createDemoProject } from './demo-project'
 export {
+  DEFAULT_VELOCITY,
   MAX_PITCH,
   MIN_PITCH,
+  MIN_VELOCITY,
   createNote,
   moveNotes,
   notesEqual,
+  notesInRegion,
+  pasteNotes,
   removeNotes,
   resizeNotesEnd,
   resizeNotesStart,
+  setVelocity,
   shiftedCopies,
   snapDown,
   trimNotesToLength,
 } from './note-edit'
+export type { NoteRegion } from './note-edit'

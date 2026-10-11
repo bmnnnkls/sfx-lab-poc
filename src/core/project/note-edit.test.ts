@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   createNote,
   moveNotes,
+  notesInRegion,
+  pasteNotes,
   removeNotes,
   resizeNotesEnd,
   resizeNotesStart,
+  setVelocity,
   shiftedCopies,
   snapDown,
   trimNotesToLength,
@@ -89,5 +92,57 @@ describe('clip trimming and copying', () => {
 
   it('removes by id', () => {
     expect(removeNotes(notes, ids(notes[1]!))).toHaveLength(2)
+  })
+})
+
+describe('velocity', () => {
+  const a = createNote(60, 0, 1, 0.5)
+  const b = createNote(62, 1, 1, 0.5)
+
+  it('sets the velocity of the chosen notes, clamped to a sensible range', () => {
+    const result = setVelocity([a, b], ids(a), 0.9)
+    expect(result[0]!.velocity).toBe(0.9)
+    expect(result[1]).toBe(b)
+    expect(setVelocity([a], ids(a), 5)[0]!.velocity).toBe(1)
+    expect(setVelocity([a], ids(a), -1)[0]!.velocity).toBeGreaterThan(0)
+  })
+})
+
+describe('notesInRegion', () => {
+  const low = createNote(48, 0, 1)
+  const mid = createNote(60, 2, 2)
+  const high = createNote(72, 5, 1)
+  const notes = [low, mid, high]
+
+  it('selects notes overlapping a time/pitch rectangle', () => {
+    expect([...notesInRegion(notes, { fromBeat: 1.5, toBeat: 2.5, lowPitch: 55, highPitch: 65 })]).toEqual([mid.id])
+    expect(notesInRegion(notes, { fromBeat: 0, toBeat: 10, lowPitch: 0, highPitch: 127 }).size).toBe(3)
+  })
+
+  it('counts a note that only touches the region by its tail, but not one that merely abuts it', () => {
+    expect(notesInRegion(notes, { fromBeat: 3, toBeat: 3.5, lowPitch: 60, highPitch: 60 }).has(mid.id)).toBe(true)
+    expect(notesInRegion(notes, { fromBeat: 4, toBeat: 5, lowPitch: 60, highPitch: 60 }).size).toBe(0)
+  })
+})
+
+describe('pasteNotes', () => {
+  const copied = [createNote(60, 1, 1), createNote(64, 2, 1)]
+
+  it('lands the earliest copied note at the target beat, keeping spacing and pitches', () => {
+    const { notes, pastedIds } = pasteNotes([], copied, 4, 16)
+    expect(notes.map((n) => [n.pitch, n.start])).toEqual([[60, 4], [64, 5]])
+    expect(pastedIds.size).toBe(2)
+    expect(copied.every((n) => !pastedIds.has(n.id))).toBe(true) // fresh ids
+  })
+
+  it('drops what would start past the end of the clip and trims overruns', () => {
+    const { notes } = pasteNotes([], [createNote(60, 0, 2), createNote(62, 3, 1)], 3, 4)
+    expect(notes.map((n) => [n.pitch, n.start, n.duration])).toEqual([[60, 3, 1]])
+  })
+
+  it('keeps existing notes and does nothing for an empty clipboard', () => {
+    const existing = createNote(40, 0, 1)
+    expect(pasteNotes([existing], [], 2, 8).notes).toEqual([existing])
+    expect(pasteNotes([existing], copied, 2, 8).notes[0]).toBe(existing)
   })
 })

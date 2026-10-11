@@ -1,5 +1,6 @@
 import {
   type Note,
+  type NoteRegion,
   createNote,
   moveNotes,
   resizeNotesEnd,
@@ -68,3 +69,11 @@ export const applyGesture = (gesture: Gesture, pointer: Pointer, grid: GridConte
       return resizeNotesStart(gesture.origin, gesture.ids, delta, step)
   }
 }
+
+/** The time/pitch box spanned by two pointer positions (for rubber-band selection). */
+export const marqueeRegion = (a: Pointer, b: Pointer): NoteRegion => ({
+  fromBeat: Math.min(a.beat, b.beat),
+  toBeat: Math.max(a.beat, b.beat),
+  lowPitch: Math.min(a.pitch, b.pitch),
+  highPitch: Math.max(a.pitch, b.pitch),
+})

@@ -2,9 +2,11 @@ import { createNote } from '@core'
 import { describe, expect, it } from 'vitest'
 import {
   HIGH_PITCH,
+  LANE_HEIGHT,
   MAX_ZOOM,
   MIN_ZOOM,
   ROW_HEIGHT,
+  RULER_HEIGHT,
   centerPitch,
   clampZoom,
   isBlackKey,
@@ -39,9 +41,19 @@ describe('piano roll geometry', () => {
     expect(centerPitch([createNote(36, 0, 1), createNote(48, 1, 1)])).toBe(42)
   })
 
-  it('scrolls so the centre pitch sits mid-viewport, never above the top', () => {
+  it('scrolls so the centre pitch sits mid-way in the visible band, never above the top', () => {
     expect(scrollTopFor(127, 400)).toBe(0)
     expect(scrollTopFor(60, 400)).toBeGreaterThan(0)
+
+    // The row's centre lands halfway between the ruler's bottom and the lane's top.
+    const viewport = 400
+    const scrollTop = scrollTopFor(60, viewport)
+    const rowCentre = RULER_HEIGHT + rowOfPitch(60) * ROW_HEIGHT + ROW_HEIGHT / 2
+    const bandMiddle = scrollTop + RULER_HEIGHT + (viewport - RULER_HEIGHT - LANE_HEIGHT) / 2
+    expect(rowCentre).toBeCloseTo(bandMiddle, 6)
+
+    // With the lane hidden there is more room, so less needs scrolling past.
+    expect(scrollTopFor(60, viewport, 0)).toBeLessThan(scrollTopFor(60, viewport))
   })
 
   it('clamps zoom to its limits', () => {

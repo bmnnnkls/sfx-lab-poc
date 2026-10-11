@@ -1,5 +1,5 @@
 import { MAX_CLIP_BEATS, MIN_CLIP_BEATS } from '@core'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import styles from './ClipEditor.module.css'
 
 interface LengthFieldProps {
@@ -13,7 +13,12 @@ interface LengthFieldProps {
  */
 export const LengthField = ({ lengthBeats, onCommit }: LengthFieldProps) => {
   const [text, setText] = useState(String(lengthBeats))
-  useEffect(() => setText(String(lengthBeats)), [lengthBeats])
+  const [shownLength, setShownLength] = useState(lengthBeats)
+  // When the clip's length changes from outside (undo, Double), show it in the same render rather than a frame later.
+  if (shownLength !== lengthBeats) {
+    setShownLength(lengthBeats)
+    setText(String(lengthBeats))
+  }
 
   const commit = () => {
     const value = Number(text)

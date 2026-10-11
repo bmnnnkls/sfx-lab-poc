@@ -1,6 +1,6 @@
 import { type Note, createNote, notesEqual } from '@core'
 import { describe, expect, it } from 'vitest'
-import { type GridContext, type Pointer, applyGesture, beginDraw } from './note-gestures'
+import { type GridContext, type Pointer, applyGesture, beginDraw, marqueeRegion } from './note-gestures'
 
 const grid: GridContext = { step: 0.5, lengthBeats: 8 }
 const at = (beat: number, pitch = 60): Pointer => ({ beat, pitch })
@@ -84,5 +84,13 @@ describe('resizing', () => {
     const tiny = createNote(60, 2, 0.125)
     const gesture = { kind: 'resize-end', origin: [tiny], ids: new Set([tiny.id]), anchor: at(2.1) } as const
     expect(applyGesture(gesture, at(2.1), grid)[0]!.duration).toBe(0.125)
+  })
+})
+
+describe('marquee', () => {
+  it('spans the box between two pointers whichever way it was dragged', () => {
+    const region = { fromBeat: 1, toBeat: 3, lowPitch: 55, highPitch: 62 }
+    expect(marqueeRegion(at(1, 55), at(3, 62))).toEqual(region)
+    expect(marqueeRegion(at(3, 62), at(1, 55))).toEqual(region)
   })
 })

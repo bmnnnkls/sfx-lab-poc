@@ -1,23 +1,24 @@
 import type { Note } from '@core'
-import { useStatusStore } from '@state'
 import { useEffect, useRef, useState } from 'react'
 import { NoteView } from './NoteView'
 import { PianoKeys } from './PianoKeys'
 import {
-  KEY_WIDTH,
-  RULER_HEIGHT,
-  ROW_HEIGHT,
   HIGH_PITCH,
+  KEY_WIDTH,
+  LANE_HEIGHT,
   LOW_PITCH,
+  ROW_HEIGHT,
+  RULER_HEIGHT,
   centerPitch,
   clampZoom,
-  isBlackKey,
-  pitchRows,
   scrollTopFor,
 } from './piano-roll-geometry'
 import styles from './PianoRoll.module.css'
+import { Playhead } from './Playhead'
+import { RowBackground } from './RowBackground'
 import { Ruler } from './Ruler'
 import { usePianoRollInteraction } from './use-piano-roll-interaction'
+import { VelocityLane } from './VelocityLane'
 
 interface PianoRollProps {
   trackId: string
@@ -27,16 +28,23 @@ interface PianoRollProps {
   /** Grid snap in beats. */
   step: number
   pixelsPerBeat: number
+  /** Scroll along with the playhead. */
+  follow: boolean
+  /** Show the velocity lane under the roll. */
+  showVelocity: boolean
   onZoom(pixelsPerBeat: number): void
   onChange(notes: readonly Note[]): void
+  /** Hear a note while editing it; omit to stay silent. */
+  onAudition?(pitch: number, velocity: number): void
 }
 
 const ROWS = HIGH_PITCH - LOW_PITCH + 1
 
 /**
- * Note editor. Click-drag on empty space draws a note as long as the drag; drag a note to move it,
- * its ends to resize it. Shift-click multi-selects; Delete, arrow keys, Ctrl+A and Ctrl+D work on
- * the selection; double-click or right-click a note to delete it; Ctrl+wheel zooms.
+ * Note editor. Click-drag on empty space draws a note as long as the drag; Ctrl/Cmd-drag selects a
+ * box of notes; drag a note to move it, its ends to resize it. Shift-click multi-selects; Delete,
+ * arrows, Ctrl+A/C/X/V/D work on the selection; double-click or right-click deletes a note; Ctrl+wheel
+ * zooms. The lane underneath sets velocities.
  */
 export const PianoRoll = ({
   trackId,
@@ -45,12 +53,15 @@ export const PianoRoll = ({
   notes,
   step,
   pixelsPerBeat,
+  follow,
+  showVelocity,
   onZoom,
   onChange,
+  onAudition,
 }: PianoRollProps) => {
   const scroller = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
-  const { surface, visibleNotes, handlers } = usePianoRollInteraction({
+  const { surface, visibleNotes, marquee, handlers } = usePianoRollInteraction({
     notes,
     lengthBeats,
     step,
@@ -58,21 +69,21 @@ export const PianoRoll = ({
     selected,
     onSelect: setSelected,
     onCommit: onChange,
-  })
-
-  const playheadBeat = useStatusStore((state) => {
-    const launcher = state.status?.tracks[trackId]
-    if (!state.status || launcher?.playingClipId !== clipId || launcher.startBeat === null) return null
-    return (state.status.beat - launcher.startBeat) % lengthBeats
+    onAudition,
   })
 
   // Open each clip scrolled to where its notes are, not the top of the keyboard.
   const initialNotes = useRef(notes)
   initialNotes.current = notes
+  const laneHeight = showVelocity ? LANE_HEIGHT : 0
+  const laneHeightRef = useRef(laneHeight)
+  laneHeightRef.current = laneHeight
   useEffect(() => {
     setSelected(new Set())
     const element = scroller.current
-    if (element) element.scrollTop = scrollTopFor(centerPitch(initialNotes.current), element.clientHeight)
+    if (element) {
+      element.scrollTop = scrollTopFor(centerPitch(initialNotes.current), element.clientHeight, laneHeightRef.current)
+    }
   }, [clipId])
 
   // Ctrl/Cmd + wheel zooms. Needs a non-passive listener to stop the browser zooming the page instead.
@@ -100,7 +111,13 @@ export const PianoRoll = ({
 
   return (
     <div ref={scroller} className={styles.scroller}>
-      <div className={styles.layout} style={{ gridTemplateColumns: `${KEY_WIDTH}px ${width}px`, gridTemplateRows: `${RULER_HEIGHT}px ${ROWS * ROW_HEIGHT}px` }}>
+      <div
+        className={styles.layout}
+        style={{
+          gridTemplateColumns: `${KEY_WIDTH}px ${width}px`,
+          gridTemplateRows: `${RULER_HEIGHT}px ${ROWS * ROW_HEIGHT}px ${laneHeight}px`,
+        }}
+      >
         <div className={styles.corner} />
         <Ruler lengthBeats={lengthBeats} pixelsPerBeat={pixelsPerBeat} />
         <PianoKeys />
@@ -113,25 +130,49 @@ export const PianoRoll = ({
           data-testid="note-surface"
           {...handlers}
         >
-          <div className={styles.rows}>
-            {pitchRows().map((pitch) => (
-              <div
-                key={pitch}
-                className={`${styles.row} ${isBlackKey(pitch) ? styles.blackRow : ''} ${pitch % 12 === 0 ? styles.cRow : ''}`}
-                style={{ height: ROW_HEIGHT }}
-              />
-            ))}
-          </div>
+          <RowBackground />
           <div className={styles.gridLines} style={gridLines} />
 
           {visibleNotes.map((note) => (
             <NoteView key={note.id} note={note} pixelsPerBeat={pixelsPerBeat} selected={selected.has(note.id)} />
           ))}
 
-          {playheadBeat !== null && (
-            <div className={styles.playhead} style={{ left: playheadBeat * pixelsPerBeat }} />
+          {marquee && (
+            <div
+              className={styles.marquee}
+              data-testid="marquee"
+              style={{
+                left: Math.min(marquee.x0, marquee.x1),
+                top: Math.min(marquee.y0, marquee.y1),
+                width: Math.abs(marquee.x1 - marquee.x0),
+                height: Math.abs(marquee.y1 - marquee.y0),
+              }}
+            />
           )}
+
+          <Playhead
+            trackId={trackId}
+            clipId={clipId}
+            lengthBeats={lengthBeats}
+            pixelsPerBeat={pixelsPerBeat}
+            follow={follow}
+            scroller={scroller}
+          />
         </div>
+
+        {showVelocity && (
+          <>
+            <div className={styles.laneLabel}>Velocity</div>
+            <VelocityLane
+              notes={visibleNotes}
+              selected={selected}
+              width={width}
+              pixelsPerBeat={pixelsPerBeat}
+              onSelect={setSelected}
+              onCommit={onChange}
+            />
+          </>
+        )}
       </div>
     </div>
   )

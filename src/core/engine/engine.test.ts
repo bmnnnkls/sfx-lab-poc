@@ -157,3 +157,30 @@ describe('Engine samples', () => {
     expect(peak(render(engine, 1000).left)).toBe(0)
   })
 })
+
+describe('Engine audition', () => {
+  it('plays a short note through the track instrument even while stopped, then lets it go', () => {
+    const { engine } = setup()
+    engine.apply({ type: 'track/audition', trackId: 't', pitch: 69, velocity: 1 })
+    expect(engine.status().playing).toBe(false)
+    expect(peak(render(engine, 4800).left)).toBeGreaterThan(0.01)
+
+    // Held for ~0.3 s, then released: the sound dies away after that.
+    render(engine, 48000 * 6)
+    expect(peak(render(engine, 4800).left)).toBeLessThan(1e-3)
+  })
+
+  it('a new audition replaces the previous one instead of piling up', () => {
+    const { engine } = setup()
+    engine.apply({ type: 'track/audition', trackId: 't', pitch: 60, velocity: 1 })
+    render(engine, 480)
+    engine.apply({ type: 'track/audition', trackId: 't', pitch: 64, velocity: 1 })
+    expect(peak(render(engine, 4800).left)).toBeGreaterThan(0.01)
+  })
+
+  it('ignores an unknown track', () => {
+    const { engine } = setup()
+    engine.apply({ type: 'track/audition', trackId: 'nope', pitch: 60, velocity: 1 })
+    expect(peak(render(engine, 1000).left)).toBe(0)
+  })
+})

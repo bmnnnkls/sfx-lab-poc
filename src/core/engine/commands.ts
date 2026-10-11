@@ -34,6 +34,12 @@ export type EngineCommand =
       readonly sampleId: string | null
     }
   | { readonly type: 'track/stop'; readonly trackId: string }
+  | {
+      readonly type: 'track/audition'
+      readonly trackId: string
+      readonly pitch: number
+      readonly velocity: number
+    }
   | { readonly type: 'sample/add'; readonly sample: SampleData }
   | { readonly type: 'sample/remove'; readonly sampleId: string }
   | { readonly type: 'sample/preview'; readonly sampleId: string }

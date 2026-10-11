@@ -120,6 +120,23 @@ Each folder exposes one `index.ts`; everything else in it is private.
   short, and lets one that merely got longer ring to its new end. Without this, deleting a held note would
   leave its voice sounding forever (its note-off is never generated).
 * No-op edits return the same project object (`updateTrack`/`updateClip`), so they don't create empty undo steps.
+* **Velocity lane** (`VelocityLane.tsx`, pure picking logic in `velocity-lane-logic.ts`): one bar per note under the
+  roll. Press a bar and drag; if the note is selected the whole selection follows. Chords put several bars at one x,
+  so the bar whose top is nearest the pointer wins. Same draft-then-commit pattern as the roll (one undo step).
+* **Marquee select:** Ctrl/Cmd-drag on empty space draws a box (Shift adds to the selection); plain drag still draws a
+  note. `notesInRegion` / `marqueeRegion` are pure.
+* **Copy / cut / paste** (Ctrl+C/X/V, Ctrl+D duplicates): the clipboard (`note-clipboard.ts`) is in memory so notes can
+  move between clips. Paste lands under the **mouse pointer** (not the last click, since clicking empty space draws a
+  note), and repeated pastes with the mouse left alone follow on after each other. Pasted notes get fresh ids and
+  anything past the clip end is dropped (`pasteNotes`).
+* **Audition:** placing a note, grabbing one, dragging it to a new pitch, or nudging with the arrows plays it through
+  the track's own instrument (`track/audition` -> `TrackRuntime.auditionNote`: a 0.3 s note on the track's voice pool,
+  so you hear the real patch, even while stopped). Resize handles stay silent. Toggle in the toolbar.
+* **Follow playhead** scrolls a long clip along with playback. `Playhead` owns its status subscription so the roll
+  itself does not re-render 30x a second; the static parts (keys, ruler, pitch rows, notes) are memoised.
+* **Remembered UI preferences:** grid, zoom, audition, follow, lane visibility and the editor panel height are kept in
+  `localStorage` via `useStoredState` (guarded, validated, falls back to defaults). The editor panel is resizable with a
+  draggable, keyboard-operable splitter (`ui/shared/Splitter.tsx`); its saved height is clamped to the window on use.
 
 ## Undo / redo
 
@@ -233,8 +250,8 @@ from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off
 ## Known POC limits (deliberate)
 
 * One clip plays per track. Polyphony has simple voice stealing and no unison, glide or legato modes.
-* The piano roll has no marquee selection, velocity editing, copy/paste or note audition, assumes 4/4 for the ruler,
-  and cannot draw several notes at once.
+* The piano roll assumes 4/4 for the ruler, has no per-note-length velocity ramps, no quantize/humanize, and the
+  clipboard is not shared with the OS clipboard.
 * Samples are mono (stereo is mixed down), at most 120 s / 32 MB per file, with no trimming or loop-point editing.
   Bytes stay in IndexedDB after a sample is removed from a project (so undo works); there is no cleanup yet.
   `decodeAudioData` resamples to 48 kHz, and the sample's reported rate is that decoded rate.
