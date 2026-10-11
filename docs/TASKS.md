@@ -93,6 +93,8 @@ Full handoff for whoever builds this: [`HANDOFF-track-effects-and-stereo.md`](HA
 
 ## Effects follow-ups
 
+* **Mixer view** (master volume, pan, mute/solo, per-track meters, send knobs with names): planned, see
+  [`HANDOFF-mixer-view.md`](HANDOFF-mixer-view.md) (branch `feature/mixer-view`).
 * **Envelope follower** (a node that turns a signal's level into a smooth control signal), which with *Track audio* gives
   sidechain ducking. Not built: raw audio into a CV is amplitude modulation, not a duck.
 * Chorus, flanger and other stereo modulation effects; a limiter or compressor for the master (today the output soft clip is
