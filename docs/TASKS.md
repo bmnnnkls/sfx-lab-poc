@@ -3,7 +3,7 @@
 Things we have decided are worth doing but have not started. Newest first. Move an item to `ARCHITECTURE.md`
 (as documentation of what exists) when it ships, and delete it here.
 
-## Control nodes, property editor, node pictures, math nodes
+## Control nodes, property editor, quick-add, node pictures, math nodes
 
 Status: **planned, not started.** Full plan, decisions and build order: [`HANDOFF-control-nodes.md`](HANDOFF-control-nodes.md). It supersedes
 the panel's bindings model (the widgets and the board stay) and takes over most of the follow-ups below.

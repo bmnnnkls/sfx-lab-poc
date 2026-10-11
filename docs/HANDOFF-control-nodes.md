@@ -1,8 +1,9 @@
 # Handoff: control nodes, a property editor and a panel built from them
 
-> **Status: planned, not started.** Written after the front panel (`HANDOFF-front-panel.md`, built and merged) was tried and the
-> user said what they actually want. Decisions marked **(confirm)** were proposed by the planner and not yet agreed; the rest
-> were agreed in conversation or follow from how the code works. Work on the branch **`claude/determined-turing-ypq9ix`**
+> **Status: planned, not started; the design is agreed** (replace semantics confirmed, math nodes and a searchable quick-add added).
+> Written after the front panel (`HANDOFF-front-panel.md`, built and merged) was tried and the
+> user said what they actually want. Decisions marked **(confirm)** are the planner's proposals the user has not answered yet (the build
+> can go ahead on them; the user will say if one is wrong); the rest were agreed in conversation or follow from how the code works. Work on the branch **`claude/determined-turing-ypq9ix`**
 > (restarted from `main` at `0929605`, after PR #2). Do not open a pull request unless asked. `main` deploys to GitHub Pages
 > on every merge.
 
@@ -44,11 +45,22 @@ fields with safe defaults (no format-version bump unless a migration needs one),
 | Persistence | `src/core/persistence/sanitize-patch.ts` |
 
 **Decided with the user:** control nodes, a property editor, right-click "create control" on inputs, tooltips, minimal cards with a
-small picture per node, math nodes, block-rate param sockets, a module may have both exposed inputs and internal controls shown on the
-parent's panel (show / hide by a flag), and the build order's priority is the planner's call.
-**Not yet confirmed by the user** (the user asked what "replace vs add" meant and was given an explanation; wait for an answer before
-building step 1): wire **replaces** the parameter's value; the `control` kind's connection rules; the "Sockets" toggle; controls carry
-real values, not 0..1; the legacy-panel migration. The user prefers talking through big changes first and likes minimalism.
+small picture per node, math nodes (including MIDI note <-> frequency), block-rate param sockets, a module may have both exposed
+inputs and internal controls shown on the parent's panel (show / hide by a flag), grouped and searchable node adding opened by
+double-clicking the canvas, and **a wire into a parameter socket replaces the parameter's value** ("the cutoff becomes 500 Hz; unwired,
+the node uses its own value"; to add on top, use an *Add* math node). The build order's priority was left to the planner.
+**Proposed, not yet answered** (go ahead; they are cheap to change): the `control` kind's connection rules; the **Sockets** toggle;
+controls carry real values, not 0..1; the legacy-panel migration. The user prefers talking through big changes first and likes minimalism.
+
+**Starting prompt for a fresh session** (paste as the first message):
+
+> Read `docs/HANDOFF-control-nodes.md` on branch `claude/determined-turing-ypq9ix`, starting with "Start here", then `ARCHITECTURE.md` and
+> `docs/HANDOFF-mixer-view.md` ("Working conditions"). The design is agreed: a wire into a parameter socket replaces the parameter's value,
+> and the quick-add popup (double-click the canvas) is part of the plan. Run the setup and checks first, then build in the order given in
+> "Build order", step by step: tests with each step, browser check updates where the doc says, docs updated as you go, commit and push after
+> each step (only to that branch, no pull request). Stop and check in with me before step 4 (compact cards and the property editor), which
+> removes the sliders from the node cards and rewrites the browser checks that use them. If something in the doc is contradicted by the
+> code, trust the code, say so, and fix the doc.
 
 ## Why
 
@@ -63,7 +75,8 @@ and a control is itself a node you wire** (and that then shows up on the panel).
 4. **Tooltips** on parameters and sockets: what it does, the range and unit expected.
 5. **Remove the sliders from the node cards**: a card is a title, sockets and (minimalism) a small **picture** of what the
    node does that follows its inputs: an oscillator draws its wave at its frequency and amplitude, a filter its response.
-6. **Math nodes** for control signals.
+6. **Math nodes** for control signals, including **MIDI note <-> frequency**.
+7. **Grouped, searchable node adding**: double-click the canvas, type, pick (replaces the row of one button per node).
 
 ## What already exists (do not rebuild; most of it carries over)
 
@@ -199,33 +212,76 @@ by `flattenPatch`. Keep that and add the two ways the user described, **both**:
 
 ### Math nodes
 
-All **elementwise over buffers** (so they work on constants, control signals and audio alike, and run once when global):
-Add, Multiply, Invert, Min, Max, Clamp, Map range (in-min..max -> out-min..max with a curve), Quantize (steps), Smooth (slew,
-stateful), Mix (crossfade), Compare (>, -> 0 / 1). A second batch later: Subtract, Divide, Abs, semitones <-> ratio, sample &
-hold, a Constant. Each has `params` (the second operand, etc.), so each also has param sockets and a property-editor row.
+All **elementwise over buffers** (so they work on constants, control signals and audio alike, and run once when global). Each has
+`params` (the second operand and so on), so each also has param sockets and a property-editor row. First batch:
+
+| Node | What it does |
+| --- | --- |
+| Add, Multiply, Invert | `a + b`, `a * b`, `-a` |
+| Min, Max, Clamp | the smaller / larger of two, `a` limited to a range |
+| Map range | `in-min..in-max` -> `out-min..out-max`, with a curve (lin / log / exp) |
+| Quantize | snap to steps (a step size and an offset) |
+| Smooth | slew limiting / one-pole smoothing, stateful (time or rate) |
+| Mix | crossfade `a` and `b` by a third input |
+| Compare | `a > b` -> 0 / 1 (a threshold) |
+| **MIDI -> Hz** | `ref * 2^((note - 69) / 12)`; param *Tuning* (A4, default 440 Hz) |
+| **Hz -> MIDI** | `69 + 12 * log2(f / ref)`; `f <= 0` gives the lowest note (no NaN or -Infinity); same *Tuning* param |
+
+The MIDI nodes carry fractional notes (a note of 60.5 is a quarter-tone up), so a *Control* in note numbers (range 0..127, step 1,
+shown as note names through the existing `format: 'midiNote'`) wired through *MIDI -> Hz* into an oscillator's `freq` is the way to
+play a pitch from the panel. Second batch, later: Subtract, Divide, Abs, semitones <-> ratio, dB <-> gain, Hz <-> period (ms),
+sample & hold, Constant. Tests for every node: known values, no NaN or Infinity for edge inputs, buffers of any length up to the block.
+
+### Adding nodes: grouped and searchable (quick-add)
+
+The toolbar's row of one button per node (`NodePalette`) does not survive 30+ nodes. Replace it with a **quick-add popup**:
+
+* **Open** with a double-click on empty canvas (the new node is placed where you clicked), with the toolbar's **Add** button (placed
+  in the visible middle), and with **Shift+A** over the canvas (and the same popup opens for a node with nothing selected). Esc closes it.
+* **A text field**, focused, at the pointer. With an empty field it lists the **categories** (each with its count); Enter or a click
+  drills into one (Backspace on an empty field goes back up). Typing at any level **filters across everything**, ranked: label prefix,
+  word prefix, then substring and subsequence, then category, keywords and description. Up / Down move, Enter adds, mouse hover and
+  click work too. A row shows the label, its category and the one-line description (the same text as the tooltip).
+* **What is offered** is what the graph allows: today's `paletteFor` rules (insert graph vs patch vs notes, no *Send* in the master,
+  no sampler in an insert graph ...) and the modules that may be placed here (`placeable` in `GraphEditor`), under **Modules**.
+* **Catalog.** `NodeDefinition`, `NoteNodeDefinition` and module uses get a `category` (and optional `keywords`); suggested sound
+  categories: *Sources* (Note, Oscillator, Sampler), *Controls* (Control, XY pad, Switch), *Modulation* (LFO, Envelope), *Math*,
+  *Filters*, *Effects* (Delay, Reverb, Pan, Width, ...), *Routing* (Track in / out, Send, Return in, Master in, Track audio, Mono sum,
+  Output), *Modules*; the note graph's own: *Sources*, *Effects*, *Routing*. The categories and the matching live in a pure module
+  (`ui/patcher/node-catalog.ts`: `buildCatalog`, `searchCatalog`) with unit tests (ranking, empty query, no match, categories, modules,
+  the per-graph filtering); `QuickAdd.tsx` is the thin component (a `combobox` with `listbox` options, `aria-activedescendant`;
+  vitest has no DOM, so the browser check drives it).
+* **Later, cheap once it exists:** dropping a wire on empty canvas opens the same popup filtered to nodes that have a compatible
+  socket and wires the new node on creation.
 
 ## Build order (each step ships and passes the tests)
 
 1. **Engine and model, no UI change beyond sockets.** `control` port kind and rules; param sockets in `describeNode`;
    `paramFeeds` in `compileStage` / `processStage` (and the fx-graph / master paths); the `global` stage; the control nodes
-   (Control, XY, Switch) and the first math nodes in the DSP registry; `PatchNode.name?`. Tests: socket generation, replace
-   semantics, block-rate feed, **a control into N voices is not N times the value**, global/voice classification, flatten and diff
-   (a knob turn is one `track/setParam`), save/load, old files identical. Palette lists the new nodes; the old sliders stay on cards
-   for now, so everything is usable.
-2. **Descriptions and tooltips**: `description` on every node, param and port, the completeness test, the tooltip component,
-   used in the palette and on cards (the property editor reuses it in step 3).
-3. **Property editor, compact cards, context menu.** The aside; sliders, pickers and switches leave the cards; "Create knob /
-   slider" on sockets; the Sockets toggle; node names editable. Update the browser checks (below).
-4. **The panel from control nodes**: `PatchNode.panel`, re-point `PanelView`, delete `Patch.panel` and its machinery, the legacy
+   (Control, XY, Switch) and the first-batch math nodes (including MIDI <-> Hz) in the DSP registry; `PatchNode.name?`. Tests: socket
+   generation, replace semantics, block-rate feed, **a control into N voices is not N times the value**, global / voice classification,
+   flatten and diff (a knob turn is one `track/setParam`), save / load, old files identical. The old palette strip lists the new nodes
+   and the old sliders stay on cards for now, so everything is usable.
+2. **Descriptions, categories and tooltips**: `description` on every node, param and port, a `category` on every node, the
+   completeness test (nothing registered without them), the tooltip component, used in the palette and on cards.
+3. **Quick-add**: `node-catalog.ts` with tests, `QuickAdd.tsx`, double-click / Add / Shift+A, the old strip removed. Update the
+   browser checks that click a palette button (`fx`, `master`, `modules`, `notegraph`, `returns`, `sends`, `stereo`, `trackaudio`, `mod`,
+   `panel`) through one `addNode(type)` helper per script, and add `quickadd.mjs`.
+4. **Property editor, compact cards, context menu.** The aside; sliders, pickers and switches leave the cards; "Create knob /
+   slider" on sockets; the Sockets toggle; node names editable. Update the browser checks that drive node sliders.
+5. **The panel from control nodes**: `PatchNode.panel`, re-point `PanelView`, delete `Patch.panel` and its machinery, the legacy
    migration with a fixture, a new `panel.mjs`.
-5. **Node pictures**: the pure geometry for oscillator, filter, envelope, LFO first, then the rest; tests for the geometry.
-6. **Modules**: exposed param sockets and internal panel controls with per-use values.
-7. **More math nodes**, and the note graph's sockets.
+6. **Node pictures**: the pure geometry for oscillator, filter, envelope, LFO first, then the rest; tests for the geometry.
+7. **Modules**: exposed param sockets and internal panel controls with per-use values.
+8. **More math nodes** (second batch), the note graph's sockets, wire-drop quick-add.
 
 ## Things that will bite
 
 * **Browser checks drive the node sliders** (`input[type=range]` on a node): `fx`, `master`, `modules`, `notegraph`, `returns`,
-  `sends`, `stereo`, and the new `panel.mjs`. They move to the property editor in step 3; keep selectors in one helper per script.
+  `sends`, `stereo`, and `panel.mjs`; they move to the property editor in step 4. **Most of them also add nodes by clicking a palette
+  button** (`getByRole('button', { name: 'Gain' })`): that moves to the quick-add popup in step 3. Keep selectors in one helper per script.
+* The canvas surface's `onPointerDown` starts the selection box and captures the pointer; a double-click on empty canvas must open
+  the popup without leaving a marquee or clearing a selection the user meant to keep (test it in the browser check).
 * The compile step reads `node.params` once at creation and then gets `setParam`; a **wired** socket must win over both
   (apply the feed every block and skip a `track/setParam` for a driven param on the engine side, or it fights the wire).
 * `diffProject` and `flattenPatch` must treat sockets as ordinary ports (`<use>/<inner>` ids stay stable).
