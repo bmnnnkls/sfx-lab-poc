@@ -6,7 +6,7 @@ When an item ships, document it in `ARCHITECTURE.md`, then tick or delete it her
 **How to read it.** Each item has an ID (reply with "A1, C1–C4, G2"), a value (★ to ★★★) and a rough cost (S: a node and its
 tests; M: a node plus new plumbing, or several nodes; L: a new subsystem). `?` marks something not verified against the code.
 
-**Built (marked ✓ in the tables)**: A2 to A4, B0 to B3, C1 to C4 and C10 to C13, D1 with G1, G2 and G4, E1 and F1. What differs from the lists, and what it
+**Built (marked ✓ in the tables)**: A1 to A4, B0 to B3, C1 to C4 and C10 to C13, D1 with G1, G2 and G4, E1 and F1. What differs from the lists, and what it
 left behind:
 
 * **A3 (push button)** is the Switch's `trigger` mode; "latch" is not a separate mode, since a toggle plus the *Flip-flop* (C11) is a latch.
@@ -18,7 +18,8 @@ left behind:
   `ProcessContext` would fix it, and make C12's "tempo-synced" real); noise and the other seeded sources start from the same seed in every voice of a
   chord (a per-voice salt would decorrelate them); an indicator inside a module's own editor has no live value (a module is only live where it is used);
   indicators in a voice are absent, not stale, when no voice sounds (so a LED driven by a voice-stage follower goes dark between notes).
-* **Not selected, so not built:** A1 (the live widget inside the card), A5 to A7, B4 and B5, C5 to C9, D2 to D12, E2 to E9, F2 to F8, G5 to G14, H.
+* **A1** is the same `ControlWidget` as the panel's, inside the card (`widgets.mjs`); the widget's own label is hidden there, the title is the name.
+* **Not selected, so not built:** A5 to A7, B4 and B5, C5 to C9, D2 to D12, E2 to E9, F2 to F8, G5 to G14, H.
 
 **Where we are** (control-nodes work, steps 1–8, see `HANDOFF-control-nodes.md` and `ARCHITECTURE.md`): controls, XY pad and
 switch; parameter sockets on every numeric parameter; a global stage; math nodes (arithmetic, shaping, MIDI, unit conversions,
@@ -55,7 +56,7 @@ widget lives in the panel and the property editor). Both views edit the same nod
 
 | ID | What | ★ | Cost |
 | --- | --- | --- | --- |
-| A1 | The real widget inside the card (knob, fader, XY pad, switch), sized by the node's panel size. Needs a drag guard so turning a knob does not move the node, and care under canvas zoom. | ★★★ | M |
+| A1 ✓ | The real widget inside the card (knob, fader, XY pad, switch), sized by the node's panel size. Needs a drag guard so turning a knob does not move the node, and care under canvas zoom. | ★★★ | M |
 | A2 ✓ | **Extend the Switch:** an `off` value and an `on` value, both parameters with sockets (so "set via props or other inputs" works), instead of a fixed 0 and 1. | ★★★ | S |
 | A3 ✓ | **Push-button modes on the Switch:** momentary (exists), *trigger* (a one-block pulse on press), *latch*. A trigger fires samplers and envelopes. | ★★★ | S |
 | A4 ✓ | Selector / radio with N positions that outputs the index. | ★★ | S |

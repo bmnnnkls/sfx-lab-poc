@@ -78,6 +78,7 @@ export { isDownstream, topologicalOrder } from './graph'
 export {
   type PanelItem,
   type PanelKind,
+  controlKindFor,
   defaultPanelSize,
   movePanelControl,
   numberPanel,

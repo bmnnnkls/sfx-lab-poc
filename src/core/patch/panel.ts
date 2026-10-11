@@ -1,7 +1,7 @@
 import type { ModuleLibrary } from './module-types'
 import { moduleControls, controlParamKey } from './module-controls'
 import { MODULE_NODE_TYPE } from './module-types'
-import { describeNode, findModule } from './node-shape'
+import { type NodeShape, describeNode, findModule } from './node-shape'
 import { nodeTitles } from './titles'
 import type { ControlSize, Patch, PatchNode } from './types'
 
@@ -37,8 +37,11 @@ const DEFAULT_SIZE: Record<PanelKind, ControlSize> = { knob: 'S', slider: 'S', s
 export const defaultPanelSize = (kind: PanelKind): ControlSize => DEFAULT_SIZE[kind]
 
 /** What a node is on the panel, or undefined when it is not a control. */
-const kindOf = (node: PatchNode, modules: ModuleLibrary): Pick<PanelItem, 'kind' | 'horizontal'> | undefined => {
-  switch (describeNode(node, modules)?.panelKind) {
+const kindOf = (node: PatchNode, modules: ModuleLibrary): Pick<PanelItem, 'kind' | 'horizontal'> | undefined => controlKindFor(node, describeNode(node, modules)?.panelKind)
+
+/** What a node with this `panelKind` is as a widget: a *Control* is a knob or a slider as its `display` says. Undefined for a node that is not a control. */
+export const controlKindFor = (node: Pick<PatchNode, 'display'>, panelKind: NodeShape['panelKind']): Pick<PanelItem, 'kind' | 'horizontal'> | undefined => {
+  switch (panelKind) {
     case 'value':
       return node.display === 'slider' || node.display === 'slider-horizontal'
         ? { kind: 'slider', horizontal: node.display === 'slider-horizontal' }

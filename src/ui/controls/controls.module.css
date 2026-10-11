@@ -245,3 +245,8 @@
   background: var(--accent);
   border-color: var(--accent);
 }
+
+/* On a node card the title says what a control is, so the widget's own label is left out. */
+:global([data-hide-labels]) .label {
+  display: none;
+}

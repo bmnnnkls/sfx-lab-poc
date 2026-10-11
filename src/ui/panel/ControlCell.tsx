@@ -1,15 +1,11 @@
 import { type ControlSize, type ModuleLibrary, type PanelItem, describeNode } from '@core'
 import { type DragEvent, useState } from 'react'
-import { Fader, Knob, Selector, Toggle, XYPad } from '../controls'
 import { IndicatorFace } from '../shared/indicators/IndicatorFace'
+import { ControlWidget, type ParamChange, isSettable } from './ControlWidget'
 import styles from './panel.module.css'
-import { axisSpec, defaultPosition, keyStep, knobWidth, positionOf, readValue, spanOf, valueAt } from './panel-values'
+import { knobWidth, spanOf } from './panel-values'
 
-/** One value to put into a parameter of the control's node. */
-export interface ParamChange {
-  readonly param: string
-  readonly value: number
-}
+export type { ParamChange }
 
 /** What the edit mode can do to a control. */
 export interface CellActions {
@@ -77,71 +73,8 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
 
   const widget = (() => {
     if (!shape) return <p className={styles.missing}>{title} is not available</p>
-    switch (item.kind) {
-      case 'knob':
-      case 'slider': {
-        const spec = axisSpec(node, shape, 'value')
-        if (!spec) return null
-        const value = node.params.value ?? spec.default
-        const common = {
-          label: title,
-          position: positionOf(spec, value),
-          valueText: readValue(spec, value),
-          defaultPosition: defaultPosition(spec),
-          step: keyStep(spec),
-          onChange: (position: number) => onSet([{ param: 'value', value: valueAt(spec, position) }]),
-        }
-        return item.kind === 'knob' ? <Knob {...common} /> : <Fader {...common} vertical={!item.horizontal} />
-      }
-      case 'xy': {
-        const x = axisSpec(node, shape, 'x')
-        const y = axisSpec(node, shape, 'y')
-        if (!x || !y) return null
-        const xValue = node.params.x ?? x.default
-        const yValue = node.params.y ?? y.default
-        return (
-          <XYPad
-            label={title}
-            x={positionOf(x, xValue)}
-            y={positionOf(y, yValue)}
-            valueText={`X ${readValue(x, xValue)}, Y ${readValue(y, yValue)}`}
-            defaultX={defaultPosition(x)}
-            defaultY={defaultPosition(y)}
-            step={Math.min(keyStep(x), keyStep(y))}
-            onChange={(position) =>
-              onSet([
-                { param: 'x', value: valueAt(x, position.x) },
-                { param: 'y', value: valueAt(y, position.y) },
-              ])
-            }
-          />
-        )
-      }
-      case 'switch':
-        return (
-          <Toggle
-            label={title}
-            on={(node.params.on ?? 0) >= 0.5}
-            momentary={Math.round(node.params.mode ?? 0) >= 1}
-            onChange={(on) => onSet([{ param: 'on', value: on ? 1 : 0 }])}
-          />
-        )
-      case 'led':
-      case 'display':
-      case 'bar':
-        return <IndicatorFace node={node} kind={item.kind} label={title} track={readoutTrack} />
-      case 'selector': {
-        const count = Math.max(2, Math.round(node.params.count ?? 4))
-        return (
-          <Selector
-            label={title}
-            options={Array.from({ length: count }, (_, position) => String(position + 1))}
-            index={Math.min(count - 1, Math.max(0, Math.round(node.params.index ?? 0)))}
-            onChange={(position) => onSet([{ param: 'index', value: position }])}
-          />
-        )
-      }
-    }
+    if (isSettable(item.kind)) return <ControlWidget kind={item.kind} horizontal={item.horizontal} node={node} shape={shape} title={title} onSet={onSet} />
+    return <IndicatorFace node={node} kind={item.kind} label={title} track={readoutTrack} />
   })()
 
   const onDragOver = (event: DragEvent) => {

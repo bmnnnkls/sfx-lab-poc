@@ -13,6 +13,7 @@ import {
 import { type PointerEvent, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
 import type { MenuEntry } from '../shared/menu'
+import type { ParamChange } from '../panel/ControlWidget'
 import { NodeView } from './NodeView'
 import { nodeTitles } from '@core'
 import { hasPreview, nodePreview } from './previews'
@@ -32,6 +33,8 @@ interface PatchCanvasProps {
   readoutTrack?: string
   onSelectionChange(selected: ReadonlySet<string>): void
   onMoveNode(nodeId: string, x: number, y: number): void
+  /** A control's widget on its card changed its value. */
+  onSetNodeParams(nodeId: string, changes: readonly ParamChange[]): void
   onRemoveNode(nodeId: string): void
   /** The right-click menu of an input port of a node (empty: none). */
   inputMenu(nodeId: string, portId: string): readonly MenuEntry[]
@@ -80,6 +83,7 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
   showStages,
   showSockets,
   readoutTrack,
+  onSetNodeParams,
   onSelectionChange,
   onMoveNode,
   onRemoveNode,
@@ -236,6 +240,7 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
             title={titles.get(node.id) ?? node.type}
             picture={pictures.get(node.id)}
             readoutTrack={readoutTrack}
+            onSetParams={(changes) => onSetNodeParams(node.id, changes)}
             driven={drivenParams(node.id, shapes.get(node.id)!, patch, (id) => titles.get(id) ?? '')}
             inputMenu={(portId) => inputMenu(node.id, portId)}
             shared={isShared(node)}

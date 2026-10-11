@@ -537,6 +537,13 @@ plain cards; the property editor, the panel built from control nodes and the nod
   (a touch / some / a lot) and a seed (0 to 9999): the seed shown is the one the next press uses, then it moves on and the one just used
   stays beside it as "last N", so a result can be got back by typing its number. One press is one undo step; it works on the graph on show
   (the sound patch, the insert graph, the notes, the inside of a module).
+* **The control inside its card.** A control, XY pad, switch or selector card holds its **working widget** (`ui/panel/ControlWidget.tsx`, the very
+  component the front panel uses; `controlKindFor(node, panelKind)` says which: a knob, or a slider as the node's `display` says) where other cards
+  show a picture, with its value under it and its own label left out (the title says it; `data-hide-labels`). It writes the node's value with the
+  same undo keys as the panel and the property editor (`param:<scope>:<node>:<param>`, `xy:<scope>:<node>:` for a pad), so a drag is one step
+  wherever it was made and the three always show the same number. The card is only dragged by its header, so turning a widget never moves it; pressing one
+  still selects the card. `nodeHeight` reserves `LIVE_WIDGET_HEIGHT` (knob 84, pad 140, switch and selector 44), which is what keeps the sockets where
+  the wires are drawn.
 * **Names.** `PatchNode.name?` (trimmed, at most 60 characters, absent when blank; `setNodeName`, same patch when unchanged;
   read by the sanitizer). Nothing shows it yet. It is not sound: renaming sends no engine command.
 * **Words** (`dsp/node-docs.ts`, `notefx/node-docs.ts`, `dsp/document.ts`). Every node has a one-sentence `description`, a `category`
@@ -572,7 +579,7 @@ plain cards; the property editor, the panel built from control nodes and the nod
   `PointerEvent.detail` is 0), and the second press puts back the selection the first one cleared and draws no box; the canvas
   surface now fills the whole scroller, so empty parts far from the nodes count as canvas. Browser check:
   `docs/browser-checks/quickadd.mjs`. The Notes tab's preview aside is 30% (at most 440 px) so the canvas keeps room next to the property editor.
-* **Cards** (`ui/patcher/NodeView.tsx`). A card is a **title, its sockets and, where it helps, a picture** (below): no sliders, fields, pickers or switches (the
+* **Cards** (`ui/patcher/NodeView.tsx`). A card is a **title, its sockets and, where it helps, a picture** (below), or, for a control, its working widget (above): no sliders, fields, pickers or switches otherwise (the
   height is the header plus the port rows, plus the picture's area, `nodeHeight`). It shows the node's title (`nodeTitles`: its name, else its label numbered when
   alike) and only state that matters at a glance: `shared`, `L R`, `module`, bypassed (dimmed), and the module's *Edit* / *Unlink*. A
   parameter socket is drawn only when it is wired, or for all of them while the **Sockets** toggle (a checkbox in the toolbar,

@@ -23,6 +23,7 @@ import {
   noteNodeDefinitions,
   nodeDefinitions,
   removeNode,
+  setNodeParam,
   exampleModules,
   findExampleModule,
   randomizeParams,
@@ -333,6 +334,13 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             showSockets={showSockets}
             readoutTrack={readoutTrack}
             onSelectionChange={setSelected}
+            onSetNodeParams={(id, changes) =>
+              // The same undo keys as the panel and the property editor, so a drag of one value is one step wherever it is made.
+              edit(
+                (current) => changes.reduce((next, change) => setNodeParam(next, id, change.param, change.value), current),
+                changes.length === 1 && changes[0] ? `param:${scope}:${id}:${changes[0].param}` : `xy:${scope}:${id}:`,
+              )
+            }
             onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
             onRemoveNode={(id) => edit((current) => removeNode(current, id))}
             inputMenu={inputMenu}

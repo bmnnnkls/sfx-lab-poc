@@ -406,3 +406,18 @@
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
+
+/* A control card holds the working widget where other cards show a picture. Its label is the card's title already. */
+.liveWidget {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  box-sizing: border-box;
+  --knob-max: 56px;
+}
+
+.liveWidget > * {
+  width: 100%;
+  min-width: 0;
+}
