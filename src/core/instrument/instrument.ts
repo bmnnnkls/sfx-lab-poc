@@ -45,9 +45,10 @@ export class Instrument {
     this.pool = new VoicePool(
       Array.from(
         { length: Math.max(1, Math.floor(voiceCount)) },
-        () =>
+        (_, slot) =>
           new Voice(
-            compileStage(patch, plan.voiceOrder, sampleRate, globalBuffers),
+            // The slot is the voice's salt: it depends only on the order of the notes, so a render is still the same every time.
+            compileStage(patch, plan.voiceOrder, sampleRate, globalBuffers, slot),
             plan.boundaries,
             sampleRate,
             samples,

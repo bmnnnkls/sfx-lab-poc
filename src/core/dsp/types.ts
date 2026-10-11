@@ -173,5 +173,10 @@ export interface NodeDefinition {
   readonly inNotes?: true
   /** `false`: the node's numeric parameters get no sockets (a control's own range and step are settings, not signals). */
   readonly paramSockets?: false
-  create(sampleRate: number): DspNode
+  /**
+   * `voiceSalt` is a small whole number saying which voice the node is made for: its slot in the voice pool, and 0 for every node
+   * that is not in a voice (global, shared, insert and master graphs). Only the seeded sources look at it (so a chord is not N
+   * copies of one noise); the others ignore it.
+   */
+  create(sampleRate: number, voiceSalt?: number): DspNode
 }

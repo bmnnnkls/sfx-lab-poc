@@ -55,6 +55,7 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       colour: 'White is flat and bright, pink falls 3 dB per octave, brown falls 6 dB per octave.',
       level: 'How loud the noise is, from 0 to 1.',
       seed: 'The same seed always gives the same noise; change it for a different one.',
+      voices: 'Differ gives every voice of a chord its own noise; same gives them all the same noise, which adds up louder.',
     },
   },
   geiger: {
@@ -71,6 +72,7 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       spread: 'How much the clicks differ in loudness: 0 for all alike, 1 from silent to full.',
       gate: 'How long the Trigger output stays high after each click, in seconds.',
       seed: 'The same seed always gives the same clicks at the same times.',
+      voices: 'Differ gives every voice of a chord its own clicks; same gives them all the same clicks at the same times.',
     },
   },
 
@@ -181,6 +183,7 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       persistence: 'How strong each finer layer is compared to the one below it. Low is smooth, high is rough.',
       depth: 'How far the signal swings, from 0 to 1.',
       seed: 'The same seed always wanders the same way; change it for a different path.',
+      voices: 'Same makes every voice of a chord wander alike; differ gives each voice a path of its own.',
     },
   },
   random: {
@@ -194,6 +197,7 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       max: 'The highest value it can draw.',
       step: 'Snap the value to multiples of this step (0 for any value).',
       seed: 'The same seed always gives the same first value and the same rolls after it.',
+      voices: 'Where the node runs once per voice: differ gives each voice of a chord its own rolls, same gives them all the same.',
     },
   },
   envelope: {

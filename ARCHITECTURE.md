@@ -485,8 +485,15 @@ plain cards; the property editor, the panel built from control nodes and the nod
   lowest note, for 0 or less; fractional notes work. Math nodes are global-capable.
 * **Sources of sound and chance** (`dsp/random.ts`, `dsp/nodes/{noise,perlin,geiger,random}.node.ts`). Everything random is **seeded**
   (`createRng`, mulberry32; `hashSigned` for lattice points), never `Math.random` or the clock, so a render comes out the same every
-  time (exports, tests, a sound you want back); each has a `seed` parameter (no socket: `socket: false`). The seed is per node
-  instance, so in a chord every voice starts from the same seed (the noise is coherent across voices). *Noise*: white, pink
+  time (exports, tests, a sound you want back); each has a `seed` parameter (no socket: `socket: false`). **A seed per voice:** a voice
+  has its own copy of every voice-stage node, and copies started from one seed make one noise that adds up coherently (louder and phasey).
+  So `NodeDefinition.create(sampleRate, voiceSalt)` is told which voice it is for: the voice's slot in the pool (`compileStage`'s
+  `voiceSalt`, set by `Instrument` per voice; 0 for the global and shared stages, insert graphs and the master). The four sources mix it
+  into their seed (`voiceSeed`: `seed + salt * 10007` with `voices` *differ*, the typed seed with *same*), through an enum parameter
+  `voices` (`voicesParam`; `differ` is the default for Noise, Geiger and Random, `same` for Perlin, whose Retrig exists so that every note
+  wanders alike). Slot 0 and any node outside a voice are the typed seed either way, so a single note sounds as it did. A slot depends only
+  on the order of the notes (the pool hands out the lowest free one), so a render is still the same every time. The LFO's random shape is
+  not salted: its voices agree on purpose. *Noise*: white, pink
   (Kellet's three-pole filter, gain 0.11 so its peak stays under 1) or brown (leaky random walk, clamped), with a level. *Perlin
   noise*: fractal 1D gradient noise (`gradientNoise`, `fractalNoise`: octaves, persistence, quintic fade), outputs `out` and `uni`
   like the LFO, optional `Retrig` input restarts the wander. *Geiger*: a Poisson process (each sample has the chance

@@ -1,4 +1,4 @@
-import { createRng } from '../random'
+import { createRng, voiceSeed, voicesDiffer, voicesParam } from '../random'
 import { Params } from '../params'
 import type { DspNode, NodeDefinition, ParamSpec, ProcessContext } from '../types'
 
@@ -9,6 +9,7 @@ const PARAMS: readonly ParamSpec[] = [
   { id: 'level', label: 'Level', min: 0, max: 1, default: 0.5, step: 0.01 },
   // The same seed is the same noise, every time; a setting, not a signal.
   { id: 'seed', label: 'Seed', min: 0, max: 9999, default: 1, step: 1, socket: false },
+  voicesParam(0),
 ]
 
 /** Pink noise from the three filters peaks near 2.1 at a gain of 0.25 (measured over 20 million samples); this keeps it under 1. */
@@ -23,7 +24,7 @@ const BROWN_GAIN = 1.2
 /**
  * Noise with a spectrum: white (flat), pink (falls 3 dB per octave, like most natural sounds) or brown (falls 6 dB per
  * octave: a rumble). White is uniform in [-1, 1); the others are scaled to peak below 1 at full level, which makes them quieter than white. Seeded, so it is
- * the same noise every time; note that every voice of a chord starts from the same seed.
+ * the same noise every time. In a chord each voice makes its own noise (`voices` differ) unless asked to match (`same`).
  */
 class Noise implements DspNode {
   private readonly params = new Params(PARAMS)
@@ -34,9 +35,17 @@ class Noise implements DspNode {
   private b2 = 0
   private brown = 0
 
+  constructor(private readonly salt: number) {
+    this.reseed()
+  }
+
   setParam(id: string, value: number): void {
     this.params.set(id, value)
-    if (id === 'seed') this.rng.reseed(this.params.get('seed'))
+    if (id === 'seed' || id === 'voices') this.reseed()
+  }
+
+  private reseed(): void {
+    this.rng.reseed(voiceSeed(this.params.get('seed'), this.salt, voicesDiffer(this.params.get('voices'))))
   }
 
   process({ frames }: ProcessContext, _inputs: ReadonlyArray<Float32Array | null>, [out]: readonly Float32Array[]): void {
@@ -66,5 +75,5 @@ export const noiseNode: NodeDefinition = {
   inputs: [],
   outputs: [{ id: 'out', label: 'Out' }],
   params: PARAMS,
-  create: () => new Noise(),
+  create: (_sampleRate, salt = 0) => new Noise(salt),
 }
