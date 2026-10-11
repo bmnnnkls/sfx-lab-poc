@@ -1,8 +1,10 @@
 import {
   type ModuleLibrary,
+  type PanelItem,
   type Patch,
   createBlankControl,
   createControlFor,
+  controlParamKey,
   createXyFor,
   movePanelControl,
   nodeTitles,
@@ -40,11 +42,15 @@ export const PanelView = ({ patch, modules, scope, edit }: PanelViewProps) => {
   const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
   const shown = items.filter((item) => item.shown)
   const hidden = items.filter((item) => !item.shown)
+  const ownShown = shown.filter((item) => item.via === undefined)
 
-  const set = (nodeId: string, changes: readonly ParamChange[]) => {
+  const set = (item: PanelItem, changes: readonly ParamChange[]) => {
+    // A control inside a module is set on the use of the module (`<inner>:<param>`, as a module knob is); its own value is the default.
+    const target = item.via?.use ?? item.node.id
+    const name = (param: string) => (item.via ? controlParamKey(item.via.inner, param) : param)
     // One parameter shares its undo key with the property editor's slider; a pad (two at once) has its own.
-    const key = changes.length === 1 && changes[0] ? `param:${scope}:${nodeId}:${changes[0].param}` : `xy:${scope}:${nodeId}`
-    edit((current) => changes.reduce((next, change) => setNodeParam(next, nodeId, change.param, change.value), current), key)
+    const key = changes.length === 1 && changes[0] ? `param:${scope}:${target}:${name(changes[0].param)}` : `xy:${scope}:${target}:${item.via?.inner ?? ''}`
+    edit((current) => changes.reduce((next, change) => setNodeParam(next, target, name(change.param), change.value), current), key)
   }
 
   const add = (draft: AddDraft) =>
@@ -90,19 +96,20 @@ export const PanelView = ({ patch, modules, scope, edit }: PanelViewProps) => {
         </div>
       ) : (
         <div className={styles.board} role="group" aria-label="Front panel">
-          {shown.map((item, index) => {
+          {shown.map((item) => {
             const id = item.node.id
             const position = items.indexOf(item)
+            const ownIndex = ownShown.indexOf(item)
             return (
               <ControlCell
                 key={id}
                 item={item}
                 modules={modules}
-                title={titles.get(id) ?? item.node.type}
+                title={item.title ?? titles.get(id) ?? item.node.type}
                 editing={editing}
-                first={index === 0}
-                last={index === shown.length - 1}
-                onSet={(changes) => set(id, changes)}
+                first={ownIndex === 0}
+                last={ownIndex === ownShown.length - 1}
+                onSet={(changes) => set(item, changes)}
                 actions={{
                   rename: (name) => edit((current) => setNodeName(current, id, name)),
                   resize: (size) => edit((current, library) => resizePanelControl(current, library, id, size)),
@@ -111,7 +118,7 @@ export const PanelView = ({ patch, modules, scope, edit }: PanelViewProps) => {
                   remove: () => edit((current) => removeNode(current, id)),
                   // Moves among the visible ones: the neighbour's place in the whole order is where it goes.
                   move: (delta) => {
-                    const neighbour = shown[index + delta]
+                    const neighbour = ownShown[ownIndex + delta]
                     if (neighbour) edit((current, library) => movePanelControl(current, library, id, items.indexOf(neighbour)))
                   },
                   dropped: (draggedId) => edit((current, library) => movePanelControl(current, library, draggedId, position)),

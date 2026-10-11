@@ -1,7 +1,7 @@
 # Handoff: control nodes, a property editor and a panel built from them
 
 > **Status: in progress; the design is agreed** (replace semantics confirmed, math nodes and a searchable quick-add added).
-> **Steps 1 to 6 are built** (see "Build order" and `ARCHITECTURE.md`, "Control nodes, parameter sockets and the global stage"); steps 7 onward are not.
+> **Steps 1 to 7 are built** (see "Build order" and `ARCHITECTURE.md`, "Control nodes, parameter sockets and the global stage"); step 8 is not.
 > Written after the front panel (`HANDOFF-front-panel.md`, built and merged) was tried and the
 > user said what they actually want. Decisions marked **(confirm)** are the planner's proposals the user has not answered yet (the build
 > can go ahead on them; the user will say if one is wrong); the rest were agreed in conversation or follow from how the code works. Work on the branch **`claude/determined-turing-ypq9ix`**
@@ -15,7 +15,7 @@ conditions": commands, layering test, browser checks) first. They apply unchange
 
 **State.** Branch `claude/determined-turing-ypq9ix` was restarted from `main` (`0929605`, PR #2 merged). **Step 1 of the build order is
 done** (the engine, the model, parameter sockets, the global stage, the control and math nodes, `PatchNode.name`) and **step 2** (words,
-categories, tooltips) and **step 3** (the node picker) **step 4** (compact cards, the property editor, the socket menu) **step 5** (the panel from control nodes) and **step 6** (node pictures); the rest of the design is not. On `main` already: the controls widgets (`ui/controls`), the board (`ui/panel`), the Graph | Panel switch and
+categories, tooltips) and **step 3** (the node picker) **step 4** (compact cards, the property editor, the socket menu) **step 5** (the panel from control nodes) **step 6** (node pictures) and **step 7** (controls and exposed sockets in modules); the rest of the design is not. On `main` already: the controls widgets (`ui/controls`), the board (`ui/panel`), the Graph | Panel switch and
 `Patch.panel`, which step 5 replaces. 694 unit tests passed at `0929605`; 939 pass after step 4.
 
 **Setup and checks** (from the repo root; running vitest inside `src/` breaks the `@core` alias):
@@ -315,7 +315,13 @@ The toolbar's row of one button per node (`NodePalette`) does not survive 30+ no
    `resolveParams` in core, which works a wire's value out by running the real DSP nodes for one frame (the doc's "resolve through its
    wire to a control or constant"), and a **~** mark when a moving signal drives a setting. The oscillator has no amplitude parameter, so its
    picture is always full height. Browser check: `previews.mjs`.
-7. **Modules**: exposed param sockets and internal panel controls with per-use values.
+7. **Modules (done)**: exposed param sockets and internal panel controls with per-use values. Exposed sockets needed no code (a socket is an
+   ordinary port: the interface now labels the row *socket*); internal controls are derived from the module's control nodes rather than
+   stored as new `ModuleKnob`s: a use keeps `<inner>:<param>` values like a knob does, `describeNode` lists them as the use's
+   parameters, `panelItems` returns stand-ins (`via`) for the parent's board. Differences from the plan: "listed ... under the module's
+   name" is a title ("Voice core: Cutoff"), not a group header; only controls directly inside the module (not in a module nested in it); a
+   use's stored values are read only if present, so an untouched use keeps following the module (this changes how module knobs load
+   too: a use no longer gets every knob filled in with the definition's value at load time). Browser check: `modulecontrols.mjs`.
 8. **More math nodes** (second batch), the note graph's sockets, wire-drop quick-add.
 
 ## Things that will bite

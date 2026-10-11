@@ -18,10 +18,15 @@ import { clamp } from '../shared'
 import { LIMITS } from './format'
 import { type Raw, type Warn, asList, finiteNumber, isRecord } from './raw'
 
-const sanitizeParams = (specs: readonly ParamSpec[], raw: unknown): Record<string, number> => {
+/**
+ * A node's parameters, each read as a number inside its spec's range. A node has all of them (the default for what the file
+ * lacks); a use of a module only has the ones the file gives, since a use keeps nothing but the values somebody turned and the
+ * rest follow the module's definition.
+ */
+const sanitizeParams = (specs: readonly ParamSpec[], raw: unknown, onlyGiven = false): Record<string, number> => {
   const source = isRecord(raw) ? raw : {}
   return Object.fromEntries(
-    specs.map((spec) => [
+    specs.filter((spec) => !onlyGiven || source[spec.id] !== undefined).map((spec) => [
       spec.id,
       clamp(finiteNumber(source[spec.id], spec.default), spec.min, spec.max),
     ]),
@@ -120,7 +125,7 @@ export const sanitizePatch = (
       ...(moduleId === undefined ? {} : { moduleId }),
       x: finiteNumber(rawNode.x, 0),
       y: finiteNumber(rawNode.y, 0),
-      params: sanitizeParams(definition.params, rawNode.params),
+      params: sanitizeParams(definition.params, rawNode.params, type === MODULE_NODE_TYPE),
       ...(sampleId === undefined ? {} : { sampleId }),
       ...(definition.usesTrack !== undefined && typeof rawNode.trackId === 'string' ? { trackId: rawNode.trackId } : {}),
       ...(definition.bypassable === true && rawNode.bypassed === true ? { bypassed: true } : {}),

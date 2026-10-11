@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { addNode, connect, createNode, describeNode, setNodeName } from '../patch'
-import { type InstrumentTrack, createDemoProject, setTrackPatch } from '../project'
+import { addNode, connect, createModuleUse, createNode, describeNode, noteGraphFrom, setNodeName } from '../patch'
+import { type InstrumentTrack, createDemoProject, editPatchAt, setTrackPatch } from '../project'
 import { parseProject, serializeProject } from './project-file'
 
 const parseOk = (text: string) => {
@@ -133,6 +133,34 @@ describe('control nodes in a saved project', () => {
     expect('unit' in nodes.find((n) => n.id === 'a')! || 'display' in nodes.find((n) => n.id === 'a')!).toBe(false)
     expect(nodes.find((n) => n.id === 'b')!.unit).toHaveLength(16)
     expect('display' in nodes.find((n) => n.id === 'b')!).toBe(false)
+  })
+
+  describe('a use of a module keeps the values of the controls inside it', () => {
+    const inner = noteGraphFrom([{ id: 'f', type: 'filter' }, { id: 'k', type: 'control', params: { value: 440, min: 20, max: 20000 } }], ['k.out>f.param:cutoff'])
+    const definition = { id: 'm', name: 'Tone', patch: inner, inputs: [], outputs: [], knobs: [] }
+    const build = (params: Record<string, number>) =>
+      editPatchAt({ ...demo, modules: [definition] }, { master: true }, (fx) => addNode(fx, { ...createModuleUse(definition, 0, 0), id: 'u', params }))
+    const useOf = (project: { master: { fx: { nodes: readonly { id: string; params: Record<string, number> }[] } } }) => project.master.fx.nodes.find((n) => n.id === 'u')!
+
+    it('round trips the values a use turned, and only those', () => {
+      const built = build({ 'k:value': 3000 })
+      const result = parseOk(serializeProject(built))
+      expect(result.warnings).toEqual([])
+      expect(useOf(result.project)!.params).toEqual({ 'k:value': 3000 })
+      expect(result.project).toEqual(built)
+    })
+
+    it('a use that turned nothing stays that way, so the module\'s value keeps flowing to it', () => {
+      expect(useOf(parseOk(serializeProject(build({}))).project).params).toEqual({})
+    })
+
+    it('holds a value inside the control\'s own range, and drops what is not a number', () => {
+      const raw = JSON.parse(serializeProject(build({ 'k:value': 3000 })))
+      const use = raw.project.master.fx.nodes.find((n: { id: string }) => n.id === 'u')
+      use.params = { 'k:value': 1e9, 'k:ghost': 4 }
+      const loaded = useOf(parseOk(JSON.stringify(raw)).project)
+      expect(loaded.params).toEqual({ 'k:value': 20000 })
+    })
   })
 
   it('files saved before control nodes load exactly as they did: no warnings, no new nodes, same wiring', () => {

@@ -157,8 +157,8 @@ export const pruneModuleUses = (patch: Patch, modules: ModuleLibrary): Patch => 
   let changed = connections.length !== patch.connections.length
   const nodes = patch.nodes.map((node) => {
     if (node.type !== MODULE_NODE_TYPE) return node
-    const definition = findModule(modules, node.moduleId)
-    const valid = new Set(definition?.knobs.map((knob) => knob.id))
+    // The values a use can hold are its module's knobs and the controls inside the module (what `describeNode` lists as its parameters).
+    const valid = new Set(describeNode(node, modules)?.params.map((spec) => spec.id))
     const stale = Object.keys(node.params).filter((id) => !valid.has(id))
     if (stale.length === 0) return node
     changed = true

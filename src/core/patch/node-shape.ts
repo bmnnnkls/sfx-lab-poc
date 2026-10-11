@@ -1,5 +1,7 @@
 import { type NodeCategory, type NodeDefinition, type ParamSpec, type PortKind, type PortSpec, findNodeDefinition, liveSpec, paramSockets, stereoPorts } from '../dsp'
 import { findNoteNode } from '../notefx'
+import { controlParamKey, moduleControls } from './module-controls'
+import { nodeTitles } from './titles'
 import { MODULE_NODE_TYPE, type ModuleDefinition, type ModuleLibrary, type ModulePort } from './module-types'
 import type { PatchNode } from './types'
 
@@ -28,6 +30,31 @@ export const kindsConnect = (from: PortKind = 'signal', to: PortKind = 'signal')
 
 export const findModule = (modules: ModuleLibrary, id: string | undefined): ModuleDefinition | undefined =>
   id === undefined ? undefined : modules.find((candidate) => candidate.id === id)
+
+/**
+ * The parameters of a module use that come from the control nodes inside the module (`moduleControls`): one per value of a
+ * control, with the control's own live range, curve and unit, named after it. Those already exposed as a knob keep the knob.
+ */
+const controlSpecs = (definition: ModuleDefinition, known: ReadonlySet<string>): ParamSpec[] => {
+  const titles = nodeTitles(definition.patch, [])
+  return moduleControls(definition).flatMap(({ node, params }) => {
+    const shape = describeNode(node)
+    return params.flatMap((param) => {
+      const id = controlParamKey(node.id, param)
+      const spec = shape?.params.find((candidate) => candidate.id === param)
+      if (!spec || known.has(id)) return []
+      const resolved = resolveSpec(node, spec)
+      const axis = param === 'x' ? ' X' : param === 'y' ? ' Y' : ''
+      return [{ ...resolved, id, label: `${titles.get(node.id) ?? shape?.label ?? ''}${axis}`, default: node.params[param] ?? spec.default }]
+    })
+  })
+}
+
+/** A module use's parameters: its exposed knobs, then the values of the controls inside it. */
+const moduleParams = (definition: ModuleDefinition, modules: ModuleLibrary): ParamSpec[] => {
+  const knobs = knobSpecs(definition, modules)
+  return [...knobs, ...controlSpecs(definition, new Set(knobs.map((spec) => spec.id)))]
+}
 
 /** The shape of a module's knob parameters: the inner node's own spec, renamed, defaulting to its current value. */
 const knobSpecs = (definition: ModuleDefinition, modules: ModuleLibrary): ParamSpec[] =>
@@ -113,7 +140,7 @@ export const describeNode = (node: PatchNode, modules: ModuleLibrary = []): Node
     category: 'Modules',
     inputs: outsidePorts(definition, definition.inputs, 'inputs', modules),
     outputs: outsidePorts(definition, definition.outputs, 'outputs', modules),
-    params: knobSpecs(definition, modules),
+    params: moduleParams(definition, modules),
     domain: moduleDomain(definition, modules),
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addNode, connect, createNode, flattenPatch, groupIntoModule, movePanelControl, noteGraphFrom, resizePanelControl, setNodeName, setNodeParam, setPanelShow } from '../patch'
+import { addNode, connect, createModuleUse, createNode, flattenPatch, groupIntoModule, movePanelControl, noteGraphFrom, resizePanelControl, setNodeName, setNodeParam, setPanelShow } from '../patch'
 import { type InstrumentTrack, createDemoProject, editPatchAt, groupNodesAsModule, setTrackPatch } from '../project'
 import { diffProject } from './diff-project'
 
@@ -65,6 +65,28 @@ describe('control nodes and the engine commands', () => {
     const turnMaster = editPatchAt(onMaster, { master: true }, (fx) => setNodeParam(fx, 'k', 'value', 0.2))
     expect(diffProject(inFx, turnFx)).toEqual([{ type: 'track/setParam', trackId: track.id, nodeId: 'k', paramId: 'value', value: 0.2 }])
     expect(diffProject(onMaster, turnMaster)).toEqual([{ type: 'master/setParam', nodeId: 'k', paramId: 'value', value: 0.2 }])
+  })
+})
+
+describe('controls inside a module', () => {
+  const inner = noteGraphFrom([{ id: 'f', type: 'filter' }, { id: 'k', type: 'control', params: { value: 440, min: 20, max: 20000 } }], ['k.out>f.param:cutoff'])
+  const library = [{ id: 'm', name: 'Tone', patch: inner, inputs: [], outputs: [], knobs: [] }]
+  const base = { ...createDemoProject(), modules: library }
+  const withUse = editPatchAt(base, { master: true }, (fx) => addNode(fx, { ...createModuleUse(library[0]!, 0, 0), id: 'u' }))
+
+  it('turning the use\'s own value is one master/setParam on the flattened control', () => {
+    const turned = editPatchAt(withUse, { master: true }, (fx) => setNodeParam(fx, 'u', 'k:value', 5000))
+    expect(diffProject(withUse, turned)).toEqual([{ type: 'master/setParam', nodeId: 'u/k', paramId: 'value', value: 5000 }])
+  })
+
+  it('turning the control inside the module itself moves a use that has not turned its own', () => {
+    const edited = { ...withUse, modules: [{ ...library[0]!, patch: setNodeParam(inner, 'k', 'value', 900) }] }
+    expect(diffProject(withUse, edited)).toEqual([{ type: 'master/setParam', nodeId: 'u/k', paramId: 'value', value: 900 }])
+  })
+
+  it('the panel placement of the control inside the module is not sound: nothing is sent', () => {
+    const hidden = { ...withUse, modules: [{ ...library[0]!, patch: setPanelShow(inner, [], 'k', false) }] }
+    expect(diffProject(withUse, hidden)).toEqual([])
   })
 })
 

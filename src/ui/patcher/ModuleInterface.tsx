@@ -10,6 +10,8 @@ import {
   hideKnob,
   hidePort,
   labelKnob,
+  moduleControls,
+  nodeTitles,
   labelPort,
 } from '@core'
 import { useProjectStore } from '@state'
@@ -67,9 +69,16 @@ export const ModuleInterface = ({ definition }: { definition: ModuleDefinition }
     updateModule(definition.id, edit, `module-interface:${definition.id}:${key}`)
 
   const counts = new Map<string, number>()
+  const controls = moduleControls(definition)
+  const innerTitles = nodeTitles(definition.patch, modules)
   return (
     <aside className={styles.interface} aria-label="Module ports and knobs" data-testid="module-interface">
       <h4>Shown on the module</h4>
+      <p className={styles.selectionHint} data-testid="module-controls">
+        {controls.length === 0
+          ? 'Control nodes inside the module are shown on the panel of the graph that uses it (none yet).'
+          : `On the panel of the graph that uses it: ${controls.map(({ node }) => innerTitles.get(node.id)).join(', ')}. Each use keeps its own values; untick Show on panel on a control to leave it off.`}
+      </p>
       {definition.patch.nodes.map((node) => {
         const shape = describeNode(node, modules)
         if (!shape) return null
@@ -85,7 +94,7 @@ export const ModuleInterface = ({ definition }: { definition: ModuleDefinition }
               return (
                 <InterfaceRow
                   key={`in-${port.id}`}
-                  kind="input"
+                  kind={port.param === undefined ? 'input' : 'socket'}
                   label={port.label}
                   defaultLabel={port.label}
                   exposed={exposed}

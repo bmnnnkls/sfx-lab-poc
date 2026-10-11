@@ -1,5 +1,6 @@
 import { createId } from '../shared'
 import { MODULE_NODE_TYPE, type ModuleDefinition, type ModuleLibrary } from './module-types'
+import { controlParamKey, moduleControls } from './module-controls'
 import { describeNode, findModule } from './node-shape'
 import type { Patch, PatchConnection, PatchNode } from './types'
 
@@ -7,18 +8,26 @@ import type { Patch, PatchConnection, PatchNode } from './types'
 const MAX_EXPANSIONS = 1000
 
 /** The inner nodes' parameters with this use's knob settings applied. */
-const withKnobs = (use: PatchNode, definition: ModuleDefinition, modules: ModuleLibrary): PatchNode[] =>
-  definition.patch.nodes.map((node) => {
+const withKnobs = (use: PatchNode, definition: ModuleDefinition, modules: ModuleLibrary): PatchNode[] => {
+  const controls = moduleControls(definition)
+  return   definition.patch.nodes.map((node) => {
     const knobs = definition.knobs.filter((knob) => knob.node === node.id)
-    if (knobs.length === 0) return node
+    const control = controls.find((candidate) => candidate.node.id === node.id)
+    if (knobs.length === 0 && !control) return node
     const specs = new Map((describeNode(node, modules)?.params ?? []).map((spec) => [spec.id, spec]))
     const params = { ...node.params }
     for (const knob of knobs) {
       const value = use.params[knob.id]
       if (value !== undefined && specs.has(knob.param)) params[knob.param] = value
     }
+    // An inner control's value is the use's own too, when this use has turned it.
+    for (const param of control?.params ?? []) {
+      const value = use.params[controlParamKey(node.id, param)]
+      if (value !== undefined && specs.has(param)) params[param] = value
+    }
     return { ...node, params }
   })
+}
 
 /**
  * Replaces one use of a module by a copy of its contents: nodes get ids from `newId`, wires into and out of

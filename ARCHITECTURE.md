@@ -524,6 +524,22 @@ plain cards; the property editor, the panel built from control nodes and the nod
   remembered like the Graph | Panel switch) is on (`ui/patcher/visible-shape.ts`; `portPosition` indexes the visible shape). A press
   anywhere on a card but a port or button selects it. The patcher's grid is one column that may be narrower than its content, so the
   canvas scrolls and the property editor keeps its width.
+* **Controls inside modules** (`core/patch/module-controls.ts`, `ModuleControl`). Two ways in, both from the plan. **Exposed inputs:** any inner
+  socket, `param:` ones included, can be ticked in the module's interface (its row says *socket*); it becomes an input of kind `control` on
+  the use, the parent wires a control or a signal into it, and flattening turns that into a wire into the inner node's socket (nothing
+  new in the engine). **Internal controls on the parent's panel:** every control node directly inside a module that is not hidden
+  (`panel.show` is not false) is offered on the panel of the graph that uses the module, under the module's name ("Voice core: Cutoff"), with
+  **its value stored per use**: the use's `params` hold `<inner node>:<param>` (`controlParamKey`, the same key scheme as a module knob;
+  `value` for a control, `x` and `y` for a pad, `on` for a switch), and until a use is turned the module's own value is the default (and
+  follows the definition when it is edited). `describeNode` lists those values as the use's parameters (the control's live range, curve
+  and unit, named after the control; one already exposed as a knob keeps the knob), so the property editor, persistence and module knobs
+  needed no new path: `flattenPatch` (`withKnobs`) lays the use's values over the inner control, so a turn reaches the engine as the
+  ordinary `setParam` on `<use>/<inner>`. `panelItems` returns, after the graph's own controls, a stand-in per module control (id
+  `<use>/<inner>`, `via: { use, inner }`, `title: "Module: control"`) in the module's own board order; the board writes to the use, and
+  the control is moved, sized, hidden and renamed **inside the module** (the parent's edit mode says so). A use stores only the values
+  somebody turned (the sanitizer reads a use's parameters that are present, not a full set), and `pruneModuleUses` drops a stored
+  value whose control was hidden or deleted. Not offered: controls of a module nested inside the used one (open that module). Browser
+  check: `docs/browser-checks/modulecontrols.mjs`.
 * **Node pictures** (`ui/patcher/previews/`, `core/patch/resolve.ts`). A card shows a small SVG of what the node does with its settings, drawn from
   the numbers it is *working with*: `resolveParams(patch, nodeId)` takes the stored parameters and replaces each one that a wire drives by
   what the wire carries, worked out through controls, switches, XY pads and math nodes on them by running the **real DSP nodes for one

@@ -15,7 +15,7 @@ not make it in:
 
 * A **combined per-track panel** (instrument + effects on one board).
 * **Free positioning** of controls (today an ordered flow with sizes).
-* The controls **inside a module** shown on the panel of the graph that uses it, with a value per use (step 7 of `HANDOFF-control-nodes.md`).
+* The controls of a module **nested inside** a used module shown on the outer panel (today only the controls directly inside it are).
 * The **Mixer adopting** the same widgets (`ui/controls`) for its faders, pan and sends.
 * **MIDI learn** and **automation** (recording a control's movements), a **dB** fader law.
 * Meters or a scope on the panel, a panel in the session-view header, a selector control for enum parameters.

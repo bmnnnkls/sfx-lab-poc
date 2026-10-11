@@ -152,7 +152,14 @@ export const ControlCell = ({ item, modules, title, editing, first, last, onSet,
       }}
     >
       <div className={styles.widget}>{widget}</div>
-      {editing && (
+      {editing && item.via && (
+        <div className={styles.tools}>
+          <span className={styles.hint} data-tooltip="This control is inside a module: move, size, hide and rename it in the module (Edit on its card). Its value here is this use's own.">
+            in a module
+          </span>
+        </div>
+      )}
+      {editing && !item.via && (
         <div className={styles.tools}>
           <span
             className={styles.handle}

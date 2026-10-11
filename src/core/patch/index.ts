@@ -12,6 +12,7 @@ export {
 export { createBlankControl, createControlFor, createXyFor, type ControlForOptions } from './control-for'
 export { nodeTitles } from './titles'
 export { resolveParams } from './resolve'
+export { type ModuleControl, controlParamKey, moduleControls } from './module-controls'
 export {
   MODULE_NODE_TYPE,
   type ModuleDefinition,

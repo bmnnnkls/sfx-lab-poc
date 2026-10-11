@@ -1,5 +1,8 @@
 import type { ModuleLibrary } from './module-types'
-import { describeNode } from './node-shape'
+import { moduleControls, controlParamKey } from './module-controls'
+import { MODULE_NODE_TYPE } from './module-types'
+import { describeNode, findModule } from './node-shape'
+import { nodeTitles } from './titles'
 import type { ControlSize, Patch, PatchNode } from './types'
 
 /**
@@ -19,6 +22,13 @@ export interface PanelItem {
   readonly size: ControlSize
   /** `false`: kept off the board (edit mode lists these so they can be brought back). */
   readonly shown: boolean
+  /**
+   * Set for a control that lives inside a module used here: `node` is then a stand-in (id `<use>/<inner>`, this use's values laid over
+   * the inner control's), a value is written to the use as `<inner>:<param>`, and `title` is "Module: control". Such a control is
+   * moved, hidden and sized inside the module, not here.
+   */
+  readonly via?: { readonly use: string; readonly inner: string }
+  readonly title?: string
 }
 
 const DEFAULT_SIZE: Record<PanelKind, ControlSize> = { knob: 'S', slider: 'S', switch: 'S', xy: 'M' }
@@ -46,7 +56,7 @@ const kindOf = (node: PatchNode, modules: ModuleLibrary): Pick<PanelItem, 'kind'
  * The patch's control nodes in board order: those with an `order` first, by it, then the rest in the order of the patch
  * (a control added later lands at the end).
  */
-export const panelItems = (patch: Patch, modules: ModuleLibrary): readonly PanelItem[] =>
+const ownItems = (patch: Patch, modules: ModuleLibrary): readonly PanelItem[] =>
   patch.nodes
     .flatMap((node, index) => {
       const kind = kindOf(node, modules)
@@ -60,6 +70,41 @@ export const panelItems = (patch: Patch, modules: ModuleLibrary): readonly Panel
       size: node.panel?.size ?? DEFAULT_SIZE[kind],
       shown: node.panel?.show !== false,
     }))
+
+/** The controls inside the modules used here, per use, in the order of the uses and then of the module's own board. */
+const moduleItems = (patch: Patch, modules: ModuleLibrary): readonly PanelItem[] => {
+  const titles = nodeTitles(patch, modules)
+  return patch.nodes.flatMap((use) => {
+    const definition = use.type === MODULE_NODE_TYPE ? findModule(modules, use.moduleId) : undefined
+    if (!definition) return []
+    const inner = nodeTitles(definition.patch, modules)
+    const own = ownItems(definition.patch, modules)
+    return moduleControls(definition)
+      .map((control) => ({ control, item: own.find((candidate) => candidate.node.id === control.node.id) }))
+      .filter((entry): entry is { control: (typeof entry)['control']; item: PanelItem } => entry.item !== undefined)
+      .sort((a, b) => own.indexOf(a.item) - own.indexOf(b.item))
+      .map(({ control, item }): PanelItem => {
+        const params = { ...control.node.params }
+        for (const param of control.params) {
+          const value = use.params[controlParamKey(control.node.id, param)]
+          if (value !== undefined) params[param] = value
+        }
+        return {
+          ...item,
+          node: { ...control.node, id: `${use.id}/${control.node.id}`, params },
+          shown: true,
+          via: { use: use.id, inner: control.node.id },
+          title: `${titles.get(use.id) ?? definition.name}: ${inner.get(control.node.id) ?? control.node.type}`,
+        }
+      })
+  })
+}
+
+/** Every control of the board: this graph's own, then those of the modules it uses. */
+export const panelItems = (patch: Patch, modules: ModuleLibrary): readonly PanelItem[] => [
+  ...ownItems(patch, modules),
+  ...moduleItems(patch, modules),
+]
 
 /** Writes `panel` on a node, leaving no field when nothing differs from the defaults. */
 const withNodePanel = (node: PatchNode, panel: NonNullable<PatchNode['panel']>): PatchNode => {
@@ -93,7 +138,7 @@ export const resizePanelControl = (patch: Patch, modules: ModuleLibrary, id: str
 
 /** Moves a control to `index` in the board order (clamped to the ends); the whole board is then numbered. */
 export const movePanelControl = (patch: Patch, modules: ModuleLibrary, id: string, index: number): Patch => {
-  const ids = panelItems(patch, modules).map((item) => item.node.id)
+  const ids = ownItems(patch, modules).map((item) => item.node.id)
   const from = ids.indexOf(id)
   if (from === -1) return patch
   const to = Math.min(ids.length - 1, Math.max(0, Math.trunc(Number.isFinite(index) ? index : from)))
@@ -111,7 +156,7 @@ export const movePanelControl = (patch: Patch, modules: ModuleLibrary, id: strin
 
 /** Gives every control its place in the order (what a migration or a first reorder does), keeping the rest of what it has. */
 export const numberPanel = (patch: Patch, modules: ModuleLibrary): Patch => {
-  const ids = panelItems(patch, modules).map((item) => item.node.id)
+  const ids = ownItems(patch, modules).map((item) => item.node.id)
   const position = new Map(ids.map((nodeId, order) => [nodeId, order]))
   let changed = false
   const nodes = patch.nodes.map((node) => {
