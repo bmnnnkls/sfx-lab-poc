@@ -11,5 +11,10 @@ export interface EngineStatus {
    * solo, so it reads zero for a track that is not heard. Like `peak`, reading resets it.
    */
   readonly peaks: Readonly<Record<string, number>>
+  /**
+   * What the indicator nodes show, by track id (the master bus is `master`) and node id. A track with no indicator, and an indicator
+   * in a voice while no voice sounds, are absent. Unlike peaks, reading does not reset anything: it is the latest value.
+   */
+  readonly readouts: Readonly<Record<string, Readonly<Record<string, number>>>>
   readonly tracks: Readonly<Record<string, LauncherStatus>>
 }

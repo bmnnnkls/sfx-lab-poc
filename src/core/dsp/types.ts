@@ -55,6 +55,8 @@ export interface ParamSpec {
   readonly unitFrom?: 'unit' | 'unitY'
   /** How a knob or slider maps its position onto the range. Absent: logarithmic for wide positive ranges, else linear (`liveSpec` sets it from a control's own `curve`). */
   readonly curve?: 'linear' | 'log' | 'exp'
+  /** `false`: no socket for this parameter although it is numeric (a setting, or a value the panel owns, such as a switch's state). */
+  readonly socket?: false
 }
 
 /** The note currently held by an instrument, shared with every node in its patch. */
@@ -108,6 +110,8 @@ export interface DspNode {
   setSample?(sampleId: string | null): void
   /** Only for nodes with `usesTrack`: choose which track the node refers to. */
   setTrack?(trackId: string | null): void
+  /** Only for indicators (`NodeDefinition.indicator`): the latest value the node saw, which the engine reports to the screen. */
+  readout?(): number
   process(
     context: ProcessContext,
     inputs: ReadonlyArray<Float32Array | null>,
@@ -116,7 +120,7 @@ export interface DspNode {
 }
 
 /** How the node picker groups nodes. A module is placed under `Modules`, which the picker adds. */
-export const NODE_CATEGORIES = ['Sources', 'Controls', 'Modulation', 'Math', 'Filters', 'Effects', 'Routing'] as const
+export const NODE_CATEGORIES = ['Sources', 'Controls', 'Indicators', 'Modulation', 'Math', 'Logic', 'Analysis', 'Filters', 'Effects', 'Routing'] as const
 export type NodeCategory = (typeof NODE_CATEGORIES)[number]
 
 /** Everything the app needs to know about a node type: its shape and how to build it. */
@@ -156,10 +160,12 @@ export interface NodeDefinition {
    */
   readonly global?: boolean
   /**
-   * The node is itself a control that can sit on a panel: `value` (one knob or slider), `xy` (a pad) or `switch`.
+   * The node is itself a control that can sit on a panel: `value` (one knob or slider), `xy` (a pad), `switch` or `selector`.
    * Its parameters are settings (range, step), not knobs.
    */
-  readonly panelKind?: 'value' | 'xy' | 'switch'
+  readonly panelKind?: 'value' | 'xy' | 'switch' | 'selector' | 'led' | 'display' | 'bar'
+  /** The node only shows a value (an LED, a display, a bar): it has a `readout()` the engine reports, and no outputs. */
+  readonly indicator?: true
   /**
    * The node may also sit in a note graph (controls and math nodes): there it works out constants that drive the note nodes'
    * parameters, and has no sound of its own.

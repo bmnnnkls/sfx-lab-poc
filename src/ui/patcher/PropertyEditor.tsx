@@ -15,6 +15,7 @@ import {
   resizePanelControl,
   setPanelShow,
   setNodeBypassed,
+  setNodeLocked,
   setNodeDisplay,
   setNodeName,
   setNodeParam,
@@ -112,26 +113,28 @@ const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCre
         </label>
       </div>
 
-      {(shape.stereoCapable || shape.bypassable) && (
-        <div className={styles.switches}>
-          {shape.stereoCapable && (
-            <label data-tooltip="Run one copy of the node per channel, so it works on a left and a right signal.">
-              <input
-                type="checkbox"
-                checked={node.stereo === true}
-                onChange={(event) => edit((current, library) => setNodeStereo(current, node.id, event.target.checked, library))}
-              />
-              Stereo
-            </label>
-          )}
-          {shape.bypassable && (
-            <label data-tooltip="Let notes through unchanged.">
-              <input type="checkbox" checked={node.bypassed === true} onChange={(event) => edit((current) => setNodeBypassed(current, node.id, event.target.checked))} />
-              Bypass
-            </label>
-          )}
-        </div>
-      )}
+      <div className={styles.switches}>
+        {shape.stereoCapable && (
+          <label data-tooltip="Run one copy of the node per channel, so it works on a left and a right signal.">
+            <input
+              type="checkbox"
+              checked={node.stereo === true}
+              onChange={(event) => edit((current, library) => setNodeStereo(current, node.id, event.target.checked, library))}
+            />
+            Stereo
+          </label>
+        )}
+        {shape.bypassable && (
+          <label data-tooltip="Let notes through unchanged.">
+            <input type="checkbox" checked={node.bypassed === true} onChange={(event) => edit((current) => setNodeBypassed(current, node.id, event.target.checked))} />
+            Bypass
+          </label>
+        )}
+        <label data-tooltip="Randomize and Mutate leave this node's settings as they are.">
+          <input type="checkbox" checked={node.locked === true} onChange={(event) => edit((current) => setNodeLocked(current, node.id, event.target.checked))} />
+          Keep when randomizing
+        </label>
+      </div>
 
       {shape.usesSample && <SamplePicker sampleId={node.sampleId} onChange={(sampleId) => edit((current) => setNodeSample(current, node.id, sampleId))} />}
       {shape.usesTrack && (

@@ -1,7 +1,7 @@
 import { type NoteState } from '../dsp'
 import type { SampleLookup } from '../sample'
 import { midiToFrequency } from '../shared'
-import { type CompiledStage, processStage, setStageParam, setStageSample } from './compile'
+import { type CompiledStage, processStage, setStageParam, setStageSample, stageReadouts } from './compile'
 
 /** Below this peak level (about -80 dB) a released voice counts as silent. */
 const SILENCE_LEVEL = 1e-4
@@ -43,6 +43,11 @@ export class Voice {
   /** This voice's buffer for a voice -> shared boundary signal. */
   boundaryBuffer(key: string): Float32Array | undefined {
     return this.stage.outputBuffers.get(key)
+  }
+
+  /** The latest value of this voice's indicators. */
+  readouts(into: Record<string, number>): void {
+    stageReadouts(this.stage, into)
   }
 
   start(pitch: number, velocity: number, startedAt: number): void {

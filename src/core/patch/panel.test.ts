@@ -27,11 +27,11 @@ describe('panelItems', () => {
     expect(ids(patch)).toEqual(['a', 's', 'p'])
   })
 
-  it('says what each is: a knob, a slider (upright or lying down), a pad, a switch', () => {
-    let patch = build(named('control', 'k'), named('control', 'v'), named('control', 'h'), named('xyPad', 'p'), named('switch', 's'))
+  it('says what each is: a knob, a slider (upright or lying down), a pad, a switch, a selector', () => {
+    let patch = build(named('control', 'k'), named('control', 'v'), named('control', 'h'), named('xyPad', 'p'), named('switch', 's'), named('selector', 'c'))
     patch = setNodeDisplay(setNodeDisplay(patch, 'v', 'slider'), 'h', 'slider-horizontal')
     expect(panelItems(patch, []).map((item) => [item.node.id, item.kind, item.horizontal])).toEqual([
-      ['k', 'knob', false], ['v', 'slider', false], ['h', 'slider', true], ['p', 'xy', false], ['s', 'switch', false],
+      ['k', 'knob', false], ['v', 'slider', false], ['h', 'slider', true], ['p', 'xy', false], ['s', 'switch', false], ['c', 'selector', false],
     ])
   })
 
@@ -108,10 +108,10 @@ describe('panel edits', () => {
 describe('making controls', () => {
   it('a blank control of each kind, with nothing wired', () => {
     let patch = empty
-    const kinds = ['knob', 'slider', 'slider-horizontal', 'xy', 'switch'] as const
+    const kinds = ['knob', 'slider', 'slider-horizontal', 'xy', 'switch', 'selector', 'led', 'display', 'bar'] as const
     for (const kind of kinds) patch = createBlankControl(patch, kind, { x: 10, y: 20 }).patch
-    expect(patch.nodes.map((node) => node.type)).toEqual(['control', 'control', 'control', 'xyPad', 'switch'])
-    expect(panelItems(patch, []).map((item) => `${item.kind}${item.horizontal ? '-h' : ''}`)).toEqual(['knob', 'slider', 'slider-h', 'xy', 'switch'])
+    expect(patch.nodes.map((node) => node.type)).toEqual(['control', 'control', 'control', 'xyPad', 'switch', 'selector', 'led', 'display', 'bar'])
+    expect(panelItems(patch, []).map((item) => `${item.kind}${item.horizontal ? '-h' : ''}`)).toEqual(['knob', 'slider', 'slider-h', 'xy', 'switch', 'selector', 'led', 'display', 'bar'])
     expect(patch.connections).toEqual([])
   })
 

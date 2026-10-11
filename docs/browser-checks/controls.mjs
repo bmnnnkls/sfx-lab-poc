@@ -52,7 +52,7 @@ for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowUp')
 const wiresBefore = await wireCount()
 
 // ---- the new nodes are offered; a card with no sockets of its own shows only what it has
-for (const name of ['Control', 'XY pad', 'Switch', 'Add', 'Multiply', 'Invert', 'Min', 'Max', 'Clamp', 'Map range', 'Quantize', 'Smooth', 'Mix', 'Compare', 'MIDI to Hz', 'Hz to MIDI']) {
+for (const name of ['Control', 'XY pad', 'Switch', 'Selector', 'Add', 'Multiply', 'Invert', 'Min', 'Max', 'Clamp', 'Map range', 'Quantize', 'Smooth', 'Mix', 'Compare', 'MIDI to Hz', 'Hz to MIDI']) {
   check(`the picker offers ${name}`, await offers(name))
 }
 await add('Control')

@@ -109,7 +109,7 @@ export const sanitizePatch = (
 
     const name = typeof rawNode.name === 'string' ? rawNode.name.trim().slice(0, MAX_NODE_NAME) : ''
     // The unit and display belong to controls with a value to show (not switches); anywhere else they would only be clutter.
-    const unitOf = (value: unknown) => ((definition.panelKind === 'value' || definition.panelKind === 'xy') && typeof value === 'string' ? value.trim().slice(0, MAX_UNIT) : '')
+    const unitOf = (value: unknown) => ((definition.panelKind === 'value' || definition.panelKind === 'xy' || definition.panelKind === 'display' || definition.panelKind === 'bar') && typeof value === 'string' ? value.trim().slice(0, MAX_UNIT) : '')
     const unit = unitOf(rawNode.unit)
     const unitY = definition.panelKind === 'xy' ? unitOf(rawNode.unitY) : ''
     const panel = definition.panelKind === undefined ? undefined : readPanel(rawNode.panel)
@@ -129,6 +129,7 @@ export const sanitizePatch = (
       ...(sampleId === undefined ? {} : { sampleId }),
       ...(definition.usesTrack !== undefined && typeof rawNode.trackId === 'string' ? { trackId: rawNode.trackId } : {}),
       ...(definition.bypassable === true && rawNode.bypassed === true ? { bypassed: true } : {}),
+      ...(rawNode.locked === true ? { locked: true as const } : {}),
       ...(definition.stereoCapable === true && rawNode.stereo === true ? { stereo: true } : {}),
     })
   }

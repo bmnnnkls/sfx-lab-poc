@@ -1,14 +1,11 @@
 import { type ControlSize, type ModuleLibrary, type PanelItem, describeNode } from '@core'
 import { type DragEvent, useState } from 'react'
-import { Fader, Knob, Toggle, XYPad } from '../controls'
+import { IndicatorFace } from '../shared/indicators/IndicatorFace'
+import { ControlWidget, type ParamChange, isSettable } from './ControlWidget'
 import styles from './panel.module.css'
-import { axisSpec, defaultPosition, keyStep, knobWidth, positionOf, readValue, spanOf, valueAt } from './panel-values'
+import { knobWidth, spanOf } from './panel-values'
 
-/** One value to put into a parameter of the control's node. */
-export interface ParamChange {
-  readonly param: string
-  readonly value: number
-}
+export type { ParamChange }
 
 /** What the edit mode can do to a control. */
 export interface CellActions {
@@ -31,6 +28,8 @@ interface ControlCellProps {
   /** What the control is called: its node's name, or its type numbered when alike. */
   title: string
   editing: boolean
+  /** Where an indicator gets its live value (see `PanelView`). */
+  readoutTrack?: string
   first: boolean
   last: boolean
   onSet(changes: readonly ParamChange[]): void
@@ -66,7 +65,7 @@ const RenameField = ({ name, placeholder, onCommit }: { name: string; placeholde
 }
 
 /** A control node on the board: the widget for its kind, writing the node's own value, with the edit tools around it in edit mode. */
-export const ControlCell = ({ item, modules, title, editing, first, last, onSet, actions }: ControlCellProps) => {
+export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions }: ControlCellProps) => {
   const [over, setOver] = useState(false)
   const { node } = item
   const shape = describeNode(node, modules)
@@ -74,56 +73,8 @@ export const ControlCell = ({ item, modules, title, editing, first, last, onSet,
 
   const widget = (() => {
     if (!shape) return <p className={styles.missing}>{title} is not available</p>
-    switch (item.kind) {
-      case 'knob':
-      case 'slider': {
-        const spec = axisSpec(node, shape, 'value')
-        if (!spec) return null
-        const value = node.params.value ?? spec.default
-        const common = {
-          label: title,
-          position: positionOf(spec, value),
-          valueText: readValue(spec, value),
-          defaultPosition: defaultPosition(spec),
-          step: keyStep(spec),
-          onChange: (position: number) => onSet([{ param: 'value', value: valueAt(spec, position) }]),
-        }
-        return item.kind === 'knob' ? <Knob {...common} /> : <Fader {...common} vertical={!item.horizontal} />
-      }
-      case 'xy': {
-        const x = axisSpec(node, shape, 'x')
-        const y = axisSpec(node, shape, 'y')
-        if (!x || !y) return null
-        const xValue = node.params.x ?? x.default
-        const yValue = node.params.y ?? y.default
-        return (
-          <XYPad
-            label={title}
-            x={positionOf(x, xValue)}
-            y={positionOf(y, yValue)}
-            valueText={`X ${readValue(x, xValue)}, Y ${readValue(y, yValue)}`}
-            defaultX={defaultPosition(x)}
-            defaultY={defaultPosition(y)}
-            step={Math.min(keyStep(x), keyStep(y))}
-            onChange={(position) =>
-              onSet([
-                { param: 'x', value: valueAt(x, position.x) },
-                { param: 'y', value: valueAt(y, position.y) },
-              ])
-            }
-          />
-        )
-      }
-      case 'switch':
-        return (
-          <Toggle
-            label={title}
-            on={(node.params.on ?? 0) >= 0.5}
-            momentary={Math.round(node.params.mode ?? 0) === 1}
-            onChange={(on) => onSet([{ param: 'on', value: on ? 1 : 0 }])}
-          />
-        )
-    }
+    if (isSettable(item.kind)) return <ControlWidget kind={item.kind} horizontal={item.horizontal} node={node} shape={shape} title={title} onSet={onSet} />
+    return <IndicatorFace node={node} kind={item.kind} label={title} track={readoutTrack} />
   })()
 
   const onDragOver = (event: DragEvent) => {

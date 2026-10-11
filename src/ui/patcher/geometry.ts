@@ -6,6 +6,13 @@ export const PORT_ROW_HEIGHT = 22
 export const MODULE_FOOTER_HEIGHT = 34
 /** A card's picture (`previews/`) and the space around it. */
 export const PREVIEW_AREA_HEIGHT = 44
+/** The room a control's working widget takes on its card, by what kind of control it is (a knob with its value, an XY pad, a switch, a row of buttons). */
+export const LIVE_WIDGET_HEIGHT = { value: 84, xy: 140, switch: 44, selector: 44 } as const
+
+/** The height of a card's live widget, or 0 when the node has none (it is not a settable control). */
+export const liveWidgetHeight = (definition: NodeShape): number =>
+  definition.panelKind === 'value' || definition.panelKind === 'xy' || definition.panelKind === 'switch' || definition.panelKind === 'selector' ? LIVE_WIDGET_HEIGHT[definition.panelKind] : 0
+
 const BODY_PADDING = 6
 
 export interface Point {
@@ -20,7 +27,8 @@ export const nodeHeight = (definition: NodeShape, isModule = false, hasPicture =
   HEADER_HEIGHT +
   BODY_PADDING * 2 +
   portRowCount(definition) * PORT_ROW_HEIGHT +
-  (hasPicture ? PREVIEW_AREA_HEIGHT : 0) +
+  (hasPicture || definition.indicator === true ? PREVIEW_AREA_HEIGHT : 0) +
+  liveWidgetHeight(definition) +
   (isModule ? MODULE_FOOTER_HEIGHT : 0)
 
 /** Canvas position of a port's connection dot. Layout is fixed, so no DOM measuring is needed. */

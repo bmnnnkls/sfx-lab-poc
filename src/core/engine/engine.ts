@@ -196,7 +196,14 @@ export class Engine {
     for (const [id, track] of this.tracks) peaks[id] = track.strip.takePeak()
     const peak = this.peak
     this.peak = 0 // each snapshot reports the level since the previous one
-    return { playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, tracks }
+    const readouts: Record<string, Readonly<Record<string, number>>> = {}
+    for (const [id, track] of this.tracks) {
+      const found = track.readouts()
+      if (Object.keys(found).length > 0) readouts[id] = found
+    }
+    const masterReadouts = this.master.readouts()
+    if (Object.keys(masterReadouts).length > 0) readouts.master = masterReadouts
+    return { playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, readouts, tracks }
   }
 
   private stopTransport(): void {

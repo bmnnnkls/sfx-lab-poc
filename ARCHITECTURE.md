@@ -395,7 +395,7 @@ slider (the same `track.volume`) and gains no other control; its header only str
 ## Front panel (the control nodes, arranged)
 
 Every graph editor (Instrument, Effects, Notes, the Master's effects, the inside of a module) has a **Graph | Panel** switch.
-*Panel* replaces the canvas with a board of the graph's **control nodes** as knobs, sliders, XY pads and switches. The switch is
+*Panel* replaces the canvas with a board of the graph's **control nodes** as knobs, sliders, XY pads, switches and selectors, and its **indicators** (LEDs, number displays, bar meters). The switch is
 remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`): a way of looking, not part of the project.
 
 * **The panel is the control nodes** (`core/patch/panel.ts`). There is no list of controls and no bindings: a knob on the board IS a
@@ -473,7 +473,7 @@ plain cards; the property editor, the panel built from control nodes and the nod
   driving a gain or a delay mix under a three-note chord sounds exactly like the value typed in). Insert graphs and the master
   graph (`FxGraph`) have one copy of every node, so they need no stages; they get feeds from the same `processStage`.
 * **Nodes.** *Control* (`value`, `min`, `max`, `curve`, `step`, `default`; output `out`), *XY pad* (the same per axis, `x` / `xMin`
-  / ..., outputs `x`, `y`) and *Switch* (`on`, `mode` toggle / momentary; output 0 or 1). They output the **real value** in their
+  / ..., outputs `x`, `y`) and *Switch* (`on`, `mode` toggle / momentary / trigger, `offValue` and `onValue` (0 and 1 until set; both have sockets, `on` and the mode do not: `ParamSpec.socket: false`), `pulse`) and *Selector* (`index`, `count`; outputs the chosen position from 0, `panelKind: 'selector'`). A switch in `trigger` mode is a push button: the panel holds it like a momentary switch, and the node outputs the on value for `pulse` seconds from the rising edge of `on` (seen in `setParam`, so a press shorter than a block still pulses). They output the **real value** in their
   own range, clamped and snapped to the step by the node itself, so the specs' own bounds are wide (+-100000) and
   `ParamSpec.range` says "my range is the node's `min` / `max` / `step`" (`liveSpec` resolves it; the cards use it for the
   slider). `curve` (linear / log / exp) is for the knobs' mapping; the engine ignores it. Math nodes (`dsp/nodes/math/`,
@@ -483,10 +483,71 @@ plain cards; the property editor, the panel built from control nodes and the nod
   wired into its port, or, unwired, the parameter of the same id (which has its own socket); the result is never NaN or
   infinite (rounded to float32 first, so a product that overflows the buffer is 0, not Infinity). *Hz to MIDI* gives 0, the
   lowest note, for 0 or less; fractional notes work. Math nodes are global-capable.
+* **Sources of sound and chance** (`dsp/random.ts`, `dsp/nodes/{noise,perlin,geiger,random}.node.ts`). Everything random is **seeded**
+  (`createRng`, mulberry32; `hashSigned` for lattice points), never `Math.random` or the clock, so a render comes out the same every
+  time (exports, tests, a sound you want back); each has a `seed` parameter (no socket: `socket: false`). The seed is per node
+  instance, so in a chord every voice starts from the same seed (the noise is coherent across voices). *Noise*: white, pink
+  (Kellet's three-pole filter, gain 0.11 so its peak stays under 1) or brown (leaky random walk, clamped), with a level. *Perlin
+  noise*: fractal 1D gradient noise (`gradientNoise`, `fractalNoise`: octaves, persistence, quintic fade), outputs `out` and `uni`
+  like the LFO, optional `Retrig` input restarts the wander. *Geiger*: a Poisson process (each sample has the chance
+  `rate / sampleRate`), outputs `Click` (a noise burst that decays over `decay`, strength varied by `spread`) and `Trigger` (high for
+  `gate` seconds), so one node is both a crackle and a random trigger. *Random*: a control that holds a roll between `min` and `max`
+  (optionally snapped to `step`) and draws a new one on each rise of `Roll` through 0.5; it keeps the roll as a position in the range,
+  so turning Min or Max moves the value without a new roll.
+* **Logic** (`dsp/nodes/math/logic.ts`, category *Logic*, all built with `mathNode` and global-capable; `MathSpec.inNotes: false` keeps them out of
+  note graphs, since a clock or counter has no meaning as a baked constant). *Schmitt trigger* (on at `high`, off only at `low`, either way round),
+  *Edge detect* (a pulse of `pulse` seconds on a rising, falling or either edge; the first sample is never an edge), *Flip-flop*
+  (toggles on a rise of `trigger`, `reset` clears), *Counter* (counts rises, wraps at `limit`), *Clock* (a square at `rate` Hz or BPM,
+  duty `width`, `reset` restarts it; the DSP context has no tempo, so BPM is just rate / 60), *Clock divider* (passes the first and
+  then every Nth cycle) and *Control delay* (up to 2 s, a ring buffer made when the node is created; starts as its first input). A
+  rise or high is always 0.5, as everywhere else.
+* **Analysis** (`dsp/nodes/analysis/`, category *Analysis*; audio in, control out). They read a sound, so they are voice or shared
+  nodes (never global), and their `control` outputs can feed a parameter socket (read once per block) or any signal input. *Envelope
+  follower* (`Follower`: a one-pole with its own attack and release, peak or RMS; RMS of a sine reads 0.707 of its peak). *Level (dB)*
+  (the same follower, symmetric, then `20 log10`, floor -120 dB, 0 dB is full scale). *Pitch detector* (`yin.ts`: the YIN method on the
+  input averaged down to about 12 kHz, a 1024-sample window looked at every 256, parabolic interpolation; outputs `frequency`, which holds the
+  last pitch it was sure about and is 0 until the first, and `confidence`; about 50 ms of lag; a pitch above its range comes out as a
+  subharmonic inside it).
+* **Indicators and the readout path** (`dsp/nodes/indicator.nodes.ts`, category *Indicators*). *LED* (on/off at a threshold, or dark-to-bright between two
+  values; four colours), *Number display* (decimals, or a MIDI note name; the unit is the node's own `unit`, kept by the sanitizer for
+  displays and bars) and *Bar meter* (fills between two values) are **sinks with no outputs** that remember the last sample they saw
+  (`DspNode.readout()`, `NodeDefinition.indicator`). The engine reports them in `EngineStatus.readouts[trackId][nodeId]` (the master bus
+  is `master`): `Instrument.readouts()` and `FxGraph.readouts()` collect them from the compiled stages (`stageReadouts`), `PlayableTrack.readouts()`
+  merges a track's patch and insert graph, and tracks with none are left out. Global and shared indicators report every block; one in a
+  voice reports only while a voice sounds (the latest sounding voice wins), so it is **absent, not stale**, when nothing plays: the face shows
+  a dash, a dark LED, an empty bar. Reading changes nothing (unlike `peaks`). The UI shows the same `IndicatorFace` (`ui/shared/indicators/`) on the
+  card (in the picture area; `nodeHeight` reserves it) and on the front panel (`PanelKind` led / display / bar, so they are arranged, sized
+  and hidden like controls); inside a module's own editor there is no track to read from, so the faces stay idle (a module used in a track reports as
+  `<use>/<inner>`, which is also the id of its stand-in on that track's panel). Values reach the UI at the status rate (about 30 a second).
+* **Example modules** (`patch/example-modules.ts`; the picker's last category, *Examples*). Modules that ship with the app: *Overtone oscillator*
+  (eight sine partials at 1x to 8x the pitch, level 1/k, one level knob each) and *Drawbar organ* (nine drawbars at the footages 16', 5 1/3', 8',
+  4', 2 2/3', 2', 1 3/5', 1 1/3', 1', registered 16' / 5 1/3' / 8'), both built by one `additive` builder from a list of partials: a pitch
+  input that fans out to a `multiply` (the ratio), a sine oscillator and a level `gain` per partial, summed in an output gain. Ids are plain
+  (`base`, `ratio0`, `sine0`, `level0`, ..., `sum`; wires `<module>-w<n>`) so the definition is the same every time. Choosing one calls
+  `addExampleModuleUse`, which **copies the definition into the project's library the first time** (project data stays self-contained) and
+  adds a use, as one undo step; later uses share the library's copy, even after it was edited. Examples are offered in sound graphs only, and
+  not for a dropped wire. Their spectra are tested by rendering them (a Goertzel filter at each partial).
+* **Randomize and mutate** (`patch/randomize.ts`, `ui/patcher/RandomizeBar.tsx`). `randomizeParams(patch, modules, { seed, amount })` is pure and
+  seeded (`createRng`): `amount` 1 (the default) picks each setting anywhere in its range, a smaller one moves it by up to that part of its range,
+  both **in the way a knob feels it** (`toSlider` / `fromSlider`, moved down to core as `dsp/param-scale.ts`, so a frequency is spread over octaves,
+  not hertz) and on its step, rounded to six significant digits. A choice changes with the chance `amount`. Left alone: a node with `locked`
+  (`PatchNode.locked?: true`, `setNodeLocked`, a checkbox in the property editor), a setting a wire drives, a range wider than 50000 (a math
+  operand is a free number, not a knob), and on control nodes everything but the value (and a selector's value stays among its positions);
+  switches and indicators are not rolled. It returns the same patch when nothing changes (amount 0). The toolbar has *Randomize*, *Mutate*
+  (a touch / some / a lot) and a seed (0 to 9999): the seed shown is the one the next press uses, then it moves on and the one just used
+  stays beside it as "last N", so a result can be got back by typing its number. One press is one undo step; it works on the graph on show
+  (the sound patch, the insert graph, the notes, the inside of a module).
+* **The control inside its card.** A control, XY pad, switch or selector card holds its **working widget** (`ui/panel/ControlWidget.tsx`, the very
+  component the front panel uses; `controlKindFor(node, panelKind)` says which: a knob, or a slider as the node's `display` says) where other cards
+  show a picture, with its value under it and its own label left out (the title says it; `data-hide-labels`). It writes the node's value with the
+  same undo keys as the panel and the property editor (`param:<scope>:<node>:<param>`, `xy:<scope>:<node>:` for a pad), so a drag is one step
+  wherever it was made and the three always show the same number. The card is only dragged by its header, so turning a widget never moves it; pressing one
+  still selects the card. `nodeHeight` reserves `LIVE_WIDGET_HEIGHT` (knob 84, pad 140, switch and selector 44), which is what keeps the sockets where
+  the wires are drawn.
 * **Names.** `PatchNode.name?` (trimmed, at most 60 characters, absent when blank; `setNodeName`, same patch when unchanged;
   read by the sanitizer). Nothing shows it yet. It is not sound: renaming sends no engine command.
 * **Words** (`dsp/node-docs.ts`, `notefx/node-docs.ts`, `dsp/document.ts`). Every node has a one-sentence `description`, a `category`
-  (*Sources, Controls, Modulation, Math, Filters, Effects, Routing*; the note graph uses only Sources, Effects and Routing;
+  (*Sources, Controls, Modulation, Math, Logic, Analysis, Filters, Effects, Routing*, and Indicators after Controls; the note graph uses only Sources, Effects and Routing;
   modules are `Modules`) and optional `keywords` for search, and every port and
   parameter a `description`. They are written once in one table per registry and attached by the registry (`documented`), not
   scattered over the node files; **a test fails when a registered node, port or parameter has no entry, or an entry names
@@ -518,7 +579,7 @@ plain cards; the property editor, the panel built from control nodes and the nod
   `PointerEvent.detail` is 0), and the second press puts back the selection the first one cleared and draws no box; the canvas
   surface now fills the whole scroller, so empty parts far from the nodes count as canvas. Browser check:
   `docs/browser-checks/quickadd.mjs`. The Notes tab's preview aside is 30% (at most 440 px) so the canvas keeps room next to the property editor.
-* **Cards** (`ui/patcher/NodeView.tsx`). A card is a **title, its sockets and, where it helps, a picture** (below): no sliders, fields, pickers or switches (the
+* **Cards** (`ui/patcher/NodeView.tsx`). A card is a **title, its sockets and, where it helps, a picture** (below), or, for a control, its working widget (above): no sliders, fields, pickers or switches otherwise (the
   height is the header plus the port rows, plus the picture's area, `nodeHeight`). It shows the node's title (`nodeTitles`: its name, else its label numbered when
   alike) and only state that matters at a glance: `shared`, `L R`, `module`, bypassed (dimmed), and the module's *Edit* / *Unlink*. A
   parameter socket is drawn only when it is wired, or for all of them while the **Sockets** toggle (a checkbox in the toolbar,
@@ -592,7 +653,7 @@ plain cards; the property editor, the panel built from control nodes and the nod
   change (the control holds what the parameter had). It refuses an enum, a parameter without a socket, and one that already has a wire
   (a second would add to the first; the menu leaves it out). A wired socket's menu has **Disconnect** (every wire into it); an
   ordinary input has a menu only when wired; note-graph nodes have no sockets, so nothing to create from there.
-* **Control fields** (`PatchNode.unit`, `unitY`, `display`; `NodeDefinition.panelKind` is `value` / `xy` / `switch`). `unit` is text (at
+* **Control fields** (`PatchNode.unit`, `unitY`, `display`; `NodeDefinition.panelKind` is `value` / `xy` / `switch` / `selector`). `unit` is text (at
   most 16 characters, blank = none; `setNodeUnit`), `display` is `knob` (stored as nothing), `slider` or `slider-horizontal`
   (`setNodeDisplay`); the sanitizer keeps a unit only on a control with a value to show (not a switch), `unitY` only on a pad, and
   `display` only on a *Control*. A control has no separate label: its **name** is its caption on the panel. Optional fields, no

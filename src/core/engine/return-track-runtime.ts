@@ -30,6 +30,10 @@ export class ReturnTrackRuntime implements PlayableTrack {
     this.sources = audioSources(fx)
   }
 
+  readouts(): Readonly<Record<string, number>> {
+    return this.fx.readouts()
+  }
+
   setFx(fx: Patch): void {
     this.fx = new FxGraph(fx, this.sampleRate, this.samples)
     this.targets = sendTargets(fx)

@@ -107,10 +107,10 @@ export const createXyFor = (
 /** A control with nothing wired to it, for the panel's "add" tools: wire it to something in the graph afterwards. */
 export const createBlankControl = (
   patch: Patch,
-  kind: 'knob' | 'slider' | 'slider-horizontal' | 'xy' | 'switch',
+  kind: 'knob' | 'slider' | 'slider-horizontal' | 'xy' | 'switch' | 'selector' | 'led' | 'display' | 'bar',
   at: { readonly x: number; readonly y: number },
 ): { patch: Patch; controlId: string } => {
-  const base = createNode(kind === 'xy' ? 'xyPad' : kind === 'switch' ? 'switch' : 'control', at.x, at.y)
+  const base = createNode(kind === 'xy' ? 'xyPad' : kind === 'knob' || kind === 'slider' || kind === 'slider-horizontal' ? 'control' : kind, at.x, at.y)
   const node: PatchNode = { ...base, ...(kind === 'slider' || kind === 'slider-horizontal' ? { display: kind } : {}) }
   return { patch: addNode(patch, node), controlId: node.id }
 }

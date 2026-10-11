@@ -3,7 +3,7 @@ import type { ModuleDefinition } from './module-types'
 import type { PatchNode } from './types'
 
 /** The parameters of each kind of control that carry its value: what a use of the module stores, and what the parent's panel moves. */
-const VALUE_PARAMS = { value: ['value'], xy: ['x', 'y'], switch: ['on'] } as const
+const VALUE_PARAMS = { value: ['value'], xy: ['x', 'y'], switch: ['on'], selector: ['index'], led: [], display: [], bar: [] } as const
 
 /** The key under which a use stores one value of an inner control: the same scheme as a module knob (`<inner node>:<param>`). */
 export const controlParamKey = (innerId: string, param: string): string => `${innerId}:${param}`
@@ -11,7 +11,7 @@ export const controlParamKey = (innerId: string, param: string): string => `${in
 /** An inner control a use of the module offers on the panel of the graph that holds it. */
 export interface ModuleControl {
   readonly node: PatchNode
-  /** The parameters that carry its value (`value`; `x` and `y`; `on`). */
+  /** The parameters that carry its value (`value`; `x` and `y`; `on`; `index`). */
   readonly params: readonly string[]
 }
 

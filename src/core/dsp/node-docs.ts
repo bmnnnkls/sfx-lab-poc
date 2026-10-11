@@ -46,6 +46,34 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     },
   },
 
+  noise: {
+    category: 'Sources',
+    description: 'Hiss, wind or rumble: white noise is bright and even, pink is softer, brown is a low rumble.',
+    keywords: ['hiss', 'static', 'wind', 'snare', 'hat', 'white', 'pink', 'brown', 'random', 'sfx'],
+    outputs: { out: 'The noise.' },
+    params: {
+      colour: 'White is flat and bright, pink falls 3 dB per octave, brown falls 6 dB per octave.',
+      level: 'How loud the noise is, from 0 to 1.',
+      seed: 'The same seed always gives the same noise; change it for a different one.',
+    },
+  },
+  geiger: {
+    category: 'Sources',
+    description: 'Random clicks at random times, like a Geiger counter, vinyl dust or rain: as crackle, and as a trigger for other nodes.',
+    keywords: ['crackle', 'dust', 'click', 'random pulse', 'poisson', 'rain', 'vinyl', 'trigger', 'sfx'],
+    outputs: {
+      click: 'The crackle: a short burst of noise for every click.',
+      trigger: 'High for the Gate time at every click. Wire it to an envelope, a sampler or a sample and hold.',
+    },
+    params: {
+      rate: 'How many clicks per second on average. The gaps between them are irregular.',
+      decay: 'How long each click rings, in milliseconds. Short is a tick, long is a splash.',
+      spread: 'How much the clicks differ in loudness: 0 for all alike, 1 from silent to full.',
+      gate: 'How long the Trigger output stays high after each click, in seconds.',
+      seed: 'The same seed always gives the same clicks at the same times.',
+    },
+  },
+
   // ---- Controls
   control: {
     category: 'Controls',
@@ -83,16 +111,91 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
   },
   switch: {
     category: 'Controls',
-    description: 'An on/off switch: it outputs 1 while on and 0 while off.',
-    keywords: ['toggle', 'button', 'on', 'off', 'momentary'],
-    outputs: { out: '1 while on, 0 while off.' },
+    description: 'An on/off switch or push button: it outputs one value while off and another while on (0 and 1 until you set them).',
+    keywords: ['toggle', 'button', 'push', 'trigger', 'on', 'off', 'momentary', 'pulse'],
+    outputs: { out: 'The off value while off, the on value while on. As a trigger, the on value for a short pulse after each press.' },
     params: {
       on: 'Whether the switch is on.',
-      mode: 'A toggle stays where it is put; a momentary switch is on only while it is held.',
+      mode: 'A toggle stays where it is put; a momentary switch is on only while held; a trigger sends one short pulse per press.',
+      offValue: 'What the switch outputs while it is off.',
+      onValue: 'What the switch outputs while it is on.',
+      pulse: 'How long a trigger stays on after a press, in seconds.',
+    },
+  },
+  selector: {
+    category: 'Controls',
+    description: 'A row of buttons as a node: it outputs the number of the chosen one, counting from 0.',
+    keywords: ['choose', 'radio', 'option', 'pick', 'switch', 'index', 'buttons'],
+    outputs: { out: 'The chosen position, from 0. Constant for the whole block.' },
+    params: {
+      index: 'The chosen position, counting from 0.',
+      count: 'How many positions there are.',
+    },
+  },
+
+  // ---- Indicators
+  led: {
+    category: 'Indicators',
+    description: 'A light that shows a value: on or off at a threshold, or dim to bright. Wire a gate, a trigger or a level to it.',
+    keywords: ['lamp', 'light', 'indicator', 'gate', 'trigger', 'status', 'display', 'monitor'],
+    inputs: { in: 'The value to show.' },
+    params: {
+      mode: 'On/off lights up above the threshold; brightness follows the value between the two ends.',
+      threshold: 'In on/off mode, the value at which the light turns on.',
+      low: 'In brightness mode, the value at which the light is dark.',
+      high: 'In brightness mode, the value at which the light is brightest.',
+      colour: 'The colour of the light.',
+    },
+  },
+  display: {
+    category: 'Indicators',
+    description: 'Shows a value as a number, or as a note name for a MIDI note: see what a wire carries while the sound plays.',
+    keywords: ['number', 'readout', 'meter', 'value', 'text', 'monitor', 'indicator', 'probe', 'note name'],
+    inputs: { in: 'The value to show.' },
+    params: {
+      decimals: 'How many digits to show after the point.',
+      style: 'Show the value as a number, or round it to a MIDI note and show its name (60 is C4).',
+    },
+  },
+  bar: {
+    category: 'Indicators',
+    description: 'A bar that fills as a value rises: a level meter for any control, gate or signal.',
+    keywords: ['meter', 'level', 'progress', 'fill', 'indicator', 'monitor', 'vu'],
+    inputs: { in: 'The value to show.' },
+    params: {
+      min: 'The value at which the bar is empty.',
+      max: 'The value at which the bar is full.',
     },
   },
 
   // ---- Modulation
+  perlin: {
+    category: 'Modulation',
+    description: 'Smooth, organic wandering: Perlin noise as a signal, for drifting a filter, a pitch or a pan.',
+    keywords: ['noise', 'drift', 'wander', 'organic', 'random', 'smooth', 'fractal', 'wobble', 'lfo'],
+    inputs: { gate: 'A rise starts the wandering from the beginning, so every note wanders the same way.' },
+    outputs: { out: 'The wandering, swinging both ways around zero.', uni: 'The same, between 0 and Depth.' },
+    params: {
+      rate: 'How fast it wanders: roughly how many new directions per second.',
+      octaves: 'How many layers of finer detail are added on top of the slow wander.',
+      persistence: 'How strong each finer layer is compared to the one below it. Low is smooth, high is rough.',
+      depth: 'How far the signal swings, from 0 to 1.',
+      seed: 'The same seed always wanders the same way; change it for a different path.',
+    },
+  },
+  random: {
+    category: 'Modulation',
+    description: 'A random value that stays until you roll again: wire a push button or a clock to Roll for a new one.',
+    keywords: ['dice', 'roll', 'chance', 'sfx', 'variation', 'randomise', 'stepped'],
+    inputs: { roll: 'Each rise through 0.5 draws a new value.' },
+    outputs: { out: 'The random value, between Min and Max.' },
+    params: {
+      min: 'The lowest value it can draw.',
+      max: 'The highest value it can draw.',
+      step: 'Snap the value to multiples of this step (0 for any value).',
+      seed: 'The same seed always gives the same first value and the same rolls after it.',
+    },
+  },
   envelope: {
     category: 'Modulation',
     description: 'Shapes a value over the life of a note: rises when the key goes down, falls when it is let go.',
@@ -444,6 +547,121 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     inputs: { in: 'The value to catch.', trigger: 'A rise through 0.5 catches the value.' },
     outputs: { out: 'The held value.' },
     params: { in: 'The value while nothing is wired to In.', trigger: 'The trigger while nothing is wired to it.' },
+  },
+
+  // ---- Logic
+  schmitt: {
+    category: 'Logic',
+    description: 'Turns a wobbling signal into a clean on/off: on when it rises past High, off only when it falls below Low.',
+    keywords: ['threshold', 'gate', 'comparator', 'hysteresis', 'trigger', 'detect'],
+    inputs: { in: 'The signal to watch.', high: 'The level at which the output turns on.', low: 'The level at which the output turns off.' },
+    outputs: { out: '1 while on, 0 while off.' },
+    params: { in: 'The signal while nothing is wired to In.', high: 'The level at which the output turns on.', low: 'The level at which the output turns off.' },
+  },
+  edge: {
+    category: 'Logic',
+    description: 'Sends a short pulse each time the signal crosses 0.5: when it rises, when it falls, or both.',
+    keywords: ['trigger', 'pulse', 'change', 'detect', 'rising', 'falling', 'one shot'],
+    inputs: { in: 'The signal to watch.' },
+    outputs: { out: '1 for the Pulse time after each edge, 0 otherwise.' },
+    params: {
+      in: 'The signal while nothing is wired to In.',
+      mode: 'Which edges give a pulse: rising, falling or both.',
+      pulse: 'How long the pulse lasts, in seconds.',
+    },
+  },
+  flipFlop: {
+    category: 'Logic',
+    description: 'Flips between 0 and 1 on every trigger: turn a push button into a toggle, or a beat into an on/off pattern.',
+    keywords: ['toggle', 'latch', 'alternate', 'divide by two', 'memory', 'bistable'],
+    inputs: { trigger: 'Each rise through 0.5 flips the output.', reset: 'A rise through 0.5 sets the output back to 0.' },
+    outputs: { out: 'Alternates between 0 and 1.' },
+    params: { trigger: 'The trigger while nothing is wired to it.', reset: 'The reset while nothing is wired to it.' },
+  },
+  counter: {
+    category: 'Logic',
+    description: 'Counts triggers: 0, 1, 2, and so on, optionally starting over at a limit. Steps through a list or a pattern.',
+    keywords: ['count', 'step', 'sequence', 'index', 'bar', 'beat'],
+    inputs: { trigger: 'Each rise through 0.5 adds one.', reset: 'A rise through 0.5 goes back to 0.' },
+    outputs: { out: 'The count, starting at 0.' },
+    params: {
+      trigger: 'The trigger while nothing is wired to it.',
+      reset: 'The reset while nothing is wired to it.',
+      limit: 'Start over at 0 after counting up to one less than this (0 for no limit).',
+    },
+  },
+  clock: {
+    category: 'Logic',
+    description: 'A steady on/off beat: a square wave at a slow rate, to step counters, retrigger envelopes and fire samples.',
+    keywords: ['metronome', 'tempo', 'beat', 'pulse', 'square', 'gate', 'timer', 'bpm', 'oscillator'],
+    inputs: { reset: 'A rise through 0.5 restarts the cycle.' },
+    outputs: { out: '1 for the first part of each cycle (Width), 0 for the rest.' },
+    params: {
+      reset: 'The reset while nothing is wired to it.',
+      rate: 'How many cycles per second or per minute, depending on Per.',
+      unit: 'Count the rate in cycles per second (Hz) or per minute (BPM).',
+      width: 'How much of each cycle is on, from 0 to 1.',
+    },
+  },
+  divider: {
+    category: 'Logic',
+    description: 'Lets through every Nth cycle of a clock: half time, a marker once a bar, a rhythm from a steady beat.',
+    keywords: ['clock divider', 'every other', 'half time', 'rhythm', 'ratio', 'pulse'],
+    inputs: { in: 'The clock or gate to divide.', reset: 'A rise through 0.5 starts counting again from the first cycle.' },
+    outputs: { out: 'The input, on the cycles that pass; 0 otherwise.' },
+    params: {
+      in: 'The signal while nothing is wired to In.',
+      reset: 'The reset while nothing is wired to it.',
+      by: 'Pass one cycle in this many, starting with the first.',
+    },
+  },
+  controlDelay: {
+    category: 'Logic',
+    description: 'The signal, a little later: delays a control or a gate by a set time, up to two seconds.',
+    keywords: ['delay', 'late', 'shift', 'lag', 'wait', 'offset', 'echo'],
+    inputs: { in: 'The signal to delay.' },
+    outputs: { out: 'The signal as it was Time seconds ago.' },
+    params: { in: 'The signal while nothing is wired to In.', time: 'How long to delay it, in seconds.' },
+  },
+
+  // ---- Analysis
+  follower: {
+    category: 'Analysis',
+    description: 'Listens to a sound and outputs how loud it is, as a control: for an auto-wah, ducking or a level light.',
+    keywords: ['envelope', 'amplitude', 'loudness', 'level', 'sidechain', 'duck', 'auto wah', 'detector', 'rms', 'peak'],
+    inputs: { in: 'The sound to listen to.' },
+    outputs: { out: 'How loud the sound is, from 0 up (1 is full scale).' },
+    params: {
+      mode: 'Peak follows the size of the waves; RMS follows their power, which is closer to how loud it sounds.',
+      attack: 'How fast the level rises when the sound gets louder, in milliseconds.',
+      release: 'How fast the level falls when the sound gets quieter, in milliseconds.',
+    },
+  },
+  level: {
+    category: 'Analysis',
+    description: 'Measures how loud a sound is in decibels, where 0 dB is full scale: a readout, or a threshold to wire onward.',
+    keywords: ['db', 'decibel', 'loudness', 'meter', 'vu', 'rms', 'peak', 'volume'],
+    inputs: { in: 'The sound to measure.' },
+    outputs: { out: 'The level in dB, from 0 down to -120 (silence).' },
+    params: {
+      mode: 'Peak follows the size of the waves; RMS follows their power, which is closer to how loud it sounds.',
+      time: 'How long the level is averaged over, in milliseconds. Short is twitchy, long is steady.',
+    },
+  },
+  pitch: {
+    category: 'Analysis',
+    description: 'Finds the pitch of a sound: its frequency and how sure it is. Wire it to an oscillator to follow a voice or an instrument.',
+    keywords: ['frequency', 'tuner', 'tracker', 'note', 'yin', 'detect', 'hz', 'follow'],
+    inputs: { in: 'The sound to listen to. One clear note at a time works best.' },
+    outputs: {
+      frequency: 'The pitch in Hz. It holds the last pitch it was sure about, and is 0 until it has heard one.',
+      confidence: 'How sure it is, from 0 (noise or silence) to 1 (a clean tone).',
+    },
+    params: {
+      low: 'The lowest pitch to look for, in Hz.',
+      high: 'The highest pitch to look for, in Hz.',
+      threshold: 'How sure it must be before the frequency output follows a new pitch.',
+    },
   },
 
   // ---- Routing

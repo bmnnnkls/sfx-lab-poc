@@ -9,6 +9,7 @@ import {
   type AudioClipChanges,
   type SampleInfo,
   addAudioClip,
+  addExampleModuleUse,
   addModuleUse,
   addAudioTrackWithClip,
   setAudioClipAt,
@@ -125,6 +126,8 @@ interface ProjectActions {
   /** Replaces the selected nodes of a patch by one use of a new module. */
   groupNodes(target: PatchTarget, nodeIds: readonly string[]): void
   addModuleUse(target: PatchTarget, moduleId: string, x: number, y: number): void
+  /** Like `addModuleUse` for an example module: copies its definition into the library first if it is not there (one undo step). */
+  addExampleModule(target: PatchTarget, definition: ModuleDefinition, x: number, y: number): void
   /** Turns a use into an independent copy of the module's contents. */
   unlinkModule(target: PatchTarget, nodeId: string): void
   /** Changes a module's definition or interface; every use follows. */
@@ -223,6 +226,7 @@ export const useProjectStore = create<ProjectState>((set) => {
       edit((project) => editPatchAt(project, { moduleId }, change), mergeKey),
     groupNodes: (target, nodeIds) => edit((project) => groupNodesAsModule(project, target, nodeIds)),
     addModuleUse: (target, moduleId, x, y) => edit((project) => addModuleUse(project, target, moduleId, x, y)),
+    addExampleModule: (target, definition, x, y) => edit((project) => addExampleModuleUse(project, target, definition, x, y)),
     unlinkModule: (target, nodeId) => edit((project) => unlinkModuleNode(project, target, nodeId)),
     updateModule: (moduleId, change, mergeKey) => edit((project) => updateModule(project, moduleId, change), mergeKey),
     deleteModule: (moduleId) => edit((project) => removeModule(project, moduleId)),

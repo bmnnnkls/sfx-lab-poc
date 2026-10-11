@@ -9,8 +9,8 @@ export const paramPortId = (paramId: string): string => `${PARAM_PORT_PREFIX}${p
 export const paramOfPort = (portId: string): string | undefined =>
   portId.startsWith(PARAM_PORT_PREFIX) ? portId.slice(PARAM_PORT_PREFIX.length) : undefined
 
-/** Enums are picked, not driven; everything else with a number is a socket. */
-const hasSocket = (spec: ParamSpec): boolean => spec.options === undefined
+/** Enums are picked, not driven, and a parameter can opt out (`socket: false`); everything else with a number is a socket. */
+const hasSocket = (spec: ParamSpec): boolean => spec.options === undefined && spec.socket !== false
 
 /**
  * The sockets of a node: one `control` input per numeric parameter. Wired, the wire's value replaces the parameter's

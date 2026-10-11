@@ -1,9 +1,11 @@
 import type { MenuEntry } from '../shared/menu'
 import { ContextMenu } from '../shared/menu'
-import type { NodeShape, PatchNode, PortRef } from '@core'
+import { type NodeShape, type PatchNode, type PortRef, controlKindFor } from '@core'
 import { nodeTooltip, portTooltip } from '../shared/tooltip/tooltip-text'
-import { HEADER_HEIGHT, MODULE_FOOTER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT } from './geometry'
+import { HEADER_HEIGHT, MODULE_FOOTER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT, PREVIEW_AREA_HEIGHT, liveWidgetHeight } from './geometry'
 import styles from './Patcher.module.css'
+import { type ParamChange, ControlWidget, isSettable } from '../panel/ControlWidget'
+import { IndicatorFace } from '../shared/indicators/IndicatorFace'
 import { NodePreview } from './previews/NodePreview'
 import type { Preview } from './previews'
 import { useNodeDrag } from './use-node-drag'
@@ -17,6 +19,10 @@ interface NodeViewProps {
   driven: ReadonlyMap<string, string>
   /** A picture of what the node does with its settings, when it has one (`previews/`); `moving` when a moving signal drives a setting. */
   picture?: { preview: Preview; moving: boolean }
+  /** Sets values on the node: a control's widget on the card writes its own value, as it does on the panel and in the property editor. */
+  onSetParams(changes: readonly ParamChange[]): void
+  /** Where an indicator card gets its live value: the track the engine reports it under (absent inside a module). */
+  readoutTrack?: string
   /** Runs once on the mix of all voices (effects), rather than once per voice. */
   shared: boolean
   selected: boolean
@@ -43,6 +49,8 @@ export const NodeView = ({
   title,
   driven,
   picture,
+  readoutTrack,
+  onSetParams,
   shared,
   selected,
   moduleActions,
@@ -144,6 +152,21 @@ export const NodeView = ({
       </div>
 
       {picture && <NodePreview preview={picture.preview} moving={picture.moving} />}
+      {(() => {
+        const control = controlKindFor(node, shape.panelKind)
+        if (!control || !isSettable(control.kind)) return null
+        // The control itself, working, where a picture would be: turn it here or on the panel, it is the same value.
+        return (
+          <div className={styles.liveWidget} style={{ height: liveWidgetHeight(shape) }} data-hide-labels data-testid={`widget-${node.id}`}>
+            <ControlWidget kind={control.kind} horizontal={control.kind === 'slider'} node={node} shape={shape} title={title} onSet={onSetParams} />
+          </div>
+        )
+      })()}
+      {shape.indicator === true && (shape.panelKind === 'led' || shape.panelKind === 'display' || shape.panelKind === 'bar') && (
+        <div className={styles.indicatorFace} style={{ height: PREVIEW_AREA_HEIGHT }}>
+          <IndicatorFace node={node} kind={shape.panelKind} label={title} track={readoutTrack} showLabel={false} />
+        </div>
+      )}
 
       {moduleActions && (
         <div className={styles.moduleFooter} style={{ height: MODULE_FOOTER_HEIGHT }}>

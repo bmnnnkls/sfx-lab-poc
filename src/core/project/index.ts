@@ -72,6 +72,7 @@ export {
 export {
   type PatchTarget,
   type TrackGraph,
+  addExampleModuleUse,
   addModuleUse,
   editPatchAt,
   groupNodesAsModule,

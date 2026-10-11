@@ -52,6 +52,8 @@ export interface PatchNode {
   readonly stereo?: boolean
   /** For note effects: notes pass through untouched while this is true. */
   readonly bypassed?: boolean
+  /** The node keeps its settings when the patch is randomized or mutated (`randomizeParams`). Absent: it does not. */
+  readonly locked?: true
   /** For `module` nodes: which module definition this is a use of. `params` then holds the exposed knobs. */
   readonly moduleId?: string
 }

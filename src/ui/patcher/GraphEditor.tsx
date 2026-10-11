@@ -23,6 +23,10 @@ import {
   noteNodeDefinitions,
   nodeDefinitions,
   removeNode,
+  setNodeParam,
+  exampleModules,
+  findExampleModule,
+  randomizeParams,
 } from '@core'
 import { useProjectStore } from '@state'
 import { type ReactNode, useRef, useState } from 'react'
@@ -35,6 +39,7 @@ import { type Catalog, buildCatalog } from './node-catalog'
 import { PatchCanvas, type PatchCanvasHandle } from './PatchCanvas'
 import { QuickAdd } from './QuickAdd'
 import { NODE_WIDTH, type Point } from './geometry'
+import { RandomizeBar } from './RandomizeBar'
 import { PropertyEditor } from './PropertyEditor'
 import { centredOn, freeSpot } from './placement'
 import { targetInput } from './wire-drop'
@@ -119,6 +124,8 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const target: PatchTarget = definition ? { moduleId: definition.id } : track ? { trackId: track.id, graph } : { master: true }
   const patch = definition ? definition.patch : track ? graphOf(track, graph) : masterFx
   const scope = definition ? definition.id : `${track?.id ?? 'master'}:${graph}`
+  // Indicators show live values reported per track (the master bus is `master`); a module's inside has no track of its own.
+  const readoutTrack = definition ? undefined : (track?.id ?? 'master')
 
   const enter = (next: readonly string[]) => {
     setPath(next)
@@ -155,6 +162,8 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
     ? buildCatalog(
         palette.filter((definition) => accepts(describeNode(createNode(definition.type, 0, 0), modules))),
         placeable.filter((module) => accepts(describeNode(createModuleUse(module, 0, 0), modules))),
+        // Examples ship with the app; they are sound modules, and a dropped wire is not offered them (a use is placed, then wired by hand).
+        domain === 'audio' && dropped === undefined ? exampleModules : [],
       )
     : null
 
@@ -163,10 +172,16 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
     setPicker(null)
   }
   /** Adds what the picker chose where it was asked for, selects it and, for a dropped wire, wires it in. */
-  const addFromPicker = (entry: { kind: 'node' | 'module'; ref: string }) => {
+  const addFromPicker = (entry: { kind: 'node' | 'module' | 'example'; ref: string }) => {
     if (!picker) return
     const wanted = picker.from ? { x: picker.at.x + 16, y: Math.max(0, picker.at.y - 40) } : centredOn(picker.at)
     const { x, y } = freeSpot(patch, modules, wanted)
+    if (entry.kind === 'example') {
+      const example = findExampleModule(entry.ref)
+      if (example) store().addExampleModule(target, example.definition, x, y)
+      setPicker(null)
+      return
+    }
     const module = entry.kind === 'module' ? modules.find((candidate) => candidate.id === entry.ref) : undefined
     if (entry.kind === 'module' && !module) return
     if (module && !picker.from) {
@@ -301,12 +316,13 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
               Group into module{selected.size > 0 ? ` (${selected.size})` : ''}
             </button>
           )}
+          <RandomizeBar onRoll={(seed, amount) => edit((current, library) => randomizeParams(current, library, { seed, amount }))} />
         </div>
       </div>
       <div className={styles.editorBody} data-has-aside={Boolean(aside) || (Boolean(definition) && interfaceOpen && view === 'graph')}>
         {view === 'panel' ? (
           <div className={styles.panelHost}>
-            <PanelView patch={patch} modules={modules} scope={scope} edit={edit} />
+            <PanelView patch={patch} modules={modules} scope={scope} readoutTrack={readoutTrack} edit={edit} />
           </div>
         ) : (
           <PatchCanvas
@@ -316,7 +332,15 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             selected={selected}
             showStages={graph === 'patch'}
             showSockets={showSockets}
+            readoutTrack={readoutTrack}
             onSelectionChange={setSelected}
+            onSetNodeParams={(id, changes) =>
+              // The same undo keys as the panel and the property editor, so a drag of one value is one step wherever it is made.
+              edit(
+                (current) => changes.reduce((next, change) => setNodeParam(next, id, change.param, change.value), current),
+                changes.length === 1 && changes[0] ? `param:${scope}:${id}:${changes[0].param}` : `xy:${scope}:${id}:`,
+              )
+            }
             onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
             onRemoveNode={(id) => edit((current) => removeNode(current, id))}
             inputMenu={inputMenu}

@@ -72,6 +72,17 @@ export const setStageParam = (stage: CompiledStage, nodeId: string, paramId: str
   for (const dsp of stage.byId.get(nodeId) ?? []) dsp.setParam(paramId, value)
 }
 
+/**
+ * Adds the latest value of every indicator node of the stage to `into`, by node id (`DspNode.readout`). Nothing is allocated unless
+ * the stage has one, so a patch without indicators costs a walk over its nodes and no more.
+ */
+export const stageReadouts = (stage: CompiledStage, into: Record<string, number>): void => {
+  for (const [id, dsps] of stage.byId) {
+    const dsp = dsps[0]
+    if (dsp?.readout) into[id] = dsp.readout()
+  }
+}
+
 export const setStageSample = (stage: CompiledStage, nodeId: string, sampleId: string | null): void => {
   for (const dsp of stage.byId.get(nodeId) ?? []) dsp.setSample?.(sampleId)
 }

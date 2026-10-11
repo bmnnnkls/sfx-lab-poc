@@ -1,7 +1,7 @@
 import { type NoteState } from '../dsp'
 import type { Patch } from '../patch'
 import type { SampleLookup } from '../sample'
-import { MAX_BLOCK_FRAMES, compileStage, processStage, setStageParam, setStageSample } from './compile'
+import { MAX_BLOCK_FRAMES, compileStage, processStage, setStageParam, setStageSample, stageReadouts } from './compile'
 import { planStages } from './stages'
 import { Voice } from './voice'
 import { VoicePool } from './voice-pool'
@@ -82,6 +82,18 @@ export class Instrument {
   setSample(nodeId: string, sampleId: string | null): void {
     for (const voice of this.pool.voices) voice.setSample(nodeId, sampleId)
     setStageSample(this.shared, nodeId, sampleId)
+  }
+
+  /**
+   * What the patch's indicators show right now, by node id: the global and shared ones always, those in the voices only while a voice
+   * sounds (the latest sounding voice wins), so an indicator in a silent instrument is absent rather than stale.
+   */
+  readouts(): Record<string, number> {
+    const found: Record<string, number> = {}
+    stageReadouts(this.global, found)
+    stageReadouts(this.shared, found)
+    for (const voice of this.pool.voices) if (voice.active) voice.readouts(found)
+    return found
   }
 
   /** Renders `frames` samples (<= MAX_BLOCK_FRAMES) and returns the shared mono buffer. */

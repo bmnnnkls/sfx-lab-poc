@@ -9,7 +9,7 @@ import type { PatchNode } from './types'
 export type NodeDomain = 'audio' | 'notes'
 
 /** What the editor and the connection rules need to know about a node: its ports and parameters. */
-export type NodeShape = Pick<NodeDefinition, 'label' | 'description' | 'keywords' | 'panelKind' | 'inNotes' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
+export type NodeShape = Pick<NodeDefinition, 'label' | 'description' | 'keywords' | 'panelKind' | 'indicator' | 'inNotes' | 'inputs' | 'outputs' | 'params' | 'usesSample' | 'stereoCapable'> & {
   /** Where the picker files it; a module's is `Modules`. */
   readonly category?: NodeCategory | 'Modules'
   /** The node refers to another track and the editor shows a track picker: `notes` takes notes from an instrument track, `return` sends to a return track, `audio` takes another track's sound. */

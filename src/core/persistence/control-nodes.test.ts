@@ -109,6 +109,10 @@ describe('control nodes in a saved project', () => {
         { id: 'knob', type: 'control', x: 0, y: 0, params: {}, unit: ' Hz ', display: 'slider-horizontal' },
         { id: 'pad', type: 'xyPad', x: 0, y: 0, params: {}, unit: 'Hz', unitY: '%', display: 'slider' },
         { id: 'sw', type: 'switch', x: 0, y: 0, params: {}, unit: 'Hz', display: 'slider' },
+        { id: 'sel', type: 'selector', x: 0, y: 0, params: { index: 7, count: 99 }, unit: 'Hz', panel: { size: 'L' } },
+        { id: 'dsp', type: 'display', x: 0, y: 0, params: { decimals: 99 }, unit: 'dB' },
+        { id: 'bar', type: 'bar', x: 0, y: 0, params: {}, unit: '%' },
+        { id: 'led', type: 'led', x: 0, y: 0, params: {}, unit: 'x' },
       )
       patch.nodes[0]!.unit = 'Hz'
       patch.nodes[0]!.display = 'slider'
@@ -119,6 +123,11 @@ describe('control nodes in a saved project', () => {
     expect(get('pad')).toMatchObject({ unit: 'Hz', unitY: '%' })
     expect('display' in get('pad')).toBe(false)
     expect('unit' in get('sw') || 'display' in get('sw')).toBe(false)
+    expect('unit' in get('sel')).toBe(false)
+    expect(get('dsp')).toMatchObject({ unit: 'dB', params: { decimals: 6 } })
+    expect(get('bar')).toMatchObject({ unit: '%' })
+    expect('unit' in get('led')).toBe(false)
+    expect(get('sel')).toMatchObject({ panel: { size: 'L' }, params: { index: 7, count: 16 } })
     expect('unit' in nodes[0]! || 'display' in nodes[0]!).toBe(false)
   })
 
@@ -198,6 +207,20 @@ describe('control nodes in a saved project', () => {
       expect(again.warnings).toEqual([])
       expect(again.project).toEqual(first.project)
     })
+  })
+
+  it('keeps a node locked against randomizing, and nothing else that is not `true`', () => {
+    const text = rawWith((patch) => {
+      patch.nodes.push(
+        { id: 'a', type: 'gain', x: 0, y: 0, params: {}, locked: true },
+        { id: 'b', type: 'gain', x: 0, y: 0, params: {}, locked: false },
+        { id: 'c', type: 'gain', x: 0, y: 0, params: {}, locked: 'yes' },
+      )
+    })
+    const nodes = (parseOk(text).project.tracks[0] as InstrumentTrack).patch.nodes
+    expect(nodes.find((node) => node.id === 'a')?.locked).toBe(true)
+    expect('locked' in nodes.find((node) => node.id === 'b')!).toBe(false)
+    expect('locked' in nodes.find((node) => node.id === 'c')!).toBe(false)
   })
 
   it('files saved before control nodes load exactly as they did: no warnings, no new nodes, same wiring', () => {

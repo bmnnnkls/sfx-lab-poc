@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type ModuleDefinition, noteNodeDefinitions, nodeDefinitions } from '@core'
+import { NODE_CATEGORIES, type ModuleDefinition, exampleModules, noteNodeDefinitions, nodeDefinitions } from '@core'
 import { buildCatalog, searchCatalog } from './node-catalog'
 
 const catalog = buildCatalog(nodeDefinitions.filter((definition) => definition.insertOnly !== true), [])
@@ -9,8 +9,8 @@ const module = (id: string, name: string): ModuleDefinition => ({ id, name, patc
 
 describe('buildCatalog', () => {
   it('lists the categories that have something, in the picker order, with their counts', () => {
-    expect(catalog.categories.map((category) => category.name)).toEqual(['Sources', 'Controls', 'Modulation', 'Math', 'Filters', 'Effects', 'Routing'])
-    expect(catalog.categories.find((category) => category.name === 'Math')?.count).toBe(24)
+    expect(catalog.categories.map((category) => category.name)).toEqual([...NODE_CATEGORIES])
+    expect(catalog.categories.find((category) => category.name === 'Math')?.count).toBe(nodeDefinitions.filter((definition) => definition.category === 'Math' && definition.insertOnly !== true).length)
     expect(catalog.categories.reduce((sum, category) => sum + category.count, 0)).toBe(catalog.entries.length)
   })
 
@@ -38,7 +38,7 @@ describe('searchCatalog', () => {
     expect(searchCatalog(catalog, '').map((entry) => entry.ref)).toEqual(catalog.entries.map((entry) => entry.ref))
     expect(searchCatalog(catalog, '  ')).toHaveLength(catalog.entries.length)
     expect(searchCatalog(catalog, '', 'Filters').map((entry) => entry.label)).toEqual(['Filter'])
-    expect(searchCatalog(catalog, '', 'Controls').map((entry) => entry.label)).toEqual(['Control', 'XY pad', 'Switch'])
+    expect(searchCatalog(catalog, '', 'Controls').map((entry) => entry.label)).toEqual(['Control', 'XY pad', 'Switch', 'Selector'])
   })
 
   it('ranks the label first: equal, then prefix, then the start of a word, then contained', () => {
@@ -117,5 +117,28 @@ describe('searchCatalog', () => {
     expect(labels('arp', notes)[0]).toBe('Arpeggiator')
     expect(labels('split', notes)[0]).toBe('Range split')
     expect(labels('instrument', notes)[0]).toBe('To instrument')
+  })
+})
+
+describe('example modules in the catalog', () => {
+  const withExamples = buildCatalog(nodeDefinitions.filter((definition) => definition.insertOnly !== true), [module('m1', 'Wobble core')], exampleModules)
+
+  it('are listed last, under Examples, after the project\'s own modules', () => {
+    expect(withExamples.categories.map((category) => category.name).slice(-2)).toEqual(['Modules', 'Examples'])
+    expect(withExamples.categories.at(-1)).toEqual({ name: 'Examples', count: exampleModules.length })
+    const entries = withExamples.entries.filter((entry) => entry.kind === 'example')
+    expect(entries.map((entry) => entry.label)).toEqual(exampleModules.map((example) => example.definition.name))
+    expect(entries.every((entry) => entry.id.startsWith('example:') && entry.category === 'Examples')).toBe(true)
+  })
+
+  it('are found by their name, their words and the word "example"', () => {
+    expect(labels('drawbar', withExamples)[0]).toBe('Drawbar organ')
+    expect(labels('hammond', withExamples)).toContain('Drawbar organ')
+    expect(labels('additive', withExamples)).toEqual(expect.arrayContaining(['Overtone oscillator', 'Drawbar organ']))
+    expect(labels('example', withExamples)).toEqual(expect.arrayContaining(['Overtone oscillator']))
+  })
+
+  it('are not there unless asked for', () => {
+    expect(catalog.categories.map((category) => category.name)).not.toContain('Examples')
   })
 })

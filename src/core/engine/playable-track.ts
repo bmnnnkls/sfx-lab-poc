@@ -61,6 +61,8 @@ export interface PlayableTrack {
   /** Changes a parameter of a node in the track's patch or insert graph (node ids are unique across both). */
   setParam(nodeId: string, paramId: string, value: number): void
   setSample(nodeId: string, sampleId: string | null): void
+  /** What the indicators in the track's patch and insert graph show right now, by node id (empty when there are none). */
+  readouts(): Readonly<Record<string, number>>
   /** The send knobs: how much of the track, after its fader, goes to each return track. */
   setSends(sends: SendLevels): void
   /**

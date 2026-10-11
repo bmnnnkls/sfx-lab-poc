@@ -93,6 +93,10 @@ export class TrackRuntime implements PlayableTrack {
     this.fx.setParam(nodeId, paramId, value)
   }
 
+  readouts(): Readonly<Record<string, number>> {
+    return { ...this.instrument.readouts(), ...this.fx.readouts() }
+  }
+
   setSample(nodeId: string, sampleId: string | null): void {
     this.instrument.setSample(nodeId, sampleId)
     this.fx.setSample(nodeId, sampleId)
