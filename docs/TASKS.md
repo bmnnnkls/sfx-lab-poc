@@ -66,6 +66,30 @@ bypass-all toggle, auditioning notes through the chain, effects on audio-clip-fr
 Smaller follow-ups: drag several selected nodes together; delete/duplicate selection with the keyboard; a way to
 update or replace a module's definition from a file; show where a module is used from the module list.
 
+## Note graph (non-linear MIDI effects)
+
+Status: **designed, not started.** Replaces the linear MIDI effect chain with a graph, so a note stream can be split,
+processed differently on each branch, merged again, and mixed with notes from other tracks.
+
+* **Why not linear:** linear was a simplification, not a requirement. Everything the chain does (beat-range
+  processors, state across ranges, flattening of modules) works on a graph too.
+* **Model:** a per-track graph of nodes and connections with typed ports (`notes`), the same shape as an audio patch.
+  An output may feed any number of inputs (that is the split/clone); an input takes several sources and merges them.
+  No cycles (checked like the patch; feedback could come later through an explicit delay node).
+* **Nodes:** *Clip notes* (this track's clip player), *Track notes* (another track: tap its clip notes, or the output
+  of its own graph), *Out* (to the instrument), every existing effect as a node, *Range split* (notes inside / outside
+  a pitch or velocity range on two outputs), *Merge* is implicit in an input, but needs care (below).
+* **Merging two streams that play the same pitch:** the instrument matches note-offs by pitch, so two overlapping
+  notes of one pitch would cut each other short. A merge keeps a count per pitch: a note-off is passed on only when
+  the last overlapping note ends.
+* **Evaluation:** each beat range `[from, to)` runs the graph in dependency order, one range at a time, exactly like
+  the chain does now. Tracks that feed other tracks run first; a track cannot (directly or not) feed itself.
+* **Unification:** linear chains become graphs (`in -> effects -> out`), so old files migrate on load. MIDI effect
+  modules become modules with ports, and can share the machinery of audio modules (typed ports are what tell the two
+  apart). UI reuses the patcher canvas.
+* **Open questions:** whether the source track keeps sounding when another track taps it (proposal: yes, nothing
+  changes for it); whether tapping offers both "clip notes" and "after its effects" (proposal: both).
+
 ## Browser (end-to-end) tests in the repo
 
 Status: **not started.** Our browser checks are ad-hoc Playwright scripts outside the repo, re-run by hand, so they
