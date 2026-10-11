@@ -10,6 +10,9 @@ export const TrackHeader = ({ track }: { track: Track }) => {
   const selectTrack = useSelectionStore((state) => state.selectTrack)
   const setTab = useSelectionStore((state) => state.setTab)
   const modules = useProjectStore((state) => state.project.modules)
+  const tracks = useProjectStore((state) => state.project.tracks)
+  const setSend = useProjectStore((state) => state.setTrackSend)
+  const returns = tracks.filter((candidate) => candidate.kind === 'return')
   // Everything in a graph except where the notes or the sound come in and go out counts as an effect.
   const ENDS = new Set([TRACK_IN_TYPE, TRACK_OUT_TYPE, RETURN_IN_TYPE])
   const soundEffects = track.fx.nodes.filter((node) => !ENDS.has(node.type))
@@ -60,6 +63,24 @@ export const TrackHeader = ({ track }: { track: Track }) => {
         aria-label={`${track.name} volume`}
         onChange={(event) => setVolume(track.id, Number(event.target.value))}
       />
+      {track.kind !== 'return' && returns.length > 0 && (
+        <div className={styles.sends} role="group" aria-label={`${track.name} sends`}>
+          {returns.map((target) => (
+            <label key={target.id} className={styles.send} title={`Send to ${target.name} (post-fader: after the effects and the volume)`}>
+              <span>{target.name.replace(/^Return /, '')}</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={track.sends[target.id] ?? 0}
+                aria-label={`${track.name} send to ${target.name}`}
+                onChange={(event) => setSend(track.id, target.id, Number(event.target.value))}
+              />
+            </label>
+          ))}
+        </div>
+      )}
       {track.kind !== 'return' && (
         <button onClick={() => controls.stopTrack(track.id)} aria-label={`Stop ${track.name}`}>
           ■

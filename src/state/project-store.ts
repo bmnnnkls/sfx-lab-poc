@@ -39,6 +39,7 @@ import {
   setProjectName,
   setTempo,
   setTrackVoices,
+  setTrackSend,
   setTrackVolume,
   undo,
   updateAudioClip,
@@ -64,6 +65,8 @@ interface ProjectActions {
   addReturnTrack(): void
   removeTrack(trackId: string): void
   setTrackVolume(trackId: string, volume: number): void
+  /** Sets a track's send knob for a return track (0..1); dragging one knob is one undo step. */
+  setTrackSend(trackId: string, returnId: string, level: number): void
   addSamples(samples: readonly SampleInfo[]): void
   removeSample(sampleId: string): void
   /** Adds a track with a sampler playing `sample`, plus a clip that triggers it. */
@@ -170,6 +173,9 @@ export const useProjectStore = create<ProjectState>((set) => {
     removeTrack: (trackId) => edit((project) => removeTrack(project, trackId)),
     setTrackVolume: (trackId, volume) =>
       edit((project) => setTrackVolume(project, trackId, volume), `volume:${trackId}`),
+
+    setTrackSend: (trackId, returnId, level) =>
+      edit((project) => setTrackSend(project, trackId, returnId, level), `send:${trackId}:${returnId}`),
 
     addSamples: (samples) => edit((project) => addSamples(project, samples)),
     removeSample: (sampleId) => edit((project) => removeSample(project, sampleId)),

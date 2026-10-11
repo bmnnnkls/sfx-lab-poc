@@ -87,6 +87,10 @@ export class Engine {
         if (track) track.volume = command.volume
         break
       }
+      case 'track/setSends':
+        this.tracks.get(command.trackId)?.setSends(command.sends)
+        this.order = null // which returns it sends to may have changed
+        break
       case 'track/setParam':
         this.tracks.get(command.trackId)?.setParam(command.nodeId, command.paramId, command.value)
         break
@@ -232,10 +236,13 @@ export class Engine {
     switch (command.kind) {
       case 'return':
         return new ReturnTrackRuntime(command.trackId, command.fx, command.volume, this.sampleRate, this.samples)
-      case 'audio':
-        return new AudioTrackRuntime(command.fx, command.clips, command.volume, this.samples, this.sampleRate)
-      case 'instrument':
-        return new TrackRuntime(
+      case 'audio': {
+        const track = new AudioTrackRuntime(command.fx, command.clips, command.volume, this.samples, this.sampleRate)
+        track.setSends(command.sends ?? {})
+        return track
+      }
+      case 'instrument': {
+        const track = new TrackRuntime(
           command.trackId,
           command.patch,
           command.noteGraph,
@@ -246,6 +253,9 @@ export class Engine {
           this.sampleRate,
           this.samples,
         )
+        track.setSends(command.sends ?? {})
+        return track
+      }
     }
   }
 

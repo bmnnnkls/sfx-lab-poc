@@ -19,6 +19,7 @@ import { repairTrackReferences } from './sanitize-track-references'
 import { sanitizeModules } from './sanitize-modules'
 import { sanitizePatch } from './sanitize-patch'
 import { sanitizeSamples } from './sanitize-samples'
+import { readSends, repairSendLevels } from './sanitize-sends'
 
 const sanitizeTrack = (
   raw: unknown,
@@ -60,6 +61,7 @@ const sanitizeTrack = (
       name,
       volume,
       fx,
+      sends: readSends(raw.sends),
       clips: Array.from({ length: sceneCount }, (_, scene) =>
         sanitizeAudioClip(rawClips[scene], where, sampleIds, usedClipIds, warn),
       ),
@@ -76,6 +78,7 @@ const sanitizeTrack = (
     name,
     volume,
     fx,
+    sends: readSends(raw.sends),
     voices: Math.round(clamp(finiteNumber(raw.voices, DEFAULT_VOICES), MIN_VOICES, MAX_VOICES)),
     patch: sanitizePatch(raw.patch, where, sampleIds, modules, warn),
     noteGraph: isRecord(raw.noteGraph)
@@ -112,6 +115,6 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     sceneCount,
     samples,
     modules,
-    tracks: repairTrackReferences(tracks, modules, warn),
+    tracks: repairSendLevels(repairTrackReferences(tracks, modules, warn), warn),
   }
 }

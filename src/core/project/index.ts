@@ -6,6 +6,7 @@ export type {
   Note,
   Project,
   ReturnTrack,
+  SendLevels,
   Track,
   WarpMode,
 } from './types'
@@ -55,6 +56,7 @@ export {
   setClipNotes,
   setTempo,
   setTrackPatch,
+  setTrackSend,
   setTrackVoices,
   setTrackVolume,
   updateAudioClip,

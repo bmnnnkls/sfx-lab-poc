@@ -61,9 +61,17 @@ interface TrackBase {
   readonly fx: Patch
 }
 
+/**
+ * What a track sends to each return track with its send knobs: return track id -> level (0..1, absent = nothing). The
+ * knob takes the sound after the insert graph and the fader (post-fader); a Send node in the insert graph takes it
+ * wherever it sits, and the two add together.
+ */
+export type SendLevels = Readonly<Record<string, number>>
+
 /** Plays MIDI clips through a patch (a synth or sampler). */
 export interface InstrumentTrack extends TrackBase {
   readonly kind: 'instrument'
+  readonly sends: SendLevels
   /** Maximum simultaneous notes; further notes steal the oldest voice. */
   readonly voices: number
   readonly patch: Patch
@@ -79,6 +87,7 @@ export interface InstrumentTrack extends TrackBase {
 /** Plays audio clips (library samples) straight to the mix. */
 export interface AudioTrack extends TrackBase {
   readonly kind: 'audio'
+  readonly sends: SendLevels
   readonly clips: readonly (AudioClip | null)[]
 }
 

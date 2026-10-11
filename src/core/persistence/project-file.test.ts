@@ -214,6 +214,33 @@ describe('return tracks and sends in files', () => {
     expect(loaded.warnings.join('\n')).toMatch(/feed each other/)
   })
 
+  it('keeps send knob levels for return tracks, clamped, and drops the rest', () => {
+    const loaded = load([
+      { ...instrument('t', undefined), sends: { r: 0.5, r2: 7, ghost: 0.5, t: 0.5, zero: 0 } },
+      { ...instrument('u', undefined), sends: { r: 'loud' } },
+      { ...instrument('v', undefined), sends: 'nope' },
+      returnTrack('r'),
+      returnTrack('r2', { sends: { r: 1 } }),
+    ])
+    const sends = (id: string) => {
+      const track = loaded.project.tracks.find((t) => t.id === id)!
+      return track.kind === 'return' ? undefined : track.sends
+    }
+    expect(sends('t')).toEqual({ r: 0.5, r2: 1 })
+    expect(sends('u')).toEqual({})
+    expect(sends('v')).toEqual({})
+    expect(sends('r2')).toBeUndefined() // a return track has no knobs
+    expect(loaded.warnings.join('\n')).toMatch(/send level/)
+  })
+
+  it('round-trips send knob levels', () => {
+    const base = createDemoProject()
+    const ret = createReturnTrack('Return A')
+    const withSends = { ...base, tracks: [{ ...base.tracks[0]!, sends: { [ret.id]: 0.25 } }, ...base.tracks.slice(1), ret] }
+    const result = parseOk(serializeProject(withSends as Project))
+    expect(result.project).toEqual(withSends)
+  })
+
   it('survives a garbage trackId on a Send', () => {
     for (const bad of [5, null, {}, [], '']) {
       expect(() => load([instrument('t', sending(bad)), returnTrack('r')])).not.toThrow()

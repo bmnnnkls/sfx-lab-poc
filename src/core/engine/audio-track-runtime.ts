@@ -1,7 +1,7 @@
 import { RIGHT } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
 import { type Patch, sendTargets } from '../patch'
-import type { AudioClip } from '../project'
+import type { AudioClip, SendLevels } from '../project'
 import type { SampleLookup } from '../sample'
 import { AudioClipLauncher, type AudioEvent, type LauncherStatus } from '../session'
 import { fadeGain, readRegion, regionOf, repitchPosition } from './audio-clip-playback'
@@ -38,6 +38,8 @@ export class AudioTrackRuntime implements PlayableTrack {
   private readonly tailFrames: number
   private fx: FxGraph
   private targets: string[]
+  /** The send knobs as pairs of (return track id, level), post-fader. */
+  private sendList: ReadonlyArray<readonly [string, number]> = []
   /** The clip audio of the current stretch, before the insert graph. */
   private readonly scratch = new Float32Array(MAX_BLOCK_FRAMES)
 
@@ -60,8 +62,12 @@ export class AudioTrackRuntime implements PlayableTrack {
     this.targets = sendTargets(fx)
   }
 
+  setSends(sends: SendLevels): void {
+    this.sendList = Object.entries(sends)
+  }
+
   sendTargets(): string[] {
-    return this.targets
+    return [...new Set([...this.targets, ...this.sendList.map(([id]) => id)])]
   }
 
   setParam(nodeId: string, paramId: string, value: number): void {
@@ -147,6 +153,7 @@ export class AudioTrackRuntime implements PlayableTrack {
       left[offset + i] = (left[offset + i] ?? 0) + (signal[i] ?? 0) * this.volume
       right[offset + i] = (right[offset + i] ?? 0) + (signal[RIGHT + i] ?? 0) * this.volume
     }
+    for (const [returnId, level] of this.sendList) board.add(returnId, signal, level * this.volume, frames)
   }
 
   /** Adds `frames` of `voice` to the scratch buffer. Returns false once the clip has finished (a non-looping pass ended). */

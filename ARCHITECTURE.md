@@ -304,6 +304,21 @@ tracks; a return track *is* the bus, so there are no bus names.
   slots and no stop button. The Instrument and Notes tabs say a return has neither; the Effects tab edits its graph. The
   Send node shows a picker of return tracks (`NodeShape.usesTrack` says which kind of track a node picks: `notes` or `return`).
 
+### Send knobs
+
+`InstrumentTrack.sends` and `AudioTrack.sends` (`SendLevels`: return track id -> 0..1, an absent id means nothing) are the
+header knobs, one per existing return track. They are the same primitive as the Send node (`AudioBoard.add`), taken
+**post-fader**: the engine adds the track's output times `level * volume` to the return, so turning the track down turns
+its sends down, while a Send node (anywhere in the insert graph, so usually pre-fader) is not affected by the fader. The two
+add together on the same return. A track's send targets for ordering are its Send nodes and its knobs.
+
+* `setTrackSend` clamps, removes the entry at 0, ignores return tracks as senders and targets that are not returns, and
+  returns the same project when nothing changes. `removeTrack` drops the entries for the removed return (undo restores
+  them with the track). Dragging a knob merges into one undo step (`send:<track>:<return>`).
+* `track/setSends` carries the whole record; `track/add` carries it too. Persistence reads numbers clamped to 0..1
+  (`readSends`), and `repairSendLevels` drops entries for tracks that are not return tracks of the file, with a warning.
+* The header shows the knobs only when return tracks exist and never on a return track; each says "post-fader" in its tooltip.
+
 ## Editing clips (piano roll)
 
 * **Gestures are pure functions of the pointer.** `ui/clip-editor/note-gestures.ts` describes draw / move /

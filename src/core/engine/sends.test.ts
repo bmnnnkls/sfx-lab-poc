@@ -146,3 +146,44 @@ describe('sends and return tracks', () => {
     expect(left).not.toEqual(right)
   })
 })
+
+describe('send knobs in the engine', () => {
+  const plain = noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 'out', type: 'trackOut' }], ['in.out>out.in'])
+
+  it('send the track post-fader: turning the track down turns its send down with it', () => {
+    const engine = build([{ id: 'a', fx: plain, volume: 0.5 }, { id: 'r', ret: returning(1) }])
+    engine.apply({ type: 'track/setSends', trackId: 'a', sends: { r: 1 } })
+    // The track itself is 0.1 * 0.5; what it sends is that again (level 1, after the fader).
+    expect(settled(engine).left).toBeCloseTo(Math.tanh(0.05 + 0.05), 5)
+  })
+
+  it('scale with the knob, and a knob of zero sends nothing', () => {
+    const engine = build([{ id: 'a', fx: plain, volume: 1 }, { id: 'r', ret: returning(1) }])
+    engine.apply({ type: 'track/setSends', trackId: 'a', sends: { r: 0.5 } })
+    expect(settled(engine).left).toBeCloseTo(Math.tanh(0.1 + 0.05), 5)
+    engine.apply({ type: 'track/setSends', trackId: 'a', sends: {} })
+    expect(settled(engine).left).toBeCloseTo(Math.tanh(0.1), 5)
+  })
+
+  it('add to the Send node of the same track, both going to the same return', () => {
+    const engine = build([{ id: 'a', fx: sending('r', 0.5), volume: 1 }, { id: 'r', ret: returning(1) }])
+    engine.apply({ type: 'track/setSends', trackId: 'a', sends: { r: 0.25 } })
+    // dry 0.1 + node 0.1 * 0.5 (pre-fader) + knob 0.1 * 0.25 (post-fader)
+    expect(settled(engine).left).toBeCloseTo(Math.tanh(0.1 + 0.05 + 0.025), 5)
+  })
+
+  it('make the return run after the track whatever order they were added in', () => {
+    const forward = build([{ id: 'a', fx: plain }, { id: 'r', ret: returning(1) }])
+    forward.apply({ type: 'track/setSends', trackId: 'a', sends: { r: 1 } })
+    const backward = build([{ id: 'r', ret: returning(1) }, { id: 'a', fx: plain }])
+    backward.apply({ type: 'track/setSends', trackId: 'a', sends: { r: 1 } })
+    expect(settled(backward).left).toBeCloseTo(settled(forward).left, 9)
+    expect(settled(backward).left).toBeCloseTo(Math.tanh(0.2), 5)
+  })
+
+  it('a knob pointing at a return that is gone does nothing', () => {
+    const engine = build([{ id: 'a', fx: plain }])
+    engine.apply({ type: 'track/setSends', trackId: 'a', sends: { gone: 1 } })
+    expect(settled(engine).left).toBeCloseTo(Math.tanh(0.1), 5)
+  })
+})

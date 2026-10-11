@@ -10,6 +10,7 @@ import {
   createReturnTrack,
   removeTrack,
   setClipAt,
+  setTrackSend,
   setTempo,
   setTrackPatch,
   setTrackVoices,
@@ -145,6 +146,14 @@ describe('diffProject', () => {
       const both = addTrack(sending, other)
       const retargeted = editPatchAt(both, { trackId: track.id, graph: 'fx' }, (fx) => setNodeTrack(fx, 's', other.id))
       expect(diffProject(both, retargeted).map((c) => c.type)).toEqual(['track/setFx'])
+    })
+
+    it('maps a send knob to setSends, for instrument and audio tracks alike, and adds tracks with theirs', () => {
+      const turned = setTrackSend(withReturn, track.id, ret.id, 0.5)
+      expect(diffProject(withReturn, turned)).toEqual([{ type: 'track/setSends', trackId: track.id, sends: { [ret.id]: 0.5 } }])
+      expect(diffProject(turned, setTrackSend(turned, track.id, ret.id, 0.5))).toEqual([]) // no change, no command
+      const add = diffProject(null, turned).find((c) => c.type === 'track/add' && c.trackId === track.id)!
+      expect(add.type === 'track/add' && add.kind === 'instrument' && add.sends).toEqual({ [ret.id]: 0.5 })
     })
 
     it('removing a return removes it from the engine and clears the Sends to it in one go', () => {

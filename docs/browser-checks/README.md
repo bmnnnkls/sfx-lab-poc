@@ -30,6 +30,7 @@ sandbox's. Change them (or install `playwright`) elsewhere.
 | `fx.mjs` | the insert graph (Effects tab) on an audio track: default pass-through, a gain, a reverb tail that rings after the clip stops and survives a knob turn, persistence |
 | `stereo.mjs` | stereo: per-channel level of the real output, pan, mono-into-stereo rules and the M / L R switch, stereo reverb, persistence |
 | `returns.mjs` | return tracks and the Send node: the + menu, a return's effects, a send to it heard through a turned-down track, the tail after the clip stops, removing the return and undo, loop refusal, persistence |
+| `sends.mjs` | send knobs: shown only when returns exist, per return, post-fader, one undo step per drag, removed with the return, persistence |
 | `notegraph.mjs` | the note graph: split, merge, bypass, notes from another track (real audio), loop refusal, note modules, persistence |
 
 ## Conventions inside the scripts

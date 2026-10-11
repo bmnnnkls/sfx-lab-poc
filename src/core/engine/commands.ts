@@ -1,5 +1,5 @@
 import type { Patch } from '../patch'
-import type { AudioClip, Clip } from '../project'
+import type { AudioClip, Clip, SendLevels } from '../project'
 import type { SampleData } from '../sample'
 
 /** Everything the outside world can ask the engine to do. Plain data, safe to post across threads. */
@@ -17,12 +17,16 @@ export type EngineCommand =
       readonly clips: readonly (Clip | null)[]
       readonly volume: number
       readonly voices: number
+      /** Absent means nothing is sent. */
+      readonly sends?: SendLevels
     }
   | {
       readonly type: 'track/add'
       readonly kind: 'audio'
       readonly trackId: string
       readonly fx: Patch
+      /** Absent means nothing is sent. */
+      readonly sends?: SendLevels
       readonly clips: readonly (AudioClip | null)[]
       readonly volume: number
     }
@@ -41,6 +45,7 @@ export type EngineCommand =
   | { readonly type: 'track/setClips'; readonly trackId: string; readonly clips: readonly (Clip | null)[] }
   | { readonly type: 'track/setAudioClips'; readonly trackId: string; readonly clips: readonly (AudioClip | null)[] }
   | { readonly type: 'track/setVolume'; readonly trackId: string; readonly volume: number }
+  | { readonly type: 'track/setSends'; readonly trackId: string; readonly sends: SendLevels }
   | {
       readonly type: 'track/setParam'
       readonly trackId: string

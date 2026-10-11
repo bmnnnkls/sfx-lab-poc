@@ -70,6 +70,7 @@ export const createTrack = (
   name,
   volume: 0.8,
   fx: createDefaultFxGraph(),
+  sends: {},
   voices,
   patch,
   noteGraph: createDefaultNoteGraph(),
@@ -82,6 +83,7 @@ export const createAudioTrack = (name: string, sceneCount: number): AudioTrack =
   name,
   volume: 0.8,
   fx: createDefaultFxGraph(),
+  sends: {},
   clips: Array.from({ length: sceneCount }, () => null),
 })
 
@@ -113,7 +115,8 @@ export const removeTrack = (project: Project, trackId: string): Project => ({
     .filter((track) => track.id !== trackId)
     .map((track): Track => {
       const fx = clearTrackReferences(track.fx, trackId)
-      const base = fx === track.fx ? track : { ...track, fx }
+      const cleared = fx === track.fx ? track : { ...track, fx }
+      const base = cleared.kind !== 'return' && trackId in cleared.sends ? { ...cleared, sends: withoutKey(cleared.sends, trackId) } : cleared
       if (base.kind !== 'instrument') return base
       const noteGraph = clearTrackReferences(base.noteGraph, trackId)
       return noteGraph === base.noteGraph ? base : { ...base, noteGraph }
@@ -124,6 +127,22 @@ export const setTempo = (project: Project, tempo: number): Project => ({
   ...project,
   tempo: clamp(tempo, MIN_TEMPO, MAX_TEMPO),
 })
+
+const withoutKey = (record: Readonly<Record<string, number>>, key: string): Record<string, number> =>
+  Object.fromEntries(Object.entries(record).filter(([id]) => id !== key))
+
+/**
+ * Sets how much of a track goes to a return track (its send knob), 0..1; 0 removes the entry. Return tracks have no
+ * knobs, and a send to something that is not a return track is ignored. No change keeps the same project.
+ */
+export const setTrackSend = (project: Project, trackId: string, returnId: string, level: number): Project => {
+  if (project.tracks.find((track) => track.id === returnId)?.kind !== 'return') return project
+  const amount = clamp(level, 0, 1)
+  return updateTrack(project, trackId, (track) => {
+    if (track.kind === 'return' || (track.sends[returnId] ?? 0) === amount) return track
+    return { ...track, sends: amount === 0 ? withoutKey(track.sends, returnId) : { ...track.sends, [returnId]: amount } }
+  })
+}
 
 export const setTrackVolume = (project: Project, trackId: string, volume: number): Project =>
   updateTrack(project, trackId, (track) => ({ ...track, volume: clamp(volume, 0, 1) }))

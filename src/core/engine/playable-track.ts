@@ -1,5 +1,6 @@
 import type { TapBoard } from '../notefx'
 import type { Patch } from '../patch'
+import type { SendLevels } from '../project'
 import type { LauncherStatus } from '../session'
 import type { AudioBoard } from './audio-board'
 
@@ -39,13 +40,15 @@ export interface PlayableTrack {
   schedule(from: number, to: number, board: TapBoard): ScheduledAction[]
   /** Ids of the tracks this one takes notes from. */
   tapSources(): string[]
-  /** Ids of the return tracks this one sends to from its insert graph (the engine runs it before them). */
+  /** Ids of the return tracks this one sends to, from its insert graph or its send knobs (the engine runs it before them). */
   sendTargets(): string[]
   /** Replaces the insert graph. Structural changes restart it (its tails are lost); knob changes go through `setParam`. */
   setFx(fx: Patch): void
   /** Changes a parameter of a node in the track's patch or insert graph (node ids are unique across both). */
   setParam(nodeId: string, paramId: string, value: number): void
   setSample(nodeId: string, sampleId: string | null): void
+  /** The send knobs: how much of the track, after its fader, goes to each return track. */
+  setSends(sends: SendLevels): void
   /**
    * Adds `frames` samples of this track, through its insert graph and scaled by its volume, into the stereo buses.
    * Sends to return tracks are added to `board`; a return track reads its own slot of it as its input.

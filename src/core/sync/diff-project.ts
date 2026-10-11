@@ -1,6 +1,6 @@
 import type { EngineCommand } from '../engine'
 import { type ModuleLibrary, type Patch, flattenPatch } from '../patch'
-import type { AudioTrack, InstrumentTrack, Project, Track } from '../project'
+import type { AudioTrack, InstrumentTrack, Project, SendLevels, Track } from '../project'
 
 /** Identity of a patch's wiring, ignoring params and canvas positions. */
 const structureOf = (patch: Patch): string =>
@@ -90,6 +90,11 @@ const diffAudioTrack = (prev: AudioTrack, next: AudioTrack): EngineCommand[] =>
     ? []
     : [{ type: 'track/setAudioClips', trackId: next.id, clips: next.clips }]
 
+const sameSends = (a: SendLevels, b: SendLevels): boolean => {
+  const keys = Object.keys(a)
+  return a === b || (keys.length === Object.keys(b).length && keys.every((id) => a[id] === b[id]))
+}
+
 const diffTrack = (prev: Track, next: Track, before: ModuleLibrary, after: ModuleLibrary): EngineCommand[] => {
   const commands =
     prev.kind === 'instrument' && next.kind === 'instrument'
@@ -98,6 +103,9 @@ const diffTrack = (prev: Track, next: Track, before: ModuleLibrary, after: Modul
         ? diffAudioTrack(prev, next)
         : []
   commands.push(...diffPatch('fx', next.id, prev.fx, before, next.fx, after))
+  if (prev.kind !== 'return' && next.kind !== 'return' && !sameSends(prev.sends, next.sends)) {
+    commands.push({ type: 'track/setSends', trackId: next.id, sends: next.sends })
+  }
   if (prev.volume !== next.volume) {
     commands.push({ type: 'track/setVolume', trackId: next.id, volume: next.volume })
   }
@@ -110,7 +118,7 @@ const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
     case 'return':
       return { type: 'track/add', kind: 'return', trackId: track.id, fx, volume: track.volume }
     case 'audio':
-      return { type: 'track/add', kind: 'audio', trackId: track.id, fx, clips: track.clips, volume: track.volume }
+      return { type: 'track/add', kind: 'audio', trackId: track.id, fx, sends: track.sends, clips: track.clips, volume: track.volume }
     case 'instrument':
       return {
         type: 'track/add',
@@ -119,6 +127,7 @@ const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
         patch: flattenPatch(track.patch, modules),
         noteGraph: flattenPatch(track.noteGraph, modules),
         fx,
+        sends: track.sends,
         clips: track.clips,
         volume: track.volume,
         voices: track.voices,

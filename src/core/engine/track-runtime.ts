@@ -2,7 +2,7 @@ import { RIGHT } from '../dsp'
 import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
 import { type Patch, sendTargets } from '../patch'
-import type { Clip } from '../project'
+import type { Clip, SendLevels } from '../project'
 import type { SampleLookup } from '../sample'
 import { ClipLauncher, type LauncherStatus, type NoteEvent } from '../session'
 import type { AudioBoard } from './audio-board'
@@ -20,6 +20,8 @@ export class TrackRuntime implements PlayableTrack {
   private instrument: Instrument
   private fx: FxGraph
   private targets: string[]
+  /** The send knobs as pairs of (return track id, level), post-fader. */
+  private sendList: ReadonlyArray<readonly [string, number]> = []
   private audition: { pitch: number; framesLeft: number } | null = null
 
   constructor(
@@ -51,8 +53,12 @@ export class TrackRuntime implements PlayableTrack {
     this.targets = sendTargets(fx)
   }
 
+  setSends(sends: SendLevels): void {
+    this.sendList = Object.entries(sends)
+  }
+
   sendTargets(): string[] {
-    return this.targets
+    return [...new Set([...this.targets, ...this.sendList.map(([id]) => id)])]
   }
 
   tapSources(): string[] {
@@ -153,6 +159,7 @@ export class TrackRuntime implements PlayableTrack {
       left[offset + i] = (left[offset + i] ?? 0) + (signal[i] ?? 0) * this.volume
       right[offset + i] = (right[offset + i] ?? 0) + (signal[RIGHT + i] ?? 0) * this.volume
     }
+    for (const [returnId, level] of this.sendList) board.add(returnId, signal, level * this.volume, frames)
     if (this.audition) {
       this.audition.framesLeft -= frames
       if (this.audition.framesLeft <= 0) this.endAudition()

@@ -41,6 +41,8 @@ export class ReturnTrackRuntime implements PlayableTrack {
     this.fx.setSample(nodeId, sampleId)
   }
 
+  setSends(): void {}
+
   launchClip(): void {}
   launchScene(): void {}
   stopClip(): void {}
