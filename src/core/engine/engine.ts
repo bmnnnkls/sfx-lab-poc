@@ -68,6 +68,9 @@ export class Engine {
         break
       case 'transport/setTempo':
         this.transport.setTempo(command.bpm)
+        // The nodes follow the tempo too (a Clock counting beats), so every graph is told, the master's included.
+        for (const track of this.tracks.values()) track.setTempo(command.bpm)
+        this.master.setTempo(command.bpm)
         break
       case 'track/add':
         this.invalidateOrder()
@@ -81,7 +84,7 @@ export class Engine {
         this.instrument(command.trackId)?.setPatch(command.patch)
         break
       case 'master/setFx':
-        this.master = new FxGraph(command.graph, this.sampleRate, this.samples)
+        this.master = new FxGraph(command.graph, this.sampleRate, this.samples, this.transport.tempo)
         break
       case 'master/setParam':
         this.master.setParam(command.nodeId, command.paramId, command.value)
@@ -368,6 +371,8 @@ export class Engine {
     track.strip.pan = command.pan ?? 0
     track.strip.muted = command.muted ?? false
     track.strip.soloed = command.soloed ?? false
+    // A track added after the tempo was set starts with it, not with 120.
+    track.setTempo(this.transport.tempo)
     return track
   }
 

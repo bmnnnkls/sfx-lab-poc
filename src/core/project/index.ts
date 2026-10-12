@@ -12,6 +12,7 @@ export type {
   WarpMode,
 } from './types'
 export { isAudioTrack, isInstrumentTrack, isReturnTrack } from './track-kind'
+export { usedSampleIds } from './sample-use'
 export {
   DEFAULT_FADE_SECONDS,
   MAX_FADE_SECONDS,

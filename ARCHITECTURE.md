@@ -46,9 +46,9 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `project` | the saveable document: tracks (instrument, audio, return), the master bus, clips, notes, tempo, name; pure note/clip edit operations | `Project`, edit functions, `moveNotes`, `resizeNotesEnd`, `setClipLength`, … |
 | `transport` | sample-accurate beat clock | `Transport` |
 | `session` | clip launching: a shared quantized `LaunchQueue`, the MIDI `ClipLauncher` (note events) and `AudioClipLauncher` (start/stop events) | `ClipLauncher`, `AudioClipLauncher` |
-| `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` (also the channel strips: fader, pan, mute/solo, meters) | `Engine`, `EngineCommand`, `EngineStatus` |
+| `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` (also the channel strips: fader, pan, mute/solo, meters), and the offline bounce built on it | `Engine`, `EngineCommand`, `EngineStatus`, `renderProject`, `Bounce` |
 | `sync` | diffs two `Project`s into `EngineCommand`s | `diffProject` |
-| `sample` | sample metadata/data types, engine-side `SampleBank`, mono mixdown, peaks, WAV encoder, demo samples | `SampleInfo`, `SampleData`, `SampleBank`, `createDemoSamples`, … |
+| `sample` | sample metadata/data types, engine-side `SampleBank`, mono mixdown, peaks, WAV encoder (mono, stereo, 16-bit or 32-bit float), demo samples | `SampleInfo`, `SampleData`, `SampleBank`, `createDemoSamples`, … |
 | `persistence` | project file format: envelope, versioned migrations, sanitizing | `serializeProject`, `parseProject` |
 | `history` | generic undo/redo over immutable snapshots | `createHistory`, `commit`, `undo`, `redo` |
 
@@ -72,8 +72,8 @@ Each folder exposes one `index.ts`; everything else in it is private.
   changes into `track/setParam` so dragging nodes or sliders never rebuilds a voice.
 * **Timing is sample-accurate.** The engine splits each 128-frame block at note-event boundaries; events
   come from beat ranges `[from, to)` that are contiguous across blocks, so each fires exactly once.
-* **The `Engine` has no browser dependency**, so the same code is unit-tested in Node, and could render
-  offline (bounce/export) without changes.
+* **The `Engine` has no browser dependency**, so the same code is unit-tested in Node and renders offline: File > Export audio is
+  `renderProject`, the same engine pulled faster than real time (see "Exporting audio").
 
 ## Polyphony
 
@@ -105,7 +105,8 @@ output you wire into another node's input.
   a seeded generator so voices agree and tests are reproducible); *Rate* 0.05–30 Hz, *Depth*. Two outputs: `out` swings
   ±depth (vibrato, panning-style effects) and `uni` stays within 0..depth (tremolo, cutoff sweeps). The optional
   `gate` input restarts the cycle on a rising edge, so each note gets the same modulation; unconnected it free-runs.
-  There is no tempo sync: nodes are not given the tempo (see limits).
+  *Sync* `beat` reads *Rate* in cycles per beat of the project's tempo (1 is once a beat, 0.25 once a bar) instead of hertz, so the LFO keeps
+  time when the tempo changes (see "Tempo in the DSP"); the card's picture, which only knows hertz, shows a rough number of cycles then.
 * **Filter `cutoff` input** moves the cutoff exponentially: CV +1 raises it by *CV amt* octaves (param, default 2).
   While modulated, coefficients are redesigned every 16 samples. Unconnected, the filter is exactly as before.
 * **Oscillator `pitch` input** bends pitch by *Pitch CV* semitones per unit (default 2), exponentially.
@@ -485,8 +486,15 @@ plain cards; the property editor, the panel built from control nodes and the nod
   lowest note, for 0 or less; fractional notes work. Math nodes are global-capable.
 * **Sources of sound and chance** (`dsp/random.ts`, `dsp/nodes/{noise,perlin,geiger,random}.node.ts`). Everything random is **seeded**
   (`createRng`, mulberry32; `hashSigned` for lattice points), never `Math.random` or the clock, so a render comes out the same every
-  time (exports, tests, a sound you want back); each has a `seed` parameter (no socket: `socket: false`). The seed is per node
-  instance, so in a chord every voice starts from the same seed (the noise is coherent across voices). *Noise*: white, pink
+  time (exports, tests, a sound you want back); each has a `seed` parameter (no socket: `socket: false`). **A seed per voice:** a voice
+  has its own copy of every voice-stage node, and copies started from one seed make one noise that adds up coherently (louder and phasey).
+  So `NodeDefinition.create(sampleRate, voiceSalt)` is told which voice it is for: the voice's slot in the pool (`compileStage`'s
+  `voiceSalt`, set by `Instrument` per voice; 0 for the global and shared stages, insert graphs and the master). The four sources mix it
+  into their seed (`voiceSeed`: `seed + salt * 10007` with `voices` *differ*, the typed seed with *same*), through an enum parameter
+  `voices` (`voicesParam`; `differ` is the default for Noise, Geiger and Random, `same` for Perlin, whose Retrig exists so that every note
+  wanders alike). Slot 0 and any node outside a voice are the typed seed either way, so a single note sounds as it did. A slot depends only
+  on the order of the notes (the pool hands out the lowest free one), so a render is still the same every time. The LFO's random shape is
+  not salted: its voices agree on purpose. *Noise*: white, pink
   (Kellet's three-pole filter, gain 0.11 so its peak stays under 1) or brown (leaky random walk, clamped), with a level. *Perlin
   noise*: fractal 1D gradient noise (`gradientNoise`, `fractalNoise`: octaves, persistence, quintic fade), outputs `out` and `uni`
   like the LFO, optional `Retrig` input restarts the wander. *Geiger*: a Poisson process (each sample has the chance
@@ -497,10 +505,21 @@ plain cards; the property editor, the panel built from control nodes and the nod
 * **Logic** (`dsp/nodes/math/logic.ts`, category *Logic*, all built with `mathNode` and global-capable; `MathSpec.inNotes: false` keeps them out of
   note graphs, since a clock or counter has no meaning as a baked constant). *Schmitt trigger* (on at `high`, off only at `low`, either way round),
   *Edge detect* (a pulse of `pulse` seconds on a rising, falling or either edge; the first sample is never an edge), *Flip-flop*
-  (toggles on a rise of `trigger`, `reset` clears), *Counter* (counts rises, wraps at `limit`), *Clock* (a square at `rate` Hz or BPM,
-  duty `width`, `reset` restarts it; the DSP context has no tempo, so BPM is just rate / 60), *Clock divider* (passes the first and
+  (toggles on a rise of `trigger`, `reset` clears), *Counter* (counts rises, wraps at `limit`), *Clock* (a square at `rate` per second
+  (Hz), per minute (BPM) or per beat of the project's tempo (`beat`: 1 is once a beat, 4 is sixteenths), duty `width`, `reset` restarts it),
+  *Clock divider* (passes the first and
   then every Nth cycle) and *Control delay* (up to 2 s, a ring buffer made when the node is created; starts as its first input). A
   rise or high is always 0.5, as everywhere else.
+* **Tempo in the DSP** (`ProcessContext.tempo`, `DEFAULT_TEMPO`, `tempoOf`). The context carries the project's tempo in BPM; absent, or not a
+  positive number, it is 120 (`tempoOf`), so the many tests that build a context by hand keep working and a node never divides by zero.
+  The engine hands it down: `Engine.apply` on `transport/setTempo` calls `setTempo` on **every track** (`PlayableTrack.setTempo`: instrument,
+  audio and return runtimes, which pass it to their `Instrument` and `FxGraph`) and on the master graph, and a track added later is told the
+  transport's current tempo as it is created; each runtime also keeps it, so a rebuilt instrument or insert graph (`setPatch`, `setVoices`,
+  `setFx`, `master/setFx`) starts with it, not with 120. `Instrument` puts it in the context of its global, voice and shared stages and `FxGraph`
+  in its own, from the next block on. Math nodes see it as `BlockInfo.tempo`, the third argument of `MathSpec.make`, refreshed before each
+  block, which is how *Clock* counts beats: the rate is re-read every block, so a change of tempo bends the next cycle (the one running
+  finishes its phase at the new speed) with no command to the node. Only *Clock* and the *LFO* use it so far; delays, stutter and the
+  rest are still in seconds.
 * **Analysis** (`dsp/nodes/analysis/`, category *Analysis*; audio in, control out). They read a sound, so they are voice or shared
   nodes (never global), and their `control` outputs can feed a parameter socket (read once per block) or any signal input. *Envelope
   follower* (`Follower`: a one-pole with its own attack and release, peak or RMS; RMS of a sine reads 0.707 of its peak). *Level (dB)*
@@ -807,6 +826,52 @@ applying something that changes nothing adds no undo step (`setClipNotes` keeps 
 * If browser storage is unavailable (private mode), the app keeps working in memory and says so.
 * Ids are random (`createId`), so ids from saved projects never collide with new ones.
 
+## Exporting audio (the offline bounce)
+
+File > Export audio (WAV)… renders the project to a stereo WAV without playing it. The render is a core function (`core/engine/bounce.ts`, no
+browser and no Web Audio); the UI is a dialog and `app/` fetches the sample audio and saves the file.
+
+* **What is run.** `renderProject(project, samples, options)` builds an `Engine` at `options.sampleRate` (44100 or 48000, default 48000), applies
+  `diffProject(null, project)` (the commands that build the live engine from nothing: tempo, master graph and volume, every track), a `sample/add`
+  for each decoded sample it is given, and one launch: `clip/launch` for a **clip** scope (one track's clip; the other tracks idle, but the returns it
+  sends to and the master still work) or `scene/launch` for a **scene** (the clip of every track in that row). It then pulls `Engine.render` in chunks
+  of 4096 frames (`BOUNCE_CHUNK_FRAMES`, 32 engine blocks) and returns `{ left, right, sampleRate, bitDepth, bodyFrames }`. The transport starts at beat 0
+  and a launch takes effect at the next bar line, so the first note is at the first sample. It is the engine the worklet runs, so the file is what you
+  hear, master volume, soft clip and all; a muted or soloed track is muted or soloed in the file.
+* **Where it ends** (clips loop for ever, so the bounce decides). The *body* is `bars` bars (a bar is four beats, the project is 4/4 everywhere) at the
+  project tempo, to the frame (`round(bars * 4 * 60 / tempo * sampleRate)`; `bars` may be fractional, so a 2-beat clip is 0.5 and is 1 s at 120 BPM
+  and 2 s at 60). Its default is the longest clip of the scope played once through (`defaultBounceBars`), limited to 1/4 to 64 bars. At the end of the
+  body the bounce does what the Stop button does (`transport/stop`: launchers reset, held notes released, an audio clip faded in 5 ms), and keeps rendering
+  the *tail* until the output (both channels, after master and soft clip) has stayed under -80 dB for 0.25 s, or `maxTail` seconds (default 10, at most
+  30; 0 for none) have gone by. The file ends at the last sample above -80 dB and is never shorter than the body, so reverbs, delays and envelope
+  releases are not cut and a dry loop has no dead air; a patch that never goes quiet (noise or a clock into the output) runs its tail to `maxTail`.
+  A note on the very last sample of the body (the loop point) is not started (tested at several tempos). A non-finite sample is written as 0.
+* **Options.** `normalize` scales both channels together so the peak is -1 dBFS (down as well as up; a peak under -100 dB is silence and is left alone).
+  `bitDepth` is 16 (PCM, rounded, no dither, so the bytes are repeatable) or 32 (IEEE float, as rendered). `resolveBounceOptions` fills defaults and
+  clamps, so a bad option cannot ask for a day of audio; a scope that is not in the project throws.
+* **Determinism** is the point: same project, same samples, same bytes (tested: two renders and a step-by-step run are identical, down to the
+  file). Everything random is seeded and a voice's salt is its slot in the pool (see "Sources of sound and chance"), and nothing reads the clock.
+* **Steps.** `Bounce` is the render as an object: `step()` renders one chunk, `progress` is 0..1 (the tail counts in full until it ends, which is
+  usually early), `done`, then `result()`; `renderProject` just loops. That is what lets the UI keep the page alive: `app/export-audio.ts` runs steps for
+  about 12 ms, reports progress, and yields with a `setTimeout(0)`, so a few seconds of audio takes a moment and the dialog can still be used (Stop aborts
+  through an `AbortSignal`). The engine renders far faster than real time (seconds of audio per tens of milliseconds), so a worker was not needed.
+* **Samples.** The live engine holds decoded samples in the audio thread, so the export decodes the ones the project plays again from storage
+  (`usedSampleIds(project)`: audio clips and every sampler node, in tracks, insert graphs, the master and modules, through `decodeAudio`). A sample whose
+  audio is missing is silent and the user is told, as for the project export.
+* **WAV** (`sample/wav.ts`). `encodeWavChannels(channels, rate, 16 | 32)` writes any number of interleaved channels: RIFF, `fmt ` (PCM, or float
+  with the 18-byte form and a `fact` chunk the format asks for), `data`, padded when odd. The old mono `encodeWav` is untouched: the demo samples'
+  ids are hashes of its bytes. `encodeBounce(result)` is the stereo file.
+* **UI** (`ui/file-menu/ExportAudioDialog.tsx`, a native `<dialog>` opened with `showModal`; the model is pure, `export-model.ts`). Scope: the open clip
+  (disabled when none is open) or a scene (empty ones are marked and cannot be exported), then bars (untouched, it follows the scope), tail, sample rate,
+  bit depth and normalize; Export, and Cancel / Stop. The file is `<project name>.wav` (`fileStem`); a toast says what was saved. `ProjectFiles.exportAudio`
+  is the one call from the UI.
+* **Limits.** One file, the whole mix: no stems per track, no batch export of variations, no MP3 or OGG, no dither, no loop-point export (the file is the
+  bars, not a seamless loop of them). The length is by bars, so a clip that sounds longer than its length (a long release) is in the tail, not wrapped.
+* **Tests.** `engine/bounce.test.ts` (length, pitch and peak of a known tone, a note starting on its beat, looping, the tempo, stereo with pan, clip and
+  scene scopes, a sampler of a known buffer and an audio clip, the tail's stop, `maxTail` and a reverb, normalize and silence, determinism, a chord's
+  voices being different noise), `sample.test.ts` (headers and a round trip), `ui/file-menu/export-model.test.ts`. Browser check
+  `docs/browser-checks/export.mjs` (the dialog, the download, the bytes, twice identical, 32-bit float, a clip and a sample).
+
 ## Samples
 
 A **sampler node** plays a library sample, re-pitched from the note being played, so samples are playable
@@ -933,8 +998,7 @@ launcher queue need no changes (the return track was added this way; TypeScript 
   `decodeAudioData` resamples to 48 kHz, and the sample's reported rate is that decoded rate.
 * Sample hashing needs a secure context (https or localhost).
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
-* Oscillators are naive (alias at high pitches); no band-limiting or oversampling. The LFO cannot sync to the tempo
-  (`ProcessContext` carries none); the plain Reverb is mono (use *Stereo reverb* in an insert graph). Filter cutoff has a linear slider over 20 Hz–20 kHz.
+* Oscillators are naive (alias at high pitches); no band-limiting or oversampling. The plain Reverb is mono (use *Stereo reverb* in an insert graph). Filter cutoff has a linear slider over 20 Hz–20 kHz.
 * Launch quantisation is fixed at one bar; no recording or plugin hosting.
 * History is per session (not saved) and does not cover selection or transport.
 * One autosaved project per browser. Two tabs on the same site overwrite each other (last write wins).
@@ -943,6 +1007,6 @@ launcher queue need no changes (the return track was added this way; TypeScript 
 
 ## Natural next steps
 
-1. Unused-sample cleanup, loop points inside a clip, 2. offline bounce using `Engine` directly,
-3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (band-limited oscillators, tempo-synced LFO, chorus / stereo modulation effects),
+1. Unused-sample cleanup, loop points inside a clip, 2. stems and batch export for the bounce,
+3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (band-limited oscillators, chorus / stereo modulation effects, tempo sync for delays),
 5. WASM DSP nodes (Faust/RNBO).

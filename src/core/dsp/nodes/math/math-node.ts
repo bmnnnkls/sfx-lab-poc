@@ -1,5 +1,5 @@
 import { Params } from '../../params'
-import type { DspNode, NodeDefinition, ParamSpec, ProcessContext } from '../../types'
+import { type DspNode, type NodeDefinition, type ParamSpec, type ProcessContext, DEFAULT_TEMPO, tempoOf } from '../../types'
 
 /** Wide bounds for an operand: math nodes work on frequencies, notes, gains and times alike. */
 const BOUND = 100000
@@ -9,6 +9,12 @@ export interface Operand {
   readonly label: string
   /** What the operand is while nothing is wired into it. */
   readonly default: number
+}
+
+/** What a rule may look at besides its operands: facts about the block being processed, updated before every block. */
+export interface BlockInfo {
+  /** The project's tempo in BPM (`DEFAULT_TEMPO` where the context has none). */
+  tempo: number
 }
 
 /** The per-sample rule of a math node; it may keep state in its closure (one closure per node instance). */
@@ -23,8 +29,8 @@ export interface MathSpec {
   readonly extra?: readonly ParamSpec[]
   /** `false`: the node has state over time (a clock, a counter), so it makes no sense as a constant in a note graph. */
   readonly inNotes?: false
-  /** Builds the rule for one instance; `params` is the node's own storage, read when the rule runs. */
-  readonly make: (params: Params, sampleRate: number) => MathFn
+  /** Builds the rule for one instance; `params` is the node's own storage, read when the rule runs, and `block` says what the current block is like (the tempo). */
+  readonly make: (params: Params, sampleRate: number, block: BlockInfo) => MathFn
 }
 
 /**
@@ -35,6 +41,7 @@ export interface MathSpec {
 class MathNode implements DspNode {
   private readonly params: Params
   private readonly fn: MathFn
+  private readonly block: BlockInfo = { tempo: DEFAULT_TEMPO }
 
   constructor(
     private readonly spec: MathSpec,
@@ -42,15 +49,17 @@ class MathNode implements DspNode {
     sampleRate: number,
   ) {
     this.params = new Params(specs)
-    this.fn = spec.make(this.params, sampleRate)
+    this.fn = spec.make(this.params, sampleRate, this.block)
   }
 
   setParam(id: string, value: number): void {
     this.params.set(id, value)
   }
 
-  process({ frames }: ProcessContext, inputs: ReadonlyArray<Float32Array | null>, [out]: readonly Float32Array[]): void {
+  process(context: ProcessContext, inputs: ReadonlyArray<Float32Array | null>, [out]: readonly Float32Array[]): void {
     if (!out) return
+    const { frames } = context
+    this.block.tempo = tempoOf(context)
     const operands = this.spec.operands
     const [a, b, c] = [0, 1, 2].map((index) => {
       const operand = operands[index]

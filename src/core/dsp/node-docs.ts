@@ -55,6 +55,7 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       colour: 'White is flat and bright, pink falls 3 dB per octave, brown falls 6 dB per octave.',
       level: 'How loud the noise is, from 0 to 1.',
       seed: 'The same seed always gives the same noise; change it for a different one.',
+      voices: 'Differ gives every voice of a chord its own noise; same gives them all the same noise, which adds up louder.',
     },
   },
   geiger: {
@@ -71,6 +72,7 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       spread: 'How much the clicks differ in loudness: 0 for all alike, 1 from silent to full.',
       gate: 'How long the Trigger output stays high after each click, in seconds.',
       seed: 'The same seed always gives the same clicks at the same times.',
+      voices: 'Differ gives every voice of a chord its own clicks; same gives them all the same clicks at the same times.',
     },
   },
 
@@ -181,6 +183,7 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       persistence: 'How strong each finer layer is compared to the one below it. Low is smooth, high is rough.',
       depth: 'How far the signal swings, from 0 to 1.',
       seed: 'The same seed always wanders the same way; change it for a different path.',
+      voices: 'Same makes every voice of a chord wander alike; differ gives each voice a path of its own.',
     },
   },
   random: {
@@ -194,6 +197,7 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       max: 'The highest value it can draw.',
       step: 'Snap the value to multiples of this step (0 for any value).',
       seed: 'The same seed always gives the same first value and the same rolls after it.',
+      voices: 'Where the node runs once per voice: differ gives each voice of a chord its own rolls, same gives them all the same.',
     },
   },
   envelope: {
@@ -220,7 +224,8 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     },
     params: {
       shape: 'The shape of the wave; random holds a new random value each cycle.',
-      rate: 'Cycles per second.',
+      rate: 'Cycles per second, or cycles per beat when Sync is beat (1 is once a beat, 0.25 once a bar).',
+      sync: 'Off: the rate is in hertz. Beat: the rate is in cycles per beat of the project tempo, so the LFO keeps time when the tempo changes.',
       depth: 'How far the output swings.',
     },
   },
@@ -598,8 +603,8 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     outputs: { out: '1 for the first part of each cycle (Width), 0 for the rest.' },
     params: {
       reset: 'The reset while nothing is wired to it.',
-      rate: 'How many cycles per second or per minute, depending on Per.',
-      unit: 'Count the rate in cycles per second (Hz) or per minute (BPM).',
+      rate: 'How many cycles per second, per minute or per beat, depending on Per.',
+      unit: 'Count the rate in cycles per second (Hz), per minute (BPM), or per beat of the project tempo (beat: 1 is once a beat, 4 is sixteenths), which follows the tempo when it changes.',
       width: 'How much of each cycle is on, from 0 to 1.',
     },
   },

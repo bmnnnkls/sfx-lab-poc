@@ -95,7 +95,19 @@ export interface ProcessContext {
   readonly sends?: SendSink
   /** Where Track audio nodes read other tracks. Absent where that makes no sense (the master graph). */
   readonly taps?: SignalTaps
+  /**
+   * The project's tempo in beats per minute, so a node can follow it (the Clock and the LFO count in beats). The engine fills it
+   * in; absent (a context built by hand) means `DEFAULT_TEMPO`. Read it through `tempoOf`.
+   */
+  readonly tempo?: number
 }
+
+/** The tempo a context without one has: the project default, and the transport's start. */
+export const DEFAULT_TEMPO = 120
+
+/** The context's tempo in BPM; a missing or nonsensical one (not a positive number) is `DEFAULT_TEMPO`, so a node never divides by zero. */
+export const tempoOf = (context: { readonly tempo?: number }): number =>
+  context.tempo !== undefined && Number.isFinite(context.tempo) && context.tempo > 0 ? context.tempo : DEFAULT_TEMPO
 
 /**
  * A single signal processor. Every signal is audio-rate, so control signals
@@ -173,5 +185,10 @@ export interface NodeDefinition {
   readonly inNotes?: true
   /** `false`: the node's numeric parameters get no sockets (a control's own range and step are settings, not signals). */
   readonly paramSockets?: false
-  create(sampleRate: number): DspNode
+  /**
+   * `voiceSalt` is a small whole number saying which voice the node is made for: its slot in the voice pool, and 0 for every node
+   * that is not in a voice (global, shared, insert and master graphs). Only the seeded sources look at it (so a chord is not N
+   * copies of one noise); the others ignore it.
+   */
+  create(sampleRate: number, voiceSalt?: number): DspNode
 }

@@ -304,3 +304,97 @@ describe('random', () => {
     expect(rollBetween(2, 0, 1, 0)).toBeLessThanOrEqual(1)
   })
 })
+
+describe('a seed per voice', () => {
+  const salted = (type: string, params: Record<string, number>, salt: number, blocks = 8) => {
+    const definition = requireNodeDefinition(type)
+    const node = definition.create(RATE, salt)
+    for (const [id, value] of Object.entries(params)) node.setParam(id, value)
+    const outputs = definition.outputs.map(() => new Float32Array(blocks * BLOCK))
+    for (let block = 0; block < blocks; block++) {
+      node.process(context(BLOCK), [], outputs.map((output) => output.subarray(block * BLOCK, (block + 1) * BLOCK)))
+    }
+    return outputs
+  }
+
+  it('the sources that make chance differ between voices by default, and Perlin, which every note should wander alike, does not', () => {
+    for (const type of ['noise', 'geiger', 'random']) {
+      const voices = requireNodeDefinition(type).params.find((spec) => spec.id === 'voices')
+      expect(voices?.options, type).toEqual(['differ', 'same'])
+      expect(voices?.default, type).toBe(0)
+    }
+    expect(requireNodeDefinition('perlin').params.find((spec) => spec.id === 'voices')?.default).toBe(1)
+  })
+
+  it('differ: another salt is another noise, the same salt is the same noise', () => {
+    const [slot0, slot1] = [salted('noise', {}, 0)[0]!, salted('noise', {}, 1)[0]!]
+    expect(slot1).not.toEqual(slot0)
+    expect(salted('noise', {}, 1)[0]).toEqual(slot1)
+    // The voices are not shifted copies of one another either: they hardly correlate.
+    let dot = 0
+    for (let i = 0; i < slot0.length; i++) dot += slot0[i]! * slot1[i]!
+    expect(Math.abs(dot) / energy(slot0)).toBeLessThan(0.1)
+  })
+
+  it('same: every salt is the one noise, whatever the seed', () => {
+    for (const seed of [1, 7, 9999]) {
+      expect(salted('noise', { voices: 1, seed }, 5)[0]).toEqual(salted('noise', { voices: 1, seed }, 0)[0])
+    }
+  })
+
+  it('salt 0 is the noise of before: the seed alone, in either mode', () => {
+    for (const seed of [1, 42]) {
+      const rng = createRng(seed)
+      const old = Float32Array.from({ length: 8 * BLOCK }, () => rng.next() * 2 - 1)
+      expect(salted('noise', { colour: 0, level: 1, seed, voices: 1 }, 0)[0]).toEqual(old)
+      expect(salted('noise', { colour: 0, level: 1, seed, voices: 0 }, 0)[0]).toEqual(old)
+    }
+    // Without any setParam the node still starts from the default seed, salt included.
+    const rng = createRng(1)
+    expect(salted('noise', { colour: 0, level: 1, voices: 1 }, 0)[0]![0]).toBe(Math.fround(rng.next() * 2 - 1))
+    expect(salted('noise', { level: 1 }, 3)[0]).not.toEqual(salted('noise', { level: 1 }, 0)[0])
+  })
+
+  it('changing Voices or Seed on a running node takes effect', () => {
+    const definition = requireNodeDefinition('noise')
+    const node = definition.create(RATE, 2)
+    node.setParam('voices', 1)
+    const out = new Float32Array(4)
+    node.process(context(4), [], [out])
+    expect([...out]).toEqual([...salted('noise', { voices: 1 }, 0, 1)[0]!.subarray(0, 4)])
+  })
+
+  it('geiger clicks at other times in another voice, and at the same times with same', () => {
+    const [click0, trigger0] = salted('geiger', { rate: 500, gate: 0.001 }, 0, 100)
+    const [, trigger1] = salted('geiger', { rate: 500, gate: 0.001 }, 1, 100)
+    expect(trigger1).not.toEqual(trigger0)
+    expect(edges(trigger0!)).toBeGreaterThan(20)
+    const [sameClick, sameTrigger] = salted('geiger', { rate: 500, gate: 0.001, voices: 1 }, 1, 100)
+    expect(sameClick).toEqual(click0)
+    expect(sameTrigger).toEqual(trigger0)
+  })
+
+  it('random draws another first value in another voice, and the same one with same', () => {
+    const first = (salt: number, voices: number) => salted('random', { voices }, salt, 1)[0]![0]!
+    expect(first(1, 0)).not.toBe(first(0, 0))
+    expect(first(1, 1)).toBe(first(0, 1))
+    expect(first(0, 0)).toBe(first(0, 1))
+    const rolled = (salt: number) => {
+      const definition = requireNodeDefinition('random')
+      const node = definition.create(RATE, salt)
+      const out = new Float32Array(BLOCK)
+      const roll = new Float32Array(BLOCK).fill(1)
+      node.process(context(BLOCK), [roll], [out])
+      return out[0]
+    }
+    expect(rolled(1)).not.toBe(rolled(0))
+  })
+
+  it('perlin wanders alike in every voice by default and on its own path with differ', () => {
+    const [alike0] = salted('perlin', { rate: 4 }, 0, 40)
+    expect(salted('perlin', { rate: 4 }, 3, 40)[0]).toEqual(alike0)
+    const [apart] = salted('perlin', { rate: 4, voices: 0 }, 3, 40)
+    expect(apart).not.toEqual(alike0)
+    expect(salted('perlin', { rate: 4, voices: 0 }, 0, 40)[0]).toEqual(alike0)
+  })
+})

@@ -1,4 +1,4 @@
-import { type NoteState, STEREO_FRAMES, type SendSink, type SignalTaps } from '../dsp'
+import { DEFAULT_TEMPO, type NoteState, STEREO_FRAMES, type SendSink, type SignalTaps } from '../dsp'
 import { type Patch, topologicalOrder } from '../patch'
 import type { SampleLookup } from '../sample'
 import { addInto, compileStage, processStage, setStageParam, setStageSample, stageReadouts } from './compile'
@@ -16,13 +16,21 @@ const NO_NOTE: Readonly<NoteState> = { frequency: 0, velocity: 0, gate: false, t
 export class FxGraph {
   private readonly stage: ReturnType<typeof compileStage>
   private readonly out = new Float32Array(STEREO_FRAMES)
+  private tempo: number
 
   constructor(
     patch: Patch,
     private readonly sampleRate: number,
     private readonly samples: SampleLookup,
+    tempo = DEFAULT_TEMPO,
   ) {
+    this.tempo = tempo
     this.stage = compileStage(patch, topologicalOrder(patch) ?? [], sampleRate)
+  }
+
+  /** The project's tempo in BPM, handed to every node as `ProcessContext.tempo` from the next block on. */
+  setTempo(bpm: number): void {
+    this.tempo = bpm
   }
 
   setParam(nodeId: string, paramId: string, value: number): void {
@@ -45,7 +53,7 @@ export class FxGraph {
    * buffer (left channel first, then right; see `dsp/stereo.ts`). Send nodes add to the return tracks through `boards.sends`, Track audio nodes read other tracks through `boards.taps`.
    */
   process(input: Float32Array, frames: number, boards: { sends?: SendSink; taps?: SignalTaps } = {}): Float32Array {
-    processStage(this.stage, { frames, sampleRate: this.sampleRate, note: NO_NOTE, samples: this.samples, input, sends: boards.sends, taps: boards.taps })
+    processStage(this.stage, { frames, sampleRate: this.sampleRate, note: NO_NOTE, samples: this.samples, input, sends: boards.sends, taps: boards.taps, tempo: this.tempo })
     this.out.fill(0)
     for (const source of this.stage.outputSources) addInto(this.out, source, frames)
     return this.out

@@ -2,7 +2,7 @@ import type { InstrumentTrack } from '.'
 import { describe, expect, it } from 'vitest'
 import { createSamplerPatch } from '../patch'
 import type { SampleInfo } from '../sample'
-import { addSamplerTrack, addSamples, createDemoProject, removeSample } from '.'
+import { addAudioTrackWithClip, addSamplerTrack, addSamples, createDemoProject, removeSample, usedSampleIds } from '.'
 
 const info = (id: string, name = 'Kick'): SampleInfo => ({
   id: id.repeat(64).slice(0, 64),
@@ -49,5 +49,25 @@ describe('sample library edits', () => {
     expect(sampler.sampleId).toBeUndefined()
     expect(removed.tracks[0]).toBe(untouched) // tracks that never used it are shared, not copied
     expect(createSamplerPatch(sample.id).nodes.some((n) => n.sampleId === sample.id)).toBe(true)
+  })
+})
+
+describe('usedSampleIds', () => {
+  it('lists the samples that are played by a sampler or an audio clip, once each, and not the ones that only sit in the library', () => {
+    const [kick, loop, unused] = [info('a'), info('b', 'Loop'), info('c', 'Spare')]
+    let project = addSamples(createDemoProject(), [kick, loop, unused])
+    expect(usedSampleIds(project)).toEqual([])
+    project = addSamplerTrack(addSamplerTrack(project, kick), kick)
+    project = addAudioTrackWithClip(project, loop)
+    expect(usedSampleIds(project).sort()).toEqual([kick.id, loop.id].sort())
+  })
+
+  it('finds a sampler inside a track\'s insert graph and inside a module', () => {
+    const sample = info('d')
+    const base = addSamples(createDemoProject(), [sample])
+    const sampler = createSamplerPatch(sample.id)
+    expect(usedSampleIds({ ...base, master: { ...base.master, fx: sampler } })).toEqual([sample.id])
+    expect(usedSampleIds({ ...base, tracks: base.tracks.map((track) => ({ ...track, fx: sampler })) })).toEqual([sample.id])
+    expect(usedSampleIds({ ...base, modules: [{ id: 'm', name: 'M', patch: sampler, inputs: [], outputs: [], knobs: [] }] })).toEqual([sample.id])
   })
 })

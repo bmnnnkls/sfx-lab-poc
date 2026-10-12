@@ -6,7 +6,7 @@ When an item ships, document it in `ARCHITECTURE.md`, then tick or delete it her
 **How to read it.** Each item has an ID (reply with "A1, C1–C4, G2"), a value (★ to ★★★) and a rough cost (S: a node and its
 tests; M: a node plus new plumbing, or several nodes; L: a new subsystem). `?` marks something not verified against the code.
 
-**Built (marked ✓ in the tables)**: A1 to A4, B0 to B3, C1 to C4 and C10 to C13, D1 with G1, G2 and G4, E1 and F1. What differs from the lists, and what it
+**Built (marked ✓ in the tables)**: A1 to A4, B0 to B3, C1 to C4 and C10 to C13, D1 with G1, G2 and G4, E1, F1 and F2. What differs from the lists, and what it
 left behind:
 
 * **A3 (push button)** is the Switch's `trigger` mode; "latch" is not a separate mode, since a toggle plus the *Flip-flop* (C11) is a latch.
@@ -14,12 +14,13 @@ left behind:
 * **C10** is *Random* (a value that stays until a rise on `Roll`); **G3** (smooth random with glides) is not built.
 * **E1** shipped as two modules under a new picker category, *Examples* (an overtone oscillator and a drawbar organ); E8 (a bigger library) is not built.
 * **F1** randomizes and mutates the graph on show, with a seed and a per-node lock; per-*parameter* locks and a randomize on the panel's controls only are not built.
-* **Left for later, found while building:** the DSP has no tempo, so *Clock* counts in Hz or BPM but cannot follow the project's tempo (a `tempo` in
-  `ProcessContext` would fix it, and make C12's "tempo-synced" real); noise and the other seeded sources start from the same seed in every voice of a
-  chord (a per-voice salt would decorrelate them); an indicator inside a module's own editor has no live value (a module is only live where it is used);
+* **F2** is File > Export audio (WAV): the open clip or a scene, rendered offline by the engine to a stereo WAV (16-bit or 32-bit float, 44.1 or 48 kHz,
+  a tail, optional normalize); see `ARCHITECTURE.md`, "Exporting audio". Not built: batch export of variations (the Randomize seed makes it a loop over
+  `renderProject`), stems per track, MP3 or OGG, dither, a selection of the master only.
+* **Left for later, found while building:** an indicator inside a module's own editor has no live value (a module is only live where it is used);
   indicators in a voice are absent, not stale, when no voice sounds (so a LED driven by a voice-stage follower goes dark between notes).
 * **A1** is the same `ControlWidget` as the panel's, inside the card (`widgets.mjs`); the widget's own label is hidden there, the title is the name.
-* **Not selected, so not built:** A5 to A7, B4 and B5, C5 to C9, D2 to D12, E2 to E9, F2 to F8, G5 to G14, H.
+* **Not selected, so not built:** A5 to A7, B4 and B5, C5 to C9, D2 to D12, E2 to E9, F3 to F8, G5 to G14, H.
 
 **Where we are** (control-nodes work, steps 1–8, see `HANDOFF-control-nodes.md` and `ARCHITECTURE.md`): controls, XY pad and
 switch; parameter sockets on every numeric parameter; a global stage; math nodes (arithmetic, shaping, MIDI, unit conversions,
@@ -90,7 +91,7 @@ widget lives in the panel and the property editor). Both views edit the same nod
 | C9 | Spectral flux; loudness (LUFS-style). | ★ | M |
 | C10 ✓ | Random control (seeded; re-roll button). See also G-noise below. | ★★ | S |
 | C11 ✓ | Edge detect, flip-flop, counter. | ★★ | S |
-| C12 ✓ | Control clock and divider (tempo-synced). | ★★ | S |
+| C12 ✓ | Control clock and divider (tempo-synced: the clock counts Hz, BPM or beats of the project tempo). | ★★ | S |
 | C13 ✓ | Control delay. | ★ | S |
 
 ## D. Synthesis building blocks
@@ -132,7 +133,7 @@ entry in the quick-add picker would surface them (E8).
 | ID | What | ★ | Cost |
 | --- | --- | --- | --- |
 | F1 ✓ | **Randomize / mutate**, jsfxr-style: re-roll parameters within their ranges, with a seed and a lock per control. | ★★★ | M |
-| F2 | **Export to WAV** (offline render of the current patch or clip), and batch export of variations. | ★★★ | M |
+| F2 ✓ | **Export to WAV** (offline render of the current patch or clip). Batch export of variations is not built. | ★★★ | M |
 | F3 | Control presets / snapshots, with morphing between two via an XY pad. | ★★ | M |
 | F4 | Web MIDI input: CC into control nodes, MIDI learn on panel controls, MIDI keyboard for notes. | ★★ | M |
 | F5 | Automation: record a control's movements. | ★★ | M |
@@ -209,6 +210,45 @@ TypeScript, then do the effect on the bins. Constraints to design around:
 | H9 | Time stretch (phase vocoder or granular) without pitch change. | ★★ | L |
 
 ---
+
+## Next batch (selected, not built)
+
+Thirteen items, picked for an SFX lab: mostly cheap to medium DSP, then example modules that use it. Build in this order (the oscillator
+extras come before the FM module, and the filter modes before the auto-wah). Run only the new browser checks, not the whole suite.
+
+**Effects**
+1. **Distortion** (D2): modes soft clip (`tanh`), hard clip and wavefolder; `drive` (dB), `mix`, output level. Category *Effects*. Watch the
+   level: drive then a make-up gain, and oversampling is out of scope (say so in the words).
+2. **Bitcrusher** (D2/G12): `bits` (1 to 16), sample-rate reduction (a hold of 1 to 64 samples, or a rate in Hz), `mix`.
+3. **Chorus / flanger** (D7): one node, a modulated delay line (`delay` ms, `depth` ms, `rate`, `feedback`, `mix`; a flanger is a short delay with
+   feedback). `stereoCapable` like the Delay; the delay time already has a socket, so the LFO can also be wired in.
+4. **Stutter** (G9): captures the last `slice` ms (10 to 1000) when its `gate` input rises and loops that slice while the gate is high, then passes
+   the input again; a short crossfade at the seam. Slice in milliseconds, or in beats now that `ProcessContext.tempo` exists (the Clock's `beat`
+   unit is the model). A *Switch* in trigger or momentary mode drives it.
+5. **More filter modes** (D3): notch, all-pass, peak, low shelf, high shelf, in the existing `filter` node. **Append** them to the mode list
+   (saved projects store the index) and add a `gain` parameter (dB, +-24, used by peak and shelves). The filter picture (`ui/patcher/previews/filter.ts`)
+   has its own copy of the mode list and `responseDb`: update both. A 24 dB slope (two biquads) is a possible follow-up.
+
+**Oscillator and math**
+6. **Oscillator extras** (D4/D5): `width` (pulse width, 0.05 to 0.95, default 0.5 = today's square), a `pm` input (phase modulation, in cycles,
+   scaled by a `pmAmount` parameter) and a `sync` input (a rise through 0.5 resets the phase: hard sync). With nothing wired and the defaults
+   the sound must be unchanged. The oscillator is naive (not band-limited): say so, and check aliasing at the top of the range before promising PWM.
+7. **Scale quantizer** (a math/logic node): snaps a MIDI note to a scale (`scale` enum: major, minor, harmonic minor, pentatonic major / minor,
+   blues, whole tone, chromatic) and `root`; either rounds to the nearest degree or floors. Next to *Quantize*.
+
+**Example modules** (under *Add -> Examples*, built like `patch/example-modules.ts`; their knobs should be **control nodes inside the module**
+with sensible ranges and curves, named and given units, because a module knob taken from a math node's parameter would have a +-100000 range;
+test each by rendering it and measuring, as the organ is tested)
+8. **FM pair**: carrier and modulator (needs item 6); controls `Ratio` (0.25 to 8, step 0.25) and `Index` (0 to 2 cycles); sidebands at fc +- k fm
+   are the test.
+9. **Supersaw / unison**: seven saws detuned by fixed multiples of one `Spread` control (wire a multiply into each oscillator's `param:detune`).
+10. **Mono synth starter**: saw plus a sub-octave square, filter, amplitude envelope; controls `Cutoff` (log), `Resonance`, `Attack`, `Release`, `Sub`.
+11. **Wobble bass**: saw into a filter whose cutoff follows an LFO through *Map range* (log); controls `Rate`, `Depth`, `Base cutoff`.
+12. **Auto-wah**: audio in, *Envelope follower* into *Map range* into the filter cutoff; controls `Sensitivity`, `Base`, `Range`, `Q`.
+13. **Ducker**: a `Key` input as well as `In`; the follower on the key lowers the gain of `In` (`Depth`, `Attack`, `Release`).
+
+**Left out of this batch on purpose:** the **granular sampler** (G6, large: its own session), the **drum machine** (E5: a module cannot carry a
+sample choice per use, so decide how first, see `TASKS.md`) and the **compressor** (D6, worth doing, but not with these).
 
 ## Suggested first batch
 

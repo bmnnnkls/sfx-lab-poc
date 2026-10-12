@@ -1,5 +1,5 @@
 import { Params } from '../params'
-import { createRng } from '../random'
+import { createRng, voiceSeed, voicesDiffer, voicesParam } from '../random'
 import type { DspNode, NodeDefinition, ParamSpec, ProcessContext } from '../types'
 
 const PARAMS: readonly ParamSpec[] = [
@@ -8,13 +8,14 @@ const PARAMS: readonly ParamSpec[] = [
   { id: 'spread', label: 'Spread', min: 0, max: 1, default: 0.7, step: 0.01 },
   { id: 'gate', label: 'Gate', min: 0.001, max: 1, default: 0.02, unit: 's' },
   { id: 'seed', label: 'Seed', min: 0, max: 9999, default: 1, step: 1, socket: false },
+  voicesParam(0),
 ]
 
 /**
  * Random clicks at random times, like a Geiger counter, vinyl dust or rain. Each sample has the chance `rate / sampleRate`
  * of being an event (a Poisson process: the gaps are irregular, the average is `rate` per second). An event is both a burst
  * of crackle on `Click` (noise that dies away over `decay`; its strength varies by `spread`) and a gate on `Trigger` that
- * stays high for `gate` seconds, to fire an envelope or a sampler. Seeded: the same seed is the same clicks.
+ * stays high for `gate` seconds, to fire an envelope or a sampler. Seeded: the same seed is the same clicks (in a chord, each voice has its own unless `voices` is `same`).
  */
 class Geiger implements DspNode {
   private readonly params = new Params(PARAMS)
@@ -22,9 +23,17 @@ class Geiger implements DspNode {
   private strength = 0
   private gateLeft = 0
 
+  constructor(private readonly salt: number) {
+    this.reseed()
+  }
+
   setParam(id: string, value: number): void {
     this.params.set(id, value)
-    if (id === 'seed') this.rng.reseed(this.params.get('seed'))
+    if (id === 'seed' || id === 'voices') this.reseed()
+  }
+
+  private reseed(): void {
+    this.rng.reseed(voiceSeed(this.params.get('seed'), this.salt, voicesDiffer(this.params.get('voices'))))
   }
 
   process({ frames, sampleRate }: ProcessContext, _inputs: ReadonlyArray<Float32Array | null>, [click, trigger]: readonly Float32Array[]): void {
@@ -55,5 +64,5 @@ export const geigerNode: NodeDefinition = {
     { id: 'trigger', label: 'Trigger' },
   ],
   params: PARAMS,
-  create: () => new Geiger(),
+  create: (_sampleRate, salt = 0) => new Geiger(salt),
 }

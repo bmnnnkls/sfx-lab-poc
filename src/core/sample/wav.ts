@@ -28,3 +28,63 @@ export const encodeWav = (data: Float32Array, sampleRate: number): Uint8Array =>
   }
   return new Uint8Array(buffer)
 }
+
+/** 16-bit PCM, or 32-bit IEEE float (exact, and not limited to -1..1). */
+export type WavBitDepth = 16 | 32
+
+const FORMAT_PCM = 1
+const FORMAT_FLOAT = 3
+
+/**
+ * Encodes any number of equal-length channels (one is mono, two is stereo) as an interleaved WAV file. 16-bit is PCM, rounded
+ * (no dither, so the same audio is always the same bytes) and clamped to full scale; 32-bit is IEEE float, written as it is. A
+ * float file gets the 18-byte `fmt ` chunk and the `fact` chunk the format asks for of everything but PCM, which strict readers want.
+ * `encodeWav` above is the mono 16-bit case the demo samples use; its bytes must not change (sample ids are hashes of them).
+ */
+export const encodeWavChannels = (channels: readonly Float32Array[], sampleRate: number, bitDepth: WavBitDepth = 16): Uint8Array => {
+  const count = Math.max(1, channels.length)
+  const frames = channels[0]?.length ?? 0
+  const float = bitDepth === 32
+  const bytesPerSample = bitDepth / 8
+  const dataSize = frames * count * bytesPerSample
+  const pad = dataSize % 2 // a chunk of odd size is followed by one byte that is not counted in it
+  const fmtSize = float ? 18 : 16
+  const factSize = float ? 12 : 0
+  const dataAt = 12 + (8 + fmtSize) + factSize
+  const buffer = new ArrayBuffer(dataAt + 8 + dataSize + pad)
+  const view = new DataView(buffer)
+  const text = (offset: number, value: string) => {
+    for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i))
+  }
+
+  text(0, 'RIFF')
+  view.setUint32(4, buffer.byteLength - 8, true)
+  text(8, 'WAVE')
+  text(12, 'fmt ')
+  view.setUint32(16, fmtSize, true)
+  view.setUint16(20, float ? FORMAT_FLOAT : FORMAT_PCM, true)
+  view.setUint16(22, count, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, sampleRate * count * bytesPerSample, true) // byte rate
+  view.setUint16(32, count * bytesPerSample, true) // block align
+  view.setUint16(34, bitDepth, true)
+  if (float) {
+    view.setUint16(36, 0, true) // no extension bytes
+    text(38, 'fact')
+    view.setUint32(42, 4, true)
+    view.setUint32(46, frames, true)
+  }
+  text(dataAt, 'data')
+  view.setUint32(dataAt + 4, dataSize, true)
+
+  let at = dataAt + 8
+  for (let i = 0; i < frames; i++) {
+    for (let c = 0; c < count; c++) {
+      const value = channels[c]?.[i] ?? 0
+      if (float) view.setFloat32(at, value, true)
+      else view.setInt16(at, Math.round(Math.max(-1, Math.min(1, value)) * 32767), true)
+      at += bytesPerSample
+    }
+  }
+  return new Uint8Array(buffer)
+}

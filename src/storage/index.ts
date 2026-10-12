@@ -9,6 +9,7 @@ export {
   type SampleStorage,
 } from './sample-storage'
 export {
+  fileStem,
   exportProject,
   importProject,
   isPackage,

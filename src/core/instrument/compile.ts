@@ -91,6 +91,8 @@ export const setStageSample = (stage: CompiledStage, nodeId: string, sampleId: s
  * Instantiates the nodes in `order` (already topologically sorted) and wires them with
  * preallocated buffers. `seeded` provides buffers produced elsewhere (voice -> shared boundary).
  *
+ * `voiceSalt` is the voice's slot in the pool (0 outside a voice), handed to every node's `create`, so seeded sources differ between voices.
+ *
  * A node set to run in stereo gets two processors with the same parameters, each working on one channel of its
  * stereo ports (views into the same planar buffers); its modulation inputs are shared by both.
  */
@@ -99,6 +101,7 @@ export const compileStage = (
   order: readonly string[],
   sampleRate: number,
   seeded: ReadonlyMap<string, Float32Array> = new Map(),
+  voiceSalt = 0,
 ): CompiledStage => {
   const nodesById = new Map(patch.nodes.map((node) => [node.id, node]))
   const outputBuffers = new Map(seeded)
@@ -115,7 +118,7 @@ export const compileStage = (
     const ports: { inputs: readonly PortSpec[]; outputs: readonly PortSpec[] } = lifted ? stereoPorts(definition) : definition
 
     const copies = Array.from({ length: lifted ? 2 : 1 }, () => {
-      const dsp = definition.create(sampleRate)
+      const dsp = definition.create(sampleRate, voiceSalt)
       for (const [paramId, value] of Object.entries(node.params)) dsp.setParam(paramId, value)
       if (node.sampleId !== undefined) dsp.setSample?.(node.sampleId)
       if (node.trackId !== undefined) dsp.setTrack?.(node.trackId)

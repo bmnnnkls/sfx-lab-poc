@@ -3,6 +3,8 @@
  * here looks at the clock or `Math.random`. `seed` is a whole number the user sets; the same seed gives the same sequence.
  */
 
+import type { ParamSpec } from './types'
+
 /** mulberry32: a small, fast generator with a 32-bit state. `next()` is in [0, 1). */
 export interface Rng {
   next(): number
@@ -40,3 +42,29 @@ export const hashSigned = (index: number, seed: number): number => {
   h ^= h >>> 16
   return (h >>> 0) / 0x80000000 - 1
 }
+
+/** Apart from any seed a user can type (0 to 9999), and prime, so two voices never land on each other's seed. */
+const VOICE_STRIDE = 10007
+
+/**
+ * The seed a voice really uses. In a chord every voice has its own copy of a seeded node; started from one seed they would
+ * all make the same noise and add up coherently (louder, and phasey). `differ` moves each voice's seed by its slot in the voice
+ * pool, so the voices are different noise; `same` keeps the seed as typed (every note alike). Slot 0, which is every node outside
+ * a voice (global, shared, insert graphs), is the typed seed either way, so it sounds as it always did.
+ */
+export const voiceSeed = (seed: number, salt: number, differ: boolean): number =>
+  differ && Number.isFinite(salt) ? seed + Math.max(0, Math.trunc(salt)) * VOICE_STRIDE : seed
+
+/** The `voices` choice of a seeded source: index 0 is `differ`, 1 is `same`. `byDefault` is the index a new node starts with. */
+export const voicesParam = (byDefault: 0 | 1): ParamSpec => ({
+  id: 'voices',
+  label: 'Voices',
+  min: 0,
+  max: 1,
+  default: byDefault,
+  step: 1,
+  options: ['differ', 'same'],
+})
+
+/** Whether a `voices` parameter value asks for different noise in every voice. */
+export const voicesDiffer = (value: number): boolean => Math.round(value) === 0

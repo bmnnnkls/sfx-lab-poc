@@ -1,3 +1,4 @@
+import { DEFAULT_TEMPO } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
 import { type Patch, audioSources, sendTargets } from '../patch'
 import type { AudioClip, SendLevels } from '../project'
@@ -42,6 +43,7 @@ export class AudioTrackRuntime implements PlayableTrack {
   private sendList: ReadonlyArray<readonly [string, number]> = []
   /** The clip audio of the current stretch, before the insert graph. */
   private readonly scratch = new Float32Array(MAX_BLOCK_FRAMES)
+  private tempo = DEFAULT_TEMPO
 
   constructor(
     private readonly trackId: string,
@@ -63,8 +65,13 @@ export class AudioTrackRuntime implements PlayableTrack {
     return this.fx.readouts()
   }
 
+  setTempo(bpm: number): void {
+    this.tempo = bpm
+    this.fx.setTempo(bpm)
+  }
+
   setFx(fx: Patch): void {
-    this.fx = new FxGraph(fx, this.sampleRate, this.samples)
+    this.fx = new FxGraph(fx, this.sampleRate, this.samples, this.tempo)
     this.targets = sendTargets(fx)
     this.sources = audioSources(fx)
   }

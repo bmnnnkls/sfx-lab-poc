@@ -3,6 +3,21 @@
 Things we have decided are worth doing but have not started. Newest first. Move an item to `ARCHITECTURE.md`
 (as documentation of what exists) when it ships, and delete it here.
 
+## Other work, in the order I would do it
+
+Not nodes (the next batch of nodes is in [`IDEAS-nodes-and-controls.md`](IDEAS-nodes-and-controls.md), "Next batch").
+
+1. **MIDI input** (F4): a MIDI keyboard for notes (Web MIDI), CC mapped to control nodes with MIDI learn. Makes the panel playable. Needs
+   a decision on where learned mappings live (on the node, like `panel`, is the likely answer).
+2. **Presets and snapshots** (F3): save the states of the controls and morph between two with an XY pad; pairs with Randomize and Mutate
+   (a snapshot is also "keep this roll").
+3. **Drum machine design**: decide how a module holds or picks samples (a module use cannot carry a sampler's `sampleId` today), then build E5:
+   N samplers gated by the incoming note (hz to MIDI, compare, multiply), per-pad level, pan and tune.
+4. **Test and tooling hygiene**: the whole browser suite takes too long; split it into a fast smoke set and a full run, and stop checks
+   hard-coding lists the app already knows (they broke three times as nodes were added; the unit tests already read the registry).
+5. **Smaller follow-ups found on the way**: per-*parameter* locks for Randomize; indicators live inside a module's own editor; a bigger
+   example-module library (E8) and a way to save a module as an example of your own.
+
 ## Ideas for the next nodes, controls and effects
 
 A pool of candidate work (live controls inside cards, indicators, analysis nodes, noise including Perlin, granular and glitch

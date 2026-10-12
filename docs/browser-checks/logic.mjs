@@ -69,7 +69,7 @@ check('a clock wired to the output is heard', (await level(1500)) > 0.05)
 await selectNode('Clock')
 await slider('Width').fill('100')
 await properties().getByLabel('Per', { exact: true }).selectOption({ label: 'BPM' })
-check('Per offers Hz and BPM', (await properties().getByLabel('Per', { exact: true }).locator('option').allTextContents()).join() === 'Hz,BPM')
+check('Per offers Hz, BPM and beat', (await properties().getByLabel('Per', { exact: true }).locator('option').allTextContents()).join() === 'Hz,BPM,beat')
 
 // ---- chains: clock -> divider -> counter -> flip-flop, a schmitt and an edge detector
 await add('Clock divider')

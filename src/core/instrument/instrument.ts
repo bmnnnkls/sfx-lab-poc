@@ -1,4 +1,4 @@
-import { type NoteState } from '../dsp'
+import { DEFAULT_TEMPO, type NoteState } from '../dsp'
 import type { Patch } from '../patch'
 import type { SampleLookup } from '../sample'
 import { MAX_BLOCK_FRAMES, compileStage, processStage, setStageParam, setStageSample, stageReadouts } from './compile'
@@ -21,13 +21,16 @@ export class Instrument {
   private readonly shared: ReturnType<typeof compileStage>
   private readonly boundaries: ReadonlyArray<{ key: string; buffer: Float32Array }>
   private readonly mix = new Float32Array(MAX_BLOCK_FRAMES)
+  private tempo: number
 
   constructor(
     patch: Patch,
     private readonly sampleRate: number,
     voiceCount: number,
     private readonly samples: SampleLookup,
+    tempo = DEFAULT_TEMPO,
   ) {
+    this.tempo = tempo
     const plan = planStages(patch)
 
     // The global stage is compiled first: its buffers are what the other two stages read, shared by all voices.
@@ -45,15 +48,21 @@ export class Instrument {
     this.pool = new VoicePool(
       Array.from(
         { length: Math.max(1, Math.floor(voiceCount)) },
-        () =>
+        (_, slot) =>
           new Voice(
-            compileStage(patch, plan.voiceOrder, sampleRate, globalBuffers),
+            // The slot is the voice's salt: it depends only on the order of the notes, so a render is still the same every time.
+            compileStage(patch, plan.voiceOrder, sampleRate, globalBuffers, slot),
             plan.boundaries,
             sampleRate,
             samples,
           ),
       ),
     )
+  }
+
+  /** The project's tempo in BPM, handed to every node as `ProcessContext.tempo` from the next block on. */
+  setTempo(bpm: number): void {
+    this.tempo = bpm
   }
 
   get activeVoiceCount(): number {
@@ -102,10 +111,10 @@ export class Instrument {
     for (const { buffer } of this.boundaries) buffer.fill(0, 0, frames)
 
     // Every block, voices or not: a smoothing node keeps its state, and the voices read the buffers it fills.
-    processStage(this.global, { frames, sampleRate: this.sampleRate, note: NO_NOTE, samples: this.samples })
+    processStage(this.global, { frames, sampleRate: this.sampleRate, note: NO_NOTE, samples: this.samples, tempo: this.tempo })
     for (const voice of this.pool.voices) {
       if (!voice.active) continue
-      voice.render(frames)
+      voice.render(frames, this.tempo)
       for (const source of voice.outputSources) this.accumulate(this.mix, source, frames)
       for (const { key, buffer } of this.boundaries) {
         const signal = voice.boundaryBuffer(key)
@@ -118,6 +127,7 @@ export class Instrument {
       sampleRate: this.sampleRate,
       note: NO_NOTE,
       samples: this.samples,
+      tempo: this.tempo,
     })
     for (const source of this.shared.outputSources) this.accumulate(this.mix, source, frames)
     return this.mix

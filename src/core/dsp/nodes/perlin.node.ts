@@ -1,5 +1,5 @@
 import { Params } from '../params'
-import { hashSigned } from '../random'
+import { hashSigned, voiceSeed, voicesDiffer, voicesParam } from '../random'
 import type { DspNode, NodeDefinition, ParamSpec, ProcessContext } from '../types'
 
 const MAX_OCTAVES = 6
@@ -10,6 +10,8 @@ const PARAMS: readonly ParamSpec[] = [
   { id: 'persistence', label: 'Persistence', min: 0, max: 1, default: 0.5, step: 0.01 },
   { id: 'depth', label: 'Depth', min: 0, max: 1, default: 1, step: 0.01 },
   { id: 'seed', label: 'Seed', min: 0, max: 9999, default: 1, step: 1, socket: false },
+  // The Retrig input exists so that every note wanders alike, so voices match unless asked otherwise.
+  voicesParam(1),
 ]
 
 /** Smooth ease between lattice points (Perlin's quintic), so the curve has no corners. */
@@ -46,13 +48,15 @@ export const fractalNoise = (x: number, seed: number, octaves: number, persisten
 /**
  * Smooth, organic wandering: Perlin noise as a signal. `out` swings both ways around zero, `uni` stays between 0 and
  * `depth`. Free-running, or restarted at the start of every note by a rise on the optional `Retrig` input, so each note
- * wanders the same way. Seeded: the same seed is the same wander.
+ * wanders the same way. Seeded: the same seed is the same wander, in every voice of a chord (`voices` same) or a path of its own for each (`differ`).
  */
 class Perlin implements DspNode {
   private readonly params = new Params(PARAMS)
   /** Position along the noise, in whole noise cells (one per 1/rate seconds). */
   private position = 0
   private previousGate = 0
+
+  constructor(private readonly salt: number) {}
 
   setParam(id: string, value: number): void {
     this.params.set(id, value)
@@ -67,7 +71,7 @@ class Perlin implements DspNode {
     const octaves = Math.round(this.params.get('octaves'))
     const persistence = this.params.get('persistence')
     const depth = this.params.get('depth')
-    const seed = this.params.get('seed')
+    const seed = voiceSeed(this.params.get('seed'), this.salt, voicesDiffer(this.params.get('voices')))
     for (let i = 0; i < frames; i++) {
       if (gate) {
         const level = gate[i] ?? 0
@@ -91,5 +95,5 @@ export const perlinNode: NodeDefinition = {
     { id: 'uni', label: 'Out 0–1' },
   ],
   params: PARAMS,
-  create: () => new Perlin(),
+  create: (_sampleRate, salt = 0) => new Perlin(salt),
 }

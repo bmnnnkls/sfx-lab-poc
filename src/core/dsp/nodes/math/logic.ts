@@ -117,9 +117,16 @@ export const counterNode = mathNode({
   },
 })
 
-const CLOCK_UNITS = ['Hz', 'BPM'] as const
+const CLOCK_UNITS = ['Hz', 'BPM', 'beat'] as const
 
-/** A steady on/off square: Rate times a second (or a minute), high for Width of each cycle. A rise of Reset restarts the cycle. */
+/** Cycles per second for a Rate, by the Per choice: Hz as it is, BPM over sixty, beat times the beats the tempo has in a second. */
+const CLOCK_PER_SECOND: ReadonlyArray<(rate: number, tempo: number) => number> = [(rate) => rate, (rate) => rate / 60, (rate, tempo) => (rate * tempo) / 60]
+
+/**
+ * A steady on/off square: Rate times a second (Hz), a minute (BPM), or a beat of the project's tempo (beat: 1 is once per beat, 4 is
+ * sixteenths), high for Width of each cycle. A rise of Reset restarts the cycle. In beats it follows the tempo, which is read again
+ * every block, so changing the project's tempo changes the clock without touching the node.
+ */
 export const clockNode = mathNode({
   type: 'clock',
   label: 'Clock',
@@ -130,7 +137,7 @@ export const clockNode = mathNode({
     { id: 'unit', label: 'Per', min: 0, max: CLOCK_UNITS.length - 1, default: 0, step: 1, options: CLOCK_UNITS },
     { id: 'width', label: 'Width', min: 0.01, max: 0.99, default: 0.5, step: 0.01 },
   ],
-  make: (params, sampleRate) => {
+  make: (params, sampleRate, block) => {
     let phase = 0
     let resetHigh = false
     return (reset) => {
@@ -138,7 +145,7 @@ export const clockNode = mathNode({
       if (now && !resetHigh) phase = 0
       resetHigh = now
       const out = phase < params.get('width') ? 1 : 0
-      const perSecond = params.get('rate') / (Math.round(params.get('unit')) === 1 ? 60 : 1)
+      const perSecond = (CLOCK_PER_SECOND[Math.round(params.get('unit'))] ?? CLOCK_PER_SECOND[0]!)(params.get('rate'), block.tempo)
       phase += perSecond / sampleRate
       if (phase >= 1) phase -= Math.floor(phase)
       return out

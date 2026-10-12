@@ -1,5 +1,5 @@
 import { Params } from '../params'
-import { createRng } from '../random'
+import { createRng, voiceSeed, voicesDiffer, voicesParam } from '../random'
 import type { DspNode, NodeDefinition, ParamSpec, ProcessContext } from '../types'
 
 const BOUND = 100000
@@ -10,6 +10,8 @@ const PARAMS: readonly ParamSpec[] = [
   // Snap the roll to multiples of this (0: any value), counted from the lowest end.
   { id: 'step', label: 'Step', min: 0, max: BOUND, default: 0 },
   { id: 'seed', label: 'Seed', min: 0, max: 9999, default: 1, step: 1, socket: false },
+  // Only means something where the node runs once per voice (a Roll wired from a note); a global Random is one copy.
+  voicesParam(0),
 ]
 
 /** A random value between `min` and `max` (either way round), on the step when there is one. Never NaN. */
@@ -36,23 +38,20 @@ class RandomValue implements DspNode {
   private started = false
   private high = false
 
-  constructor() {
+  constructor(private readonly salt: number) {
     this.held = this.rng.next()
   }
 
   setParam(id: string, value: number): void {
     this.params.set(id, value)
-    if (id === 'seed') {
-      this.rng.reseed(this.params.get('seed'))
-      this.started = false
-    }
+    if (id === 'seed' || id === 'voices') this.started = false
   }
 
   process({ frames }: ProcessContext, [roll]: ReadonlyArray<Float32Array | null>, [out]: readonly Float32Array[]): void {
     if (!out) return
     // The first value is drawn from the seed the node really has (the constructor only knew the default), and again after a new seed.
     if (!this.started) {
-      this.rng.reseed(this.params.get('seed'))
+      this.rng.reseed(voiceSeed(this.params.get('seed'), this.salt, voicesDiffer(this.params.get('voices'))))
       this.held = this.rng.next()
       this.started = true
     }
@@ -73,5 +72,5 @@ export const randomNode: NodeDefinition = {
   outputs: [{ id: 'out', label: 'Out', kind: 'control' }],
   params: PARAMS,
   global: true,
-  create: () => new RandomValue(),
+  create: (_sampleRate, salt = 0) => new RandomValue(salt),
 }
