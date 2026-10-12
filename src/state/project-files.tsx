@@ -7,6 +7,8 @@ export interface ProjectFiles {
   importProject(): Promise<void>
   newProject(): void
   loadDemo(): void
+  /** Replaces the project with one of the shipped examples (`exampleProjects`) and says how to start. */
+  loadExample(id: string): void
   /** Swaps back to the project most recently replaced by import / new / demo / restore. */
   restorePrevious(): void
   /**

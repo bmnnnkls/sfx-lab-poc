@@ -1,3 +1,4 @@
+import { FLAGSHIP_EXAMPLE, findExampleProject } from '@core'
 import type { ProjectStorage } from '@storage'
 import { usePersistenceStore, useProjectStore } from '@state'
 
@@ -10,6 +11,17 @@ export const restoreSavedProject = (storage: ProjectStorage): void => {
     useProjectStore.getState().resetProject(outcome.project)
     if (outcome.warnings.length > 0) {
       notify('warning', 'Your saved project needed repairs', outcome.warnings)
+    }
+  } else if (outcome.status === 'empty') {
+    // Nothing saved yet: open on the flagship example, and say how to start the first time only (a reload with no edits comes back here).
+    // `?starter` keeps the three-track starter instead (the browser checks rely on it).
+    const example = findExampleProject(FLAGSHIP_EXAMPLE)
+    if (example && !new URLSearchParams(globalThis.location?.search).has('starter')) {
+      useProjectStore.getState().resetProject(example.create())
+      if (!storage.hasWelcomed()) {
+        notify('info', `Welcome: "${example.title}"`, example.howTo)
+        storage.markWelcomed()
+      }
     }
   } else if (outcome.status === 'corrupt') {
     notify(

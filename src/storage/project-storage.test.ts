@@ -51,6 +51,25 @@ describe('ProjectStorage', () => {
     })
   })
 
+  it('remembers that a browser has been welcomed, and never throws about it', () => {
+    const store = createMemoryStore()
+    expect(new ProjectStorage(store).hasWelcomed()).toBe(false)
+    new ProjectStorage(store).markWelcomed()
+    expect(new ProjectStorage(store).hasWelcomed()).toBe(true)
+
+    const broken: KeyValueStore = {
+      getItem: () => {
+        throw new Error('blocked')
+      },
+      setItem: () => {
+        throw new Error('QuotaExceededError')
+      },
+      removeItem: () => {},
+    }
+    expect(() => new ProjectStorage(broken).markWelcomed()).not.toThrow()
+    expect(new ProjectStorage(broken).hasWelcomed()).toBe(false)
+  })
+
   it('loads what serializeProject wrote', () => {
     const store = createMemoryStore()
     store.setItem('sfxlab:project', serializeProject(createEmptyProject(), 2))

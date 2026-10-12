@@ -1,4 +1,4 @@
-import { type Project, createDemoProject, createEmptyProject } from '@core'
+import { type Project, createDemoProject, createEmptyProject, findExampleProject } from '@core'
 import { type ProjectStorage, type SampleStorage, downloadFile, exportProject, importProject, pickFile } from '@storage'
 import {
   type EngineControls,
@@ -21,7 +21,7 @@ export const createProjectFiles = (
 ): ProjectFiles => {
   const persistence = () => usePersistenceStore.getState()
 
-  const apply = (next: Project, message: string, details: readonly string[] = []) => {
+  const apply = (next: Project, message: string, details: readonly string[] = [], kind?: 'info' | 'warning') => {
     const previous = useProjectStore.getState().project
     storage.saveBackup(previous)
 
@@ -30,7 +30,7 @@ export const createProjectFiles = (
     useProjectStore.getState().replaceProject(next)
 
     persistence().setHasBackup(storage.hasBackup())
-    persistence().notify(details.length > 0 ? 'warning' : 'info', message, details)
+    persistence().notify(kind ?? (details.length > 0 ? 'warning' : 'info'), message, details)
   }
 
   return {
@@ -94,7 +94,16 @@ export const createProjectFiles = (
 
     newProject: () => apply(createEmptyProject(), 'Started a new project'),
 
-    loadDemo: () => apply(createDemoProject(), 'Loaded the demo project'),
+    loadDemo: () => apply(createDemoProject(), 'Loaded the starter project'),
+
+    loadExample: (id) => {
+      const example = findExampleProject(id)
+      if (!example) {
+        persistence().notify('error', `There is no example called "${id}".`)
+        return
+      }
+      apply(example.create(), `Loaded "${example.title}"`, example.howTo, 'info')
+    },
 
     restorePrevious: () => {
       const outcome = storage.loadBackup()
