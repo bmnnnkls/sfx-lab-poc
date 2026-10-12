@@ -44,7 +44,7 @@ const clickNote = async (locator, { shift = false, button = 'left' } = {}) => {
 }
 const undo = () => page.getByRole('button', { name: 'Undo' }).click()
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(() => { localStorage.clear(); localStorage.setItem('sfxlab:editor-height', '720'); localStorage.setItem('sfxlab:roll-velocity', 'false') })
 await page.reload()
 await page.getByRole('button', { name: 'Edit Root' }).click()

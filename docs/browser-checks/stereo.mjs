@@ -43,7 +43,7 @@ const trackBtn = (name) => page.locator('[class*="_trackName_"]').filter({ hasTe
 const add = addNode
 const LOOP = 'Demo Drum Loop 120 BPM'
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('sfxlab'); q.onsuccess = q.onerror = q.onblocked = () => r() }) })
 await page.reload()
 

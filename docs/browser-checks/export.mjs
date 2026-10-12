@@ -58,7 +58,7 @@ const exportFile = async () => {
   return { name: download.suggestedFilename(), bytes: new Uint8Array(readFileSync(path)) }
 }
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(() => localStorage.clear())
 await page.reload()
 const tempo = Number(await page.getByLabel('BPM').inputValue())

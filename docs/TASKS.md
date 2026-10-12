@@ -18,6 +18,21 @@ Not nodes (the next batch of nodes is in [`IDEAS-nodes-and-controls.md`](IDEAS-n
 5. **Smaller follow-ups found on the way**: per-*parameter* locks for Randomize; indicators live inside a module's own editor; a bigger
    example-module library (E8) and a way to save a module as an example of your own.
 
+## Follow-ups from the example projects
+
+Found while making `core/examples` (see `docs/EXAMPLES.md` and `ARCHITECTURE.md`, "Example projects"):
+
+1. **Tempo-synced delay times.** The echoes in the examples are set in seconds for their own tempo (a dotted eighth at 125 and at 92 BPM) and do not follow a
+   changed BPM; the LFO and the Clock do. A way to get the beat length into a patch (a node that outputs it, or a beat unit on the Delay) would fix it and make
+   the examples tempo-proof.
+2. **Per-parameter locks for Randomize.** Today a node is locked whole, so a Perlin wander has to re-roll its depth and octaves along with its seed. A lock per
+   parameter (listed already below) would let the seed move alone. The examples work around it by locking whole nodes and by putting a module's level
+   outside the module.
+3. **A way to rename scenes** in the session view (`Project.sceneNames` is saved and shown, but only a project built in code sets it).
+4. **Examples as their own chunk.** They add about 64 kB (18 kB gzipped) to the main bundle; the first visit needs one of them at once, but the other could load when chosen.
+5. **Audio-rate math is dear** (a `Params.get` per sample in every math node: the sidechain, the soft clip and a generative voice are chains of them); an engine
+   pass that reads a node's parameters once per block would make heavy patches much cheaper. Idle tracks also cost about 1.7 % each in the test container.
+
 ## Ideas for the next nodes, controls and effects
 
 A pool of candidate work (live controls inside cards, indicators, analysis nodes, noise including Perlin, granular and glitch

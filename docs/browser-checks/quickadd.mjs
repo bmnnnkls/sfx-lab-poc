@@ -30,7 +30,7 @@ const nodes = () => surface.locator('[data-testid^="node-"]')
 const node = (title) => nodes().filter({ has: page.locator('[class*="nodeTitle"]', { hasText: new RegExp(`^${title}`) }) })
 const boxOf = (locator) => locator.first().boundingBox()
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('sfxlab'); q.onsuccess = q.onerror = q.onblocked = () => r() }) })
 await page.reload()
 await track('Bass')

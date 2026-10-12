@@ -28,7 +28,7 @@ const menuItem = (name) => page.getByRole('menuitem', { name, exact: true })
 const sockets = () => page.getByRole('checkbox', { name: 'Sockets' })
 const undo = () => page.getByRole('button', { name: 'Undo' }).click()
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('sfxlab'); q.onsuccess = q.onerror = q.onblocked = () => r() }) })
 await page.reload()
 await track('Bass')

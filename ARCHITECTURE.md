@@ -49,6 +49,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` (also the channel strips: fader, pan, mute/solo, meters), and the offline bounce built on it | `Engine`, `EngineCommand`, `EngineStatus`, `renderProject`, `Bounce` |
 | `sync` | diffs two `Project`s into `EngineCommand`s | `diffProject` |
 | `sample` | sample metadata/data types, engine-side `SampleBank`, mono mixdown, peaks, WAV encoder (mono, stereo, 16-bit or 32-bit float), demo samples | `SampleInfo`, `SampleData`, `SampleBank`, `createDemoSamples`, … |
+| `examples` | the shipped example projects (*Low Light*, *Glass Rain*), written as code with a small DSL for patches and scores; what a first visit opens on | `exampleProjects`, `findExampleProject`, `FLAGSHIP_EXAMPLE` |
 | `persistence` | project file format: envelope, versioned migrations, sanitizing | `serializeProject`, `parseProject` |
 | `history` | generic undo/redo over immutable snapshots | `createHistory`, `commit`, `undo`, `redo` |
 
@@ -818,9 +819,11 @@ applying something that changes nothing adds no undo step (`setClipNotes` keeps 
   `persistence/fixtures/v1-minimal.sfxlab.json` — the old fixture must keep loading.
 * **Autosave:** `app/autosave.ts` subscribes to the project store; `storage/autosaver.ts` debounces (500 ms)
   and flushes on tab hide / `pagehide`. The header shows Saved / Saving… / Not saved.
-* **Startup:** `app/services.ts` loads the saved project *before* the first render. Unreadable data is copied
-  to `sfxlab:corrupt` (never silently overwritten) and the demo project is used, with a toast explaining why.
-* **Replacing the project** (import / new / demo / restore) goes through one function in `app/project-files.ts`:
+* **Startup:** `app/services.ts` loads the saved project *before* the first render. With nothing saved, a first visit opens on
+  the flagship example (`FLAGSHIP_EXAMPLE`) and a welcome toast says how to start; `?starter` in the address keeps the plain
+  three-track starter instead (the browser checks in `docs/browser-checks` use it, since they were written against it). Unreadable data is
+  copied to `sfxlab:corrupt` (never silently overwritten) and the starter is used, with a toast explaining why.
+* **Replacing the project** (import / new / starter / example / restore) goes through one function in `app/project-files.ts`:
   it saves the outgoing project to a **one-slot backup**, stops the transport, resets selection, then swaps.
   *File → Restore previous* swaps back (and the slot then holds what you just left).
 * If browser storage is unavailable (private mode), the app keeps working in memory and says so.
@@ -955,6 +958,60 @@ through a patch, as before) or an **audio track**.
 * **Menus.** `ui/shared/menu` now holds `ContextMenu` (right-click) and `PopupMenu` (click on a trigger), both over
   Radix with one shared entry renderer and stylesheet, so they look and behave identically.
 
+## Example projects (`core/examples`)
+
+Two projects ship with the app and are built **from code**, not stored as files: *Low Light* (minimal tech house, 125 BPM, eight
+scenes) and *Glass Rain* (a self-composing ambient piece, 92 BPM, six scenes). A tour of what is in them and what to try is in
+[`docs/EXAMPLES.md`](docs/EXAMPLES.md); this section is about how they are made and kept honest.
+
+* **A small DSL, so a patch reads like the patch** (`examples/builder.ts`, `score.ts`, `tracks.ts`). `patchOf(nodes, wires)` takes nodes by
+  readable id and wires as `"from.port>to.port"` (a module's ports are `<inner node>:<port>`; a parameter socket is `param:<name>`), lays the
+  cards out left to right by distance from the sources (a control just before the node it feeds) and **throws on a wire that does not
+  fit**, naming it and listing the ports that do exist. It also throws on a parameter that is not there or lies outside its range (a value
+  out of range would play now and be clamped the first time the project is saved and loaded: a test pins that a saved copy loads back
+  identical, with no warning), and `knob` / `xyPad` refuse a value outside their own range. `moduleOf` builds a module definition the same way
+  (`useModule` is a use of it, with per-use values for the controls inside). `drumNotes` and `lineNotes` write notes as text (`X... x.o.`,
+  `A1 . C2:2 . A3+C4+E4@0.6`) with a groove that is part of the writing: swing, a little timing and velocity wander, all from a seed.
+* **Deterministic.** Every id (nodes, wires, notes, clips, tracks) is chosen, not random, and every random source is seeded, so the project
+  is the same JSON on every build and renders the same samples every time (tested). A node id is unique across a track's graphs (`Track.fx`
+  shares `setParam` with the instrument), so each graph is built with a prefix (`n_`, `fx_`, `ng_`, `master_`).
+* **Safe to Randomize.** Every node is `locked` by default except controls, indicators and uses of modules (`NodeSpec.locked: false` opts a
+  seed-bearing source such as a Random or a Geiger back in): *Randomize* and *Mutate* then move knobs and seeds, never the wiring or the
+  shape of an envelope, so they cannot break a patch. Knob ranges are written to be musical (a hi-hat's tone cannot leave the hi-hat's
+  range), a module's level is an *input* wired from a locked knob in the patch (a use is one node to Randomize: it moves all of the use's
+  knobs, or none of them if the use is locked, and the `locked` flag of a node *inside* the module is not looked at), and a test rolls every instrument of both examples and requires finite, audible, un-blown-up sound.
+* **No samples.** Every drum is nodes (the kick is an impulse ringing a resonant low-pass whose cutoff dives, so every hit starts the same
+  way; the hats are noise plus six inharmonic squares), so the projects are self-contained and every sound has knobs. The envelope node is
+  linear, so a voice that should decay naturally multiplies an envelope by itself, and one that must ring its whole length whatever the note's
+  length sets *release equal to decay*.
+* **Real sidechain.** Low Light's *Kick duck* module takes the kick's sound with *Track audio*, follows its level with the envelope
+  follower and turns that into a dip in a stereo Gain's CV; it is used by the bass, stab, arp, drone and echo, so it dips exactly where the
+  kick sounds. (The follower's output and a Map range node are all it needs: the fewer audio-rate math nodes, the cheaper: see below.)
+* **Self-playing voices** (Glass Rain). A clip holds one note and the patch plays itself: a Clock whose *Reset* is the note's gate (a node with
+  nothing wired in would be *global* and free-run, out of step with the bar; wired to the note it becomes a voice node that starts on the bar
+  line), a Random as a die against a Density input (*Chance* module), a Perlin wander sampled by Sample and hold on every tick and turned into
+  a note of D suspended pentatonic by *Scale note* (`round(2.4 x position)` semitones above the root: 0, 2, 5, 7, 10, 12 ...), sounded by the
+  FM *Mallet* module. Every such voice ends with a Gain whose CV is an envelope on the note's gate times its velocity: without it a voice that
+  was released would keep ticking until the engine's ten-second cap, so at every loop point the old voice would overlap the new one. The
+  note's velocity is also the scene's loudness, and the arp's note graph (*Track notes* of the pad -> *Range split* on velocity >= 0.75 ->
+  transpose -> arpeggiator) wakes only in the scenes where the pad is played hard.
+* **Scene names** (`Project.sceneNames`, optional): shown under the scene launch buttons and in the export dialog's scene list. A new optional
+  field with a safe default, so no format-version bump; the sanitizer keeps at most one trimmed text of up to 24 characters per scene and no
+  list at all when no scene has a name. There is no editor for them yet.
+* **In the app.** `exampleProjects` is the registry; *File -> Examples* lists them (and the starter), `ProjectFiles.loadExample(id)`
+  replaces the project (through the same one-slot backup as every other replace) and shows what to try as an info toast that stays 30 seconds,
+  and a first visit opens on `FLAGSHIP_EXAMPLE`. The bundle grew by about 64 kB (18 kB gzipped).
+* **Tests.** `examples.test.ts` (both examples: deterministic, loads back identical with no warnings, well formed, every graph acyclic, every
+  reference resolves, a panel everywhere), `builder.test.ts` (the DSL), `low-light.test.ts` and `glass-rain.test.ts` (what each claims:
+  the kick is the same on every hit, the bass really ducks, the Cut and Throw buttons work, every note is in the key, the scale module only
+  makes scale notes, the arp wakes on velocity, the render is deterministic, Randomize cannot break a voice), and the browser check
+  `docs/browser-checks/showcase.mjs`.
+* **Cost.** These are the heaviest projects in the repo: about 40 to 50 % of one core in the slow container the tests run in for the busiest
+  scene of Low Light, 40 % for Glass Rain. Most of it is a floor, not the instruments: every track runs its insert graph every block and sends
+  mix per track (about 1.7 % per empty track), the returns' reverbs a few percent, and audio-rate math nodes cost a `Params.get` per sample, so
+  a chain of them is much dearer than its look. The instruments themselves are a few percent each. If a scene stutters on a slower machine,
+  mute a few tracks or reduce voices.
+
 ## Conventions
 
 * Files are `kebab-case.ts`; React components are `PascalCase.tsx` with a `PascalCase.module.css` beside them.
@@ -984,6 +1041,11 @@ launcher queue need no changes (the return track was added this way; TypeScript 
 **Add a field to the project** — add it to `project/types.ts`, give it a safe default in
 `persistence/sanitize-*.ts`, and add a migration only if old files would otherwise load wrongly.
 
+**Add an example project** — a folder under `core/examples/` with an `index.ts` that builds the project with `patchOf`, `moduleOf`, `drumNotes` /
+`lineNotes` and `projectOf` (see "Example projects"), then an entry in `examples/index.ts` (`exampleProjects`; the title, a tagline with the BPM
+and a few lines of `howTo`). `examples.test.ts` runs the same checks on every registered example, so a new one is held to them at once; add a
+test file for what it claims, and render it (`renderProject`) to hear whether it is balanced before you trust a level.
+
 ## Known POC limits (deliberate)
 
 * One clip plays per track. Polyphony has simple voice stealing and no unison, glide or legato modes.
@@ -1000,6 +1062,8 @@ launcher queue need no changes (the return track was added this way; TypeScript 
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
 * Oscillators are naive (alias at high pitches); no band-limiting or oversampling. The plain Reverb is mono (use *Stereo reverb* in an insert graph). Filter cutoff has a linear slider over 20 Hz–20 kHz.
 * Launch quantisation is fixed at one bar; no recording or plugin hosting.
+* Delay times are in seconds, not beats, so the echoes in the examples are set for their own tempo (the Echo return of *Low Light* is a dotted eighth
+  at 125 BPM) and do not follow a changed BPM; the *LFO* and the *Clock* are the nodes that do. Scene names have no editor yet.
 * History is per session (not saved) and does not cover selection or transport.
 * One autosaved project per browser. Two tabs on the same site overwrite each other (last write wins).
   `localStorage` holds ~5 MB, plenty for projects, not for samples (see above).

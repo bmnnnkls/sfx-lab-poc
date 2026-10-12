@@ -41,7 +41,7 @@ const effects = () => page.getByRole('button', { name: 'Effects', exact: true })
 const knob = (track, target) => page.getByLabel(`${track} send to ${target}`)
 const LOOP = 'Demo Drum Loop 120 BPM'
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('sfxlab'); q.onsuccess = q.onerror = q.onblocked = () => r() }) })
 await page.reload()
 

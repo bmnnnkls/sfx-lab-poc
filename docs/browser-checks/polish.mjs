@@ -29,7 +29,7 @@ const velocities = () => page.locator('[data-velocity]').evaluateAll((els) => el
 const level = async (ms) => { let m = 0; const end = Date.now() + ms; while (Date.now() < end) { m = Math.max(m, Number(await page.locator('[data-peak]').first().getAttribute('data-peak'))); await page.waitForTimeout(30) } return m }
 const undo = () => page.getByRole('button', { name: 'Undo' }).click()
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(() => localStorage.clear()); await page.reload()
 await page.getByRole('button', { name: 'Edit Root' }).click()
 
