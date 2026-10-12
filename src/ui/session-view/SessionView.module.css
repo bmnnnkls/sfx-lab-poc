@@ -57,6 +57,25 @@
   align-self: stretch;
 }
 
+/* The scene's number, and under it what it is called. */
+.scene {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 1px;
+  padding-inline: 2px;
+}
+
+/* What the scene is called: a few small letters under its number. */
+.sceneName {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
 .slot {
   display: grid;
   grid-template-columns: 1fr auto auto;

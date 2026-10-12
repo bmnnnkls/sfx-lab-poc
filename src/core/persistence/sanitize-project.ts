@@ -99,6 +99,17 @@ const sanitizeTrack = (
 
 const masterVolume = (raw: unknown): number => clamp(finiteNumber(raw, 1), 0, 1)
 
+/** A scene's name is a short label for a narrow button. */
+export const MAX_SCENE_NAME = 24
+
+/** One text per scene (extra entries and anything that is not text are dropped, long names cut); nothing at all when no scene has a name. */
+const sceneNamesOf = (raw: unknown, sceneCount: number): string[] | undefined => {
+  const names = asList(raw)
+    .slice(0, sceneCount)
+    .map((name) => (typeof name === 'string' ? name.trim().slice(0, MAX_SCENE_NAME) : ''))
+  return names.some((name) => name !== '') ? names : undefined
+}
+
 /** Turns arbitrary parsed JSON into a valid `Project`, or null when it isn't an object at all. */
 export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
   if (!isRecord(raw)) return null
@@ -106,6 +117,8 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
   const sceneCount = Math.round(
     clamp(finiteNumber(raw.sceneCount, DEFAULT_SCENE_COUNT), 1, LIMITS.scenes),
   )
+
+  const sceneNames = sceneNamesOf(raw.sceneNames, sceneCount)
 
   const rawTracks = asList(raw.tracks)
   if (rawTracks.length > LIMITS.tracks) warn(`Only the first ${LIMITS.tracks} tracks were kept`)
@@ -124,6 +137,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     name: nonEmptyText(raw.name, 'Untitled', MAX_NAME_LENGTH),
     tempo: clamp(finiteNumber(raw.tempo, 120), MIN_TEMPO, MAX_TEMPO),
     sceneCount,
+    ...(sceneNames && { sceneNames }),
     samples,
     modules,
     // Files from before the master bus existed have none: the mix passes through untouched.

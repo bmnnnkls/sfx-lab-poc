@@ -65,6 +65,7 @@ export const ExportAudioDialog = ({ onClose }: { onClose: () => void }) => {
               {scenes.map((scene) => (
                 <option key={scene} value={scene}>
                   {scene + 1}
+                  {project.sceneNames?.[scene] ? `: ${project.sceneNames[scene]}` : ''}
                   {sceneClipCount(project, scene) === 0 ? ' (empty)' : ''}
                 </option>
               ))}
