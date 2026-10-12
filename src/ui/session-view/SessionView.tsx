@@ -47,14 +47,16 @@ export const SessionView = () => {
 const SceneRow = ({ scene, onLaunch }: { scene: number; onLaunch: () => void }) => {
   const projectTracks = useProjectStore((state) => state.project.tracks)
   const tracks = useMemo(() => sessionOrder(projectTracks), [projectTracks])
+  const name = useProjectStore((state) => state.project.sceneNames?.[scene])
   return (
     <>
       {tracks.map((track) => (
         <ClipSlot key={track.id} track={track} scene={scene} />
       ))}
       <div className={styles.returnSlot} aria-hidden />
-      <button className={styles.scene} onClick={onLaunch} aria-label={`Launch scene ${scene + 1}`}>
-        ▶ {scene + 1}
+      <button className={styles.scene} onClick={onLaunch} aria-label={name ? `Launch scene ${scene + 1}, ${name}` : `Launch scene ${scene + 1}`} title={name || undefined}>
+        <span>▶ {scene + 1}</span>
+        {name && <small className={styles.sceneName}>{name}</small>}
       </button>
     </>
   )

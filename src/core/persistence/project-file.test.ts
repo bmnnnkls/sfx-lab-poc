@@ -816,3 +816,26 @@ describe('the front panel in files', () => {
     expect(result.project).toEqual(built)
   })
 })
+
+describe('scene names', () => {
+  const loaded = (sceneNames: unknown, sceneCount = 3) => parseOk(envelope(project({ sceneCount, sceneNames }))).project
+
+  it('survive a save and a load, and a project without any has none (older files load as before)', () => {
+    const named = { ...createDemoProject(), sceneNames: ['Intro', '', 'Drop', 'Outro'] }
+    expect(parseOk(serializeProject(named)).project.sceneNames).toEqual(['Intro', '', 'Drop', 'Outro'])
+    expect(parseOk(serializeProject(createDemoProject())).project).not.toHaveProperty('sceneNames')
+  })
+
+  it('are trimmed and cut to the length of a label, and only one is kept for each scene', () => {
+    expect(loaded(['  Intro  ', 'a'.repeat(60), 'Drop', 'one too many'])?.sceneNames).toEqual(['Intro', 'a'.repeat(24), 'Drop'])
+  })
+
+  it('are dropped when they are not text, and a list of nothing is no list', () => {
+    expect(loaded(['A', 7, null, { x: 1 }])?.sceneNames).toEqual(['A', '', '', ''].slice(0, 3))
+    expect(loaded(['', '  ', 3])).not.toHaveProperty('sceneNames')
+    expect(loaded('Intro')).not.toHaveProperty('sceneNames')
+    expect(loaded({ 0: 'Intro' })).not.toHaveProperty('sceneNames')
+    expect(loaded(undefined)).not.toHaveProperty('sceneNames')
+  })
+})
+

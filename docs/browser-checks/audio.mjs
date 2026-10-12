@@ -16,7 +16,7 @@ const LOOP = 'Demo Drum Loop 120 BPM'
 const undo = () => page.getByRole('button', { name: 'Undo' }).click()
 const resetState = async () => page.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('sfxlab'); q.onsuccess = q.onerror = q.onblocked = () => r() }) })
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await resetState()
 await page.reload()
 

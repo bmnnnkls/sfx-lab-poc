@@ -126,6 +126,11 @@ export interface Project {
   readonly name: string
   readonly tempo: number
   readonly sceneCount: number
+  /**
+   * What each scene is called ("Intro", "Drop"), shown under its launch button; position `i` names scene `i`, an empty string or a
+   * missing entry leaves it unnamed. Absent in a project nobody has named scenes in.
+   */
+  readonly sceneNames?: readonly string[]
   /** The sample library: audio used (or usable) by this project. Bytes are stored separately. */
   readonly samples: readonly SampleInfo[]
   /** Reusable sub-patches (of sound or of notes). Patches use them by id, so editing one changes every use. */

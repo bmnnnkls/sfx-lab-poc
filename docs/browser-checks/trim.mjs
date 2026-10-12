@@ -14,7 +14,7 @@ const LOOP = 'Demo Drum Loop 120 BPM'
 const undo = () => page.getByRole('button', { name: 'Undo' }).click()
 const aria = (name) => page.getByRole('slider', { name }).getAttribute('aria-valuenow').then(Number)
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('sfxlab'); q.onsuccess = q.onerror = q.onblocked = () => r() }) })
 await page.reload()
 await page.getByRole('button', { name: 'Samples', exact: true }).click()

@@ -1,3 +1,4 @@
+import { exampleProjects } from '@core'
 import { useProjectFiles, usePersistenceStore, useProjectStore } from '@state'
 import { useRef, useState } from 'react'
 import { ExportAudioDialog } from './ExportAudioDialog'
@@ -36,7 +37,19 @@ export const FileMenu = () => {
           <button onClick={choose(files.importProject)}>Import from file…</button>
           <hr />
           <button onClick={choose(files.newProject)}>New project</button>
-          <button onClick={choose(files.loadDemo)}>Load demo project</button>
+          <hr />
+          <span className={styles.heading}>Examples</span>
+          {exampleProjects.map((example) => (
+            <button key={example.id} className={styles.example} onClick={choose(() => files.loadExample(example.id))}>
+              {example.title}
+              <small>{example.tagline}</small>
+            </button>
+          ))}
+          <button className={styles.example} onClick={choose(files.loadDemo)}>
+            Starter
+            <small>Three plain tracks to start from</small>
+          </button>
+          <hr />
           <button
             disabled={!hasBackup}
             title="Swap back to the project you most recently replaced"

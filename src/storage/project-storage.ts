@@ -5,6 +5,7 @@ const KEYS = {
   current: 'sfxlab:project',
   backup: 'sfxlab:backup',
   corrupt: 'sfxlab:corrupt',
+  welcomed: 'sfxlab:welcomed',
 } as const
 
 export type LoadOutcome =
@@ -39,6 +40,23 @@ export class ProjectStorage {
 
   saveBackup(project: Project): SaveResult {
     return this.write(KEYS.backup, project)
+  }
+
+  /** Whether this browser has already been welcomed (shown how to start the example it opens on), so the welcome comes once. */
+  hasWelcomed(): boolean {
+    try {
+      return this.store.getItem(KEYS.welcomed) !== null
+    } catch {
+      return false
+    }
+  }
+
+  markWelcomed(): void {
+    try {
+      this.store.setItem(KEYS.welcomed, '1')
+    } catch {
+      // Storage is full or refused: the welcome simply shows again next time.
+    }
   }
 
   hasBackup(): boolean {

@@ -21,7 +21,7 @@ const at = async (beat, pitch) => { const b = await surface().boundingBox(); ret
 const rightClick = async (p) => page.mouse.click(p.x, p.y, { button: 'right' })
 const undo = () => page.getByRole('button', { name: 'Undo' }).click()
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(() => { localStorage.clear(); localStorage.setItem('sfxlab:editor-height', '720'); localStorage.setItem('sfxlab:roll-audition', 'false') })
 await page.reload()
 await page.getByRole('button', { name: 'Edit Root' }).click()

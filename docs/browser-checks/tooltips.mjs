@@ -32,7 +32,7 @@ const idOf = async (title) => (await node(title).getAttribute('data-testid')).re
 const hover = async (locator) => { await locator.scrollIntoViewIfNeeded(); await locator.hover(); await page.waitForTimeout(600) }
 const texts = async () => (await tip().innerText()).split('\n')
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('sfxlab'); q.onsuccess = q.onerror = q.onblocked = () => r() }) })
 await page.reload()
 await track('Bass')

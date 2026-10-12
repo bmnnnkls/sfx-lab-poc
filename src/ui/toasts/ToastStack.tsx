@@ -3,6 +3,8 @@ import { useEffect } from 'react'
 import styles from './ToastStack.module.css'
 
 const AUTO_DISMISS_MS = 5000
+/** A confirmation that carries lines to read (how to start an example) stays long enough to read them. */
+const READING_MS = 30000
 
 const Toast = ({ notice }: { notice: Notice }) => {
   const dismiss = usePersistenceStore((state) => state.dismiss)
@@ -10,7 +12,7 @@ const Toast = ({ notice }: { notice: Notice }) => {
   // Plain confirmations fade away; warnings and errors stay until acknowledged.
   useEffect(() => {
     if (notice.kind !== 'info') return
-    const timer = setTimeout(() => dismiss(notice.id), AUTO_DISMISS_MS)
+    const timer = setTimeout(() => dismiss(notice.id), notice.details.length > 0 ? READING_MS : AUTO_DISMISS_MS)
     return () => clearTimeout(timer)
   }, [notice, dismiss])
 

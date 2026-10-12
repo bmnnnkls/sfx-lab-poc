@@ -30,7 +30,7 @@ const crumb = (name) => page.getByLabel('Patch location').getByRole('button', { 
 const trackBtn = (name) => page.locator('[class*="_trackName_"]').filter({ hasText: new RegExp(`^${name}$`) })
 const header = (title) => nodeByTitle(title).first().locator('[class*="nodeHeader"]')
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('sfxlab'); q.onsuccess = q.onerror = q.onblocked = () => r() }) })
 await page.reload()
 await page.getByRole('button', { name: 'Instrument', exact: true }).click()

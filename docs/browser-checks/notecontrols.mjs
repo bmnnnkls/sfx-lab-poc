@@ -30,7 +30,7 @@ const wire = async (fromTitle, toTitle, fromPort = 'out', toPort = 'in') => {
   await page.mouse.up()
 }
 
-await page.goto('http://localhost:4173/')
+await page.goto('http://localhost:4173/?starter')
 await page.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('sfxlab'); q.onsuccess = q.onerror = q.onblocked = () => r() }) })
 await page.reload()
 await page.getByRole('button', { name: 'Notes', exact: true }).click()
