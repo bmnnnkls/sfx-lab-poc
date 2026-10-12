@@ -29,6 +29,8 @@ Use a Chromium-based browser or Firefox. Audio starts on your first click (brows
    Use **File → Export / Import** to move projects as `.sfxlab.json` files, and **File → Restore previous**
    to swap back after a replace (import / new / demo).
    **Undo / redo** with ↶ ↷ or `Ctrl/⌘+Z` / `Ctrl/⌘+Shift+Z`: dragging a slider or node is a single step.
+   **File → Export audio (WAV)…** renders the open clip or a scene offline to a stereo WAV (16-bit or 32-bit float, 44.1 or 48 kHz) named after the project:
+   choose the bars, a tail so reverbs and delays are not cut, and whether to normalize to -1 dBFS. The same project always gives the same file.
 4. Open the **Samples** tab: **Add demo samples** (or import/drag in your own audio), press ▶ to audition, and
    **New sampler track** to get a playable track. Projects with samples export as a `.sfxlab` package.
    **New audio track** (or `+` → *Audio track*, then a slot's `+`) plays a sample as a tempo-locked, looping **audio

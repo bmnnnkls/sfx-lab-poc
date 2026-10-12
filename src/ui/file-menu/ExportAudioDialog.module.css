@@ -1,0 +1,83 @@
+.dialog {
+  width: min(440px, calc(100vw - 32px));
+  padding: 0;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.form h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.group {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.group legend {
+  padding: 0 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  align-items: center;
+  gap: 8px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.progress {
+  min-height: 1.4em;
+  margin: 0;
+  color: var(--accent);
+}
+
+.buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.primary {
+  color: #1b1c1f;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

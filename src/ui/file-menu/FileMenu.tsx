@@ -1,15 +1,17 @@
 import { useProjectFiles, usePersistenceStore, useProjectStore } from '@state'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
+import { ExportAudioDialog } from './ExportAudioDialog'
 import styles from './FileMenu.module.css'
 import { SaveIndicator } from './SaveIndicator'
 
-/** Project name, save status and the File dropdown (export / import / new / restore). */
+/** Project name, save status and the File dropdown (export / import / export audio / new / restore). */
 export const FileMenu = () => {
   const files = useProjectFiles()
   const name = useProjectStore((state) => state.project.name)
   const setName = useProjectStore((state) => state.setName)
   const hasBackup = usePersistenceStore((state) => state.hasBackup)
   const menu = useRef<HTMLDetailsElement>(null)
+  const [exportingAudio, setExportingAudio] = useState(false)
 
   /** Runs an action, then closes the dropdown. */
   const choose = (action: () => void | Promise<void>) => () => {
@@ -30,6 +32,7 @@ export const FileMenu = () => {
         <summary>File</summary>
         <div className={styles.items}>
           <button onClick={choose(files.exportProject)}>Export to file…</button>
+          <button onClick={choose(() => setExportingAudio(true))}>Export audio (WAV)…</button>
           <button onClick={choose(files.importProject)}>Import from file…</button>
           <hr />
           <button onClick={choose(files.newProject)}>New project</button>
@@ -43,6 +46,7 @@ export const FileMenu = () => {
           </button>
         </div>
       </details>
+      {exportingAudio && <ExportAudioDialog onClose={() => setExportingAudio(false)} />}
     </div>
   )
 }

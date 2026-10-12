@@ -7,6 +7,7 @@ import {
   useProjectStore,
   useSelectionStore,
 } from '@state'
+import { exportAudioFile } from './export-audio'
 
 const PICKER_ACCEPT = '.json,.sfxlab,application/json,application/zip'
 
@@ -47,6 +48,19 @@ export const createProjectFiles = (
         }
       } catch (error) {
         persistence().notify('error', `Export failed: ${describe(error)}`)
+      }
+    },
+
+    exportAudio: async (options, onProgress = () => {}, signal) => {
+      try {
+        const done = await exportAudioFile(useProjectStore.getState().project, sampleStorage, options, onProgress, signal)
+        if (done === null) return
+        persistence().notify('info', `Exported "${done.fileName}" (${done.seconds.toFixed(1)} s)`)
+        if (done.missing.length > 0) {
+          persistence().notify('warning', `${done.missing.length} sample(s) are silent in the file: their audio is missing`, done.missing)
+        }
+      } catch (error) {
+        persistence().notify('error', `Audio export failed: ${describe(error)}`)
       }
     },
 

@@ -6,7 +6,7 @@ When an item ships, document it in `ARCHITECTURE.md`, then tick or delete it her
 **How to read it.** Each item has an ID (reply with "A1, C1–C4, G2"), a value (★ to ★★★) and a rough cost (S: a node and its
 tests; M: a node plus new plumbing, or several nodes; L: a new subsystem). `?` marks something not verified against the code.
 
-**Built (marked ✓ in the tables)**: A1 to A4, B0 to B3, C1 to C4 and C10 to C13, D1 with G1, G2 and G4, E1 and F1. What differs from the lists, and what it
+**Built (marked ✓ in the tables)**: A1 to A4, B0 to B3, C1 to C4 and C10 to C13, D1 with G1, G2 and G4, E1, F1 and F2. What differs from the lists, and what it
 left behind:
 
 * **A3 (push button)** is the Switch's `trigger` mode; "latch" is not a separate mode, since a toggle plus the *Flip-flop* (C11) is a latch.
@@ -14,10 +14,13 @@ left behind:
 * **C10** is *Random* (a value that stays until a rise on `Roll`); **G3** (smooth random with glides) is not built.
 * **E1** shipped as two modules under a new picker category, *Examples* (an overtone oscillator and a drawbar organ); E8 (a bigger library) is not built.
 * **F1** randomizes and mutates the graph on show, with a seed and a per-node lock; per-*parameter* locks and a randomize on the panel's controls only are not built.
+* **F2** is File > Export audio (WAV): the open clip or a scene, rendered offline by the engine to a stereo WAV (16-bit or 32-bit float, 44.1 or 48 kHz,
+  a tail, optional normalize); see `ARCHITECTURE.md`, "Exporting audio". Not built: batch export of variations (the Randomize seed makes it a loop over
+  `renderProject`), stems per track, MP3 or OGG, dither, a selection of the master only.
 * **Left for later, found while building:** an indicator inside a module's own editor has no live value (a module is only live where it is used);
   indicators in a voice are absent, not stale, when no voice sounds (so a LED driven by a voice-stage follower goes dark between notes).
 * **A1** is the same `ControlWidget` as the panel's, inside the card (`widgets.mjs`); the widget's own label is hidden there, the title is the name.
-* **Not selected, so not built:** A5 to A7, B4 and B5, C5 to C9, D2 to D12, E2 to E9, F2 to F8, G5 to G14, H.
+* **Not selected, so not built:** A5 to A7, B4 and B5, C5 to C9, D2 to D12, E2 to E9, F3 to F8, G5 to G14, H.
 
 **Where we are** (control-nodes work, steps 1–8, see `HANDOFF-control-nodes.md` and `ARCHITECTURE.md`): controls, XY pad and
 switch; parameter sockets on every numeric parameter; a global stage; math nodes (arithmetic, shaping, MIDI, unit conversions,
@@ -130,7 +133,7 @@ entry in the quick-add picker would surface them (E8).
 | ID | What | ★ | Cost |
 | --- | --- | --- | --- |
 | F1 ✓ | **Randomize / mutate**, jsfxr-style: re-roll parameters within their ranges, with a seed and a lock per control. | ★★★ | M |
-| F2 | **Export to WAV** (offline render of the current patch or clip), and batch export of variations. | ★★★ | M |
+| F2 ✓ | **Export to WAV** (offline render of the current patch or clip). Batch export of variations is not built. | ★★★ | M |
 | F3 | Control presets / snapshots, with morphing between two via an XY pad. | ★★ | M |
 | F4 | Web MIDI input: CC into control nodes, MIDI learn on panel controls, MIDI keyboard for notes. | ★★ | M |
 | F5 | Automation: record a control's movements. | ★★ | M |
@@ -220,8 +223,8 @@ extras come before the FM module, and the filter modes before the auto-wah). Run
 3. **Chorus / flanger** (D7): one node, a modulated delay line (`delay` ms, `depth` ms, `rate`, `feedback`, `mix`; a flanger is a short delay with
    feedback). `stereoCapable` like the Delay; the delay time already has a socket, so the LFO can also be wired in.
 4. **Stutter** (G9): captures the last `slice` ms (10 to 1000) when its `gate` input rises and loops that slice while the gate is high, then passes
-   the input again; a short crossfade at the seam. Slice in milliseconds until the DSP has a tempo (see `docs/PROMPT-next-session.md`, then it
-   can offer beats). A *Switch* in trigger or momentary mode drives it.
+   the input again; a short crossfade at the seam. Slice in milliseconds, or in beats now that `ProcessContext.tempo` exists (the Clock's `beat`
+   unit is the model). A *Switch* in trigger or momentary mode drives it.
 5. **More filter modes** (D3): notch, all-pass, peak, low shelf, high shelf, in the existing `filter` node. **Append** them to the mode list
    (saved projects store the index) and add a `gain` parameter (dB, +-24, used by peak and shelves). The filter picture (`ui/patcher/previews/filter.ts`)
    has its own copy of the mode list and `responseDb`: update both. A 24 dB slope (two biquads) is a possible follow-up.
