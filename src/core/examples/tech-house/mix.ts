@@ -60,19 +60,19 @@ export const roomReturn = (): Patch =>
   )
 
 /**
- * The dub echo: a ping-pong delay at a dotted eighth (three sixteenths at 125 BPM, a fixed time, so change it with the Time knob if you change
- * the tempo), darkened, ducked under the kick. Hold Throw and the feedback rises to 0.9, so what is in the echo builds instead of dying away.
+ * The dub echo: a ping-pong delay at a dotted eighth (Time in beats, synced to the tempo, so it stays a dotted eighth at any BPM),
+ * darkened, ducked under the kick. Hold Throw and the feedback rises to 0.9, so what is in the echo builds instead of dying away.
  */
 export const echoReturn = (modules: ModuleLibrary): Patch =>
   patchOf(
     [
       { id: 'in', type: 'returnIn' },
-      { id: 'delay', type: 'pingPong', name: 'Dotted eighth', params: { time: 0.36, feedback: 0.52, mix: 1 } },
+      { id: 'delay', type: 'pingPong', name: 'Dotted eighth', params: { time: 0.75, feedback: 0.52, mix: 1, sync: 1 } },
       { id: 'tone', type: 'filter', name: 'Darken', stereo: true, params: { mode: 0, cutoff: 3400, resonance: 0.7 } },
       { id: 'hp', type: 'filter', name: 'Low cut', stereo: true, params: { mode: 1, cutoff: 320, resonance: 0.7 } },
       duckUse(0.45, 180),
       { id: 'out', type: 'trackOut' },
-      knob('time', 'Time', { value: 0.36, min: 0.06, max: 1.2, unit: 's', curve: 'log' }),
+      knob('time', 'Time', { value: 0.75, min: 0.125, max: 2, step: 0.125, unit: 'beats' }),
       knob('feedback', 'Feedback', { value: 0.52, min: 0, max: 0.88 }),
       toggle('throw', 'Throw (hold)', { mode: 'momentary' }),
       { id: 'throwTo', type: 'mix', name: 'Feedback, or the throw', params: { b: 0.9 } },

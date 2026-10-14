@@ -37,3 +37,12 @@ export const pickerCategories = async (graph, kind) => {
 
 /** How many demo samples *Add demo samples* puts in the library. */
 export const demoSampleCount = async () => (await load()).core.createDemoSamples().length
+
+/** How many parameters a node type has: the rows its property editor shows. */
+export const paramCount = async (type) => (await load()).core.requireNodeDefinition(type).params.length
+
+/** How many parameter sockets a node type has (one per numeric parameter that takes a wire). */
+export const socketCount = async (type) => {
+  const { core } = await load()
+  return core.paramSockets(core.requireNodeDefinition(type)).length
+}

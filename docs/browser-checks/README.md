@@ -25,7 +25,7 @@ The scripts load Playwright through `createRequire('/node-tools/node_modules/')`
 sandbox's. Change them (or install `playwright`) elsewhere.
 
 **Lists the app already knows come from `registry.mjs`**, not from the scripts: it loads the source through Vite and answers what the
-app would (`pickerCategories(graph, kind)`, the picker's categories in order; `demoSampleCount()`). A check that compares the page with
+app would (`pickerCategories(graph, kind)`, the picker's categories in order; `demoSampleCount()`; `paramCount(type)` and `socketCount(type)`, a node's rows and sockets). A check that compares the page with
 a whole list or a count should ask it, so adding a node or a category does not break checks that are not about it.
 
 ## What each covers

@@ -8,7 +8,18 @@ const PARAMS: readonly ParamSpec[] = [
   { id: 'cutoff', label: 'Cutoff', min: 20, max: 20000, default: 2000, unit: 'Hz' },
   { id: 'resonance', label: 'Res', min: 0.1, max: 20, default: 0.707 },
   { id: 'cvAmount', label: 'CV amt', min: 0, max: 6, default: 2, step: 0.01, unit: 'oct' },
+  { id: 'keyTrack', label: 'Key track', min: 0, max: 1, default: 0, step: 0.01 },
 ]
+
+/** The note at which key tracking leaves the cutoff where the knob says: middle C. */
+const KEY_TRACK_CENTRE = 261.6256
+
+/**
+ * How much the voice's note moves the cutoff: 0 not at all, 1 by the same ratio as the note (an octave up, an octave
+ * brighter), in between partway. Outside a voice (a shared or insert stage) there is no note, so nothing moves.
+ */
+const keyTrackRatio = (frequency: number, amount: number): number =>
+  amount > 0 && frequency > 0 ? (frequency / KEY_TRACK_CENTRE) ** amount : 1
 
 interface Coefficients {
   b0: number
@@ -57,22 +68,30 @@ class Filter implements DspNode {
   private coefficients: Coefficients | null = null
   private z1 = 0
   private z2 = 0
+  /** The key-tracking ratio the coefficients were designed for. */
+  private tracked = 1
 
   setParam(id: string, value: number): void {
     if (this.params.set(id, value)) this.coefficients = null
   }
 
   process(
-    { frames, sampleRate }: ProcessContext,
+    { frames, sampleRate, note }: ProcessContext,
     [input, cutoffCv]: ReadonlyArray<Float32Array | null>,
     [out]: readonly Float32Array[],
   ): void {
     if (!out) return
     const octaves = this.params.get('cvAmount')
     const modulated = cutoffCv !== null && cutoffCv !== undefined && octaves > 0
+    const tracked = keyTrackRatio(note.frequency, this.params.get('keyTrack'))
+    if (tracked !== this.tracked) {
+      this.tracked = tracked
+      this.coefficients = null
+    }
+    const cutoff = this.params.get('cutoff') * tracked
     this.coefficients ??= designBiquad(
       Math.round(this.params.get('mode')),
-      this.params.get('cutoff'),
+      cutoff,
       this.params.get('resonance'),
       sampleRate,
     )
@@ -82,7 +101,7 @@ class Filter implements DspNode {
       if (modulated && i % MODULATION_BLOCK === 0) {
         ;({ b0, b1, b2, a1, a2 } = designBiquad(
           Math.round(this.params.get('mode')),
-          this.params.get('cutoff') * 2 ** ((cutoffCv[i] ?? 0) * octaves),
+          cutoff * 2 ** ((cutoffCv[i] ?? 0) * octaves),
           this.params.get('resonance'),
           sampleRate,
         ))

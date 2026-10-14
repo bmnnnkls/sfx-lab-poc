@@ -110,6 +110,18 @@ output you wire into another node's input.
   time when the tempo changes (see "Tempo in the DSP"); the card's picture, which only knows hertz, shows a rough number of cycles then.
 * **Filter `cutoff` input** moves the cutoff exponentially: CV +1 raises it by *CV amt* octaves (param, default 2).
   While modulated, coefficients are redesigned every 16 samples. Unconnected, the filter is exactly as before.
+* **Filter key tracking** (*Key track*, 0 to 1, default 0): the cutoff follows the voice's note, `cutoff × (note / middle C) ^ keyTrack`, so at 1 an
+  octave up is an octave brighter and *Cutoff* is where it sits at middle C. It reads `ProcessContext.note.frequency`, so it works in a voice; in
+  a shared, global or insert stage there is no note (frequency 0) and nothing moves. Coefficients are redesigned only when the ratio changes.
+* **Comb** (`dsp/nodes/comb.node.ts`, Filters, per voice): a feedback comb whose delay is one period of a pitch, so it rings at that pitch and its
+  harmonics: a short noise burst through it is a plucked string (Karplus-Strong), a drum a metallic ring. *Tune to* `note` rings at the voice's
+  note shifted by *Pitch* semitones; `fixed`, or where there is no note, at *Freq* (20 Hz–8 kHz). *Feedback* −0.995..0.995 (negative rings an
+  octave lower with odd harmonics only), *Damp* is a one-pole lowpass inside the loop, *Mix*. Fractional delay by linear interpolation; the
+  line is long enough for 20 Hz. Unnormalised: high feedback can get loud.
+* **Delays in beats** (`dsp/nodes/time-sync.ts`): *Delay* and *Ping-pong* have *Sync* (`off` / `beat`). On `beat`, *Time* is in beats of the
+  tempo the block is played at (0.75 is a dotted eighth), turned into seconds every block and capped at the 2 s line, so the echoes follow a
+  change of tempo; the card's picture draws it at 120 BPM. *Time* shows no fixed unit for that reason (like the LFO's *Rate*). Both examples'
+  echo returns use it (0.75 beats, and a *Time* knob from an eighth of a beat to two beats in steps of an eighth of a beat).
 * **Oscillator `pitch` input** bends pitch by *Pitch CV* semitones per unit (default 2), exponentially.
 * **Gain** already took a `cv` input (that is how the envelope drives the VCA); an LFO into it is tremolo.
 * **Reverb** (`dsp/nodes/reverb.node.ts`, **shared**): Freeverb: eight damped feedback combs in parallel, four allpasses
@@ -1067,8 +1079,8 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
 * Oscillators are naive (alias at high pitches); no band-limiting or oversampling. The plain Reverb is mono (use *Stereo reverb* in an insert graph). Filter cutoff has a linear slider over 20 Hz–20 kHz.
 * Launch quantisation is fixed at one bar; no recording or plugin hosting.
-* Delay times are in seconds, not beats, so the echoes in the examples are set for their own tempo (the Echo return of *Low Light* is a dotted eighth
-  at 125 BPM) and do not follow a changed BPM; the *LFO* and the *Clock* are the nodes that do. Scene names have no editor yet.
+* Note sync reaches nodes that run per voice (the filter's key tracking, the Comb); the shared Delay and Ping-pong only know the tempo, not
+  which note is playing. Scene names have no editor yet.
 * History is per session (not saved) and does not cover selection or transport.
 * One autosaved project per browser. Two tabs on the same site overwrite each other (last write wins).
   `localStorage` holds ~5 MB, plenty for projects, not for samples (see above).

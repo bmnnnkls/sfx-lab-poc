@@ -79,16 +79,16 @@ export const hallReturn = (): Patch =>
     { prefix: 'fx_' },
   )
 
-/** The echo: a ping-pong delay at a dotted eighth of 92 BPM, each repeat a little darker (a low-pass after it). */
+/** The echo: a ping-pong delay at a dotted eighth (Time in beats, synced to the tempo), each repeat a little darker (a low-pass after it). */
 export const echoReturn = (): Patch =>
   patchOf(
     [
       { id: 'in', type: 'returnIn' },
-      { id: 'delay', type: 'pingPong', name: 'Dotted eighth', params: { time: 0.489, feedback: 0.55, mix: 1 } },
+      { id: 'delay', type: 'pingPong', name: 'Dotted eighth', params: { time: 0.75, feedback: 0.55, mix: 1, sync: 1 } },
       { id: 'tone', type: 'filter', name: 'Darken', stereo: true, params: { mode: 0, cutoff: 3600, resonance: 0.7 } },
       { id: 'low', type: 'filter', name: 'Low cut', stereo: true, params: { mode: 1, cutoff: 260, resonance: 0.7 } },
       { id: 'out', type: 'trackOut' },
-      knob('time', 'Time', { value: 0.489, min: 0.08, max: 1.6, unit: 's', curve: 'log' }),
+      knob('time', 'Time', { value: 0.75, min: 0.125, max: 2, step: 0.125, unit: 'beats' }),
       knob('feedback', 'Feedback', { value: 0.55, min: 0, max: 0.92 }),
       knob('dark', 'Darken', { value: 3600, min: 600, max: 12000, unit: 'Hz', curve: 'log' }),
     ],

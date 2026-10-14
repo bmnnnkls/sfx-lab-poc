@@ -2,6 +2,7 @@ import { followerNode } from './nodes/analysis/follower.node'
 import { levelNode } from './nodes/analysis/level.node'
 import { pitchNode } from './nodes/analysis/pitch.node'
 import { barNode, displayNode, ledNode } from './nodes/indicator.nodes'
+import { combNode } from './nodes/comb.node'
 import { delayNode } from './nodes/delay.node'
 import { envelopeNode } from './nodes/envelope.node'
 import { filterNode } from './nodes/filter.node'
@@ -50,6 +51,7 @@ const plainDefinitions: readonly NodeDefinition[] = [
   envelopeNode,
   gainNode,
   filterNode,
+  combNode,
   lfoNode,
   perlinNode,
   randomNode,

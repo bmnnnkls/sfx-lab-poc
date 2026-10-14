@@ -1,8 +1,10 @@
 import { createRequire } from 'node:module'
+import { socketCount } from './registry.mjs'
 import { existsSync } from 'node:fs'
 const require = createRequire(existsSync('/node-tools/node_modules/') ? '/node-tools/node_modules/' : '/opt/node-tools/node_modules/')
 const { chromium } = require('playwright')
 const dir = process.argv[2] ?? '.'
+const SOCKETS = { gain: await socketCount('gain'), filter: await socketCount('filter') }
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] })
 const context = await browser.newContext({ viewport: { width: 1500, height: 1400 } })
 const page = await context.newPage()
@@ -64,7 +66,7 @@ check('and a control output, but no sockets', (await node('Control').locator('[d
 // ---- parameter sockets: hidden until wired or asked for
 check('the Gain card shows no parameter socket to begin with', (await node('Gain').locator('[data-testid*="-param:"]').count()) === 0)
 await sockets().check()
-check('the Sockets toggle shows one per numeric parameter', (await node('Gain').locator('[data-testid*="-param:"]').count()) === 1 && (await node('Filter').locator('[data-testid*="-param:"]').count()) === 3)
+check('the Sockets toggle shows one per numeric parameter', (await node('Gain').locator('[data-testid*="-param:"]').count()) === SOCKETS.gain && (await node('Filter').locator('[data-testid*="-param:"]').count()) === SOCKETS.filter)
 await page.screenshot({ path: `${dir}/controls-sockets.png` })
 
 // ---- real audio: the Control replaces Gain's own value

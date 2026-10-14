@@ -1,8 +1,10 @@
 import { createRequire } from 'node:module'
+import { paramCount } from './registry.mjs'
 import { existsSync } from 'node:fs'
 const require = createRequire(existsSync('/node-tools/node_modules/') ? '/node-tools/node_modules/' : '/opt/node-tools/node_modules/')
 const { chromium } = require('playwright')
 const dir = process.argv[2] ?? '.'
+const FILTER_PARAMS = await paramCount('filter')
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] })
 const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } })
 const page = await context.newPage()
@@ -43,7 +45,7 @@ check('with nothing selected the editor says what to do', /Select a node/.test(a
 // ---- selecting
 await selectNode('Filter')
 check('selecting a card shows its settings', /FILTER/i.test(await properties().innerText()) && (await row('cutoff').count()) === 1)
-check('one row per parameter', (await properties().locator('[data-param]').count()) === 4)
+check('one row per parameter', (await properties().locator('[data-param]').count()) === FILTER_PARAMS)
 await node('Gain').locator('[class*="nodeHeader"]').first().click({ modifiers: ['Shift'] })
 check('two selected: a count, not settings', /2 nodes selected/.test(await properties().innerText()) && (await properties().locator('[data-param]').count()) === 0)
 await node('Gain').locator('[class*="nodeHeader"]').first().click()

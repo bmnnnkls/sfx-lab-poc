@@ -11,7 +11,7 @@ const row = (list: ReturnType<typeof rows>, id: string) => list.find((candidate)
 describe('property rows', () => {
   it('one row per parameter, with its stored value and a socket for numbers only', () => {
     const list = rows('filter')
-    expect(list.map((r) => r.spec.id)).toEqual(['mode', 'cutoff', 'resonance', 'cvAmount'])
+    expect(list.map((r) => r.spec.id)).toEqual(['mode', 'cutoff', 'resonance', 'cvAmount', 'keyTrack'])
     expect(row(list, 'cutoff')).toMatchObject({ value: 2000, hasSocket: true, resetTo: 2000 })
     expect(row(list, 'mode').hasSocket).toBe(false)
   })
