@@ -1,8 +1,10 @@
 import { createRequire } from 'node:module'
+import { demoSampleCount } from './registry.mjs'
 import { readFileSync, statSync } from 'node:fs'
 const require = createRequire('/node-tools/node_modules/')
 const { chromium } = require('playwright')
 const dir = process.argv[2]
+const DEMO_SAMPLES = await demoSampleCount()
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] })
 const context = await browser.newContext({ viewport: { width: 1400, height: 900 }, acceptDownloads: true })
 const page = await context.newPage()
@@ -23,7 +25,7 @@ await page.reload()
 // ---- samples + an audio track
 await page.getByRole('button', { name: 'Samples', exact: true }).click()
 await page.getByRole('button', { name: 'Add demo samples' }).click()
-await page.waitForFunction(() => document.querySelectorAll('[data-status="ready"]').length === 5, null, { timeout: 8000 })
+await page.waitForFunction((count) => document.querySelectorAll('[data-status="ready"]').length === count, DEMO_SAMPLES, { timeout: 8000 })
 check('five demo samples ready, including the drum loop', (await page.getByText(LOOP, { exact: true }).count()) === 1)
 
 await page.getByRole('button', { name: 'Add track' }).click()

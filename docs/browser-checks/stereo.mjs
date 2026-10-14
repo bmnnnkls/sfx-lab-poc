@@ -1,9 +1,11 @@
 import { createRequire } from 'node:module'
+import { demoSampleCount } from './registry.mjs'
 import { existsSync } from 'node:fs'
 import { LOOP_WINDOW_MS, installAudioTap, listen, show } from './audio-tap.mjs'
 const require = createRequire(existsSync('/node-tools/node_modules/') ? '/node-tools/node_modules/' : '/opt/node-tools/node_modules/')
 const { chromium } = require('playwright')
 const dir = process.argv[2] ?? '.'
+const DEMO_SAMPLES = await demoSampleCount()
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] })
 const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } })
 const page = await context.newPage()
@@ -49,7 +51,7 @@ await page.reload()
 
 await page.getByRole('button', { name: 'Samples', exact: true }).click()
 await page.getByRole('button', { name: 'Add demo samples' }).click()
-await page.waitForFunction(() => document.querySelectorAll('[data-status="ready"]').length === 5, null, { timeout: 8000 })
+await page.waitForFunction((count) => document.querySelectorAll('[data-status="ready"]').length === count, DEMO_SAMPLES, { timeout: 8000 })
 await page.getByRole('button', { name: 'Add track' }).click()
 await page.getByRole('menuitem', { name: 'Audio track' }).click()
 await page.getByRole('button', { name: 'Add audio clip' }).first().click()

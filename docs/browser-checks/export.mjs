@@ -1,4 +1,5 @@
 // File > Export audio (WAV)...: the dialog, the download and what is in the file. The check reads the bytes of the downloaded
+import { demoSampleCount } from './registry.mjs'
 // file, so it listens to nothing live and needs no audio tap; nothing in it waits for a time to pass, only for the download event.
 import { createRequire } from 'node:module'
 import { existsSync, readFileSync } from 'node:fs'
@@ -8,6 +9,7 @@ const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromi
 const context = await browser.newContext({ viewport: { width: 1400, height: 900 }, acceptDownloads: true })
 const page = await context.newPage()
 const dir = process.argv[2] ?? '.'
+const DEMO_SAMPLES = await demoSampleCount()
 const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
@@ -135,7 +137,7 @@ check('the clip alone is sound, not silence', clipWav.peak > 0.02, `peak ${clipW
 // ---- a clip that plays a library sample: the app has to fetch and decode the audio itself
 await page.getByRole('button', { name: 'Samples', exact: true }).click()
 await page.getByRole('button', { name: 'Add demo samples' }).click()
-await page.waitForFunction(() => document.querySelectorAll('[data-status="ready"]').length === 5, null, { timeout: 8000 })
+await page.waitForFunction((count) => document.querySelectorAll('[data-status="ready"]').length === count, DEMO_SAMPLES, { timeout: 8000 })
 await page.locator('li', { hasText: 'Demo Kick' }).getByRole('button', { name: 'New audio track' }).click()
 await openDialog()
 check('the new audio clip is the open clip', /Demo Kick/.test((await dialog().getByRole('radio', { name: /Selected clip/ }).locator('xpath=..').textContent()) ?? ''))

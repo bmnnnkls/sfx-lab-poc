@@ -13,9 +13,7 @@ Not nodes (the next batch of nodes is in [`IDEAS-nodes-and-controls.md`](IDEAS-n
    (a snapshot is also "keep this roll").
 3. **Drum machine design**: decide how a module holds or picks samples (a module use cannot carry a sampler's `sampleId` today), then build E5:
    N samplers gated by the incoming note (hz to MIDI, compare, multiply), per-pad level, pan and tune.
-4. **Test and tooling hygiene**: the whole browser suite takes too long; split it into a fast smoke set and a full run, and stop checks
-   hard-coding lists the app already knows (they broke three times as nodes were added; the unit tests already read the registry).
-5. **Smaller follow-ups found on the way**: per-*parameter* locks for Randomize; indicators live inside a module's own editor; a bigger
+4. **Smaller follow-ups found on the way**: per-*parameter* locks for Randomize; indicators live inside a module's own editor; a bigger
    example-module library (E8) and a way to save a module as an example of your own.
 
 ## Follow-ups from the example projects
@@ -167,11 +165,10 @@ The note graph is built (see `ARCHITECTURE.md`). Ideas that did not make it in:
 
 ## Browser (end-to-end) tests in the repo
 
-Status: **not started.** Our browser checks are ad-hoc Playwright scripts outside the repo, re-run by hand, so they
-rot (two already broke on UI changes).
+Status: **partly done.** The checks live in `docs/browser-checks/`, all 33 pass, and `npm run check:smoke` / `npm run check:browser`
+build, serve and run them with a summary (`run.mjs`); lists the app knows come from `registry.mjs` (see its README). Still open:
 
-* Add `e2e/` with `@playwright/test` and an `npm run e2e` script that builds and serves the app.
-* Port the checks that still pass: audio clips, trim/fades, LFO/reverb import, samples, piano roll, menus.
-* Keep selectors in one helpers file so a UI change needs one fix.
-* Replace the old `persist` and `poly` scripts with a single fresh save-and-reload test.
-* Costs: a new dev dependency (Playwright) and a CI step with a browser.
+* A CI step with a browser (the scripts assume the cloud sandbox's Playwright and Chromium paths; a dev dependency on Playwright would make
+  them portable).
+* Shared helpers: each script still carries its own copy of the launch lines and of `addNode`, `selectNode` and friends, so a UI change can
+  still need the same fix in several files.

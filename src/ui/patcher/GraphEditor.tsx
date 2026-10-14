@@ -1,9 +1,4 @@
 import {
-  MASTER_IN_TYPE,
-  RETURN_IN_TYPE,
-  SEND_TYPE,
-  TRACK_AUDIO_TYPE,
-  TRACK_IN_TYPE,
   type ModuleLibrary,
   type Patch,
   type PortRef,
@@ -20,8 +15,6 @@ import {
   disconnect,
   moduleDomain,
   moveNode,
-  noteNodeDefinitions,
-  nodeDefinitions,
   removeNode,
   setNodeParam,
   exampleModules,
@@ -36,6 +29,7 @@ import { useStoredState } from '../shared/use-stored-state'
 import { ModuleBar } from './ModuleBar'
 import { ModuleInterface } from './ModuleInterface'
 import { type Catalog, buildCatalog } from './node-catalog'
+import { paletteFor } from './palette'
 import { PatchCanvas, type PatchCanvasHandle } from './PatchCanvas'
 import { QuickAdd } from './QuickAdd'
 import { NODE_WIDTH, type Point } from './geometry'
@@ -58,28 +52,6 @@ const isFlag = (value: unknown): value is boolean => typeof value === 'boolean'
 
 type View = 'graph' | 'panel'
 const isView = (value: unknown): value is View => value === 'graph' || value === 'panel'
-
-/** Where an insert graph starts: a return track at Return in, the master at Master in, every other track at Track in. */
-const START: Record<Track['kind'] | 'master', string> = {
-  instrument: TRACK_IN_TYPE,
-  audio: TRACK_IN_TYPE,
-  return: RETURN_IN_TYPE,
-  master: MASTER_IN_TYPE,
-}
-const STARTS = new Set(Object.values(START))
-
-/** What each kind of graph may offer in its palette: the insert graph has its own ends and no note-driven sources. */
-const paletteFor = (graph: TrackGraph, kind: Track['kind'] | 'master') => {
-  // A note graph also takes controls and math: they work out constants that drive the note nodes' parameters.
-  if (graph === 'notes') return [...noteNodeDefinitions, ...nodeDefinitions.filter((definition) => definition.inNotes === true)]
-  return nodeDefinitions.filter((definition) => {
-    if (graph !== 'fx') return definition.insertOnly !== true
-    if (STARTS.has(definition.type)) return definition.type === START[kind]
-    // The master graph runs on the whole block, after the tracks: nothing to send to, and no tracks to read one by one.
-    if (kind === 'master' && (definition.type === SEND_TYPE || definition.type === TRACK_AUDIO_TYPE)) return false
-    return definition.type !== 'note' && definition.type !== 'output' && definition.usesSample !== true
-  })
-}
 
 interface GraphEditorProps {
   /** The track whose graph is edited, or `master` for the master bus's. */

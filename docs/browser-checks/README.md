@@ -4,17 +4,29 @@ Reference scripts that drive the real app in Chromium with Playwright, including
 They are **not** part of `npm test` (see "Browser (end-to-end) tests in the repo" in `docs/TASKS.md`; these are the seed
 for that). Every feature so far shipped with one, and each prints `PASS` / `FAIL` per check.
 
-## Running one
+## Running them
 
 ```
-npm run build
-npx vite preview --port 4173 &                 # the scripts expect http://localhost:4173/
-node docs/browser-checks/notegraph.mjs /some/dir   # the directory receives screenshots
+npm run check:smoke              # the quick set (about 45 s): build, serve, run 7 checks, summary
+npm run check:browser            # all of them (about 4 minutes, 4 at a time with --jobs 4)
+node docs/browser-checks/run.mjs --no-build panel mixer   # some by name, against the last build
 ```
 
-The scripts load Playwright through `createRequire('/node-tools/node_modules/')` and launch
-`/opt/pw-browsers/chromium` with `--no-sandbox --autoplay-policy=no-user-gesture-required`; those two paths are the cloud
+`run.mjs` builds the app (skip with `--no-build`), serves it with `vite preview` on `http://localhost:4173/` (or reuses a server
+already there), runs the scripts a few at a time (`--jobs N`, default 3), each in its own browser, and prints one line per script and
+the failures at the end. It exits 1 when a check prints `FAIL`, a script crashes or times out, or a script prints no `PASS` at all.
+Screenshots go to a temporary directory (`--out DIR` to choose). The smoke set is `SMOKE` at the top of `run.mjs`: run it before a
+push, and the full set after touching an area the smoke set does not cover, or before a release.
+
+One script by hand, as before: `npm run build`, `npx vite preview --port 4173 &`, then `node docs/browser-checks/notegraph.mjs /some/dir`.
+
+The scripts load Playwright through `createRequire('/node-tools/node_modules/')` (or `/opt/node-tools/`) and launch
+`/opt/pw-browsers/chromium` with `--no-sandbox --autoplay-policy=no-user-gesture-required`; those paths are the cloud
 sandbox's. Change them (or install `playwright`) elsewhere.
+
+**Lists the app already knows come from `registry.mjs`**, not from the scripts: it loads the source through Vite and answers what the
+app would (`pickerCategories(graph, kind)`, the picker's categories in order; `demoSampleCount()`). A check that compares the page with
+a whole list or a count should ask it, so adding a node or a category does not break checks that are not about it.
 
 ## What each covers
 

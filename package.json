@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:smoke": "node docs/browser-checks/run.mjs --smoke",
+    "check:browser": "node docs/browser-checks/run.mjs"
   },
   "dependencies": {
     "@radix-ui/react-context-menu": "^2.3.8",
