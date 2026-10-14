@@ -17,20 +17,27 @@ export const smoothNode = mathNode({
   make: (params, sampleRate) => {
     let y = 0
     let primed = false
-    return (a) => {
-      if (!primed) {
-        primed = true
-        y = a
-        return y
-      }
-      if (Math.round(params.get('mode')) === 1) {
-        const limit = params.get('rate') / sampleRate
-        y += Math.min(limit, Math.max(-limit, a - y))
-      } else {
+    let slew = false
+    let limit = 0
+    /** How far towards the input each sample moves (1: all the way, no smoothing). */
+    let coefficient = 1
+    return {
+      block: () => {
+        slew = Math.round(params.get('mode')) === 1
+        limit = params.get('rate') / sampleRate
         const time = params.get('time')
-        y = time < MIN_TIME ? a : y + (a - y) * (1 - Math.exp(-1 / (time * sampleRate)))
-      }
-      return y
+        coefficient = time < MIN_TIME ? 1 : 1 - Math.exp(-1 / (time * sampleRate))
+      },
+      sample: (a) => {
+        if (!primed) {
+          primed = true
+          y = a
+          return y
+        }
+        if (slew) y += Math.min(limit, Math.max(-limit, a - y))
+        else y = coefficient === 1 ? a : y + (a - y) * coefficient
+        return y
+      },
     }
   },
 })

@@ -276,3 +276,27 @@ describe('every math node', () => {
     expect(definition.outputs).toHaveLength(1)
   })
 })
+
+describe('parameters are read once per block', () => {
+  it('a change takes effect at the next block, for every sample of it', () => {
+    const node = requireNodeDefinition('mapRange').create(SAMPLE_RATE)
+    const input = new Float32Array(128).fill(0.5)
+    const out = new Float32Array(128)
+    node.process(context(128), [input], [out])
+    expect([...new Set(out)]).toEqual([0.5])
+    node.setParam('outMax', 3)
+    node.process(context(128), [input], [out])
+    expect([...new Set(out)]).toEqual([1.5])
+  })
+
+  it('a pure node with nothing wired fills the block with its one value', () => {
+    const out = run('multiply', { a: 3, b: 0.5 }, [], 100)
+    expect([...new Set(out)]).toEqual([1.5])
+  })
+
+  it('a node with state still runs every sample with nothing wired (a clock ticks)', () => {
+    const out = run('clock', { rate: 1000, unit: 0, width: 0.5 }, [], 480)
+    const rises = out.reduce((count, v, i) => count + (v === 1 && out[i - 1] === 0 ? 1 : 0), 0)
+    expect(rises).toBe(9) // ten cycles in 10 ms, the first starting high
+  })
+})

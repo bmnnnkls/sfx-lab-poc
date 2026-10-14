@@ -47,20 +47,25 @@ export const edgeNode = mathNode({
   make: (params, sampleRate) => {
     let high: boolean | undefined
     let left = 0
-    return (value) => {
-      const now = value >= HIGH
-      if (high !== undefined && now !== high) {
-        const mode = EDGE_MODES[Math.round(params.get('mode'))]
-        if (mode === 'both' || (mode === 'rising' && now) || (mode === 'falling' && !now)) {
-          left = Math.max(1, Math.round(params.get('pulse') * sampleRate))
+    let mode: (typeof EDGE_MODES)[number] | undefined = 'rising'
+    let pulse = 1
+    return {
+      block: () => {
+        mode = EDGE_MODES[Math.round(params.get('mode'))]
+        pulse = Math.max(1, Math.round(params.get('pulse') * sampleRate))
+      },
+      sample: (value) => {
+        const now = value >= HIGH
+        if (high !== undefined && now !== high) {
+          if (mode === 'both' || (mode === 'rising' && now) || (mode === 'falling' && !now)) left = pulse
         }
-      }
-      high = now
-      if (left > 0) {
-        left--
-        return 1
-      }
-      return 0
+        high = now
+        if (left > 0) {
+          left--
+          return 1
+        }
+        return 0
+      },
     }
   },
 })
@@ -103,16 +108,18 @@ export const counterNode = mathNode({
     let count = 0
     let triggerHigh = false
     let resetHigh = false
-    return (trigger, reset) => {
-      const [t, r] = [trigger >= HIGH, reset >= HIGH]
-      if (r && !resetHigh) count = 0
-      else if (t && !triggerHigh) {
-        const limit = Math.round(params.get('limit'))
-        count = limit > 0 ? (count + 1) % limit : count + 1
-      }
-      triggerHigh = t
-      resetHigh = r
-      return count
+    let limit = 0
+    return {
+      block: () => (limit = Math.round(params.get('limit'))),
+      sample: (trigger, reset) => {
+        const t = trigger >= HIGH
+        const r = reset >= HIGH
+        if (r && !resetHigh) count = 0
+        else if (t && !triggerHigh) count = limit > 0 ? (count + 1) % limit : count + 1
+        triggerHigh = t
+        resetHigh = r
+        return count
+      },
     }
   },
 })
@@ -140,15 +147,23 @@ export const clockNode = mathNode({
   make: (params, sampleRate, block) => {
     let phase = 0
     let resetHigh = false
-    return (reset) => {
-      const now = reset >= HIGH
-      if (now && !resetHigh) phase = 0
-      resetHigh = now
-      const out = phase < params.get('width') ? 1 : 0
-      const perSecond = (CLOCK_PER_SECOND[Math.round(params.get('unit'))] ?? CLOCK_PER_SECOND[0]!)(params.get('rate'), block.tempo)
-      phase += perSecond / sampleRate
-      if (phase >= 1) phase -= Math.floor(phase)
-      return out
+    let width = 0.5
+    let step = 0
+    return {
+      block: () => {
+        width = params.get('width')
+        const perSecond = (CLOCK_PER_SECOND[Math.round(params.get('unit'))] ?? CLOCK_PER_SECOND[0]!)(params.get('rate'), block.tempo)
+        step = perSecond / sampleRate
+      },
+      sample: (reset) => {
+        const now = reset >= HIGH
+        if (now && !resetHigh) phase = 0
+        resetHigh = now
+        const out = phase < width ? 1 : 0
+        phase += step
+        if (phase >= 1) phase -= Math.floor(phase)
+        return out
+      },
     }
   },
 })
@@ -168,16 +183,21 @@ export const dividerNode = mathNode({
     let inHigh = false
     let resetHigh = false
     let open = false
-    return (input, reset) => {
-      const [i, r] = [input >= HIGH, reset >= HIGH]
-      if (r && !resetHigh) count = -1
-      if (i && !inHigh) {
-        count = (count + 1) % Math.max(1, Math.round(params.get('by')))
-        open = count === 0
-      }
-      inHigh = i
-      resetHigh = r
-      return i && open ? 1 : 0
+    let by = 2
+    return {
+      block: () => (by = Math.max(1, Math.round(params.get('by')))),
+      sample: (input, reset) => {
+        const i = input >= HIGH
+        const r = reset >= HIGH
+        if (r && !resetHigh) count = -1
+        if (i && !inHigh) {
+          count = (count + 1) % by
+          open = count === 0
+        }
+        inHigh = i
+        resetHigh = r
+        return i && open ? 1 : 0
+      },
     }
   },
 })
@@ -194,16 +214,19 @@ export const controlDelayNode = mathNode({
     const history = new Float32Array(size)
     let write = 0
     let primed = false
-    return (value) => {
-      if (!primed) {
-        history.fill(value)
-        primed = true
-      }
-      history[write] = value
-      const back = Math.min(size - 1, Math.max(0, Math.round(params.get('time') * sampleRate)))
-      const out = history[(write - back + size) % size] ?? 0
-      write = (write + 1) % size
-      return out
+    let back = 0
+    return {
+      block: () => (back = Math.min(size - 1, Math.max(0, Math.round(params.get('time') * sampleRate)))),
+      sample: (value) => {
+        if (!primed) {
+          history.fill(value)
+          primed = true
+        }
+        history[write] = value
+        const out = history[(write - back + size) % size] ?? 0
+        write = (write + 1) % size
+        return out
+      },
     }
   },
 })

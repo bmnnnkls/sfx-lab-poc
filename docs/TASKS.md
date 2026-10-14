@@ -28,8 +28,8 @@ Found while making `core/examples` (see `docs/EXAMPLES.md` and `ARCHITECTURE.md`
    outside the module.
 3. **A way to rename scenes** in the session view (`Project.sceneNames` is saved and shown, but only a project built in code sets it).
 4. **Examples as their own chunk.** They add about 64 kB (18 kB gzipped) to the main bundle; the first visit needs one of them at once, but the other could load when chosen.
-5. **Audio-rate math is dear** (a `Params.get` per sample in every math node: the sidechain, the soft clip and a generative voice are chains of them); an engine
-   pass that reads a node's parameters once per block would make heavy patches much cheaper. Idle tracks also cost about 1.7 % each in the test container.
+5. **Idle tracks cost about 1.7 % each** in the test container (every track runs its insert graph and sends every block). Audio-rate math was the
+   other floor; it now reads its parameters once per block (see `ARCHITECTURE.md`, math nodes).
 
 ## Ideas for the next nodes, controls and effects
 

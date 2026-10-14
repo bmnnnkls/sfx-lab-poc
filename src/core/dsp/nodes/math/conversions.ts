@@ -2,7 +2,7 @@ import { mathNode } from './math-node'
 
 /** A unit conversion of one value: the node, its single operand and the rule. */
 const convert = (type: string, label: string, operand: { id: string; label: string; default: number }, rule: (value: number) => number) =>
-  mathNode({ type, label, operands: [operand], make: () => rule })
+  mathNode({ type, label, operands: [operand], pure: true, make: () => rule })
 
 /** Beyond these a ratio or a gain is not a musical number, and 2 ** x would overflow. */
 const MAX_SEMITONES = 1200
