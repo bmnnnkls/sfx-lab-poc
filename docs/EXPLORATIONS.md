@@ -1,10 +1,10 @@
-# Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control, layout
+# Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control, layout, visuals and lights
 
-Notes from six "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
+Notes from seven "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
 `IDEAS-nodes-and-controls.md` these are directions, not a pick list. Each section ends with the cheapest first step. When one
 is taken, record it in `ARCHITECTURE.md` and update the section here.
 
-The constraints all six keep running into come from the architecture, and they are also what makes each one feasible:
+The constraints all seven keep running into come from the architecture, and they are also what makes each one feasible:
 
 * **The engine is a facade behind a tiny protocol.** The UI only sends `EngineCommand`s and receives `EngineStatus`
   (`core/engine/commands.ts`, `audio/protocol.ts`); `audio/audio-host.ts` (~60 lines) is the only thing that knows a worklet exists.
@@ -274,7 +274,74 @@ then Surfaces served to tablets through the collaboration master.
 
 ---
 
-## Suggested order across all six
+## 7. Visuals, light and installations
+
+The live, interactive installation use case: screens, shaders, projectors, lighting, audience input. The idea is to treat
+visuals and lights as **graphs updated once per video frame**, alongside the audio graphs that run at audio rate, and to reuse
+the patcher, control nodes, analysis nodes, Surfaces and the collaboration master.
+
+**Prior art.** Max/Jitter and vvvv (gamma) for patching video next to sound; TouchDesigner and Notch for installations and
+shows; in the browser cables.gl (node-based WebGL), Hydra (live-coded video synth), Shadertoy (whose shaders already read audio
+as a texture) and Three.js (WebGPU renderer, TSL node materials); for outputs and show control Resolume, MadMapper (projection
+mapping) and QLab (cue lists).
+
+**A visual graph: the same patcher, a different update rate.**
+
+* A new graph type, *Visual*, on the same `Patch` model and patcher UI, evaluated per frame on the GPU. Nodes: shader
+  (GLSL/WGSL, Shadertoy-compatible `iTime`, `iResolution` plus audio inputs), feedback, blend, blur, displace, particles,
+  video/camera in, text, a 3D scene, output.
+* **Make update rates explicit.** Patches already have stages (voice, shared, global); add *frame* (60 Hz, GPU) and *fixture*
+  (DMX, about 44 Hz).
+* **Layering:** the visual graph model and its compilation into a render plan stay pure in `core`; a new `visual` layer, a
+  sibling of `audio`, runs it with WebGPU/WebGL in an `OffscreenCanvas` Worker so the UI stays smooth. The architecture test
+  gets one new row.
+
+**The connection between sound and image (what makes it feel live).**
+
+* **Sound → visuals:** any node output, sampled each block, readable by the visual graph; spectrum bands and onsets; and
+  **exact musical events** from the scheduler (note-ons, clip launches, scene changes, beat and bar position), which are known
+  ahead of time and never miss, unlike analysis.
+* **Sync:** hold visuals back by the audio output latency (`AudioContext.outputLatency` / `getOutputTimestamp`) and work out the
+  beat position per frame. Without it, flashes land 20–80 ms before the kick, and people notice.
+* **Visuals and the world → sound:** camera tracking (MediaPipe pose and hands in the browser), optical flow, phone tilt and
+  touch, microphones become control signals in the engine. In an installation, the audience is the instrument.
+
+**Outputs: screens, projectors, lights.**
+
+* **Screens and projectors:** pop-out output windows (section 6's docking), placed full-screen on chosen displays with the Window
+  Management API (Chromium). An Output node does corner-pin and mesh warping, edge blending across projectors, and masks:
+  basic projection mapping.
+* **Video to other software** (Spout, Syphon, NDI into Resolume, TouchDesigner, MadMapper) needs native code: another reason for
+  the Tauri master (section 3).
+* **Lighting:** a fixture library (dimmer, RGB par, moving head pan/tilt) maps control signals to DMX channels, with a universe
+  view. From the browser directly: Web Serial to an Enttec DMX USB Pro (Chromium), WLED LED strips over WebSocket, lighting desks
+  over WebMIDI. Art-Net, sACN and OSC are UDP, which browsers cannot send, so they go through the relay server or Tauri.
+* **Several machines, several projectors:** do not stream video between them. Each renders locally from the synced project and
+  the master's beat clock (option B of section 4, for visuals only).
+
+**Show control: scenes become cues.**
+
+* A scene already launches a set of clips; let it also recall visual presets and lighting states, so it is a show cue. A cue list
+  or timeline can come later.
+* **Surfaces carry over:** a VJ seat, a lighting seat, audience phones with one control each. A *crowd* node combines many
+  inputs (average, spread, number of people present).
+* **Installations need:** kiosk mode, start on boot, a watchdog, days of running without leaking memory, recovery after a power
+  cut (autosave exists). This is where a headless native master matters.
+
+**Exporting video.** Audio export is deterministic and visuals are driven by engine data, so the app can render frames at a
+fixed timestep from the offline bounce, encode with WebCodecs and mux to MP4 or WebM: a music video that comes out the same every
+time. It reuses the GPU work of section 1.
+
+**How it fits:** the same patcher and `Patch` model, a new update rate, a new output layer, the same Surfaces, permissions and
+master. The sound engine stays the source of truth for time; everything else follows its clock.
+
+**First steps, in order:** a full-screen output window with one Shader node fed level, spectrum, beat position and note events,
+with latency compensation (small, immediately fun); the visual graph in the patcher; projection warping, then DMX (Web Serial,
+WLED); scenes as cues; video export; native outputs (NDI, Spout/Syphon, Art-Net) through Tauri.
+
+---
+
+## Suggested order across all seven
 
 1. Port one or two expensive nodes to Rust/WASM (faster browser, de-risks section 3).
 2. GPU bake to sample: modal bank and sound shader (section 1).
@@ -282,11 +349,14 @@ then Surfaces served to tablets through the collaboration master.
 4. Views with their own targets, then docking, presets and the command palette (section 6).
 5. The git-friendly folder layout with "Open folder", then the ID-based merge as a git driver (section 5).
 6. Surfaces as a single-device performance mode (section 6).
-7. Multi-window collaboration over `BroadcastChannel`, then a WebSocket relay serving Surfaces to tablets with their
+7. A full-screen output window with a Shader node driven by the engine's level, spectrum, beat and note events, then the visual
+   graph (section 7).
+8. Multi-window collaboration over `BroadcastChannel`, then a WebSocket relay serving Surfaces to tablets with their
    permissions (sections 4 and 6), reusing the merge.
-8. A Tauri master with the native engine and the collaboration server built in.
+9. Projection warping, DMX over Web Serial and WLED, scenes as cues, video export (section 7).
+10. A Tauri master with the native engine, the collaboration server and native outputs (NDI, Spout/Syphon, Art-Net) built in.
 
-Steps 1–7 each improve the browser version on their own, so step 8 stays optional.
+Steps 1–9 each improve the browser version on their own, so step 10 stays optional.
 
 ## References
 
@@ -296,3 +366,6 @@ Steps 1–7 each improve the browser version on their own, so step 8 stays optio
 * Magenta.js (MusicRNN, MusicVAE): <https://github.com/magenta/magenta-js>
 * isomorphic-git: <https://isomorphic-git.org/>
 * dockview: <https://dockview.dev/>
+* cables.gl: <https://cables.gl/>, Hydra: <https://hydra.ojack.xyz/>, vvvv: <https://visualprogramming.net/>
+* MediaPipe (pose, hands): <https://ai.google.dev/edge/mediapipe/solutions/guide>
+* WLED JSON API: <https://kno.wled.ge/interfaces/json-api/>
