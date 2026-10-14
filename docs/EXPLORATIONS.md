@@ -1,6 +1,6 @@
 # Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control, layout, visuals and lights, platform, prior art, Pure Data
 
-Notes from ten "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
+See [`ROADMAP.md`](ROADMAP.md) for the wrap-up and next steps. Notes from ten "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
 `IDEAS-nodes-and-controls.md` these are directions, not a pick list. Each section ends with the cheapest first step. When one
 is taken, record it in `ARCHITECTURE.md` and update the section here.
 
