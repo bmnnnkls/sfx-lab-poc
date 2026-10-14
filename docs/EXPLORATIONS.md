@@ -1,10 +1,10 @@
-# Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control, layout, visuals and lights, platform
+# Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control, layout, visuals and lights, platform, prior art
 
-Notes from eight "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
+Notes from nine "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
 `IDEAS-nodes-and-controls.md` these are directions, not a pick list. Each section ends with the cheapest first step. When one
 is taken, record it in `ARCHITECTURE.md` and update the section here.
 
-The constraints all eight keep running into come from the architecture, and they are also what makes each one feasible:
+The constraints all nine keep running into come from the architecture, and they are also what makes each one feasible:
 
 * **The engine is a facade behind a tiny protocol.** The UI only sends `EngineCommand`s and receives `EngineStatus`
   (`core/engine/commands.ts`, `audio/protocol.ts`); `audio/audio-host.ts` (~60 lines) is the only thing that knows a worklet exists.
@@ -403,25 +403,100 @@ the suggested order below.
 
 ---
 
+## 9. Prior art: the music-programming landscape
+
+A pass over [awesome-music-programming](https://github.com/zoejane/awesome-music-programming) (about 50 tools), sorted by what
+each could mean for SFX Lab. Three findings shape the rest:
+
+* **The repository has no LICENSE yet.** Several of the best candidates are GPL or AGPL (Strudel, SuperSonic's engine, Essentia,
+  aubio, VCV Rack), so the license we pick decides what can be bundled. Choosing one is a small decision with large consequences.
+* **Most of the list is other systems to connect to, not libraries to embed.** Section 8's OSC and MIDI bridges are the cheap
+  way to reach all of them.
+* **Faust changes plans:** it speaks directly to the Rust engine port (section 3).
+
+**Adopt or embed (fits the platform directly).**
+
+| Tool | What it gives SFX Lab | License / caveat |
+|---|---|---|
+| **Faust** | A DSP language that compiles to **Rust** and **WASM** (faustwasm runs it in an AudioWorklet). (1) Write engine nodes (filters, reverbs, physical models) in Faust and generate them into the Rust engine crate, drawing on its library of proven DSP. (2) A **Faust node** in the patcher: type Faust code, compiled live in the browser; the code counterpart of the sound shader (section 1). | Compiler GPL; generated code is not bound by it (check before relying on that) |
+| **FluidSynth / SoundFonts** | General MIDI instruments in one node: previews for MIDI-model output (section 2), quick sketches. In the Rust engine use `rustysynth` (pure Rust, MIT) rather than linking FluidSynth (LGPL). | Each SoundFont has its own license |
+| **aubio / Essentia** | Onsets, beat and tempo, pitch. Concrete fix: audio clips **guess their tempo from the sample's name** ("120 BPM", `core/sample/demo-samples.ts`); detection would replace that. Also onset slicing for the sampler, and beats for visuals (section 7). In Rust: `aubio-rs`, or a small native onset/tempo detector. | aubio GPL; Essentia and essentia.js AGPL |
+| **Demucs** | Stem separation: drop in a song, get drums, bass and vocals as audio clips. A render/GPU-node job (section 8); browser ONNX ports exist but are heavy. | MIT |
+| **VexFlow** | A notation view of a clip beside the piano roll, and MusicXML export. | MIT |
+
+**Interoperate (speak their protocol, do not absorb them).**
+
+* **TidalCycles, Strudel, Sonic Pi, SuperCollider, Overtone, ChucK, Orca** all send OSC or MIDI. The best single idea: make the
+  bridge accept **SuperDirt-style OSC** (`/dirt/play` with `s`, `n`, `speed`, …), the format Tidal and Strudel send to
+  SuperCollider's sampler. Every Tidal and Strudel live coder could then play SFX Lab's instruments with none of their code in ours.
+* **SuperSonic** (Sam Aaron's port of SuperCollider's synth engine to WASM in an AudioWorklet, controlled by OSC) proves a big
+  C++ engine runs well in the browser, and hit the same COOP/COEP requirement noted for Pages. Possible as an optional engine
+  reached over OSC; its engine package is GPL-3.0, so keep it at arm's length.
+* **IanniX** (a graphical sequencer after Xenakis, sends OSC): an external score for installations now; inspiration for
+  automation drawn as curves and cursors later.
+* **Pure Data:** the patcher's closest ancestor. WebPd compiles Pd patches to JavaScript/WASM; a "Pd patch node" or a Pd-vanilla
+  subset import would bring decades of patches. Natively, libpd could be a node in the headless host.
+* **Csound:** `@csound/browser` is WASM; a "Csound node" is possible but niche.
+
+**Borrow ideas (inspiration, not dependencies).**
+
+* **Strudel / Tidal mini-notation → a pattern clip** beside the piano roll (`"bd*2 [~ sd] hh*4"`), played in cycles by the
+  launcher, with randomness and polymeter built in; it suits Glass Rain's 3-, 5- and 7-bar parts. **Strudel is AGPL-3.0 and its
+  FAQ says it cannot ship inside projects with incompatible licenses**: write the (small) grammar ourselves.
+* **ChucK's "strongly timed" model, Sonic Pi's scheduling ahead:** match our engine's sample-accurate, computed-ahead events;
+  worth reading for naming and teaching material.
+* **Topos** (a browser algorithmic sequencer modeled on the Monome Teletype: small scripts triggered by events) → a script node
+  in the note graph.
+* **Orca** (a grid language where every cell is an operator) → a playful note-graph node or Surface tile.
+* **VCV Rack:** the reference for modular UX (cables, faceplates, module browser). GPL and its C++ ABI rule out running its modules.
+* **Hydra:** see section 7; its chained functions (`osc().kaleid().out()`) suggest how visual-graph nodes compose.
+* **Web Audio Studio** (a visual debugger showing the signal at any point of a graph) → a **probe on wires** in our patcher:
+  hover a wire for a live scope or spectrum.
+* **LatentScore** (Show HN, Feb 2026: type a mood, get procedural ambient by mapping sentence embeddings to synth settings, not
+  a generative model) → a **"describe it" box that steers Randomize** by mapping text to parameter ranges, locally. Cheap AI.
+* **Alda:** text notation as a quick way to type a clip.
+
+**Offline tooling (Python, for datasets and the render node).**
+
+* **pretty_midi, Mido, music21, librosa:** building section 2's datasets (cleaning, transposing, analysis).
+* **Pedalboard** (Spotify, GPL) suggests: **bind the Rust engine to Python with `pyo3`** so Python can render SFX Lab projects in
+  bulk, which is what generating the app's own training data (section 2) needs.
+* **Abjad, LilyPond, MuseScore, OpenMusic:** engraving; only if score export becomes a goal (VexFlow's MusicXML covers most).
+
+**Not a fit.** Suno, Udio, Stable Audio, AudioCraft/MusicGen generate finished audio: at most a render-node job producing a
+*sample* from text (Stable Audio Open and MusicGen weights are non-commercial or community-licensed; Suno and Udio have no stable
+public API). ElevenLabs has a text-to-sound-effects API, worth a footnote given the name: a server-side job with a key, never
+from the browser. JUCE (AGPL or commercial) does the same job as the Rust route we chose; Hydrogen is a whole app; Overtone is a
+SuperCollider frontend.
+
+**Most valuable for us, in order:** pick a license; Faust for engine nodes and as a live code node; a SuperDirt-compatible OSC
+bridge; pattern clips with our own mini-notation grammar; onset and tempo detection; text steering Randomize; a probe on wires.
+
+---
+
 ## Suggested order
 
 The platform milestones (section 8), with the other sections slotted in where they depend on them:
 
-1. **Engine crate parity, as WASM in Pages** (sections 3, 8): expensive nodes first, compared against the TypeScript engine,
-   then the whole engine. Pages stays the main build.
+0. **Pick a license** (section 9): it decides which of the GPL/AGPL tools can be bundled.
+1. **Engine crate parity, as WASM in Pages** (sections 3, 8, 9): expensive nodes first, compared against the TypeScript engine,
+   then the whole engine; write new DSP nodes in Faust and generate them into the crate. Pages stays the main build.
 2. **Views with their own targets**, then docking, presets and the command palette (section 6).
 3. **Document crate:** format, migrations, merge, diff; with it the git-friendly folder layout, "Open folder" and the git
    merge and diff drivers (sections 5, 8).
 4. **Headless node and the WebSocket protocol:** a browser can drive a remote engine (section 8).
 5. **Tauri wraps the node; roles and Surfaces over the protocol;** phones join by QR code (sections 4, 6). Surfaces work as a
    single-device performance mode before this.
-6. **Bridges:** OSC, MIDI, Ableton Link, then Art-Net and sACN (sections 7, 8).
+6. **Bridges:** OSC (including a SuperDirt-compatible receiver for Tidal and Strudel), MIDI, Ableton Link, then Art-Net and
+   sACN (sections 7, 8, 9).
 7. **Visuals:** an output window with a Shader node driven by engine events, the visual graph, projection warping, DMX, scenes as
    cues; then output nodes with multi-machine clock sync (sections 7, 8).
-8. **Render, GPU and ML jobs:** GPU bakes, MIDI models, video export (sections 1, 2, 7).
+8. **Render, GPU and ML jobs:** GPU bakes, MIDI models, video export, stem separation, a `pyo3` binding for bulk rendering
+   (sections 1, 2, 7, 9).
 
 Side tracks that need none of the above and can happen any time in the browser: the GPU bake to sample and the sound shader
-(section 1), MusicVAE and the n-gram baseline (section 2).
+(section 1), MusicVAE and the n-gram baseline (section 2), and from section 9: pattern clips with our own mini-notation, onset and
+tempo detection for audio clips, a Faust node via faustwasm, text steering Randomize, a probe on wires, a VexFlow notation view.
 
 ## References
 
@@ -436,3 +511,10 @@ Side tracks that need none of the above and can happen any time in the browser: 
 * WLED JSON API: <https://kno.wled.ge/interfaces/json-api/>
 * Tauri 2 (desktop and mobile): <https://v2.tauri.app/>, ts-rs: <https://github.com/Aleph-Alpha/ts-rs>
 * rusty_link (Ableton Link for Rust): <https://github.com/anzbert/rusty_link>
+* awesome-music-programming: <https://github.com/zoejane/awesome-music-programming>
+* Faust: <https://faust.grame.fr/>, faustwasm: <https://github.com/Fr0stbyteR/faustwasm>
+* SuperSonic (scsynth in the browser): <https://sonic-pi.net/supersonic/demo.html>
+* Strudel license FAQ: <https://strudel.cc/learn/faq/>
+* WebPd: <https://github.com/sebpiq/WebPd>, rustysynth: <https://github.com/sinshu/rustysynth>
+* Topos: <https://synth.playtronica.com/topos>, Web Audio Studio: <https://www.producthunt.com/products/web-audio-studio>
+* LatentScore (Show HN write-up): <https://mewayz.com/hy/blog/show-hn-latentscore-type-a-mood-get-proceduralambient-music-open-source>

@@ -58,4 +58,4 @@ A first visit opens on **Low Light**, and **File → Examples** loads either of 
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how it is put together and where to add things.
 
-Open work is tracked in [`docs/TASKS.md`](docs/TASKS.md); how it is built is in [`ARCHITECTURE.md`](ARCHITECTURE.md). Longer-range directions (GPU sound, small MIDI models, a Rust engine, collaboration, git-backed projects, a dockable layout and tablet Surfaces, visuals, lighting and installations, and a platform of many hosts around one Rust engine) are sketched in [`docs/EXPLORATIONS.md`](docs/EXPLORATIONS.md).
+Open work is tracked in [`docs/TASKS.md`](docs/TASKS.md); how it is built is in [`ARCHITECTURE.md`](ARCHITECTURE.md). Longer-range directions (GPU sound, small MIDI models, a Rust engine, collaboration, git-backed projects, a dockable layout and tablet Surfaces, visuals, lighting and installations, a platform of many hosts around one Rust engine, and what the wider music-programming world offers) are sketched in [`docs/EXPLORATIONS.md`](docs/EXPLORATIONS.md).
