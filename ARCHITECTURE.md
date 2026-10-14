@@ -485,6 +485,11 @@ plain cards; the property editor, the panel built from control nodes and the nod
   wired into its port, or, unwired, the parameter of the same id (which has its own socket); the result is never NaN or
   infinite (rounded to float32 first, so a product that overflows the buffer is 0, not Infinity). *Hz to MIDI* gives 0, the
   lowest note, for 0 or less; fractional notes work. Math nodes are global-capable.
+  **Parameters are read once per block**, not per sample: a rule with settings returns a `MathRule` (`block` reads the parameters, and
+  anything worked out from them such as a smoothing coefficient or a clock's step, into its closure; `sample` does no lookups), so a
+  change lands at the next block, which is when `setParam` and the sockets deliver it anyway. A rule marked `pure` (no state: arithmetic,
+  conversions, Map range, Quantize, Mix, MIDI to Hz) with nothing wired into it runs once per block and fills the buffer. Together about
+  2.4 times cheaper per audio-rate math node (2.7 % to 1.1 % of real time each in the test container), with output identical to the bit.
 * **Sources of sound and chance** (`dsp/random.ts`, `dsp/nodes/{noise,perlin,geiger,random}.node.ts`). Everything random is **seeded**
   (`createRng`, mulberry32; `hashSigned` for lattice points), never `Math.random` or the clock, so a render comes out the same every
   time (exports, tests, a sound you want back); each has a `seed` parameter (no socket: `socket: false`). **A seed per voice:** a voice
@@ -1008,8 +1013,8 @@ scenes) and *Glass Rain* (a self-composing ambient piece, 92 BPM, six scenes). A
   `docs/browser-checks/showcase.mjs`.
 * **Cost.** These are the heaviest projects in the repo: about 40 to 50 % of one core in the slow container the tests run in for the busiest
   scene of Low Light, 40 % for Glass Rain. Most of it is a floor, not the instruments: every track runs its insert graph every block and sends
-  mix per track (about 1.7 % per empty track), the returns' reverbs a few percent, and audio-rate math nodes cost a `Params.get` per sample, so
-  a chain of them is much dearer than its look. The instruments themselves are a few percent each. If a scene stutters on a slower machine,
+  mix per track (about 1.7 % per empty track), the returns' reverbs a few percent, and audio-rate math nodes about 1 % each (they read their
+  parameters once per block; it was 2.7 % when they read them per sample), so a long chain of them still adds up. The instruments themselves are a few percent each. If a scene stutters on a slower machine,
   mute a few tracks or reduce voices.
 
 ## Conventions
