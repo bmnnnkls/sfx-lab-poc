@@ -1,10 +1,10 @@
-# Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control, layout, visuals and lights
+# Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control, layout, visuals and lights, platform
 
-Notes from seven "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
+Notes from eight "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
 `IDEAS-nodes-and-controls.md` these are directions, not a pick list. Each section ends with the cheapest first step. When one
 is taken, record it in `ARCHITECTURE.md` and update the section here.
 
-The constraints all seven keep running into come from the architecture, and they are also what makes each one feasible:
+The constraints all eight keep running into come from the architecture, and they are also what makes each one feasible:
 
 * **The engine is a facade behind a tiny protocol.** The UI only sends `EngineCommand`s and receives `EngineStatus`
   (`core/engine/commands.ts`, `audio/protocol.ts`); `audio/audio-host.ts` (~60 lines) is the only thing that knows a worklet exists.
@@ -96,7 +96,9 @@ and fine-tuning on data recorded from the app.
 
 **The seam exists.** Anything that accepts `EngineCommand`s and produces `EngineStatus` can replace the worklet. The Rust
 work is the engine side of `core` (`dsp`, `instrument`, `engine`, `session`, `transport`, `notefx`, `sample`: about 8k lines, 4k
-of them the node library). The project model, `diffProject`, persistence, undo and all of the UI stay in TypeScript.
+of them the node library). Undo and all of the UI stay in TypeScript. *Update (section 8):* once a headless node must load,
+check and merge projects without a browser, the project format, migrations, sanitizing, merge and `diffProject` move to a Rust
+document crate as well (about 12k lines in all), used by the UI as WASM; the UI's pure edit functions stay in TypeScript.
 
 **Pitfall:** Tauri with the current Web Audio engine is *worse* than Chrome. Tauri uses the system webview (WebKitGTK on Linux,
 WKWebView on macOS), where AudioWorklet support is patchy. A consistent desktop wrapper alone means Electron; Tauri only pays
@@ -341,22 +343,85 @@ WLED); scenes as cues; video export; native outputs (NDI, Spout/Syphon, Art-Net)
 
 ---
 
-## Suggested order across all seven
+## 8. Platform architecture: one engine, many hosts
 
-1. Port one or two expensive nodes to Rust/WASM (faster browser, de-risks section 3).
-2. GPU bake to sample: modal bank and sound shader (section 1).
-3. MusicVAE / n-gram, then a small trained model as a note-graph node (section 2).
-4. Views with their own targets, then docking, presets and the command palette (section 6).
-5. The git-friendly folder layout with "Open folder", then the ID-based merge as a git driver (section 5).
-6. Surfaces as a single-device performance mode (section 6).
-7. A full-screen output window with a Shader node driven by the engine's level, spectrum, beat and note events, then the visual
-   graph (section 7).
-8. Multi-window collaboration over `BroadcastChannel`, then a WebSocket relay serving Surfaces to tablets with their
-   permissions (sections 4 and 6), reusing the merge.
-9. Projection warping, DMX over Web Serial and WLED, scenes as cues, video export (section 7).
-10. A Tauri master with the native engine, the collaboration server and native outputs (NDI, Spout/Syphon, Art-Net) built in.
+Where sections 3–7 lead together: a Rust engine with a web/Tauri frontend, *and* a GitHub Pages build, a server for audio,
+mobile clients, IoT devices, OSC and the like, and dedicated GPU/projector machines. Feasible only if **all the code is shared
+and each deployment is a thin host around it**; separate code per target would sink the project.
 
-Steps 1–9 each improve the browser version on their own, so step 10 stays optional.
+**Shared by everything (built once).**
+
+1. **Engine crate (Rust):** audio-rate, control-rate and fixture (DMX) rate processing, no I/O. Compiles to `wasm32` and native.
+2. **Document crate (Rust):** project format, migrations, sanitizing, the ID-based merge (section 5), the diff into engine
+   commands. A headless server needs these without a browser, so this part of today's TypeScript `core` moves too. The UI keeps
+   its pure edit functions in TypeScript, uses generated types (`ts-rs`) and calls the crate as WASM to check and diff.
+3. **Protocol:** project document, edit operations, engine commands, status and events, and the **clock** (beat position, time
+   offset). Independent of transport: in-process, `postMessage`, Tauri IPC, WebSocket, WebRTC. OSC, MIDI, DMX and MQTT are
+   **bridges** at the edges, not part of the protocol.
+4. **One web frontend with roles:** *editor* (desktop docking, section 6), *surface* (touch pages), *output* (full-screen
+   visuals, section 7), *monitor*. A host says what it can do; the frontend hides what it cannot.
+
+**The hosts (thin, built from the shared pieces).**
+
+| Host | What it is | Its role |
+|---|---|---|
+| **GitHub Pages** | Web app + engine as WASM in the AudioWorklet | Solo, demos, offline; always works and is the reference for the rest. Limits: no UDP; threads need cross-origin isolation (`coi-serviceworker`); some features are Chromium-only |
+| **Headless node** (`sfx-node`) | Rust binary: engine, document, WebSocket/HTTP server, bridges | **The main program.** Linux box, Raspberry Pi or cloud VM; the installation master, in kiosk mode |
+| **Tauri desktop** | Headless node + a webview with the editor | The usual master at a computer; clients join by QR code |
+| **Render / GPU node** | Headless node with a job API | Offline bounces, video export, MIDI-model training and generation, GPU bakes; possibly in the cloud |
+| **Output nodes** | Headless node + visual renderer (`wgpu`, or Chromium kiosk in the *output* role) | One per projector or screen group, rendering locally on the master's clock; a DMX node is the same idea |
+| **Mobile clients** | The web app in the *surface* role, as a PWA | No native app needed; Tauri 2 mobile later if sensors or background running require it |
+| **IoT devices** | ESP32 and the like, over OSC, MQTT or WebSocket | Inputs and outputs only, never the engine; a small device profile maps them to control nodes |
+
+**Rules that keep it simple.**
+
+* **One authority per session.** The master holds the project and the clock; every other node has a role and the permissions
+  that come with it (Surfaces, section 6).
+* **Send state and time, not media.** Audio is rendered where the speakers are, visuals where the projector is. Audio crosses
+  the network only for monitoring (WebRTC Opus).
+* **Clock:** the master's beat clock plus NTP-style offsets; natively also **Ableton Link** (`rusty_link`), so a real Ableton
+  set, phone apps or drum machines join in time.
+* **Discovery:** mDNS on the LAN for native nodes, QR code or URL for browsers.
+* **Nodes announce capabilities** (audio out, GPU, displays, DMX, OSC); the master assigns roles.
+
+**Monorepo layout.**
+
+```
+crates/engine     crates/document    crates/protocol
+crates/node       (headless binary: server, bridges, jobs)
+crates/visual     (wgpu, later)
+apps/web          (one React app: Pages build, Tauri frontend, surfaces, outputs)
+apps/desktop      (Tauri shell around node)
+devices/          (example ESP32 / OSC profiles)
+```
+
+CI covers wasm, Linux, macOS and Windows. The Pages build and the engine comparison tests (section 3) are the contract every
+other host must meet.
+
+**Risk:** this turns a playground into a platform. The cure is staging, with a working product at the end of every step; see
+the suggested order below.
+
+---
+
+## Suggested order
+
+The platform milestones (section 8), with the other sections slotted in where they depend on them:
+
+1. **Engine crate parity, as WASM in Pages** (sections 3, 8): expensive nodes first, compared against the TypeScript engine,
+   then the whole engine. Pages stays the main build.
+2. **Views with their own targets**, then docking, presets and the command palette (section 6).
+3. **Document crate:** format, migrations, merge, diff; with it the git-friendly folder layout, "Open folder" and the git
+   merge and diff drivers (sections 5, 8).
+4. **Headless node and the WebSocket protocol:** a browser can drive a remote engine (section 8).
+5. **Tauri wraps the node; roles and Surfaces over the protocol;** phones join by QR code (sections 4, 6). Surfaces work as a
+   single-device performance mode before this.
+6. **Bridges:** OSC, MIDI, Ableton Link, then Art-Net and sACN (sections 7, 8).
+7. **Visuals:** an output window with a Shader node driven by engine events, the visual graph, projection warping, DMX, scenes as
+   cues; then output nodes with multi-machine clock sync (sections 7, 8).
+8. **Render, GPU and ML jobs:** GPU bakes, MIDI models, video export (sections 1, 2, 7).
+
+Side tracks that need none of the above and can happen any time in the browser: the GPU bake to sample and the sound shader
+(section 1), MusicVAE and the n-gram baseline (section 2).
 
 ## References
 
@@ -369,3 +434,5 @@ Steps 1–9 each improve the browser version on their own, so step 10 stays opti
 * cables.gl: <https://cables.gl/>, Hydra: <https://hydra.ojack.xyz/>, vvvv: <https://visualprogramming.net/>
 * MediaPipe (pose, hands): <https://ai.google.dev/edge/mediapipe/solutions/guide>
 * WLED JSON API: <https://kno.wled.ge/interfaces/json-api/>
+* Tauri 2 (desktop and mobile): <https://v2.tauri.app/>, ts-rs: <https://github.com/Aleph-Alpha/ts-rs>
+* rusty_link (Ableton Link for Rust): <https://github.com/anzbert/rusty_link>
