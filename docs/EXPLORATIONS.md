@@ -1,10 +1,10 @@
-# Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control
+# Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control, layout
 
-Notes from five "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
+Notes from six "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
 `IDEAS-nodes-and-controls.md` these are directions, not a pick list. Each section ends with the cheapest first step. When one
 is taken, record it in `ARCHITECTURE.md` and update the section here.
 
-The constraints all five keep running into come from the architecture, and they are also what makes each one feasible:
+The constraints all six keep running into come from the architecture, and they are also what makes each one feasible:
 
 * **The engine is a facade behind a tiny protocol.** The UI only sends `EngineCommand`s and receives `EngineStatus`
   (`core/engine/commands.ts`, `audio/protocol.ts`); `audio/audio-host.ts` (~60 lines) is the only thing that knows a worklet exists.
@@ -226,16 +226,67 @@ Versions panel with listen-to-compare; push and pull from the app (`isomorphic-g
 
 ---
 
-## Suggested order across all five
+## 6. A more modern layout: docking on the desktop, Surfaces on tablets
+
+**What holds it back today.** The layout is fixed: transport bar, session view, a splitter, and one editor panel with six
+tabs (`ui/Workspace.tsx`, `ui/editor-panel/EditorPanel.tsx`). More importantly, **every view reads one shared selection**
+(`state/selection-store.ts`: one `trackId`, one `clipId`, one `tab`), which is why the Bass patcher cannot sit next to the Lead
+patcher, or two piano rolls side by side.
+
+**The enabling change: each view gets its own target**, e.g. `{ kind: 'patcher', track: 'bass', graph: 'fx' }` or
+`{ kind: 'pianoRoll', clip: 'c_12' }`. A layout is a tree of these view descriptions, and the shared selection becomes "the
+view that follows whatever you click". The same description is what a tablet page and a permission are made of.
+
+**Desktop and master: VS Code-style docking.**
+
+* **Editor groups:** tabs, splits both ways, views dragged between groups. **dockview** (React, no dependencies, layouts as
+  JSON, pop-out windows) is the closest fit; FlexLayout and rc-dock are alternatives. Pop-out windows give multiple monitors and
+  connect to the multi-window `BroadcastChannel` step of section 4.
+* **Preview tabs**, as in VS Code: clicking a track opens its views in an italic preview tab the next click replaces; pin it to
+  keep it. This settles "follow the selection" versus "stay on one target" in a way people already know.
+* **Activity bar and sidebar:** Samples, Modules, Examples and version history (section 5) as browsers on the left; the existing
+  property editor as an inspector on the right.
+* **Command palette** (`Ctrl+Shift+P`): quick-add already behaves like one for nodes; extend it to every action.
+* **Layout presets** ("Session", "Sound design", "Mix") and a focus mode. Layouts belong to the *user* (stored locally), not the
+  project, so opening someone else's song does not rearrange your screen.
+* **Keep the Ableton feel where it helps:** the session grid is a strength. Modernize the frame, keep the clip launcher; the
+  default layout looks like today's on day one.
+
+**Tablets: "Surfaces", not a small desktop.** Docking does not work on touch.
+
+* A Surface page is a grid of large tiles: a track's **Panel** (exists), a subset of the clip grid, scene buttons, XY pads, a few
+  mixer strips; later macros, automation lanes and live controls.
+* **The page grants the permissions:** what is on a performer's page is what they may touch, nothing else. The owner builds pages
+  on the master and assigns each to a seat ("Bass and drums", "FX throws"); the tablet joins by QR code. This is section 4's
+  permission model with a user interface.
+* **Surfaces are saved in the project** (they are part of how the piece is performed); desktop layouts are not.
+* **Touch design:** multi-touch so two knobs turn at once (current controls assume one pointer); larger targets; no hover or
+  right-click (tooltips move to a long press); controls that lock against accidental touches.
+* **Useful on its own:** the Surface shell full-screen on the desktop is a performance mode, no network needed.
+
+**One concept throughout:** views with their own targets make docking possible; docking produces saved view descriptions; a
+Surface is a page of them; a permission is the set of targets a page allows; a future macro or automation tile is one more
+kind of view.
+
+**First steps, in order:** give every view its own target (a medium refactor); dockview with a default layout that looks like
+today's, plus presets; command palette and preview tabs; the Surface editor and touch shell as a single-device performance mode;
+then Surfaces served to tablets through the collaboration master.
+
+---
+
+## Suggested order across all six
 
 1. Port one or two expensive nodes to Rust/WASM (faster browser, de-risks section 3).
 2. GPU bake to sample: modal bank and sound shader (section 1).
 3. MusicVAE / n-gram, then a small trained model as a note-graph node (section 2).
-4. The git-friendly folder layout with "Open folder", then the ID-based merge as a git driver (section 5).
-5. Multi-window collaboration over `BroadcastChannel`, then a WebSocket relay with Panel permissions (section 4), reusing the merge.
-6. A Tauri master with the native engine and the collaboration server built in.
+4. Views with their own targets, then docking, presets and the command palette (section 6).
+5. The git-friendly folder layout with "Open folder", then the ID-based merge as a git driver (section 5).
+6. Surfaces as a single-device performance mode (section 6).
+7. Multi-window collaboration over `BroadcastChannel`, then a WebSocket relay serving Surfaces to tablets with their
+   permissions (sections 4 and 6), reusing the merge.
+8. A Tauri master with the native engine and the collaboration server built in.
 
-Steps 1–5 each improve the browser version on their own, so step 6 stays optional.
+Steps 1–7 each improve the browser version on their own, so step 8 stays optional.
 
 ## References
 
@@ -244,3 +295,4 @@ Steps 1–5 each improve the browser version on their own, so step 6 stays optio
 * MidiTok: <https://github.com/Natooz/MidiTok>
 * Magenta.js (MusicRNN, MusicVAE): <https://github.com/magenta/magenta-js>
 * isomorphic-git: <https://isomorphic-git.org/>
+* dockview: <https://dockview.dev/>
