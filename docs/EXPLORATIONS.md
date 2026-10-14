@@ -1,10 +1,10 @@
-# Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control, layout, visuals and lights, platform, prior art
+# Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control, layout, visuals and lights, platform, prior art, Pure Data
 
-Notes from nine "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
+Notes from ten "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
 `IDEAS-nodes-and-controls.md` these are directions, not a pick list. Each section ends with the cheapest first step. When one
 is taken, record it in `ARCHITECTURE.md` and update the section here.
 
-The constraints all nine keep running into come from the architecture, and they are also what makes each one feasible:
+The constraints all ten keep running into come from the architecture, and they are also what makes each one feasible:
 
 * **The engine is a facade behind a tiny protocol.** The UI only sends `EngineCommand`s and receives `EngineStatus`
   (`core/engine/commands.ts`, `audio/protocol.ts`); `audio/audio-host.ts` (~60 lines) is the only thing that knows a worklet exists.
@@ -352,6 +352,8 @@ and each deployment is a thin host around it**; separate code per target would s
 **Shared by everything (built once).**
 
 1. **Engine crate (Rust):** audio-rate, control-rate and fixture (DMX) rate processing, no I/O. Compiles to `wasm32` and native.
+   It hosts **WASM plugin modules** through one small interface (section 10): in the browser by instantiating them in the
+   worklet, natively with `wasmtime`. Pd, Faust, WebPd and future user code nodes all arrive this way, identical on every host.
 2. **Document crate (Rust):** project format, migrations, sanitizing, the ID-based merge (section 5), the diff into engine
    commands. A headless server needs these without a browser, so this part of today's TypeScript `core` moves too. The UI keeps
    its pure edit functions in TypeScript, uses generated types (`ts-rs`) and calls the crate as WASM to check and diff.
@@ -434,8 +436,7 @@ each could mean for SFX Lab. Three findings shape the rest:
   reached over OSC; its engine package is GPL-3.0, so keep it at arm's length.
 * **IanniX** (a graphical sequencer after Xenakis, sends OSC): an external score for installations now; inspiration for
   automation drawn as curves and cursors later.
-* **Pure Data:** the patcher's closest ancestor. WebPd compiles Pd patches to JavaScript/WASM; a "Pd patch node" or a Pd-vanilla
-  subset import would bring decades of patches. Natively, libpd could be a node in the headless host.
+* **Pure Data:** the patcher's closest ancestor; important enough for its own section (section 10).
 * **Csound:** `@csound/browser` is WASM; a "Csound node" is possible but niche.
 
 **Borrow ideas (inspiration, not dependencies).**
@@ -474,13 +475,94 @@ bridge; pattern clips with our own mini-notation grammar; onset and tempo detect
 
 ---
 
+## 10. Pure Data: running Pd patches as nodes
+
+Pd is the patcher's closest ancestor, with thirty years of patches, teaching material and courses behind it, and a community
+that will recognize the patcher at once. "An Ableton-style clip launcher plus a Max/Pd-style patcher, and it runs your Pd
+patches" is a clear identity. Fitting it into the Rust engine with a Tauri/web UI leads to a design worth having anyway:
+**a WASM plugin interface for the engine.**
+
+**Getting C code onto every host.** Pd is C; our hosts are the Rust engine as WASM (Pages) and native (headless, Tauri).
+
+| Route | What it is | Pages | Native | Fidelity |
+|---|---|---|---|---|
+| **A. WebPd** | Compiles a patch to JavaScript or AssemblyScript, then WASM | ✓ | via WASM | A subset of vanilla objects |
+| **B. libpd linked natively** (`libpd-rs`) | Real Pd inside the Rust binary | ✗ | ✓ | All of vanilla plus native externals |
+| **C. libpd compiled to a WASM module** (as pd4web does: libpd itself built with emscripten, all of vanilla plus 800+ externals and abstractions) | Real Pd as a sandboxed module | ✓ | ✓ via `wasmtime` | All of vanilla plus the externals we compile in |
+
+**Recommended: C, through a general plugin interface.**
+
+* The engine gains one node type, **"WASM module"**, with a small interface: `init(sampleRate)`, `process(inputs, outputs,
+  frames)`, `setParam(id, value)`, `noteOn/noteOff`, messages in and out. In the browser the compiled module is passed into the
+  worklet and instantiated synchronously; natively the Rust engine hosts the same module with `wasmtime`.
+* **Each instance has its own memory.** That removes libpd's oldest problem (global state; several instances in one process
+  normally need a `PDINSTANCE` build): every Pd node, even every voice, is just another instance.
+* **One .wasm everywhere:** a patch sounds the same in Pages and Tauri, exports stay identical, and section 3's comparison tests
+  still apply.
+* **Sandboxed for free:** a patch from a forum cannot open files or sockets unless we provide them. Native libpd with native
+  externals would be arbitrary code running on the master.
+* **Faust and WebPd fit the same interface** (faustwasm already produces modules with a similar one), as would user code nodes
+  later: one mechanism for all "bring your own DSP".
+* **Cost and risk:** `wasmtime` runs perhaps 1.2–2× slower than native. Whether an emscripten-built module loads cleanly in
+  wasmtime (emscripten's standalone mode targets WASI) must be **checked first**; it is the main technical risk.
+* **Route B stays an option:** a native-only "Pd (full)" node for headless and Tauri hosts that need specific native externals,
+  announced as a host capability (section 8); Pages shows it as "needs a native host".
+
+**How a patch becomes a node.** Do not translate Pd into our nodes: its message side (hot and cold inlets, `[trigger]`, order
+of execution) does not map onto our signal graph. **Run the patch and generate the node's ports from it.**
+
+* **Audio:** top-level `[inlet~]`/`[outlet~]`, or `[adc~]`/`[dac~]`, become audio ports; mono or stereo follows the channel count.
+* **Parameters:** `[r name]`, and especially Pd's GUI objects with send/receive names and ranges (`hsl`, `vsl`, `tgl`, `bng`,
+  `nbx`, `knob`), become parameters with ranges, and so **controls on the Panel and on Surfaces** (section 6). A patch arrives
+  with its front panel.
+* **Notes:** libpd's MIDI hooks feed `[notein]`, so existing Pd synths work unchanged. Patches with their own polyphony
+  (`[poly]`/`[clone]`) run as one instance in the shared stage; simple mono patches can run one instance per voice, cheap
+  because each instance is just another WASM memory.
+* **Control outputs:** messages from `[outlet]`/`[s name]` become control signals held at their last value, available to
+  visuals and lights (section 7).
+* **Timing:** Pd processes 64 samples at a time; the engine's 128-sample blocks split at events, so events inside a Pd node land
+  on a 64-sample grid (about 1.5 ms). Fine; document it.
+
+**Storage, editing, safety.**
+
+* **The patch text (`.pd`) lives in the project:** text, so it diffs and merges in git (section 5). Abstractions are bundled
+  and identified by hash, like samples.
+* **Sample objects** (`[soundfiler]`, `[readsf~]`, `[tabread~]`) read from the `SampleBank` through a virtual file system.
+  **Network objects** (`[netsend]`/`[netreceive]`) are blocked or connected to the OSC bridges (section 8).
+* **Do not rebuild Pd's editor.** Natively (Tauri), "Edit in Pd" opens the real Pd, the app watches the file and reloads the
+  node on save: hot reload with the best editor for the job. In the browser: a read-only view of the patch drawn on our patcher
+  canvas, plus the generated Panel. A reload is a new instance, swapped in with a short crossfade.
+* **Limits belong in the document crate's sanitizer:** size caps, an allowed-externals list, no file or network access beyond
+  what we provide.
+
+**License and ecosystem.**
+
+* **Pd and libpd are BSD-licensed**, compatible with whatever license we pick (section 9). Every external compiled into the
+  module brings its own license, so choose them deliberately. WebPd's license is unconfirmed.
+* **hvcc (Heavy)** compiles a Pd vanilla subset to C; it is how Pd patches reach **Daisy and Bela** hardware, a way to put an
+  SFX Lab patch onto a small device for the installation ideas of sections 7 and 8 (check hvcc's license too).
+
+**Where it sits in the plan.**
+
+* **It can start before the Rust port.** The current TypeScript engine in the worklet can already call a WASM module per block.
+  A prototype now settles the plugin interface, and the Rust engine (with wasmtime natively) inherits it unchanged.
+* **First step:** a "Pd patch" node in the shared stage that loads a `.pd` file into a libpd WASM build (pd4web's emscripten
+  build is the shortcut), exposes `[adc~]`/`[dac~]` and `[r]` receivers as ports and parameters, and plays a classic vanilla
+  patch. Then GUI objects as Panel controls, then `[notein]`, then instances per voice.
+* **Then:** carry the plugin interface into the Rust engine with wasmtime (suggested order, step 1); Faust and WebPd come along.
+* **Before committing:** check that an emscripten libpd build runs in wasmtime, and how fast. If not, fall back to route C in
+  the browser and route B natively, with patches limited to objects both have.
+
+---
+
 ## Suggested order
 
 The platform milestones (section 8), with the other sections slotted in where they depend on them:
 
 0. **Pick a license** (section 9): it decides which of the GPL/AGPL tools can be bundled.
-1. **Engine crate parity, as WASM in Pages** (sections 3, 8, 9): expensive nodes first, compared against the TypeScript engine,
-   then the whole engine; write new DSP nodes in Faust and generate them into the crate. Pages stays the main build.
+1. **Engine crate parity, as WASM in Pages** (sections 3, 8, 9, 10): expensive nodes first, compared against the TypeScript
+   engine, then the whole engine; write new DSP nodes in Faust and generate them into the crate; host WASM plugin modules
+   (Pd, Faust) with the interface prototyped earlier, through `wasmtime` natively. Pages stays the main build.
 2. **Views with their own targets**, then docking, presets and the command palette (section 6).
 3. **Document crate:** format, migrations, merge, diff; with it the git-friendly folder layout, "Open folder" and the git
    merge and diff drivers (sections 5, 8).
@@ -497,6 +579,8 @@ The platform milestones (section 8), with the other sections slotted in where th
 Side tracks that need none of the above and can happen any time in the browser: the GPU bake to sample and the sound shader
 (section 1), MusicVAE and the n-gram baseline (section 2), and from section 9: pattern clips with our own mini-notation, onset and
 tempo detection for audio clips, a Faust node via faustwasm, text steering Randomize, a probe on wires, a VexFlow notation view.
+**The Pd patch node (section 10) is the side track worth doing first:** it prototypes the WASM plugin interface in today's
+TypeScript engine, so step 1 inherits it.
 
 ## References
 
@@ -518,3 +602,6 @@ tempo detection for audio clips, a Faust node via faustwasm, text steering Rando
 * WebPd: <https://github.com/sebpiq/WebPd>, rustysynth: <https://github.com/sinshu/rustysynth>
 * Topos: <https://synth.playtronica.com/topos>, Web Audio Studio: <https://www.producthunt.com/products/web-audio-studio>
 * LatentScore (Show HN write-up): <https://mewayz.com/hy/blog/show-hn-latentscore-type-a-mood-get-proceduralambient-music-open-source>
+* Pure Data: <https://puredata.info/>, libpd: <https://github.com/libpd/libpd>, libpd-rs: <https://github.com/alisomay/libpd-rs>
+* pd4web: <https://pypi.org/project/pd4web>, WebPd: <https://opencollective.com/webpd>, hvcc: <https://github.com/Wasted-Audio/hvcc>
+* wasmtime: <https://wasmtime.dev/>
