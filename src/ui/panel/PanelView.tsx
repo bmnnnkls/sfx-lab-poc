@@ -9,17 +9,20 @@ import {
   movePanelControl,
   nodeTitles,
   panelItems,
+  isMidiControllable,
   removeNode,
   resizePanelControl,
   setNodeDisplay,
   setNodeName,
+  setNodeMidi,
   setNodeParam,
   setPanelShow,
   spotBelow,
 } from '@core'
+import { useMidiStore } from '@state'
 import { useMemo, useState } from 'react'
 import { AddControl, type AddDraft } from './AddControl'
-import { ControlCell, type ParamChange } from './ControlCell'
+import { type CellMidi, ControlCell, type ParamChange } from './ControlCell'
 import styles from './panel.module.css'
 
 interface PanelViewProps {
@@ -45,6 +48,30 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit }: PanelVi
   const shown = items.filter((item) => item.shown)
   const hidden = items.filter((item) => !item.shown)
   const ownShown = shown.filter((item) => item.via === undefined)
+  const learning = useMidiStore((state) => state.learning)
+  const midiOn = useMidiStore((state) => state.status === 'on')
+
+  /**
+   * MIDI learn, for this graph's own knobs, sliders, switches and selectors on a track or the master (a module's own panel
+   * has no live values, and a control inside a used module is not reached by a controller yet).
+   */
+  const midiFor = (item: PanelItem): CellMidi | undefined => {
+    if (readoutTrack === undefined || item.via !== undefined || !isMidiControllable(item.node)) return undefined
+    const id = item.node.id
+    const binding = item.node.midi
+    const isLearning = learning?.nodeId === id && learning.scope === scope
+    return {
+      ...(binding ? { label: `CC ${binding.cc}${binding.channel === undefined ? '' : ` ch ${binding.channel}`}` } : {}),
+      learning: isLearning,
+      learn: () => {
+        const store = useMidiStore.getState()
+        if (isLearning) return store.learn(null)
+        if (!midiOn) store.enable()
+        store.learn({ nodeId: id, scope, assign: (next) => edit((current) => setNodeMidi(current, id, next)) })
+      },
+      forget: () => edit((current) => setNodeMidi(current, id, undefined)),
+    }
+  }
 
   const set = (item: PanelItem, changes: readonly ParamChange[]) => {
     // A control inside a module is set on the use of the module (`<inner>:<param>`, as a module knob is); its own value is the default.
@@ -113,6 +140,7 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit }: PanelVi
                 first={ownIndex === 0}
                 last={ownIndex === ownShown.length - 1}
                 onSet={(changes) => set(item, changes)}
+                midi={midiFor(item)}
                 actions={{
                   rename: (name) => edit((current) => setNodeName(current, id, name)),
                   resize: (size) => edit((current, library) => resizePanelControl(current, library, id, size)),

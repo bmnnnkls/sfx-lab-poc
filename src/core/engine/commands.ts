@@ -82,6 +82,9 @@ export type EngineCommand =
       readonly pitch: number
       readonly velocity: number
     }
+  /** A note from a MIDI keyboard: played on the track's instrument straight away, held until its `track/noteOff`. */
+  | { readonly type: 'track/noteOn'; readonly trackId: string; readonly pitch: number; readonly velocity: number }
+  | { readonly type: 'track/noteOff'; readonly trackId: string; readonly pitch: number }
   | { readonly type: 'sample/add'; readonly sample: SampleData }
   | { readonly type: 'sample/remove'; readonly sampleId: string }
   | { readonly type: 'sample/preview'; readonly sampleId: string }

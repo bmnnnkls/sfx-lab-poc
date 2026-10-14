@@ -95,6 +95,7 @@ export {
   sendableReturns,
 } from './mix-order'
 export { createDemoProject } from './demo-project'
+export { applyMidiMessage, isMidiControllable, midiControlValue } from './midi'
 export {
   DEFAULT_VELOCITY,
   MAX_PITCH,

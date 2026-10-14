@@ -14,6 +14,12 @@ export interface NodePanel {
   readonly order?: number
 }
 
+/** A MIDI controller (CC) that moves a control node: its number, and the channel it must come on (absent: any channel). */
+export interface MidiBinding {
+  readonly cc: number
+  readonly channel?: number
+}
+
 /** How a control node is drawn on the panel. */
 export const CONTROL_DISPLAYS = ['knob', 'slider', 'slider-horizontal'] as const
 export type ControlDisplay = (typeof CONTROL_DISPLAYS)[number]
@@ -39,6 +45,8 @@ export interface PatchNode {
   readonly display?: ControlDisplay
   /** For control nodes: where it sits on the front panel. */
   readonly panel?: NodePanel
+  /** For knobs, sliders, switches and selectors: the MIDI controller that moves it (learned on the panel). */
+  readonly midi?: MidiBinding
   /** What the user calls this node. Absent: the node's type label, numbered when alike ("Oscillator 2"). */
   readonly name?: string
   /** For sample-playing nodes: id of the project sample to play. */

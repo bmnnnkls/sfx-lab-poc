@@ -3,6 +3,7 @@ import { useEngineControls, useProjectStore, useStatusStore } from '@state'
 import { FileMenu } from '../file-menu/FileMenu'
 import { HistoryButtons } from '../history-buttons/HistoryButtons'
 import { LevelMeter } from './LevelMeter'
+import { MidiStatus } from './MidiStatus'
 import { formatPosition } from './format-position'
 import styles from './TransportBar.module.css'
 
@@ -34,6 +35,7 @@ export const TransportBar = () => {
       </label>
       <span className={styles.position}>{formatPosition(beat)}</span>
       <LevelMeter />
+      <MidiStatus />
       <HistoryButtons />
       <FileMenu />
     </header>

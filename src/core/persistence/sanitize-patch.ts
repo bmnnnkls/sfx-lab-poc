@@ -6,6 +6,7 @@ import {
   type PortRef,
   CONTROL_DISPLAYS,
   CONTROL_SIZES,
+  type MidiBinding,
   type NodePanel,
   MAX_NODE_NAME,
   MAX_UNIT,
@@ -44,6 +45,15 @@ const readPanel = (raw: unknown): NodePanel | undefined => {
     ...(order === undefined ? {} : { order }),
   }
   return Object.keys(panel).length === 0 ? undefined : panel
+}
+
+const isWhole = (value: unknown, low: number, high: number): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= low && value <= high
+
+/** A control's MIDI controller: a number 0..127 and, optionally, a channel 1..16. Anything else is dropped. */
+const readMidi = (raw: unknown): MidiBinding | undefined => {
+  if (!isRecord(raw) || !isWhole(raw.cc, 0, 127)) return undefined
+  return isWhole(raw.channel, 1, 16) ? { cc: raw.cc, channel: raw.channel } : { cc: raw.cc }
 }
 
 const readPortRef = (raw: unknown): PortRef | null =>
@@ -114,6 +124,7 @@ export const sanitizePatch = (
     const unitY = definition.panelKind === 'xy' ? unitOf(rawNode.unitY) : ''
     const panel = definition.panelKind === undefined ? undefined : readPanel(rawNode.panel)
     const display = definition.panelKind === 'value' ? CONTROL_DISPLAYS.find((candidate) => candidate === rawNode.display) : undefined
+    const midi = definition.panelKind === 'value' || definition.panelKind === 'switch' || definition.panelKind === 'selector' ? readMidi(rawNode.midi) : undefined
     patch = addNode(patch, {
       id: rawNode.id,
       type,
@@ -122,6 +133,7 @@ export const sanitizePatch = (
       ...(unitY === '' ? {} : { unitY }),
       ...(panel === undefined ? {} : { panel }),
       ...(display === undefined || display === 'knob' ? {} : { display }),
+      ...(midi === undefined ? {} : { midi }),
       ...(moduleId === undefined ? {} : { moduleId }),
       x: finiteNumber(rawNode.x, 0),
       y: finiteNumber(rawNode.y, 0),

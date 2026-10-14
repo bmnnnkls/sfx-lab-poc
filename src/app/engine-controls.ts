@@ -18,5 +18,7 @@ export const createEngineControls = (host: AudioHost): EngineControls => {
     launchScene: (scene) => run({ type: 'scene/launch', scene }),
     stopTrack: (trackId) => run({ type: 'track/stop', trackId }),
     auditionNote: (trackId, pitch, velocity) => run({ type: 'track/audition', trackId, pitch, velocity }),
+    noteOn: (trackId, pitch, velocity) => run({ type: 'track/noteOn', trackId, pitch, velocity }),
+    noteOff: (trackId, pitch) => run({ type: 'track/noteOff', trackId, pitch }),
   }
 }

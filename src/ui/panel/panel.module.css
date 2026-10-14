@@ -140,3 +140,17 @@
   gap: 4px;
   padding: 0 12px;
 }
+
+.cell[data-learning] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.midiBadge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 9px;
+  color: var(--text-dim);
+  pointer-events: none;
+}

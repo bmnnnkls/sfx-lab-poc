@@ -3,12 +3,14 @@ export {
   CONTROL_SIZES,
   type ControlDisplay,
   type ControlSize,
+  type MidiBinding,
   type NodePanel,
   type Patch,
   type PatchConnection,
   type PatchNode,
   type PortRef,
 } from './types'
+export { setNodeMidi } from './midi'
 export { createBlankControl, createControlFor, createXyFor, type ControlForOptions } from './control-for'
 export { nodeTitles } from './titles'
 export { resolveParams } from './resolve'

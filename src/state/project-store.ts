@@ -48,6 +48,8 @@ import {
   setTrackVolume,
   undo,
   updateAudioClip,
+  applyMidiMessage,
+  type MidiMessage,
 } from '@core'
 import { create } from 'zustand'
 
@@ -91,6 +93,11 @@ interface ProjectActions {
   /** Edits an audio clip; rapid edits of the same setting (a slider drag) merge into one undo step. */
   updateAudioClip(trackId: string, clipId: string, changes: AudioClipChanges): void
   setTrackVoices(trackId: string, voices: number): void
+  /**
+   * Moves the controls bound to a MIDI controller (a CC message; anything else changes nothing). A stream from one
+   * controller is one undo step, like a knob drag.
+   */
+  applyMidi(message: MidiMessage): void
   /**
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
    * Rapid edits sharing a `mergeKey` (a slider or node drag) collapse into one undo step.
@@ -213,6 +220,8 @@ export const useProjectStore = create<ProjectState>((set) => {
         `audio:${clipId}:${Object.keys(changes).sort().join(',')}`,
       ),
     setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
+    applyMidi: (message) =>
+      edit((project) => applyMidiMessage(project, message), message.kind === 'cc' ? `midi:${message.channel}:${message.cc}` : undefined),
 
     updatePatch: (trackId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { trackId }, change), mergeKey),

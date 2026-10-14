@@ -9,6 +9,9 @@ export interface EngineControls {
   stopTrack(trackId: string): void
   /** Plays one short note through a track's instrument, to hear what is being edited. */
   auditionNote(trackId: string, pitch: number, velocity: number): void
+  /** A key pressed on a MIDI keyboard: held on the track's instrument until `noteOff`. */
+  noteOn(trackId: string, pitch: number, velocity: number): void
+  noteOff(trackId: string, pitch: number): void
 }
 
 const EngineControlsContext = createContext<EngineControls | null>(null)

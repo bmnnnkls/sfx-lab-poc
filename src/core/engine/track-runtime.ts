@@ -152,6 +152,19 @@ export class TrackRuntime implements PlayableTrack {
     this.audition = { pitch, framesLeft: Math.round(AUDITION_SECONDS * this.sampleRate) }
   }
 
+  /**
+   * A note played live (a MIDI keyboard): straight to the instrument, whether or not the transport runs, and held until its
+   * note-off. It does not go through the note graph, which works on the clip's beat-timed events.
+   */
+  liveNoteOn(pitch: number, velocity: number): void {
+    if (this.audition?.pitch === pitch) this.audition = null
+    this.instrument.noteOn(pitch, velocity)
+  }
+
+  liveNoteOff(pitch: number): void {
+    this.instrument.noteOff(pitch)
+  }
+
   private endAudition(): void {
     if (this.audition) this.instrument.noteOff(this.audition.pitch)
     this.audition = null

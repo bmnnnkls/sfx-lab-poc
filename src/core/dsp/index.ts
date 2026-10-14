@@ -21,6 +21,7 @@ export type {
 export { Params } from './params'
 export { PARAM_PORT_PREFIX, isWideRange, liveSpec, paramOfPort, paramPortId, paramSockets } from './param-sockets'
 export { fromSlider, isLogarithmic, snapToStep, toSlider } from './param-scale'
+export { controlValue } from './nodes/control-value'
 export { createRng, type Rng } from './random'
 export { MAX_BLOCK_FRAMES } from './block'
 export { RIGHT, STEREO_FRAMES, isStereoBuffer, leftOf, rightOf, stereoPorts } from './stereo'

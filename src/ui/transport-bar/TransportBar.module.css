@@ -57,3 +57,30 @@
   background: linear-gradient(90deg, var(--play), var(--queued) 75%, #ff6b6b);
   transition: width 60ms linear;
 }
+
+.midi {
+  color: var(--text-dim);
+}
+
+.midiOn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 3px 8px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.midiLabel {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.midiText {
+  overflow: hidden;
+  color: var(--text-dim);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}

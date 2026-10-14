@@ -52,6 +52,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `examples` | the shipped example projects (*Low Light*, *Glass Rain*), written as code with a small DSL for patches and scores; what a first visit opens on | `exampleProjects`, `findExampleProject`, `FLAGSHIP_EXAMPLE` |
 | `persistence` | project file format: envelope, versioned migrations, sanitizing | `serializeProject`, `parseProject` |
 | `history` | generic undo/redo over immutable snapshots | `createHistory`, `commit`, `undo`, `redo` |
+| `midi` | MIDI messages: parsing the bytes Web MIDI delivers (notes, CCs), describing them | `parseMidiMessage`, `MidiMessage`, `describeMidiMessage` |
 
 ### Data flow
 
@@ -452,7 +453,34 @@ remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`):
   toggle and the add form.
 * **Limits.** Layout is an ordered flow with sizes, not free positioning; a panel belongs to one graph (no combined instrument +
   effects panel, and the controls inside a module are not yet shown on the panel of the graph that uses it: step 7); no selector for
-  enum parameters yet; no automation, MIDI mapping, meters or per-control ranges beyond a control's own (see `docs/TASKS.md`).
+  enum parameters yet; no automation, meters or per-control ranges beyond a control's own (see `docs/TASKS.md`). MIDI: see below.
+
+## MIDI input (keys and controllers)
+
+* **Turning it on.** The transport bar's **MIDI** button asks the browser for Web MIDI (`audio/midi-input.ts`, `MidiInput`: every connected
+  input, plugged in later too, parsed into `MidiMessage`s by `core/midi`; nothing is sent out). Once on it shows the last message
+  ("Note C3 on ch 1", "CC 21 = 64 on ch 1") or the devices, and its tooltip says where the keys play; it comes back on by itself after a
+  reload (`localStorage` `sfxlab:midi`, a per-browser convenience). States: off, on, blocked, n/a (`state/midi-store.ts`).
+* **Keys** play the **selected instrument track**, transport running or not (`app/midi.ts` -> `EngineControls.noteOn/noteOff` ->
+  `track/noteOn` / `track/noteOff` -> `TrackRuntime.liveNoteOn/liveNoteOff`, straight to the instrument), held for as long as the key is
+  down; a note-off goes to the track its note-on went to, even if the selection changed meanwhile. Chords use the voice pool like any notes.
+  Live notes do **not** go through the note graph (it works on the clips' beat-timed events) and are not recorded; stopping the transport
+  releases them, as it releases every voice.
+* **Controllers (MIDI learn).** A knob, slider, switch or selector can be bound to a CC: `PatchNode.midi` (`{ cc, channel? }`, on the node like
+  `panel`; channel absent means any). On the panel, **Edit panel** gives such a control a **MIDI** button: click it, move a controller, and the
+  binding is written (`setNodeMidi`); a learned binding takes any channel. A bound control shows "CC 21" in a corner in play mode, and **⊘**
+  forgets it. Learning is a `MidiLearning` in the MIDI store (the node, the panel's scope, and how to write the binding), so the panel stays the
+  only thing that knows which graph a control is in.
+* **What a controller does** (`core/project/midi.ts`, `applyMidiMessage`): every control bound to it in every track's graphs and the master's is
+  set as if its widget were at `value / 127`: a knob or slider through its own range, curve and step (`liveSpec`, `fromSlider`, `snapToStep`,
+  `controlValue`), a switch on from 64 up, a selector the share of its positions. It is an ordinary project edit (saved, synced to the engine
+  as `track/setParam`), and a stream from one controller is **one undo step** (merge key `midi:<channel>:<cc>`); a value the control already
+  has changes nothing. Not reached yet: XY pads, and controls inside a module used by the graph (their values live on each use).
+* **Saved** with the node; the sanitizer keeps a binding only on those four kinds and only a whole `cc` 0..127 and `channel` 1..16. A new optional
+  field, so no format-version bump.
+* **Tests:** `core/midi/message.test.ts`, `core/project/midi.test.ts`, the engine's live notes in `engine.test.ts`, and the browser check
+  `docs/browser-checks/midi.mjs` (a stand-in `navigator.requestMIDIAccess`: the switch, a held key heard and released, learn, a controller
+  silencing and restoring the real sound, one undo step, the binding saved, forget).
 
 ## Control nodes, parameter sockets and the global stage
 
@@ -1089,5 +1117,5 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 ## Natural next steps
 
 1. Unused-sample cleanup, loop points inside a clip, 2. stems and batch export for the bounce,
-3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (band-limited oscillators, chorus / stereo modulation effects, tempo sync for delays),
+3. live notes through the note graph, and recording them into a clip, 4. more nodes (band-limited oscillators, chorus / stereo modulation effects),
 5. WASM DSP nodes (Faust/RNBO).

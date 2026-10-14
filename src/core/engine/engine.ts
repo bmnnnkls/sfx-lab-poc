@@ -161,6 +161,12 @@ export class Engine {
       case 'track/audition':
         this.instrument(command.trackId)?.auditionNote(command.pitch, command.velocity)
         break
+      case 'track/noteOn':
+        this.instrument(command.trackId)?.liveNoteOn(command.pitch, command.velocity)
+        break
+      case 'track/noteOff':
+        this.instrument(command.trackId)?.liveNoteOff(command.pitch)
+        break
       case 'track/stop':
         this.tracks.get(command.trackId)?.stopClip()
         break

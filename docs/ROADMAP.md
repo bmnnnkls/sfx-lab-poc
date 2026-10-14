@@ -14,8 +14,8 @@ open work ([`TASKS.md`](TASKS.md)). This page holds the decisions and the order;
   is sample-accurate and deterministic. About 15k lines in `core`, 8k in UI and state, ~90 unit test files, 35 browser checks.
 * **Every exploration found this structure to be the asset:** the engine seam makes a Rust port and remote engines possible; the
   document model makes git and collaboration possible; determinism makes exports, comparison tests and listen-to-diff possible.
-* **Open debts** (`TASKS.md`): the browser suite is slow and brittle; audio-rate math reads parameters per sample; delays do not
-  follow tempo; no MIDI input yet; no LICENSE file.
+* **Open debts** (`TASKS.md`): no LICENSE file; idle tracks cost about 1.7 % each; the browser checks still repeat their own helpers and
+  assume the cloud sandbox's Playwright paths. (Paid off since: a fast smoke run, per-block math, tempo sync, MIDI input.)
 
 ## Where we stand on the broader landscape
 
@@ -50,12 +50,15 @@ production features; treat interoperability (OSC, MIDI, Pd, Link) as reach inste
 
 **Now: in today's TypeScript code, no platform risk.**
 
-1. **Pick the license** and add the file.
-2. **Test hygiene** (`TASKS.md`): a fast smoke set and a full browser run; checks read the node registry instead of hard-coded lists.
-3. **Per-block parameter reads** in the engine (`TASKS.md`, "audio-rate math is dear"): cheaper heavy patches now, and the shape
-   the Rust engine needs anyway.
-4. **MIDI input with MIDI learn** (`TASKS.md`, F4): makes Panels playable, and is the first bridge.
-5. **Tempo-synced delay times** (`TASKS.md`): small, makes the examples tempo-proof.
+1. **Pick the license** and add the file. *(open)*
+2. ~~Test hygiene~~ **done**: `npm run check:smoke` (about 45 s) and `npm run check:browser` (all, about 3 minutes); lists and counts the app
+   knows come from `docs/browser-checks/registry.mjs`.
+3. ~~Per-block parameter reads~~ **done**: math nodes read their settings once per block, about 2.4 times cheaper each, output identical to
+   the bit.
+4. ~~MIDI input with MIDI learn~~ **done**: keys play the selected track, controllers are learned on the panel (see `ARCHITECTURE.md`,
+   "MIDI input"). Follow-ups in `TASKS.md`.
+5. ~~Tempo-synced delay times~~ **done, with note sync**: Delay and Ping-pong in beats, the filter's *Key track*, and a *Comb* tuned to the
+   note; the examples' echoes now follow the tempo.
 
 **Next: two spikes that decide the platform.**
 

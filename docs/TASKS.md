@@ -7,8 +7,8 @@ Things we have decided are worth doing but have not started. Newest first. Move 
 
 Not nodes (the next batch of nodes is in [`IDEAS-nodes-and-controls.md`](IDEAS-nodes-and-controls.md), "Next batch").
 
-1. **MIDI input** (F4): a MIDI keyboard for notes (Web MIDI), CC mapped to control nodes with MIDI learn. Makes the panel playable. Needs
-   a decision on where learned mappings live (on the node, like `panel`, is the likely answer).
+1. **MIDI follow-ups.** Input is built (see `ARCHITECTURE.md`, "MIDI input"). Left: live notes through the note graph (an arpeggiator on a held
+   chord) and recording them into a clip; learning XY pad axes and the controls of a module where it is used; pitch bend and mod wheel.
 2. **Presets and snapshots** (F3): save the states of the controls and morph between two with an XY pad; pairs with Randomize and Mutate
    (a snapshot is also "keep this roll").
 3. **Drum machine design**: decide how a module holds or picks samples (a module use cannot carry a sampler's `sampleId` today), then build E5:

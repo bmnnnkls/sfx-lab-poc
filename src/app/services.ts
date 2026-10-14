@@ -1,4 +1,4 @@
-import { AudioHost } from '@audio'
+import { AudioHost, MidiInput } from '@audio'
 import type { EngineControls, ProjectFiles } from '@state'
 import { ProjectStorage, resolveBrowserStore, resolveSampleStorage } from '@storage'
 import { createEngineControls } from './engine-controls'
@@ -13,6 +13,7 @@ export interface Services {
   readonly engineControls: EngineControls
   readonly projectFiles: ProjectFiles
   readonly sampleLibrary: SampleLibraryService
+  readonly midiInput: MidiInput
 }
 
 /** Builds every long-lived object once, and restores the saved project before anything renders. */
@@ -26,5 +27,5 @@ export const createServices = (): Services => {
   const sampleStorage = resolveSampleStorage()
   const sampleLibrary = createSampleLibrary(sampleStorage, host)
   const projectFiles = createProjectFiles(storage, sampleStorage, engineControls)
-  return { host, storage, persistent, engineControls, projectFiles, sampleLibrary }
+  return { host, storage, persistent, engineControls, projectFiles, sampleLibrary, midiInput: new MidiInput() }
 }

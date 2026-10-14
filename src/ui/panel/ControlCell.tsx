@@ -22,6 +22,16 @@ export interface CellActions {
   dropped(draggedId: string): void
 }
 
+/** MIDI learn for a control that can take a controller (absent: it cannot, e.g. an indicator, or a control inside a module). */
+export interface CellMidi {
+  /** "CC 21" (or "CC 21 ch 2") when bound. */
+  readonly label?: string
+  readonly learning: boolean
+  /** Start learning (or stop, when already learning). */
+  learn(): void
+  forget(): void
+}
+
 interface ControlCellProps {
   item: PanelItem
   modules: ModuleLibrary
@@ -34,6 +44,7 @@ interface ControlCellProps {
   last: boolean
   onSet(changes: readonly ParamChange[]): void
   actions: CellActions
+  midi?: CellMidi
 }
 
 const NEXT_SIZE: Record<ControlSize, ControlSize> = { S: 'M', M: 'L', L: 'S' }
@@ -65,7 +76,7 @@ const RenameField = ({ name, placeholder, onCommit }: { name: string; placeholde
 }
 
 /** A control node on the board: the widget for its kind, writing the node's own value, with the edit tools around it in edit mode. */
-export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions }: ControlCellProps) => {
+export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions, midi }: ControlCellProps) => {
   const [over, setOver] = useState(false)
   const { node } = item
   const shape = describeNode(node, modules)
@@ -91,6 +102,7 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
       data-editing={editing || undefined}
       data-drop={over || undefined}
       data-testid={`control-${node.id}`}
+      data-learning={midi?.learning || undefined}
       onDragOver={onDragOver}
       onDragLeave={() => setOver(false)}
       onDrop={(event) => {
@@ -103,6 +115,11 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
       }}
     >
       <div className={styles.widget}>{widget}</div>
+      {midi?.label && !editing && (
+        <span className={styles.midiBadge} title={`Moved by MIDI ${midi.label}`}>
+          {midi.label}
+        </span>
+      )}
       {editing && item.via && (
         <div className={styles.tools}>
           <span className={styles.hint} data-tooltip="This control is inside a module: move, size, hide and rename it in the module (Edit on its card). Its value here is this use's own.">
@@ -136,6 +153,21 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
           {item.kind === 'slider' && (
             <button aria-label={`Turn ${title} ${item.horizontal ? 'upright' : 'sideways'}`} onClick={() => actions.setHorizontal(!item.horizontal)}>
               {item.horizontal ? '↕' : '↔'}
+            </button>
+          )}
+          {midi && (
+            <button
+              aria-label={midi.learning ? `Stop learning MIDI for ${title}` : `Learn MIDI for ${title}`}
+              aria-pressed={midi.learning}
+              title={midi.learning ? 'Move a knob, fader or button on your controller (click to cancel)' : midi.label ? `${midi.label}: click, then move another controller to change it` : 'Click, then move a knob, fader or button on your MIDI controller'}
+              onClick={midi.learn}
+            >
+              {midi.learning ? 'MIDI…' : (midi.label ?? 'MIDI')}
+            </button>
+          )}
+          {midi?.label && (
+            <button aria-label={`Forget MIDI for ${title}`} title="Forget the controller" onClick={midi.forget}>
+              ⊘
             </button>
           )}
           <button aria-label={`Hide ${title}`} title="Hide from the panel (it stays in the graph)" onClick={actions.hide}>

@@ -6,7 +6,7 @@ When an item ships, document it in `ARCHITECTURE.md`, then tick or delete it her
 **How to read it.** Each item has an ID (reply with "A1, C1–C4, G2"), a value (★ to ★★★) and a rough cost (S: a node and its
 tests; M: a node plus new plumbing, or several nodes; L: a new subsystem). `?` marks something not verified against the code.
 
-**Built (marked ✓ in the tables)**: A1 to A4, B0 to B3, C1 to C4 and C10 to C13, D1 with G1, G2 and G4, E1, F1 and F2. What differs from the lists, and what it
+**Built (marked ✓ in the tables)**: A1 to A4, B0 to B3, C1 to C4 and C10 to C13, D1 with G1, G2 and G4, E1, F1, F2 and F4 (MIDI input, see `ARCHITECTURE.md`). What differs from the lists, and what it
 left behind:
 
 * **A3 (push button)** is the Switch's `trigger` mode; "latch" is not a separate mode, since a toggle plus the *Flip-flop* (C11) is a latch.
@@ -135,7 +135,7 @@ entry in the quick-add picker would surface them (E8).
 | F1 ✓ | **Randomize / mutate**, jsfxr-style: re-roll parameters within their ranges, with a seed and a lock per control. | ★★★ | M |
 | F2 ✓ | **Export to WAV** (offline render of the current patch or clip). Batch export of variations is not built. | ★★★ | M |
 | F3 | Control presets / snapshots, with morphing between two via an XY pad. | ★★ | M |
-| F4 | Web MIDI input: CC into control nodes, MIDI learn on panel controls, MIDI keyboard for notes. | ★★ | M |
+| F4 ✓ | Web MIDI input: CC into control nodes, MIDI learn on panel controls, MIDI keyboard for notes. | ★★ | M |
 | F5 | Automation: record a control's movements. | ★★ | M |
 | F6 | Wire colours by kind; a probe that shows a wire's current value. | ★★ | S |
 | F7 | Comment and frame nodes; align; duplicate. | ★ | S |

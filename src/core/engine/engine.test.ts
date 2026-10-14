@@ -184,3 +184,31 @@ describe('Engine audition', () => {
     expect(peak(render(engine, 1000).left)).toBe(0)
   })
 })
+
+describe('Engine live notes (a MIDI keyboard)', () => {
+  it('holds a note for as long as the key is down, transport stopped, and lets it go on note-off', () => {
+    const { engine } = setup()
+    engine.apply({ type: 'track/noteOn', trackId: 't', pitch: 69, velocity: 1 })
+    render(engine, 48000 * 2)
+    expect(engine.status().playing).toBe(false)
+    expect(peak(render(engine, 4800).left)).toBeGreaterThan(0.01) // still sounding after two seconds: no audition timeout
+    engine.apply({ type: 'track/noteOff', trackId: 't', pitch: 69 })
+    render(engine, 48000 * 6)
+    expect(peak(render(engine, 4800).left)).toBeLessThan(1e-3)
+  })
+
+  it('plays chords: each key is its own voice', () => {
+    const { engine } = setup()
+    engine.apply({ type: 'track/noteOn', trackId: 't', pitch: 60, velocity: 1 })
+    engine.apply({ type: 'track/noteOn', trackId: 't', pitch: 64, velocity: 1 })
+    engine.apply({ type: 'track/noteOff', trackId: 't', pitch: 60 })
+    render(engine, 48000)
+    expect(peak(render(engine, 4800).left)).toBeGreaterThan(0.01) // 64 is still held
+  })
+
+  it('ignores an unknown track', () => {
+    const { engine } = setup()
+    engine.apply({ type: 'track/noteOn', trackId: 'nope', pitch: 60, velocity: 1 })
+    expect(peak(render(engine, 1000).left)).toBe(0)
+  })
+})
