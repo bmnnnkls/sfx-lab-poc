@@ -1,10 +1,10 @@
-# Explorations: GPU sound, MIDI models, a Rust engine, collaboration
+# Explorations: GPU sound, MIDI models, a Rust engine, collaboration, version control
 
-Notes from four "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
+Notes from five "what if" conversations, kept so the reasoning is not lost. Nothing here is decided or started; unlike
 `IDEAS-nodes-and-controls.md` these are directions, not a pick list. Each section ends with the cheapest first step. When one
 is taken, record it in `ARCHITECTURE.md` and update the section here.
 
-The constraints all four keep running into come from the architecture, and they are also what makes each one feasible:
+The constraints all five keep running into come from the architecture, and they are also what makes each one feasible:
 
 * **The engine is a facade behind a tiny protocol.** The UI only sends `EngineCommand`s and receives `EngineStatus`
   (`core/engine/commands.ts`, `audio/protocol.ts`); `audio/audio-host.ts` (~60 lines) is the only thing that knows a worklet exists.
@@ -124,6 +124,15 @@ hosting VST3/CLAP plugins; shipping the engine *as* a CLAP/VST plugin (`nih-plug
 large sample libraries on disk; the model and GPU ideas natively (`candle`, `ort`, `wgpu`). Before that, WASM SIMD and threads
 (with cross-origin isolation) raise the browser ceiling a long way.
 
+**Why not all Rust, UI included?** A native Rust UI (egui, iced, Slint, vizia) means rewriting the UI and state (~8k lines
+plus ~2.7k of CSS) and the rest of `core` too (project model, `diffProject`, persistence, undo): about 25k lines, against ~8k
+for the engine alone. It also loses the React iteration speed and the Playwright browser checks. Its one strong argument is
+shipping the whole app as a VST3/CLAP plugin (`nih-plug` with egui or vizia). egui also compiles to WASM, so a browser build
+would survive, but text, styling and accessibility are rougher than the web's, and the node graph, piano roll and knobs would
+all be hand-drawn. Collaboration (section 4) argues against it: phones joining a jam are browsers anyway, so a web UI would
+be needed regardless, and there would be two UIs. **Decision: Rust where it pays (the engine), the web where it is strong
+(the UI).** Porting the engine first is right either way; the crate is the same if a plugin build ever wins.
+
 **Cost:** weeks, not days. **First step:** one expensive node in Rust/WASM, compared against its TypeScript version.
 
 ---
@@ -161,15 +170,72 @@ each. No server, but it exercises edits, permissions and broadcast end to end.
 
 ---
 
-## Suggested order across all four
+## 5. Version control (git-backed projects)
+
+**What already helps.** Projects are JSON (`serializeProject`, optional pretty-print). Every entity (track, node, clip, module,
+sample) has a stable ID, so merges can match by ID rather than by position. Every load goes through `parseProject`
+(migrate, then sanitize), so checking out an old commit just works and a messy merge result is repaired (a send to a deleted
+return, say). Samples are identified by content hash (`storage/hash.ts`), as git stores content. And deterministic rendering
+makes the best feature possible: listening to a diff.
+
+**Why committing `project.sfxlab.json` as-is is not enough.** Diffs are noisy: canvas moves rewrite coordinates and slider
+drags leave long floats, so musical changes drown in layout. Git's line merge does not understand the structure: two people
+editing different tracks still collide in the same arrays, and the result can be invalid JSON or musically wrong. Samples
+are binary and grow the repository.
+
+**Making it work well.**
+
+1. **A git-friendly folder layout.** Lists become maps keyed by ID plus an explicit order list; keys sorted, floats rounded;
+   canvas positions kept apart. Git's own line merge then mostly succeeds.
+   ```
+   project.json            name, tempo, scenes, track order
+   tracks/<id>/track.json  volume, pan, sends
+   tracks/<id>/instrument.json, fx.json, notes-graph.json
+   tracks/<id>/clips/<id>.notes   one note per line: "n_x8k 36 0.000 0.500 100"
+   modules/<id>.json
+   layout.json             canvas positions only, so they do not clutter musical diffs
+   samples/<hash>.wav      or Git LFS, or kept outside the repo and referenced by hash
+   ```
+2. **A merge on the project model.** Three-way merge by ID over tracks, nodes, wires, notes and parameters. A real conflict
+   is "you both changed the Bass cutoff", resolved by picking a side, then `sanitizeProject` cleans up. `core` runs in Node, so
+   the same code is a small CLI usable as a **git merge driver** (`.gitattributes: *.sfx merge=sfxlab`), and git merges
+   projects correctly from the command line too.
+3. **Readable diffs.** A diff driver summarizes a change as "Bass: cutoff 800 → 1200, +3 notes in clip 2; new return *Plate*".
+4. **Listening to diffs.** Render both versions with `renderProject` and switch between them, or subtract one from the other to
+   hear only what changed: `git bisect` for "when did the kick get muddy?". Few DAWs can offer this.
+
+**Where git runs.**
+
+* **The user's own git (simplest).** Chromium's File System Access API lets the app open a folder and read and write the
+  layout above; the user commits with their own tools and the app has no git code. Not in Firefox or Safari.
+* **Git in the browser:** `isomorphic-git` with IndexedDB storage. Pushing to GitHub needs a CORS proxy (GitHub's git HTTP
+  endpoint does not allow browser requests).
+* **Straight to GitHub:** the REST API's Git Data endpoints do allow browser requests and can commit a tree with an OAuth or
+  fine-grained token, no git client involved.
+* **Tauri:** `git2-rs` or the system git.
+
+**In the app, in music words:** versions (commits) on a timeline, takes or variations (branches), compare (switch between two
+versions while listening), combine (merge). It can start without git: a local, content-addressed version store in IndexedDB
+next to undo and autosave, pushed to a real repository later.
+
+**Link to collaboration:** git is working together at different times, section 4 is working together live. Both need the
+same ID-based three-way merge, so building it once serves both.
+
+**First steps, in order:** the folder layout plus "Open folder" (bring your own git); the diff and merge CLI as git drivers; a
+Versions panel with listen-to-compare; push and pull from the app (`isomorphic-git` or the GitHub API).
+
+---
+
+## Suggested order across all five
 
 1. Port one or two expensive nodes to Rust/WASM (faster browser, de-risks section 3).
 2. GPU bake to sample: modal bank and sound shader (section 1).
 3. MusicVAE / n-gram, then a small trained model as a note-graph node (section 2).
-4. Multi-window collaboration over `BroadcastChannel`, then a WebSocket relay with Panel permissions (section 4).
-5. A Tauri master with the native engine and the collaboration server built in.
+4. The git-friendly folder layout with "Open folder", then the ID-based merge as a git driver (section 5).
+5. Multi-window collaboration over `BroadcastChannel`, then a WebSocket relay with Panel permissions (section 4), reusing the merge.
+6. A Tauri master with the native engine and the collaboration server built in.
 
-Steps 1–4 each improve the browser version on their own, so step 5 stays optional.
+Steps 1–5 each improve the browser version on their own, so step 6 stays optional.
 
 ## References
 
@@ -177,3 +243,4 @@ Steps 1–4 each improve the browser version on their own, so step 5 stays optio
 * Aria (EleutherAI): <https://arxiv.org/abs/2506.23869>, <https://github.com/EleutherAI/aria>
 * MidiTok: <https://github.com/Natooz/MidiTok>
 * Magenta.js (MusicRNN, MusicVAE): <https://github.com/magenta/magenta-js>
+* isomorphic-git: <https://isomorphic-git.org/>
