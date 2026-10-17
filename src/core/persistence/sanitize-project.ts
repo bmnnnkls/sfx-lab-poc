@@ -1,3 +1,4 @@
+import { sanitizeLibraryOrigins } from './sanitize-library-origins'
 import { sanitizePresetFields } from './sanitize-presets'
 import { sanitizeAutomationSlots } from './sanitize-automation-slots'
 import { sanitizeMidiMappings } from './sanitize-midi-mappings'
@@ -140,10 +141,12 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, sampleIds, modules, warn))
     .filter((track): track is Track => track !== null)
 
+  const libraryOrigins = sanitizeLibraryOrigins(raw.libraryOrigins, warn)
   const controlValues = sanitizeControlValues(raw.controlValues, warn)
   const midiMappings = sanitizeMidiMappings(raw.midiMappings, warn)
   return {
     ...sanitizePresetFields(raw, sampleIds, warn),
+    ...(libraryOrigins && { libraryOrigins }),
     ...(controlValues && { controlValues }),
     ...(midiMappings && { midiMappings }),
     name: nonEmptyText(raw.name, 'Untitled', MAX_NAME_LENGTH),

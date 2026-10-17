@@ -73,6 +73,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `session` | clip launching: a shared quantized `LaunchQueue`, the MIDI `ClipLauncher` (note events) and `AudioClipLauncher` (start/stop events) | `ClipLauncher`, `AudioClipLauncher` |
 | `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` (also the channel strips: fader, pan, mute/solo, meters), and the offline bounce built on it | `Engine`, `EngineCommand`, `EngineStatus`, `renderProject`, `Bounce` |
 | `automation` | clip lane edits, bounds, normalized evaluation and runtime compilation | `AutomationLane`, `setClipAutomation`, `compileAutomation`, … |
+| `library` | storage-independent catalog/folders, dependency closure, asset/clip insertion, portable lanes and isolated preview documents | `captureLibraryAsset`, `insertLibraryAsset`, `captureLibraryClip`, `insertLibraryClip`, … |
 | `preset` | scoped snapshots, immutable asset revisions, project presets, sample-instance bindings and recall/morph | `captureSnapshot`, `recallSnapshot`, `saveProjectPreset`, `recallProjectPreset`, … |
 | `sync` | diffs two `Project`s into `EngineCommand`s | `diffProject` |
 | `sample` | sample metadata/data types, engine-side `SampleBank`, mono mixdown, peaks, WAV encoder (mono, stereo, 16-bit or 32-bit float), demo samples | `SampleInfo`, `SampleData`, `SampleBank`, `createDemoSamples`, … |
@@ -145,7 +146,7 @@ undo restores its starting value. Shared-definition panels keep the graph editor
 `EffectiveValue` outputs show active Read/override values, show the base in a tooltip and provide re-enable/release. The pure
 `effectiveControlReadouts` helper returns only active compatible overrides rather than every parameter on every frame.
 
-This control foundation is reused by MIDI and clip automation below. Snapshots and project presets ship in slice 4 below; library insertion remains future work. Touch recording is described below. Manual overrides reach the engine through main-thread commands; lane evaluation follows its beat clock.
+This control foundation is reused by MIDI and clip automation below. Snapshots and project presets ship in slice 4 below; library insertion ships in slice 5 below. Touch recording is described below. Manual overrides reach the engine through main-thread commands; lane evaluation follows its beat clock.
 The existing panel shows directly nested controls; deeper paths are supported by the control API and saved values,
 while opening a module definition still edits the shared definition deliberately.
 
@@ -155,9 +156,9 @@ while opening a module definition still edits the shared definition deliberately
 normalized evaluation and compilation against current control specs. Clip lanes address only their own track's
 instrument, note graph, insert effects or mixer. Missing/wired targets stay in the document with feedback and do
 not acquire runtime ownership. Group/unlink remap lane paths together with instance values and MIDI mappings.
-Return/master slots arrived in format **v5** (clip lanes in v4; current format v6 adds saved sounds below): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
+Return/master slots arrived in format **v5** (clip lanes in v4; v6 adds saved sounds; current format v7 adds library origins below): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
 2048 points per lane, bounded IDs/paths and finite numbers. The explicit v3→v4 migration drops formerly unknown
-lane data; v4→v5 drops formerly unknown return/master slot fields. Committed v1–v6 fixtures cover compatibility. Saved bases remain authored values.
+lane data; v4→v5 drops formerly unknown return/master slot fields. Committed v1–v7 fixtures cover compatibility. Saved bases remain authored values.
 
 Each point holds a normalized value and linear/hold interpolation to the next point. Points are sorted, equal
 times collapse with last input winning, and the valid time interval is [0, clip length]. Before/after the point
@@ -356,8 +357,8 @@ copy (**Unlink**). Modules nest.
   patcher (breadcrumb to go back out, nesting works), with a name field, where it is used, and **Ports & knobs**:
   tick any inner port or parameter to show it on the module, and name it. The node picker lists the project's modules under *Modules*.
   Changes go through the same undo history; slider drags merge into one step.
-* **Limits.** Selected nodes are not dragged together. There is no module library outside the project yet, so
-  sharing between projects means copying the file (see `docs/TASKS.md`). Cycle detection on the outer patch treats a
+* **Limits.** Selected nodes are not dragged together. The personal library now copies full instrument/effect module
+  closures between local projects (slice 5 below); standalone module-only catalog items are not exposed. Cycle detection on the outer patch treats a
   module as one node (any input may reach any output), which can refuse a wiring that would in fact be fine.
 
 ## The note graph (MIDI effects)
@@ -1374,8 +1375,7 @@ sample IDs. Graph nodes embed panel presentation. Opaque revision IDs are distin
 compatibility ignores sound values, samples, labels and positions, while graph topology, module interfaces, control
 configuration, stereo/bypass and voice settings participate. A preset stores control/sample state referencing a compatible
 revision and can recall into another owner with identical graph identities. External track-routing nodes are refused;
-clips, mixer routing and hardware mappings never enter assets/presets. Catalog insertion/remapping and bundle exchange
-remain slices 5–6. `projectSampleDependencies` includes saved presets/revisions separately from playback `usedSampleIds`.
+clips, mixer routing and hardware mappings never enter assets/presets. Catalog insertion/remapping ships in slice 5 below; bundle exchange remains slice 6. `projectSampleDependencies` includes saved presets/revisions separately from playback `usedSampleIds`.
 
 `Project.sampleBindings` guards owner/domain/nested use identities and sampler type. Missing bindings inherit node
 `sampleId` defaults, null explicitly silences a use. `projectWithSampleBindings` flattens affected graphs in the transient
@@ -1404,3 +1404,59 @@ group/unlink, Read/Touch atomic steps and lane-limit rejection, scope/scale/disc
 parsing/migrations. Production smoke saves/recalls/undoes/reloads two sounds and inspects morph UI. Real-output tests
 recall numeric and sampled presets; two shared sample-instrument uses with different samples survive fresh reload and
 match offline output within 0.00002 amplitude. Physical MIDI hardware remains untested.
+
+
+## Personal library catalog, independent copies and preview (slice 5)
+
+`core/library` owns `LibraryCatalog` (schema v1), folders, mixed item contents and pure edits. Item IDs survive names
+and folder moves. Instruments/audio effects/note effects reference immutable `AssetRevision` payloads plus a saved
+`ProjectPreset` current state. Associated preset items are first-class catalog entries referencing the same revision.
+Capture includes compatible presets for the selected owner, transitive modules, node defaults, per-use sample bindings
+and every associated preset's sample choices. Missing modules/samples and external send/track taps are errors; cycles
+are refused. Catalog folders/items cap at 1024/4096. Deletion is recursive recoverable trash. Restore makes the parent
+path visible. Revisions and hash blobs are never automatically collected, preserving project references and undo.
+
+`insertLibraryAsset` creates a new instrument track or replaces an explicit compatible graph. It remaps nodes, wires,
+module definitions, nested interfaces, derived exposed port/knob IDs and all their references, automatic module-control
+keys, guarded target paths, per-instance overrides, preset states and fresh revision signatures. Interfaces must be
+remapped because the project parser reconstructs their IDs from inner identities. Audio effects require the correct
+track/return/master input boundary. Instruments replace patch+noteGraph+voices; effects replace only their domain.
+Existing clips/mixer/MIDI mappings retain their authored state and unavailable old targets remain diagnosable. No
+external project routing is imported. Immutable copies never resolve through library IDs at playback.
+
+`captureLibraryClip` stores MIDI notes or full audio state and owner-relative lanes. Graph lanes carry a flattened
+node-order/topology/control-configuration signature and flattened node index; compatible destinations enumerate a fresh
+guarded target, while mixer volume/pan remain owner-relative. Sends, taps and cross-owner targets are refused.
+Insertion refreshes note/clip/lane/point IDs, preserves audio trim/warp/fades/gain, and reports omitted incompatible
+lanes. Different flattened node order is deliberately considered incompatible. Occupied slots require explicit replace.
+Sample catalog items reference the same hash metadata/blob; no duplicate audio bytes are written for a folder copy.
+
+`storage/library-database` opens **sfxlab v2** for both catalog and sample adapters. Upgrade adds `catalog` without
+recreating `samples`. Connections close/reset on `versionchange`; blocked legacy tabs produce a close-and-retry error.
+`storage/library-storage` stores the catalog snapshot at `current`. Each read/write transaction reads the latest
+catalog and invokes a synchronous edit before queuing catalog and optional sample writes; concurrent connections
+serialize rather than overwrite stale snapshots. Promises resolve only on `transaction.complete`, and reject on
+abort/quota, including after successful requests. The sample adapter now has the same completion guarantee. There is
+an in-memory adapter for storage-less environments. No catalog import surface is exposed; bundle validation is slice 6.
+
+`app/library` bridges storage to the document via `state/PersonalLibrary`; successful insertion commits once to project
+history. Saves and catalog edits do not change that history. Missing bytes are preflighted before save/load. Project
+format **v7** adds optional bounded `libraryOrigins` (4096 records, ID fields 256 characters), known-field rebuilding,
+an explicit v6→v7 migration dropping formerly unknown origin fields and a committed v7 fixture. Origins are informational
+and never linked updates. Loaded project revisions/presets/sample metadata are self-contained for reload/package export.
+
+`libraryPreviewProject` creates a temporary project with a test note/tone and the appropriate effect input. `app/library`
+renders it through a fresh `Bounce`/`Engine`, decodes its own samples and plays the bounded result on a separate
+AudioContext/source. Generation tokens cancel asynchronous decoding/rendering; navigation stops/disconnects sources
+and closes contexts, including before source start. Preview does not use the project engine, transport, history or
+autosave. `app/library-service` and `ui/library/LibraryPanel` load on demand to keep production chunks below the existing
+warning limit. The Library panel provides folder navigation, mixed lists, search/type filters, dependency/sample detail,
+explicit save/insert/replace, preview and recoverable trash controls.
+
+Verification covers full nested interface/control/sample remapping and preset recalls after reload, independent project
+package export after catalog changes/deletion, one-step insertion undo, duplicate names/cycles, conservative retention,
+quota and interrupted-request rollback, cross-connection serialization, legacy tab blocking and version-change closure.
+Production browser checks exercise folders/presets/trash/reload, blocked upgrade recovery and preview cancellation/resource
+release. Real worklet output for an inserted sampled asset after trash/reload matches offline within 0.00002 amplitude;
+existing capture readiness and finite-window checks remain. No physical MIDI hardware was tested. Bundle exchange,
+tempo polish, orphan cleanup, drag/drop and automatic linked updates remain outside this slice.

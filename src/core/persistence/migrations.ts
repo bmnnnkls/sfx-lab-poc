@@ -5,6 +5,11 @@ type Migration = (project: unknown) => unknown
 
 /** `MIGRATIONS[n]` upgrades the `project` payload from format version n to n + 1. */
 const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  6: (project) => {
+    if (!isRecord(project)) return project
+    const { libraryOrigins: _unknown, ...authored } = project
+    return authored
+  },
   5: (project) => {
     if (!isRecord(project)) return project
     const { snapshots: _snapshots, sampleBindings: _samples, assetRevisions: _assets, presets: _presets, ...authored } = project

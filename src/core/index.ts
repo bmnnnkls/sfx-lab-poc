@@ -16,3 +16,5 @@ export * from './control'
 export * from './midi'
 export * from './automation'
 export * from './preset'
+
+export * from './library'

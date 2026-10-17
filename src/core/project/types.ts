@@ -139,6 +139,7 @@ export interface MasterBus {
 
 /** The saveable document. Everything the user authors lives here. */
 export interface Project {
+  readonly libraryOrigins?: readonly import('../library').LibraryOrigin[]
   readonly snapshots?: readonly Snapshot[]
   readonly sampleBindings?: readonly SampleBinding[]
   readonly assetRevisions?: readonly AssetRevision[]

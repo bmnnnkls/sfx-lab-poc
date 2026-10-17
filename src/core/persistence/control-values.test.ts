@@ -15,7 +15,7 @@ describe('v2 control value persistence', () => {
     expect(loaded.warnings).toEqual([])
     expect(loaded.project.controlValues).toHaveLength(1)
     expect(read(serializeProject(loaded.project)).project).toEqual(loaded.project)
-    expect(JSON.parse(serializeProject(loaded.project)).version).toBe(6)
+    expect(JSON.parse(serializeProject(loaded.project)).version).toBe(7)
   })
   it('drops malformed/nonfinite entries with warnings and bounds the collection', () => {
     const raw = JSON.parse(fixture)

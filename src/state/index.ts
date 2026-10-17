@@ -28,3 +28,5 @@ export { editAutomationSlot, editOwnerAutomation } from './automation-store'
 
 export * from './touch-store'
 export * from './preset-actions'
+
+export * from './library'

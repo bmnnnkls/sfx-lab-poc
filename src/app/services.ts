@@ -1,3 +1,5 @@
+import { createDeferredPersonalLibrary } from './library-service'
+import { createLibraryStorage, createMemoryLibraryStorage } from '@storage'
 import { createMidiInput } from './midi-input'
 import { AudioHost } from '@audio'
 import type { EngineControls, ProjectFiles } from '@state'
@@ -8,6 +10,7 @@ import { restoreSavedProject } from './restore-project'
 import { type SampleLibraryService, createSampleLibrary } from './sample-library'
 
 export interface Services {
+  readonly library: ReturnType<typeof createDeferredPersonalLibrary>
   readonly midi: ReturnType<typeof createMidiInput>
   readonly host: AudioHost
   readonly storage: ProjectStorage
@@ -26,8 +29,9 @@ export const createServices = (): Services => {
   const host = new AudioHost()
   const engineControls = createEngineControls(host)
   const sampleStorage = resolveSampleStorage()
+  const library = createDeferredPersonalLibrary(typeof indexedDB === 'undefined' ? createMemoryLibraryStorage() : createLibraryStorage(), sampleStorage)
   const sampleLibrary = createSampleLibrary(sampleStorage, host)
   const projectFiles = createProjectFiles(storage, sampleStorage, engineControls)
   const midi = createMidiInput(engineControls, undefined, () => { void host.start() })
-  return { host, storage, persistent, engineControls: { ...engineControls, stop: () => { midi.releaseNotes(); engineControls.stop() }, panic: midi.panic }, projectFiles, sampleLibrary, midi }
+  return { library, host, storage, persistent, engineControls: { ...engineControls, stop: () => { midi.releaseNotes(); engineControls.stop() }, panic: midi.panic }, projectFiles, sampleLibrary, midi }
 }

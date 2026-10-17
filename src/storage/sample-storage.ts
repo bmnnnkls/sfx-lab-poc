@@ -1,3 +1,4 @@
+import { openLibraryDatabase, transactionDone } from './library-database'
 /** Where the original bytes of imported sample files live, keyed by content hash. */
 export interface SampleStorage {
   /** False when nothing survives a reload (storage unavailable). */
@@ -29,32 +30,24 @@ const request = <T>(operation: IDBRequest<T>): Promise<T> =>
 
 /** IndexedDB-backed storage: large binary values, survives reloads, shared by all projects. */
 export const createIndexedDbSampleStorage = (databaseName = 'sfxlab'): SampleStorage => {
-  let opened: Promise<IDBDatabase> | null = null
-
-  const open = (): Promise<IDBDatabase> => {
-    opened ??= new Promise((resolve, reject) => {
-      const opening = indexedDB.open(databaseName, 1)
-      opening.onupgradeneeded = () => opening.result.createObjectStore(STORE)
-      opening.onsuccess = () => resolve(opening.result)
-      opening.onerror = () => reject(opening.error ?? new Error('Could not open IndexedDB'))
-    })
-    // Allow a retry next time if opening failed.
-    opened.catch(() => (opened = null))
-    return opened
+  const open = openLibraryDatabase(databaseName)
+  const operate = async <T>(mode: IDBTransactionMode, operation: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> => {
+    const tx = (await open()).transaction(STORE, mode)
+    const done = transactionDone(tx)
+    const result = request(operation(tx.objectStore(STORE)))
+    const [value] = await Promise.all([result, done])
+    return value
   }
-
-  const store = async (mode: IDBTransactionMode) =>
-    (await open()).transaction(STORE, mode).objectStore(STORE)
 
   return {
     persistent: true,
-    has: async (id) => (await request((await store('readonly')).count(id))) > 0,
+    has: async (id) => (await operate('readonly', store => store.count(id))) > 0,
     get: async (id) => {
-      const value = await request((await store('readonly')).get(id))
+      const value = await operate('readonly', store => store.get(id))
       return value instanceof Uint8Array ? value : undefined
     },
-    put: async (id, bytes) => void (await request((await store('readwrite')).put(bytes, id))),
-    delete: async (id) => void (await request((await store('readwrite')).delete(id))),
+    put: async (id, bytes) => void (await operate('readwrite', store => store.put(bytes, id))),
+    delete: async (id) => void (await operate('readwrite', store => store.delete(id))),
   }
 }
 

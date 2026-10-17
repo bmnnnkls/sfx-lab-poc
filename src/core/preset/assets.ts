@@ -11,16 +11,17 @@ export const captureAsset = (project: Project, scope: SnapshotScope): AssetPaylo
   if (scope.domain === 'track') throw new Error('Choose Instrument, Effects or Notes for a preset')
   const graph = controlGraph(project, scope.owner, scope.domain)
   if (!graph) throw new Error('This owner has no selected graph')
-  const modules: ModuleDefinition[] = [], seen = new Set<string>(), samples = new Set<string>()
+  const modules: ModuleDefinition[] = [], seen = new Set<string>(), visiting = new Set<string>(), samples = new Set<string>()
   const walk = (patch: Patch) => {
     for (const node of patch.nodes) {
       if (['send', 'trackAudio', 'trackNotes'].includes(node.type)) throw new Error('Presets require graphs without external track routing')
       if (node.sampleId) samples.add(node.sampleId)
+      if (node.type === 'module' && node.moduleId && visiting.has(node.moduleId)) throw new Error('Cyclic module dependency')
       if (node.type === 'module' && node.moduleId && !seen.has(node.moduleId)) {
         seen.add(node.moduleId)
         const module = project.modules.find(m => m.id === node.moduleId)
         if (!module) throw new Error('A module dependency is missing')
-        modules.push(module); walk(module.patch)
+        visiting.add(module.id); modules.push(module); walk(module.patch); visiting.delete(module.id)
       }
     }
   }

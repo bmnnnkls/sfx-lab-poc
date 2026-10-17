@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type EditorTab = 'device' | 'fx' | 'notes' | 'clip' | 'samples' | 'mixer' | 'presets'
+export type EditorTab = 'device' | 'fx' | 'notes' | 'clip' | 'samples' | 'mixer' | 'presets' | 'library'
 
 interface SelectionState {
   readonly trackId: string | null

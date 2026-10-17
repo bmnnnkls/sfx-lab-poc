@@ -203,8 +203,7 @@ shared definitions; **Use shared default** removes the binding. Root sampler pro
 Instrument presets also capture note-graph controls; audio/note effect presets capture only their selected graph.
 Assets carry graph/panel/voice/module/sample payloads. Values and samples may change within a compatible revision;
 topology, control configuration, stereo/bypass and instrument voice settings require a new revision. Names and canvas
-positions do not affect compatibility. An existing compatible graph may belong to another owner. Asset insertion,
-ID remapping and library storage remain later work. External track-routing nodes are refused on preset save/recall;
+positions do not affect compatibility. An existing compatible graph may belong to another owner. Library insertion now remaps the complete dependency closure as described below. External track-routing nodes are refused on preset save/recall;
 presets never capture mixer sends or MIDI assignments. Missing samples/targets produce explicit partial-recall reports.
 
 Normal recall updates bases, releases the recalled controls' temporary overrides, leaves authored lanes unchanged and
@@ -245,6 +244,39 @@ sample blobs. Folder deletion does not delete bytes still referenced by projects
 conservative retention; add explicit orphan cleanup only after reference accounting is reliable. Storage failure must
 leave the previous catalog intact and show an actionable error. Library operations have their own undo/restore scope,
 separate from project history; loading into a project remains one project undo step.
+
+### Shipped slice 5 defaults
+
+The **Library** tab saves instrument+notes, audio effects or note effects from the explicitly chosen scope, together
+with compatible embedded presets for that owner. Save creates a new item/revision; duplicate names are valid. Folders
+and items use opaque IDs; folders cap at 1024 and items at 4096. Presets can be browsed independently and retain their
+asset association. Rename/move/duplicate and recursive trash/restore are separate from project undo. Trash retains
+revisions, metadata and all sample blobs; no orphan cleanup is offered.
+
+Load explicitly inserts a new instrument track or replaces the selected compatible graph (instrument loads also
+replace notes/voices). It does not replace clips, mixer routing or MIDI mappings. IDs and nested derived interfaces,
+preset controls and instance sample choices are remapped together. One insertion is one undo step. Format v7 embeds
+informational origins (at most 4096, ID fields at most 256 characters); playback, reload and project packages use the
+embedded project copies and shared hash blobs. Library edits/removal cannot update them automatically.
+
+Clip insertion requires the matching MIDI/audio track and an empty slot, unless Replace clip is chosen. MIDI clips
+leave the destination instrument unchanged. Portable lanes resolve against the destination's flattened node order,
+topology and control configuration, independent of source IDs; equivalent graphs with a different node order may be
+reported incompatible. Incompatible lanes are omitted with feedback, while compatible notes/audio state and lanes
+load. Project-specific send/cross-owner/tap lane targets cannot be saved. All audio trim, loop, warp, gain and fades
+are preserved. Sample items share existing content-hash bytes and show metadata plus audition.
+
+Instrument/effect preview renders a separate temporary engine document and audio context. Instruments/note effects
+receive a test note; audio effects receive a test tone using their track/return/master input boundary. No preview
+writes project history or autosave. Item/folder/filter/tab navigation cancels pending work and releases its audio
+resources. Asset graphs containing external sends/track taps are refused, including in nested modules; incompatible
+input boundaries are reported on replacement. No implicit routing ports or cross-project track matching are provided.
+
+The sfxlab IndexedDB schema is v2 with preserved `samples` and a transactional `catalog`. Catalog edits read current
+metadata in the serialized write transaction and acknowledge only transaction completion. Failure/abort leaves the
+previous catalog intact. Legacy tabs blocking upgrades must be closed before retry; current connections close on
+version changes. Missing sample metadata/bytes rejects a save/load before any project insertion. Storage quota errors
+ask the user to free browser storage and retry. Library UI/workflows load only when opened.
 
 ## Library bundles
 

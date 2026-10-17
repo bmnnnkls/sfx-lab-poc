@@ -4,9 +4,9 @@ import { test, expect, expectSaved } from './fixtures'
 import { slotSweepProject, sweepProject, sweepTarget } from './automation-project'
 
 declare global { interface Window { __sweepSamples: number[] } }
-for (const mode of ['clip', 'slots', 'touch', 'preset', 'sample-preset']) {
-const slots = mode === 'slots', touch = mode === 'touch', preset = mode === 'preset', samplePreset = mode === 'sample-preset'
-test(`the real worklet ${samplePreset ? 'recalled instance sample preset' : preset ? 'recalled project preset' : touch ? 'Touch take' : slots ? 'return/master slots' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
+for (const mode of ['clip', 'slots', 'touch', 'preset', 'sample-preset', 'library-preset']) {
+const slots = mode === 'slots', touch = mode === 'touch', preset = mode === 'preset', samplePreset = mode === 'sample-preset' || mode === 'library-preset', libraryPreset = mode === 'library-preset'
+test(`the real worklet ${libraryPreset ? 'independent library sample asset after trash/reload' : samplePreset ? 'recalled instance sample preset' : preset ? 'recalled project preset' : touch ? 'Touch take' : slots ? 'return/master slots' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
   let project: Project = slots ? slotSweepProject() : sweepProject()
   if (preset) {
     project = { ...project, tracks: project.tracks.map(t => t.kind === 'instrument' ? { ...t, clips: t.clips.map(c => c ? { ...c, automation: [] } : c) } : t) }
@@ -60,6 +60,22 @@ test(`the real worklet ${samplePreset ? 'recalled instance sample preset' : pres
     await page.getByRole('button', { name: 'Sounds', exact: true }).click()
     await page.getByRole('button', { name: 'Recall preset Different sample', exact: true }).click()
     await expectSaved(page)
+    if (libraryPreset) {
+      await page.getByRole('button', { name: 'Library', exact: true }).click()
+      const panel = page.getByRole('region', { name: 'Personal library' })
+      await panel.getByLabel('Library name', { exact: true }).fill('Reusable sampled voice')
+      await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+      await panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Reusable sampled voice/ }).click()
+      await panel.getByRole('button', { name: 'Replace selected graph', exact: true }).click()
+      await expect(panel.getByRole('status')).toContainText('copied into project')
+      await panel.getByRole('button', { name: 'Trash item + associated presets', exact: true }).click()
+      await expect(panel.getByLabel('Library items', { exact: true }).getByRole('button')).toHaveCount(0)
+      await expectSaved(page)
+      const saved = parseProject((await page.evaluate(() => localStorage.getItem('sfxlab:project')))!)
+      if (!saved.ok) throw new Error(saved.error)
+      expect(saved.project.libraryOrigins).toHaveLength(1)
+      expected = renderProject(saved.project, samples, { scope: { kind: 'scene', scene: 0 }, bars: 1, maxTail: 0 })
+    }
     // A fresh engine proves both persisted uses, without any previous sample tail.
     await page.reload()
     await page.getByRole('button', { name: 'Samples', exact: true }).click()

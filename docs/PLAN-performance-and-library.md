@@ -1,6 +1,6 @@
 # Implementation plan: performance and library
 
-Status: **slices 0–4 implemented; slices 5–7 planned**. Product behavior and draft defaults are defined in
+Status: **slices 0–5 implemented; slices 6–7 planned**. Product behavior and draft defaults are defined in
 [SPEC-performance-and-library.md](SPEC-performance-and-library.md). Work proceeds in order below; each slice should
 be independently reviewable and leave the existing examples/project files usable.
 
@@ -369,6 +369,47 @@ Exit: save two sounds, recall/undo/reload each, and reproduce a sample-based ins
 Graph mismatches report missing targets. Morphing respects logarithmic scales and discrete values.
 
 ## 5. Library catalog and folders
+
+Implemented 2026-10-18 on `codex/performance-and-library`, after slice 4 (`d853bce`).
+
+- **5a:** `core/library` defines storage-independent folders, mixed items, immutable asset revisions, associations,
+  dependency previews and pure copy/insertion rules. The Library tab has nested folders, duplicate names, search/type
+  filters, move/rename/duplicate, and recoverable recursive trash/restore. Saving a sound captures its current state and
+  all compatible embedded presets on that owner, with the full nested module/sample closure. Presets remain first-class
+  browsable items associated with their asset. Every save creates a fresh immutable revision; name matches never overwrite.
+- `storage/library-database` coordinates **sfxlab database v2**, adding the catalog store in place and preserving the v1
+  samples store. Both adapters close on version changes. A blocked legacy tab produces an actionable retry message.
+  Serialized read/write transactions read current metadata before applying synchronous edits; completion, not request
+  success, acknowledges a write. Catalog and optional blob writes roll back together on abort/quota failure.
+- Insertion explicitly creates an instrument track or replaces a compatible selected graph. Fresh IDs cover nodes,
+  wires, modules, derived/nested port and knob IDs, automatic module-control keys, presets, revision IDs and every
+  saved target/path/binding. Instruments replace instrument+notes+voices; effects replace only the chosen graph.
+  Existing clips/mixer routing/hardware mappings remain authored and can report unavailable graph targets. Each
+  insertion is one project undo transaction; catalog operations do not enter that history. Loaded copies play, reload
+  and package independently after library rename/trash. Format **v7** adds bounded informational `libraryOrigins`, an
+  explicit v6 migration and a committed fixture; origins never cause runtime library lookups or linked updates.
+- **5b:** MIDI/audio clip saves preserve notes and full audio trim/loop/warp/gain/fades/sample state. Automation stores
+  owner-relative targets with a normalized flattened topology/configuration guard. Compatible destinations remap to
+  their fresh IDs; incompatible lanes are omitted with an explicit report. MIDI clips leave instruments unchanged.
+  Occupied slots require explicit Replace. Samples are cataloged by their existing content hash with metadata,
+  audition and shared bytes across folders/assets. All bytes and revisions are conservatively retained through trash.
+- Preview builds a temporary document and renders a separate `Bounce`/`Engine`, then uses its own AudioContext/source.
+  Instrument/note-effect previews use a note; audio effects use a test tone with the correct track/return/master input.
+  Selection/filter/folder/tab navigation cancels pending rendering, stops sources and closes the preview context.
+  External track taps and sends are refused on asset capture (including nested modules) and external lane targets
+  are refused on clip capture; input-boundary mismatches are explicit errors. No unrelated track can be auto-connected.
+- Library UI/workflows load on demand, retaining a production build without chunk-size warnings. IndexedDB upgrade,
+  blocked/versionchange and transaction-abort contracts were checked via Context7 `/mdn/content` (official MDN).
+
+Verification: **1,541 unit/architecture tests across 123 files**, typecheck and production build without chunk warnings;
+**15 production smoke checks and nine real-output audio checks**. Failure coverage includes quota, interruption after
+successful requests, cross-connection serialization, legacy/open-tab upgrades, duplicate names, nested derived interfaces,
+sample retention and project reload/package independence. Browser preview cancellation and the Library screenshot were
+inspected. The remapped sample asset still matches offline audio within **0.00002** after trash/reload; existing audio
+readiness/finite-window checks and tolerances remain unchanged. Browser preview used isolated port 4175 outside the
+sandbox. No physical MIDI hardware check was performed. Bundles (6), tempo polish (7) and XY corners remain deferred.
+
+The original slice requirements are retained below as the shipped scope. Next: **6. Bundle exchange**.
 
 Likely additions: `core/library` for item/folder/dependency/remapping rules; `storage/library-storage` for IndexedDB;
 `app/library`; library state interface and `ui/library`. Reuse sample blobs without treating project history as catalog undo.
