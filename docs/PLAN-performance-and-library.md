@@ -1,6 +1,6 @@
 # Implementation plan: performance and library
 
-Status: **slices 0–1 and 2a implemented; slices 2b–7 planned**. Product behavior and draft defaults are defined in
+Status: **slices 0–2 implemented; slices 3–7 planned**. Product behavior and draft defaults are defined in
 [SPEC-performance-and-library.md](SPEC-performance-and-library.md). Work proceeds in order below; each slice should
 be independently reviewable and leave the existing examples/project files usable.
 
@@ -133,19 +133,43 @@ preview server could not bind a port inside it.
 
 ### 2b. Browser adapter and MIDI learn
 
-Likely additions: browser-facing `midi` adapter layer, `app/midi-input`, `state/midi-store`, settings/mapping UI;
-project mapping persistence and the control gesture adapter from slice 1.
+Implemented 2026-10-17 on `codex/performance-and-library`, after committed slice 2a (`c2d18c0`):
 
-- Check current official browser MIDI documentation and compatibility during implementation, following repository
-  Context7 instructions. This plan does not depend on unverified browser API signatures.
-- Parse supported messages into pure core intents; keep permissions/device objects outside core and saved projects.
-- Implement settings, selected/armed destination, connection lifecycle, channel filter and panic.
-- Implement learn/cancel/reassign/remove, missing-device rebinding, scale conversion, pickup and gesture grouping.
-- Model mapping feedback separately from audio-rate status. Do not flood project history with raw incoming messages.
+- `app/midi-input` owns Web MIDI access and ports. Only **MIDI → Enable MIDI** requests access (SysEx disabled)
+  and starts audio from the user action. Unsupported/denied access is nonfatal; pending grants cannot re-enable a
+  disabled/disposed adapter. Input status, individual input enable, channel filtering and selected/pinned instrument
+  routing are available in settings. Ports detach/close on disable/disconnect and reopen on reconnection.
+- Reuses the byte-validated parser, explicitly converting its 1–16 channels to engine 0–15. Each physical press has
+  a unique ID; equal pitches are paired FIFO per source/channel. Sustain and channel-mode cleanup are source/channel
+  scoped. Disconnect, input disable, route/filter changes, project replacement, Stop and visible **Panic** clear
+  affected ownership; the slice 2a engine preserves release/effect tails and cancels queued generated notes.
+- Right-click panel controls (separate XY axes) and mixer pan/send/faders to learn absolute 7-bit CC. The confirming
+  message changes no sound. Escape/cancel, explicit conflict reassignment, learn-again, removal and device rebinding
+  are implemented. Missing/wired targets remain unavailable with a reason; sustain CC64 and CC120–127 are reserved.
+- Continuous controls, including stepped knobs, default to pickup against the current effective value. Crossing
+  or reaching within half a CC step acquires control. Manual/base/effective changes, undo and reconnection rearm it.
+  Conversion reuses the control scale/snapping helpers; selectors/switches use valid states and momentary switches
+  follow the 64 threshold. Momentary release, disconnect, disable and mapping removal finish their common gesture.
+- Unautomated CC edits use `createControlGesture`: one continuous burst within 800 ms inactivity is one undo step;
+  a momentary press/release is one explicit gesture even across long holds. Existing transient overrides keep their
+  ownership and receive effective edits. Notes/port/pickup feedback never enter project history or autosave.
+- Project format **v3** adds bounded, portable `midiMappings` target/device/channel/CC records, with an explicit v2→v3
+  migration and committed v3 nested/mixer fixture. Older unknown mapping fields are not reinterpreted. Group/unlink
+  remap binding targets alongside saved instance values. Browser objects/settings and held input remain unsaved.
+- Documentation verified through Context7 `/mdn/content` and current [MDN Web MIDI docs](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API):
+  secure context and permission required, limited browser availability, `requestMIDIAccess`, input messages,
+  access state changes and port close lifecycle. Feature detection keeps unsupported browsers usable.
 
-Exit: fake-port browser tests cover permissions, learning and disconnect; engine tests cover parsed lifecycle commands.
-Perform a manual hardware check with a real keyboard/CC controller and record the browser/device used. Verify a mapped
-Low Light filter survives reload. Hardware absence does not block parser/unit/browser adapter tests.
+Verification: **1,436 unit/architecture tests across 103 files**, `npm run typecheck`, production build (no chunk-size
+warning), **seven production smoke tests and all three real-output audio tests passed**. `git diff --check` passed.
+Browser checks ran outside the sandbox so the preview server could bind localhost. Fake-port unit/browser coverage includes permission denial,
+unsupported access, late permission grants, learning/cancel/conflicts, rebinding, disconnect/reconnect, nested targets,
+wired ownership, scale/snapping, pickup, momentary cleanup, history and Low Light DJ-filter reload. Parsed lifecycle
+commands are rendered in the real engine; simulated browser ports also feed the actual production worklet audio path.
+
+Manual hardware check: **not performed**; no physical keyboard/controller/browser combination was tested. Simulated
+coverage does not establish device-driver behavior or permission prompt UX on real hardware. No automation, MIDI output,
+clock/sync, SysEx, MPE, pitch bend/pressure or note recording is included. Next slice is **3a**, deferred from this work.
 
 ## 3. Automation
 

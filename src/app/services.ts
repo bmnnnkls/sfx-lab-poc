@@ -1,3 +1,4 @@
+import { createMidiInput } from './midi-input'
 import { AudioHost } from '@audio'
 import type { EngineControls, ProjectFiles } from '@state'
 import { ProjectStorage, resolveBrowserStore, resolveSampleStorage } from '@storage'
@@ -7,6 +8,7 @@ import { restoreSavedProject } from './restore-project'
 import { type SampleLibraryService, createSampleLibrary } from './sample-library'
 
 export interface Services {
+  readonly midi: ReturnType<typeof createMidiInput>
   readonly host: AudioHost
   readonly storage: ProjectStorage
   readonly persistent: boolean
@@ -26,5 +28,6 @@ export const createServices = (): Services => {
   const sampleStorage = resolveSampleStorage()
   const sampleLibrary = createSampleLibrary(sampleStorage, host)
   const projectFiles = createProjectFiles(storage, sampleStorage, engineControls)
-  return { host, storage, persistent, engineControls, projectFiles, sampleLibrary }
+  const midi = createMidiInput(engineControls, undefined, () => { void host.start() })
+  return { host, storage, persistent, engineControls: { ...engineControls, stop: () => { midi.releaseNotes(); engineControls.stop() }, panic: midi.panic }, projectFiles, sampleLibrary, midi }
 }

@@ -1,3 +1,4 @@
+import { MidiSettings } from '../midi/MidiSettings'
 import { MAX_TEMPO, MIN_TEMPO } from '@core'
 import { useEngineControls, useProjectStore, useStatusStore } from '@state'
 import { FileMenu } from '../file-menu/FileMenu'
@@ -36,6 +37,7 @@ export const TransportBar = () => {
       <LevelMeter />
       <HistoryButtons />
       <FileMenu />
+      <MidiSettings />
     </header>
   )
 }

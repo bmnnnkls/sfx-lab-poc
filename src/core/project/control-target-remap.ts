@@ -4,8 +4,8 @@ import type { Project } from './types'
 
 /** Rewrite only the addressed graph scope, including every use when editing a shared definition. */
 export const mapControlRoutesAt = (project: Project, scope: PatchTarget, rewrite: (route: readonly string[]) => readonly string[] | undefined, inserted?: InstanceStep): Project => {
-  if (!project.controlValues?.length) return project
-  const controlValues = project.controlValues.map((entry) => {
+  if (!project.controlValues?.length && !project.midiMappings?.length) return project
+  const mapEntry = <T extends { readonly target: ControlTarget }>(entry: T): T => {
     const target = entry.target
     if (target.kind !== 'graph') return entry
     let offset = 0
@@ -24,6 +24,6 @@ export const mapControlRoutesAt = (project: Project, scope: PatchTarget, rewrite
     else path = [...target.path.slice(0, offset), ...target.path.slice(offset + 1).map((step, index) => ({ ...step, nodeId: route[index] as string }))]
     const mapped: ControlTarget = { ...target, path, nodeId: route.at(-1) as string }
     return { ...entry, target: mapped }
-  })
-  return { ...project, controlValues }
+  }
+  return { ...project, ...(project.controlValues && { controlValues: project.controlValues.map(mapEntry) }), ...(project.midiMappings && { midiMappings: project.midiMappings.map(mapEntry) }) }
 }

@@ -143,10 +143,56 @@ undo restores its starting value. Shared-definition panels keep the graph editor
 `EffectiveValue` outputs appear only for active overrides, show the base in a tooltip and provide release. The pure
 `effectiveControlReadouts` helper returns only active compatible overrides rather than every parameter on every frame.
 
-This is a control foundation: no MIDI source, automation clock/evaluation/recording, snapshots or library insertion UI
-ships here. Runtime overrides currently reach the engine through main-thread commands, not an audio-clock scheduler.
+This control foundation is reused by the MIDI adapter below. Automation clock/evaluation/recording, snapshots and library insertion UI
+remain future work. Runtime overrides currently reach the engine through main-thread commands, not an audio-clock scheduler.
 The existing panel shows directly nested controls; deeper paths are supported by the control API and saved values,
 while opening a module definition still edits the shared definition deliberately.
+
+## Browser MIDI input and learn (slice 2b)
+
+`app/midi-input` owns `MIDIAccess`, port callbacks and physical key queues. `state/midi-store` exposes serializable UI
+status/settings, learning/conflict state and mapping feedback; `MidiService` is injected at the composition root.
+Opening settings does not request access. Enable requests `navigator.requestMIDIAccess({ sysex: false })` and starts audio
+from the user action; denial/unsupported access leaves the app usable. A generation guard discards permission results
+arriving after disable/disposal. The adapter attaches connected/enabled inputs, detaches and closes lost/disabled ports,
+and refreshes on access state changes. Runtime feature detection handles Web MIDI's limited browser availability.
+API contracts were checked with Context7 `/mdn/content` and [MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API)
+on 2026-10-17; secure context and browser permission are required. No output ports or SysEx are used.
+
+The adapter reuses `parseMidiMessage` and converts its musician channels (1–16) once at the engine boundary (0–15).
+Each note-on allocates a per-press ID. Physical note-offs consume FIFO queues per input/channel/pitch; zero velocity is
+already an off from the parser. Default routing follows the selected instrument, or one pinned instrument. Selection of
+an audio/return/master destination routes no notes. Pinning keeps input stable while navigating elsewhere. Destination,
+filter and input lifecycle changes release affected sources. CC64 drives source/channel sustain; reserved CC120–127
+release that source/channel. Project document-epoch changes discard adapter queues and panic, even with identical IDs.
+Visible Panic clears queues/pedals/generated events without stopping transport; Stop also forgets physical ownership.
+Fresh presses are required after cleanup. The held-note engine retains release/effect tails. Notes never edit a project.
+
+`app/midi-controls` learns eligible absolute CC0–119 except sustain. Confirmation consumes the first CC without editing
+the sound. An occupied source opens an explicit reassign/cancel decision; one source maps to one target, while separate
+inputs can bind the same target. Settings list mappings, availability, pickup, relearn, remove and explicit input rebinding;
+missing IDs never bind by a guessed device name. Right-click panel controls and mixer values to learn; XY axes are separate.
+Escape cancels. Shared-definition controls do not offer project-instance learning. Wired/missing targets explain their
+unavailability and remain inert rather than overriding graph-owned parameters.
+
+Continuous CC uses current effective-value pickup (crossing or half a 7-bit step), including controls with numeric
+snapping. External/manual edits and reconnect rearm pickup. Scales and snapping use `core/control`; switch/selector states
+are immediate and momentary switches follow a CC64 threshold. Common control gestures coalesce bursts within 800 ms
+inactivity; long momentary presses have explicit boundaries. Disconnection/disable/removal release owned momentary
+controls. Normal CC edits author base values; an existing transient override receives effective edits instead. Feedback
+is a separate main-thread store, shown with current resolved values, not copied through engine audio-rate status.
+
+Format **v3** adds optional `Project.midiMappings`: stable ID, device ID/name selector, zero-based channel, CC, pickup and
+structured `ControlTarget`. No browser object or permission/route setting is saved. The parser caps mappings at 1024,
+IDs/names at 256 and target paths at 32; it rejects invalid selectors, reserved CCs and duplicate IDs/sources with warnings,
+and keeps well-formed unavailable references visible. Explicit v2→v3 migration removes formerly unknown mapping fields;
+v1/v2/v3 fixtures verify compatibility. Group/unlink remap learned targets with saved control values. Project packages and
+autosave use the same format; mapping CRUD is undoable. No automation, note recording or later library slice is included.
+
+Fake-port unit and production browser tests cover permissions/late grants, learn/cancel/conflicts, device lifecycle,
+routing, channel conversion, source ownership, effective pickup, scale/snapping, momentary/nested/wired controls, history
+and Low Light DJ-filter reload. The real-output audio test replaces only browser ports, exercising the parser, adapter,
+commands and actual worklet. **No manual physical keyboard/controller check was performed.**
 
 ## Polyphony
 
@@ -334,11 +380,11 @@ There are no UI timers or wall-clock reads. Odd block-size boundary rounding ret
 Offline bounces create a fresh engine, use only authored data and remain repeatable.
 
 The existing `HostMessage` carries these commands unchanged across the worklet boundary. `EngineControls` and
-`createEngineControls` expose note-on/off, sustain, release-source and panic for the later browser adapter.
+`createEngineControls` expose note-on/off, sustain, release-source and panic for the browser adapter described above.
 `connectEngine` sends panic on document-epoch changes and disposal, including replacements with identical IDs/graphs.
 Structural cleanup intentionally requires a fresh physical press rather than replaying keys into a different graph.
-No saved fields or migrations, Web MIDI access, port manager, message parsing changes, settings, Panic button or CC
-learn/mapping UI are part of this slice. Tests simulate sources in core and inject commands through the production
+Slice 2a alone adds no saved fields or migrations; browser access, port management, settings, visible Panic and CC
+learn/mapping UI ship in slice 2b. Tests simulate sources in core and inject commands through the production
 worklet port for real-output stopped-note/sustain/effect/panic checks.
 
 ## Effects on tracks (the insert graph)
@@ -564,7 +610,7 @@ remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`):
   toggle and the add form.
 * **Limits.** Layout is an ordered flow with sizes, not free positioning; a panel belongs to one graph (no combined instrument +
   effects panel, and the controls inside a module are not yet shown on the panel of the graph that uses it: step 7); no selector for
-  enum parameters yet; no automation, MIDI mapping, meters or per-control ranges beyond a control's own (see `docs/TASKS.md`).
+  enum parameters yet; no automation, meters or per-control ranges beyond a control's own (see `docs/TASKS.md`).
 
 ## Control nodes, parameter sockets and the global stage
 
@@ -1201,16 +1247,15 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 ## Natural next steps
 
 1. Unused-sample cleanup, loop points inside a clip, 2. stems and batch export for the bounce,
-3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (band-limited oscillators, chorus / stereo modulation effects, tempo sync for delays),
+3. MIDI hardware verification and later performance features, 4. more nodes (band-limited oscillators, chorus / stereo modulation effects, tempo sync for delays),
 5. WASM DSP nodes (Faust/RNBO).
 
 ## MIDI parsing foundation
 
 `core/midi` parses note-on/off and 7-bit CC messages without browser or device dependencies. Velocity-zero
 note-on becomes note-off; malformed bytes and unsupported messages are ignored. CCs remain raw messages here:
-sustain and channel-mode interpretation belongs to the future performance adapter. No browser MIDI input,
-learn bindings or project-format change is included in this parsing foundation. The source-aware held-note engine path
-now ships separately in slice 2a (see above).
+the browser adapter interprets sustain/channel-mode cleanup and converts parser channels (1–16) to engine channels
+(0–15). The source-aware held-note path ships in slice 2a; browser input and learned mappings ship in slice 2b.
 
 The basic beat-synced delay mode retains the existing two-second buffer limit and changes delay time at block
 boundaries without smoothing. Long divisions, dotted/triplet selection and click-free tempo transitions remain

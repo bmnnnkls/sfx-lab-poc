@@ -11,30 +11,30 @@ for instruments, effects, their presets, clips and samples → library bundle ex
 The shared control-target foundation and verification work come first. Product behavior, draft defaults and acceptance
 criteria are in [SPEC-performance-and-library.md](SPEC-performance-and-library.md); ordered implementation slices and
 code touchpoints are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). The verification and shared control-target foundations
-(slices 0–1) and the held-note engine path (slice 2a) are implemented; the browser MIDI adapter and learn (slice 2b)
-are next. Runtime control overrides and panel/mixer gesture transactions ship in slice 1; automation scheduling, mappings, presets and library workflows remain planned. Draft product defaults can be refined
+(slices 0–1), held-note engine path (slice 2a) and browser MIDI adapter/learn (slice 2b) are implemented.
+Next is automation (slice 3a). Runtime overrides, shared control gestures, project CC mappings and MIDI lifecycle UI
+ship now; automation scheduling, presets and library workflows remain planned. A physical MIDI hardware check remains
+unperformed; fake-port browser and real-worklet tests cover the simulated path. Draft product defaults can be refined
 before their slice. These documents supersede the MIDI-mapping and personal-library sketches below where they differ.
 
 ## Earlier candidate work
 
 Not nodes (the next batch of nodes is in [`IDEAS-nodes-and-controls.md`](IDEAS-nodes-and-controls.md), "Next batch").
 
-1. **MIDI input** (F4): a MIDI keyboard for notes (Web MIDI), CC mapped to control nodes with MIDI learn. Makes the panel playable. Needs
-   a decision on where learned mappings live (on the node, like `panel`, is the likely answer).
-2. **Presets and snapshots** (F3): save the states of the controls and morph between two with an XY pad; pairs with Randomize and Mutate
+1. **Presets and snapshots** (F3): save the states of the controls and morph between two with an XY pad; pairs with Randomize and Mutate
    (a snapshot is also "keep this roll").
-3. **Drum machine design**: decide how a module holds or picks samples (a module use cannot carry a sampler's `sampleId` today), then build E5:
+2. **Drum machine design**: decide how a module holds or picks samples (a module use cannot carry a sampler's `sampleId` today), then build E5:
    N samplers gated by the incoming note (hz to MIDI, compare, multiply), per-pad level, pan and tune.
-4. **Test and tooling hygiene**: the whole browser suite takes too long; split it into a fast smoke set and a full run, and stop checks
+3. **Test and tooling hygiene**: the whole browser suite takes too long; split it into a fast smoke set and a full run, and stop checks
    hard-coding lists the app already knows (they broke three times as nodes were added; the unit tests already read the registry).
-5. **Smaller follow-ups found on the way**: per-*parameter* locks for Randomize; indicators live inside a module's own editor; a bigger
+4. **Smaller follow-ups found on the way**: per-*parameter* locks for Randomize; indicators live inside a module's own editor; a bigger
    example-module library (E8) and a way to save a module as an example of your own.
 
 ## Salvaged foundations
 
 The math-node block optimization, basic beat-synced delays, filter key tracking, Comb, and pure MIDI message
-parser have been extracted from `origin/claude/stoic-cray-8d4r4x`. The held-note engine path now ships in slice 2a; browser MIDI access, port management, settings,
-visible Panic and learn remain open.
+parser have been extracted from `origin/claude/stoic-cray-8d4r4x`. The held-note engine path ships in slice 2a;
+browser MIDI access, port management, settings, visible Panic and project-persisted CC learn ship in slice 2b.
 Delay divisions, smoothing and the two-second capacity limit still need the planned tempo-polish work.
 The source and disposition of the remaining work are recorded in [ROADMAP.md](ROADMAP.md).
 
@@ -69,7 +69,7 @@ not make it in:
 * **Free positioning** of controls (today an ordered flow with sizes).
 * The controls of a module **nested inside** a used module shown on the outer panel (today only the controls directly inside it are).
 * The **Mixer adopting** the same widgets (`ui/controls`) for its faders, pan and sends.
-* **MIDI learn** and **automation** (recording a control's movements), a **dB** fader law.
+* **Automation** (recording a control's movements), a **dB** fader law. MIDI learn ships in slice 2b.
 * Meters or a scope on the panel, a panel in the session-view header, a selector control for enum parameters.
 
 ## Reusable modules (sub-patches with inputs and outputs)

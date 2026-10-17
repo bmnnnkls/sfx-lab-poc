@@ -1,3 +1,4 @@
+import { sanitizeMidiMappings } from './sanitize-midi-mappings'
 import { sanitizeControlValues } from './sanitize-control-values'
 import {
   DEFAULT_SCENE_COUNT,
@@ -135,8 +136,10 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     .filter((track): track is Track => track !== null)
 
   const controlValues = sanitizeControlValues(raw.controlValues, warn)
+  const midiMappings = sanitizeMidiMappings(raw.midiMappings, warn)
   return {
     ...(controlValues && { controlValues }),
+    ...(midiMappings && { midiMappings }),
     name: nonEmptyText(raw.name, 'Untitled', MAX_NAME_LENGTH),
     tempo: clamp(finiteNumber(raw.tempo, 120), MIN_TEMPO, MAX_TEMPO),
     sceneCount,

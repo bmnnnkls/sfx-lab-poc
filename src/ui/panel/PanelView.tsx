@@ -127,6 +127,7 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOw
             return (
               <ControlCell
                 key={id}
+                midiTargets={valueParams(item).flatMap((param) => { const target = controlTarget(item, param); return target ? [target] : [] })}
                 item={(() => {
                   const params = { ...item.node.params }
                   for (const param of valueParams(item)) {

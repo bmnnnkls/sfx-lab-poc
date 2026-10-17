@@ -195,3 +195,17 @@ it('remaps a copied asset closure and reports every unavailable value', () => {
   expect(result.values[0]!.target).toMatchObject({ owner: { trackId: 'copy-track' }, nodeId: 'copy-knob', path: [{ nodeId: 'copy-a', moduleId: 'copy-outer' }, { nodeId: 'copy-child', moduleId: 'copy-leaf' }] })
   expect(result.unavailable).toEqual([{ target: { ...target, nodeId: 'missing' }, status: 'missing', reason: 'Node is missing' }])
 })
+
+
+it('remaps project MIDI bindings through grouping and unlinking without touching source selectors', () => {
+  const { project, target, trackId } = setup()
+  const mapping = { id: 'binding', deviceId: 'keyboard', deviceName: 'Keyboard', channel: 2, cc: 21, pickup: true, target }
+  const authored = { ...project, midiMappings: [mapping] }
+  const grouped = groupNodesAsModule(authored, { trackId }, ['a'])
+  expect(resolveControlTarget(grouped, grouped.midiMappings![0]!.target).status).toBe('available')
+  expect(grouped.midiMappings![0]).toMatchObject({ deviceId: 'keyboard', channel: 2, cc: 21 })
+  const unlinked = unlinkModuleNode(authored, { trackId }, 'a')
+  expect(resolveControlTarget(unlinked, unlinked.midiMappings![0]!.target).status).toBe('available')
+  const loaded = parseProject(serializeProject(unlinked))
+  expect(loaded.ok && loaded.project.midiMappings).toEqual(unlinked.midiMappings)
+})

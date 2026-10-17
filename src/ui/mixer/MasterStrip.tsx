@@ -1,3 +1,4 @@
+import { MidiTargetMenu } from '../midi/MidiTargetMenu'
 import { type ControlTarget, MASTER_IN_TYPE, TRACK_OUT_TYPE, describeNode } from '@core'
 import { useProjectStore, useSelectionStore } from '@state'
 import { EffectsBadge } from './ChannelStrip'
@@ -26,7 +27,7 @@ export const MasterStrip = () => {
         <EffectsBadge name="Master" labels={labels} onOpen={selectMaster} />
       </div>
       <div className={styles.faderRow}>
-        <input
+        <MidiTargetMenu targets={[target]}><input
           className={styles.fader}
           type="range"
           min={0}
@@ -36,7 +37,7 @@ export const MasterStrip = () => {
           aria-label="Master fader"
           aria-orientation="vertical"
           onChange={(event) => setVolume(Number(event.target.value))}
-        />
+        /></MidiTargetMenu>
         <LevelBar label="Master level" read={(status) => status.peak} />
       </div>
       <EffectiveValue target={target} />

@@ -5,6 +5,11 @@ type Migration = (project: unknown) => unknown
 
 /** `MIGRATIONS[n]` upgrades the `project` payload from format version n to n + 1. */
 const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  2: (project) => {
+    if (!isRecord(project)) return project
+    const { midiMappings: _unknown, ...authored } = project
+    return authored
+  },
   // v1 never interpreted controlValues. Do not reinterpret an unknown old field as v2 data.
   1: (project) => {
     if (!isRecord(project)) return project

@@ -1,3 +1,5 @@
+import { MidiTargetMenu } from '../midi/MidiTargetMenu'
+import type { ControlTarget } from '@core'
 import type { ReactNode } from 'react'
 import { type ControlSize, type ModuleLibrary, type PanelItem, describeNode } from '@core'
 import { type DragEvent, useState } from 'react'
@@ -24,6 +26,7 @@ export interface CellActions {
 }
 
 interface ControlCellProps {
+  midiTargets?: readonly ControlTarget[]
   feedback?: ReactNode
   item: PanelItem
   modules: ModuleLibrary
@@ -67,7 +70,7 @@ const RenameField = ({ name, placeholder, onCommit }: { name: string; placeholde
 }
 
 /** A control node on the board: the widget for its kind, writing the node's own value, with the edit tools around it in edit mode. */
-export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions, feedback }: ControlCellProps) => {
+export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions, feedback, midiTargets = [] }: ControlCellProps) => {
   const [over, setOver] = useState(false)
   const { node } = item
   const shape = describeNode(node, modules)
@@ -86,7 +89,7 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
   }
 
   return (
-    <div
+    <MidiTargetMenu targets={midiTargets}><div
       className={styles.cell}
       style={{ gridColumn: `span ${span.cols}`, gridRow: `span ${span.rows}`, ['--knob-max' as string]: `${knobWidth(item.size)}px` }}
       data-kind={item.kind}
@@ -149,6 +152,6 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
           <RenameField name={node.name ?? ''} placeholder={title} onCommit={actions.rename} />
         </div>
       )}
-    </div>
+    </div></MidiTargetMenu>
   )
 }
