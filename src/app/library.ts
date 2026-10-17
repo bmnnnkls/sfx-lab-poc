@@ -1,7 +1,7 @@
 import { decodeAudio } from '@audio'
 import { type LibraryCatalog, type LibraryItem, type Project, type SampleData, captureLibraryAsset, captureLibraryClip, captureLibrarySample, insertLibraryAsset, insertLibraryClip, libraryDependencies, libraryPreviewProject, Bounce, commit } from '@core'
 import { type PersonalLibrary, useProjectStore } from '@state'
-import type { LibraryStorage, SampleStorage } from '@storage'
+import { type LibraryStorage, type SampleStorage, stageLibraryBundle, commitLibraryBundle, exportLibraryBundle, downloadFile } from '@storage'
 
 /** All reusable payloads become copies in the document. Catalog edits never enter project history. */
 export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleStorage): PersonalLibrary => {
@@ -27,6 +27,17 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
   }
   return {
     read: storage.read, update: storage.update, stopPreview,
+    stageBundle: stageLibraryBundle,
+    importBundle: stage => { stopPreview(); return commitLibraryBundle(storage, stage) },
+    prepareBundle: async (selection, name) => {
+      const exported = await exportLibraryBundle(await storage.read(), selection, name, samples.get, true)
+      return stageLibraryBundle(exported.bytes)
+    },
+    exportBundle: async (stage, partial) => {
+      const exported = await exportLibraryBundle(stage.manifest.catalog, { itemIds: stage.manifest.catalog.items.map(i => i.id), folderIds: stage.manifest.catalog.folders.map(f => f.id) }, stage.manifest.name, async id => stage.blobs.get(id), partial)
+      downloadFile(exported.fileName, exported.mimeType, exported.bytes)
+      return `Exported ${exported.manifest.catalog.items.length} items, ${exported.manifest.catalog.revisions.length} revisions, ${exported.manifest.catalog.samples.length} samples; ${exported.manifest.missing.length} missing${exported.manifest.partial ? ' · PARTIAL bundle' : ''}`
+    },
     saveAsset: (scope, name, folder) => save((catalog, project) => captureLibraryAsset(catalog, project, scope, name, folder)),
     saveClip: (track, clip, name, folder) => save((catalog, project) => captureLibraryClip(catalog, project, track, clip, name, folder)),
     saveSample: (id, name, folder) => save((catalog, project) => captureLibrarySample(catalog, project, id, name, folder)),

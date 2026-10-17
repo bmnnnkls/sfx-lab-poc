@@ -1,12 +1,13 @@
 import { samplePresetProject } from './preset-project'
-import { renderProject, serializeProject, parseProject, saveProjectPreset, editControlBase, type Project } from '../../src/core'
+import { exportLibraryBundle } from '../../src/storage'
+import { captureLibraryAsset, emptyLibrary, renderProject, serializeProject, parseProject, saveProjectPreset, editControlBase, type Project } from '../../src/core'
 import { test, expect, expectSaved } from './fixtures'
 import { slotSweepProject, sweepProject, sweepTarget } from './automation-project'
 
 declare global { interface Window { __sweepSamples: number[] } }
-for (const mode of ['clip', 'slots', 'touch', 'preset', 'sample-preset', 'library-preset']) {
-const slots = mode === 'slots', touch = mode === 'touch', preset = mode === 'preset', samplePreset = mode === 'sample-preset' || mode === 'library-preset', libraryPreset = mode === 'library-preset'
-test(`the real worklet ${libraryPreset ? 'independent library sample asset after trash/reload' : samplePreset ? 'recalled instance sample preset' : preset ? 'recalled project preset' : touch ? 'Touch take' : slots ? 'return/master slots' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
+for (const mode of ['clip', 'slots', 'touch', 'preset', 'sample-preset', 'library-preset', 'bundle-preset']) {
+const slots = mode === 'slots', touch = mode === 'touch', preset = mode === 'preset', bundlePreset = mode === 'bundle-preset', samplePreset = mode === 'sample-preset' || mode === 'library-preset' || bundlePreset, libraryPreset = mode === 'library-preset' || bundlePreset
+test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after trash/reload' : libraryPreset ? 'independent library sample asset after trash/reload' : samplePreset ? 'recalled instance sample preset' : preset ? 'recalled project preset' : touch ? 'Touch take' : slots ? 'return/master slots' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
   let project: Project = slots ? slotSweepProject() : sweepProject()
   if (preset) {
     project = { ...project, tracks: project.tracks.map(t => t.kind === 'instrument' ? { ...t, clips: t.clips.map(c => c ? { ...c, automation: [] } : c) } : t) }
@@ -63,8 +64,16 @@ test(`the real worklet ${libraryPreset ? 'independent library sample asset after
     if (libraryPreset) {
       await page.getByRole('button', { name: 'Library', exact: true }).click()
       const panel = page.getByRole('region', { name: 'Personal library' })
-      await panel.getByLabel('Library name', { exact: true }).fill('Reusable sampled voice')
-      await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+      if (bundlePreset) {
+        const catalog = captureLibraryAsset(emptyLibrary(), sampleFixture.recalled, { owner: { kind: 'track', trackId: 'sweep' }, domain: 'patch' }, 'Reusable sampled voice', null)
+        const bundle = await exportLibraryBundle(catalog, { itemIds: catalog.items.map(i => i.id) }, 'Audible exchange', async id => sampleFixture.samples.find(s => s.info.id === id)?.bytes)
+        await panel.getByLabel('Import library bundle', { exact: true }).setInputFiles({ name: bundle.fileName, mimeType: bundle.mimeType, buffer: Buffer.from(bundle.bytes) })
+        await panel.getByRole('button', { name: 'Import into new folder', exact: true }).click()
+        await panel.getByRole('button', { name: 'Audible exchange', exact: true }).click()
+      } else {
+        await panel.getByLabel('Library name', { exact: true }).fill('Reusable sampled voice')
+        await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+      }
       await panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Reusable sampled voice/ }).click()
       await panel.getByRole('button', { name: 'Replace selected graph', exact: true }).click()
       await expect(panel.getByRole('status')).toContainText('copied into project')

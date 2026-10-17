@@ -9,8 +9,7 @@ export interface SampleStorage {
   delete(id: string): Promise<void>
 }
 
-export const createMemorySampleStorage = (): SampleStorage => {
-  const files = new Map<string, Uint8Array>()
+export const createMemorySampleStorage = (files = new Map<string, Uint8Array>()): SampleStorage => {
   return {
     persistent: false,
     has: async (id) => files.has(id),

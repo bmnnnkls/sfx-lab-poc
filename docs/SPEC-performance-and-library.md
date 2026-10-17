@@ -1,6 +1,6 @@
 # MIDI, automation, presets and library
 
-Status: **draft product behavior; verification, control/MIDI foundations and clip/return/master automation and Touch recording implemented (slices 0–3)**. Written 2026-10-17.
+Status: **slices 0–6 implemented; tempo polish remains planned**. Written 2026-10-17.
 
 This is the product specification for the next development sequence. The implementation slices and verification
 gates are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). This document takes precedence
@@ -281,7 +281,7 @@ ask the user to free browser storage and retry. Library UI/workflows load only w
 ## Library bundles
 
 Export selected items or a whole folder subtree, with all required modules, asset revisions, presets and sample bytes.
-Proposed extension: `.sfxlib`, a versioned ZIP containing a manifest, item records, folder structure and hash-addressed
+Extension: `.sfxlib`, a versioned ZIP containing a manifest, item records, folder structure and hash-addressed
 blobs. Keep it distinct from existing `.sfxlab` project files. UI lists included dependencies and missing content before
 export; default export requires completeness, with any partial export explicitly marked.
 
@@ -294,6 +294,21 @@ Use an all-or-nothing catalog transaction after validation. Reject unsupported m
 bad hashes and malformed records. Bound compressed size, total expanded size, entry count, individual entries and object
 counts before decoding/allocating; reject unsafe archive paths. Reuse project packaging concepts but do not assume its
 current per-entry filter alone is sufficient for complete bundle validation. A failed import leaves the library unchanged.
+
+### Shipped slice 6 defaults
+
+The Library tab reviews selected-item or folder-subtree exports, including associated preset/asset closure,
+nested modules, immutable revisions and all sample choices. Complete export is the default. An explicit partial
+checkbox produces a marked `-partial.sfxlib` with an exact missing-hash list; incomplete imports can be reviewed
+but cannot be published. Review and Cancel never write storage. Import confirmation creates a fresh named root,
+refreshes catalog IDs and preserves hierarchy/associations. Repeated imports create independent copies; identical
+sample blobs are shared and never overwritten. Logical, validation, hash, quota and abort failures retain the
+previous catalog and existing bytes. There are no automatic linked updates.
+
+Bundle manifest v1 (`sfx-lab-library`) and migration dispatch are independent of project format v7. The strict ZIP
+subset, bounded streaming decompression, checksum rules and budgets are documented in [LIBRARY-BUNDLE.md](LIBRARY-BUNDLE.md).
+Defaults: 128 MiB compressed, 256 MiB expanded, 4097 entries, 32 MiB/sample, 8 MiB manifest; 100,000 containers,
+300,000 values, depth 64, module depth 16 and 10,000 expanded node visits/revision. Existing record limits remain.
 
 ## Tempo polish
 

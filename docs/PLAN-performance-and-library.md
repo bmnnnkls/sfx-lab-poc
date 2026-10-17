@@ -1,6 +1,6 @@
 # Implementation plan: performance and library
 
-Status: **slices 0–5 implemented; slices 6–7 planned**. Product behavior and draft defaults are defined in
+Status: **slices 0–6 implemented; slice 7 planned**. Product behavior and draft defaults are defined in
 [SPEC-performance-and-library.md](SPEC-performance-and-library.md). Work proceeds in order below; each slice should
 be independently reviewable and leave the existing examples/project files usable.
 
@@ -407,9 +407,9 @@ successful requests, cross-connection serialization, legacy/open-tab upgrades, d
 sample retention and project reload/package independence. Browser preview cancellation and the Library screenshot were
 inspected. The remapped sample asset still matches offline audio within **0.00002** after trash/reload; existing audio
 readiness/finite-window checks and tolerances remain unchanged. Browser preview used isolated port 4175 outside the
-sandbox. No physical MIDI hardware check was performed. Bundles (6), tempo polish (7) and XY corners remain deferred.
+sandbox. No physical MIDI hardware check was performed. At this slice, bundles (6), tempo polish (7) and XY corners were deferred.
 
-The original slice requirements are retained below as the shipped scope. Next: **6. Bundle exchange**.
+The original slice requirements are retained below as the shipped scope. Bundle exchange is implemented in slice 6 below.
 
 Likely additions: `core/library` for item/folder/dependency/remapping rules; `storage/library-storage` for IndexedDB;
 `app/library`; library state interface and `ui/library`. Reuse sample blobs without treating project history as catalog undo.
@@ -437,6 +437,33 @@ load them into a new project; delete/change the originals; the project still rel
 quota failure, interrupted writes, duplicate names, nested dependencies and conservative blob retention.
 
 ## 6. Bundle exchange
+
+Implemented 2026-10-18 on `codex/performance-and-library`:
+
+- Added deterministic selected-item/folder closure and reviewed `.sfxlib` ZIP export, associated presets/assets,
+  immutable revisions, ancestor hierarchy, nested modules and sample bytes. Default complete export refuses missing
+  content; explicit partial files carry both a manifest marker/exact missing-hash list and a partial filename.
+- Added independent bundle manifest v1/migration dispatch, strict known-field reconstruction and reference/signature
+  checks. Project format stays v7. [LIBRARY-BUNDLE.md](LIBRARY-BUNDLE.md) specifies the format and all budgets.
+- Preflight every ZIP central/local header, path, count and size before expanded allocation. Reject unsupported ZIP
+  features, aliases/overlaps/gaps, unsafe paths and CRC mismatches. Stream DEFLATE in 1 KiB compressed chunks,
+  check actual output as well as declarations, and verify content hashes before writing. Aggregate byte/object/depth
+  and expanded module fan-out limits supplement existing per-record limits.
+- Import stages without writes and presents hierarchy, items, revisions/modules, samples, expanded size, conflicts
+  and missing bytes. Confirmation always creates a fresh named root with remapped folder/item/revision/state IDs;
+  repeats deliberately create independent copies. Private graph IDs remain scoped to revisions until project insertion
+  remaps the entire graph/interface/target closure. Partial imports are reviewable but not publishable in v1.
+- Publish against the latest catalog in one metadata+blob transaction. Compare existing bytes inside that transaction,
+  retain identical hash blobs and abort on conflict; quota and post-request abort preserve the previous catalog/bytes.
+  The memory fallback shares a blob map with sample storage. No cleanup or linked updates were added.
+- Verification: **1,562 unit/architecture tests across 124 files**, typecheck and production build without chunk
+  warnings; **16 production smoke checks and ten real-output audio checks** passed. The bundle-specific audio case
+  inserts a sampled bundle asset, trashes its original, reloads and matches offline within **0.00002** amplitude.
+  Worklet readiness, finite-window checks and existing tolerances remain. Bundle review/panel screenshots were inspected.
+  Browser checks used isolated port 4175; the temporary config was removed. No physical MIDI hardware was tested.
+  Tempo polish and snapshot XY corners remain deferred.
+
+Original scope and exit criteria:
 
 Likely additions: `storage/library-transfer`, versioned manifest types in core, and import/export UI. Extract shared
 archive/hash helpers from `project-transfer` only where their contracts actually match.

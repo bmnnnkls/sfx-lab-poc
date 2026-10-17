@@ -1,5 +1,5 @@
 import { createDeferredPersonalLibrary } from './library-service'
-import { createLibraryStorage, createMemoryLibraryStorage } from '@storage'
+import { createLibraryStorage, createMemoryLibraryStorage, createMemorySampleStorage } from '@storage'
 import { createMidiInput } from './midi-input'
 import { AudioHost } from '@audio'
 import type { EngineControls, ProjectFiles } from '@state'
@@ -28,8 +28,9 @@ export const createServices = (): Services => {
 
   const host = new AudioHost()
   const engineControls = createEngineControls(host)
-  const sampleStorage = resolveSampleStorage()
-  const library = createDeferredPersonalLibrary(typeof indexedDB === 'undefined' ? createMemoryLibraryStorage() : createLibraryStorage(), sampleStorage)
+  const memoryBlobs = new Map<string, Uint8Array>()
+  const sampleStorage = typeof indexedDB === 'undefined' ? createMemorySampleStorage(memoryBlobs) : resolveSampleStorage()
+  const library = createDeferredPersonalLibrary(typeof indexedDB === 'undefined' ? createMemoryLibraryStorage(memoryBlobs) : createLibraryStorage(), sampleStorage)
   const sampleLibrary = createSampleLibrary(sampleStorage, host)
   const projectFiles = createProjectFiles(storage, sampleStorage, engineControls)
   const midi = createMidiInput(engineControls, undefined, () => { void host.start() })

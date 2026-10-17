@@ -18,3 +18,4 @@ export {
 } from './project-transfer'
 
 export * from './library-storage'
+export * from './library-transfer'

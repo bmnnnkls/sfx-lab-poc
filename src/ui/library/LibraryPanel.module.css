@@ -11,3 +11,9 @@
 .active { border-color: var(--accent); color: var(--accent); }
 .columns select { width: 100%; }
 .columns input[type=number] { width: 55px; }
+
+.itemRow { display: flex; align-items: center; gap: 5px; }
+.itemRow button { flex: 1; min-width: 0; }
+.panel > section { border: 1px solid var(--border); padding: 10px; overflow-wrap: anywhere; }
+.panel > section p { font-size: 12px; }
+.panel > section details { max-height: 220px; overflow: auto; margin-bottom: 8px; }

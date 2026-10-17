@@ -1375,7 +1375,7 @@ sample IDs. Graph nodes embed panel presentation. Opaque revision IDs are distin
 compatibility ignores sound values, samples, labels and positions, while graph topology, module interfaces, control
 configuration, stereo/bypass and voice settings participate. A preset stores control/sample state referencing a compatible
 revision and can recall into another owner with identical graph identities. External track-routing nodes are refused;
-clips, mixer routing and hardware mappings never enter assets/presets. Catalog insertion/remapping ships in slice 5 below; bundle exchange remains slice 6. `projectSampleDependencies` includes saved presets/revisions separately from playback `usedSampleIds`.
+clips, mixer routing and hardware mappings never enter assets/presets. Catalog insertion/remapping ships in slice 5 below; bundle exchange ships in slice 6 below. `projectSampleDependencies` includes saved presets/revisions separately from playback `usedSampleIds`.
 
 `Project.sampleBindings` guards owner/domain/nested use identities and sampler type. Missing bindings inherit node
 `sampleId` defaults, null explicitly silences a use. `projectWithSampleBindings` flattens affected graphs in the transient
@@ -1437,7 +1437,7 @@ recreating `samples`. Connections close/reset on `versionchange`; blocked legacy
 catalog and invokes a synchronous edit before queuing catalog and optional sample writes; concurrent connections
 serialize rather than overwrite stale snapshots. Promises resolve only on `transaction.complete`, and reject on
 abort/quota, including after successful requests. The sample adapter now has the same completion guarantee. There is
-an in-memory adapter for storage-less environments. No catalog import surface is exposed; bundle validation is slice 6.
+an in-memory adapter for storage-less environments. Bundle exchange now validates/stages before this transaction (slice 6 below).
 
 `app/library` bridges storage to the document via `state/PersonalLibrary`; successful insertion commits once to project
 history. Saves and catalog edits do not change that history. Missing bytes are preflighted before save/load. Project
@@ -1458,5 +1458,40 @@ package export after catalog changes/deletion, one-step insertion undo, duplicat
 quota and interrupted-request rollback, cross-connection serialization, legacy tab blocking and version-change closure.
 Production browser checks exercise folders/presets/trash/reload, blocked upgrade recovery and preview cancellation/resource
 release. Real worklet output for an inserted sampled asset after trash/reload matches offline within 0.00002 amplitude;
-existing capture readiness and finite-window checks remain. No physical MIDI hardware was tested. Bundle exchange,
-tempo polish, orphan cleanup, drag/drop and automatic linked updates remain outside this slice.
+existing capture readiness and finite-window checks remain. No physical MIDI hardware was tested. Tempo polish, orphan cleanup, drag/drop and automatic linked updates remain outside this slice.
+
+
+## Library bundle exchange (slice 6)
+
+`core/library/bundle` owns versioned manifest/stage/selection contracts, deterministic transitive selection,
+strict catalog closure validation, conflict summaries and independent-copy merging. `core/persistence/validate-library`
+reuses record sanitizers in strict comparison mode: repaired/dropped/unknown fields reject the entire bundle.
+References, folder/module/preset cycles, signatures, external routing, target resolution and expanded module fan-out
+are checked before publication. Module/node/interface IDs remain private within each immutable revision; catalog
+folder/item/revision/state identities are refreshed on every import and project insertion remaps the full payload.
+
+`storage/library-transfer` owns independent bundle migration dispatch, canonical `.sfxlib` export, hash checking,
+read-only staging and commit. `.sfxlab` project transfer remains separate and project format remains v7.
+`storage/library-archive` preflights every ZIP local/central header and path before expanded allocation, then
+uses bounded incremental fflate inflation and actual-output/CRC checks. Limits cover compressed/aggregate expanded
+bytes, each entry, entry count, JSON size/objects/values/depth and module expansion. The complete format, strict ZIP
+subset and budgets are in [docs/LIBRARY-BUNDLE.md](docs/LIBRARY-BUNDLE.md).
+
+Library review displays items/folders/dependencies/bytes/conflicts/missing files before export or import. Partial
+export requires an explicit checkbox and manifest/filename markers. Partial imports can be reviewed but cannot commit.
+Cancel/staging never write storage. Confirmed import always creates a fresh named root; repeated imports add independent
+copies. `library-storage` compares existing hash bytes inside the same serialized read/write transaction, retains equal
+bytes and aborts on conflicts. Metadata plus new blobs succeed only at transaction completion. Memory adapters share
+one blob map. Validation, capacity, byte conflict, quota and abort failures preserve previous metadata and bytes.
+
+Production browser coverage exercises review/cancel, duplicate import, folder export, fresh-context import/reload,
+independent project insertion and package export after library trash. Unit coverage includes nested sample/module and
+preset closures, empty/conflicting catalogs, future versions, missing bytes, hashes, dependency cycles, hostile paths,
+resource limits, forged expanded sizes, and transactional rollback/deduplication. Existing project/package and real-output
+audio gates remain required. Slice 7 tempo polish, snapshot XY corners and automatic linked updates stay deferred.
+
+Slice 6 verification: 1,562 unit/architecture tests across 124 files, typecheck, warning-free production build,
+16 smoke checks and ten real-output audio checks passed. An imported sampled bundle asset remains independent
+after trash/reload and matches offline within 0.00002 amplitude. Bundle review/panel screenshots were inspected.
+Browser verification used isolated port 4175 with a temporary config removed before commit; default config stays 4173.
+No physical MIDI hardware was tested.

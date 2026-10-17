@@ -12,8 +12,8 @@ The shared control-target foundation and verification work come first. Product b
 criteria are in [SPEC-performance-and-library.md](SPEC-performance-and-library.md); ordered implementation slices and
 code touchpoints are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). The verification and shared control-target foundations
 (slices 0–1), held-note engine path (slice 2a), browser MIDI adapter/learn (slice 2b), and saved clip automation,
-engine Read playback and drawing editor (slice 3a), return/master automation slots (3b), Touch recording (3c), snapshots/project presets (4), and the library catalog/folders, reusable assets/presets, clips/samples and isolated preview (5a–5b) are implemented. Next is
-bundle exchange (6), followed by tempo polish (7). A physical MIDI hardware check remains
+engine Read playback and drawing editor (slice 3a), return/master automation slots (3b), Touch recording (3c), snapshots/project presets (4), and the library catalog/folders, reusable assets/presets, clips/samples and isolated preview (5a–5b), and reviewed atomic `.sfxlib` bundle exchange (6) are implemented. Next is
+tempo polish (7). A physical MIDI hardware check remains
 unperformed; fake-port browser and real-worklet tests cover the simulated path. Draft product defaults can be refined
 before their slice. These documents supersede the MIDI-mapping and personal-library sketches below where they differ.
 
@@ -87,7 +87,7 @@ unlink, nesting, persistence; see `ARCHITECTURE.md`). Steps 3 and 4 are open.
   every direction: library to project, project to library, and to/from files.
 * **MIDI effects are in scope** (arpeggiator, chord, transpose, scale lock, …): built as the note graph.
 
-### Earlier sketch (superseded by shipped slice 5 where applicable)
+### Earlier sketch (superseded by shipped slices 5–6 where applicable)
 
 * A module is a saved `Patch` plus named, typed **ports** and **exposed parameters** (author picks which inner
   params appear as knobs). Edit in place with breadcrumb navigation.
@@ -97,9 +97,9 @@ unlink, nesting, persistence; see `ARCHITECTURE.md`). Steps 3 and 4 are open.
 * Nesting allowed; cycles forbidden. Sampler references must survive being used inside a module (samples travel with
   packages).
 * Persistence: project stores `modules` (embedded definitions) and uses reference them by id; the personal library
-  is a separate storage area (IndexedDB) with import/export as `.sfxlab` packages or JSON. On load, a use whose
-  definition is missing from both the project and the library must degrade visibly (placeholder node), never crash.
-  Needs a format-version bump and a migration, with a new fixture.
+  is a separate storage area (IndexedDB) with import/export as `.sfxlib` library bundles. Inserted project copies
+  always embed their complete dependency closure; playback never looks up missing definitions in the library.
+  Project migrations and bundle migrations are independent.
 * Undo: editing a module definition is one step; the UI should say how many uses it affects.
 
 ### MIDI effects
@@ -111,7 +111,7 @@ modules share one library, so the personal library below covers both.
 
 1. ~~Group selection into a module with exposed knobs and flattening.~~ Done.
 2. ~~Module library inside the project, uses by reference, "unlink".~~ Done.
-3. Personal library for instrument/audio-effect/note-effect dependency closures: **built in slice 5**. Standalone module-only items remain a follow-up; library bundle import/export is **slice 6**.
+3. Personal library for instrument/audio-effect/note-effect dependency closures: **built in slice 5**. Standalone module-only items remain a follow-up; library bundle import/export is **built in slice 6**.
 4. ~~Per-track MIDI effects~~ Done as a **note graph** with typed ports, split / merge and notes from other tracks;
    modules are one library for both kinds (see `ARCHITECTURE.md`).
 
