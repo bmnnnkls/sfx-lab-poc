@@ -172,7 +172,8 @@ export class TrackRuntime implements PlayableTrack {
   }
 
   setArrangement(clips: readonly ArrangementClip[]): void {
-    this.arrangement.setRegions(clips)
+    // The command carries every track's regions; this runtime plays only its own.
+    this.arrangement.setRegions(clips.filter((clip) => clip.trackId === this.trackId))
   }
 
   /** Switches the event source; notes of the other one are released, so nothing is left sounding. */

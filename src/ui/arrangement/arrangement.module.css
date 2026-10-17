@@ -168,6 +168,38 @@
   background: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
+/* The span a looping region repeats over, up to the next region on the track. */
+.loopTail {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  border-left: none;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--accent) 12%, transparent) 0 6px,
+    transparent 6px 12px
+  );
+  pointer-events: none;
+}
+
+.loopBadge {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--accent);
+  pointer-events: none;
+}
+
+/* The lane a dragged region is over. */
+.row[data-drag-over] {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
 .playhead {
   position: absolute;
   top: 0;

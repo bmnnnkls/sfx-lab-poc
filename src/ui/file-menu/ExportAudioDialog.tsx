@@ -2,17 +2,19 @@ import { BOUNCE_SAMPLE_RATES, MAX_BOUNCE_BARS, MAX_TAIL_LIMIT, MIN_BOUNCE_BARS }
 import { useProjectFiles, useProjectStore, useSelectionStore } from '@state'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import styles from './ExportAudioDialog.module.css'
-import { type ExportForm, barsText, initialForm, optionsOf, scopeOf, sceneClipCount, selectedClipChoice } from './export-model'
+import { type ExportForm, barsText, initialForm, optionsOf, scopeOf, sceneClipCount, selectedClipChoice, arrangementHasClips } from './export-model'
 
 /**
- * File > Export audio: what to play (the open clip, or a scene), for how many bars, how long a tail, the file's rate and depth. The
- * render is the core's (`Bounce`, run in slices by `ProjectFiles.exportAudio`), so this only collects the choices and shows progress.
+ * File > Export audio: what to play (the open clip, a scene, or the arrangement timeline), for how many bars, how long a tail, the
+ * file's rate and depth. The render is the core's (`Bounce`, run in slices by `ProjectFiles.exportAudio`), so this only collects the
+ * choices and shows progress.
  */
 export const ExportAudioDialog = ({ onClose }: { onClose: () => void }) => {
   const files = useProjectFiles()
   const project = useProjectStore((state) => state.project)
   const { trackId, clipId } = useSelectionStore()
   const choice = useMemo(() => selectedClipChoice(project, trackId, clipId), [project, trackId, clipId])
+  const hasArrangement = useMemo(() => arrangementHasClips(project), [project])
 
   const [form, setForm] = useState<ExportForm>(() => initialForm(choice !== null))
   const [progress, setProgress] = useState<number | null>(null)
@@ -70,6 +72,10 @@ export const ExportAudioDialog = ({ onClose }: { onClose: () => void }) => {
                 </option>
               ))}
             </select>
+          </label>
+          <label className={styles.choice}>
+            <input type="radio" name="scope" checked={form.scope === 'arrangement'} disabled={!hasArrangement} onChange={() => change({ scope: 'arrangement', bars: null })} />
+            <span>Arrangement{hasArrangement ? '' : ' (the timeline is empty)'}</span>
           </label>
           {scope === null && <p className={styles.hint}>There is nothing to play there.</p>}
         </fieldset>

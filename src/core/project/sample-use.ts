@@ -1,9 +1,11 @@
 import type { Patch } from '../patch'
+import { isAudioContent } from './arrangement-clip'
 import type { Project } from './types'
 
 /**
- * The library samples the project actually plays: those of its audio clips and of the sampler nodes in any patch (instruments, insert
- * graphs, the master, modules). In first-use order, each once. A bounce decodes just these, not the whole library.
+ * The library samples the project actually plays: those of its audio clips (session and arrangement) and of the sampler
+ * nodes in any patch (instruments, insert graphs, the master, modules). In first-use order, each once. A bounce decodes
+ * just these, not the whole library.
  */
 export const usedSampleIds = (project: Project): string[] => {
   const found = new Set<string>()
@@ -16,6 +18,9 @@ export const usedSampleIds = (project: Project): string[] => {
     fromPatch(track.fx)
     if (track.kind === 'instrument') fromPatch(track.patch)
     if (track.kind === 'audio') for (const clip of track.clips) if (clip) found.add(clip.sampleId)
+  }
+  for (const region of project.arrangement ?? []) {
+    if (isAudioContent(region.content)) found.add(region.content.sampleId)
   }
   return [...found]
 }

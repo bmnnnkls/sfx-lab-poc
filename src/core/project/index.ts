@@ -15,6 +15,7 @@ export { isAudioTrack, isInstrumentTrack, isReturnTrack } from './track-kind'
 export {
   addArrangementClip,
   arrangementEnd,
+  arrangementLoopEnd,
   arrangementOnTrack,
   arrangementOverlaps,
   createArrangementClip,

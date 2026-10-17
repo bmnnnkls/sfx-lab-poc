@@ -5,17 +5,16 @@ Things we have decided are worth doing but have not started. Newest first. Move 
 
 ## Prototype follow-ups: arrangement and sample editor (2026-10-17)
 
-The arrangement timeline and the sample editor (stage 1) are prototyped; see `ARCHITECTURE.md` for what exists.
+The arrangement timeline, its follow-ups (looping regions, moving a region across tracks, placing from the session
+grid, bouncing the arrangement) and the sample editor (stage 1) are shipped; see `ARCHITECTURE.md` for what exists.
 Follow-ups, in rough order of value:
 
-1. **Arrangement**: looping regions (a region that repeats its clip), moving a region across tracks, drag-and-drop
-   from the session grid, and bouncing the arrangement (the offline bounce plays a session clip or scene today).
-2. **Sample editor stage 2 (granular, G6-lite)**: a granular sampler node reading the loaded buffer (position,
+1. **Sample editor stage 2 (granular, G6-lite)**: a granular sampler node reading the loaded buffer (position,
    density, grain size, pitch spread, spray), edited with the same controls in the sample editor. Nodes already
    read whole sample buffers, so this is feasible without new engine plumbing.
-3. **Arrangement automation lanes** and **recording into the arrangement** (touch recording, slice 3c, could land
+2. **Arrangement automation lanes** and **recording into the arrangement** (touch recording, slice 3c, could land
    on the timeline too).
-4. **Sample editor polish**: destructive in-place editing (a way to replace a sample's bytes), stereo samples, a
+3. **Sample editor polish**: destructive in-place editing (a way to replace a sample's bytes), stereo samples, a
    spectrum view (needs the FFT utility first, H1), slicing a selection to pads.
 
 ## Next development sequence

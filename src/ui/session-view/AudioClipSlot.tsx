@@ -2,6 +2,7 @@ import type { AudioClip } from '@core'
 import { duplicateSessionClip, useAutomationEditor, useEngineControls, useProjectStore, useSelectionStore, useStatusStore } from '@state'
 import { ContextMenu, type MenuEntry, PopupMenu } from '../shared/menu'
 import { WaveformThumb } from '../shared/WaveformThumb'
+import { placeOnArrangement } from './place-on-arrangement'
 import styles from './SessionView.module.css'
 
 interface AudioClipSlotProps {
@@ -52,6 +53,7 @@ export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
         { label: 'Edit clip', onSelect: () => selectClip(trackId, clip.id) },
         { label: 'Edit automation', onSelect: () => { selectClip(trackId, clip.id); useAutomationEditor.getState().show() } },
         { label: 'Duplicate to empty slot', disabled: !useProjectStore.getState().project.tracks.some((t) => t.id === trackId && t.kind !== 'return' && t.clips.some((c) => !c)), onSelect: () => duplicateSessionClip(trackId, clip.id) },
+        { label: 'Place on arrangement', onSelect: () => placeOnArrangement(trackId, clip) },
         { kind: 'separator' },
         { label: 'Delete clip', danger: true, onSelect: () => deleteClip(trackId, scene) },
       ]}

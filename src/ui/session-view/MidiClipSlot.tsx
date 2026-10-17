@@ -1,6 +1,7 @@
 import type { Clip } from '@core'
 import { duplicateSessionClip, useAutomationEditor, useEngineControls, useProjectStore, useSelectionStore, useStatusStore } from '@state'
 import { ContextMenu } from '../shared/menu'
+import { placeOnArrangement } from './place-on-arrangement'
 import styles from './SessionView.module.css'
 
 interface ClipSlotProps {
@@ -42,11 +43,12 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
         { label: 'Edit notes', onSelect: () => selectClip(trackId, clip.id) },
         { label: 'Edit automation', onSelect: () => { selectClip(trackId, clip.id); useAutomationEditor.getState().show() } },
         { label: 'Duplicate to empty slot', disabled: !useProjectStore.getState().project.tracks.some((t) => t.id === trackId && t.kind !== 'return' && t.clips.some((c) => !c)), onSelect: () => duplicateSessionClip(trackId, clip.id) },
+        { label: 'Place on arrangement', onSelect: () => placeOnArrangement(trackId, clip) },
         { kind: 'separator' },
         { label: 'Delete clip', danger: true, onSelect: () => deleteClip(trackId, scene) },
       ]}
     >
-      <div className={`${styles.slot} ${state}`}>
+      <div className={`${styles.slot} ${state}`} >
         <button className={styles.launch} onClick={() => controls.launchClip(trackId, clip.id)}>
           {playing ? '■' : '▶'} {clip.name}
         </button>

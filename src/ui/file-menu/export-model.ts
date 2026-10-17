@@ -13,7 +13,7 @@ import {
 
 /** What the export dialog asks, as the fields hold it. A field the user has not touched is null and follows its default. */
 export interface ExportForm {
-  readonly scope: 'clip' | 'scene'
+  readonly scope: 'clip' | 'scene' | 'arrangement'
   /** Index of the scene (row) of the session grid, from 0. */
   readonly scene: number
   readonly bars: string | null
@@ -51,9 +51,14 @@ export const selectedClipChoice = (project: Project, trackId: string | null, cli
 export const sceneClipCount = (project: Project, scene: number): number =>
   project.tracks.filter((track) => track.kind !== 'return' && track.clips[scene] != null).length
 
+/** Whether the arrangement timeline has anything on it to bounce. */
+export const arrangementHasClips = (project: Project): boolean =>
+  (project.arrangement ?? []).length > 0
+
 /** The scope the form asks for, or null if there is nothing to play there. */
 export const scopeOf = (form: ExportForm, project: Project, choice: ClipChoice | null): BounceScope | null => {
   if (form.scope === 'clip') return choice?.scope ?? null
+  if (form.scope === 'arrangement') return arrangementHasClips(project) ? { kind: 'arrangement' } : null
   return sceneClipCount(project, form.scene) > 0 ? { kind: 'scene', scene: form.scene } : null
 }
 

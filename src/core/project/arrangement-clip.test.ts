@@ -7,6 +7,7 @@ import type { AudioClip } from './types'
 import {
   addArrangementClip,
   arrangementEnd,
+  arrangementLoopEnd,
   arrangementOnTrack,
   arrangementOverlaps,
   createArrangementClip,
@@ -68,6 +69,34 @@ describe('arrangement clips', () => {
     const notes = (next[0]!.content as Clip).notes
     expect(notes).toHaveLength(1)
     expect(notes[0]).toMatchObject({ pitch: 60, duration: 2 })
+  })
+
+  it('loop and move across tracks, keeping everything else', () => {
+    const region = createArrangementClip('t1', 4, midiClip())
+    const looping = updateArrangementClip([region], region.id, { loop: true })
+    expect(looping[0]).toMatchObject({ loop: true, startBeat: 4, trackId: 't1' })
+    const moved = updateArrangementClip(looping, region.id, { trackId: 't2' })
+    expect(moved[0]).toMatchObject({ trackId: 't2', loop: true })
+    const off = updateArrangementClip(moved, region.id, { loop: false })
+    expect(off[0]!.loop).toBe(false)
+    expect(updateArrangementClip([region], region.id, {})[0]).toBe(region)
+  })
+
+  it('stop sounding at the next region on the track when they loop', () => {
+    const looping = { ...createArrangementClip('t1', 0, midiClip()), loop: true as const }
+    const next = createArrangementClip('t1', 16, midiClip())
+    const later = createArrangementClip('t1', 32, midiClip())
+    expect(arrangementLoopEnd(looping, [looping, next, later])).toBe(16)
+    // Any next region cuts the loop, looping or not; the closest one wins.
+    expect(arrangementLoopEnd(looping, [looping, later])).toBe(32)
+    // A looping region with no next region stops at its own end.
+    expect(arrangementLoopEnd(looping, [looping])).toBe(arrangementEnd(looping))
+    // A non-looping region always stops at its own end, even when one follows.
+    expect(arrangementLoopEnd(next, [looping, next, later])).toBe(arrangementEnd(next))
+    // Other tracks and regions at the same beat do not cut the loop.
+    const elsewhere = createArrangementClip('t2', 2, midiClip())
+    const simultaneous = { ...createArrangementClip('t1', 0, midiClip()), id: 'other' }
+    expect(arrangementLoopEnd(looping, [looping, elsewhere, simultaneous])).toBe(arrangementEnd(looping))
   })
 
   it('ignore no-op edits (the same objects back)', () => {

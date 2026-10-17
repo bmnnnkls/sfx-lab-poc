@@ -35,6 +35,20 @@ const audioRegion = (id: string, startBeat: number) => ({
   },
 })
 
+/** A region whose clip is a single note running the whole clip, so every pass has exactly one on and one off. */
+const loopRegion = (id: string, startBeat: number, loop = false) => ({
+  id,
+  trackId: 't',
+  startBeat,
+  loop,
+  content: {
+    id: `clip-${id}`,
+    name: 'clip',
+    lengthBeats: 4,
+    notes: [{ id: 'n1', pitch: 60, start: 0, duration: 4, velocity: 0.9 }],
+  },
+})
+
 describe('arrangement notes', () => {
   it('emit the notes of the region under the playhead', () => {
     const player = new ArrangementNotes('track:t')
@@ -71,6 +85,49 @@ describe('arrangement notes', () => {
     player.setRegions([midiRegion('r1', 0)])
     // The boundary range releases the note that runs to the region end, then the region is done.
     expect(player.collectEvents(4, 8).map((event) => [event.beat, event.kind])).toEqual([[4, 'noteOff']])
+    expect(player.collectEvents(8, 12)).toEqual([])
+  })
+
+  it('loop: the notes repeat each pass until the next region on the track', () => {
+    const player = new ArrangementNotes('track:t')
+    player.setRegions([loopRegion('r1', 0, true), loopRegion('r2', 16)])
+    const events = player.collectEvents(0, 16)
+    expect(events.filter((event) => event.kind === 'noteOn').map((event) => event.beat)).toEqual([0, 4, 8, 12])
+    // The note runs to the clip end, so it is released at every pass boundary (the last on the boundary range, checked below).
+    expect(events.filter((event) => event.kind === 'noteOff').map((event) => event.beat)).toEqual([4, 8, 12])
+    expect(events.filter((event) => event.kind === 'noteOn').map((event) => event.identity?.id)).toEqual([
+      JSON.stringify(['arr', 'r1', 0, 'n1']),
+      JSON.stringify(['arr', 'r1', 1, 'n1']),
+      JSON.stringify(['arr', 'r1', 2, 'n1']),
+      JSON.stringify(['arr', 'r1', 3, 'n1']),
+    ])
+    // Past the loop end, the boundary range releases the last pass and the next region plays its own notes once.
+    const after = player.collectEvents(16, 24)
+    expect(after.map((event) => [event.beat, event.kind, 'identity' in event && event.identity ? event.identity.id : null])).toEqual([
+      [16, 'noteOff', JSON.stringify(['arr', 'r1', 3, 'n1'])],
+      [16, 'noteOn', JSON.stringify(['arr', 'r2', 'n1'])],
+      [20, 'noteOff', JSON.stringify(['arr', 'r2', 'n1'])],
+    ])
+  })
+
+  it('loop: a pass the loop end falls into is cut short there', () => {
+    const player = new ArrangementNotes('track:t')
+    player.setRegions([loopRegion('r1', 0, true), loopRegion('r2', 6)])
+    // The second pass runs 4 to 6: the note starts there and is cut at the loop end. The next region's own note starts at 6.
+    const events = player.collectEvents(0, 8)
+    expect(events.filter((event) => event.kind === 'noteOn').map((event) => event.beat)).toEqual([0, 4, 6])
+    expect(events.filter((event) => event.kind === 'noteOff').map((event) => event.beat)).toEqual([4, 6])
+    // The loop is over; only the next region's own tail note-off follows.
+    expect(player.collectEvents(8, 12).map((event) => [event.beat, event.kind])).toEqual([[10, 'noteOff']])
+  })
+
+  it('loop: with no next region, a lone looping region still stops at its own end', () => {
+    const player = new ArrangementNotes('track:t')
+    player.setRegions([loopRegion('r1', 0, true)])
+    expect(player.collectEvents(0, 8).map((event) => [event.beat, event.kind])).toEqual([
+      [0, 'noteOn'],
+      [4, 'noteOff'],
+    ])
     expect(player.collectEvents(8, 12)).toEqual([])
   })
 
@@ -111,5 +168,33 @@ describe('arrangement audio', () => {
     player.collectEvents(0, 1)
     player.setRegions([]) // deleted mid-play
     expect(player.collectEvents(1, 2)).toEqual([expect.objectContaining({ beat: 1, kind: 'stop' })])
+  })
+
+  it('loops: the clip keeps looping until the next region on the track stops it', () => {
+    const player = new ArrangementAudio()
+    player.setRegions([{ ...audioRegion('r1', 0), loop: true }, audioRegion('r2', 12)])
+    expect(player.collectEvents(0, 4)).toEqual([expect.objectContaining({ beat: 0, kind: 'start', origin: 0 })])
+    // Past the region's own end (beat 4) it is still playing — nothing stops it before the next region.
+    expect(player.collectEvents(4, 12)).toEqual([])
+    // The next region (at beat 12) cuts the loop there and takes over.
+    expect(player.collectEvents(12, 16)).toEqual([
+      expect.objectContaining({ beat: 12, kind: 'stop' }),
+      expect.objectContaining({ beat: 12, kind: 'start', clip: expect.objectContaining({ id: 'audio-r2' }) }),
+    ])
+  })
+
+  it('loops: the start event enables the clip loop, so the read position wraps each pass', () => {
+    const player = new ArrangementAudio()
+    player.setRegions([{ ...audioRegion('r1', 0), loop: true }, audioRegion('r2', 8)])
+    const events = player.collectEvents(0, 1)
+    expect(events[0]).toMatchObject({ kind: 'start', clip: expect.objectContaining({ id: 'audio-r1', loop: true }) })
+  })
+
+  it('loops: with no next region, a lone looping region stops at its own end', () => {
+    const player = new ArrangementAudio()
+    player.setRegions([{ ...audioRegion('r1', 0), loop: true }])
+    player.collectEvents(0, 1)
+    expect(player.collectEvents(3, 5)).toEqual([expect.objectContaining({ beat: 4, kind: 'stop' })])
+    expect(player.collectEvents(5, 6)).toEqual([])
   })
 })

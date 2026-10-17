@@ -1,10 +1,11 @@
 import {
   type ArrangementClip,
   arrangementEnd,
+  arrangementLoopEnd,
   arrangementOnTrack,
 } from '@core'
 import { useEngineControls, useProjectStore, useStatusStore } from '@state'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { ContextMenu } from '../shared/menu'
 import { ArrangementRegion } from './ArrangementRegion'
 import styles from './arrangement.module.css'
@@ -22,7 +23,8 @@ const snap = (beats: number): number => Math.round(beats * 4) / 4
 
 /**
  * The "Arrangement" view: copies of session clips on a timeline, one lane per track. Playback follows
- * the transport; ▶ starts it from the beginning (or resumes from where it was stopped).
+ * the transport; ▶ starts it from the beginning (or resumes from where it was stopped). Session slots
+ * drag onto a lane, regions drag across lanes, and a region can loop until the next one on its track.
  */
 export const ArrangementView = () => {
   const controls = useEngineControls()
@@ -30,6 +32,7 @@ export const ArrangementView = () => {
   const placed = useProjectStore((state) => state.project.arrangement)
   const arrangement = placed ?? []
   const addRegion = useProjectStore((state) => state.addArrangementClip)
+  const updateRegion = useProjectStore((state) => state.updateArrangementClip)
   const removeRegion = useProjectStore((state) => state.removeArrangementClip)
   const playing = useStatusStore((state) => state.status?.playing ?? false)
   const beat = useStatusStore((state) => state.status?.beat ?? 0)
@@ -50,8 +53,9 @@ export const ArrangementView = () => {
     return track && track.kind !== 'return' ? track.clips.filter((clip) => clip !== null) : []
   }
 
-  const regionMenu = (region: ArrangementClip, trackId: string) => [
-    { label: 'Duplicate', onSelect: () => addRegion(trackId, arrangementEnd(region), region.content) },
+  const regionMenu = (region: ArrangementClip) => [
+    { label: 'Duplicate', onSelect: () => addRegion(region.trackId, arrangementEnd(region), region.content) },
+    { label: region.loop ? 'Stop looping' : 'Loop until next region', onSelect: () => updateRegion(region.id, { loop: !region.loop }) },
     {
       label: 'Delete',
       danger: true,
@@ -82,7 +86,7 @@ export const ArrangementView = () => {
           />
         </label>
         <span className={styles.info}>
-          Right-click an empty lane to add one of the track's session clips; drag regions to move, drag the edge to resize.
+          Right-click an empty lane to add a session clip; right-click a session slot to place it here; drag regions to move (across lanes too), the edge to resize.
         </span>
       </div>
       <div className={styles.scroll}>
@@ -132,16 +136,31 @@ export const ArrangementView = () => {
                     }}
                   />
                 </ContextMenu>
-                {arrangementOnTrack(arrangement, track.id).map((region) => (
-                  <ContextMenu key={region.id} entries={regionMenu(region, track.id)}>
-                    <ArrangementRegion
-                      region={region}
-                      pxPerBeat={pxPerBeat}
-                      selected={selected === region.id}
-                      onSelect={() => setSelected(region.id)}
-                    />
-                  </ContextMenu>
-                ))}
+                {arrangementOnTrack(arrangement, track.id).map((region) => {
+                  const loopEnd = arrangementLoopEnd(region, arrangement)
+                  const tailStart = arrangementEnd(region)
+                  const tailWidth = Math.max(0, Math.round((loopEnd - tailStart) * pxPerBeat))
+                  return (
+                    <Fragment key={region.id}>
+                      {region.loop && tailWidth > 0 && (
+                        <div
+                          className={styles.loopTail}
+                          data-testid="arrangement-loop-tail"
+                          style={{ left: tailStart * pxPerBeat, width: tailWidth }}
+                          aria-hidden
+                        />
+                      )}
+                      <ContextMenu entries={regionMenu(region)}>
+                        <ArrangementRegion
+                          region={region}
+                          pxPerBeat={pxPerBeat}
+                          selected={selected === region.id}
+                          onSelect={() => setSelected(region.id)}
+                        />
+                      </ContextMenu>
+                    </Fragment>
+                  )
+                })}
                 {playing && <div className={styles.playhead} style={{ left: beat * pxPerBeat }} />}
               </div>
             </div>

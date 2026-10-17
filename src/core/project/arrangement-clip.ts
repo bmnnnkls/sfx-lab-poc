@@ -17,12 +17,32 @@ export interface ArrangementClip {
   readonly startBeat: number
   /** Copied content: a MIDI clip (notes) or an audio clip (sample, warp, trim, fades). */
   readonly content: Clip | AudioClip
+  /**
+   * Repeat the clip on the timeline (default false: the region plays once). The loop ends at the
+   * next region on that track, or — when none follows — at the region's own end.
+   */
+  readonly loop?: boolean
 }
 
 export const isAudioContent = (content: Clip | AudioClip): content is AudioClip => 'sampleId' in content
 
 /** Where the region stops on the timeline, in beats. */
 export const arrangementEnd = (region: ArrangementClip): number => region.startBeat + region.content.lengthBeats
+
+/**
+ * Where the region stops *sounding*, in beats: its own end, or — when it loops — the start of the
+ * next region on the same track (any region, looping or not, cuts the loop). A looping region with
+ * no next region stops at its own end. Regions starting at the same beat do not cut each other.
+ */
+export const arrangementLoopEnd = (region: ArrangementClip, regions: readonly ArrangementClip[]): number => {
+  if (region.loop !== true) return arrangementEnd(region)
+  let next: number | null = null
+  for (const candidate of regions) {
+    if (candidate.id === region.id || candidate.trackId !== region.trackId) continue
+    if (candidate.startBeat > region.startBeat) next = next === null ? candidate.startBeat : Math.min(next, candidate.startBeat)
+  }
+  return next ?? arrangementEnd(region)
+}
 
 /** A region that overlaps the half-open beat range [from, to). */
 export const arrangementOverlaps = (region: ArrangementClip, from: number, to: number): boolean =>
@@ -46,11 +66,13 @@ export const arrangementOnTrack = (
     .sort((a, b) => a.startBeat - b.startBeat)
 
 export interface ArrangementChanges {
+  readonly trackId?: string
   readonly startBeat?: number
+  readonly loop?: boolean
   readonly content?: Clip | AudioClip
 }
 
-/** Edits one region's position or content, keeping the values in range. No change keeps the same array. */
+/** Edits one region's track, position, loop or content, keeping the values in range. No change keeps the same array. */
 export const updateArrangementClip = (
   regions: readonly ArrangementClip[],
   id: string,
@@ -61,9 +83,11 @@ export const updateArrangementClip = (
     if (region.id !== id) return region
     const content = changes.content ? normalizeContent(changes.content) : region.content
     const startBeat = Math.max(0, changes.startBeat ?? region.startBeat)
-    if (content === region.content && startBeat === region.startBeat) return region
+    const trackId = changes.trackId ?? region.trackId
+    const loop = changes.loop ?? region.loop
+    if (content === region.content && startBeat === region.startBeat && trackId === region.trackId && loop === region.loop) return region
     changed = true
-    return { ...region, startBeat, content }
+    return { ...region, trackId, startBeat, loop, content }
   })
   return changed ? next : regions
 }
