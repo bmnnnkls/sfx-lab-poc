@@ -1,6 +1,6 @@
 # Implementation plan: performance and library
 
-Status: **slice 0 implemented; slices 1–7 planned**. Product behavior and draft defaults are defined in
+Status: **slices 0–1 implemented; slices 2–7 planned**. Product behavior and draft defaults are defined in
 [SPEC-performance-and-library.md](SPEC-performance-and-library.md). Work proceeds in order below; each slice should
 be independently reviewable and leave the existing examples/project files usable.
 
@@ -21,7 +21,7 @@ Implemented 2026-10-17 on `codex/performance-and-library`:
 - Local verification: clean install, 1,335 unit/architecture tests (94 files), typecheck, production build, three smoke
   tests and one real-output audio test passed. GitHub's Linux job still needs its first remote run.
 
-The original slice requirements are retained below for context. Next slice: **1. Shared target model and effective values**.
+The original slice requirements are retained below for context. Next slice: **2. MIDI performance**.
 
 - Make the local production build reproducible. The review on 2026-10-17 passed 1,335 tests across 94 files and passed
   typechecking, but production bundling failed because the installed Lightning CSS macOS ARM64 binary was missing.
@@ -34,6 +34,35 @@ Exit: clean install, build, unit suite and smoke checks run from documented comm
 
 ## 1. Shared target model and effective values
 
+Implemented 2026-10-17 on `codex/performance-and-library`:
+
+- Added framework-free `core/control`: serializable graph/mixer targets, stable structured keys, nested use paths
+  guarded by module identities and node types, enumeration, live spec resolution, normalized scale conversion,
+  pure base edits and explicit missing/incompatible results. Wired sockets remain wire-owned; their stored bases
+  are editable, while performance overrides return an explanation directing callers upstream.
+- Track instrument, note and insert graphs, return effects, master effects/volume, pan and post-fader sends share
+  the same model. Instrument/insert parameter commands now carry graph scope to prevent ID collisions across domains.
+- Per-instance graph values are saved in optional `Project.controlValues`; format v2 has an explicit v1 migration,
+  bounded validation and committed v1/v2 fixtures. Existing exposed module knobs remain valid defaults. Group/unlink
+  remap saved routes, including edits inside shared definitions; generic owner/node/module/return ID maps and explicit
+  routes support future duplicate/asset insertion callers and report unavailable targets.
+- Transient overrides live in a separate state store. The sync adapter diffs an effective engine projection; history,
+  autosave and offline exports retain authored values. Release, stop and document replacement restore bases;
+  invalid or newly wired targets lose transient ownership. Compact panel/property/mixer readouts show effective versus base
+  and offer release. Voice-count rebuilds preserve the current effective instrument parameters.
+- Panel instance controls, graph/property controls and mixer values use a common explicit gesture transaction: a long drag is one undo step,
+  consecutive gestures remain separate, and XY changes commit atomically. Shared-definition panel edits retain their
+  existing graph-authoring path. Wheel bursts share an 800 ms inactivity boundary. No MIDI, automation scheduling
+  or later-slice UI is included.
+
+- Verification: 1,357 unit/architecture tests across 98 files, typecheck, production build, four production smoke
+  tests and one real-output audio test passed. New coverage includes nested instance identity, migrations and bounded
+  parsing, wired module boundaries, group/unlink and asset-closure remapping, real engine override/release with zero
+  autosave writes, long/separate/XY gestures, graph-domain isolation and voice-count rebuilds. Browser coverage checks
+  independent shared-module values across panel/property edits, undo and reload. The build retains its chunk-size warning.
+
+The original slice requirements are retained below as the shipped scope.
+
 Likely touchpoints: new `core/control` module; `core/patch` resolution/flattening; `core/project`; `core/sync`;
 `core/engine`; `state/project-store`; panel and mixer adapters. Extend architecture allow-lists deliberately.
 
@@ -44,7 +73,7 @@ Likely touchpoints: new `core/control` module; `core/patch` resolution/flattenin
 - Add runtime effective-value overrides and compact status readouts. No playback mutation of the project document.
 - Route manual controls through a common gesture transaction without enlarging the already broad project store API
   unnecessarily; keep UI adapters thin.
-- Add versioned migrations/fixtures as saved fields arrive. Current project format is version 1; do not silently redefine it.
+- Add versioned migrations/fixtures as saved fields arrive. The starting format was version 1; slice 1 explicitly migrates it to version 2.
 
 Exit: one parameter in a module used twice can be addressed independently, survives rename/reload, and a runtime override
 does not change history or autosave. Graph edits cannot silently redirect an old target to a different control.

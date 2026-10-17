@@ -1,5 +1,6 @@
 import {
   MASTER_IN_TYPE,
+  controlTargetForGraphParam,
   RETURN_IN_TYPE,
   SEND_TYPE,
   TRACK_AUDIO_TYPE,
@@ -30,6 +31,7 @@ import {
 } from '@core'
 import { useProjectStore } from '@state'
 import { type ReactNode, useRef, useState } from 'react'
+import { useControlGesture } from '../controls/use-control-gesture'
 import { PanelView } from '../panel/PanelView'
 import type { MenuEntry } from '../shared/menu'
 import { useStoredState } from '../shared/use-stored-state'
@@ -98,6 +100,7 @@ interface GraphEditorProps {
  * Both kinds of graph share everything: selecting, wiring, grouping into modules, editing modules in place.
  */
 export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
+  const gesture = useControlGesture()
   const track = owner === 'master' ? undefined : owner
   const masterFx = useProjectStore((state) => state.project.master.fx)
   const domain = graph === 'notes' ? 'notes' : 'audio'
@@ -319,10 +322,10 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
           <RandomizeBar onRoll={(seed, amount) => edit((current, library) => randomizeParams(current, library, { seed, amount }))} />
         </div>
       </div>
-      <div className={styles.editorBody} data-has-aside={Boolean(aside) || (Boolean(definition) && interfaceOpen && view === 'graph')}>
+      <div {...gesture.events} className={styles.editorBody} data-has-aside={Boolean(aside) || (Boolean(definition) && interfaceOpen && view === 'graph')}>
         {view === 'panel' ? (
           <div className={styles.panelHost}>
-            <PanelView patch={patch} modules={modules} scope={scope} readoutTrack={readoutTrack} edit={edit} />
+            <PanelView controlOwner={definition ? undefined : track ? { kind: 'track', trackId: track.id } : { kind: 'master' }} controlDomain={graph} patch={patch} modules={modules} scope={scope} readoutTrack={readoutTrack} edit={edit} />
           </div>
         ) : (
           <PatchCanvas
@@ -334,13 +337,18 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             showSockets={showSockets}
             readoutTrack={readoutTrack}
             onSelectionChange={setSelected}
-            onSetNodeParams={(id, changes) =>
-              // The same undo keys as the panel and the property editor, so a drag of one value is one step wherever it is made.
-              edit(
+            onSetNodeParams={(id, changes) => {
+              const owner = track ? { kind: 'track' as const, trackId: track.id } : { kind: 'master' as const }
+              const values = definition ? [] : changes.flatMap((change) => {
+                const target = controlTargetForGraphParam(store().project, owner, graph, id, change.param)
+                return target ? [{ target, value: change.value }] : []
+              })
+              if (values.length === changes.length) gesture.change(values)
+              else edit(
                 (current) => changes.reduce((next, change) => setNodeParam(next, id, change.param, change.value), current),
                 changes.length === 1 && changes[0] ? `param:${scope}:${id}:${changes[0].param}` : `xy:${scope}:${id}:`,
               )
-            }
+            }}
             onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
             onRemoveNode={(id) => edit((current) => removeNode(current, id))}
             inputMenu={inputMenu}
@@ -358,6 +366,8 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             modules={modules}
             selected={selected}
             scope={scope}
+            controlOwner={definition ? undefined : track ? { kind: 'track', trackId: track.id } : { kind: 'master' }}
+            controlDomain={graph}
             ownerTrackId={track?.id ?? ''}
             edit={edit}
             onCreateControl={createControl}

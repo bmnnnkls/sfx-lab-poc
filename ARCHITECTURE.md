@@ -94,6 +94,53 @@ Each folder exposes one `index.ts`; everything else in it is private.
 * **The `Engine` has no browser dependency**, so the same code is unit-tested in Node and renders offline: File > Export audio is
   `renderProject`, the same engine pulled faster than real time (see "Exporting audio").
 
+## Shared control targets and effective values
+
+`core/control` is the common framework-free control model. A `ControlTarget` names a track or master owner and either
+an instrument (`patch`), note (`notes`) or insert (`fx`) graph, or a mixer control (volume, pan, send with return ID).
+Returns use their track IDs. Graph targets carry an ordered path of `{ nodeId, moduleId }` uses, the leaf node ID,
+expected node type and parameter ID. Names, panel order and canvas positions never enter identity. Canonical keys
+serialize these fields in a fixed order. Resolution checks every use before flattening and refuses ambiguous flat IDs;
+a replaced module or node type is incompatible, while absent nodes, parameters, returns and owners are missing.
+
+`enumerateControlTargets` walks graphs and nested definitions, including independent XY axes. Resolution provides the
+live `ParamSpec`, authored base, availability for performance and linear/hold interpolation. Scale conversion reuses
+`dsp/param-scale` (linear, logarithmic and exponential), clamps and snaps, and selectors use their configured count.
+Control configuration parameters can be inspected but are unavailable for performance. A wired parameter remains
+wire-driven: base edits still work, but runtime override is refused with “target the upstream control.” Detection uses
+the flattened graph, so wires crossing module boundaries retain the same rule.
+
+`editControlBase` is a pure edit with an explicit result. Root/mixer edits use existing document fields. Values inside a
+module use go in optional `Project.controlValues`, a list of target/value records; they never edit the shared definition.
+Old exposed knob/control values on module uses remain defaults until an explicit target value supersedes them.
+Format **v2** adds this field; v1 migrates without changing authored values. The parser bounds the list (4096), path
+length (32) and ID lengths, rejects malformed values with warnings, deduplicates by canonical key and retains well-formed
+unavailable references. Committed v1 and v2 fixtures round-trip. Group/unlink rewrite saved routes, including all uses
+when editing a shared definition. `remapControlTarget`/`remapControlValues` accept explicit routes and owner/node/module/
+return ID maps for duplication and future asset insertion, validate the destination and report failures without guessing.
+Deleting/replacing a graph leaves references explicitly unavailable rather than matching nodes by labels or position.
+
+`projectWithControlValues` builds an ephemeral engine projection, applying saved instance values and then active
+runtime overrides. `diffProject` applies saved instance values for both live and offline rendering. `state/control-store`
+holds only transient overrides; `app/project-sync` subscribes separately and diffs successive effective projections.
+It never writes the project, history or autosave. Release restores the latest base, transport stop releases all overrides,
+document replacement/reset releases ownership, and edits that remove/invalidate/wire a target drop its live override.
+The project store's `documentEpoch` is unsaved lifecycle metadata for this purpose. Offline exports use authored bases.
+Instrument/insert `track/setParam` commands carry graph scope so equal IDs across domains cannot affect each other;
+legacy unscoped commands retain their behavior. Runtime instrument parameters are kept across voice-count rebuilds.
+
+`createControlGesture` gives panel instance, graph/property and mixer controls one shared transaction path, committing an XY
+change atomically. Explicit begin/end boundaries use a unique merge key with no duration cutoff: long drags undo once,
+and consecutive gestures do not merge accidentally. Wheel bursts use an 800 ms inactivity boundary. Pointer cancellation ends the gesture and keeps its latest value;
+undo restores its starting value. Shared-definition panels keep the graph editor's authoring path. Panel, property and mixer
+`EffectiveValue` outputs appear only for active overrides, show the base in a tooltip and provide release. The pure
+`effectiveControlReadouts` helper returns only active compatible overrides rather than every parameter on every frame.
+
+This is a control foundation: no MIDI source, automation clock/evaluation/recording, snapshots or library insertion UI
+ships here. Runtime overrides currently reach the engine through main-thread commands, not an audio-clock scheduler.
+The existing panel shows directly nested controls; deeper paths are supported by the control API and saved values,
+while opening a module definition still edits the shared definition deliberately.
+
 ## Polyphony
 
 * **Each track has a voice pool** (`Track.voices`, 1–16, default 8; set in the Instrument tab). A chord or
@@ -432,11 +479,11 @@ remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`):
   with the parameter's range, curve, unit, default and current value, wired in one undo step; a pad takes two parameters and wires
   both axes); without one it is a blank control (`createBlankControl`) to wire in the graph. Only parameters with a socket and no wire
   yet are offered. New nodes go in a row under the others (`spotBelow`).
-* **Writing a value.** A knob or slider writes the node's `value` with `setNodeParam` through the editor's own `edit`, with the **same merge
+* **Writing a value (shared-definition editor).** A knob or slider writes the node's `value` with `setNodeParam` through the editor's own `edit`, with the **same merge
   key as the property editor's slider** (`param:<scope>:<node>:value`), so one drag is one undo step and a drag in either place merges
   alike; a pad sets `x` and `y` in **one** edit (`xy:<scope>:<node>`); a switch writes `on` (a *momentary* switch is 1 only while held).
   What the control does is then whatever is wired from the node: a control's value is **real** (in its own range), and the sound follows
-  through the parameter sockets (`ARCHITECTURE`, "Control nodes"). A panel edit alone makes **no engine command** (tested through
+  through the parameter sockets (`ARCHITECTURE`, "Control nodes"). Track/master instance panels now use the shared control transactions described above. A panel layout edit alone makes **no engine command** (tested through
   `diffProject`); a value change is the ordinary `track/setParam` on the control node.
 * **Persistence.** `PatchNode.panel` is read by the sanitizer for control nodes only (`show` can only be `false`, a size is one of S / M / L,
   an `order` a small non-negative integer; malformed parts are dropped and an empty field is not stored). The old `Patch.panel` list
@@ -1057,7 +1104,7 @@ launcher queue need no changes (the return track was added this way; TypeScript 
 `EditorPanel`.
 
 **Add a field to the project** — add it to `project/types.ts`, give it a safe default in
-`persistence/sanitize-*.ts`, and add a migration only if old files would otherwise load wrongly.
+`persistence/sanitize-*.ts`, bump the format version, add an explicit migration and commit a fixture for the new shape.
 
 **Add an example project** — a folder under `core/examples/` with an `index.ts` that builds the project with `patchOf`, `moduleOf`, `drumNotes` /
 `lineNotes` and `projectOf` (see "Example projects"), then an entry in `examples/index.ts` (`exampleProjects`; the title, a tagline with the BPM

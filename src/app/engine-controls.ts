@@ -1,5 +1,5 @@
 import type { AudioHost } from '@audio'
-import type { EngineControls } from '@state'
+import { type EngineControls, useControlStore } from '@state'
 
 /**
  * Binds UI intents to engine commands. Every control starts audio first, so the
@@ -13,7 +13,7 @@ export const createEngineControls = (host: AudioHost): EngineControls => {
 
   return {
     play: () => run({ type: 'transport/play' }),
-    stop: () => run({ type: 'transport/stop' }),
+    stop: () => { useControlStore.getState().clear(); run({ type: 'transport/stop' }) },
     launchClip: (trackId, clipId) => run({ type: 'clip/launch', trackId, clipId }),
     launchScene: (scene) => run({ type: 'scene/launch', scene }),
     stopTrack: (trackId) => run({ type: 'track/stop', trackId }),

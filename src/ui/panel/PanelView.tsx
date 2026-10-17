@@ -1,4 +1,8 @@
 import {
+  type ControlOwner,
+  type ControlTarget,
+  type ControlDomain,
+  resolveControlTarget,
   type ModuleLibrary,
   type PanelItem,
   type Patch,
@@ -18,14 +22,19 @@ import {
   spotBelow,
 } from '@core'
 import { useMemo, useState } from 'react'
+import { useProjectStore } from '@state'
+import { useControlGesture } from '../controls/use-control-gesture'
+import { EffectiveValue } from '../controls/EffectiveValue'
 import { AddControl, type AddDraft } from './AddControl'
 import { ControlCell, type ParamChange } from './ControlCell'
 import styles from './panel.module.css'
 
 interface PanelViewProps {
   patch: Patch
+  controlOwner?: ControlOwner
+  controlDomain?: ControlDomain
   modules: ModuleLibrary
-  /** Identifies the graph, so a drag in the panel merges with a drag of the same parameter in the property editor. */
+  /** Identifies shared-definition edits; instance controls use explicit gesture transactions. */
   scope: string
   /** The track whose engine reports the live values of indicators (`master` for the master bus); absent inside a module, where there are none. */
   readoutTrack?: string
@@ -36,9 +45,17 @@ interface PanelViewProps {
 /**
  * The front panel: the patch's control nodes as knobs, sliders, pads and switches, arranged. In *Play* the board is just
  * the controls; *Edit* adds the tools to build and arrange it. A control here IS the node: turning it writes the node's
- * value, exactly as the property editor does (the same undo key), so there is nothing to keep in step.
+ * base value through the shared control transaction. Shared-definition edits use the graph editor's edit path.
  */
-export const PanelView = ({ patch, modules, scope, readoutTrack, edit }: PanelViewProps) => {
+export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOwner, controlDomain }: PanelViewProps) => {
+  const gesture = useControlGesture()
+  const project = useProjectStore((state) => state.project)
+  const controlTarget = (item: PanelItem, paramId: string): ControlTarget | undefined => {
+    if (!controlOwner || !controlDomain) return undefined
+    const use = item.via && patch.nodes.find((node) => node.id === item.via?.use)
+    return { kind: 'graph', owner: controlOwner, domain: controlDomain, path: item.via && use?.moduleId ? [{ nodeId: use.id, moduleId: use.moduleId }] : [], nodeId: item.via?.inner ?? item.node.id, nodeType: item.node.type, paramId }
+  }
+  const valueParams = (item: PanelItem): readonly string[] => item.kind === 'xy' ? ['x', 'y'] : item.kind === 'switch' ? ['on'] : item.kind === 'selector' ? ['index'] : item.kind === 'knob' || item.kind === 'slider' ? ['value'] : []
   const [editing, setEditing] = useState(false)
   const items = useMemo(() => panelItems(patch, modules), [patch, modules])
   const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
@@ -47,6 +64,11 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit }: PanelVi
   const ownShown = shown.filter((item) => item.via === undefined)
 
   const set = (item: PanelItem, changes: readonly ParamChange[]) => {
+    const changesWithTargets = changes.flatMap((change) => {
+      const target = controlTarget(item, change.param)
+      return target ? [{ target, value: change.value }] : []
+    })
+    if (changesWithTargets.length === changes.length) { gesture.change(changesWithTargets); return }
     // A control inside a module is set on the use of the module (`<inner>:<param>`, as a module knob is); its own value is the default.
     const target = item.via?.use ?? item.node.id
     const name = (param: string) => (item.via ? controlParamKey(item.via.inner, param) : param)
@@ -71,7 +93,7 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit }: PanelVi
     })
 
   return (
-    <div className={styles.panel} data-testid="front-panel" data-editing={editing || undefined}>
+    <div {...gesture.events} className={styles.panel} data-testid="front-panel" data-editing={editing || undefined}>
       <div className={styles.bar}>
         <button aria-pressed={editing} onClick={() => setEditing((on) => !on)} title={editing ? 'Back to playing' : 'Add, remove and arrange controls'}>
           {editing ? 'Done' : 'Edit panel'}
@@ -105,7 +127,19 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit }: PanelVi
             return (
               <ControlCell
                 key={id}
-                item={item}
+                item={(() => {
+                  const params = { ...item.node.params }
+                  for (const param of valueParams(item)) {
+                    const target = controlTarget(item, param)
+                    const resolved = target && resolveControlTarget(project, target)
+                    if (resolved?.status === 'available') params[param] = resolved.baseValue
+                  }
+                  return { ...item, node: { ...item.node, params } }
+                })()}
+                feedback={valueParams(item).map((param) => {
+                  const target = controlTarget(item, param)
+                  return target ? <EffectiveValue key={param} target={target} /> : null
+                })}
                 modules={modules}
                 title={item.title ?? titles.get(id) ?? item.node.type}
                 editing={editing}

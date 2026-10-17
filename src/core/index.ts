@@ -12,3 +12,5 @@ export * from './history'
 export { classifyStages, type Stage } from './instrument'
 export * from './sample'
 export { pitchName } from './shared'
+
+export * from './control'

@@ -1,6 +1,8 @@
-import { MASTER_IN_TYPE, TRACK_OUT_TYPE, describeNode } from '@core'
+import { type ControlTarget, MASTER_IN_TYPE, TRACK_OUT_TYPE, describeNode } from '@core'
 import { useProjectStore, useSelectionStore } from '@state'
 import { EffectsBadge } from './ChannelStrip'
+import { useControlGesture } from '../controls/use-control-gesture'
+import { EffectiveValue } from '../controls/EffectiveValue'
 import { LevelBar } from './LevelBar'
 import styles from './Mixer.module.css'
 
@@ -9,14 +11,16 @@ export const MasterStrip = () => {
   const modules = useProjectStore((state) => state.project.modules)
   const fx = useProjectStore((state) => state.project.master.fx)
   const volume = useProjectStore((state) => state.project.master.volume ?? 1)
-  const setVolume = useProjectStore((state) => state.setMasterVolume)
+  const gesture = useControlGesture()
+  const target: ControlTarget = { kind: 'mixer', owner: { kind: 'master' }, control: 'volume' }
+  const setVolume = (value: number) => gesture.change([{ target, value }])
   const selectMaster = useSelectionStore((state) => state.selectMaster)
   const labels = fx.nodes
     .filter((node) => node.type !== MASTER_IN_TYPE && node.type !== TRACK_OUT_TYPE)
     .map((node) => describeNode(node, modules)?.label ?? node.type)
 
   return (
-    <section className={`${styles.strip} ${styles.masterStrip}`} aria-label="Master channel">
+    <section {...gesture.events} className={`${styles.strip} ${styles.masterStrip}`} aria-label="Master channel">
       <span className={styles.name}>Master</span>
       <div className={styles.badges}>
         <EffectsBadge name="Master" labels={labels} onOpen={selectMaster} />
@@ -35,6 +39,7 @@ export const MasterStrip = () => {
         />
         <LevelBar label="Master level" read={(status) => status.peak} />
       </div>
+      <EffectiveValue target={target} />
       <output className={styles.value}>{Math.round(volume * 100)}</output>
     </section>
   )

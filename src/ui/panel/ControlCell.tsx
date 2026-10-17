@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { type ControlSize, type ModuleLibrary, type PanelItem, describeNode } from '@core'
 import { type DragEvent, useState } from 'react'
 import { IndicatorFace } from '../shared/indicators/IndicatorFace'
@@ -23,6 +24,7 @@ export interface CellActions {
 }
 
 interface ControlCellProps {
+  feedback?: ReactNode
   item: PanelItem
   modules: ModuleLibrary
   /** What the control is called: its node's name, or its type numbered when alike. */
@@ -65,7 +67,7 @@ const RenameField = ({ name, placeholder, onCommit }: { name: string; placeholde
 }
 
 /** A control node on the board: the widget for its kind, writing the node's own value, with the edit tools around it in edit mode. */
-export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions }: ControlCellProps) => {
+export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions, feedback }: ControlCellProps) => {
   const [over, setOver] = useState(false)
   const { node } = item
   const shape = describeNode(node, modules)
@@ -102,7 +104,7 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
         }
       }}
     >
-      <div className={styles.widget}>{widget}</div>
+      <div className={styles.widget}>{widget}{feedback}</div>
       {editing && item.via && (
         <div className={styles.tools}>
           <span className={styles.hint} data-tooltip="This control is inside a module: move, size, hide and rename it in the module (Edit on its card). Its value here is this use's own.">

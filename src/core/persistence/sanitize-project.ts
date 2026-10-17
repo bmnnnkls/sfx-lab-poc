@@ -1,3 +1,4 @@
+import { sanitizeControlValues } from './sanitize-control-values'
 import {
   DEFAULT_SCENE_COUNT,
   DEFAULT_VOICES,
@@ -133,7 +134,9 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, sampleIds, modules, warn))
     .filter((track): track is Track => track !== null)
 
+  const controlValues = sanitizeControlValues(raw.controlValues, warn)
   return {
+    ...(controlValues && { controlValues }),
     name: nonEmptyText(raw.name, 'Untitled', MAX_NAME_LENGTH),
     tempo: clamp(finiteNumber(raw.tempo, 120), MIN_TEMPO, MAX_TEMPO),
     sceneCount,

@@ -10,8 +10,9 @@ for instruments, effects, their presets, clips and samples → library bundle ex
 
 The shared control-target foundation and verification work come first. Product behavior, draft defaults and acceptance
 criteria are in [SPEC-performance-and-library.md](SPEC-performance-and-library.md); ordered implementation slices and
-code touchpoints are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). The verification foundation
-(slice 0) is implemented; control targets and runtime features remain planned. Draft product defaults can be refined
+code touchpoints are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). The verification and shared control-target foundations
+(slices 0–1) are implemented; MIDI (slice 2) is next. Runtime control overrides and panel/mixer gesture transactions
+ship in slice 1; automation scheduling, mappings, presets and library workflows remain planned. Draft product defaults can be refined
 before their slice. These documents supersede the MIDI-mapping and personal-library sketches below where they differ.
 
 ## Earlier candidate work

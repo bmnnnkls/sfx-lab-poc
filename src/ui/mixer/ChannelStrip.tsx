@@ -1,5 +1,7 @@
-import { RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode, mixesAfter, panOf } from '@core'
+import { type ControlTarget, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode, mixesAfter, panOf } from '@core'
 import { useProjectStore, useSelectionStore } from '@state'
+import { useControlGesture } from '../controls/use-control-gesture'
+import { EffectiveValue } from '../controls/EffectiveValue'
 import { LevelBar } from './LevelBar'
 import styles from './Mixer.module.css'
 
@@ -26,11 +28,14 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
   const setTab = useSelectionStore((state) => state.setTab)
   const modules = useProjectStore((state) => state.project.modules)
   const tracks = useProjectStore((state) => state.project.tracks)
-  const setVolume = useProjectStore((state) => state.setTrackVolume)
-  const setPan = useProjectStore((state) => state.setTrackPan)
+  const gesture = useControlGesture()
+  const target = (control: 'volume' | 'pan'): ControlTarget => ({ kind: 'mixer', owner: { kind: 'track', trackId: track.id }, control })
+  const setVolume = (_id: string, value: number) => gesture.change([{ target: target('volume'), value }])
+  const setPan = (_id: string, value: number) => gesture.change([{ target: target('pan'), value }])
   const setMuted = useProjectStore((state) => state.setTrackMuted)
   const setSoloed = useProjectStore((state) => state.setTrackSoloed)
-  const setSend = useProjectStore((state) => state.setTrackSend)
+  const sendTarget = (returnId: string): ControlTarget => ({ kind: 'mixer', owner: { kind: 'track', trackId: track.id }, control: 'send', returnId })
+  const setSend = (_id: string, returnId: string, value: number) => gesture.change([{ target: sendTarget(returnId), value }])
 
   const returns = tracks.filter((candidate) => candidate.kind === 'return')
   const effects = track.fx.nodes.filter((node) => !ENDS.has(node.type))
@@ -41,6 +46,7 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
 
   return (
     <section
+      {...gesture.events}
       className={`${styles.strip} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnStrip : ''} ${muted ? styles.mutedStrip : ''}`}
       aria-label={`${track.name} channel`}
     >
@@ -71,6 +77,7 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
           onChange={(event) => setPan(track.id, Number(event.target.value))}
           onDoubleClick={() => setPan(track.id, 0)}
         />
+        <EffectiveValue target={target('pan')} />
       </label>
 
       {track.kind !== 'return' && returns.length > 0 && (
@@ -94,6 +101,7 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
                   disabled={loop}
                   onChange={(event) => setSend(track.id, target.id, Number(event.target.value))}
                 />
+                <EffectiveValue target={sendTarget(target.id)} />
               </label>
             )
           })}
@@ -123,6 +131,7 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
         />
         <LevelBar label={`${track.name} level`} read={(status) => status.peaks[track.id] ?? 0} />
       </div>
+      <EffectiveValue target={target('volume')} />
       <output className={styles.value}>{Math.round(track.volume * 100)}</output>
     </section>
   )

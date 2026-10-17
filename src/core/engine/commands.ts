@@ -64,6 +64,7 @@ export type EngineCommand =
   | { readonly type: 'track/setSends'; readonly trackId: string; readonly sends: SendLevels }
   | {
       readonly type: 'track/setParam'
+      readonly graph?: 'patch' | 'fx'
       readonly trackId: string
       readonly nodeId: string
       readonly paramId: string

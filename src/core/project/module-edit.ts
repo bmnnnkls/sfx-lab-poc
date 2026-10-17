@@ -1,3 +1,5 @@
+import { createId } from '../shared'
+import { mapControlRoutesAt } from './control-target-remap'
 import {
   type ModuleDefinition,
   type Patch,
@@ -6,7 +8,7 @@ import {
   groupIntoModule,
   pruneModuleInterface,
   pruneModuleUses,
-  unlinkModuleUse,
+  expandModuleUse,
 } from '../patch'
 import { mapMasterFx, mapModules, setTrackPatch, updateInstrument, updateTrack } from './edit'
 import type { Project } from './types'
@@ -113,10 +115,12 @@ export const groupNodesAsModule = (
   nodeIds: Iterable<string>,
   name = `Module ${project.modules.length + 1}`,
 ): Project => {
+  const selected = new Set(nodeIds)
   const patch = patchAt(project, target)
-  const result = patch && groupIntoModule(patch, nodeIds, name, project.modules)
+  const result = patch && groupIntoModule(patch, selected, name, project.modules)
   if (!result) return project
-  const withModule = { ...project, modules: [...project.modules, result.module] }
+  const remapped = mapControlRoutesAt(project, target, (route) => selected.has(route[0] ?? '') ? [result.use.id, ...route] : undefined, { nodeId: result.use.id, moduleId: result.module.id })
+  const withModule = { ...remapped, modules: [...project.modules, result.module] }
   return setPatchAt(withModule, target, result.patch)
 }
 
@@ -143,7 +147,16 @@ export const addExampleModuleUse = (project: Project, target: PatchTarget, examp
 /** Turns a use into an independent copy of the module's contents; the definition and other uses are untouched. */
 export const unlinkModuleNode = (project: Project, target: PatchTarget, nodeId: string): Project => {
   const patch = patchAt(project, target)
-  return patch ? setPatchAt(project, target, unlinkModuleUse(patch, nodeId, project.modules)) : project
+  if (!patch) return project
+  const ids = new Map<string, string>()
+  const expanded = expandModuleUse(patch, nodeId, project.modules, (id, kind) => {
+    const fresh = createId(kind)
+    if (kind === 'node') ids.set(id, fresh)
+    return fresh
+  })
+  if (expanded === patch) return project
+  const remapped = mapControlRoutesAt(project, target, (route) => route[0] === nodeId && route[1] && ids.has(route[1]) ? [ids.get(route[1]) as string, ...route.slice(2)] : undefined)
+  return setPatchAt(remapped, target, expanded)
 }
 
 /** Everything that uses a module directly: how many times, and in which tracks and modules. */

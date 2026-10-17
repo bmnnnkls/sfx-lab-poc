@@ -1,14 +1,13 @@
-import { type ControlSize, type NodeShape, type PanelItem, type ParamSpec, type PatchNode, resolveSpec } from '@core'
-import { clamp01 } from '../controls/control-math'
-import { formatParam, fromSlider, isLogarithmic, snapToStep, toSlider } from '../shared/param-scale'
+import { controlFromNormalized, controlToNormalized, type ControlSize, type NodeShape, type PanelItem, type ParamSpec, type PatchNode, resolveSpec } from '@core'
+import { formatParam, isLogarithmic } from '../shared/param-scale'
 
 /** The arithmetic between a parameter's value and a control's 0..1 position, and how a control is laid out. Pure, so it is tested without a DOM. */
 
-export const positionOf = (spec: ParamSpec, value: number): number => clamp01(toSlider(spec, value))
+export const positionOf = (spec: ParamSpec, value: number): number => controlToNormalized(spec, value)
 
 /** The value a position stands for: on the parameter's own scale (a control's curve, or log for wide ranges), on its step, inside its range. */
 export const valueAt = (spec: ParamSpec, position: number): number =>
-  Math.min(spec.max, Math.max(spec.min, snapToStep(spec, fromSlider(spec, clamp01(position)))))
+  controlFromNormalized(spec, position)
 
 export const defaultPosition = (spec: ParamSpec): number => positionOf(spec, spec.default)
 

@@ -139,7 +139,7 @@ export class Engine {
         this.invalidateOrder() // which returns it sends to may have changed
         break
       case 'track/setParam':
-        this.tracks.get(command.trackId)?.setParam(command.nodeId, command.paramId, command.value)
+        this.tracks.get(command.trackId)?.setParam(command.nodeId, command.paramId, command.value, command.graph)
         break
       case 'track/setSample':
         this.tracks.get(command.trackId)?.setSample(command.nodeId, command.sampleId)

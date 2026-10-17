@@ -15,6 +15,7 @@ const isExponential = (spec: ParamSpec): boolean => spec.curve === 'exp'
 
 /** Maps a parameter value to a 0..1 slider position. */
 export const toSlider = (spec: ParamSpec, value: number): number => {
+  if (spec.max === spec.min) return 0
   if (isLogarithmic(spec)) {
     return Math.log(value / spec.min) / Math.log(spec.max / spec.min)
   }

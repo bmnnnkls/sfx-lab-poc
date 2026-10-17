@@ -144,6 +144,8 @@ interface ProjectActions {
 }
 
 export interface ProjectState extends ProjectActions {
+  /** Changes only when loading/replacing the document; transient owners must release. */
+  readonly documentEpoch: number
   /** The current project; always equal to `history.present`. */
   readonly project: Project
   readonly history: History<Project>
@@ -152,7 +154,7 @@ export interface ProjectState extends ProjectActions {
 const demo = createDemoProject()
 
 /** The document: the single source of truth for everything the user authors, with undo/redo. */
-export const useProjectStore = create<ProjectState>((set) => {
+export const useProjectStore = create<ProjectState>((set, get) => {
   const withHistory = (history: History<Project>) => ({ history, project: history.present })
 
   const edit = (change: (project: Project) => Project, mergeKey?: string) =>
@@ -165,11 +167,15 @@ export const useProjectStore = create<ProjectState>((set) => {
     })
 
   return {
+    documentEpoch: 0,
     project: demo,
     history: createHistory(demo),
 
-    resetProject: (project) => set(withHistory(createHistory(project))),
-    replaceProject: (project) => edit(() => project),
+    resetProject: (project) => set({ ...withHistory(createHistory(project)), documentEpoch: get().documentEpoch + 1 }),
+    replaceProject: (project) => set((state) => ({
+      ...withHistory(commit(state.history, project, { now: Date.now() })),
+      documentEpoch: state.documentEpoch + 1,
+    })),
     undo: () => set((state) => withHistory(undo(state.history))),
     redo: () => set((state) => withHistory(redo(state.history))),
 

@@ -1,3 +1,4 @@
+import type { ControlValue } from '../control'
 import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 
@@ -123,6 +124,8 @@ export interface MasterBus {
 
 /** The saveable document. Everything the user authors lives here. */
 export interface Project {
+  /** Values of controls inside a particular nested module use; shared definitions stay unchanged. */
+  readonly controlValues?: readonly ControlValue[]
   readonly name: string
   readonly tempo: number
   readonly sceneCount: number

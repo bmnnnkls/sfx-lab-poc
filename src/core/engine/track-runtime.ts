@@ -1,7 +1,7 @@
 import { DEFAULT_TEMPO } from '../dsp'
 import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
-import { type Patch, audioSources, sendTargets } from '../patch'
+import { type Patch, audioSources, sendTargets, setNodeParam } from '../patch'
 import type { Clip, SendLevels } from '../project'
 import type { SampleLookup } from '../sample'
 import { ClipLauncher, type LauncherStatus, type NoteEvent } from '../session'
@@ -97,9 +97,12 @@ export class TrackRuntime implements PlayableTrack {
     this.launcher.syncClips(clips)
   }
 
-  setParam(nodeId: string, paramId: string, value: number): void {
-    this.instrument.setParam(nodeId, paramId, value)
-    this.fx.setParam(nodeId, paramId, value)
+  setParam(nodeId: string, paramId: string, value: number, graph?: 'patch' | 'fx'): void {
+    if (graph !== 'fx') {
+      this.patch = setNodeParam(this.patch, nodeId, paramId, value)
+      this.instrument.setParam(nodeId, paramId, value)
+    }
+    if (graph !== 'patch') this.fx.setParam(nodeId, paramId, value)
   }
 
   readouts(): Readonly<Record<string, number>> {
