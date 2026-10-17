@@ -12,7 +12,7 @@ a clean install; the platform records were already present in the lockfile.
 Playwright's managed browser, fresh per-test storage, no retries, assertions with bounded waits, page/console error
 checks and retained failure screenshots/traces. Smoke covers example playback, panel gesture undo/redo and persistence,
 and a sample package round-trip into a fresh context. The audio project uses a sample-window tap derived from the
-legacy checks to test pan/master behavior; it rejects an inactive tap. Additional legacy scenarios remain documented
+legacy checks to test pan/master behavior and stopped held-note commands through the real worklet; it rejects an inactive tap. Additional legacy scenarios remain documented
 in `docs/browser-checks/README.md` for incremental migration.
 
 The Pages workflow runs unit/architecture, build/typecheck and smoke checks on PRs and main. PRs get read-only
@@ -250,7 +250,7 @@ can be transformed, split, merged, and mixed with the notes of other tracks. It 
 splitting a stream, treating the branches differently and joining them again is exactly what people want to do.
 
 ```
-clip notes ─┬─ transpose ─┐
+clip + live notes ─┬─ transpose ─┐
             └─ arpeggiator ┴─ to instrument          (notes from another track can join anywhere)
 ```
 
@@ -263,7 +263,7 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
   Selecting, wiring, grouping into modules, editing modules in place and persistence are shared; one `GraphEditor`
   component edits either (the Instrument tab shows the sound patch, the **Notes** tab the note graph).
 * **Nodes** (`core/notefx`, one registry, `NoteNodeDefinition { role, inputs, outputs, params, create() }`):
-  *Clip notes* (this track's clip player, the only source of its own notes), *Track notes* (another track: take its clip
+  *Clip notes* (this track's merged clip/live input, retaining its saved node type and label), *Track notes* (another track: take its clip
   notes, or what leaves its own graph), *To instrument* (the sink), *Scale lock*, *Transpose*, *Chord*, *Velocity*,
   *Arpeggiator*, *Echo*, and *Range split* (notes inside / outside a pitch and velocity range go to two outputs; a
   note-off follows its note-on even if the range is edited while it sounds). A graph with no *To instrument* is silent.
@@ -272,13 +272,17 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
   and may emit events for a later range. Everything is in beats, so it follows tempo and stays sample-accurate. The result
   is the same however time is cut into ranges (tested). An output may feed several inputs (a split, nothing special needed)
   and an input may have several sources (a merge).
-* **Merging** (`Merger`). The instrument matches note-offs by pitch, so two overlapping notes of one pitch would cut each
-  other short. A merge counts overlapping notes per pitch: a note-on for a pitch already sounding re-triggers it unless it
-  starts at the very same beat (then it is the same note arriving twice, e.g. a branch that changes nothing), and a
-  note-off is passed on only when the last overlapping note of that pitch ends.
-* **No hanging notes.** Knob changes keep running state (turning Gate never restarts an arpeggio). Adding, removing or
-  rewiring nodes restarts the graph and emits an all-notes-off first. An all-notes-off from the clip player cancels pending
-  arpeggio and echo notes. Stopping the transport resets the graph. A node on a cycle never runs.
+* **Merging** (`Merger`). Engine notes carry runtime identities independent of pitch: a namespaced source, channel,
+  root per-press/clip-occurrence ID and flat descendant-path tokens. Merges count duplicate routes of one identity;
+  different owners, including equal-pitch/equal-beat notes, remain separate voices. Effect outputs qualify the route,
+  mappings remember each identity's original output pitches, and arpeggio/echo children get deterministic identities.
+  The voice pool replaces a slot's ownership when stealing, so a delayed old release cannot release its replacement.
+  Pure legacy callers without identities retain pitch-counting behavior; engine and heard-note preview always use IDs.
+* **No hanging notes.** Knob changes keep running state. Topology, bypass and tap changes restart the graph; the engine
+  clears held/sustained/generated notes on that track and every transitive note reader. Instrument/voice rebuilds and
+  track removal/replacement use the same cleanup. Unrelated tracks keep their notes. Clip all-off is scoped to its clip
+  source, preserving live owners. Source release/disconnect cancels only that source/channel everywhere, including
+  scheduled children. Stop resets graphs and keys while release/effect tails keep rendering. A node on a cycle never runs.
 * **Between tracks.** Each block, every track writes what its clip player produced and what left its graph on a shared
   `TapBoard`; *Track notes* nodes read it. The engine runs a track after the tracks it reads from (`runOrder`, rebuilt
   when tracks or graphs change; a loop between tracks degrades to reading nothing). The editor only offers tracks that
@@ -287,8 +291,8 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
 * **Modules of notes.** The same modules as for sound: grouping nodes gives a module whose ports inherit their kind
   (`notes`), and `moduleDomain` says which kind of patch it belongs to, so the Notes tab only offers note modules and the
   Instrument tab only sound ones. A module cannot mix the two (persistence enforces it).
-* **Engine** (`TrackRuntime`). `schedule(from, to, board)` runs the launcher's events through the `NoteGraph`; with just
-  clip notes wired to the instrument the graph hands back the same array. `track/setNoteGraph` carries the flattened graph;
+* **Engine** (`TrackRuntime`). `schedule` merges live input with launcher events before the `NoteGraph`; with just
+  clip notes wired to the instrument the graph passes events through. `track/setNoteGraph` carries the flattened graph;
   `diffProject` sends it only when behaviour changed (moving nodes or renaming a module sends nothing).
 * **Preview** (`engine/heard-notes.ts`). `heardNotes(clip, graph, modules)` runs the real clip player and graph over two
   loops and returns the second, so the Notes tab's piano roll cannot disagree with what plays. It shows this track's own
@@ -300,6 +304,42 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
   exactly on a 128-sample block edge can land one sample early or late depending on where blocks start (float rounding in
   the transport clock); in the worklet blocks are always aligned, so only odd render sizes in tests show it. Files from the
   short-lived linear chain version (`noteEffects`) are not migrated; they load with the default graph.
+
+## Held-note engine input (slice 2a)
+
+`EngineCommand` adds `track/noteOn { trackId, note: { sourceId, channel, noteId }, pitch, velocity }` and
+`track/noteOff { trackId, note }`. Channels are zero-based 0..15, pitch is an integer 0..127 and velocity is in
+(0, 1]. Invalid note-ons and missing/non-instrument destinations are ignored. Adapters must allocate a unique `noteId`
+for each press and match the physical key-up to that ID; repeated equal pitches are separate notes. Duplicate active
+IDs and unmatched/duplicate offs are ignored. `notes/sustain { sourceId, channel, down }` holds released keys of only
+that source/channel. `notes/releaseSource { sourceId, channel? }` is the adapter's cleanup primitive for disconnect,
+disable or destination change: it clears keys, pedals, voices and queued/generated events of that owner in every graph.
+`notes/panic` clears all note owners/pedals/queues; it does not stop transport or clip launchers, so future clip note-ons
+continue. Both release envelopes naturally and preserve insert/return/master tails. Ordinary key-up preserves echo
+repeats and lets the current arpeggio gate finish; source release and panic cancel those children immediately.
+
+`LiveNotes` owns only transient input state, never the project. The engine namespaces clip and live source IDs so a
+live caller cannot collide with a clip source. Clip IDs incorporate clip, launch, loop and authored-note identity;
+clip-edit releases retain the identity assigned at note-on. Mapping/range processors, delayed queues, merges, preview
+and voices all retain ownership. Instrument audition still bypasses note processing and auto-releases after 0.3 s;
+its unidentified voices cannot release engine-owned clip/live voices.
+
+The engine advances a continuous musical render clock even while transport is stopped. Only instrument note graphs
+schedule against that clock while stopped; audio clips and launch queues remain on transport. Clip event times are
+translated to the render clock before processing, and grid generators receive the transport's beat-zero origin so
+starting playback after an arbitrary stopped interval remains aligned. Stop rewinds transport and clears note input
+and generators, but leaves the render clock and audio processing running for tails and subsequent live input. Incoming
+commands apply at the next render boundary; a complete press released before rendering is treated as zero-duration.
+There are no UI timers or wall-clock reads. Odd block-size boundary rounding retains the existing one-sample tolerance.
+Offline bounces create a fresh engine, use only authored data and remain repeatable.
+
+The existing `HostMessage` carries these commands unchanged across the worklet boundary. `EngineControls` and
+`createEngineControls` expose note-on/off, sustain, release-source and panic for the later browser adapter.
+`connectEngine` sends panic on document-epoch changes and disposal, including replacements with identical IDs/graphs.
+Structural cleanup intentionally requires a fresh physical press rather than replaying keys into a different graph.
+No saved fields or migrations, Web MIDI access, port manager, message parsing changes, settings, Panic button or CC
+learn/mapping UI are part of this slice. Tests simulate sources in core and inject commands through the production
+worklet port for real-output stopped-note/sustain/effect/panic checks.
 
 ## Effects on tracks (the insert graph)
 
@@ -1169,7 +1209,8 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 `core/midi` parses note-on/off and 7-bit CC messages without browser or device dependencies. Velocity-zero
 note-on becomes note-off; malformed bytes and unsupported messages are ignored. CCs remain raw messages here:
 sustain and channel-mode interpretation belongs to the future performance adapter. No browser MIDI input,
-learn bindings, source-aware held-note engine path or project-format change is included in this foundation.
+learn bindings or project-format change is included in this parsing foundation. The source-aware held-note engine path
+now ships separately in slice 2a (see above).
 
 The basic beat-synced delay mode retains the existing two-second buffer limit and changes delay time at block
 boundaries without smoothing. Long divisions, dotted/triplet selection and click-free tempo transitions remain

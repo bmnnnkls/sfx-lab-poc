@@ -3,7 +3,7 @@ import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
 import type { TapBoard } from '../notefx'
 import { createDefaultMasterGraph } from '../patch'
 import { SampleBank } from '../sample'
-import type { LauncherStatus } from '../session'
+import type { LauncherStatus, NoteScope } from '../session'
 import { Transport } from '../transport'
 import { AudioBoard } from './audio-board'
 import { AudioTaps } from './audio-taps'
@@ -13,6 +13,7 @@ import type { MixContext, PlayableTrack, ScheduledAction } from './playable-trac
 import { ReturnTrackRuntime } from './return-track-runtime'
 import { SamplePreview } from './sample-preview'
 import type { EngineStatus } from './status'
+import { liveSource } from './live-notes'
 import { TrackRuntime } from './track-runtime'
 
 interface ScheduledEvent {
@@ -31,6 +32,7 @@ export class Engine {
   private readonly samples = new SampleBank()
   private readonly preview: SamplePreview
   private peak = 0
+  private noteBeat = 0
   /** The master fader, applied after the master graph and before the soft clip. */
   private masterVolume = 1
   /** Mute, solo and sends need working out again (a mute or solo changed, or the tracks did). */
@@ -60,6 +62,21 @@ export class Engine {
 
   apply(command: EngineCommand): void {
     switch (command.type) {
+      case 'track/noteOn':
+        this.instrument(command.trackId)?.noteOn(command.note, command.pitch, command.velocity)
+        break
+      case 'track/noteOff':
+        this.instrument(command.trackId)?.noteOff(command.note)
+        break
+      case 'notes/sustain':
+        for (const track of this.tracks.values()) if (track instanceof TrackRuntime) track.sustain(command.sourceId, command.channel, command.down)
+        break
+      case 'notes/releaseSource':
+        this.cancelNotes({ source: liveSource(command.sourceId), ...(command.channel === undefined ? {} : { channel: command.channel }) })
+        break
+      case 'notes/panic':
+        this.cancelNotes()
+        break
       case 'transport/play':
         this.transport.play()
         break
@@ -73,14 +90,18 @@ export class Engine {
         this.master.setTempo(command.bpm)
         break
       case 'track/add':
+        if (this.tracks.has(command.trackId)) this.cancelTrackNotes(command.trackId)
         this.invalidateOrder()
         this.tracks.set(command.trackId, this.createTrack(command))
         break
       case 'track/remove':
+        // A removed track may have generated notes in downstream readers. Cancel those graphs too.
+        this.cancelTrackNotes(command.trackId)
         this.invalidateOrder()
         this.tracks.delete(command.trackId)
         break
       case 'track/setPatch':
+        this.cancelTrackNotes(command.trackId)
         this.instrument(command.trackId)?.setPatch(command.patch)
         break
       case 'master/setFx':
@@ -97,10 +118,11 @@ export class Engine {
         this.invalidateOrder() // which returns it sends to may have changed
         break
       case 'track/setNoteGraph':
-        this.instrument(command.trackId)?.setNoteGraph(command.graph)
+        if (this.instrument(command.trackId)?.setNoteGraph(command.graph)) this.cancelTrackNotes(command.trackId)
         this.invalidateOrder()
         break
       case 'track/setVoices':
+        this.cancelTrackNotes(command.trackId)
         this.instrument(command.trackId)?.setVoices(command.voices)
         break
       case 'track/setClips':
@@ -209,6 +231,26 @@ export class Engine {
     return { playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, readouts, tracks }
   }
 
+  /** Structural edits cancel the affected track and every transitive note reader, without touching unrelated tracks. */
+  private cancelTrackNotes(trackId: string): void {
+    const affected = new Set([trackId])
+    let grew = true
+    while (grew) {
+      grew = false
+      for (const [id, track] of this.tracks) {
+        if (!affected.has(id) && track.tapSources().some((source) => affected.has(source))) {
+          affected.add(id)
+          grew = true
+        }
+      }
+    }
+    for (const id of affected) this.instrument(id)?.cancelNotes()
+  }
+
+  private cancelNotes(scope?: NoteScope): void {
+    for (const track of this.tracks.values()) if (track instanceof TrackRuntime) track.cancelNotes(scope)
+  }
+
   private stopTransport(): void {
     this.transport.stop()
     for (const track of this.tracks.values()) track.reset()
@@ -229,7 +271,7 @@ export class Engine {
   }
 
   private renderBlock(left: Float32Array, right: Float32Array, offset: number, frames: number): void {
-    const events = this.transport.playing ? this.collectEvents(frames) : []
+    const events = this.collectEvents(frames)
 
     let cursor = 0
     for (const { frame, action } of events) {
@@ -239,16 +281,21 @@ export class Engine {
     }
     this.mixSegment(left, right, offset, cursor, frames - cursor)
     this.transport.advance(frames)
+    this.noteBeat += frames * this.transport.beatsPerSample
   }
 
   private collectEvents(frames: number): ScheduledEvent[] {
-    const from = this.transport.positionBeats
-    const to = this.transport.beatAfter(frames)
+    const from = this.noteBeat
+    const to = from + frames * this.transport.beatsPerSample
     const scheduled: ScheduledEvent[] = []
     this.noteTaps.clear()
     for (const track of this.scheduleTracks()) {
-      for (const action of track.schedule(from, to, this.noteTaps)) {
-        scheduled.push({ frame: this.transport.frameOf(action.beat, frames), action })
+      const actions = track instanceof TrackRuntime
+        ? track.schedule(from, to, this.noteTaps, this.transport.playing ? this.transport.positionBeats : undefined, this.transport.beatAfter(frames))
+        : this.transport.playing ? track.schedule(this.transport.positionBeats, this.transport.beatAfter(frames), this.noteTaps)
+          .map((action) => ({ beat: from + action.beat - this.transport.positionBeats, run: () => action.run() })) : []
+      for (const action of actions) {
+        scheduled.push({ frame: Math.max(0, Math.min(frames - 1, Math.round((action.beat - from) / this.transport.beatsPerSample))), action })
       }
     }
     // Array#sort is stable, so same-frame events keep each launcher's own order (offs before ons).

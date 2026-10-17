@@ -19,6 +19,7 @@ export const connectEngine = (host: AudioHost): (() => void) => {
   const stopProject = useProjectStore.subscribe((state, previous) => {
     if (state.project === previous.project && state.documentEpoch === previous.documentEpoch) return
     // A replacement/reset ends live ownership; ordinary edits retain only compatible overrides.
+    if (state.documentEpoch !== previous.documentEpoch) host.send({ type: 'notes/panic' })
     const overrides = useControlStore.getState().overrides
     const retained = state.documentEpoch !== previous.documentEpoch
       ? [] : overrides.filter((entry) => {
@@ -31,6 +32,7 @@ export const connectEngine = (host: AudioHost): (() => void) => {
   const stopStatus = host.onStatus((status) => useStatusStore.getState().setStatus(status))
 
   return () => {
+    host.send({ type: 'notes/panic' })
     stopProject()
     stopControls()
     stopStatus()

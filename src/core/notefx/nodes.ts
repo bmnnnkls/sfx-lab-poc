@@ -1,5 +1,5 @@
 import { Params, type ParamSpec } from '../dsp'
-import type { NoteEvent } from '../session'
+import { noteKey, inNoteScope, type NoteIdentity, type NoteEvent } from '../session'
 import { NOTE_IN, NOTE_OUT, type NoteNodeDefinition, type NoteProcessor } from './types'
 
 /** Hands its input on unchanged. Sources and sinks do their real work in the graph, which feeds them. */
@@ -71,7 +71,7 @@ const SPLIT_PARAMS: readonly ParamSpec[] = [
  */
 class RangeSplit implements NoteProcessor {
   private readonly params = new Params(SPLIT_PARAMS)
-  private readonly routed = new Map<number, number>()
+  private readonly routed = new Map<string, { branch: number; identity?: NoteIdentity }>()
 
   setParam(id: string, value: number): void {
     this.params.set(id, value)
@@ -93,14 +93,14 @@ class RangeSplit implements NoteProcessor {
       if (event.kind === 'noteOn') {
         const isInside =
           event.pitch >= low && event.pitch <= high && event.velocity >= minVelocity && event.velocity <= maxVelocity
-        this.routed.set(event.pitch, isInside ? 0 : 1)
+        this.routed.set(noteKey(event), { branch: isInside ? 0 : 1, identity: event.identity })
         ;(isInside ? inside : outside).push(event)
       } else if (event.kind === 'noteOff') {
-        const branch = this.routed.get(event.pitch) ?? 1
-        this.routed.delete(event.pitch)
+        const branch = this.routed.get(noteKey(event))?.branch ?? 1
+        this.routed.delete(noteKey(event))
         ;(branch === 0 ? inside : outside).push(event)
       } else {
-        this.routed.clear()
+        for (const [key, note] of this.routed) if (inNoteScope(note.identity, event.scope)) this.routed.delete(key)
         inside.push(event)
         outside.push(event)
       }

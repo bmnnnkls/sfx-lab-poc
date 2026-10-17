@@ -1,7 +1,7 @@
 import { NoteGraph } from '../notefx'
 import { type ModuleLibrary, type Patch, engineNoteGraph } from '../patch'
 import type { Clip } from '../project'
-import { ClipLauncher, type NoteEvent } from '../session'
+import { ClipLauncher, noteKey, inNoteScope, type NoteIdentity, type NoteEvent } from '../session'
 
 /** A note as the instrument receives it: after the clip player and every MIDI effect. */
 export interface HeardNote {
@@ -22,31 +22,34 @@ export const heardNotes = (clip: Clip, graph: Patch, modules: ModuleLibrary = []
   const length = clip.lengthBeats
   const end = length * 2
 
-  const launcher = new ClipLauncher()
+  const launcher = new ClipLauncher(4, 'preview')
   launcher.launch(clip)
   const noteGraph = new NoteGraph()
   noteGraph.sync(engineNoteGraph(graph, modules))
   // Notes taken from other tracks are not part of this preview: it shows this track's own clip through its graph.
   const events = noteGraph.process(launcher.collectEvents(0, end), 0, end, new Map())
 
-  const open = new Map<number, { start: number; velocity: number }[]>()
+  const open = new Map<string, { pitch: number; start: number; velocity: number; identity?: NoteIdentity }>()
   const notes: HeardNote[] = []
   const close = (pitch: number, at: number, start: number, velocity: number) => {
     if (start >= length) notes.push({ pitch, velocity, start: start - length, duration: Math.max(0.01, at - start) })
   }
   const finish = (event: NoteEvent) => {
     if (event.kind === 'noteOn') {
-      open.set(event.pitch, [...(open.get(event.pitch) ?? []), { start: event.beat, velocity: event.velocity }])
+      open.set(noteKey(event), { pitch: event.pitch, start: event.beat, velocity: event.velocity, identity: event.identity })
     } else if (event.kind === 'noteOff') {
-      const note = open.get(event.pitch)?.shift()
+      const note = open.get(noteKey(event))
+      open.delete(noteKey(event))
       if (note) close(event.pitch, event.beat, note.start, note.velocity)
     } else {
-      for (const [pitch, started] of open) for (const note of started) close(pitch, event.beat, note.start, note.velocity)
-      open.clear()
+      for (const [key, note] of open) if (inNoteScope(note.identity, event.scope)) {
+        close(note.pitch, event.beat, note.start, note.velocity)
+        open.delete(key)
+      }
     }
   }
   for (const event of events) finish(event)
-  for (const [pitch, started] of open) for (const note of started) close(pitch, end, note.start, note.velocity)
+  for (const note of open.values()) close(note.pitch, end, note.start, note.velocity)
 
   return notes.sort((a, b) => a.start - b.start || a.pitch - b.pitch)
 }

@@ -114,3 +114,38 @@ it('commits both XY axes atomically as one manual transaction', () => {
   useProjectStore.getState().undo()
   expect(useProjectStore.getState().project).toBe(project)
 })
+
+it('routes held-note controls without document/history writes and panics on replacement and disconnect', () => {
+  const project = createDemoProject()
+  useProjectStore.getState().resetProject(project)
+  const engine = new Engine(48000)
+  const sent: EngineCommand[] = []
+  const host = { send: (command: EngineCommand) => { sent.push(command); engine.apply(command) }, onStatus: () => () => {}, start: async () => {} } as unknown as AudioHost
+  const disconnect = connectEngine(host)
+  const controls = createEngineControls(host)
+  const track = project.tracks.find((track) => track.kind === 'instrument')!
+  const note = { sourceId: 'keyboard', channel: 0, noteId: 'press' }
+  const history = useProjectStore.getState().history
+  const bytes = serializeProject(project)
+  try {
+    controls.noteOn(track.id, note, 60, 1)
+    expect(peak(engine)).toBeGreaterThan(0)
+    controls.sustain(note.sourceId, 0, true)
+    controls.noteOff(track.id, note)
+    controls.releaseSource(note.sourceId, 0)
+    controls.panic()
+    expect(sent).toEqual(expect.arrayContaining([
+      { type: 'track/noteOn', trackId: track.id, note, pitch: 60, velocity: 1 },
+      { type: 'track/noteOff', trackId: track.id, note },
+      { type: 'notes/sustain', sourceId: note.sourceId, channel: 0, down: true },
+      { type: 'notes/releaseSource', sourceId: note.sourceId, channel: 0 },
+      { type: 'notes/panic' },
+    ]))
+    expect(useProjectStore.getState().history).toBe(history)
+    expect(serializeProject(useProjectStore.getState().project)).toBe(bytes)
+    sent.length = 0
+    useProjectStore.getState().resetProject(project) // same IDs and same graphs must still release notes
+    expect(sent).toContainEqual({ type: 'notes/panic' })
+  } finally { sent.length = 0; disconnect() }
+  expect(sent).toContainEqual({ type: 'notes/panic' })
+})

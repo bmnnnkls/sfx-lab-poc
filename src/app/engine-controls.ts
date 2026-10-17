@@ -12,6 +12,11 @@ export const createEngineControls = (host: AudioHost): EngineControls => {
   }
 
   return {
+    noteOn: (trackId, note, pitch, velocity) => run({ type: 'track/noteOn', trackId, note, pitch, velocity }),
+    noteOff: (trackId, note) => run({ type: 'track/noteOff', trackId, note }),
+    sustain: (sourceId, channel, down) => run({ type: 'notes/sustain', sourceId, channel, down }),
+    releaseSource: (sourceId, channel) => run({ type: 'notes/releaseSource', sourceId, ...(channel === undefined ? {} : { channel }) }),
+    panic: () => run({ type: 'notes/panic' }),
     play: () => run({ type: 'transport/play' }),
     stop: () => { useControlStore.getState().clear(); run({ type: 'transport/stop' }) },
     launchClip: (trackId, clipId) => run({ type: 'clip/launch', trackId, clipId }),

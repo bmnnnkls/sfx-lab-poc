@@ -1,3 +1,4 @@
+import type { NoteIdentity, NoteScope } from '../session'
 import { DEFAULT_TEMPO, type NoteState } from '../dsp'
 import type { Patch } from '../patch'
 import type { SampleLookup } from '../sample'
@@ -69,17 +70,17 @@ export class Instrument {
     return this.pool.activeCount
   }
 
-  noteOn(pitch: number, velocity = 1): void {
-    this.pool.noteOn(pitch, velocity)
+  noteOn(pitch: number, velocity = 1, identity?: NoteIdentity): void {
+    this.pool.noteOn(pitch, velocity, identity)
   }
 
-  noteOff(pitch: number): void {
-    this.pool.noteOff(pitch)
+  noteOff(pitch: number, identity?: NoteIdentity): void {
+    this.pool.noteOff(pitch, identity)
   }
 
   /** Releases every held note (their envelopes still fade out naturally). */
-  allNotesOff(): void {
-    this.pool.releaseAll()
+  allNotesOff(scope?: NoteScope): void {
+    this.pool.releaseAll(scope)
   }
 
   setParam(nodeId: string, paramId: string, value: number): void {

@@ -1,4 +1,4 @@
-import type { NoteEvent } from '../session'
+import { eventInScope, type NoteScope, type NoteEvent } from '../session'
 
 const KIND_PRIORITY: Record<NoteEvent['kind'], number> = { allOff: 0, noteOff: 1, noteOn: 2 }
 
@@ -26,6 +26,10 @@ export class EventQueue {
     const offs = this.events.filter((event) => event.kind === 'noteOff')
     this.events = []
     return offs
+  }
+
+  cancel(scope?: NoteScope): void {
+    this.events = this.events.filter((event) => !eventInScope(event, scope))
   }
 
   get size(): number {

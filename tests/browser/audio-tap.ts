@@ -1,3 +1,4 @@
+import type { EngineCommand } from '../../src/core'
 import type { Page } from '@playwright/test'
 
 interface AudioWindow {
@@ -8,6 +9,7 @@ interface AudioWindow {
 
 declare global {
   interface Window {
+    __sendEngineCommand(command: EngineCommand): void
     __audioTap: { reset(): void; read(): AudioWindow }
   }
 }
@@ -18,6 +20,7 @@ export const installAudioTap = (page: Page) => page.addInitScript(() => {
   window.AudioWorkletNode = class extends Original {
     constructor(context: BaseAudioContext, name: string, options?: AudioWorkletNodeOptions) {
       super(context, name, options)
+      window.__sendEngineCommand = (command) => this.port.postMessage({ kind: 'command', command })
       const tap = context.createScriptProcessor(1024, 2, 1)
       tap.channelCount = 2
       tap.channelCountMode = 'explicit'

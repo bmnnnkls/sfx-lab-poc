@@ -1,4 +1,4 @@
-import type { NoteEvent } from '../session'
+import { childIdentity, type NoteScope, type NoteEvent } from '../session'
 import { compareEvents } from './events'
 import { Merger } from './merge'
 import { CLIP_NOTES_TYPE, TAP_AFTER_GRAPH, TRACK_NOTES_TYPE } from './nodes'
@@ -39,7 +39,7 @@ const key = (node: string, port: string): string => `${node}:${port}`
 /** Identity of the wiring, ignoring parameters and canvas positions. */
 const structureOf = (spec: NoteGraphSpec): string =>
   JSON.stringify([
-    spec.nodes.map((node) => [node.id, node.type]),
+    spec.nodes.map((node) => [node.id, node.type, node.trackId, node.bypassed === true, node.type === TRACK_NOTES_TYPE ? node.params.tap : undefined]),
     spec.connections.map(({ from, to }) => [from.node, from.port, to.node, to.port]),
   ])
 
@@ -83,10 +83,12 @@ export class NoteGraph {
   private order: string[] = []
   private signature: string | null = null
   private restarted = false
+  private cancellations: (NoteScope | undefined)[] = []
   private readonly final = new Merger()
 
-  sync(spec: NoteGraphSpec): void {
+  sync(spec: NoteGraphSpec): boolean {
     const signature = structureOf(spec)
+    const changed = this.signature !== null && signature !== this.signature
     if (signature !== this.signature) {
       if (this.signature !== null) this.restarted = true
       this.signature = signature
@@ -116,7 +118,10 @@ export class NoteGraph {
       running.tap = node.params.tap ?? 0
       running.bypassed = node.bypassed === true
     }
+    return changed
   }
+
+  cancel(scope?: NoteScope): void { this.cancellations.push(scope) }
 
   /** Ids of the tracks this graph reads from, so the engine can run them first. */
   tapSources(): string[] {
@@ -124,7 +129,7 @@ export class NoteGraph {
   }
 
   /** The events leaving the graph for the beat range [from, to). */
-  process(clipEvents: NoteEvent[], from: number, to: number, board: TapBoard): NoteEvent[] {
+  process(clipEvents: NoteEvent[], from: number, to: number, board: TapBoard, beatOrigin = 0): NoteEvent[] {
     const outputs = new Map<string, NoteEvent[]>()
     const sinks: NoteEvent[][] = []
 
@@ -139,13 +144,18 @@ export class NoteGraph {
         feed = (node.tap === TAP_AFTER_GRAPH ? tapped?.out : tapped?.clip) ?? []
       } else feed = this.gather(node, outputs)
 
+      if (this.cancellations.length) feed = [...this.cancellations.map((scope): NoteEvent => ({ beat: from, kind: 'allOff', ...(scope ? { scope } : {}) })), ...feed]
+
       let results: NoteEvent[][]
       if (node.bypassed && definition.role === 'effect' && definition.inputs.length === 1 && definition.outputs.length === 1) {
         processor.reset()
         results = [feed]
       } else {
-        results = processor.processAll ? processor.processAll(feed, from, to) : [processor.process(feed, from, to)]
+        results = processor.processAll ? processor.processAll(feed, from, to, beatOrigin) : [processor.process(feed, from, to, beatOrigin)]
       }
+      // Qualify effect output identities by graph route; identical passthrough routes still merge.
+      if (definition.role === 'effect' && !node.bypassed) results = results.map((list, index) => list.map((event) =>
+        event.kind === 'allOff' || !event.identity ? event : { ...event, ...childIdentity(event.identity, JSON.stringify([id, index])) }))
       definition.outputs.forEach((port, index) => outputs.set(key(id, port.id), results[index] ?? []))
       if (definition.role === 'sink') sinks.push(results[0] ?? feed)
     }
@@ -155,6 +165,7 @@ export class NoteGraph {
       this.restarted = false
       events = [{ beat: from, kind: 'allOff' }, ...events]
     }
+    this.cancellations = []
     return events
   }
 
@@ -174,6 +185,7 @@ export class NoteGraph {
 
   /** Back to the start (transport stopped). */
   reset(): void {
+    this.cancellations = []
     for (const node of this.nodes.values()) {
       node.processor.reset()
       for (const merger of node.mergers.values()) merger.reset()

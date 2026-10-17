@@ -1,5 +1,5 @@
 import { Params, type ParamSpec } from '../dsp'
-import type { NoteEvent } from '../session'
+import { childIdentity, type NoteEvent } from '../session'
 import { EventQueue, compareEvents } from './events'
 import { NOTE_IN, NOTE_OUT, type NoteNodeDefinition, type NoteProcessor } from './types'
 
@@ -30,15 +30,16 @@ class Echo implements NoteProcessor {
     for (const event of input) {
       out.push(event)
       if (event.kind === 'allOff') {
-        this.pending.clear()
+        out.push(...this.pending.takeBefore(event.beat))
+        this.pending.cancel(event.scope)
       } else if (event.kind === 'noteOn') {
         let velocity = event.velocity
         for (let repeat = 1; repeat <= repeats; repeat++) {
           velocity *= decay
           if (velocity < 0.02) break
           const start = event.beat + repeat * time
-          this.pending.add({ beat: start, kind: 'noteOn', pitch: event.pitch, velocity })
-          this.pending.add({ beat: start + time * 0.5, kind: 'noteOff', pitch: event.pitch })
+          this.pending.add({ ...childIdentity(event.identity, `echo:${repeat}:${event.beat}`), beat: start, kind: 'noteOn', pitch: event.pitch, velocity })
+          this.pending.add({ ...childIdentity(event.identity, `echo:${repeat}:${event.beat}`), beat: start + time * 0.5, kind: 'noteOff', pitch: event.pitch })
         }
       }
     }

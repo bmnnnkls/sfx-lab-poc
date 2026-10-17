@@ -1,6 +1,6 @@
 # Implementation plan: performance and library
 
-Status: **slices 0–1 implemented; slices 2–7 planned**. Product behavior and draft defaults are defined in
+Status: **slices 0–1 and 2a implemented; slices 2b–7 planned**. Product behavior and draft defaults are defined in
 [SPEC-performance-and-library.md](SPEC-performance-and-library.md). Work proceeds in order below; each slice should
 be independently reviewable and leave the existing examples/project files usable.
 
@@ -85,29 +85,51 @@ reads and unwired pure-node evaluation; basic beat-synced Delay/Ping-pong and up
 key tracking and Comb; and a pure, byte-validated MIDI message parser. Sources and deferred work are listed in
 [ROADMAP.md](ROADMAP.md). The existing portable verification and slice 1 control model remain authoritative.
 
-No held-note engine path, browser MIDI input or mappings have shipped. Slice 2a remains next; 2b can reuse
-`core/midi`. Slice 7 remains open for divisions, smoothing, buffer limits, persistence and timing verification.
+At the salvage merge, no held-note engine path, browser MIDI input or mappings had shipped. Slice 2a is now
+implemented below; 2b can reuse `core/midi`. Slice 7 remains open for divisions, smoothing, buffer limits, persistence and timing verification.
 
 Validation: the standalone salvage passed 1,362 tests across 96 files and typecheck/production build.
 After integration, 1,384 tests across 100 files, typecheck, production build, four production smoke tests
 and one real-output audio test passed. The sole textual merge conflict was the core export list; both
-`control` and `midi` exports are retained. Slice 2a implementation remains paused.
+`control` and `midi` exports are retained. These counts describe the salvage integration, before slice 2a.
 
 ## 2. MIDI performance
 
 ### 2a. Held-note engine path
 
-Likely touchpoints: `core/engine/commands.ts`, `track-runtime.ts`, `core/notefx`, `core/session`, voice pool,
-`audio/protocol.ts`, `audio/audio-host.ts`, `state/engine-controls.tsx`, `app/engine-controls.ts`.
+Implemented 2026-10-17 on `codex/performance-and-library`, preserving the integrated salvage after `5ad970f`:
 
-- Add source-aware note-on/off, sustain and panic commands, distinct from audition.
-- Merge live and clip note streams before note processing; allow live note graphs to run while transport is stopped.
-- Preserve source identity through transforms and delayed/generated note events. Define cleanup on graph rebuild and
-  track removal so transformed or sustained notes cannot hang.
-- Associate releases with note identities; pitch-only release must not kill a same-pitch clip voice.
+- Serializable `track/noteOn` / `track/noteOff` commands carry adapter-assigned per-press IDs, source IDs and zero-based
+  channels. `notes/sustain`, `notes/releaseSource` (optionally channel-scoped) and `notes/panic` are available through
+  `EngineControls` and the existing worklet protocol. The short, graph-bypassing audition remains independent.
+- Live and clip events join before the note graph. Its continuous render clock runs while transport is stopped;
+  clip scheduling still follows transport, and grid generators align to transport beat zero when playback starts.
+  Stop clears input/generator state while instruments, inserts, returns and master keep rendering release/effect tails.
+- Runtime identity survives clip loops/edits, mapping and range splits, graph branches, arpeggiation, echoes and taps.
+  Voices release by identity, including after stealing; same-pitch live/clip/source/channel owners remain independent.
+- Disconnect/release cancels only the matching source/channel, including sustained and queued generated events in every
+  graph. Panic releases all keys/pedals/generated events without stopping clip transport; future clip note-ons continue.
+  Note topology, bypass or tap changes, instrument/voice rebuilds and track removal/replacement clear the affected
+  track and its transitive note readers. Ordinary parameter edits keep state. Physical keys need a fresh press after
+  structural cleanup. Document replacement and engine-sync disposal panic even when document IDs are unchanged.
+- All ownership is transient, framework-free and independent of wall clocks, history, autosave and saved project data.
+  No saved-shape change or migration. Offline rendering creates its own engine and remains deterministic; the heard-note
+  preview uses the same clip identities and matching as playback. Slice 1 control targets and wired values are unchanged.
+- Acceptance coverage includes held chords, repeated/equal-pitch sources/channels, sustain, clip/live overlap and clip
+  edits/stops, transformed and arpeggiated live notes, delayed echo cancellation, stealing, panic, graph/tap cleanup,
+  stop/restart, uneven render sizes, pitch and release tails. Production audio checks inject serializable commands into
+  the real worklet to verify stopped holds, sustain, source release, note effects and panic, without Web MIDI access.
 
-Exit: held chords, sustain, simultaneous clip/live same-pitch notes, arpeggiated live input, stealing and panic work in
-engine tests. No regression to stopped-transport tails or deterministic offline export.
+Limitations: incoming commands apply at the next render boundary; a complete press between renders is discarded as
+zero-duration. Adapters must assign a unique note ID per press and pair physical releases with it. Natural key releases
+allow echo repeats and the current arpeggio gate to finish; source release/panic cancel them. Panic preserves envelope
+and effect tails. The existing rounding tolerance at odd render block boundaries remains one sample. Web MIDI access,
+port lifecycle/parsing/settings, visible Panic UI and learn/CC mappings remain slice 2b.
+
+Verification: 1,420 unit/architecture tests across 101 files, typecheck, production build (no chunk-size warning),
+four production smoke tests and both real-output audio tests passed. The focused held-note audio test also passed
+again against the final production build. Browser checks ran outside the filesystem sandbox because its local
+preview server could not bind a port inside it.
 
 ### 2b. Browser adapter and MIDI learn
 

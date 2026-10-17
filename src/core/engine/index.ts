@@ -22,3 +22,4 @@ export {
   type BounceScope,
   type ResolvedBounceOptions,
 } from './bounce'
+export type { LiveNoteAddress } from './live-notes'

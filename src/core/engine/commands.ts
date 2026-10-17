@@ -1,9 +1,17 @@
+import type { LiveNoteAddress } from './live-notes'
 import type { Patch } from '../patch'
 import type { AudioClip, Clip, SendLevels } from '../project'
 import type { SampleData } from '../sample'
 
 /** Everything the outside world can ask the engine to do. Plain data, safe to post across threads. */
 export type EngineCommand =
+  | { readonly type: 'track/noteOn'; readonly trackId: string; readonly note: LiveNoteAddress; readonly pitch: number; readonly velocity: number }
+  | { readonly type: 'track/noteOff'; readonly trackId: string; readonly note: LiveNoteAddress }
+  | { readonly type: 'notes/sustain'; readonly sourceId: string; readonly channel: number; readonly down: boolean }
+  /** Disconnect, disable or destination change: cancels this source everywhere, including delayed notes. */
+  | { readonly type: 'notes/releaseSource'; readonly sourceId: string; readonly channel?: number }
+  /** Releases voices and cancels pending note events, retaining effect/envelope tails and clip playback. */
+  | { readonly type: 'notes/panic' }
   | { readonly type: 'transport/play' }
   | { readonly type: 'transport/stop' }
   | { readonly type: 'transport/setTempo'; readonly bpm: number }

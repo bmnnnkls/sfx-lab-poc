@@ -11,8 +11,8 @@ for instruments, effects, their presets, clips and samples → library bundle ex
 The shared control-target foundation and verification work come first. Product behavior, draft defaults and acceptance
 criteria are in [SPEC-performance-and-library.md](SPEC-performance-and-library.md); ordered implementation slices and
 code touchpoints are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). The verification and shared control-target foundations
-(slices 0–1) are implemented; MIDI (slice 2) is next. Runtime control overrides and panel/mixer gesture transactions
-ship in slice 1; automation scheduling, mappings, presets and library workflows remain planned. Draft product defaults can be refined
+(slices 0–1) and the held-note engine path (slice 2a) are implemented; the browser MIDI adapter and learn (slice 2b)
+are next. Runtime control overrides and panel/mixer gesture transactions ship in slice 1; automation scheduling, mappings, presets and library workflows remain planned. Draft product defaults can be refined
 before their slice. These documents supersede the MIDI-mapping and personal-library sketches below where they differ.
 
 ## Earlier candidate work
@@ -33,7 +33,8 @@ Not nodes (the next batch of nodes is in [`IDEAS-nodes-and-controls.md`](IDEAS-n
 ## Salvaged foundations
 
 The math-node block optimization, basic beat-synced delays, filter key tracking, Comb, and pure MIDI message
-parser have been extracted from `origin/claude/stoic-cray-8d4r4x`. MIDI performance and learn remain open.
+parser have been extracted from `origin/claude/stoic-cray-8d4r4x`. The held-note engine path now ships in slice 2a; browser MIDI access, port management, settings,
+visible Panic and learn remain open.
 Delay divisions, smoothing and the two-second capacity limit still need the planned tempo-polish work.
 The source and disposition of the remaining work are recorded in [ROADMAP.md](ROADMAP.md).
 

@@ -211,7 +211,7 @@ describe('notes from another track', () => {
     graph.sync(tapGraph(0, null))
     expect(run(graph, [], 0, 4, board())).toEqual([])
     graph.sync(tapGraph(0, 'missing'))
-    expect(run(graph, [], 0, 4, board())).toEqual([])
+    expect(run(graph, [], 0, 4, board())).toEqual([allOff(0)]) // source changes release the previous routing
   })
 
   it('knows which tracks it reads from', () => {
