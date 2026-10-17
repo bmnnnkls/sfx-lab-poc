@@ -3,7 +3,7 @@ import type { ControlTarget } from '../control'
 import { sanitizeControlValues } from './sanitize-control-values'
 import { isRecord, type Warn } from './raw'
 const id = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256
-const targetOf = (raw: unknown): ControlTarget | undefined => {
+export const targetOf = (raw: unknown): ControlTarget | undefined => {
   if (!isRecord(raw)) return undefined
   if (raw.kind === 'graph') return sanitizeControlValues([{ target: raw, value: 0 }], () => {})?.[0]?.target
   const owner = isRecord(raw.owner) && raw.owner.kind === 'master' ? { kind: 'master' as const }

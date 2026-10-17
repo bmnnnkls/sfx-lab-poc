@@ -20,3 +20,6 @@ export { ProjectFilesProvider, useProjectFiles, type ProjectFiles } from './proj
 export { useControlStore } from './control-store'
 export { createControlGesture } from './control-gesture'
 export { useMidiStore, useMidi, MidiProvider, editMidiMappings, type MidiService, type MidiInputInfo } from './midi-store'
+
+export * from './automation-store'
+export * from './clip-actions'

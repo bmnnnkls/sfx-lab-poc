@@ -1,3 +1,4 @@
+import { NoteControlGraph } from '../instrument'
 import { DEFAULT_TEMPO } from '../dsp'
 import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
@@ -18,6 +19,7 @@ export class TrackRuntime implements PlayableTrack {
   private readonly live = new LiveNotes()
   private cancellations: (NoteScope | undefined)[] = []
   private readonly graph = new NoteGraph()
+  private noteControls?: NoteControlGraph
   readonly strip: ChannelStrip
   clips: readonly (Clip | null)[]
   private instrument: Instrument
@@ -115,7 +117,26 @@ export class TrackRuntime implements PlayableTrack {
     this.launcher.syncClips(clips)
   }
 
-  setParam(nodeId: string, paramId: string, value: number, graph?: 'patch' | 'fx'): void {
+  setAutomationNoteGraph(patch?: Patch): void {
+    this.noteControls?.process((nodeId, paramId, value) => this.graph.setParam(nodeId, paramId, value))
+    this.noteControls = patch ? new NoteControlGraph(patch) : undefined
+  }
+
+  setAutomationParam(nodeId: string, paramId: string, value: number, graph: 'patch' | 'fx' | 'notes'): void {
+    if (graph === 'notes') { this.graph.setParam(nodeId, paramId, value); this.noteControls?.setParam(nodeId, paramId, value) }
+    else if (graph === 'patch') this.instrument.setParam(nodeId, paramId, value)
+    else this.fx.setParam(nodeId, paramId, value)
+  }
+
+  clearAutomation(): void { this.fx.clearAutomation(); this.instrument.clearAutomation() }
+  setAutomationCurve(nodeId: string, paramId: string, values: Float64Array, graph: 'patch' | 'fx' | 'notes'): void {
+    if (graph === 'patch') this.instrument.setAutomationCurve(nodeId, paramId, values)
+    else if (graph === 'fx') this.fx.setAutomationCurve(nodeId, paramId, values)
+    else this.graph.setParam(nodeId, paramId, values[0]!)
+  }
+
+  setParam(nodeId: string, paramId: string, value: number, graph?: 'patch' | 'fx' | 'notes'): void {
+    if (graph === 'notes') { this.graph.setParam(nodeId, paramId, value); return }
     if (graph !== 'fx') {
       this.patch = setNodeParam(this.patch, nodeId, paramId, value)
       this.instrument.setParam(nodeId, paramId, value)
@@ -146,6 +167,7 @@ export class TrackRuntime implements PlayableTrack {
   }
 
   schedule(from: number, to: number, board: TapBoard, transportFrom?: number, transportTo?: number): ScheduledAction[] {
+    this.noteControls?.process((nodeId, paramId, value) => this.graph.setParam(nodeId, paramId, value))
     // Clips follow transport; the graph follows a continuous render clock even while stopped.
     if (transportFrom !== undefined) this.beatOrigin = from - transportFrom
     const clipEvents = transportFrom === undefined ? [] : this.launcher.collectEvents(transportFrom, transportTo ?? transportFrom + (to - from))
@@ -208,7 +230,7 @@ export class TrackRuntime implements PlayableTrack {
     const signal = this.fx.process(dry, frames, { sends, taps: mix.taps })
     mix.taps.write(this.trackId, 1, signal, frames)
     this.strip.mixInto(left, right, offset, frames, signal)
-    for (const [returnId, level] of this.sendList) sends.add(returnId, signal, level * this.strip.volume, frames)
+    for (const [returnId, level] of this.sendList) this.strip.send(sends, returnId, signal, level, frames)
     if (this.audition) {
       this.audition.framesLeft -= frames
       if (this.audition.framesLeft <= 0) this.endAudition()

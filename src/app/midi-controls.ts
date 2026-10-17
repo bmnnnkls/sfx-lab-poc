@@ -54,7 +54,8 @@ export const createMidiControls = () => {
     const feedback = (state: 'pickup' | 'active' | 'unavailable', value?: number) => useMidiStore.setState((s) => ({ feedback: { ...s.feedback, [mapping.id]: { state, value } } }))
     if (resolved.status !== 'available' || !resolved.automatable) { states.delete(mapping.id); feedback('unavailable'); return }
     const override = useControlStore.getState().overrides.find((entry) => controlTargetKey(entry.target) === controlTargetKey(mapping.target))
-    const current = controlToNormalized(resolved.spec, override?.value ?? resolved.baseValue)
+    const playing = useControlStore.getState().playback.find((entry) => controlTargetKey(entry.target) === controlTargetKey(mapping.target))
+    const current = controlToNormalized(resolved.spec, override?.value ?? playing?.value ?? resolved.baseValue)
     const position = message.value / 127
     let state = states.get(mapping.id)
     if (!state) { state = { active: false, gesture: createControlGesture() }; states.set(mapping.id, state) }
@@ -66,7 +67,7 @@ export const createMidiControls = () => {
     const crossed = state.previous !== undefined && (state.previous - current) * (position - current) <= 0
     if (!mapping.pickup || discrete(mapping.target, resolved.spec) || Math.abs(position - current) <= 0.5 / 127 || crossed) state.active = true
     state.previous = position
-    if (!state.active) { feedback('pickup', override?.value ?? resolved.baseValue); return }
+    if (!state.active) { feedback('pickup', override?.value ?? playing?.value ?? resolved.baseValue); return }
     const value = controlFromNormalized(resolved.spec, position)
     if (state.momentary && value >= 0.5 && !state.held) state.gesture.begin()
     if (override) useControlStore.getState().setOverride(mapping.target, value)

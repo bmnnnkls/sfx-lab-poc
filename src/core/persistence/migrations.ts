@@ -5,6 +5,14 @@ type Migration = (project: unknown) => unknown
 
 /** `MIGRATIONS[n]` upgrades the `project` payload from format version n to n + 1. */
 const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  3: (project) => {
+    if (!isRecord(project) || !Array.isArray(project.tracks)) return project
+    return { ...project, tracks: project.tracks.map((track) => !isRecord(track) || !Array.isArray(track.clips) ? track : { ...track, clips: track.clips.map((clip) => {
+      if (!isRecord(clip)) return clip
+      const { automation: _unknown, ...authored } = clip
+      return authored
+    }) }) }
+  },
   2: (project) => {
     if (!isRecord(project)) return project
     const { midiMappings: _unknown, ...authored } = project

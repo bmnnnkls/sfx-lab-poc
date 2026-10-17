@@ -55,7 +55,7 @@ export const resolveControlTarget = (project: Project, target: ControlTarget): C
   const panelKind = findNodeDefinition(node.type)?.panelKind
   const structural = panelKind !== undefined && !({ value: ['value'], xy: ['x', 'y'], switch: ['on'], selector: ['index'], led: [], bar: [], display: [] }[panelKind] as readonly string[]).includes(target.paramId)
   const saved = project.controlValues?.find((entry) => controlTargetKey(entry.target) === controlTargetKey(target))
-  return { status: 'available', spec, baseValue: clampControlValue(spec, saved?.value ?? node.params[spec.id] ?? spec.default), automatable: !driven && !structural, interpolation: spec.options || spec.step || node.type === 'switch' ? 'hold' : 'linear', ...(driven ? { reason: 'Driven by a wire; target the upstream control' } : structural ? { reason: 'Control configuration is not a performance target' } : {}) }
+  return { status: 'available', spec, baseValue: clampControlValue(spec, saved?.value ?? node.params[spec.id] ?? spec.default), automatable: !driven && !structural, interpolation: spec.options || node.type === 'switch' || node.type === 'selector' ? 'hold' : 'linear', ...(driven ? { reason: 'Driven by a wire; target the upstream control' } : structural ? { reason: 'Control configuration is not a performance target' } : {}) }
 }
 
 export const enumerateControlTargets = (project: Project): ControlTarget[] => {

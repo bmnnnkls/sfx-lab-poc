@@ -1,3 +1,4 @@
+import type { AutomationLane } from '../automation'
 import type { MidiMapping } from '../midi'
 import type { ControlValue } from '../control'
 import type { ModuleDefinition, Patch } from '../patch'
@@ -16,6 +17,7 @@ export interface Note {
 }
 
 export interface Clip {
+  readonly automation?: readonly AutomationLane[]
   readonly id: string
   readonly name: string
   readonly lengthBeats: number
@@ -32,6 +34,7 @@ export type WarpMode = 'repitch' | 'off'
 
 /** A library sample placed in a slot of an audio track. */
 export interface AudioClip {
+  readonly automation?: readonly AutomationLane[]
   readonly id: string
   readonly name: string
   /** Which library sample to play. */

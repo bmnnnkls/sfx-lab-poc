@@ -1,3 +1,4 @@
+import { sanitizeAutomation } from './sanitize-automation'
 import type { Clip, Note } from '../project'
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
@@ -55,5 +56,6 @@ export const sanitizeClip = (
 
   const id = typeof raw.id === 'string' && !usedIds.has(raw.id) ? raw.id : createId('clip')
   usedIds.add(id)
-  return { id, name, lengthBeats, notes }
+  const automation = sanitizeAutomation(raw.automation, lengthBeats, warn)
+  return { id, name, lengthBeats, notes, ...(automation && { automation }) }
 }

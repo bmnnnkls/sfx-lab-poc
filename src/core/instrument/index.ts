@@ -2,3 +2,5 @@ export { Instrument } from './instrument'
 export { MAX_BLOCK_FRAMES } from './compile'
 export { classifyStages, type Stage } from './stages'
 export { FxGraph } from './fx-graph'
+
+export { NoteControlGraph } from './note-control-graph'

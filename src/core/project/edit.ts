@@ -1,3 +1,4 @@
+import { MAX_AUTOMATION_POINTS, resizeAutomation, doubleAutomation } from '../automation'
 import {
   clearSampleReferences,
   clearTrackReferences,
@@ -232,18 +233,19 @@ export const setClipLength = (
   updateClip(project, trackId, clipId, (clip) => {
     const length = clamp(lengthBeats, MIN_CLIP_BEATS, MAX_CLIP_BEATS)
     if (length === clip.lengthBeats) return clip
-    return { ...clip, lengthBeats: length, notes: trimNotesToLength(clip.notes, length) }
+    return { ...resizeAutomation(clip, length), lengthBeats: length, notes: trimNotesToLength(clip.notes, length) }
   })
 
 /** Doubles a clip's length and repeats its notes into the new half ("double loop"). */
 export const doubleClip = (project: Project, trackId: string, clipId: string): Project =>
   updateClip(project, trackId, clipId, (clip) => {
     const length = clip.lengthBeats * 2
-    if (length > MAX_CLIP_BEATS) return clip
+    if (length > MAX_CLIP_BEATS || clip.automation?.some((lane) => lane.points.length * 2 + 2 > MAX_AUTOMATION_POINTS)) return clip
     return {
       ...clip,
       lengthBeats: length,
       notes: [...clip.notes, ...shiftedCopies(clip.notes, clip.lengthBeats)],
+      ...(clip.automation && { automation: doubleAutomation(clip.automation, clip.lengthBeats) }),
     }
   })
 
@@ -337,7 +339,7 @@ export const updateAudioClip = (
   changes: AudioClipChanges,
 ): Project =>
   updateAudio(project, trackId, (track) => {
-    const clips = track.clips.map((clip) => (clip?.id === clipId ? clampAudioClip({ ...clip, ...changes }) : clip))
+    const clips = track.clips.map((clip) => (clip?.id === clipId ? clampAudioClip({ ...resizeAutomation(clip, changes.lengthBeats ?? clip.lengthBeats), ...changes }) : clip))
     const unchanged = clips.every((clip, index) => {
       const before = track.clips[index]
       return clip === before || (clip && before && JSON.stringify(clip) === JSON.stringify(before))

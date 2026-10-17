@@ -1,3 +1,4 @@
+import { compileAutomation } from '../automation'
 import { projectWithControlValues } from '../control'
 import type { EngineCommand } from '../engine'
 import { type ModuleLibrary, type Patch, engineNoteGraph, flattenPatch } from '../patch'
@@ -155,7 +156,9 @@ const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
 }
 
 /** Commands that bring an engine holding `prev` (null = empty) in line with `next`. */
-export const diffProject = (prev: Project | null, next: Project): EngineCommand[] => {
+export const diffProject = (prev: Project | null, next: Project, syncAutomation = true): EngineCommand[] => {
+  const automation = syncAutomation ? compileAutomation(next) : []
+  const automationChanged = syncAutomation && JSON.stringify(prev && compileAutomation(prev)) !== JSON.stringify(automation)
   prev = prev && projectWithControlValues(prev)
   next = projectWithControlValues(next)
   const commands: EngineCommand[] = []
@@ -186,5 +189,6 @@ export const diffProject = (prev: Project | null, next: Project): EngineCommand[
       commands.push(...diffTrack(existing, track, before, next.modules))
     }
   }
+  if (syncAutomation && automationChanged && (automation.length || prev)) commands.push({ type: 'automation/configure', tracks: automation })
   return commands
 }

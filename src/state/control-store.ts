@@ -4,6 +4,7 @@ import { useProjectStore } from './project-store'
 
 interface ControlState {
   readonly overrides: readonly ControlValue[]
+  readonly playback: readonly ControlValue[]
   setOverride(target: ControlTarget, value: number): ControlResolution
   release(target: ControlTarget): void
   clear(): void
@@ -11,6 +12,7 @@ interface ControlState {
 /** Transient performance state: never part of the project/history/autosave subscription. */
 export const useControlStore = create<ControlState>((set) => ({
   overrides: [],
+  playback: [],
   setOverride: (target, value) => {
     const resolved = resolveControlTarget(useProjectStore.getState().project, target)
     if (resolved.status !== 'available') return resolved
@@ -20,5 +22,5 @@ export const useControlStore = create<ControlState>((set) => ({
     return resolved
   },
   release: (target) => set((state) => ({ overrides: state.overrides.filter((entry) => controlTargetKey(entry.target) !== controlTargetKey(target)) })),
-  clear: () => set({ overrides: [] }),
+  clear: () => set({ overrides: [], playback: [] }),
 }))

@@ -86,6 +86,8 @@ export class NoteGraph {
   private cancellations: (NoteScope | undefined)[] = []
   private readonly final = new Merger()
 
+  setParam(nodeId: string, paramId: string, value: number): void { this.nodes.get(nodeId)?.processor.setParam(paramId, value) }
+
   sync(spec: NoteGraphSpec): boolean {
     const signature = structureOf(spec)
     const changed = this.signature !== null && signature !== this.signature

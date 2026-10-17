@@ -1,0 +1,259 @@
+{
+  "format": "sfx-lab-project",
+  "version": 4,
+  "project": {
+    "name": "Fixture v4",
+    "tempo": 100,
+    "sceneCount": 2,
+    "tracks": [
+      {
+        "id": "track_fixture",
+        "name": "Beep",
+        "volume": 0.5,
+        "patch": {
+          "nodes": [
+            {
+              "id": "n1",
+              "type": "note",
+              "x": 10,
+              "y": 20,
+              "params": {}
+            },
+            {
+              "id": "n2",
+              "type": "oscillator",
+              "x": 200,
+              "y": 20,
+              "params": {
+                "waveform": 2,
+                "frequency": 220,
+                "detune": 0
+              }
+            },
+            {
+              "id": "n3",
+              "type": "output",
+              "x": 400,
+              "y": 20,
+              "params": {}
+            },
+            {
+              "id": "a",
+              "type": "module",
+              "moduleId": "module_fixture",
+              "name": "A",
+              "x": 150,
+              "y": 200,
+              "params": {}
+            },
+            {
+              "id": "b",
+              "type": "module",
+              "moduleId": "module_fixture",
+              "name": "B",
+              "x": 450,
+              "y": 200,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "w1",
+              "from": {
+                "node": "n1",
+                "port": "frequency"
+              },
+              "to": {
+                "node": "n2",
+                "port": "freq"
+              }
+            },
+            {
+              "id": "w2",
+              "from": {
+                "node": "n2",
+                "port": "out"
+              },
+              "to": {
+                "node": "n3",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "clips": [
+          {
+            "id": "clip_fixture",
+            "name": "Two notes",
+            "lengthBeats": 4,
+            "notes": [
+              {
+                "pitch": 60,
+                "start": 0,
+                "duration": 1,
+                "velocity": 0.8
+              },
+              {
+                "pitch": 64,
+                "start": 2,
+                "duration": 1,
+                "velocity": 0.8
+              }
+            ],
+            "automation": [
+              {
+                "id": "lane-nested",
+                "target": {
+                  "kind": "graph",
+                  "owner": {
+                    "kind": "track",
+                    "trackId": "track_fixture"
+                  },
+                  "domain": "patch",
+                  "path": [
+                    {
+                      "nodeId": "a",
+                      "moduleId": "module_fixture"
+                    }
+                  ],
+                  "nodeId": "amount",
+                  "nodeType": "control",
+                  "paramId": "value"
+                },
+                "enabled": true,
+                "points": [
+                  {
+                    "id": "p1",
+                    "beat": 0,
+                    "value": 0,
+                    "interpolation": "linear"
+                  },
+                  {
+                    "id": "p2",
+                    "beat": 4,
+                    "value": 1,
+                    "interpolation": "linear"
+                  }
+                ]
+              },
+              {
+                "id": "lane-volume",
+                "target": {
+                  "kind": "mixer",
+                  "owner": {
+                    "kind": "track",
+                    "trackId": "track_fixture"
+                  },
+                  "control": "volume"
+                },
+                "enabled": true,
+                "points": [
+                  {
+                    "id": "p3",
+                    "beat": 0,
+                    "value": 0.5,
+                    "interpolation": "hold"
+                  }
+                ]
+              }
+            ]
+          },
+          null
+        ]
+      }
+    ],
+    "controlValues": [
+      {
+        "target": {
+          "kind": "graph",
+          "owner": {
+            "kind": "track",
+            "trackId": "track_fixture"
+          },
+          "domain": "patch",
+          "path": [
+            {
+              "nodeId": "a",
+              "moduleId": "module_fixture"
+            }
+          ],
+          "nodeId": "amount",
+          "nodeType": "control",
+          "paramId": "value"
+        },
+        "value": 0.7
+      }
+    ],
+    "modules": [
+      {
+        "id": "module_fixture",
+        "name": "Shared",
+        "patch": {
+          "nodes": [
+            {
+              "id": "amount",
+              "type": "control",
+              "name": "Amount",
+              "x": 0,
+              "y": 0,
+              "params": {
+                "value": 0.2,
+                "min": 0,
+                "max": 1,
+                "curve": 0,
+                "step": 0,
+                "default": 0.2
+              }
+            }
+          ],
+          "connections": []
+        },
+        "inputs": [],
+        "outputs": [],
+        "knobs": []
+      }
+    ],
+    "midiMappings": [
+      {
+        "id": "filter",
+        "deviceId": "fixture-controller",
+        "deviceName": "Fixture keyboard",
+        "channel": 0,
+        "cc": 21,
+        "pickup": true,
+        "target": {
+          "kind": "graph",
+          "owner": {
+            "kind": "track",
+            "trackId": "track_fixture"
+          },
+          "domain": "patch",
+          "path": [
+            {
+              "nodeId": "a",
+              "moduleId": "module_fixture"
+            }
+          ],
+          "nodeId": "amount",
+          "nodeType": "control",
+          "paramId": "value"
+        }
+      },
+      {
+        "id": "volume",
+        "deviceId": "fixture-controller",
+        "deviceName": "Fixture keyboard",
+        "channel": 1,
+        "cc": 22,
+        "pickup": false,
+        "target": {
+          "kind": "mixer",
+          "owner": {
+            "kind": "master"
+          },
+          "control": "volume"
+        }
+      }
+    ]
+  }
+}

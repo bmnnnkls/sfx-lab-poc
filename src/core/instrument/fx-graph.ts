@@ -1,7 +1,7 @@
 import { DEFAULT_TEMPO, type NoteState, STEREO_FRAMES, type SendSink, type SignalTaps } from '../dsp'
 import { type Patch, topologicalOrder } from '../patch'
 import type { SampleLookup } from '../sample'
-import { addInto, compileStage, processStage, setStageParam, setStageSample, stageReadouts } from './compile'
+import { addInto, compileStage, processStage, setStageAutomation, setStageParam, setStageSample, stageReadouts } from './compile'
 
 /** An insert graph has no note of its own; the few nodes that look at one see a silent, ungated note. */
 const NO_NOTE: Readonly<NoteState> = { frequency: 0, velocity: 0, gate: false, trigger: 0 }
@@ -32,6 +32,9 @@ export class FxGraph {
   setTempo(bpm: number): void {
     this.tempo = bpm
   }
+
+  clearAutomation(): void { this.stage.automation.clear() }
+  setAutomationCurve(nodeId: string, paramId: string, values: Float64Array): void { setStageAutomation(this.stage, nodeId, paramId, values) }
 
   setParam(nodeId: string, paramId: string, value: number): void {
     setStageParam(this.stage, nodeId, paramId, value)

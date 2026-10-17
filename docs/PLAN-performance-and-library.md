@@ -1,6 +1,6 @@
 # Implementation plan: performance and library
 
-Status: **slices 0–2 implemented; slices 3–7 planned**. Product behavior and draft defaults are defined in
+Status: **slices 0–2 and 3a implemented; slices 3b–7 planned**. Product behavior and draft defaults are defined in
 [SPEC-performance-and-library.md](SPEC-performance-and-library.md). Work proceeds in order below; each slice should
 be independently reviewable and leave the existing examples/project files usable.
 
@@ -174,6 +174,46 @@ clock/sync, SysEx, MPE, pitch bend/pressure or note recording is included. Next 
 ## 3. Automation
 
 ### 3a. Saved lanes, engine playback and drawing editor
+
+Implemented 2026-10-17 on `codex/performance-and-library`:
+
+- Format **v4** adds optional clip `automation` lanes for instrument/audio tracks, with stable structured control
+  targets, lane/point IDs, enabled state, normalized values and per-segment linear/hold interpolation. Parsing caps
+  lanes at 64 per clip, points at 2048 per lane, IDs at 256 characters and paths at 32; numbers must be finite.
+  Explicit v3→v4 migration discards formerly unknown automation fields. Committed v1/v2/v3 fixtures remain, with
+  a new nested/mixer v4 fixture and round-trip/migration/hostile-shape coverage.
+- Pure canonicalization sorts points and collapses equal times (last input wins). Points may occupy the closed
+  interval [0, length]: an endpoint is approached before wrap, then the first value restarts. Empty/disabled lanes
+  have no effect. Shortening trims points with undo; doubling repeats the curve and explicitly preserves its join,
+  with a sub-sample left-limit point. Doubling refuses a result beyond the point cap. Clip copy/move preserves or
+  remaps owner references; duplication gives fresh note/lane/point IDs. Session menus duplicate into an empty slot.
+  Group/unlink route transformations now remap lanes alongside MIDI mappings and saved instance values.
+- Engine-owned Read playback follows clip launch quantization, retrigger, stop, loop and tempo. Curves are evaluated
+  in musical time for each sample; automated DSP processors and their wire-driven parameter consumers apply values
+  within blocks, while other processors retain block rendering. Numeric stepped controls interpolate then snap;
+  selectors/switches hold. Wire ownership remains authoritative. Note-graph helper controls run through a dynamic
+  counterpart of constant baking before note scheduling. Audio one-shots release lanes at musical/sample endings.
+- Manual and learned CC gestures temporarily override playing lanes without editing authored bases. Effective
+  readouts show Read/Override and base values; re-enable, actual quantized relaunch and Stop release ownership.
+  Revision acknowledgements prevent stale engine status from clearing a newer gesture. Playback/readout traffic
+  has no history/autosave subscription. Offline clip/scene bounces use the same configuration and evaluator.
+- Clip view switches between notes/waveform and Automation. The editor includes a searchable owner-scoped picker,
+  readable lane list, enable/delete/clear, unavailable-target reasons, point drawing and multi-selection,
+  grouped drags, time grid/zoom/playhead, numeric beat/real-value fields, segment interpolation, internal clipboard,
+  copy/cut/paste/duplicate/delete and undo/redo. Panel/mixer context menus offer Show automation (XY axes separately).
+- Verified React pointer-capture/cleanup contracts through Context7 `/reactjs/react.dev`. Production browser coverage
+  draws and drags a filter sweep, undoes/redoes, reloads, and checks that playing does not rewrite autosave. A real-output
+  worklet capture matches two loops of offline clip and scene filter-sweep samples within 0.00002 amplitude.
+
+Verification: **1,463 unit/architecture tests across 109 files**, `npm run typecheck`, production build without
+chunk-size warnings, **eight production smoke tests and all four real-output audio tests passed**. `git diff --check`
+passed. The automation editor screenshot was inspected; browser checks ran outside the sandbox to bind localhost.
+Return/master slots (3b), Touch recording (3c),
+recording arm/take capture, presets and library features remain deferred. Note-graph automation currently uses
+sample-sized note scheduling, which costs more CPU on dense note graphs; ordinary audio/mixer lanes keep block scheduling.
+The point clipboard is internal to the app, as in the piano roll. No physical MIDI hardware check was performed.
+
+The original slice requirements follow for context.
 
 Likely additions: `core/automation`; clip lane fields in `core/project/types.ts`; persistence sanitizers/migrations;
 automation scheduling in engine; sync commands; `ui/automation`; clip editor integration.

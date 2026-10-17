@@ -1,3 +1,5 @@
+import type { AutomationTrack } from '../automation'
+import type { ControlValue } from '../control'
 import type { LiveNoteAddress } from './live-notes'
 import type { Patch } from '../patch'
 import type { AudioClip, Clip, SendLevels } from '../project'
@@ -5,6 +7,8 @@ import type { SampleData } from '../sample'
 
 /** Everything the outside world can ask the engine to do. Plain data, safe to post across threads. */
 export type EngineCommand =
+  | { readonly type: 'automation/configure'; readonly tracks: readonly AutomationTrack[] }
+  | { readonly type: 'automation/overrides'; readonly values: readonly ControlValue[]; readonly revision?: number }
   | { readonly type: 'track/noteOn'; readonly trackId: string; readonly note: LiveNoteAddress; readonly pitch: number; readonly velocity: number }
   | { readonly type: 'track/noteOff'; readonly trackId: string; readonly note: LiveNoteAddress }
   | { readonly type: 'notes/sustain'; readonly sourceId: string; readonly channel: number; readonly down: boolean }
@@ -72,7 +76,7 @@ export type EngineCommand =
   | { readonly type: 'track/setSends'; readonly trackId: string; readonly sends: SendLevels }
   | {
       readonly type: 'track/setParam'
-      readonly graph?: 'patch' | 'fx'
+      readonly graph?: 'patch' | 'fx' | 'notes'
       readonly trackId: string
       readonly nodeId: string
       readonly paramId: string

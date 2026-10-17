@@ -72,6 +72,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `transport` | sample-accurate beat clock | `Transport` |
 | `session` | clip launching: a shared quantized `LaunchQueue`, the MIDI `ClipLauncher` (note events) and `AudioClipLauncher` (start/stop events) | `ClipLauncher`, `AudioClipLauncher` |
 | `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` (also the channel strips: fader, pan, mute/solo, meters), and the offline bounce built on it | `Engine`, `EngineCommand`, `EngineStatus`, `renderProject`, `Bounce` |
+| `automation` | clip lane edits, bounds, normalized evaluation and runtime compilation | `AutomationLane`, `setClipAutomation`, `compileAutomation`, … |
 | `sync` | diffs two `Project`s into `EngineCommand`s | `diffProject` |
 | `sample` | sample metadata/data types, engine-side `SampleBank`, mono mixdown, peaks, WAV encoder (mono, stereo, 16-bit or 32-bit float), demo samples | `SampleInfo`, `SampleData`, `SampleBank`, `createDemoSamples`, … |
 | `examples` | the shipped example projects (*Low Light*, *Glass Rain*), written as code with a small DSL for patches and scores; what a first visit opens on | `exampleProjects`, `findExampleProject`, `FLAGSHIP_EXAMPLE` |
@@ -140,13 +141,59 @@ legacy unscoped commands retain their behavior. Runtime instrument parameters ar
 change atomically. Explicit begin/end boundaries use a unique merge key with no duration cutoff: long drags undo once,
 and consecutive gestures do not merge accidentally. Wheel bursts use an 800 ms inactivity boundary. Pointer cancellation ends the gesture and keeps its latest value;
 undo restores its starting value. Shared-definition panels keep the graph editor's authoring path. Panel, property and mixer
-`EffectiveValue` outputs appear only for active overrides, show the base in a tooltip and provide release. The pure
+`EffectiveValue` outputs show active Read/override values, show the base in a tooltip and provide re-enable/release. The pure
 `effectiveControlReadouts` helper returns only active compatible overrides rather than every parameter on every frame.
 
-This control foundation is reused by the MIDI adapter below. Automation clock/evaluation/recording, snapshots and library insertion UI
-remain future work. Runtime overrides currently reach the engine through main-thread commands, not an audio-clock scheduler.
+This control foundation is reused by MIDI and clip automation below. Touch recording, snapshots and library insertion UI
+remain future work. Manual overrides reach the engine through main-thread commands; lane evaluation follows its beat clock.
 The existing panel shows directly nested controls; deeper paths are supported by the control API and saved values,
 while opening a module definition still edits the shared definition deliberately.
+
+## Clip automation (slice 3a)
+
+`core/automation` owns serializable lanes/points, bounded canonicalization, pure resize/double/copy/remap edits,
+normalized evaluation and compilation against current control specs. Clip lanes address only their own track's
+instrument, note graph, insert effects or mixer. Missing/wired targets stay in the document with feedback and do
+not acquire runtime ownership. Group/unlink remap lane paths together with instance values and MIDI mappings.
+The project format is **v4**: optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
+2048 points per lane, bounded IDs/paths and finite numbers. The explicit v3→v4 migration drops formerly unknown
+lane data; committed v1–v4 fixtures cover compatibility. Saved bases remain authored values.
+
+Each point holds a normalized value and linear/hold interpolation to the next point. Points are sorted, equal
+times collapse with last input winning, and the valid time interval is [0, clip length]. Before/after the point
+range, hold its first/last value. The endpoint is approached before wrap; there is no implicit last-to-first ramp.
+Shortening trims, doubling repeats with explicit join boundaries (a 1e-9 beat left-limit point), and undo restores
+trimmed material. Doubling refuses point-limit overflow. Session copies use fresh clip/note/lane/point IDs; moves
+preserve identities and rewrite the owner. Incompatible destination nodes remain visibly unavailable.
+
+`EngineAutomation` owns launch queues, beat-phase evaluation and temporary overrides. Configuration is compiled
+from authored data, separately from the main thread's effective-value projection. The engine evaluates per-sample
+curves for each mix segment. Instrument stages apply curves only to addressed DSP processors; varying helper
+buffers propagate to parameter-socket consumers without taking ownership away from the wire. Mono/stereo scratch
+buffers preserve port shape. Send sinks accept an optional segment offset so automated Send nodes write at the
+correct frame. Mixer volume/pan/post-fader sends read curves inside their sample loops. Unrelated processors keep
+normal block processing. Note lanes use sample-sized scheduling and `NoteControlGraph` for control/math helpers
+that ordinary note graphs bake once; helper-fed parameters are applied before collecting note events.
+
+Clip launch/retrigger/stop/empty-scene behavior follows the shared quantized launch queue. Audio one-shot boundaries
+split mix segments so automation releases when playback ends, including unwarped clips and tempo changes. Stop
+clears lane/override ownership and restores bases while existing effect/release tails continue. `Bounce` configures
+its own `Engine` with `diffProject`, so clip and scene exports use exactly the live evaluator and no UI clock.
+
+`useControlStore.playback` contains sparse engine readouts, separate from saved data. Common pointer/MIDI gestures
+intercept an active lane and write temporary overrides; unautomated gestures still author base values. MIDI pickup
+uses the current Read/override value. Re-enable or an actual quantized clip launch restores Read; revision-acknowledged
+engine snapshots discard released overrides without racing newer edits. Neither readouts nor override traffic enters
+history or autosave. `ui/automation` provides a lane picker/list and beat/value editor; each point drag has a unique
+history key. The internal clipboard, numeric fields, snapping, zoom, segment choice and multi-selection follow piano
+roll conventions. Context menus expose Show automation, with missing/wired feedback. The built-in React pointer
+capture API was checked through Context7 `/reactjs/react.dev` on 2026-10-17.
+
+Production tests draw/undo/reload a looping filter sweep and compare captured worklet output across two loops with
+offline clip/scene samples. Unit tests cover normalized/scaled/stepped evaluation, uneven blocks, loop boundaries,
+BPM changes, wire-owned upstream controls, note helpers, one-shots, missing/disabled/empty lanes, edits, migrations,
+MIDI/manual pickup/override/re-enable, relaunch and zero playback history/autosave writes. Note-graph lane scheduling
+can cost more CPU than audio/mixer lanes. Return/master slots and Touch recording remain slices 3b and 3c.
 
 ## Browser MIDI input and learn (slice 2b)
 
@@ -187,7 +234,7 @@ structured `ControlTarget`. No browser object or permission/route setting is sav
 IDs/names at 256 and target paths at 32; it rejects invalid selectors, reserved CCs and duplicate IDs/sources with warnings,
 and keeps well-formed unavailable references visible. Explicit v2→v3 migration removes formerly unknown mapping fields;
 v1/v2/v3 fixtures verify compatibility. Group/unlink remap learned targets with saved control values. Project packages and
-autosave use the same format; mapping CRUD is undoable. No automation, note recording or later library slice is included.
+autosave use the same format; mapping CRUD is undoable. No note recording or later library slice is included in MIDI slice 2b; clip automation is described above.
 
 Fake-port unit and production browser tests cover permissions/late grants, learn/cancel/conflicts, device lifecycle,
 routing, channel conversion, source ownership, effective pickup, scale/snapping, momentary/nested/wired controls, history

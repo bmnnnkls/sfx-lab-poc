@@ -121,3 +121,4 @@ export {
   type HumanizeOptions,
   type QuantizeOptions,
 } from './groove'
+export { copySessionClip } from './clip-copy'

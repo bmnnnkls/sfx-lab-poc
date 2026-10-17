@@ -1,10 +1,9 @@
 import type { ControlTarget, InstanceStep } from '../control'
 import type { PatchTarget } from './module-edit'
-import type { Project } from './types'
+import type { Project, Track } from './types'
 
 /** Rewrite only the addressed graph scope, including every use when editing a shared definition. */
 export const mapControlRoutesAt = (project: Project, scope: PatchTarget, rewrite: (route: readonly string[]) => readonly string[] | undefined, inserted?: InstanceStep): Project => {
-  if (!project.controlValues?.length && !project.midiMappings?.length) return project
   const mapEntry = <T extends { readonly target: ControlTarget }>(entry: T): T => {
     const target = entry.target
     if (target.kind !== 'graph') return entry
@@ -25,5 +24,5 @@ export const mapControlRoutesAt = (project: Project, scope: PatchTarget, rewrite
     const mapped: ControlTarget = { ...target, path, nodeId: route.at(-1) as string }
     return { ...entry, target: mapped }
   }
-  return { ...project, ...(project.controlValues && { controlValues: project.controlValues.map(mapEntry) }), ...(project.midiMappings && { midiMappings: project.midiMappings.map(mapEntry) }) }
+  return { ...project, tracks: project.tracks.map((track) => track.kind === 'return' ? track : { ...track, clips: track.clips.map((clip) => !clip?.automation ? clip : { ...clip, automation: clip.automation.map(mapEntry) }) } as Track), ...(project.controlValues && { controlValues: project.controlValues.map(mapEntry) }), ...(project.midiMappings && { midiMappings: project.midiMappings.map(mapEntry) }) }
 }

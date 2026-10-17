@@ -209,3 +209,17 @@ it('remaps project MIDI bindings through grouping and unlinking without touching
   const loaded = parseProject(serializeProject(unlinked))
   expect(loaded.ok && loaded.project.midiMappings).toEqual(unlinked.midiMappings)
 })
+
+it('remaps saved automation lanes through group/unlink while preserving points and enabled state', () => {
+  const { project, target, trackId } = setup()
+  const authored = { ...project, tracks: project.tracks.map((t) => t.kind !== 'instrument' || t.id !== trackId ? t : { ...t, clips: [{ id: 'auto-clip', name: 'Automation', lengthBeats: 4, notes: [], automation: [{ id: 'lane', enabled: true, target, points: [{ id: 'p', beat: 0, value: 0.5, interpolation: 'linear' as const }] }] }] }) }
+  for (const transformed of [groupNodesAsModule(authored, { trackId }, ['a']), unlinkModuleNode(authored, { trackId }, 'a')]) {
+    const t = transformed.tracks.find((t) => t.id === trackId)!
+    if (t.kind !== 'instrument') throw new Error('instrument')
+    const lane = t.clips[0]!.automation![0]!
+    expect(resolveControlTarget(transformed, lane.target).status).toBe('available')
+    expect(lane.points).toEqual([{ id: 'p', beat: 0, value: 0.5, interpolation: 'linear' }])
+    const loaded = parseProject(serializeProject(transformed))
+    expect(loaded.ok && loaded.warnings).toEqual([])
+  }
+})
