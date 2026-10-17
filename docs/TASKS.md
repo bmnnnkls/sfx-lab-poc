@@ -3,7 +3,18 @@
 Things we have decided are worth doing but have not started. Newest first. Move an item to `ARCHITECTURE.md`
 (as documentation of what exists) when it ships, and delete it here.
 
-## Other work, in the order I would do it
+## Next development sequence
+
+The agreed direction is **MIDI input/learn → automation editor and recording → snapshots/presets → a folder library
+for instruments, effects, their presets, clips and samples → library bundle exchange → tempo-sync polish**.
+
+The shared control-target foundation and verification work come first. Product behavior, draft defaults and acceptance
+criteria are in [SPEC-performance-and-library.md](SPEC-performance-and-library.md); ordered implementation slices and
+code touchpoints are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). The verification foundation
+(slice 0) is implemented; control targets and runtime features remain planned. Draft product defaults can be refined
+before their slice. These documents supersede the MIDI-mapping and personal-library sketches below where they differ.
+
+## Earlier candidate work
 
 Not nodes (the next batch of nodes is in [`IDEAS-nodes-and-controls.md`](IDEAS-nodes-and-controls.md), "Next batch").
 
@@ -167,11 +178,6 @@ The note graph is built (see `ARCHITECTURE.md`). Ideas that did not make it in:
 
 ## Browser (end-to-end) tests in the repo
 
-Status: **not started.** Our browser checks are ad-hoc Playwright scripts outside the repo, re-run by hand, so they
-rot (two already broke on UI changes).
-
-* Add `e2e/` with `@playwright/test` and an `npm run e2e` script that builds and serves the app.
-* Port the checks that still pass: audio clips, trim/fades, LFO/reverb import, samples, piano roll, menus.
-* Keep selectors in one helpers file so a UI change needs one fix.
-* Replace the old `persist` and `poly` scripts with a single fresh save-and-reload test.
-* Costs: a new dev dependency (Playwright) and a CI step with a browser.
+The portable runner and initial smoke/audio coverage are implemented; see `ARCHITECTURE.md`, "Verification".
+Continue migrating the broader scenarios from `docs/browser-checks`: trim/fades, LFO/reverb import, piano roll, menus,
+module controls, returns and export. The legacy scripts remain references until ported to assertions that fail the run.

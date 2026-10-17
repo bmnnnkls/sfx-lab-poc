@@ -1,5 +1,23 @@
 # Architecture
 
+## Verification
+
+`npm test` runs unit tests and `tests/architecture.test.ts`; `npm run build` typechecks application and browser-test
+code and bundles production assets. Use `npm ci` to reproduce the lockfile on Node 22.12+ (including platform-specific
+optional native packages). The 2026-10-17 macOS Lightning CSS failure was a truncated installed binary, repaired by
+a clean install; the platform records were already present in the lockfile.
+
+`playwright.config.ts` defines separate Chromium smoke and audio projects under `tests/browser/`. `npm run test:smoke`,
+`npm run test:audio` and `npm run test:browser` build and serve the production app on a dedicated port 4173. They use
+Playwright's managed browser, fresh per-test storage, no retries, assertions with bounded waits, page/console error
+checks and retained failure screenshots/traces. Smoke covers example playback, panel gesture undo/redo and persistence,
+and a sample package round-trip into a fresh context. The audio project uses a sample-window tap derived from the
+legacy checks to test pan/master behavior; it rejects an inactive tap. Additional legacy scenarios remain documented
+in `docs/browser-checks/README.md` for incremental migration.
+
+The Pages workflow runs unit/architecture, build/typecheck and smoke checks on PRs and main. PRs get read-only
+permissions. Only main builds the deployment with its repository base path and publishes, after checks succeed.
+
 ## Layers
 
 ```

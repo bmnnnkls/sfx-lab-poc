@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:smoke": "npm run build && playwright test --project=smoke",
+    "test:audio": "npm run build && playwright test --project=audio",
+    "test:browser": "npm run build && playwright test",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -20,6 +23,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
