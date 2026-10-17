@@ -912,8 +912,9 @@ plain cards; the property editor, the panel built from control nodes and the nod
 The **Track audio** node is the audio mirror of *Track notes*: a stereo source in an insert graph that plays another track's
 sound, `Take` before or after that track's own effects (both before its fader, so a track turned all the way down can still
 be used). It makes parallel chains possible (process a copy of a drum loop differently on another track) and modulation
-(through *Mono sum* into a Gain's CV the other track scales this one). An envelope follower for sidechain-style ducking is
-not built yet; it would be one more node reading the same source.
+(through *Mono sum* into a Gain's CV the other track scales this one). The **Envelope follower** node turns a signal's
+level into a control, and the **Compressor** node ducks one sound under another (its `Sidechain` input, with a gain-reduction
+out for metering).
 
 * **Engine** (`engine/audio-taps.ts`). Each track writes its sound before and after its insert graph to `AudioTaps`, one stereo
   buffer each, only for tracks someone reads; Track audio nodes read it through `ProcessContext.taps`. Like the sends board

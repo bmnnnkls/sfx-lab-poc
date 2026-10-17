@@ -187,8 +187,8 @@ and before `softClip`, stereo. Shown as a "Master" strip in the session view wit
 
 A source node that takes another track's signal, before or after its insert graph (`tap` parameter, like *Track notes*).
 It needs the signal of every track available on a board for the block, and the same ordering and loop rules. It makes
-sidechain-style tricks possible once a node exists that follows a level (an envelope follower; add it here if the user
-wants the trick, not before).
+sidechain-style tricks possible (the `follower` node and the `compressor` with its `Sidechain` input now exist for exactly
+that; see `ARCHITECTURE.md`).
 
 ## Things that bit us (so they do not bite you)
 

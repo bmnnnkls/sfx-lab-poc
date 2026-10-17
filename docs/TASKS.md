@@ -172,14 +172,14 @@ Full handoff for whoever builds this: [`HANDOFF-track-effects-and-stereo.md`](HA
 3. ~~Return tracks and the Send node (engine primitive, ordering, loop rules, persistence).~~ Done (see `ARCHITECTURE.md`).
 4. ~~The send knob row on track headers.~~ Done (see `ARCHITECTURE.md`).
 5. ~~Master effects graph.~~ Done (see `ARCHITECTURE.md`).
-6. ~~*Track audio* node.~~ Done (see `ARCHITECTURE.md`); the envelope follower for sidechains is still open (below).
+6. ~~*Track audio* node.~~ Done (see `ARCHITECTURE.md`); the envelope follower is built (`analysis/follower.node.ts`).
 
 ## Effects follow-ups
 
-* **Envelope follower** (a node that turns a signal's level into a smooth control signal), which with *Track audio* gives
-  sidechain ducking. Not built: raw audio into a CV is amplitude modulation, not a duck.
-* Chorus, flanger and other stereo modulation effects; a limiter or compressor for the master (today the output soft clip is
-  the only limiter).
+* ~~**Envelope follower**~~ Done: the `follower` node (`analysis/follower.node.ts`) turns a signal's level into a smooth control.
+* ~~A limiter or compressor for the master~~ Done: the `compressor` node with sidechain, knee, make-up, a dry/wet mix and a gain-reduction out.
+* Chorus and flanger build from a modulated delay (verified, see `SPEC-effects-round-2.md`). Still open: a gate, a true
+  brickwall limiter, and a phaser (cheap after the all-pass filter lands).
 * Mixer leftovers: a dB-shaped fader (the stored volume is linear), a pan/mute/solo control in the session-view header
   (they are in the Mixer tab only), a peak-hold or numeric readout on the meters.
 * A mono *Reverb* cannot be wired to a stereo source (a return's input, the master): use *Stereo reverb* or put the *Mono sum*
