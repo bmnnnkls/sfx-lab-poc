@@ -302,6 +302,29 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       mix: 'How much reverb is heard against the dry sound.',
     },
   },
+  compressor: {
+    category: 'Effects',
+    description: 'Turns the sound down when it gets loud, and back up when it is quiet again. Runs once on the mix of all voices.',
+    keywords: ['sidechain', 'duck', 'pump', 'threshold', 'ratio', 'knee', 'makeup', 'gain reduction', 'dynamics', 'limiter', 'parallel compression', 'dry wet'],
+    inputs: {
+      in: 'The sound to compress.',
+      sidechain: 'The sound that decides when to duck. Unwired, the input itself is listened to; wire another track here to duck under it.',
+    },
+    outputs: {
+      out: 'The compressed sound.',
+      gr: 'How much is being turned down, in dB from 0 (none) up. Wire it to a bar to watch the compression.',
+    },
+    params: {
+      threshold: 'How loud the sound must get before it is turned down, in dB (0 is full scale).',
+      ratio: 'How hard the loud part is turned down: 4 means 4 dB louder in only comes out 1 dB louder.',
+      attack: 'How fast it ducks when the sound gets loud, in milliseconds.',
+      release: 'How fast it comes back up when the sound gets quiet again, in milliseconds.',
+      knee: 'How gradually it starts to turn down around the threshold, in dB. 0 is a hard corner.',
+      makeup: 'Extra loudness added after compressing, in dB, to bring the level back up.',
+      mix: 'How much compressed sound is heard against the dry one: 0 is dry, 1 fully compressed.',
+      detector: 'Peak follows the size of the waves; RMS follows their power, which is closer to how loud it sounds.',
+    },
+  },
   pan: {
     category: 'Effects',
     description: 'Places a mono sound between the left and right speakers. Its output is stereo.',
