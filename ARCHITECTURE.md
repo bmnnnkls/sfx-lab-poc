@@ -18,6 +18,13 @@ in `docs/browser-checks/README.md` for incremental migration.
 The Pages workflow runs unit/architecture, build/typecheck and smoke checks on PRs and main. PRs get read-only
 permissions. Only main builds the deployment with its repository base path and publishes, after checks succeed.
 
+Production bundling uses Vite 8's `build.rolldownOptions.output.codeSplitting.groups`: React, React DOM and Scheduler
+form a `react` chunk; Radix and Floating UI form `ui-vendor`. Package-boundary patterns support both path separators.
+These eagerly loaded dependencies have independent content hashes and Vite emits module-preload links. After slice 1,
+this reduced the main chunk from 705.5 kB to 400.1 kB, with React at 218.8 kB and menu dependencies at 85.8 kB; the
+117.8 kB audio worklet remains separate. Total JavaScript transfer is essentially unchanged: the benefit is independent
+dependency caching and smaller individual chunks, not lazy loading. The default chunk-size warning limit is unchanged.
+
 ## Layers
 
 ```
