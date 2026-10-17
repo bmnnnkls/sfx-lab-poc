@@ -1,3 +1,4 @@
+import { PresetsPanel } from '../presets/PresetsPanel'
 import { useSelectionStore } from '@state'
 import { ClipEditor } from '../clip-editor/ClipEditor'
 import { MixerPanel } from '../mixer/MixerPanel'
@@ -33,9 +34,10 @@ export const EditorPanel = () => {
         <button className={tab === 'samples' ? styles.active : ''} onClick={() => setTab('samples')}>
           Samples
         </button>
+        <button className={tab === 'presets' ? styles.active : ''} onClick={() => setTab('presets')}>Sounds</button>
       </nav>
       <div className={styles.body}>
-        {tab === 'device' ? <Patcher /> : tab === 'fx' ? <FxPanel /> : tab === 'notes' ? <NoteEffectsPanel /> : tab === 'clip' ? <ClipEditor /> : tab === 'mixer' ? <MixerPanel /> : <SamplesPanel />}
+        {tab === 'presets' ? <PresetsPanel /> : tab === 'device' ? <Patcher /> : tab === 'fx' ? <FxPanel /> : tab === 'notes' ? <NoteEffectsPanel /> : tab === 'clip' ? <ClipEditor /> : tab === 'mixer' ? <MixerPanel /> : <SamplesPanel />}
       </div>
     </div>
   )

@@ -3,6 +3,9 @@ import {
   type ControlDomain,
   controlTargetForGraphParam,
   resolveControlTarget,
+  resolveSampleTarget,
+  editSampleBinding,
+  type SampleTarget,
   CONTROL_DISPLAYS,
   CONTROL_SIZES,
   type ControlSize,
@@ -28,7 +31,7 @@ import {
   setNodeTrack,
   setNodeUnit,
 } from '@core'
-import { useProjectStore } from '@state'
+import { useProjectStore, editPresetProject } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
 import { useMemo } from 'react'
@@ -98,6 +101,8 @@ const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCre
   const project = useProjectStore((state) => state.project)
   const gesture = useControlGesture()
   const targetFor = (param: string) => controlOwner && controlDomain ? controlTargetForGraphParam(project, controlOwner, controlDomain, node.id, param) : undefined
+  const sampleTarget: SampleTarget | undefined = controlOwner && controlDomain ? { kind: 'graph', owner: controlOwner, domain: controlDomain, path: [], nodeId: node.id, nodeType: node.type } : undefined
+  const sampleChoice = sampleTarget && resolveSampleTarget(project, sampleTarget)
   const shape = describeNode(node, modules)
   const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
   // What the node would be called without a name of its own: the hint in an empty name field.
@@ -154,7 +159,7 @@ const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCre
         </label>
       </div>
 
-      {shape.usesSample && <SamplePicker sampleId={node.sampleId} onChange={(sampleId) => edit((current) => setNodeSample(current, node.id, sampleId))} />}
+      {shape.usesSample && <SamplePicker sampleId={sampleChoice?.status === 'available' ? sampleChoice.sampleId ?? undefined : node.sampleId} onChange={(sampleId) => sampleTarget ? editPresetProject(p => editSampleBinding(p, { target: sampleTarget, sampleId })) : edit((current) => setNodeSample(current, node.id, sampleId))} />}
       {shape.usesTrack && (
         <TrackPicker pick={shape.usesTrack} ownerTrackId={ownerTrackId} trackId={node.trackId} onChange={(trackId) => edit((current) => setNodeTrack(current, node.id, trackId))} />
       )}

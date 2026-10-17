@@ -1,17 +1,28 @@
-import { renderProject, serializeProject, parseProject } from '../../src/core'
+import { samplePresetProject } from './preset-project'
+import { renderProject, serializeProject, parseProject, saveProjectPreset, editControlBase, type Project } from '../../src/core'
 import { test, expect, expectSaved } from './fixtures'
-import { slotSweepProject, sweepProject } from './automation-project'
+import { slotSweepProject, sweepProject, sweepTarget } from './automation-project'
 
 declare global { interface Window { __sweepSamples: number[] } }
-for (const mode of ['clip', 'slots', 'touch']) {
-const slots = mode === 'slots', touch = mode === 'touch'
-test(`the real worklet ${touch ? 'Touch take' : slots ? 'return/master slots' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
-  const project = slots ? slotSweepProject() : sweepProject()
-  const offline = renderProject(project, [], { scope: { kind: 'clip', trackId: 'sweep', clipId: 'sweep-clip' }, bars: slots ? 2 : 1, maxTail: 0 })
-  const scene = renderProject(project, [], { scope: { kind: 'scene', scene: 0 }, bars: slots ? 2 : 1, maxTail: 0 })
-  if (slots) expect(scene.left).not.toEqual(offline.left)
+for (const mode of ['clip', 'slots', 'touch', 'preset', 'sample-preset']) {
+const slots = mode === 'slots', touch = mode === 'touch', preset = mode === 'preset', samplePreset = mode === 'sample-preset'
+test(`the real worklet ${samplePreset ? 'recalled instance sample preset' : preset ? 'recalled project preset' : touch ? 'Touch take' : slots ? 'return/master slots' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
+  let project: Project = slots ? slotSweepProject() : sweepProject()
+  if (preset) {
+    project = { ...project, tracks: project.tracks.map(t => t.kind === 'instrument' ? { ...t, clips: t.clips.map(c => c ? { ...c, automation: [] } : c) } : t) }
+    const scope = { owner: sweepTarget.owner, domain: 'patch' as const }
+    project = saveProjectPreset(project, scope, 'Warm')
+    project = saveProjectPreset(editControlBase(project, sweepTarget, 12000).project, scope, 'Bright')
+  }
+  const sampleFixture = samplePreset ? samplePresetProject() : undefined
+  if (sampleFixture) project = sampleFixture.project
+  const samples = sampleFixture?.samples.map(s => s.decoded) ?? []
+  const expectedProject = sampleFixture?.recalled ?? project
+  const offline = renderProject(expectedProject, samples, { scope: { kind: 'clip', trackId: 'sweep', clipId: 'sweep-clip' }, bars: slots ? 2 : 1, maxTail: 0 })
+  const scene = renderProject(expectedProject, samples, { scope: { kind: 'scene', scene: 0 }, bars: slots ? 2 : 1, maxTail: 0 })
+  if (slots || samplePreset) expect(scene.left).not.toEqual(offline.left)
   else expect(scene.left).toEqual(offline.left)
-  let expected = slots ? scene : offline
+  let expected = slots || samplePreset ? scene : offline
   await page.addInitScript((saved) => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(project))
   await page.addInitScript(() => {
     const Original = window.AudioWorkletNode
@@ -41,6 +52,32 @@ test(`the real worklet ${touch ? 'Touch take' : slots ? 'return/master slots' : 
     }
   })
   await page.goto('/')
+  if (sampleFixture) {
+    await page.getByRole('button', { name: 'Samples', exact: true }).click()
+    await page.getByTestId('sample-input').setInputFiles(sampleFixture.samples.map(s => ({ name: `${s.info.name}.wav`, mimeType: 'audio/wav', buffer: Buffer.from(s.bytes) })))
+    for (const s of sampleFixture.samples) await expect(page.getByRole('button', { name: `Preview ${s.info.name}`, exact: true })).toBeEnabled()
+    await page.getByText('Sweep', { exact: true }).first().click()
+    await page.getByRole('button', { name: 'Sounds', exact: true }).click()
+    await page.getByRole('button', { name: 'Recall preset Different sample', exact: true }).click()
+    await expectSaved(page)
+    // A fresh engine proves both persisted uses, without any previous sample tail.
+    await page.reload()
+    await page.getByRole('button', { name: 'Samples', exact: true }).click()
+    for (const s of sampleFixture.samples) await expect(page.getByRole('button', { name: `Preview ${s.info.name}`, exact: true })).toBeEnabled()
+  }
+  if (preset) {
+    await page.getByText('Sweep', { exact: true }).first().click()
+    await page.getByRole('button', { name: 'Sounds', exact: true }).click()
+    await page.getByRole('button', { name: 'Recall preset Warm', exact: true }).click()
+    await page.getByRole('button', { name: 'Recall preset Bright', exact: true }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'controls recalled' })).toBeVisible()
+    await expectSaved(page)
+    const saved = parseProject((await page.evaluate(() => localStorage.getItem('sfxlab:project')))!)
+    if (!saved.ok) throw new Error(saved.error)
+    const expectedPreset = project.presets!.find(p => p.name === 'Bright')!
+    expect(saved.project.controlValues ?? []).toEqual(project.controlValues ?? [])
+    expect(expectedPreset.revisionId).toBe(project.presets![0]!.revisionId)
+  }
   // Prime the render-thread capture with silence before any sound starts.
   // Wait for the capture node to be connected before sending a launch command.
   await page.getByRole('button', { name: 'Play', exact: true }).click()

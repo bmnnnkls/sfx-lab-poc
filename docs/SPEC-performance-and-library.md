@@ -187,9 +187,33 @@ Automation remains authoritative until touched/re-enabled according to the rules
 and shows which values automation currently controls. With automation armed, recalling a snapshot records affected
 controls as an atomic set of stepped changes at the recall beat. Otherwise recall never rewrites lane points.
 
-After basic recall ships, add A/B morphing using a slider between compatible snapshots; an XY control can blend four
+A/B morphing ships as a slider between compatible snapshots; an XY control can blend four
 compatible corners later. Interpolate continuous values in their normalized scales, switch discrete values at a defined
 threshold, and exclude momentary buttons. Record a morph through the same automation path.
+
+### Shipped slice 4 defaults
+
+The **Sounds** tab captures authored base controls, including nested instance overrides; it excludes momentary/trigger
+buttons and wire-owned/structural controls. Snapshots leave sample choices unchanged. Continuous A/B morphing uses the
+live normalized scale, numeric stepped controls interpolate then snap, and selectors/toggles switch at **50%**.
+Morph requires identical scopes/target sets and all targets available. A gesture is one undo step and can record Touch.
+
+Embedded presets include discrete sample choices, including explicit silence. Instance bindings are independent of
+shared definitions; **Use shared default** removes the binding. Root sampler property pickers edit the active binding.
+Instrument presets also capture note-graph controls; audio/note effect presets capture only their selected graph.
+Assets carry graph/panel/voice/module/sample payloads. Values and samples may change within a compatible revision;
+topology, control configuration, stereo/bypass and instrument voice settings require a new revision. Names and canvas
+positions do not affect compatibility. An existing compatible graph may belong to another owner. Asset insertion,
+ID remapping and library storage remain later work. External track-routing nodes are refused on preset save/recall;
+presets never capture mixer sends or MIDI assignments. Missing samples/targets produce explicit partial-recall reports.
+
+Normal recall updates bases, releases the recalled controls' temporary overrides, leaves authored lanes unchanged and
+reports controls still owned by Read. Armed recall first finishes existing Touch gestures, then requires an acknowledged
+playing destination for every affected control. It commits all base/sample changes and stepped lane points at the same
+recording-clock beat as one undo step. Steps hold until the next authored point or loop end. A stopped/unacknowledged
+owner or exceeded lane/point limit rejects that recall atomically. Sample choices remain discrete project state and do
+not become numeric automation lanes. Project format v6 caps snapshots/presets at 128 each, immutable asset revisions at
+64 and each value/sample-binding collection at 4096; unavailable saved references remain diagnosable on recall.
 
 ## Personal library
 

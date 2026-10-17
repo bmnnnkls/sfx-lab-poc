@@ -12,8 +12,8 @@ The shared control-target foundation and verification work come first. Product b
 criteria are in [SPEC-performance-and-library.md](SPEC-performance-and-library.md); ordered implementation slices and
 code touchpoints are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). The verification and shared control-target foundations
 (slices 0–1), held-note engine path (slice 2a), browser MIDI adapter/learn (slice 2b), and saved clip automation,
-engine Read playback and drawing editor (slice 3a), return/master automation slots (3b), and Touch recording (3c) are implemented. Next are
-snapshots/presets (4); library workflows remain planned. A physical MIDI hardware check remains
+engine Read playback and drawing editor (slice 3a), return/master automation slots (3b), Touch recording (3c), and snapshots/project presets (4) are implemented. Next is
+the library catalog/folder workflow (5), followed by bundles (6) and tempo polish (7). A physical MIDI hardware check remains
 unperformed; fake-port browser and real-worklet tests cover the simulated path. Draft product defaults can be refined
 before their slice. These documents supersede the MIDI-mapping and personal-library sketches below where they differ.
 
@@ -21,9 +21,8 @@ before their slice. These documents supersede the MIDI-mapping and personal-libr
 
 Not nodes (the next batch of nodes is in [`IDEAS-nodes-and-controls.md`](IDEAS-nodes-and-controls.md), "Next batch").
 
-1. **Presets and snapshots** (F3): save the states of the controls and morph between two with an XY pad; pairs with Randomize and Mutate
-   (a snapshot is also "keep this roll").
-2. **Drum machine design**: decide how a module holds or picks samples (a module use cannot carry a sampler's `sampleId` today), then build E5:
+1. **Snapshot XY corners**: A/B snapshot morph ships in slice 4; blending four corners remains deferred.
+2. **Drum machine design**: slice 4 now provides independent nested instance sample bindings; build E5:
    N samplers gated by the incoming note (hz to MIDI, compare, multiply), per-pad level, pan and tune.
 3. **Test and tooling hygiene**: the whole browser suite takes too long; split it into a fast smoke set and a full run, and stop checks
    hard-coding lists the app already knows (they broke three times as nodes were added; the unit tests already read the registry).

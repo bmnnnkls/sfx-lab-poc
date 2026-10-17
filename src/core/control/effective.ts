@@ -1,3 +1,4 @@
+import { projectWithSampleBindings } from '../preset'
 import { flattenPatch, setNodeParam } from '../patch'
 import type { Project } from '../project'
 import { controlGraph, flatControlNodeId, resolveControlTarget } from './resolve'
@@ -16,7 +17,7 @@ export const effectiveControlReadouts = (project: Project, overrides: readonly C
 export const projectWithControlValues = (project: Project, overrides: readonly ControlValue[] = []): Project => {
   const entries = new Map((project.controlValues ?? []).map((entry) => [controlTargetKey(entry.target), entry]))
   for (const entry of effectiveControlReadouts(project, overrides)) entries.set(controlTargetKey(entry.target), entry)
-  let next = project
+  let next = projectWithSampleBindings(project)
   for (const { target, value } of entries.values()) {
     const resolved = resolveControlTarget(project, target)
     if (resolved.status !== 'available') continue

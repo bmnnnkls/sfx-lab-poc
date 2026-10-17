@@ -17,5 +17,14 @@ export const usedSampleIds = (project: Project): string[] => {
     if (track.kind === 'instrument') fromPatch(track.patch)
     if (track.kind === 'audio') for (const clip of track.clips) if (clip) found.add(clip.sampleId)
   }
+  for (const binding of project.sampleBindings ?? []) if (binding.sampleId) found.add(binding.sampleId)
+  return [...found]
+}
+
+/** Dependency closure for future project/library packaging, including saved sounds which are not playing. */
+export const projectSampleDependencies = (project: Project): string[] => {
+  const found = new Set(usedSampleIds(project))
+  for (const preset of project.presets ?? []) for (const binding of preset.samples) if (binding.sampleId) found.add(binding.sampleId)
+  for (const revision of project.assetRevisions ?? []) for (const id of revision.payload.sampleIds) found.add(id)
   return [...found]
 }

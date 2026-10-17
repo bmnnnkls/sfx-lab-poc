@@ -1,3 +1,4 @@
+import { sanitizePresetFields } from './sanitize-presets'
 import { sanitizeAutomationSlots } from './sanitize-automation-slots'
 import { sanitizeMidiMappings } from './sanitize-midi-mappings'
 import { sanitizeControlValues } from './sanitize-control-values'
@@ -142,6 +143,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
   const controlValues = sanitizeControlValues(raw.controlValues, warn)
   const midiMappings = sanitizeMidiMappings(raw.midiMappings, warn)
   return {
+    ...sanitizePresetFields(raw, sampleIds, warn),
     ...(controlValues && { controlValues }),
     ...(midiMappings && { midiMappings }),
     name: nonEmptyText(raw.name, 'Untitled', MAX_NAME_LENGTH),

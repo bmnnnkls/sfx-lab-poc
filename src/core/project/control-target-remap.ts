@@ -1,10 +1,11 @@
+import type { SampleTarget } from '../preset'
 import type { ControlTarget, InstanceStep } from '../control'
 import type { PatchTarget } from './module-edit'
 import type { AutomationSlot, Project, Track } from './types'
 
 /** Rewrite only the addressed graph scope, including every use when editing a shared definition. */
 export const mapControlRoutesAt = (project: Project, scope: PatchTarget, rewrite: (route: readonly string[]) => readonly string[] | undefined, inserted?: InstanceStep): Project => {
-  const mapEntry = <T extends { readonly target: ControlTarget }>(entry: T): T => {
+  const mapEntry = <T extends { readonly target: ControlTarget | SampleTarget }>(entry: T): T => {
     const target = entry.target
     if (target.kind !== 'graph') return entry
     let offset = 0
@@ -21,9 +22,9 @@ export const mapControlRoutesAt = (project: Project, scope: PatchTarget, rewrite
     let path: readonly InstanceStep[]
     if (inserted) path = [...target.path.slice(0, offset), inserted, ...target.path.slice(offset)]
     else path = [...target.path.slice(0, offset), ...target.path.slice(offset + 1).map((step, index) => ({ ...step, nodeId: route[index] as string }))]
-    const mapped: ControlTarget = { ...target, path, nodeId: route.at(-1) as string }
+    const mapped: ControlTarget | SampleTarget = { ...target, path, nodeId: route.at(-1) as string }
     return { ...entry, target: mapped }
   }
   const mapSlots = (slots: readonly (AutomationSlot | null)[] | undefined) => slots?.map((slot) => !slot?.automation ? slot : { ...slot, automation: slot.automation.map(mapEntry) })
-  return { ...project, master: { ...project.master, ...(project.master.automationSlots && { automationSlots: mapSlots(project.master.automationSlots) }) }, tracks: project.tracks.map((track) => track.kind === 'return' ? { ...track, ...(track.automationSlots && { automationSlots: mapSlots(track.automationSlots) }) } : { ...track, clips: track.clips.map((clip) => !clip?.automation ? clip : { ...clip, automation: clip.automation.map(mapEntry) }) } as Track), ...(project.controlValues && { controlValues: project.controlValues.map(mapEntry) }), ...(project.midiMappings && { midiMappings: project.midiMappings.map(mapEntry) }) }
+  return { ...project, ...(project.sampleBindings && { sampleBindings: project.sampleBindings.map(mapEntry) }), master: { ...project.master, ...(project.master.automationSlots && { automationSlots: mapSlots(project.master.automationSlots) }) }, tracks: project.tracks.map((track) => track.kind === 'return' ? { ...track, ...(track.automationSlots && { automationSlots: mapSlots(track.automationSlots) }) } : { ...track, clips: track.clips.map((clip) => !clip?.automation ? clip : { ...clip, automation: clip.automation.map(mapEntry) }) } as Track), ...(project.controlValues && { controlValues: project.controlValues.map(mapEntry) }), ...(project.midiMappings && { midiMappings: project.midiMappings.map(mapEntry) }) }
 }

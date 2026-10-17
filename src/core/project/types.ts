@@ -1,3 +1,4 @@
+import type { Snapshot, SampleBinding, AssetRevision, ProjectPreset } from '../preset'
 import type { AutomationLane } from '../automation'
 import type { MidiMapping } from '../midi'
 import type { ControlValue } from '../control'
@@ -138,6 +139,10 @@ export interface MasterBus {
 
 /** The saveable document. Everything the user authors lives here. */
 export interface Project {
+  readonly snapshots?: readonly Snapshot[]
+  readonly sampleBindings?: readonly SampleBinding[]
+  readonly assetRevisions?: readonly AssetRevision[]
+  readonly presets?: readonly ProjectPreset[]
   readonly midiMappings?: readonly MidiMapping[]
   /** Values of controls inside a particular nested module use; shared definitions stay unchanged. */
   readonly controlValues?: readonly ControlValue[]

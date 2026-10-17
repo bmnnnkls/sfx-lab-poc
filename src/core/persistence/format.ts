@@ -2,7 +2,7 @@
 export const FORMAT = 'sfx-lab-project'
 
 /** Bump when the saved shape changes, and add a step to `migrations.ts`. */
-export const CURRENT_VERSION = 5
+export const CURRENT_VERSION = 6
 
 /** Hard caps so a malformed or hostile file cannot make the app allocate without bound. */
 export const LIMITS = {

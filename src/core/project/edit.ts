@@ -293,6 +293,7 @@ export const removeSample = (project: Project, sampleId: string): Project => ({
   ...project,
   master: mapMasterFx(project.master, (fx) => clearSampleReferences(fx, sampleId)),
   samples: project.samples.filter((sample) => sample.id !== sampleId),
+  ...(project.sampleBindings && { sampleBindings: project.sampleBindings.map(b => b.sampleId === sampleId ? { ...b, sampleId: null } : b) }),
   modules: mapModules(project.modules, (module) => {
     const patch = clearSampleReferences(module.patch, sampleId)
     return patch === module.patch ? module : { ...module, patch }

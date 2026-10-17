@@ -1,6 +1,6 @@
 # Implementation plan: performance and library
 
-Status: **slices 0–3 implemented; slices 4–7 planned**. Product behavior and draft defaults are defined in
+Status: **slices 0–4 implemented; slices 5–7 planned**. Product behavior and draft defaults are defined in
 [SPEC-performance-and-library.md](SPEC-performance-and-library.md). Work proceeds in order below; each slice should
 be independently reviewable and leave the existing examples/project files usable.
 
@@ -318,6 +318,41 @@ Exit: recording two passes over a loop preserves untouched material, undo restor
 reload/export reproduces the recording. Test fast turns, long holds, UI stalls, tempo changes, disconnect and stop.
 
 ## 4. Snapshots and project presets
+
+Implemented 2026-10-17 on `codex/performance-and-library`, after slice 3c (`f953a5c`):
+
+- Added storage-independent `core/preset` snapshot scopes, capture/CRUD, partial recall diagnostics and normalized
+  A/B morph. The **Sounds** tab saves authored bases for an instrument, note graph, effect graph or whole owner
+  with mixer; missing/replaced/wired targets report explicit reasons. Recall is one history transaction. Continuous
+  morph values use the live normalized scale (including log); selectors/toggles switch at 50%, numeric steps snap,
+  and momentary/trigger buttons are excluded. Morph gestures use the common gesture/Touch path and undo once.
+- Defined immutable instrument, audio-effect and note-effect payloads, transitive module/sample dependencies and
+  opaque revision IDs with canonical structural compatibility signatures. Instruments include notes and voice settings;
+  graph nodes carry their panel presentation. Named presets stay embedded and recall against compatible revisions,
+  including another owner with the same graph identities. Structural/configuration/stereo/bypass/voice changes require
+  a new revision; ordinary sound values and sample choices remain preset state. Presets exclude clips, mixer sends,
+  MIDI mappings and external routing; graphs containing external track routing are refused with feedback.
+- Added `Project.sampleBindings` addressed by graph owner and guarded nested instance path. Absent bindings inherit
+  shared sampler defaults; explicit null means silence. Sounds exposes per-instance choices and reset to shared
+  defaults; root sampler property pickers show/edit the active binding. Shared definitions remain unchanged. Live and
+  offline engine projections apply sample bindings before numeric values. Group/unlink preserve instance routes;
+  sample removal clears active bindings while saved presets retain reportable missing dependencies. Playback sample
+  discovery stays separate from the complete saved-sound dependency closure.
+- Recall updates bases under Read and reports the number still controlled by automation. Armed recall requires every
+  affected owner to have an acknowledged playing destination; all controls write hold steps at the same audio-clock
+  beat, along with bases/sample state, in one undo transaction. Steps persist until the next authored point/loop end.
+  Destination or lane/point-limit failures reject the recall atomically. Existing Touch gestures finish first.
+- Format **v6** adds bounded snapshots/presets (128 each), asset revisions (64), values/sample bindings (4096 per
+  record), explicit v5→v6 migration and a committed v6 nested-sample fixture alongside v1–v5. The parser reconstructs
+  known fields, recomputes structural signatures, preserves unavailable references and warns on malformed/overflow
+  state. Deleting presets releases unreferenced revisions. No catalog, folders, bundles or XY corners are included.
+- Verification: **1,520 unit/architecture tests across 119 files**, typecheck, production build without chunk-size
+  warnings, **12 production smoke tests and eight real-output audio tests**. New browser checks save/recall/undo/reload
+  two sounds and morph; real worklet checks recall a numeric preset and reproduce two shared sample-instrument uses
+  with different samples after fresh reload, within 0.00002 amplitude of offline rendering. Sounds screenshot inspected.
+  Browser preview used isolated port 4175 outside the sandbox. No physical MIDI hardware check was performed.
+
+The original slice requirements are retained below as the shipped scope. Next: **5. Library catalog and folders**.
 
 Likely additions: `core/preset` for capture/compatibility/recall; project snapshot/asset records; UI preset browser;
 sync/base-value integration. Keep storage-independent types ready for library use.

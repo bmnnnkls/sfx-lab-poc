@@ -73,6 +73,7 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `session` | clip launching: a shared quantized `LaunchQueue`, the MIDI `ClipLauncher` (note events) and `AudioClipLauncher` (start/stop events) | `ClipLauncher`, `AudioClipLauncher` |
 | `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` (also the channel strips: fader, pan, mute/solo, meters), and the offline bounce built on it | `Engine`, `EngineCommand`, `EngineStatus`, `renderProject`, `Bounce` |
 | `automation` | clip lane edits, bounds, normalized evaluation and runtime compilation | `AutomationLane`, `setClipAutomation`, `compileAutomation`, … |
+| `preset` | scoped snapshots, immutable asset revisions, project presets, sample-instance bindings and recall/morph | `captureSnapshot`, `recallSnapshot`, `saveProjectPreset`, `recallProjectPreset`, … |
 | `sync` | diffs two `Project`s into `EngineCommand`s | `diffProject` |
 | `sample` | sample metadata/data types, engine-side `SampleBank`, mono mixdown, peaks, WAV encoder (mono, stereo, 16-bit or 32-bit float), demo samples | `SampleInfo`, `SampleData`, `SampleBank`, `createDemoSamples`, … |
 | `examples` | the shipped example projects (*Low Light*, *Glass Rain*), written as code with a small DSL for patches and scores; what a first visit opens on | `exampleProjects`, `findExampleProject`, `FLAGSHIP_EXAMPLE` |
@@ -144,7 +145,7 @@ undo restores its starting value. Shared-definition panels keep the graph editor
 `EffectiveValue` outputs show active Read/override values, show the base in a tooltip and provide re-enable/release. The pure
 `effectiveControlReadouts` helper returns only active compatible overrides rather than every parameter on every frame.
 
-This control foundation is reused by MIDI and clip automation below. Snapshots and library insertion UI remain future work. Touch recording is described below. Manual overrides reach the engine through main-thread commands; lane evaluation follows its beat clock.
+This control foundation is reused by MIDI and clip automation below. Snapshots and project presets ship in slice 4 below; library insertion remains future work. Touch recording is described below. Manual overrides reach the engine through main-thread commands; lane evaluation follows its beat clock.
 The existing panel shows directly nested controls; deeper paths are supported by the control API and saved values,
 while opening a module definition still edits the shared definition deliberately.
 
@@ -154,9 +155,9 @@ while opening a module definition still edits the shared definition deliberately
 normalized evaluation and compilation against current control specs. Clip lanes address only their own track's
 instrument, note graph, insert effects or mixer. Missing/wired targets stay in the document with feedback and do
 not acquire runtime ownership. Group/unlink remap lane paths together with instance values and MIDI mappings.
-The project format is **v5** (clip lanes arrived in v4): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
+Return/master slots arrived in format **v5** (clip lanes in v4; current format v6 adds saved sounds below): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
 2048 points per lane, bounded IDs/paths and finite numbers. The explicit v3→v4 migration drops formerly unknown
-lane data; v4→v5 drops formerly unknown return/master slot fields. Committed v1–v5 fixtures cover compatibility. Saved bases remain authored values.
+lane data; v4→v5 drops formerly unknown return/master slot fields. Committed v1–v6 fixtures cover compatibility. Saved bases remain authored values.
 
 Each point holds a normalized value and linear/hold interpolation to the next point. Points are sorted, equal
 times collapse with last input winning, and the valid time interval is [0, clip length]. Before/after the point
@@ -1306,7 +1307,7 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 * Sample hashing needs a secure context (https or localhost).
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
 * Oscillators are naive (alias at high pitches); no band-limiting or oversampling. The plain Reverb is mono (use *Stereo reverb* in an insert graph). Filter cutoff has a linear slider over 20 Hz–20 kHz.
-* Launch quantisation is fixed at one bar; no recording or plugin hosting.
+* Launch quantisation is fixed at one bar; no audio/note recording or plugin hosting.
 * Note sync reaches nodes that run per voice (the filter's key tracking, the Comb); the shared Delay and Ping-pong only know the tempo, not
   which note is playing. Scene names have no editor yet.
 * History is per session (not saved) and does not cover selection or transport.
@@ -1358,3 +1359,48 @@ the browser adapter interprets sustain/channel-mode cleanup and converts parser 
 The basic beat-synced delay mode retains the existing two-second buffer limit and changes delay time at block
 boundaries without smoothing. Long divisions, dotted/triplet selection and click-free tempo transitions remain
 follow-up work; this does not complete the performance/library plan's tempo-polish slice.
+
+## Snapshots, asset revisions and project presets (slice 4)
+
+`core/preset` owns storage-independent `SnapshotScope`, `Snapshot`, `SampleTarget`/`SampleBinding`, discriminated
+`AssetPayload`, immutable `AssetRevision` and `ProjectPreset` records. Capture walks the shared control target model,
+keeps authored per-use bases and excludes momentary/trigger, wire-owned and configuration controls. Snapshot recall
+uses guarded resolution and returns applied values plus missing/incompatible diagnostics; it never replaces graphs.
+A/B morph validates matching scopes/target sets, interpolates via shared normalized scale helpers and snaps real values;
+selectors/toggles switch at 0.5. The UI's common gesture records morphs through existing Touch buffers.
+
+Asset payloads contain instrument+note graphs and voices, or an audio/note effect graph, their transitive modules and
+sample IDs. Graph nodes embed panel presentation. Opaque revision IDs are distinct from canonical structural signatures;
+compatibility ignores sound values, samples, labels and positions, while graph topology, module interfaces, control
+configuration, stereo/bypass and voice settings participate. A preset stores control/sample state referencing a compatible
+revision and can recall into another owner with identical graph identities. External track-routing nodes are refused;
+clips, mixer routing and hardware mappings never enter assets/presets. Catalog insertion/remapping and bundle exchange
+remain slices 5–6. `projectSampleDependencies` includes saved presets/revisions separately from playback `usedSampleIds`.
+
+`Project.sampleBindings` guards owner/domain/nested use identities and sampler type. Missing bindings inherit node
+`sampleId` defaults, null explicitly silences a use. `projectWithSampleBindings` flattens affected graphs in the transient
+engine projection before numeric control values; live sync and offline bounce share it. Group/unlink rewrite binding
+routes, including uses of edited shared definitions. Removing samples clears active bindings; saved presets retain
+missing dependency references for diagnostics. The Sounds tab lists per-use bindings with reset-to-default, and root
+property sample pickers resolve/edit the same active binding. Shared-definition editors still edit shared defaults.
+
+`state/preset-actions` commits one recall to history. Normal Read recall edits authored bases, releases affected temporary
+overrides, leaves lane points alone and reports Read-controlled values. Armed recall finishes pending Touch gestures,
+preflights every active owner/destination against the audio recording clock, and builds all base/sample changes plus
+hold lane events before committing once. `stepRecallLane` guards the previous curve just before the recall beat and holds
+the new value to the next authored point/loop end. Missing/unacknowledged destinations or point/lane overflow reject
+that recall atomically. Sample choices are discrete saved state, outside numeric automation. Morph uses common gesture
+transactions, including explicit pointer/key/blur/unmount cleanup (React documentation checked via Context7).
+
+Format **v6** adds optional snapshots, presets, asset revisions and instance sample bindings. The explicit v5→v6 migration
+drops formerly unknown fields. `sanitize-presets` reconstructs only known fields, bounds records (128 snapshots/presets,
+64 revisions, 4096 values/bindings, 32 path steps, 256-character IDs), deduplicates targets/IDs, sanitizes graph payloads
+through existing graph/module validators and recomputes compatibility signatures. Well-formed unavailable references
+survive for recall diagnostics. Committed v1–v6 fixtures cover migration and round trips. Deleting presets prunes
+unreferenced revisions. No browser, storage adapter or library catalog code is needed by these types or pure edits.
+
+Verification includes partial recall, revision mismatch, shared defaults and independent overrides, explicit silence,
+group/unlink, Read/Touch atomic steps and lane-limit rejection, scope/scale/discrete/momentary morph rules, and hostile
+parsing/migrations. Production smoke saves/recalls/undoes/reloads two sounds and inspects morph UI. Real-output tests
+recall numeric and sampled presets; two shared sample-instrument uses with different samples survive fresh reload and
+match offline output within 0.00002 amplitude. Physical MIDI hardware remains untested.
