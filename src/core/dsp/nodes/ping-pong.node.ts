@@ -1,13 +1,16 @@
 import { Params } from '../params'
 import { RIGHT } from '../stereo'
 import type { DspNode, NodeDefinition, ParamSpec, ProcessContext } from '../types'
+import { syncedSeconds, timeSyncParam } from './time-sync'
 
 const MAX_DELAY_SECONDS = 2
 
 const PARAMS: readonly ParamSpec[] = [
-  { id: 'time', label: 'Time', min: 0.001, max: MAX_DELAY_SECONDS, default: 0.3, unit: 's' },
+  // In seconds, or in beats when Sync is `beat`; so no fixed unit is shown.
+  { id: 'time', label: 'Time', min: 0.001, max: MAX_DELAY_SECONDS, default: 0.3 },
   { id: 'feedback', label: 'Feedback', min: 0, max: 0.95, default: 0.5 },
   { id: 'mix', label: 'Mix', min: 0, max: 1, default: 0.35 },
+  timeSyncParam,
 ]
 
 /**
@@ -30,10 +33,11 @@ class PingPong implements DspNode {
     this.params.set(id, value)
   }
 
-  process({ frames, sampleRate }: ProcessContext, [input]: ReadonlyArray<Float32Array | null>, [out]: readonly Float32Array[]): void {
+  process(context: ProcessContext, [input]: ReadonlyArray<Float32Array | null>, [out]: readonly Float32Array[]): void {
     if (!out) return
+    const { frames, sampleRate } = context
     const size = this.left.length
-    const delaySamples = this.params.get('time') * sampleRate
+    const delaySamples = syncedSeconds(this.params.get('time'), this.params.get('sync'), context, MAX_DELAY_SECONDS) * sampleRate
     const feedback = this.params.get('feedback')
     const mix = this.params.get('mix')
 
