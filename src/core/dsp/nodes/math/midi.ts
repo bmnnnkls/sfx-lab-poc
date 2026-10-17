@@ -10,23 +10,35 @@ const MAX_NOTE = 260
 export const midiToHzNode = mathNode({
   type: 'midiToHz',
   label: 'MIDI to Hz',
+  pure: true,
   operands: [{ id: 'note', label: 'Note', default: A4 }],
   extra: [TUNING],
   // Fractional notes work: 60.5 is a quarter tone above middle C.
-  make: (params) => (note) => params.get('tuning') * 2 ** ((Math.min(MAX_NOTE, Math.max(MIN_NOTE, note)) - A4) / 12),
+  make: (params) => {
+    let tuning = 440
+    return {
+      block: () => (tuning = params.get('tuning')),
+      sample: (note) => tuning * 2 ** ((Math.min(MAX_NOTE, Math.max(MIN_NOTE, note)) - A4) / 12),
+    }
+  },
 })
 
 export const hzToMidiNode = mathNode({
   type: 'hzToMidi',
   label: 'Hz to MIDI',
+  pure: true,
   operands: [{ id: 'hz', label: 'Hz', default: 440 }],
   extra: [TUNING],
   // Zero and below (and anything under note 0) give note 0, the lowest, rather than -Infinity or NaN.
   make: (params) => {
-    const lowest = (tuning: number) => tuning * 2 ** (-A4 / 12)
-    return (hz) => {
-      const tuning = params.get('tuning')
-      return A4 + 12 * Math.log2(Math.max(hz, lowest(tuning)) / tuning)
+    let tuning = 440
+    let lowest = tuning * 2 ** (-A4 / 12)
+    return {
+      block: () => {
+        tuning = params.get('tuning')
+        lowest = tuning * 2 ** (-A4 / 12)
+      },
+      sample: (hz) => A4 + 12 * Math.log2(Math.max(hz, lowest) / tuning),
     }
   },
 })

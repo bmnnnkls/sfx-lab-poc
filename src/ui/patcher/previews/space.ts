@@ -15,12 +15,17 @@ const bar = (x: number, level: number, tone: 'main' | 'dim') => ({
   tone,
 })
 
+/** Seconds per beat at the default tempo: the picture does not know the project's, so a synced delay is drawn as if at 120 BPM. */
+const SECONDS_PER_BEAT = 0.5
+
 /**
  * The echoes of a delay: the dry sound at the start, then a bar for each repeat `time` apart, `feedback` times as loud as
- * the one before, the first at the `mix` level. Repeats that no longer fit, or are inaudible, are left out.
+ * the one before, the first at the `mix` level. Repeats that no longer fit, or are inaudible, are left out. With Sync on beat,
+ * `time` is in beats and the spacing is the one at 120 BPM.
  */
 export const delayPreview = (values: Values): Preview => {
-  const time = clamp(values.time ?? 0.3, 0.001, SPAN_SECONDS)
+  const seconds = (values.time ?? 0.3) * (Math.round(values.sync ?? 0) === 1 ? SECONDS_PER_BEAT : 1)
+  const time = clamp(seconds, 0.001, SPAN_SECONDS)
   const feedback = clamp(values.feedback ?? 0.4, 0, 0.95)
   const mix = clamp(values.mix ?? 0.35, 0, 1)
   const shapes = [bar(SIDE, 1, 'dim')]

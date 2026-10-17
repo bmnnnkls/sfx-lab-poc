@@ -182,6 +182,18 @@ output you wire into another node's input.
   time when the tempo changes (see "Tempo in the DSP"); the card's picture, which only knows hertz, shows a rough number of cycles then.
 * **Filter `cutoff` input** moves the cutoff exponentially: CV +1 raises it by *CV amt* octaves (param, default 2).
   While modulated, coefficients are redesigned every 16 samples. Unconnected, the filter is exactly as before.
+* **Filter key tracking** (*Key track*, 0 to 1, default 0): the cutoff follows the voice's note, `cutoff × (note / middle C) ^ keyTrack`, so at 1 an
+  octave up is an octave brighter and *Cutoff* is where it sits at middle C. It reads `ProcessContext.note.frequency`, so it works in a voice; in
+  a shared, global or insert stage there is no note (frequency 0) and nothing moves. Coefficients are redesigned only when the ratio changes.
+* **Comb** (`dsp/nodes/comb.node.ts`, Filters, per voice): a feedback comb whose delay is one period of a pitch, so it rings at that pitch and its
+  harmonics: a short noise burst through it is a plucked string (Karplus-Strong), a drum a metallic ring. *Tune to* `note` rings at the voice's
+  note shifted by *Pitch* semitones; `fixed`, or where there is no note, at *Freq* (20 Hz–8 kHz). *Feedback* −0.995..0.995 (negative rings an
+  octave lower with odd harmonics only), *Damp* is a one-pole lowpass inside the loop, *Mix*. Fractional delay by linear interpolation; the
+  line is long enough for 20 Hz. Unnormalised: high feedback can get loud.
+* **Delays in beats** (`dsp/nodes/time-sync.ts`): *Delay* and *Ping-pong* have *Sync* (`off` / `beat`). On `beat`, *Time* is in beats of the
+  tempo the block is played at (0.75 is a dotted eighth), turned into seconds every block and capped at the 2 s line, so the echoes follow a
+  change of tempo; the card's picture draws it at 120 BPM. *Time* shows no fixed unit for that reason (like the LFO's *Rate*). Both examples'
+  echo returns use it (0.75 beats, and a *Time* knob from an eighth of a beat to two beats in steps of an eighth of a beat).
 * **Oscillator `pitch` input** bends pitch by *Pitch CV* semitones per unit (default 2), exponentially.
 * **Gain** already took a `cv` input (that is how the envelope drives the VCA); an LFO into it is tremolo.
 * **Reverb** (`dsp/nodes/reverb.node.ts`, **shared**): Freeverb: eight damped feedback combs in parallel, four allpasses
@@ -557,6 +569,11 @@ plain cards; the property editor, the panel built from control nodes and the nod
   wired into its port, or, unwired, the parameter of the same id (which has its own socket); the result is never NaN or
   infinite (rounded to float32 first, so a product that overflows the buffer is 0, not Infinity). *Hz to MIDI* gives 0, the
   lowest note, for 0 or less; fractional notes work. Math nodes are global-capable.
+  **Parameters are read once per block**, not per sample: a rule with settings returns a `MathRule` (`block` reads the parameters, and
+  anything worked out from them such as a smoothing coefficient or a clock's step, into its closure; `sample` does no lookups), so a
+  change lands at the next block, which is when `setParam` and the sockets deliver it anyway. A rule marked `pure` (no state: arithmetic,
+  conversions, Map range, Quantize, Mix, MIDI to Hz) with nothing wired into it runs once per block and fills the buffer. Together about
+  2.4 times cheaper per audio-rate math node (2.7 % to 1.1 % of real time each in the test container), with output identical to the bit.
 * **Sources of sound and chance** (`dsp/random.ts`, `dsp/nodes/{noise,perlin,geiger,random}.node.ts`). Everything random is **seeded**
   (`createRng`, mulberry32; `hashSigned` for lattice points), never `Math.random` or the clock, so a render comes out the same every
   time (exports, tests, a sound you want back); each has a `seed` parameter (no socket: `socket: false`). **A seed per voice:** a voice
@@ -1080,8 +1097,8 @@ scenes) and *Glass Rain* (a self-composing ambient piece, 92 BPM, six scenes). A
   `docs/browser-checks/showcase.mjs`.
 * **Cost.** These are the heaviest projects in the repo: about 40 to 50 % of one core in the slow container the tests run in for the busiest
   scene of Low Light, 40 % for Glass Rain. Most of it is a floor, not the instruments: every track runs its insert graph every block and sends
-  mix per track (about 1.7 % per empty track), the returns' reverbs a few percent, and audio-rate math nodes cost a `Params.get` per sample, so
-  a chain of them is much dearer than its look. The instruments themselves are a few percent each. If a scene stutters on a slower machine,
+  mix per track (about 1.7 % per empty track), the returns' reverbs a few percent, and audio-rate math nodes about 1 % each (they read their
+  parameters once per block; it was 2.7 % when they read them per sample), so a long chain of them still adds up. The instruments themselves are a few percent each. If a scene stutters on a slower machine,
   mute a few tracks or reduce voices.
 
 ## Conventions
@@ -1134,8 +1151,8 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
 * Oscillators are naive (alias at high pitches); no band-limiting or oversampling. The plain Reverb is mono (use *Stereo reverb* in an insert graph). Filter cutoff has a linear slider over 20 Hz–20 kHz.
 * Launch quantisation is fixed at one bar; no recording or plugin hosting.
-* Delay times are in seconds, not beats, so the echoes in the examples are set for their own tempo (the Echo return of *Low Light* is a dotted eighth
-  at 125 BPM) and do not follow a changed BPM; the *LFO* and the *Clock* are the nodes that do. Scene names have no editor yet.
+* Note sync reaches nodes that run per voice (the filter's key tracking, the Comb); the shared Delay and Ping-pong only know the tempo, not
+  which note is playing. Scene names have no editor yet.
 * History is per session (not saved) and does not cover selection or transport.
 * One autosaved project per browser. Two tabs on the same site overwrite each other (last write wins).
   `localStorage` holds ~5 MB, plenty for projects, not for samples (see above).
@@ -1146,3 +1163,14 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 1. Unused-sample cleanup, loop points inside a clip, 2. stems and batch export for the bounce,
 3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (band-limited oscillators, chorus / stereo modulation effects, tempo sync for delays),
 5. WASM DSP nodes (Faust/RNBO).
+
+## MIDI parsing foundation
+
+`core/midi` parses note-on/off and 7-bit CC messages without browser or device dependencies. Velocity-zero
+note-on becomes note-off; malformed bytes and unsupported messages are ignored. CCs remain raw messages here:
+sustain and channel-mode interpretation belongs to the future performance adapter. No browser MIDI input,
+learn bindings, source-aware held-note engine path or project-format change is included in this foundation.
+
+The basic beat-synced delay mode retains the existing two-second buffer limit and changes delay time at block
+boundaries without smoothing. Long divisions, dotted/triplet selection and click-free tempo transitions remain
+follow-up work; this does not complete the performance/library plan's tempo-polish slice.

@@ -78,6 +78,21 @@ Likely touchpoints: new `core/control` module; `core/patch` resolution/flattenin
 Exit: one parameter in a module used twice can be addressed independently, survives rename/reload, and a runtime override
 does not change history or autosave. Graph edits cannot silently redirect an old target to a different control.
 
+## Salvaged foundations before slice 2 (2026-10-17)
+
+Merged the independent `codex/salvage-claude-work` branch, based on `main`: per-block math-node parameter
+reads and unwired pure-node evaluation; basic beat-synced Delay/Ping-pong and updated example echoes; filter
+key tracking and Comb; and a pure, byte-validated MIDI message parser. Sources and deferred work are listed in
+[ROADMAP.md](ROADMAP.md). The existing portable verification and slice 1 control model remain authoritative.
+
+No held-note engine path, browser MIDI input or mappings have shipped. Slice 2a remains next; 2b can reuse
+`core/midi`. Slice 7 remains open for divisions, smoothing, buffer limits, persistence and timing verification.
+
+Validation: the standalone salvage passed 1,362 tests across 96 files and typecheck/production build.
+After integration, 1,384 tests across 100 files, typecheck, production build, four production smoke tests
+and one real-output audio test passed. The sole textual merge conflict was the core export list; both
+`control` and `midi` exports are retained. Slice 2a implementation remains paused.
+
 ## 2. MIDI performance
 
 ### 2a. Held-note engine path
@@ -204,6 +219,9 @@ duplicate import behavior, preset associations, missing bytes, invalid hashes, f
 and rollback on storage failure. Existing project package round-trips still pass.
 
 ## 7. Tempo polish
+
+The salvage provides a basic `off`/`beat` mode and beat-based example echoes. It retains the existing
+two-second delay capacity and unsmoothed block-boundary time changes; the requirements below remain open.
 
 Likely touchpoints: delay/ping-pong DSP definitions, timing helpers, node properties/previews, persistence and examples.
 
