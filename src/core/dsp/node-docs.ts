@@ -233,19 +233,21 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
   // ---- Filters
   filter: {
     category: 'Filters',
-    description: 'Cuts the highs, the lows, or everything but a band around a chosen frequency.',
-    keywords: ['lowpass', 'highpass', 'bandpass', 'eq', 'tone', 'vcf'],
+    description: 'Cuts the highs, the lows, or everything but a band around a chosen frequency, or boosts and cuts a band or a shelf.',
+    keywords: ['lowpass', 'highpass', 'bandpass', 'notch', 'peak', 'shelf', 'all-pass', 'eq', 'tone', 'vcf'],
     inputs: {
       in: 'The sound to filter.',
       cutoff: 'Moves the cutoff up or down in octaves, CV amt per unit (an envelope or an LFO sweeps the sound).',
     },
     outputs: { out: 'The filtered sound.' },
     params: {
-      mode: 'Lowpass lets lows through, highpass lets highs through, bandpass keeps a band around the cutoff.',
-      cutoff: 'The frequency where the filter starts to cut.',
+      mode: 'Lowpass lets the lows through, highpass the highs, bandpass a band, notch removes a band, peak boosts or cuts one, the shelves lift or lower the lows or the highs, all pass only shifts phase.',
+      cutoff: 'The frequency where the filter starts to cut (or the centre of a peak, or the corner of a shelf).',
       resonance: 'Emphasis around the cutoff: above 1 it rings, high values whistle.',
       cvAmount: 'How many octaves one unit at the Cutoff input moves the cutoff.',
       keyTrack: 'How far the cutoff follows the note: 0 not at all, 1 fully (an octave up, an octave brighter; Cutoff is where it sits at middle C). Only in a voice, where there is a note.',
+      gain: 'How much peak and the shelves boost or cut, in dB. The other modes ignore it.',
+      slope: 'How steeply the pass filters cut: 12 dB per octave, or 24 dB with two filters in a row.',
     },
   },
   comb: {
@@ -323,6 +325,22 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       makeup: 'Extra loudness added after compressing, in dB, to bring the level back up.',
       mix: 'How much compressed sound is heard against the dry one: 0 is dry, 1 fully compressed.',
       detector: 'Peak follows the size of the waves; RMS follows their power, which is closer to how loud it sounds.',
+    },
+  },
+  eq: {
+    category: 'Effects',
+    description: 'Three bands of boost or cut: a low shelf, a peak and a high shelf. Runs once on the mix of all voices.',
+    keywords: ['eq', 'equalizer', 'shelf', 'peak', 'boost', 'cut', 'tone', 'mix', 'biquad'],
+    inputs: { in: 'The sound to shape.' },
+    outputs: { out: 'The shaped sound.' },
+    params: {
+      lowFreq: 'Where the low shelf starts to bite.',
+      lowGain: 'How much the lows are lifted or lowered, in dB.',
+      midFreq: 'The centre of the mid peak.',
+      midGain: 'How much around the mid frequency is lifted or lowered, in dB.',
+      midQ: 'How wide the mid peak is: low values are broad, high values are narrow and ring.',
+      highFreq: 'Where the high shelf starts to bite.',
+      highGain: 'How much the highs are lifted or lowered, in dB.',
     },
   },
   pan: {
