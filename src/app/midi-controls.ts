@@ -11,7 +11,7 @@ const momentary = (project: Project, target: ControlTarget): boolean => {
 /** CC state is main-thread feedback, independent of the audio status stream. */
 export const createMidiControls = () => {
   const states = new Map<string, { previous?: number; expected?: number; active: boolean; gesture: ReturnType<typeof createControlGesture>; mapping?: MidiMapping; momentary?: boolean; held?: boolean }>()
-  const reset = () => { states.clear(); useMidiStore.setState({ feedback: {} }) }
+  const reset = () => { for (const state of states.values()) state.gesture.end(); states.clear(); useMidiStore.setState({ feedback: {} }) }
   const release = (deviceId?: string, channel?: number, ids?: ReadonlySet<string>) => {
     for (const [id, state] of states) {
       const mapping = state.mapping
@@ -29,7 +29,7 @@ export const createMidiControls = () => {
     }
     useMidiStore.setState((s) => ({ feedback: Object.fromEntries(Object.entries(s.feedback).filter(([id]) => states.has(id))) }))
   }
-  const receive = (deviceId: string, deviceName: string, message: Extract<MidiMessage, { kind: 'cc' }>) => {
+  const receive = (deviceId: string, deviceName: string, message: Extract<MidiMessage, { kind: 'cc' }>, timestamp = performance.now()) => {
     if (!isLearnableCC(message.cc)) return
     const channel = message.channel - 1
     const source = { deviceId, channel, cc: message.cc }
@@ -70,11 +70,10 @@ export const createMidiControls = () => {
     if (!state.active) { feedback('pickup', override?.value ?? playing?.value ?? resolved.baseValue); return }
     const value = controlFromNormalized(resolved.spec, position)
     if (state.momentary && value >= 0.5 && !state.held) state.gesture.begin()
-    if (override) useControlStore.getState().setOverride(mapping.target, value)
-    else state.gesture.change([{ target: mapping.target, value }])
+    state.gesture.change([{ target: mapping.target, value }], timestamp)
     if (state.momentary) {
       state.held = value >= 0.5
-      if (!state.held) state.gesture.end()
+      if (!state.held) state.gesture.end(timestamp)
     }
     state.expected = controlToNormalized(resolved.spec, value)
     feedback('active', value)

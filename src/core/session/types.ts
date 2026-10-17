@@ -26,6 +26,8 @@ export type AudioEvent =
 
 /** What the UI needs to draw a track's launch state. */
 export interface LauncherStatus {
+  /** Exact owner stop boundary, retained until the next launch. */
+  readonly stopBeat?: number
   readonly playingClipId: string | null
   /** Transport beat at which the playing clip's loop began, for playhead display. */
   readonly startBeat: number | null

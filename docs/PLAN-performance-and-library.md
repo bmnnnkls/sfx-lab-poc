@@ -1,6 +1,6 @@
 # Implementation plan: performance and library
 
-Status: **slices 0–2 and 3a–3b implemented; slices 3c–7 planned**. Product behavior and draft defaults are defined in
+Status: **slices 0–3 implemented; slices 4–7 planned**. Product behavior and draft defaults are defined in
 [SPEC-performance-and-library.md](SPEC-performance-and-library.md). Work proceeds in order below; each slice should
 be independently reviewable and leave the existing examples/project files usable.
 
@@ -269,6 +269,45 @@ Exit: a master sweep and return throw launch with a scene, repeat correctly, sto
 exports. Removing a return handles its lanes and target references without damaging other tracks.
 
 ### 3c. Touch recording
+
+Implemented 2026-10-17 on `codex/performance-and-library`:
+
+- Explicit **Touch** arm is transient. Panel/property, mixer and session-header pointer/keyboard/wheel gestures
+  and learned MIDI CCs address only the target owner's currently playing instrument/audio clip or return/master slot. Controls and lanes show recording/override
+  state and explain missing destinations; selecting a different clip never redirects a take. MIDI pickup must succeed
+  against the effective value before any capture. Competing sources cannot acquire the same touched target.
+- `AudioHost` bridges AudioContext time to worklet-stamped beat/tempo reports. Native event timestamps survive delayed
+  main-thread callbacks; sparse tempo/transport segments also timestamp delayed MIDI inactivity releases. No animation
+  frame counts or message-arrival clocks determine recorded beats. Precision follows the audio render quantum and
+  browser timestamp precision. Context suspension cannot advance a take's musical clock.
+- Per-gesture/source buffers stay outside the project, history and autosave. Explicit pointer/key release or cancellation
+  keeps the take; wheel/absolute CC input releases after **800 ms** of inactivity, with delayed callbacks closing at
+  the original deadline. A momentary switch releases explicitly. Disconnect/disable closes valid MIDI takes. Transport
+  stop, actual owner stop/retrigger and one-shot end close at their boundaries; a new movement can begin a new take.
+  Disarm/re-enable/unmount finish; project replacement cancels and disarms. Removed/resized/incompatible destinations
+  discard the entire affected take rather than partially commit or redirect it.
+- Wraps split into local intervals, applied in chronological order so the latest pass replaces only its touched spans.
+  Original values and interpolation outside each span survive, using **1e-7 beat** boundary guards to avoid accidental
+  ramps. New lanes restore the saved base around the take. Linear simplification bounds normalized vertical error to
+  **0.002**, retaining endpoints and hold transitions. Takes cap at **256 beats**, **64 targets**, and **16,384 raw samples**;
+  saved lanes retain the existing 64-lane/2048-point bounds. Overflow finishes capture or rejects the completed take
+  atomically with feedback; it never silently truncates surrounding points.
+- A completed gesture commits all its controls/loop passes in one history transaction and schedules one autosave.
+  Recorded points use the existing format **v5** lane representation; no new saved fields or migration are required.
+  Read playback and clip/scene WAV export reuse the existing evaluator. Presets/library and later slices remain deferred.
+
+Verification: **1,505 unit/architecture tests across 117 files**, `npm run typecheck`, production build without
+chunk-size warnings, **11 production smoke tests and all six real-output audio tests passed**. `git diff --check`
+passed; the Touch UI screenshot was inspected. Tests cover boundary preservation, multiple passes, holds, fast turns,
+step preservation, simplification error, buffer/point limits, independent sources, atomic multi-control undo, pickup,
+timeout, delayed event/release timestamps, tempo changes, exact stop/retrigger and audio one-shot endings, destination
+removal/replacement and zero in-progress autosave writes. Browser checks record both mixer and session-header gestures,
+undo/redo/reload, then compare a reloaded Touch take's full finite worklet sample window with offline scene rendering
+at the unchanged **0.00002** amplitude limit. Browser checks ran outside the sandbox using a temporary port-4175 config
+because another checkout owned port 4173; the temporary config was removed. The package-import smoke check now uses
+the test page's origin for its independent context. No physical MIDI hardware check was performed.
+
+The original slice requirements follow for context.
 
 - Add explicit arm, active-owner destination checks and an audio-clock timestamp bridge for main-thread gestures.
 - Capture separate take buffers from pointer/MIDI sources; define pickup, release timeout, wrap and interrupted-take rules.

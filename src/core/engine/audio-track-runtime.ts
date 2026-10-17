@@ -125,6 +125,7 @@ export class AudioTrackRuntime implements PlayableTrack {
   }
 
   reset(): void {
+    this.stoppedAt = undefined
     this.launcher.reset()
     this.fadeOutPlaying()
     this.playing = null
@@ -141,11 +142,13 @@ export class AudioTrackRuntime implements PlayableTrack {
     const left = region.endPos - (position < 0 ? region.startPos : position)
     return Math.max(0, Math.ceil(left / (sample.sampleRate / this.sampleRate) - 1e-8))
   }
-  finishClip(): void { this.playing = null }
+  private stoppedAt: number | undefined
+  finishClip(beat: number): void { this.playing = null; this.stoppedAt = beat }
 
   /** What is sounding (not just queued, and not a fading tail), so a finished one-shot stops showing as playing. */
   status(): LauncherStatus {
     return {
+      ...(this.stoppedAt !== undefined && { stopBeat: this.stoppedAt }),
       playingClipId: this.playing?.clip.id ?? null,
       startBeat: this.playing?.startBeat ?? null,
       queued: this.launcher.queuedStatus(),
@@ -164,6 +167,7 @@ export class AudioTrackRuntime implements PlayableTrack {
 
   private apply(event: AudioEvent): void {
     this.fadeOutPlaying()
+    this.stoppedAt = event.kind === 'stop' ? event.beat : undefined
     this.playing = event.kind === 'start' ? { clip: event.clip, startBeat: event.beat, position: -1 } : null
   }
 
@@ -180,7 +184,8 @@ export class AudioTrackRuntime implements PlayableTrack {
       this.tail.framesLeft -= frames
       if (!alive || this.tail.framesLeft <= 0) this.tail = null
     }
-    if (this.playing && !this.mixVoice(this.playing, frames, timing)) this.playing = null
+    const remaining = this.framesUntilEnd(timing)
+    if (this.playing && !this.mixVoice(this.playing, frames, timing)) this.finishClip(timing.beat + Math.min(frames, remaining) * timing.beatsPerSample)
 
     taps.write(this.trackId, 0, this.scratch, frames)
     const gate = this.strip.sendsTo(sends)

@@ -25,3 +25,5 @@ export * from './automation-store'
 export * from './clip-actions'
 
 export { editAutomationSlot, editOwnerAutomation } from './automation-store'
+
+export * from './touch-store'

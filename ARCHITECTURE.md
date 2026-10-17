@@ -144,8 +144,7 @@ undo restores its starting value. Shared-definition panels keep the graph editor
 `EffectiveValue` outputs show active Read/override values, show the base in a tooltip and provide re-enable/release. The pure
 `effectiveControlReadouts` helper returns only active compatible overrides rather than every parameter on every frame.
 
-This control foundation is reused by MIDI and clip automation below. Touch recording, snapshots and library insertion UI
-remain future work. Manual overrides reach the engine through main-thread commands; lane evaluation follows its beat clock.
+This control foundation is reused by MIDI and clip automation below. Snapshots and library insertion UI remain future work. Touch recording is described below. Manual overrides reach the engine through main-thread commands; lane evaluation follows its beat clock.
 The existing panel shows directly nested controls; deeper paths are supported by the control API and saved values,
 while opening a module definition still edits the shared definition deliberately.
 
@@ -193,7 +192,7 @@ Production tests draw/undo/reload a looping filter sweep and compare captured wo
 offline clip/scene samples. Unit tests cover normalized/scaled/stepped evaluation, uneven blocks, loop boundaries,
 BPM changes, wire-owned upstream controls, note helpers, one-shots, missing/disabled/empty lanes, edits, migrations,
 MIDI/manual pickup/override/re-enable, relaunch and zero playback history/autosave writes. Note-graph lane scheduling
-can cost more CPU than audio/mixer lanes. Touch recording remains slice 3c.
+can cost more CPU than audio/mixer lanes. Touch recording is described below.
 
 `ReturnTrack.automationSlots` and `MasterBus.automationSlots` are optional scene-indexed arrays of automation-only
 `AutomationSlot` documents (ID, name, independent 0.25–256 beat loop, lanes). Missing/null cells stop the prior slot
@@ -1320,6 +1319,34 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 1. Unused-sample cleanup, loop points inside a clip, 2. stems and batch export for the bounce,
 3. MIDI hardware verification and later performance features, 4. more nodes (band-limited oscillators, chorus / stereo modulation effects, tempo sync for delays),
 5. WASM DSP nodes (Faust/RNBO).
+
+## Touch automation recording (slice 3c)
+
+`state/touch-store` owns explicit transient arm, per-gesture/source takes, target ownership and feedback. The common
+control gesture (including the session header volume slider) intercepts armed edits only when that owner's instrument/audio clip or return/master slot is actually
+playing. Selection cannot redirect capture. Learned MIDI enters after effective-value pickup; competing sources are
+refused on a touched target. Native UI/MIDI event timestamps pass through the gesture path. Pointer/key release,
+cancellation, unmount, disarm and re-enable finish; wheel/CC inactivity finishes after 800 ms. Disconnect finishes
+valid takes. Document-epoch replacement cancels and disarms; incompatible, removed or resized destinations discard
+that take atomically. Stop finishes before dispatch, and runtime status closes takes at actual launch/stop/retrigger
+or one-shot boundaries. `LauncherStatus.stopBeat` carries owner stops even when a queued status was never delivered.
+
+The worklet stamps tempo/transport changes at the next quantum's start and periodic beat status at its end. `audio/recording-clock` retains sparse audio-time
+segments across tempo and transport changes; `AudioHost.recordingBeat` bridges AudioContext.currentTime and native
+performance event timestamps into beats. Delayed events and MIDI release callbacks use their original timestamps;
+render frames, animation callbacks and status message arrival times never advance recording. Suspended contexts
+return no recording clock. Timing precision follows the render quantum and browser timestamp precision. Web Audio
+and native Event timestamps were checked via Context7 official Web Audio and MDN docs on 2026-10-17.
+
+`core/automation/record` splits absolute capture beats at loop wraps and applies spans in chronological order. Later
+passes replace only their own touched regions. Original values/interpolation outside the span are retained with 1e-7
+beat boundary guards; a new lane uses the normalized saved base around its span. Iterative linear simplification has
+a tested 0.002 vertical normalized error bound and preserves endpoints/hold transitions. Takes stop after 256 beats,
+64 targets or a bounded 16,384-sample raw buffer; saved limits remain 64 lanes and 2048 points per lane. Point overflow
+rejects the whole take, preserving the project. Captured lanes become enabled. Source buffers never enter the
+project/history/autosave; release commits all gesture targets and loop passes once, then releases overrides to Read.
+Format v5 already stores the resulting lanes, so this slice needs no migration. Playback/offline rendering keep the
+same evaluator, including the known extra CPU cost of sample-sized note-graph automation scheduling.
 
 ## MIDI parsing foundation
 

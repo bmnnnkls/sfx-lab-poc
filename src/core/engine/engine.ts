@@ -248,7 +248,7 @@ export class Engine {
     }
     const masterReadouts = this.master.readouts()
     if (Object.keys(masterReadouts).length > 0) readouts.master = masterReadouts
-    return { masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, readouts, tracks }
+    return { tempo: this.transport.tempo, masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, readouts, tracks }
   }
 
   /** Structural edits cancel the affected track and every transitive note reader, without touching unrelated tracks. */
@@ -340,7 +340,7 @@ export class Engine {
     let boundary = frames
     for (const [id, track] of this.tracks) if (this.automation.configured && track instanceof AudioTrackRuntime) {
       const remaining = track.framesUntilEnd(timing)
-      if (remaining === 0) { track.finishClip(); this.automation.finish(id) }
+      if (remaining === 0) { track.finishClip(timing.beat); this.automation.finish(id) }
       else boundary = Math.min(boundary, remaining)
     }
     if (boundary < frames) {

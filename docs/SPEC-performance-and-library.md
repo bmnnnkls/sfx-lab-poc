@@ -1,6 +1,6 @@
 # MIDI, automation, presets and library
 
-Status: **draft product behavior; verification, control/MIDI foundations and clip and return/master automation implemented (slices 0–2, 3a–3b)**. Written 2026-10-17.
+Status: **draft product behavior; verification, control/MIDI foundations and clip/return/master automation and Touch recording implemented (slices 0–3)**. Written 2026-10-17.
 
 This is the product specification for the next development sequence. The implementation slices and verification
 gates are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). This document takes precedence
@@ -158,6 +158,13 @@ Simplify captured curves with a bounded error measured in normalized control pos
 steps. Set limits on lanes, points and recording duration. Commit the completed take as one undoable transaction;
 keep an in-progress buffer separate from the saved project. Stop, disconnect or project replacement closes or cancels
 the take explicitly. Latch, destructive Write mode and overdub/combine modes are later work.
+
+Shipped Touch defaults (slice 3c): 800 ms wheel/MIDI inactivity, 0.002 normalized simplification error, 256 beats and
+16,384 raw samples per take, 64 target lanes and 2048 saved points per lane. Explicit release/cancel, disarm,
+re-enable and disconnect finish valid takes. Owner stop/retrigger/one-shot end closes at its musical boundary;
+project replacement cancels and disarms. Destination removal, resize or incompatibility discards that take atomically.
+Concurrent sources have separate buffers and cannot write the same target simultaneously. Without a recording
+destination, ordinary manual control editing remains available with clear Touch-unavailable feedback.
 
 ## Snapshots and presets
 

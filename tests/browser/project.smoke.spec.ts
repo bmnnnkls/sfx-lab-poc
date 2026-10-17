@@ -72,7 +72,7 @@ test('a sample package restores project and audio bytes into a fresh browser', a
     const errors: string[] = []
     imported.on('pageerror', (error) => errors.push(error.message))
     imported.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
-    await imported.goto('http://127.0.0.1:4173/?starter')
+    await imported.goto(new URL('/?starter', page.url()).href)
     await imported.getByRole('button', { name: 'Samples', exact: true }).click()
     await expect(imported.getByRole('listitem')).toHaveCount(0)
     await imported.getByText('File', { exact: true }).click()

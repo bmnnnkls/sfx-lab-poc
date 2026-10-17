@@ -23,7 +23,7 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
     const id = state.pinnedTrackId ?? useSelectionStore.getState().trackId
     return useProjectStore.getState().project.tracks.find((track) => track.id === id && track.kind === 'instrument')?.id
   }
-  const receive = (port: MIDIInput, data: ArrayLike<number>) => {
+  const receive = (port: MIDIInput, data: ArrayLike<number>, timestamp?: number) => {
     const settings = useMidiStore.getState()
     if (!enabled || ports.get(port.id) !== port || port.state !== 'connected' || settings.disabledInputs.includes(port.id)) return
     const message = parseMidiMessage(data)
@@ -33,7 +33,7 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
     if (message.kind === 'cc') {
       if (message.cc === 64) controls.sustain(sourceId(port.id), channel, message.value >= 64)
       else if (message.cc >= 120) release(port.id, channel)
-      else cc.receive(port.id, port.name ?? port.id, message)
+      else cc.receive(port.id, port.name ?? port.id, message, timestamp)
       return
     }
     const key = JSON.stringify([port.id, channel, message.note])
@@ -61,7 +61,7 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
     for (const port of access.inputs.values()) {
       if (port.state !== 'connected' || useMidiStore.getState().disabledInputs.includes(port.id) || ports.has(port.id) || closing.has(port)) continue
       ports.set(port.id, port)
-      port.onmidimessage = (event) => { if (event.data) receive(port, event.data) }
+      port.onmidimessage = (event) => { if (event.data) receive(port, event.data, event.timeStamp) }
     }
     useMidiStore.setState({ inputs: [...access.inputs.values()].map((port) => ({ id: port.id, name: port.name ?? port.id, connected: port.state === 'connected' })) })
   }

@@ -1,5 +1,6 @@
 import type { EngineCommand, EngineStatus } from '@core'
 import { type HostMessage, PROCESSOR_NAME, type WorkletMessage } from './protocol'
+import { RecordingClock } from './recording-clock'
 import workletUrl from './worklet/engine-processor.ts?worker&url'
 
 type StatusListener = (status: EngineStatus) => void
@@ -14,6 +15,14 @@ export class AudioHost {
   private starting: Promise<void> | null = null
   private readonly queue: Array<{ command: EngineCommand; transfer: Transferable[] }> = []
   private readonly listeners = new Set<StatusListener>()
+
+  private readonly clock = new RecordingClock()
+
+  /** Audio-clock bridge: never extrapolate from animation frames or message arrival time. */
+  recordingBeat(agoMs = 0): number | undefined {
+    if (!this.context || this.context.state !== 'running') return undefined
+    return this.clock.beat(this.context.currentTime - agoMs / 1000)
+  }
 
   get isRunning(): boolean {
     return this.context?.state === 'running'
@@ -47,6 +56,7 @@ export class AudioHost {
     const node = new AudioWorkletNode(context, PROCESSOR_NAME, { outputChannelCount: [2] })
     node.port.onmessage = (event: MessageEvent<WorkletMessage>) => {
       if (event.data.kind !== 'status') return
+      if (event.data.audioTime !== undefined) this.clock.update(event.data.status, event.data.audioTime)
       for (const listener of this.listeners) listener(event.data.status)
     }
     // An exception inside the worklet would otherwise fail silently and just stop the sound.

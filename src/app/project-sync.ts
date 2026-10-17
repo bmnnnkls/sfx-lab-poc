@@ -1,9 +1,10 @@
 import type { AudioHost } from '@audio'
 import { controlTargetKey, compileAutomation, diffProject, projectWithControlValues, resolveControlTarget } from '@core'
-import { useControlStore, useProjectStore, useStatusStore } from '@state'
+import { useControlStore, useProjectStore, useStatusStore, setTouchClock, reconcileTouches, cancelTouches } from '@state'
 
 /** Keeps the engine mirroring the project document and feeds engine status back to the UI. */
 export const connectEngine = (host: AudioHost): (() => void) => {
+  setTouchClock(host.recordingBeat ? (agoMs) => host.recordingBeat(agoMs) : undefined)
   const sendDiff = (prev: Parameters<typeof diffProject>[0], next: Parameters<typeof diffProject>[1]) => {
     for (const command of diffProject(prev, next, false)) host.send(command)
   }
@@ -34,7 +35,7 @@ export const connectEngine = (host: AudioHost): (() => void) => {
   const stopProject = useProjectStore.subscribe((state, previous) => {
     if (state.project === previous.project && state.documentEpoch === previous.documentEpoch) return
     // A replacement/reset ends live ownership; ordinary edits retain only compatible overrides.
-    if (state.documentEpoch !== previous.documentEpoch) { host.send({ type: 'notes/panic' }); host.send({ type: 'transport/stop' }); useControlStore.setState({ playback: [] }) }
+    if (state.documentEpoch !== previous.documentEpoch) { cancelTouches(); host.send({ type: 'notes/panic' }); host.send({ type: 'transport/stop' }); useControlStore.setState({ playback: [] }) }
     const overrides = useControlStore.getState().overrides
     const retained = state.documentEpoch !== previous.documentEpoch
       ? [] : overrides.filter((entry) => {
@@ -45,6 +46,7 @@ export const connectEngine = (host: AudioHost): (() => void) => {
     else refresh()
   })
   const stopStatus = host.onStatus((status) => {
+    reconcileTouches(status)
     useStatusStore.getState().setStatus(status)
     useControlStore.setState({ playback: status.automation ?? [] })
     if (status.automationOverrideRevision === overrideRevision && status.automationOverrides) {
@@ -54,6 +56,7 @@ export const connectEngine = (host: AudioHost): (() => void) => {
   })
 
   return () => {
+    cancelTouches(); setTouchClock()
     host.send({ type: 'notes/panic' })
     stopProject()
     stopControls()

@@ -7,11 +7,16 @@ const STATUS_INTERVAL_SECONDS = 1 / 30
 class EngineProcessor extends AudioWorkletProcessor {
   private readonly engine = new Engine(sampleRate)
   private framesSinceStatus = 0
+  private clockChanged = true
 
   constructor() {
     super()
     this.port.onmessage = (event: MessageEvent<HostMessage>) => {
-      if (event.data.kind === 'command') this.engine.apply(event.data.command)
+      if (event.data.kind === 'command') {
+        this.engine.apply(event.data.command)
+        const type = event.data.command.type
+        if (type.startsWith('transport/') || type.endsWith('/launch')) this.clockChanged = true
+      }
     }
   }
 
@@ -19,6 +24,12 @@ class EngineProcessor extends AudioWorkletProcessor {
     const [left, right] = outputs[0] ?? []
     if (!left || !right) return true
 
+    if (this.clockChanged) {
+      // Stamp tempo/transport changes at the next quantum's start, before its beats advance.
+      this.port.postMessage({ kind: 'status', status: this.engine.status(), audioTime: currentTime } satisfies WorkletMessage)
+      this.clockChanged = false
+      this.framesSinceStatus = sampleRate * STATUS_INTERVAL_SECONDS
+    }
     this.engine.render(left, right)
     this.reportStatus(left.length)
     return true
@@ -28,7 +39,7 @@ class EngineProcessor extends AudioWorkletProcessor {
     this.framesSinceStatus += frames
     if (this.framesSinceStatus < sampleRate * STATUS_INTERVAL_SECONDS) return
     this.framesSinceStatus = 0
-    const message: WorkletMessage = { kind: 'status', status: this.engine.status() }
+    const message: WorkletMessage = { kind: 'status', status: this.engine.status(), audioTime: currentTime + frames / sampleRate }
     this.port.postMessage(message)
   }
 }

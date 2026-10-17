@@ -3,6 +3,7 @@ import type { LauncherStatus } from '../session'
 
 /** Snapshot of engine state for display; produced by the engine, consumed by the UI. */
 export interface EngineStatus {
+  readonly tempo?: number
   readonly masterAutomation?: LauncherStatus
   readonly automationOverrides?: readonly ControlValue[]
   readonly automationOverrideRevision?: number

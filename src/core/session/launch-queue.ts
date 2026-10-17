@@ -13,6 +13,7 @@ type Queued<C> = { readonly clip: C } | { readonly clip: null }
  * does once it is playing is up to the launcher that owns the queue.
  */
 export class LaunchQueue<C extends { readonly id: string }> {
+  private stoppedAt: number | undefined
   playback: Playback<C> | null = null
   queued: Queued<C> | null = null
 
@@ -31,6 +32,7 @@ export class LaunchQueue<C extends { readonly id: string }> {
   reset(): void {
     this.playback = null
     this.queued = null
+    this.stoppedAt = undefined
   }
 
   /** Swaps in edited clip data for what is playing or queued; a clip that no longer exists is dropped. */
@@ -56,12 +58,14 @@ export class LaunchQueue<C extends { readonly id: string }> {
   /** Applies the queued change at `boundary` (a value returned by `pendingBoundary`). */
   commit(boundary: number): void {
     if (!this.queued) return
+    this.stoppedAt = this.queued.clip ? undefined : boundary
     this.playback = this.queued.clip ? { clip: this.queued.clip, startBeat: boundary } : null
     this.queued = null
   }
 
   status(): LauncherStatus {
     return {
+      ...(this.stoppedAt !== undefined && { stopBeat: this.stoppedAt }),
       playingClipId: this.playback?.clip.id ?? null,
       startBeat: this.playback?.startBeat ?? null,
       queued: this.queued ? (this.queued.clip?.id ?? 'stop') : null,
