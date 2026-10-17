@@ -1,6 +1,7 @@
 export { Engine } from './engine'
 export type { EngineCommand } from './commands'
 export type { EngineStatus } from './status'
+export { ArrangementPlayer, ArrangementNotes, ArrangementAudio } from './arrangement-player'
 export { heardNotes, type HeardNote } from './heard-notes'
 export {
   BEATS_PER_BAR,

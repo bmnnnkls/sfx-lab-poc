@@ -13,5 +13,6 @@ export const LIMITS = {
   portsPerModule: 64,
   nodesPerPatch: 200,
   notesPerClip: 5000,
+  arrangementClips: 2000,
   clipBeats: { min: 0.25, max: 256 },
 } as const

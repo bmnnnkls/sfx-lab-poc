@@ -15,6 +15,7 @@ import { type ModuleDefinition, createDefaultFxGraph, createDefaultMasterGraph, 
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
+import { sanitizeArrangement } from './sanitize-arrangement'
 import { sanitizeAudioClip } from './sanitize-audio-clip'
 import { sanitizeClip } from './sanitize-clip'
 import { repairTrackReferences } from './sanitize-track-references'
@@ -137,6 +138,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
 
   const controlValues = sanitizeControlValues(raw.controlValues, warn)
   const midiMappings = sanitizeMidiMappings(raw.midiMappings, warn)
+  const arrangement = sanitizeArrangement(raw.arrangement, new Set(tracks.map((track) => track.id)), sampleIds, warn)
   return {
     ...(controlValues && { controlValues }),
     ...(midiMappings && { midiMappings }),
@@ -146,6 +148,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     ...(sceneNames && { sceneNames }),
     samples,
     modules,
+    ...(arrangement && { arrangement }),
     // Files from before the master bus existed have none: the mix passes through untouched.
     master: {
       fx:

@@ -4,7 +4,7 @@ import { type Patch, audioSources, sendTargets } from '../patch'
 import type { SampleLookup } from '../sample'
 import type { LauncherStatus } from '../session'
 import { ChannelStrip } from './channel-strip'
-import type { MixContext, PlayableTrack, ScheduledAction } from './playable-track'
+import type { MixContext, PlayableTrack, PlaybackMode, ScheduledAction } from './playable-track'
 
 const IDLE: LauncherStatus = { playingClipId: null, startBeat: null, queued: null }
 
@@ -63,6 +63,10 @@ export class ReturnTrackRuntime implements PlayableTrack {
   launchScene(): void {}
   stopClip(): void {}
   reset(): void {}
+
+  /** Return tracks have no clips; the arrangement only touches the tracks that do. */
+  setArrangement(_clips: readonly never[]): void {}
+  setMode(_mode: PlaybackMode): void {}
 
   status(): LauncherStatus {
     return IDLE

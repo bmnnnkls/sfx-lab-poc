@@ -78,3 +78,9 @@ A first visit opens on **Low Light**, and **File → Examples** loads either of 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how it is put together and where to add things.
 
 Open work is tracked in [`docs/TASKS.md`](docs/TASKS.md); how it is built is in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+5. Open the **Arrangement** view (Session | Arrangement in the transport bar, or Tab): right-click an empty lane
+   to place one of the track's session clips on the timeline, drag regions to move them, drag an edge to resize,
+   then **▶ Arrangement** to play what is on the timeline. An **audio track** drag-and-drops the same way later.
+6. Open the **Samples** tab and press **✎** on a sample: a zoomable waveform with a selection and one-click edits
+   (Normalize, Reverse, trim, fades). Every edit adds a *new* sample to the library, so the original stays.

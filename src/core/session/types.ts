@@ -19,9 +19,9 @@ export type NoteEvent =
 
 import type { AudioClip } from '../project'
 
-/** Start or stop of an audio clip at an absolute transport beat. */
+/** Start or stop of an audio clip at an absolute transport beat. `origin` is the loop base the player derives its phase from (arrangement regions start mid-pass). */
 export type AudioEvent =
-  | { readonly beat: number; readonly kind: 'start'; readonly clip: AudioClip }
+  | { readonly beat: number; readonly kind: 'start'; readonly clip: AudioClip; readonly origin?: number }
   | { readonly beat: number; readonly kind: 'stop' }
 
 /** What the UI needs to draw a track's launch state. */

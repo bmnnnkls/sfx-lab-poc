@@ -8,6 +8,7 @@ import {
   type Project,
   type AudioClipChanges,
   type SampleInfo,
+  addArrangementClip,
   addAudioClip,
   addExampleModuleUse,
   addModuleUse,
@@ -19,6 +20,7 @@ import {
   canRedo,
   canUndo,
   commit,
+  createArrangementClip,
   createAudioTrack,
   createClip,
   createReturnTrack,
@@ -32,6 +34,7 @@ import {
   unlinkModuleNode,
   updateModule,
   redo,
+  removeArrangementClip,
   removeSample,
   removeTrack,
   setClipAt,
@@ -47,9 +50,11 @@ import {
   setTrackSend,
   setTrackVolume,
   undo,
+  updateArrangementClip,
   updateAudioClip,
 } from '@core'
 import { create } from 'zustand'
+import type { ArrangementChanges, AudioClip } from '@core'
 
 const DEFAULT_CLIP_BEATS = 4
 
@@ -141,6 +146,11 @@ interface ProjectActions {
   setClipLength(trackId: string, clipId: string, lengthBeats: number): void
   /** Doubles the clip's length and repeats its notes into the new half. */
   doubleClip(trackId: string, clipId: string): void
+  /** Puts a copy of a session clip on the arrangement timeline of one track. */
+  addArrangementClip(trackId: string, startBeat: number, content: Clip | AudioClip): void
+  /** Moves or resizes an arrangement region; a drag merges into one undo step. */
+  updateArrangementClip(id: string, changes: ArrangementChanges, mergeKey?: string): void
+  removeArrangementClip(id: string): void
 }
 
 export interface ProjectState extends ProjectActions {
@@ -248,6 +258,19 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     setClipLength: (trackId, clipId, lengthBeats) =>
       edit((project) => setClipLength(project, trackId, clipId, lengthBeats)),
     doubleClip: (trackId, clipId) => edit((project) => doubleClip(project, trackId, clipId)),
+
+    addArrangementClip: (trackId, startBeat, content) =>
+      edit((project) => ({
+        ...project,
+        arrangement: addArrangementClip(project.arrangement ?? [], createArrangementClip(trackId, startBeat, content)),
+      })),
+    updateArrangementClip: (id, changes, mergeKey) =>
+      edit((project) => {
+        const arrangement = updateArrangementClip(project.arrangement ?? [], id, changes)
+        return arrangement === (project.arrangement ?? []) ? project : { ...project, arrangement }
+      }, mergeKey),
+    removeArrangementClip: (id) =>
+      edit((project) => ({ ...project, arrangement: removeArrangementClip(project.arrangement ?? [], id) })),
   }
 })
 

@@ -189,6 +189,10 @@ export const diffProject = (prev: Project | null, next: Project, syncAutomation 
       commands.push(...diffTrack(existing, track, before, next.modules))
     }
   }
+  // The arrangement is small, so it is pushed whole whenever it changed (edits create new arrays).
+  if (prev?.arrangement !== next.arrangement) {
+    commands.push({ type: 'arrangement/set', clips: next.arrangement ?? [] })
+  }
   if (syncAutomation && automationChanged && (automation.length || prev)) commands.push({ type: 'automation/configure', tracks: automation })
   return commands
 }

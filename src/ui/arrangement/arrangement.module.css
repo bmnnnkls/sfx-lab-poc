@@ -1,0 +1,194 @@
+.view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar strong {
+  margin-right: 8px;
+}
+
+.info {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+/* The timeline scrolls horizontally; the ruler and rows share the same width. */
+.scroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.lane {
+  position: relative;
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 0;
+}
+
+.row {
+  position: relative;
+  height: 56px;
+  border-bottom: 1px solid var(--border);
+  background:
+    repeating-linear-gradient(90deg, var(--border) 0 1px, transparent 1px calc(4 * var(--beat-px, 24px)));
+}
+
+.laneBody {
+  position: absolute;
+  inset: 0;
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+  font-weight: 600;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.returnName {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* The ruler shares the lane grid so bars line up with the rows. */
+.rulerRow {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  height: 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.rulerCorner {
+  border-right: 1px solid var(--border);
+}
+
+.ruler {
+  position: relative;
+}
+
+.barMark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--border);
+  padding-left: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.region {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.region.selected {
+  border-width: 2px;
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.notes {
+  position: absolute;
+  inset: 14px 2px 2px 2px;
+}
+
+.noteRect {
+  position: absolute;
+  background: var(--accent);
+  border-radius: 1px;
+  min-width: 2px;
+  height: 3px;
+}
+
+.waveform {
+  position: absolute;
+  inset: 14px 0 0 0;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.regionName {
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  right: 4px;
+  font-size: 10px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 7px;
+  cursor: ew-resize;
+}
+
+.handle:hover {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--play, #ff6b6b);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.zoom {
+  display: flex;
+  align-items: center;
+}
+
+.zoom input[type='range'] {
+  width: 110px;
+}
+
+.empty {
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 10px;
+}

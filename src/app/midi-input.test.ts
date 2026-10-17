@@ -6,7 +6,7 @@ import { createMidiInput } from './midi-input'
 const port = (id = 'keys') => ({ id, name: id, state: 'connected', onmidimessage: null, close: vi.fn(async () => {}) }) as unknown as MIDIInput
 const fakeAccess = (...inputs: MIDIInput[]) => ({ inputs: new Map(inputs.map((p) => [p.id, p])), onstatechange: null }) as unknown as MIDIAccess
 const send = (p: MIDIInput, bytes: number[]) => p.onmidimessage?.call(p, { data: new Uint8Array(bytes) } as MIDIMessageEvent)
-const controls = (): EngineControls => ({ noteOn: vi.fn(), noteOff: vi.fn(), sustain: vi.fn(), releaseSource: vi.fn(), panic: vi.fn(), play: vi.fn(), stop: vi.fn(), stopTrack: vi.fn(), launchClip: vi.fn(), launchScene: vi.fn(), auditionNote: vi.fn() })
+const controls = (): EngineControls => ({ noteOn: vi.fn(), noteOff: vi.fn(), sustain: vi.fn(), releaseSource: vi.fn(), panic: vi.fn(), play: vi.fn(), stop: vi.fn(), stopTrack: vi.fn(), launchClip: vi.fn(), launchScene: vi.fn(), auditionNote: vi.fn(), playArrangement: vi.fn() })
 const target = { kind: 'mixer' as const, owner: { kind: 'master' as const }, control: 'volume' as const }
 const mapping = (extra: Partial<MidiMapping> = {}): MidiMapping => ({ id: 'binding', deviceId: 'keys', deviceName: 'keys', channel: 0, cc: 21, target, pickup: true, ...extra })
 const learn = (p: MIDIInput, bytes = [0xb0, 21, 10]) => { useMidiStore.getState().learn(target); send(p, bytes) }

@@ -1180,6 +1180,57 @@ through a patch, as before) or an **audio track**.
 * **Menus.** `ui/shared/menu` now holds `ContextMenu` (right-click) and `PopupMenu` (click on a trigger), both over
   Radix with one shared entry renderer and stylesheet, so they look and behave identically.
 
+## The arrangement (clips on a timeline)
+
+A second main view beside the session grid: copies of session clips placed on a timeline, one lane per track —
+the Ableton **Arrangement** view as a prototype. The transport bar toggles (Session | Arrangement), and Tab
+switches views like in Ableton.
+
+* **Model.** An `ArrangementClip` (`core/project/arrangement-clip.ts`) is `{ id, trackId, startBeat, content }`
+  where `content` is a *copy* of a session clip (a MIDI clip or an audio clip), independent of the session grid
+  afterwards. Regions may overlap on one track (both play; the newest start wins for audio). `Project.arrangement`
+  is optional, so files from before this load unchanged (no format-version bump).
+* **Playback.** Which regions sound is *derived from the transport position*, not queued: `ArrangementPlayer`
+  (`core/engine/arrangement-player.ts`) has one `ArrangementNotes` / `ArrangementAudio` per track that emits the
+  events of the regions overlapping each beat range. A MIDI region plays **once** (notes are cut at its end, and
+  released on the range that crosses it); an audio region is phase-locked to its timeline start exactly like
+  session clips (`AudioEvent.origin` is the loop base the player derives its read position from) and stops at its
+  end. A seek plays what is under the playhead: audio joins in phase, notes that start after the seek position fire.
+* **Two playback modes.** The engine holds `playbackMode: 'session' | 'arrangement'`; every track runtime follows
+  one source at a time and releases the other's notes (with a 5 ms tail for audio) on `setMode`. `arrangement/play`
+  (with an optional `fromBeat`) switches to the arrangement; `transport/play`, `clip/launch` and `scene/launch`
+  switch back to the session. A track added mid-arrangement follows the timeline like the rest. `arrangement/set`
+  pushes the whole region list (it is small, and edits create new arrays).
+* **UI.** `ui/arrangement/`: a ruler in bars, one lane per non-return track, regions drawn as a note preview (MIDI)
+  or a waveform thumbnail (audio). Right-click an empty lane to place one of the track's session clips at the
+  clicked beat; drag a region to move (quarter-beat snap), drag its edge to resize (MIDI clips trim their notes);
+  right-click a region to duplicate or delete. Regions render live while the transport runs. Every edit is an
+  undoable project step (`addArrangementClip` / `updateArrangementClip` / `removeArrangementClip`), a drag merging
+  into one step.
+* **Not in the prototype.** Looping regions, moving a region across tracks, automation lanes on the timeline,
+  drag-and-drop from the session grid, recording into the arrangement, and bouncing the arrangement (the offline
+  bounce still plays a session clip or scene).
+
+## The sample editor
+
+An editor for one library sample in the **Samples** tab (✎ on a row): a zoomable waveform with a draggable
+selection and one-click edits. `core/sample/edit.ts` holds the pure transforms (tested); the result of an edit is
+always a **new** library sample, so the original stays untouched.
+
+* **Transforms.** `normalizeSample` (peak to just under full scale, silence left silent), `reverseSample`,
+  `keepSampleRegion` / `deleteSampleRegion` (the selection as fractions), `fadeIn` / `fadeOut` (sample-rate aware,
+  capped at half the length).
+* **Derivation.** `SampleLibrary.deriveSample(id, suffix, transform)` (`app/sample-library.ts`): the stored bytes
+  are decoded, transformed, re-encoded as mono 16-bit WAV and hashed like any import — so a derived copy is a
+  normal library sample keyed by the SHA-256 of its bytes. Importing the same edit twice is a no-op; the copy
+  travels with project packages; undoing the project edit removes the copy but never the original (bytes stay in
+  IndexedDB, as with any removed sample).
+* **UI.** The waveform is drawn from the sample's peak thumbnails (one value per bucket), zoomed by pixels per
+  bucket; drag to select a part. Normalize, Reverse, Keep selection, Delete selection and 10 ms fades run the
+  transform and add the result to the library; ▶ auditions.
+* **Not in the prototype.** Destructive in-place editing of a sample, stereo samples, and the granular stage
+  (a granular sampler over the loaded buffer is the planned next step).
+
 ## Example projects (`core/examples`)
 
 Two projects ship with the app and are built **from code**, not stored as files: *Low Light* (minimal tech house, 125 BPM, eight

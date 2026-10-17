@@ -15,6 +15,8 @@ export interface EngineControls {
   stopTrack(trackId: string): void
   /** Plays one short note through a track's instrument, to hear what is being edited. */
   auditionNote(trackId: string, pitch: number, velocity: number): void
+  /** Plays the arrangement timeline from `fromBeat` (beats); the session launchers step aside. */
+  playArrangement(fromBeat?: number): void
 }
 
 const EngineControlsContext = createContext<EngineControls | null>(null)

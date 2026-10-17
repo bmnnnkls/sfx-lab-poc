@@ -2,7 +2,7 @@ import type { AutomationTrack } from '../automation'
 import type { ControlValue } from '../control'
 import type { LiveNoteAddress } from './live-notes'
 import type { Patch } from '../patch'
-import type { AudioClip, Clip, SendLevels } from '../project'
+import type { ArrangementClip, AudioClip, Clip, SendLevels } from '../project'
 import type { SampleData } from '../sample'
 
 /** Everything the outside world can ask the engine to do. Plain data, safe to post across threads. */
@@ -19,6 +19,9 @@ export type EngineCommand =
   | { readonly type: 'transport/play' }
   | { readonly type: 'transport/stop' }
   | { readonly type: 'transport/setTempo'; readonly bpm: number }
+  | { readonly type: 'arrangement/set'; readonly clips: readonly ArrangementClip[] }
+  | { readonly type: 'arrangement/play'; readonly fromBeat?: number }
+  | { readonly type: 'arrangement/stop' }
   | {
       readonly type: 'track/add'
       readonly kind: 'instrument'

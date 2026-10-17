@@ -3,9 +3,11 @@ import { DEFAULT_TEMPO } from '../dsp'
 import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
 import { type Patch, audioSources, sendTargets, setNodeParam } from '../patch'
-import type { Clip, SendLevels } from '../project'
+import type { ArrangementClip, Clip, SendLevels } from '../project'
 import type { SampleLookup } from '../sample'
 import { ClipLauncher, type LauncherStatus, type NoteEvent, type NoteScope } from '../session'
+import { ArrangementNotes } from './arrangement-player'
+import type { PlaybackMode } from './playable-track'
 import { LiveNotes, clipSource, type LiveNoteAddress } from './live-notes'
 import { ChannelStrip } from './channel-strip'
 import type { MixContext, PlayableTrack, ScheduledAction } from './playable-track'
@@ -16,6 +18,8 @@ const AUDITION_SECONDS = 0.3
 /** Live, audio-thread counterpart of a project Track: voice + clip player + level. */
 export class TrackRuntime implements PlayableTrack {
   private readonly launcher: ClipLauncher
+  private readonly arrangement: ArrangementNotes
+  private mode: PlaybackMode = 'session'
   private readonly live = new LiveNotes()
   private cancellations: (NoteScope | undefined)[] = []
   private readonly graph = new NoteGraph()
@@ -45,6 +49,7 @@ export class TrackRuntime implements PlayableTrack {
     private readonly samples: SampleLookup,
   ) {
     this.launcher = new ClipLauncher(4, clipSource(trackId))
+    this.arrangement = new ArrangementNotes(clipSource(trackId))
     this.instrument = new Instrument(patch, sampleRate, voices, samples)
     this.fx = new FxGraph(fx, sampleRate, samples)
     this.targets = sendTargets(fx)
@@ -166,18 +171,37 @@ export class TrackRuntime implements PlayableTrack {
     return this.launcher.status()
   }
 
+  setArrangement(clips: readonly ArrangementClip[]): void {
+    this.arrangement.setRegions(clips)
+  }
+
+  /** Switches the event source; notes of the other one are released, so nothing is left sounding. */
+  setMode(mode: PlaybackMode): void {
+    if (mode === this.mode) return
+    this.mode = mode
+    this.cancelNotes()
+    if (mode === 'arrangement') this.launcher.reset()
+    else this.arrangement.reset()
+  }
+
   schedule(from: number, to: number, board: TapBoard, transportFrom?: number, transportTo?: number): ScheduledAction[] {
     this.noteControls?.process((nodeId, paramId, value) => this.graph.setParam(nodeId, paramId, value))
     // Clips follow transport; the graph follows a continuous render clock even while stopped.
     if (transportFrom !== undefined) this.beatOrigin = from - transportFrom
-    const clipEvents = transportFrom === undefined ? [] : this.launcher.collectEvents(transportFrom, transportTo ?? transportFrom + (to - from))
-      .map((event) => ({ ...event, beat: from + event.beat - transportFrom }))
+    const rangeTo = transportTo ?? transportFrom! + (to - from)
+    const events =
+      transportFrom === undefined
+        ? []
+        : this.mode === 'arrangement'
+          ? this.arrangement.collectEvents(transportFrom, rangeTo)
+          : this.launcher.collectEvents(transportFrom, rangeTo)
+    const clipEvents = events.map((event) => ({ ...event, beat: from + event.beat - transportFrom! }))
     const input = [...clipEvents, ...this.live.take(from)].sort((a, b) => a.beat - b.beat)
-    const events = this.graph.process(input, from, to, board, this.beatOrigin)
-    events.unshift(...this.cancellations.map((scope): NoteEvent => ({ beat: from, kind: 'allOff', ...(scope ? { scope } : {}) })))
+    const graphEvents = this.graph.process(input, from, to, board, this.beatOrigin)
+    graphEvents.unshift(...this.cancellations.map((scope): NoteEvent => ({ beat: from, kind: 'allOff', ...(scope ? { scope } : {}) })))
     this.cancellations = []
-    board.set(this.trackId, { clip: input, out: events })
-    return events.map((event) => ({ beat: event.beat, run: () => this.apply(event) }))
+    board.set(this.trackId, { clip: input, out: graphEvents })
+    return graphEvents.map((event) => ({ beat: event.beat, run: () => this.apply(event) }))
   }
 
   launchScene(scene: number): void {
@@ -189,6 +213,7 @@ export class TrackRuntime implements PlayableTrack {
   /** Returns to silence and an idle launcher (transport stopped). */
   reset(): void {
     this.launcher.reset()
+    this.arrangement.reset()
     this.live.clear()
     this.cancellations = []
     this.graph.reset()

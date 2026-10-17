@@ -3,6 +3,7 @@ import type { MidiMapping } from '../midi'
 import type { ControlValue } from '../control'
 import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
+import type { ArrangementClip } from './arrangement-clip'
 
 export interface Note {
   /** Stable identity, so selections and held notes survive edits and undo. */
@@ -145,4 +146,9 @@ export interface Project {
   readonly modules: readonly ModuleDefinition[]
   readonly master: MasterBus
   readonly tracks: readonly Track[]
+  /**
+   * The arrangement: copies of session clips placed on a timeline, per track. Absent in projects nobody has
+   * arranged in (old files), so no format-version bump was needed.
+   */
+  readonly arrangement?: readonly ArrangementClip[]
 }
