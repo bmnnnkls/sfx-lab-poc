@@ -7,6 +7,7 @@ import type { SampleData } from '../sample'
 
 /** Everything the outside world can ask the engine to do. Plain data, safe to post across threads. */
 export type EngineCommand =
+  | { readonly type: 'automation/launch'; readonly owner: import('../control').ControlOwner; readonly slotId: string | null }
   | { readonly type: 'automation/configure'; readonly tracks: readonly AutomationTrack[] }
   | { readonly type: 'automation/overrides'; readonly values: readonly ControlValue[]; readonly revision?: number }
   | { readonly type: 'track/noteOn'; readonly trackId: string; readonly note: LiveNoteAddress; readonly pitch: number; readonly velocity: number }

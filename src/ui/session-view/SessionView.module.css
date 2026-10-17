@@ -144,3 +144,13 @@
   border: 1px solid var(--accent);
   border-radius: 8px;
 }
+
+/* Dedicated cells have a variable number of actions, all on one row. */
+.automationSlot {
+  display: flex;
+}
+
+.automationSlot .launch {
+  flex: 1;
+  min-width: 0;
+}

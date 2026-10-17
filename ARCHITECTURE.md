@@ -149,15 +149,15 @@ remain future work. Manual overrides reach the engine through main-thread comman
 The existing panel shows directly nested controls; deeper paths are supported by the control API and saved values,
 while opening a module definition still edits the shared definition deliberately.
 
-## Clip automation (slice 3a)
+## Clip and return/master automation (slices 3a–3b)
 
 `core/automation` owns serializable lanes/points, bounded canonicalization, pure resize/double/copy/remap edits,
 normalized evaluation and compilation against current control specs. Clip lanes address only their own track's
 instrument, note graph, insert effects or mixer. Missing/wired targets stay in the document with feedback and do
 not acquire runtime ownership. Group/unlink remap lane paths together with instance values and MIDI mappings.
-The project format is **v4**: optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
+The project format is **v5** (clip lanes arrived in v4): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
 2048 points per lane, bounded IDs/paths and finite numbers. The explicit v3→v4 migration drops formerly unknown
-lane data; committed v1–v4 fixtures cover compatibility. Saved bases remain authored values.
+lane data; v4→v5 drops formerly unknown return/master slot fields. Committed v1–v5 fixtures cover compatibility. Saved bases remain authored values.
 
 Each point holds a normalized value and linear/hold interpolation to the next point. Points are sorted, equal
 times collapse with last input winning, and the valid time interval is [0, clip length]. Before/after the point
@@ -193,7 +193,31 @@ Production tests draw/undo/reload a looping filter sweep and compare captured wo
 offline clip/scene samples. Unit tests cover normalized/scaled/stepped evaluation, uneven blocks, loop boundaries,
 BPM changes, wire-owned upstream controls, note helpers, one-shots, missing/disabled/empty lanes, edits, migrations,
 MIDI/manual pickup/override/re-enable, relaunch and zero playback history/autosave writes. Note-graph lane scheduling
-can cost more CPU than audio/mixer lanes. Return/master slots and Touch recording remain slices 3b and 3c.
+can cost more CPU than audio/mixer lanes. Touch recording remains slice 3c.
+
+`ReturnTrack.automationSlots` and `MasterBus.automationSlots` are optional scene-indexed arrays of automation-only
+`AutomationSlot` documents (ID, name, independent 0.25–256 beat loop, lanes). Missing/null cells stop the prior slot
+at the next bar and restore authored bases. Scene launches launch/retrigger every present slot; individual slot
+launch/stop uses the typed `automation/launch` owner command. Owner keys distinguish master from every possible
+track ID. Return launch status joins `EngineStatus.tracks`; master has `masterAutomation`. Configuration edits
+preserve launch phase; deletion drops ownership. Queued empty slots also cancel pending launches before first playback.
+Slots reject cross-owner lanes, reuse the editor/evaluator and bounds, and remap nested routes through group/unlink.
+Removing a return removes its slots plus saved control/MIDI/send-lane references without changing other owners' slots.
+
+The session grid creates/edits/deletes/launches these cells. The Clip tab shows their loop-length setting and the same
+lane editor; shortening is undoable and trims points. Show automation on a return/master control opens its slot in the
+selected automation scene (scene 1 initially), creating it when empty. Editor keys reset point selection on slot changes,
+following React's state-reset contract checked through Context7 `/reactjs/react.dev` on 2026-10-17.
+
+Master effects and fader curves run per mix segment, including boundaries split by note events and audio endings.
+Scene WAV exports launch the row's return/master slots and use the longest selected clip/slot for default duration.
+Clip WAV exports launch only that clip's lanes, keeping the return/master authored bases and normal effect routing.
+Production tests cover slot editing/trim/undo/reload, live status, no playback saves and real-worklet master-filter /
+return-volume output against offline scene samples across wraps. A render-thread capture worklet copies every quantum
+through its MessagePort after a silent readiness check; the tests require the complete comparison window and finite
+samples. This avoids legacy ScriptProcessor startup/underflow capture loss. The AudioWorklet contract was checked
+through Context7 against the current Web Audio specification. Simulated MIDI/manual tests cover all owner kinds;
+no physical MIDI hardware check has been performed.
 
 ## Browser MIDI input and learn (slice 2b)
 
@@ -494,7 +518,7 @@ sit on any track. It reuses the typed-port machinery the note graph introduced.
 
 ## Return tracks and sends
 
-A **return track** (`ReturnTrack`, `kind: 'return'`) has no clips: it is a volume and an insert graph that starts at
+A **return track** (`ReturnTrack`, `kind: 'return'`) has automation-only session slots and no note/audio clips: it is a volume and an insert graph that starts at
 **Return in**, the sum of what other tracks have sent to it, and ends at Track out. One reverb or delay can serve many
 tracks; a return track *is* the bus, so there are no bus names.
 

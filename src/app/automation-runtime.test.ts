@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { type ControlTarget, Engine, type EngineCommand, type EngineStatus, type InstrumentTrack, createClip, createEmptyProject, createNote, serializeProject } from '@core'
+import { type ControlTarget, Engine, type EngineCommand, type EngineStatus, type InstrumentTrack, createClip, createEmptyProject, createNote, serializeProject, createReturnTrack, setAutomationSlot } from '@core'
 import type { AudioHost } from '@audio'
 import { createControlGesture, useControlStore, useProjectStore } from '@state'
 import { ProjectStorage } from '@storage'
@@ -7,9 +7,13 @@ import { connectEngine } from './project-sync'
 import { createMidiControls } from './midi-controls'
 import { startAutosave } from './autosave'
 const target: ControlTarget = { kind: 'mixer', owner: { kind: 'track', trackId: 'auto' }, control: 'volume' }
-const setup = () => {
+const setup = (laneTarget: ControlTarget = target) => {
   const p = createEmptyProject(), t = p.tracks[0] as InstrumentTrack
-  const project = { ...p, tracks: [{ ...t, id: 'auto', volume: 0.2, clips: [{ ...createClip('lane', 4, [createNote(60, 0, 4)]), id: 'clip', automation: [{ id: 'lane', enabled: true, target, points: [{ id: 'p', beat: 0, value: 0.6, interpolation: 'hold' as const }] }] }] }], midiMappings: [{ id: 'cc', deviceId: 'keys', deviceName: 'Keys', channel: 0, cc: 21, pickup: true, target }] }
+  let project: import('@core').Project = { ...p, tracks: [{ ...t, id: 'auto', volume: 0.2, clips: [{ ...createClip('lane', 4, [createNote(60, 0, 4)]), id: 'clip', automation: [{ id: 'lane', enabled: true, target, points: [{ id: 'p', beat: 0, value: 0.6, interpolation: 'hold' as const }] }] }] }], midiMappings: [{ id: 'cc', deviceId: 'keys', deviceName: 'Keys', channel: 0, cc: 21, pickup: true, target }] }
+  if (laneTarget.owner.kind === 'master' || (laneTarget.owner.kind === 'track' && laneTarget.owner.trackId === 'return')) {
+    project = { ...project, tracks: [...project.tracks.map((t) => t.kind === 'instrument' ? { ...t, clips: t.clips.map((c) => c ? { ...c, automation: [] } : c) } : t), { ...createReturnTrack('Return'), id: 'return' }], midiMappings: project.midiMappings!.map((m) => ({ ...m, target: laneTarget })) }
+    project = setAutomationSlot(project, laneTarget.owner, 0, { id: 'slot', name: 'Slot', lengthBeats: 3, automation: [{ id: 'lane', enabled: true, target: laneTarget, points: [{ id: 'p', beat: 0, value: 0.6, interpolation: 'hold' }] }] })
+  }
   useProjectStore.getState().resetProject(project)
   useControlStore.setState({ overrides: [], playback: [] })
   const engine = new Engine(8000)
@@ -17,14 +21,14 @@ const setup = () => {
   const host = { send: (c: EngineCommand) => engine.apply(c), onStatus: (fn: typeof listener) => { listener = fn; return () => {} }, start: async () => {} } as unknown as AudioHost
   const disconnect = connectEngine(host)
   const step = (frames = 128) => { engine.render(new Float32Array(frames), new Float32Array(frames)); listener(engine.status()) }
-  engine.apply({ type: 'clip/launch', trackId: 'auto', clipId: 'clip' }); step()
+  engine.apply({ type: 'scene/launch', scene: 0 }); step()
   return { project, engine, disconnect, step }
 }
 afterEach(() => { useControlStore.setState({ overrides: [], playback: [] }); vi.useRealTimers(); vi.unstubAllGlobals() })
 describe('automation runtime ownership', () => {
-  it('manual and MIDI edits override Read with no history/autosave writes, then release and quantized relaunch resume it', () => {
+  it.each([target, { kind: 'mixer', owner: { kind: 'master' }, control: 'volume' } as ControlTarget, { kind: 'mixer', owner: { kind: 'track', trackId: 'return' }, control: 'volume' } as ControlTarget])('manual and MIDI edits override Read with no history/autosave writes, then release and quantized relaunch resume it (%j)', (target) => {
     vi.useFakeTimers(); vi.stubGlobal('document', new EventTarget()); vi.stubGlobal('window', new EventTarget())
-    const { project, engine, disconnect, step } = setup(), writes = vi.fn()
+    const { project, engine, disconnect, step } = setup(target), writes = vi.fn()
     const stopSave = startAutosave(new ProjectStorage({ getItem: () => null, setItem: writes, removeItem: () => {} }), true)
     const history = useProjectStore.getState().history, saved = serializeProject(project)
     try {
@@ -39,7 +43,7 @@ describe('automation runtime ownership', () => {
       expect(useControlStore.getState().overrides).toEqual([]) // pickup must cross effective 0.6
       midi.receive('keys', 'Keys', { kind: 'cc', channel: 1, cc: 21, value: 100 }); step()
       expect(useControlStore.getState().overrides[0]?.value).toBeCloseTo(100 / 127)
-      engine.apply({ type: 'clip/launch', trackId: 'auto', clipId: 'clip' })
+      engine.apply({ type: 'scene/launch', scene: 0 })
       step(16000) // next bar, engine owns override release at the actual launch boundary
       expect(useControlStore.getState().overrides).toEqual([])
       expect(useControlStore.getState().playback[0]?.value).toBe(0.6)

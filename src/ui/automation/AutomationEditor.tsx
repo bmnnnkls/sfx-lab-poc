@@ -1,5 +1,5 @@
-import { MAX_AUTOMATION_POINTS, type AudioClip, type AudioTrack, type AutomationLane, type AutomationPoint, type Clip, type ControlTarget, type InstrumentTrack, automationPosition, canonicalAutomationPoints, controlFromNormalized, controlTargetKey, controlTargetLabel, controlToNormalized, enumerateControlTargets, resolveControlTarget } from '@core'
-import { automationGestureKey, editClipAutomation, useAutomationEditor, useControlStore, useProjectStore, useStatusStore } from '@state'
+import { MAX_AUTOMATION_POINTS, type AutomationSlot, type ControlOwner, automationOwnerKey, automationSlotsOf, type AudioClip, type AudioTrack, type AutomationLane, type AutomationPoint, type Clip, type ControlTarget, type InstrumentTrack, automationPosition, canonicalAutomationPoints, controlFromNormalized, controlTargetKey, controlTargetLabel, controlToNormalized, enumerateControlTargets, resolveControlTarget } from '@core'
+import { automationGestureKey, editOwnerAutomation, useAutomationEditor, useControlStore, useProjectStore, useStatusStore } from '@state'
 import { type PointerEvent, useEffect, useRef, useState } from 'react'
 import { formatParam } from '../shared/param-scale'
 import styles from './AutomationEditor.module.css'
@@ -8,7 +8,9 @@ let clipboard: readonly AutomationPoint[] = []
 const pointId = () => crypto.randomUUID()
 
 
-export const AutomationEditor = ({ track, clip }: { track: InstrumentTrack | AudioTrack; clip: Clip | AudioClip }) => {
+export const AutomationEditor = ({ track, clip, owner: explicitOwner }: { track: Pick<InstrumentTrack | AudioTrack, 'id' | 'name'>; clip: Clip | AudioClip | AutomationSlot; owner?: ControlOwner }) => {
+  const owner: ControlOwner = explicitOwner ?? { kind: 'track', trackId: track.id }
+  const owns = (target: ControlTarget) => automationOwnerKey(target.owner) === automationOwnerKey(owner)
   const project = useProjectStore((s) => s.project)
   const targetName = (target: ControlTarget) => controlTargetLabel(project, target)
   const requested = useAutomationEditor((s) => s.target)
@@ -25,7 +27,7 @@ export const AutomationEditor = ({ track, clip }: { track: InstrumentTrack | Aud
   const lane = lanes.find((lane) => lane.id === laneId) ?? lanes[0]
   const resolution = lane && resolveControlTarget(project, lane.target)
   const available = resolution?.status === 'available' ? resolution : undefined
-  const edit = (next: readonly AutomationLane[], key?: string) => editClipAutomation(track.id, clip.id, next, key)
+  const edit = (next: readonly AutomationLane[], key?: string) => editOwnerAutomation(owner, clip.id, next, key)
   const change = (points: readonly AutomationPoint[], key?: string) => lane && edit(lanes.map((l) => l.id === lane.id ? { ...l, points: canonicalAutomationPoints(points, clip.lengthBeats) } : l), key)
   const addLane = (target: ControlTarget) => {
     const existing = lanes.find((l) => controlTargetKey(l.target) === controlTargetKey(target))
@@ -34,14 +36,14 @@ export const AutomationEditor = ({ track, clip }: { track: InstrumentTrack | Aud
     edit([...lanes, next]); setLaneId(next.id); setSelected(new Set())
   }
   useEffect(() => {
-    if (requested?.owner.kind === 'track' && requested.owner.trackId === track.id) {
+    if (requested && owns(requested)) {
       const current = useProjectStore.getState().project.tracks.find((t) => t.id === track.id)
-      const currentClip = current && current.kind !== 'return' ? current.clips.find((c) => c?.id === clip.id) : undefined
+      const currentClip = (automationSlotsOf(useProjectStore.getState().project, owner) ?? (current && current.kind !== 'return' ? current.clips : [])).find((c) => c?.id === clip.id)
       const existing = currentClip?.automation?.find((l) => controlTargetKey(l.target) === controlTargetKey(requested))
       if (existing) setLaneId(existing.id)
       else {
         const newLane: AutomationLane = { id: pointId(), target: requested, enabled: true, points: [] }
-        editClipAutomation(track.id, clip.id, [...(currentClip?.automation ?? []), newLane]); setLaneId(newLane.id)
+        editOwnerAutomation(owner, clip.id, [...(currentClip?.automation ?? []), newLane]); setLaneId(newLane.id)
       }
       useAutomationEditor.setState({ target: undefined })
     }
@@ -89,12 +91,12 @@ export const AutomationEditor = ({ track, clip }: { track: InstrumentTrack | Aud
     return `${prev && (prev.interpolation === 'hold' || available?.interpolation === 'hold') ? `L ${p.beat / clip.lengthBeats * 1000} ${100 - prev.value * 100} ` : ''}L ${p.beat / clip.lengthBeats * 1000} ${100 - p.value * 100}`
   }).join(' ') + ` L 1000 ${100 - points.at(-1)!.value * 100}` : ''
   const only = selected.size === 1 ? points.find((p) => selected.has(p.id)) : undefined
-  const playing = status?.tracks[track.id]
+  const playing = owner.kind === 'master' ? status?.masterAutomation : status?.tracks[owner.trackId]
   const phase = playing?.playingClipId === clip.id && playing.startBeat !== null ? ((status!.beat - playing.startBeat) % clip.lengthBeats) / clip.lengthBeats : undefined
-  const targets = enumerateControlTargets(project).filter((t) => t.owner.kind === 'track' && t.owner.trackId === track.id && targetName(t).toLowerCase().includes(search.toLowerCase()))
+  const targets = enumerateControlTargets(project).filter((t) => owns(t) && targetName(t).toLowerCase().includes(search.toLowerCase()))
   const overridden = lane && overrides.some((entry) => controlTargetKey(entry.target) === controlTargetKey(lane.target))
   return <section className={styles.editor} aria-label="Automation editor" data-automation-editor>
-    <header className={styles.toolbar}><strong>{track.name} / {clip.name} · Read</strong><button onClick={() => overrides.forEach((entry) => useControlStore.getState().release(entry.target))}>Re-enable automation</button><label>Grid <select aria-label="Automation grid" value={step} onChange={(e) => setStep(Number(e.target.value))}>{[0, 0.125, 0.25, 0.5, 1].map((n) => <option key={n} value={n}>{n || 'Off'}</option>)}</select></label><label>Zoom <input aria-label="Automation zoom" type="range" min={1} max={8} step={0.5} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} /></label></header>
+    <header className={styles.toolbar}><strong>{track.name} / {clip.name} · Read</strong><button onClick={() => overrides.filter((entry) => owns(entry.target)).forEach((entry) => useControlStore.getState().release(entry.target))}>Re-enable automation</button><label>Grid <select aria-label="Automation grid" value={step} onChange={(e) => setStep(Number(e.target.value))}>{[0, 0.125, 0.25, 0.5, 1].map((n) => <option key={n} value={n}>{n || 'Off'}</option>)}</select></label><label>Zoom <input aria-label="Automation zoom" type="range" min={1} max={8} step={0.5} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} /></label></header>
     <div className={styles.body}><aside className={styles.lanes}><input aria-label="Search automation targets" placeholder="Search targets…" value={search} onChange={(e) => setSearch(e.target.value)} /><select aria-label="Add automation lane" value="" disabled={lanes.length >= 64} onChange={(e) => { const target = targets.find((t) => controlTargetKey(t) === e.target.value); if (target) addLane(target) }}><option value="">Add target…</option>{targets.map((target) => { const r = resolveControlTarget(project, target); return <option key={controlTargetKey(target)} value={controlTargetKey(target)} disabled={r.status !== 'available' || !r.automatable}>{targetName(target)}{r.status !== 'available' || !r.automatable ? ' (unavailable)' : ''}</option> })}</select>
       {lanes.map((l) => { const r = resolveControlTarget(project, l.target); const missing = r.status !== 'available' || !r.automatable; return <div key={l.id} className={styles.lane}><input type="checkbox" aria-label={`Enable ${targetName(l.target)}`} checked={l.enabled} onChange={(e) => edit(lanes.map((v) => v.id === l.id ? { ...v, enabled: e.target.checked } : v))} /><button aria-pressed={lane?.id === l.id} onClick={() => { setLaneId(l.id); setSelected(new Set()) }} title={missing ? r.reason : targetName(l.target)}>{missing ? '⚠ Unavailable: ' : ''}{targetName(l.target)}</button><button aria-label="Delete automation lane" onClick={() => edit(lanes.filter((v) => v.id !== l.id))}>×</button></div> })}</aside>
       <div className={styles.main}>{lane ? <><div className={styles.toolbar}><span>{overridden ? 'Override' : lane.enabled ? 'Read' : 'Disabled'}{resolution && (resolution.status !== 'available' || !resolution.automatable) ? ` · ${resolution.reason}` : ''}</span><button disabled={!selected.size} onClick={copy}>Copy</button><button disabled={!selected.size} onClick={() => { copy(); remove() }}>Cut</button><button onClick={() => paste()}>Paste</button><button disabled={!selected.size} onClick={() => { copy(); paste(Math.min(clip.lengthBeats, Math.max(...points.filter((p) => selected.has(p.id)).map((p) => p.beat)) + (step || 0.25))) }}>Duplicate</button><button disabled={!selected.size} onClick={remove}>Delete points</button><button onClick={() => change([])}>Clear lane</button><label>Paste at <input aria-label="Paste beat" type="number" min={0} max={clip.lengthBeats} step={step || 'any'} value={pasteBeat} onChange={(e) => setPasteBeat(Number(e.target.value))} /></label></div>

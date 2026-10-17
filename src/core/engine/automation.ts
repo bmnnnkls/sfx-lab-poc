@@ -1,32 +1,42 @@
-import { automationValue, type AutomationClip, type AutomationTrack, type PlaybackLane } from '../automation'
-import { controlTargetKey, type ControlTarget, type ControlValue } from '../control'
+import { automationOwnerKey, automationValue, type AutomationClip, type AutomationTrack, type PlaybackLane } from '../automation'
+import { controlTargetKey, type ControlOwner, type ControlTarget, type ControlValue } from '../control'
 import { LaunchQueue, type LauncherStatus } from '../session'
 
 /** Runtime ownership only. The same clock/queue and evaluator are used in the worklet and offline engine. */
 export class EngineAutomation {
-  private tracks = new Map<string, { clips: AutomationTrack['clips']; queue: LaunchQueue<AutomationClip> }>()
+  private tracks = new Map<string, { clips: AutomationTrack['clips']; slots: boolean; queue: LaunchQueue<AutomationClip> }>()
   private active = new Map<string, { lane: PlaybackLane; value: number }>()
   overrideRevision = 0
   private overrides = new Map<string, ControlValue>()
   constructor(private readonly write: (target: ControlTarget, value: number, baseValue?: number) => void) {}
   configure(tracks: readonly AutomationTrack[], statuses: ReadonlyMap<string, LauncherStatus>): void {
+    // Deleting a playing dedicated slot releases its manual/MIDI ownership as well.
+    for (const [key, previous] of this.tracks) {
+      if (!previous.slots || !previous.queue.playback) continue
+      const next = tracks.find((track) => track.slotOwner && automationOwnerKey(track.slotOwner) === key)
+      if (!next?.clips.some((clip) => clip?.id === previous.queue.playback!.clip.id)) {
+        for (const [targetKey, entry] of this.overrides) if (automationOwnerKey(entry.target.owner) === key) this.overrides.delete(targetKey)
+      }
+    }
     // Restore old targets first, including removed/replaced/wired references.
     this.restore()
-    const next = new Map<string, { clips: AutomationTrack['clips']; queue: LaunchQueue<AutomationClip> }>()
+    const next = new Map<string, { clips: AutomationTrack['clips']; slots: boolean; queue: LaunchQueue<AutomationClip> }>()
     for (const track of tracks) {
-      const queue = this.tracks.get(track.trackId)?.queue ?? new LaunchQueue<AutomationClip>()
-      const status = statuses.get(track.trackId)
-      if (!this.tracks.has(track.trackId) && status?.playingClipId && status.startBeat !== null) {
+      const owner = track.slotOwner ?? { kind: 'track' as const, trackId: track.trackId }
+      const key = automationOwnerKey(owner)
+      const queue = this.tracks.get(key)?.queue ?? new LaunchQueue<AutomationClip>()
+      const status = track.slotOwner ? undefined : statuses.get(track.trackId)
+      if (!this.tracks.has(key) && status?.playingClipId && status.startBeat !== null) {
         const clip = track.clips.find((clip) => clip?.id === status.playingClipId)
         if (clip) queue.playback = { clip, startBeat: status.startBeat }
       }
-      if (!this.tracks.has(track.trackId) && status?.queued) {
+      if (!this.tracks.has(key) && status?.queued) {
         const queued = track.clips.find((clip) => clip?.id === status.queued)
         if (queued) queue.launch(queued)
         else if (status.queued === 'stop') queue.stop()
       }
       queue.sync(track.clips)
-      next.set(track.trackId, { clips: track.clips, queue })
+      next.set(key, { clips: track.clips, queue, slots: !!track.slotOwner })
     }
     this.tracks = next
   }
@@ -36,12 +46,20 @@ export class EngineAutomation {
     for (const entry of values) this.write(entry.target, entry.value)
   }
   launch(trackId: string, clipId: string): void {
-    const track = this.tracks.get(trackId), clip = track?.clips.find((clip) => clip?.id === clipId)
+    const track = this.tracks.get(automationOwnerKey({ kind: 'track', trackId })), clip = track?.clips.find((clip) => clip?.id === clipId)
     if (clip) track!.queue.launch(clip)
   }
-  scene(scene: number): void { for (const track of this.tracks.values()) { const clip = track.clips[scene]; if (clip) track.queue.launch(clip); else track.queue.stop() } }
-  finish(trackId: string): void { const queue = this.tracks.get(trackId)?.queue; if (queue) queue.playback = null }
-  stopTrack(trackId: string): void { this.tracks.get(trackId)?.queue.stop() }
+  launchSlot(owner: ControlOwner, slotId: string | null): void {
+    const track = this.tracks.get(automationOwnerKey(owner))
+    if (!track?.slots) return
+    const clip = track.clips.find((clip) => clip?.id === slotId)
+    if (clip) track.queue.launch(clip)
+    else { track.queue.queued = { clip: null } }
+  }
+  slotStatus(owner: ControlOwner): LauncherStatus | undefined { const track = this.tracks.get(automationOwnerKey(owner)); return track?.slots ? track.queue.status() : undefined }
+  scene(scene: number): void { for (const track of this.tracks.values()) { const clip = track.clips[scene]; if (clip) track.queue.launch(clip); else if (track.slots) track.queue.queued = { clip: null }; else track.queue.stop() } }
+  finish(trackId: string): void { const queue = this.tracks.get(automationOwnerKey({ kind: 'track', trackId }))?.queue; if (queue) queue.playback = null }
+  stopTrack(trackId: string): void { const track = this.tracks.get(automationOwnerKey({ kind: 'track', trackId })); if (track?.slots) track.queue.queued = { clip: null }; else track?.queue.stop() }
   reset(): void { this.overrides.clear(); this.restore(); for (const track of this.tracks.values()) track.queue.reset() }
   private restore(): void {
     for (const [key, entry] of this.active) this.write(entry.lane.target, this.overrides.get(key)?.value ?? entry.lane.baseValue)
@@ -54,7 +72,7 @@ export class EngineAutomation {
       const boundary = track.queue.pendingBoundary(from - 1e-10, to - 1e-10)
       if (boundary !== null) {
         track.queue.commit(boundary)
-        for (const [key, entry] of this.overrides) if (entry.target.owner.kind === 'track' && entry.target.owner.trackId === trackId) this.overrides.delete(key)
+        for (const [key, entry] of this.overrides) if (automationOwnerKey(entry.target.owner) === trackId) this.overrides.delete(key)
       }
       const playback = track.queue.playback
       if (!playback) continue

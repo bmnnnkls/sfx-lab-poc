@@ -17,8 +17,9 @@ export const MidiTargetMenu = ({ targets, children }: { targets: readonly Contro
     }
   }), ...targets.map((target) => ({
     label: `Show automation${targets.length > 1 && target.kind === 'graph' ? ` ${target.paramId.toUpperCase()}` : ''}`,
-    disabled: target.owner.kind !== 'track' || !project.tracks.some((track) => track.id === (target.owner.kind === 'track' ? target.owner.trackId : '') && track.kind !== 'return' && track.clips.some(Boolean)),
+    disabled: target.owner.kind === 'track' && !project.tracks.some((track) => track.id === (target.owner.kind === 'track' ? target.owner.trackId : '') && (track.kind === 'return' || track.clips.some(Boolean))),
     onSelect: () => {
+      if (target.owner.kind === 'master' || project.tracks.find((t) => t.id === (target.owner.kind === 'track' ? target.owner.trackId : ''))?.kind === 'return') { useAutomationEditor.getState().show(target); return }
       if (target.owner.kind !== 'track') return
       const trackId = target.owner.trackId
       const track = project.tracks.find((track) => track.id === trackId)

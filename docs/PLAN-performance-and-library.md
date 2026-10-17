@@ -1,6 +1,6 @@
 # Implementation plan: performance and library
 
-Status: **slices 0–2 and 3a implemented; slices 3b–7 planned**. Product behavior and draft defaults are defined in
+Status: **slices 0–2 and 3a–3b implemented; slices 3c–7 planned**. Product behavior and draft defaults are defined in
 [SPEC-performance-and-library.md](SPEC-performance-and-library.md). Work proceeds in order below; each slice should
 be independently reviewable and leave the existing examples/project files usable.
 
@@ -229,6 +229,37 @@ Exit: a drawn filter sweep loops, follows BPM, survives reload, undoes, and prod
 export. Test loop wraps, uneven render block sizes, discrete changes, missing targets and disabled/empty lanes.
 
 ### 3b. Return/master automation slots
+
+Implemented 2026-10-17 on `codex/performance-and-library`:
+
+- Format **v5** adds optional `automationSlots` arrays to returns/master, indexed by scene. Each slot has its own
+  ID/name, 0.25–256 beat loop and bounded owner-scoped lanes. Explicit v4→v5 migration discards formerly unknown slot
+  fields; the committed v5 fixture keeps earlier clip lanes and adds master/return slots. Earlier fixtures remain valid.
+- Reuses the lane editor, normalized evaluator, typed targets and common manual/MIDI overrides. Session cells create,
+  edit, delete and individually launch/stop automation; the Clip tab edits independent loop length with undoable trim.
+  Show automation works on return/master controls. Group/unlink remaps their nested targets; missing/wired targets
+  remain authored with unavailable feedback and acquire no runtime ownership.
+- Scene and individual launches/retriggers use the musical launch queue. Empty cells stop that owner's previous slot
+  and clear its overrides at the actual boundary, including cancellation before a queued first launch. Tempo changes
+  follow beats; transport Stop restores bases. Status includes return slots and a separate typed master readout.
+  Master effects/fader curves now process per mix segment so boundaries and per-sample playback agree with offline.
+- Scene WAV exports include the selected row's return/master automation and default to its longest clip/slot length.
+  Clip-only exports retain normal return/master processing with authored bases. Removing a return drops its slots and
+  removes saved control/MIDI/send-lane references to it, preserving unrelated owners and undo.
+- Tests cover independent lengths, boundaries/retrigger/empty slots, BPM, manual/MIDI pickup and re-enable, graph/
+  mixer targets, wired/missing targets, slot deletion, return removal, route transforms, undo/reload, bounded parsing,
+  old-version migration and clip/scene scope. Production tests exercise slot editing/status/autosave and compare actual
+  worklet master sweeps/return throws with offline scenes across wraps. Touch recording and later slices remain deferred.
+
+Verification: **1,481 unit/architecture tests across 113 files**, `npm run typecheck`, production build without
+chunk-size warnings, **nine production smoke tests and all five real-output audio tests passed**. `git diff --check`
+passed and the slot editor screenshot was inspected. The real-output capture now copies every quantum on a separate
+render-thread worklet after a silent readiness check and requires a full finite-sample window: the legacy ScriptProcessor
+tap intermittently lost startup/underflow samples. Clip and scene comparisons retain the 0.00002 amplitude limit.
+React editor state reset and the AudioWorklet input/MessagePort contract were checked through Context7 official docs.
+Browser checks ran outside the sandbox to bind localhost. No physical MIDI hardware check was performed.
+
+The original slice requirements follow for context.
 
 - Add automation-only slots to return/master documents, session UI and quantized launch scheduling.
 - Reuse the lane editor and evaluator, adding independent loop length and clear empty-slot behavior.

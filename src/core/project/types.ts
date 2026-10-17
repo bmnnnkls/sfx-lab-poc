@@ -105,12 +105,21 @@ export interface AudioTrack extends TrackBase {
   readonly clips: readonly (AudioClip | null)[]
 }
 
+/** Dedicated return/master automation-only session cell; null in the owner array means stop. */
+export interface AutomationSlot {
+  readonly id: string
+  readonly name: string
+  readonly lengthBeats: number
+  readonly automation?: readonly AutomationLane[]
+}
+
 /**
- * A return (send/aux) track: no clips. Its insert graph starts at `Return in`, the sum of what other tracks send to it
+ * A return (send/aux) track: automation-only slots, no note/audio clips. Its insert graph starts at `Return in`, the sum of what other tracks send to it
  * (with Send nodes), so one reverb or delay can serve several tracks. It is mixed like any track, after the tracks that
  * send to it.
  */
 export interface ReturnTrack extends TrackBase {
+  readonly automationSlots?: readonly (AutomationSlot | null)[]
   readonly kind: 'return'
 }
 
@@ -121,6 +130,7 @@ export type Track = InstrumentTrack | AudioTrack | ReturnTrack
  * `Master in` -> effects -> `Track out`, in stereo. Nothing sends to it; it just processes the mix.
  */
 export interface MasterBus {
+  readonly automationSlots?: readonly (AutomationSlot | null)[]
   readonly fx: Patch
   /** 0..1 gain on the whole mix, after the master graph and before the output soft clip; absent = 1. */
   readonly volume?: number

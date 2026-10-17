@@ -1,3 +1,4 @@
+import { sanitizeAutomationSlots } from './sanitize-automation-slots'
 import { sanitizeMidiMappings } from './sanitize-midi-mappings'
 import { sanitizeControlValues } from './sanitize-control-values'
 import {
@@ -60,7 +61,10 @@ const sanitizeTrack = (
       ? createDefaultReturnGraph()
       : createDefaultFxGraph()
 
-  if (isReturn) return { kind: 'return', id, name, volume, ...mix, fx }
+  if (isReturn) {
+    const automationSlots = sanitizeAutomationSlots(raw.automationSlots, sceneCount, { kind: 'track', trackId: id }, warn)
+    return { kind: 'return', id, name, volume, ...mix, fx, ...(automationSlots && { automationSlots }) }
+  }
 
   // Files from before audio tracks existed have no `kind`: they are instrument tracks.
   if (raw.kind === 'audio') {
@@ -148,6 +152,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     modules,
     // Files from before the master bus existed have none: the mix passes through untouched.
     master: {
+      ...(isRecord(raw.master) && raw.master.automationSlots !== undefined && { automationSlots: sanitizeAutomationSlots(raw.master.automationSlots, sceneCount, { kind: 'master' }, warn) }),
       fx:
         isRecord(raw.master) && isRecord(raw.master.fx)
           ? sanitizePatch(raw.master.fx, 'Master effects', sampleIds, modules, warn)

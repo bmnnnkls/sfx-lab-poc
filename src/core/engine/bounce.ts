@@ -83,10 +83,10 @@ const scopeBeats = (project: Project, scope: BounceScope): number[] => {
     if (!Number.isInteger(scope.scene) || scope.scene < 0 || scope.scene >= project.sceneCount) {
       throw new Error(`There is no scene ${scope.scene + 1} to bounce.`)
     }
-    return project.tracks.flatMap((track) => {
-      const clip = track.kind === 'return' ? null : track.clips[scope.scene]
+    return [...(project.master.automationSlots?.[scope.scene] ? [project.master.automationSlots[scope.scene]!.lengthBeats] : []), ...project.tracks.flatMap((track) => {
+      const clip = track.kind === 'return' ? track.automationSlots?.[scope.scene] : track.clips[scope.scene]
       return clip ? [clip.lengthBeats] : []
-    })
+    })]
   }
   const track = project.tracks.find((candidate) => candidate.id === scope.trackId)
   const clip = track && track.kind !== 'return' ? track.clips.find((candidate) => candidate?.id === scope.clipId) : undefined

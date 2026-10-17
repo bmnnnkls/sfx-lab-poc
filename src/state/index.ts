@@ -23,3 +23,5 @@ export { useMidiStore, useMidi, MidiProvider, editMidiMappings, type MidiService
 
 export * from './automation-store'
 export * from './clip-actions'
+
+export { editAutomationSlot, editOwnerAutomation } from './automation-store'

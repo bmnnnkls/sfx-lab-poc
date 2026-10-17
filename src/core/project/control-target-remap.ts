@@ -1,6 +1,6 @@
 import type { ControlTarget, InstanceStep } from '../control'
 import type { PatchTarget } from './module-edit'
-import type { Project, Track } from './types'
+import type { AutomationSlot, Project, Track } from './types'
 
 /** Rewrite only the addressed graph scope, including every use when editing a shared definition. */
 export const mapControlRoutesAt = (project: Project, scope: PatchTarget, rewrite: (route: readonly string[]) => readonly string[] | undefined, inserted?: InstanceStep): Project => {
@@ -24,5 +24,6 @@ export const mapControlRoutesAt = (project: Project, scope: PatchTarget, rewrite
     const mapped: ControlTarget = { ...target, path, nodeId: route.at(-1) as string }
     return { ...entry, target: mapped }
   }
-  return { ...project, tracks: project.tracks.map((track) => track.kind === 'return' ? track : { ...track, clips: track.clips.map((clip) => !clip?.automation ? clip : { ...clip, automation: clip.automation.map(mapEntry) }) } as Track), ...(project.controlValues && { controlValues: project.controlValues.map(mapEntry) }), ...(project.midiMappings && { midiMappings: project.midiMappings.map(mapEntry) }) }
+  const mapSlots = (slots: readonly (AutomationSlot | null)[] | undefined) => slots?.map((slot) => !slot?.automation ? slot : { ...slot, automation: slot.automation.map(mapEntry) })
+  return { ...project, master: { ...project.master, ...(project.master.automationSlots && { automationSlots: mapSlots(project.master.automationSlots) }) }, tracks: project.tracks.map((track) => track.kind === 'return' ? { ...track, ...(track.automationSlots && { automationSlots: mapSlots(track.automationSlots) }) } : { ...track, clips: track.clips.map((clip) => !clip?.automation ? clip : { ...clip, automation: clip.automation.map(mapEntry) }) } as Track), ...(project.controlValues && { controlValues: project.controlValues.map(mapEntry) }), ...(project.midiMappings && { midiMappings: project.midiMappings.map(mapEntry) }) }
 }

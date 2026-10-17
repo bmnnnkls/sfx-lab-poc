@@ -20,6 +20,7 @@ export const createEngineControls = (host: AudioHost): EngineControls => {
     play: () => run({ type: 'transport/play' }),
     stop: () => { useControlStore.getState().clear(); run({ type: 'transport/stop' }) },
     launchClip: (trackId, clipId) => run({ type: 'clip/launch', trackId, clipId }),
+    launchAutomation: (owner, slotId) => run({ type: 'automation/launch', owner, slotId }),
     launchScene: (scene) => run({ type: 'scene/launch', scene }),
     stopTrack: (trackId) => run({ type: 'track/stop', trackId }),
     auditionNote: (trackId, pitch, velocity) => run({ type: 'track/audition', trackId, pitch, velocity }),

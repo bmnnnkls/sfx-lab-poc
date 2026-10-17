@@ -40,6 +40,7 @@ export class Engine {
   private noteBeat = 0
   /** The master fader, applied after the master graph and before the soft clip. */
   private masterVolume = 1
+  private masterVolumeCurve: Float64Array | null = null
   /** Mute, solo and sends need working out again (a mute or solo changed, or the tracks did). */
   private mixStateStale = false
   /**
@@ -67,6 +68,10 @@ export class Engine {
 
   apply(command: EngineCommand): void {
     switch (command.type) {
+      case 'automation/launch':
+        this.automation.launchSlot(command.owner, command.slotId)
+        this.transport.play()
+        break
       case 'automation/configure':
         this.automation.configure(command.tracks, new Map([...this.tracks].map(([id, track]) => [id, track.status()])))
         for (const [id, track] of this.tracks) if (track instanceof TrackRuntime) track.setAutomationNoteGraph(command.tracks.find((t) => t.trackId === id)?.noteGraph)
@@ -219,7 +224,6 @@ export class Engine {
       // Note-graph automation schedules at sample boundaries; audio and mixer curves keep block processing.
       const frames = Math.min(this.transport.playing && this.automation.noteLanes ? 1 : MAX_BLOCK_FRAMES, left.length - offset)
       this.renderBlock(left, right, offset, frames)
-      this.processMaster(left, right, offset, frames)
       offset += frames
     }
     // A sample being auditioned is not part of the mix, so it skips the master graph.
@@ -232,7 +236,7 @@ export class Engine {
   /** Snapshot for display. Reading it also resets the output-level peak. */
   status(): EngineStatus {
     const tracks: Record<string, LauncherStatus> = {}
-    for (const [id, track] of this.tracks) tracks[id] = track.status()
+    for (const [id, track] of this.tracks) tracks[id] = this.automation.slotStatus({ kind: 'track', trackId: id }) ?? track.status()
     const peaks: Record<string, number> = {}
     for (const [id, track] of this.tracks) peaks[id] = track.strip.takePeak()
     const peak = this.peak
@@ -244,7 +248,7 @@ export class Engine {
     }
     const masterReadouts = this.master.readouts()
     if (Object.keys(masterReadouts).length > 0) readouts.master = masterReadouts
-    return { automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, readouts, tracks }
+    return { masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, readouts, tracks }
   }
 
   /** Structural edits cancel the affected track and every transitive note reader, without touching unrelated tracks. */
@@ -282,8 +286,8 @@ export class Engine {
     }
     const output = this.master.process(input, frames)
     for (let i = 0; i < frames; i++) {
-      left[offset + i] = (output[i] ?? 0) * this.masterVolume
-      right[offset + i] = (output[RIGHT + i] ?? 0) * this.masterVolume
+      left[offset + i] = (output[i] ?? 0) * (this.masterVolumeCurve?.[i] ?? this.masterVolume)
+      right[offset + i] = (output[RIGHT + i] ?? 0) * (this.masterVolumeCurve?.[i] ?? this.masterVolume)
     }
   }
 
@@ -344,6 +348,8 @@ export class Engine {
       this.mixSegment(left, right, blockOffset, cursor + boundary, frames - boundary)
       return
     }
+    this.master.clearAutomation()
+    this.masterVolumeCurve = null
     for (const track of this.tracks.values()) { track.clearAutomation(); track.strip.clearAutomation() }
     if (this.transport.playing && this.automation.configured) {
       const collecting = { frame: 0, frames, curves: new Map<string, { target: ControlTarget; values: Float64Array; baseValue: number }>() }
@@ -356,7 +362,11 @@ export class Engine {
       for (const { target, values, baseValue } of collecting.curves.values()) {
         let last = baseValue
         for (let i = 0; i < frames; i++) { if (Number.isNaN(values[i]!)) values[i] = last; else last = values[i]! }
-        if (target.owner.kind !== 'track') continue
+        if (target.owner.kind === 'master') {
+          if (target.kind === 'graph') this.master.setAutomationCurve(flatControlNodeId(target), target.paramId, values)
+          else { this.masterVolumeCurve = values; this.masterVolume = values[frames - 1]! }
+          continue
+        }
         const track = this.tracks.get(target.owner.trackId)
         if (!track) continue
         if (target.kind === 'graph') track.setAutomationCurve(flatControlNodeId(target), target.paramId, values, target.domain)
@@ -380,6 +390,7 @@ export class Engine {
     this.sends.clear(frames)
     this.audioTaps.clear(frames)
     for (const track of this.mixTracks()) track.mixInto(left, right, blockOffset + cursor, frames, mix)
+    this.processMaster(left, right, blockOffset + cursor, frames)
     for (const [id, track] of this.tracks) if (track instanceof AudioTrackRuntime && !track.status().playingClipId) this.automation.finish(id)
   }
 
@@ -516,7 +527,11 @@ export class Engine {
       this.collecting.curves.set(key, curve)
       return
     }
-    if (target.owner.kind !== 'track') return
+    if (target.owner.kind === 'master') {
+      if (target.kind === 'graph') this.master.setParam(flatControlNodeId(target), target.paramId, value)
+      else this.masterVolume = value
+      return
+    }
     const track = this.tracks.get(target.owner.trackId)
     if (!track) return
     if (target.kind === 'graph') {

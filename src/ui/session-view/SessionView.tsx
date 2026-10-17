@@ -1,6 +1,7 @@
 import { useEngineControls, useProjectStore } from '@state'
 import { useMemo } from 'react'
 import { PopupMenu } from '../shared/menu'
+import { AutomationSlotCell } from './AutomationSlotCell'
 import { ClipSlot } from './ClipSlot'
 import { MasterHeader } from './MasterHeader'
 import styles from './SessionView.module.css'
@@ -53,7 +54,7 @@ const SceneRow = ({ scene, onLaunch }: { scene: number; onLaunch: () => void }) 
       {tracks.map((track) => (
         <ClipSlot key={track.id} track={track} scene={scene} />
       ))}
-      <div className={styles.returnSlot} aria-hidden />
+      <AutomationSlotCell owner={{ kind: 'master' }} scene={scene} />
       <button className={styles.scene} onClick={onLaunch} aria-label={name ? `Launch scene ${scene + 1}, ${name}` : `Launch scene ${scene + 1}`} title={name || undefined}>
         <span>▶ {scene + 1}</span>
         {name && <small className={styles.sceneName}>{name}</small>}

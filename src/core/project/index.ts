@@ -122,3 +122,5 @@ export {
   type QuantizeOptions,
 } from './groove'
 export { copySessionClip } from './clip-copy'
+
+export type { AutomationSlot } from './types'

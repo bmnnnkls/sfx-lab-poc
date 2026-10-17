@@ -1,5 +1,5 @@
 import { type ControlRemap, controlTargetKey, remapControlTarget } from '../control'
-import type { AudioClip, Clip, Project, Track } from '../project'
+import type { AudioClip, AutomationSlot, Clip, Project, Track } from '../project'
 import { createId } from '../shared'
 import { MAX_AUTOMATION_LANES, MAX_AUTOMATION_POINTS, type AutomationLane, type AutomationPoint } from './types'
 
@@ -14,7 +14,7 @@ export const canonicalAutomationPoints = (points: readonly AutomationPoint[], le
   }
   return [...times.values()].sort((a, b) => a.beat - b.beat)
 }
-export const resizeAutomation = <C extends Clip | AudioClip>(clip: C, length: number): C => !clip.automation ? clip : ({ ...clip, automation: clip.automation.map((lane) => ({ ...lane, points: canonicalAutomationPoints(lane.points, length) })) })
+export const resizeAutomation = <C extends Clip | AudioClip | AutomationSlot>(clip: C, length: number): C => !clip.automation ? clip : ({ ...clip, automation: clip.automation.map((lane) => ({ ...lane, points: canonicalAutomationPoints(lane.points, length) })) })
 
 /** Repeat with explicit hold/first-value boundaries; never invent a ramp between loop passes. */
 export const doubleAutomation = (lanes: readonly AutomationLane[] | undefined, length: number): readonly AutomationLane[] | undefined => lanes?.map((lane) => {
@@ -53,3 +53,17 @@ export const setClipAutomation = (project: Project, trackId: string, clipId: str
 }
 export const automationTargetOwnedBy = (target: AutomationLane['target'], trackId: string): boolean => target.owner.kind === 'track' && target.owner.trackId === trackId
 export const uniqueAutomationLanes = (lanes: readonly AutomationLane[]): readonly AutomationLane[] => [...new Map(lanes.map((lane) => [controlTargetKey(lane.target), lane])).values()]
+
+/** Owner identity is structural; track IDs cannot collide with the master. */
+export const automationOwnerKey = (owner: import('../control').ControlOwner): string => JSON.stringify(owner.kind === 'master' ? ['master'] : ['track', owner.trackId])
+export const automationSlotsOf = (project: Project, owner: import('../control').ControlOwner) => owner.kind === 'master' ? project.master.automationSlots : project.tracks.filter((t) => t.kind === 'return').find((t) => t.id === owner.trackId)?.automationSlots
+export const setAutomationSlot = (project: Project, owner: import('../control').ControlOwner, scene: number, slot: AutomationSlot | null): Project => {
+  if (!Number.isInteger(scene) || scene < 0 || scene >= project.sceneCount || (slot && (!Number.isFinite(slot.lengthBeats) || slot.lengthBeats < 0.25 || slot.lengthBeats > 256))) return project
+  const slots = Array.from({ length: project.sceneCount }, (_, i) => automationSlotsOf(project, owner)?.[i] ?? null)
+  const automation = slot?.automation && uniqueAutomationLanes(slot.automation).slice(0, MAX_AUTOMATION_LANES).filter((l) => automationOwnerKey(l.target.owner) === automationOwnerKey(owner)).map((l) => ({ ...l, points: canonicalAutomationPoints(l.points, slot.lengthBeats) }))
+  slots[scene] = slot ? { ...slot, ...(automation && { automation }) } : null
+  if (JSON.stringify(slots) === JSON.stringify(automationSlotsOf(project, owner))) return project
+  if (owner.kind === 'master') return { ...project, master: { ...project.master, automationSlots: slots } }
+  const tracks = project.tracks.map((t) => t.id === owner.trackId && t.kind === 'return' ? { ...t, automationSlots: slots } : t)
+  return tracks.every((t, i) => t === project.tracks[i]) ? project : { ...project, tracks }
+}

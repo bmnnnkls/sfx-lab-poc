@@ -1,6 +1,6 @@
 # MIDI, automation, presets and library
 
-Status: **draft product behavior; verification, control/MIDI foundations and clip automation implemented (slices 0–2, 3a)**. Written 2026-10-17.
+Status: **draft product behavior; verification, control/MIDI foundations and clip and return/master automation implemented (slices 0–2, 3a–3b)**. Written 2026-10-17.
 
 This is the product specification for the next development sequence. The implementation slices and verification
 gates are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). This document takes precedence

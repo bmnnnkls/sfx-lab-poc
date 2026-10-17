@@ -12,8 +12,8 @@ The shared control-target foundation and verification work come first. Product b
 criteria are in [SPEC-performance-and-library.md](SPEC-performance-and-library.md); ordered implementation slices and
 code touchpoints are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). The verification and shared control-target foundations
 (slices 0–1), held-note engine path (slice 2a), browser MIDI adapter/learn (slice 2b), and saved clip automation,
-engine Read playback and drawing editor (slice 3a) are implemented. Next are return/master automation slots (3b)
-and Touch recording (3c); presets and library workflows remain planned. A physical MIDI hardware check remains
+engine Read playback and drawing editor (slice 3a), and return/master automation slots (3b) are implemented. Next is
+Touch recording (3c); presets and library workflows remain planned. A physical MIDI hardware check remains
 unperformed; fake-port browser and real-worklet tests cover the simulated path. Draft product defaults can be refined
 before their slice. These documents supersede the MIDI-mapping and personal-library sketches below where they differ.
 

@@ -5,6 +5,11 @@ type Migration = (project: unknown) => unknown
 
 /** `MIGRATIONS[n]` upgrades the `project` payload from format version n to n + 1. */
 const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  4: (project) => {
+    if (!isRecord(project)) return project
+    const strip = (raw: unknown) => { if (!isRecord(raw)) return raw; const { automationSlots: _unknown, ...saved } = raw; return saved }
+    return { ...project, master: strip(project.master), tracks: Array.isArray(project.tracks) ? project.tracks.map(strip) : project.tracks }
+  },
   3: (project) => {
     if (!isRecord(project) || !Array.isArray(project.tracks)) return project
     return { ...project, tracks: project.tracks.map((track) => !isRecord(track) || !Array.isArray(track.clips) ? track : { ...track, clips: track.clips.map((clip) => {

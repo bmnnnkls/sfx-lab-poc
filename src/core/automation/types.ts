@@ -30,6 +30,8 @@ export interface AutomationClip {
 }
 export interface AutomationTrack {
   readonly trackId: string
+  /** Dedicated return/master queue, independent of note/audio launchers. */
+  readonly slotOwner?: import('../control').ControlOwner
   readonly noteGraph?: Patch
   readonly clips: readonly (AutomationClip | null)[]
 }
