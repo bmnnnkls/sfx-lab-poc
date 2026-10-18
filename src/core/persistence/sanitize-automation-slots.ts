@@ -1,4 +1,3 @@
-import { automationOwnerKey } from '../automation'
 import type { ControlOwner } from '../control'
 import type { AutomationSlot } from '../project'
 import { clamp } from '../shared'
@@ -17,12 +16,7 @@ export const sanitizeAutomationSlots = (raw: unknown, scenes: number, owner: Con
     if (!isRecord(slot) || typeof slot.id !== 'string' || !slot.id.length || slot.id.length > 256 || ids.has(slot.id)) { warn('Invalid automation slot skipped'); return null }
     ids.add(slot.id)
     const lengthBeats = clamp(finiteNumber(slot.lengthBeats, 4), LIMITS.clipBeats.min, LIMITS.clipBeats.max)
-    const lanes = sanitizeAutomation(slot.automation, lengthBeats, warn)
-    const automation = lanes?.filter((lane) => {
-      const owned = automationOwnerKey(lane.target.owner) === automationOwnerKey(owner)
-      if (!owned) warn('Cross-owner automation lane dropped')
-      return owned
-    })
+    const automation = sanitizeAutomation(slot.automation, lengthBeats, warn, owner)
     return { id: slot.id, name: nonEmptyText(slot.name, 'Automation', 40), lengthBeats, ...(automation && { automation }) }
   })
 }

@@ -1,6 +1,6 @@
 import { createId } from '../shared'
 import { resolveControlTarget } from '../control'
-import { validateLibraryPayloads } from '../persistence'
+import { canonicalRecord, validateLibraryPayloads } from '../persistence'
 import { createEmptyProject } from '../project'
 import { insertLibraryAsset } from './assets'
 import { libraryName } from './catalog'
@@ -54,19 +54,37 @@ export const validateLibraryCatalog = (input: unknown): LibraryCatalog => {
   if ([...folders, ...items, ...revisions, ...samples].some(v => !record(v) || !id(v.id))) return fail('malformed records')
   const c = input as unknown as LibraryCatalog
   unique(c.folders); unique(c.items); unique(c.revisions); unique(c.samples)
+  const folderById = new Map(c.folders.map(f => [f.id, f]))
+  const itemById = new Map(c.items.map(i => [i.id, i]))
+  const revisionById = new Map(c.revisions.map(r => [r.id, r]))
+  const sampleIds = new Set(c.samples.map(s => s.id))
   for (const f of c.folders) {
     keys(f, ['id', 'name', 'parentId'])
     if (typeof f.name !== 'string' || libraryName(f.name) !== f.name || !(f.parentId === null || id(f.parentId))) fail('folder fields')
-    const seen = new Set([f.id]); let parent = f.parentId
-    while (parent !== null) { if (seen.has(parent)) fail('folder cycle'); seen.add(parent); const p = c.folders.find(f => f.id === parent); if (!p) fail('missing folder'); parent = p!.parentId }
+  }
+  // Iterative, memoized ancestry: each edge is visited once, including a legal 1024-folder chain.
+  const ancestorsValidated = new Set<string>()
+  for (const f of c.folders) {
+    const path = new Set<string>()
+    let parent: string | null = f.id
+    while (parent !== null && !ancestorsValidated.has(parent)) {
+      if (path.has(parent)) fail('folder cycle')
+      path.add(parent)
+      const folder = folderById.get(parent)
+      if (!folder) fail('missing folder')
+      parent = folder!.parentId
+    }
+    for (const id of path) ancestorsValidated.add(id)
   }
   for (const revision of c.revisions) {
     if (!record(revision.payload) || !['instrument', 'audio-effect', 'note-effect'].includes(revision.payload.kind)) fail('revision payload')
     const p = revision.payload
     list(p.modules, 128); list(p.sampleIds, 256)
-    if (p.sampleIds.some(s => !c.samples.some(v => v.id === s))) fail('missing sample metadata')
+    if (p.sampleIds.some(s => !sampleIds.has(s))) fail('missing sample metadata')
     const graphs = [...(p.kind === 'instrument' ? [p.patch, p.noteGraph] : [p.graph]), ...p.modules.map(m => m.patch)]
     unique(p.modules)
+    const moduleById = new Map(p.modules.map(m => [m.id, m]))
+    const dependencySamples = new Set(p.sampleIds)
     let flatNodes = 0
     const visitGraph = (graph: typeof graphs[number], seen: Set<string>, depth: number): void => {
       if (depth > 16 || !record(graph)) fail('module depth limit (16) or invalid graph')
@@ -75,9 +93,9 @@ export const validateLibraryCatalog = (input: unknown): LibraryCatalog => {
         if (++flatNodes > 10000) fail('expanded module node limit (10000)')
         if (!record(node)) fail('invalid graph node')
         if (['send', 'trackAudio', 'trackNotes'].includes(node.type)) fail('external routing')
-        if (node.sampleId && !p.sampleIds.includes(node.sampleId)) fail('sample absent from dependency closure')
+        if (node.sampleId && !dependencySamples.has(node.sampleId)) fail('sample absent from dependency closure')
         if (node.type === 'module') {
-          const m = p.modules.find(m => m.id === node.moduleId)
+          const m = moduleById.get(node.moduleId ?? '')
           if (!m) fail('missing module dependency')
           if (seen.has(m!.id)) fail('module dependency cycle')
           visitGraph(m!.patch, new Set([...seen, m!.id]), depth + 1)
@@ -89,20 +107,20 @@ export const validateLibraryCatalog = (input: unknown): LibraryCatalog => {
   }
   for (const item of c.items) {
     keys(item, ['id', 'name', 'folderId', 'content'])
-    if (typeof item.name !== 'string' || libraryName(item.name) !== item.name || !(item.folderId === null || c.folders.some(f => f.id === item.folderId)) || !record(item.content)) fail('item fields or folder')
+    if (typeof item.name !== 'string' || libraryName(item.name) !== item.name || !(item.folderId === null || folderById.has(item.folderId)) || !record(item.content)) fail('item fields or folder')
     const content = item.content
     if ('revisionId' in content) {
       keys(content, content.kind === 'preset' ? ['kind', 'revisionId', 'assetId', 'state'] : ['kind', 'revisionId', 'state'])
-      const revision = c.revisions.find(r => r.id === content.revisionId)
+      const revision = revisionById.get(content.revisionId)
       if (!revision || !record(content.state) || content.state.revisionId !== revision.id || !Array.isArray(content.state.samples)) fail('missing/mismatched revision')
       if (content.kind === 'preset') {
-        const asset = c.items.find(i => i.id === content.assetId)
+        const asset = itemById.get(content.assetId)
         if (!asset || !['instrument', 'audio-effect', 'note-effect'].includes(asset.content.kind) || !('revisionId' in asset.content) || asset.content.revisionId !== content.revisionId) fail('preset asset dependency or cycle')
       } else if (content.kind !== revision!.payload.kind) fail('asset kind mismatch')
       if (content.state.samples.some(b => b.sampleId !== null && !revision!.payload.sampleIds.includes(b.sampleId))) fail('preset sample absent from closure')
     } else if (content.kind === 'sample') {
       keys(content, ['kind', 'sampleId'])
-      if (!c.samples.some(s => s.id === content.sampleId)) fail('missing sample metadata')
+      if (!sampleIds.has(content.sampleId)) fail('missing sample metadata')
     } else if (content.kind === 'midi-clip' || content.kind === 'audio-clip') {
       keys(content, ['kind', 'clip', 'lanes'])
       if (!record(content.clip)) fail('clip fields')
@@ -119,8 +137,12 @@ export const validateLibraryCatalog = (input: unknown): LibraryCatalog => {
   if (c.revisions.some(r => !usedRevisions.has(r.id)) || c.samples.some(s => !usedSamples.has(s.id))) fail('unreferenced dependency records')
   validateLibraryPayloads(c)
   // Guard target paths/types/scopes against actual immutable graphs, without using the live engine.
+  const validatedSounds = new Set<string>()
   for (const item of c.items) if ('revisionId' in item.content) {
-    const revision = c.revisions.find(r => 'revisionId' in item.content && r.id === item.content.revisionId)!
+    // Only identical sound/owner data may share this check. Strict field sanitation above still runs per record.
+    const sound = canonicalRecord([item.content.revisionId, item.content.state.scope, item.content.state.values, item.content.state.samples])
+    if (validatedSounds.has(sound)) continue
+    const revision = revisionById.get(item.content.revisionId)!
     const owner = item.content.state.scope.owner
     const p = createEmptyProject(), track = p.tracks[0]!
     const sourceInput = revision.payload.kind === 'audio-effect' ? [revision.payload.graph, ...revision.payload.modules.map(m => m.patch)].flatMap(g => g.nodes).find(n => ['masterIn', 'returnIn', 'trackIn'].includes(n.type))?.type : undefined
@@ -132,21 +154,26 @@ export const validateLibraryCatalog = (input: unknown): LibraryCatalog => {
       const resolved = resolveControlTarget(inserted, value.target)
       if (resolved.status !== 'available' || resolved.baseValue !== value.value) fail('preset control value requires repair')
     }
+    validatedSounds.add(sound)
   }
   return c
 }
 
 /** A selection includes all associated sounds, their asset, immutable revision and ancestor paths. */
 export const selectLibraryBundle = (catalog: LibraryCatalog, selection: LibraryBundleSelection): LibraryCatalog => {
+  const folderById = new Map(catalog.folders.filter(f => !f.trashed).map(f => [f.id, f]))
+  const itemById = new Map(catalog.items.filter(i => !i.trashed).map(i => [i.id, i]))
+  const children = new Map<string, string[]>()
+  for (const f of folderById.values()) if (f.parentId !== null) children.set(f.parentId, [...(children.get(f.parentId) ?? []), f.id])
   const folders = new Set<string>(), ids = new Set(selection.itemIds ?? [])
   const visiting = new Set<string>()
   const visit = (id: string) => {
     if (visiting.has(id)) fail('folder cycle')
     if (folders.has(id)) return
     visiting.add(id)
-    const f = catalog.folders.find(f => f.id === id && !f.trashed); if (!f) fail('selected folder unavailable')
+    const f = folderById.get(id); if (!f) fail('selected folder unavailable')
     folders.add(id)
-    for (const child of catalog.folders.filter(f => f.parentId === id && !f.trashed)) visit(child.id)
+    for (const child of children.get(id) ?? []) visit(child)
     visiting.delete(id)
   }
   for (const id of selection.folderIds ?? []) if (!folders.has(id)) visit(id)
@@ -158,10 +185,12 @@ export const selectLibraryBundle = (catalog: LibraryCatalog, selection: LibraryB
       for (const id of [item.id, item.content.assetId]) if (!ids.has(id)) { ids.add(id); changed = true }
     }
   }
-  const items = [...ids].map(id => { const item = catalog.items.find(i => i.id === id && !i.trashed); if (!item) return fail('selected/dependent item unavailable'); return item })
+  const items = [...ids].map(id => { const item = itemById.get(id); if (!item) return fail('selected/dependent item unavailable'); return item })
+  const ancestorsAdded = new Set<string>()
   for (const parentId of [...folders, ...items.flatMap(i => i.folderId === null ? [] : [i.folderId])]) {
     let parent: string | null = parentId; const seen = new Set<string>()
-    while (parent !== null) { if (seen.has(parent)) fail('folder cycle'); seen.add(parent); folders.add(parent); const f = catalog.folders.find(f => f.id === parent && !f.trashed); if (!f) fail('missing parent folder'); parent = f!.parentId }
+    while (parent !== null && !ancestorsAdded.has(parent)) { if (seen.has(parent)) fail('folder cycle'); seen.add(parent); folders.add(parent); const f = folderById.get(parent); if (!f) fail('missing parent folder'); parent = f!.parentId }
+    for (const id of seen) ancestorsAdded.add(id)
   }
   const revisionIds = new Set(items.flatMap(i => 'revisionId' in i.content ? [i.content.revisionId] : []))
   const revisions = catalog.revisions.filter(r => revisionIds.has(r.id))

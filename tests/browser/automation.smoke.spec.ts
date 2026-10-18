@@ -116,3 +116,28 @@ for (const surface of ['mixer', 'session']) test(`Touch records a held ${surface
   await page.getByRole('button', { name: 'Automation', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Mixer / volume', exact: true })).toBeVisible()
 })
+
+test('empty keyboard Copy/Cut preserves the automation clipboard and foreign-owner lanes show diagnostics', async ({ page }) => {
+  const project = sweepProject(true), track = project.tracks[0]!
+  if (track.kind !== 'instrument') throw new Error('Expected instrument')
+  const clip = track.clips[0]!
+  const foreign = { id: 'foreign', enabled: true, target: { kind: 'mixer' as const, owner: { kind: 'master' as const }, control: 'volume' as const }, points: [] }
+  const input = { ...project, tracks: [{ ...track, clips: [{ ...clip, automation: [...(clip.automation ?? []), foreign] }] }, ...project.tracks.slice(1)] }
+  await page.addInitScript(saved => localStorage.setItem('sfxlab:project', saved), serializeProject(input))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Edit Sweep clip', exact: true }).click()
+  await page.getByRole('button', { name: 'Automation', exact: true }).click()
+  await expect(page.getByRole('button', { name: /Unavailable:.*Mixer \/ volume/ })).toBeVisible()
+  const area = page.getByRole('application', { name: 'Automation drawing area' })
+  const box = await area.boundingBox(); if (!box) throw new Error('No canvas')
+  await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.5)
+  await area.press('ControlOrMeta+c')
+  const point = page.locator('[data-point-id]').first()
+  await point.click({ modifiers: ['Shift'] })
+  await expect(page.getByRole('button', { name: 'Copy', exact: true })).toBeDisabled()
+  await area.press('ControlOrMeta+c'); await area.press('ControlOrMeta+x')
+  await expect(page.locator('[data-point-id]')).toHaveCount(1)
+  await page.getByLabel('Paste beat', { exact: true }).fill('1')
+  await area.press('ControlOrMeta+v')
+  await expect(page.locator('[data-point-id]')).toHaveCount(2)
+})

@@ -71,3 +71,42 @@ describe('personal library service', () => {
     expect(await library.read()).toEqual(catalog)
   })
 })
+
+it('returns explicit cancellation for stale preview success/errors and keeps the newer audio context alive', async () => {
+  const { scope } = setup(), storage = createMemoryLibraryStorage(), samples = createMemorySampleStorage()
+  const saved = createPersonalLibrary(storage, samples)
+  await saved.saveAsset(scope, 'Preview', null)
+  const catalog = await storage.read(), item = catalog.items[0]!
+  const contexts: FakeContext[] = []
+  class FakeContext {
+    state = 'running'
+    destination = {}
+    source = { buffer: undefined as unknown, disconnect: () => {}, stop: () => {}, connect: () => {}, start: () => { this.started = true }, onended: undefined as unknown }
+    started = false
+    constructor() { contexts.push(this) }
+    async resume() {}
+    async close() { this.state = 'closed' }
+    createBufferSource() { return this.source }
+    createBuffer() { return { copyToChannel: () => {} } }
+  }
+  const previous = globalThis.AudioContext
+  Object.assign(globalThis, { AudioContext: FakeContext })
+  try {
+    for (const fail of [false, true]) {
+      let resolve!: (c: typeof catalog) => void, reject!: (error: Error) => void, reads = 0
+      const library = createPersonalLibrary({ ...storage, read: () => ++reads === 1 ? new Promise((yes, no) => { resolve = yes; reject = no }) : storage.read() }, samples)
+      const a = library.preview(item)
+      await Promise.resolve(); library.stopPreview()
+      const b = library.preview(item)
+      expect(await b).toBe('started')
+      const current = contexts.at(-1)!
+      if (fail) reject(new Error('Old read failed')); else resolve(catalog)
+      expect(await a).toBe('cancelled')
+      expect(current.started).toBe(true); expect(current.state).toBe('running')
+      library.stopPreview(); expect(current.state).toBe('closed')
+    }
+    const broken = createPersonalLibrary({ ...storage, read: async () => { throw new Error('Current read failed') } }, samples)
+    await expect(broken.preview(item)).rejects.toThrow('Current read failed')
+    expect(contexts.every(c => c.state === 'closed')).toBe(true)
+  } finally { Object.assign(globalThis, { AudioContext: previous }) }
+})

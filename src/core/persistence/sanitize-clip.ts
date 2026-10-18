@@ -1,3 +1,4 @@
+import type { ControlOwner } from '../control'
 import { sanitizeAutomation } from './sanitize-automation'
 import type { Clip, Note } from '../project'
 import { clamp, createId } from '../shared'
@@ -28,6 +29,7 @@ export const sanitizeClip = (
   where: string,
   usedIds: Set<string>,
   warn: Warn,
+  owner?: ControlOwner,
 ): Clip | null => {
   if (raw === null || raw === undefined) return null
   if (!isRecord(raw)) {
@@ -56,6 +58,6 @@ export const sanitizeClip = (
 
   const id = typeof raw.id === 'string' && !usedIds.has(raw.id) ? raw.id : createId('clip')
   usedIds.add(id)
-  const automation = sanitizeAutomation(raw.automation, lengthBeats, warn)
+  const automation = sanitizeAutomation(raw.automation, lengthBeats, warn, owner)
   return { id, name, lengthBeats, notes, ...(automation && { automation }) }
 }

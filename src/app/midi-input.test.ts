@@ -225,3 +225,38 @@ it('waits for an outstanding port close before reattaching after a rapid input t
   send(p, [0x90, 60, 127]); expect(c.noteOn).toHaveBeenCalledTimes(1)
   dispose(); finishClose()
 })
+
+it('isolates a learn conflict to its device/channel/CC while unrelated held controls and notes continue', async () => {
+  const p = port(), q = port('other'), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p, q)), dispose = adapter.connect()
+  await adapter.enable()
+  const project = useProjectStore.getState().project, id = project.tracks[0]!.id
+  const pan = { kind: 'mixer' as const, owner: { kind: 'track' as const, trackId: id }, control: 'pan' as const }
+  editMidiMappings(() => [mapping({ pickup: false }), mapping({ id: 'other-device', deviceId: 'other', target: pan, pickup: false }), mapping({ id: 'other-channel', channel: 1, cc: 21, target: pan, pickup: false }), mapping({ id: 'other-cc', cc: 22, target: pan, pickup: false })])
+  useMidiStore.getState().learn(pan); send(p, [0xb0, 21, 127])
+  expect(useMidiStore.getState().conflict).toBeDefined()
+  send(p, [0xb0, 21, 0]); expect(useProjectStore.getState().project.master.volume).toBeUndefined()
+  for (const [source, message, expected] of [[q, [0xb0, 21, 0], -1], [p, [0xb1, 21, 127], 1], [p, [0xb0, 22, 0], -1]] as const) {
+    send(source, [...message]); expect(resolveControlTarget(useProjectStore.getState().project, pan)).toMatchObject({ baseValue: expected })
+  }
+  send(p, [0x90, 60, 100]); send(p, [0xb0, 64, 127]); send(p, [0x80, 60, 0]); send(p, [0xb0, 123, 0])
+  expect(c.noteOn).toHaveBeenCalled(); expect(c.noteOff).toHaveBeenCalled(); expect(c.sustain).toHaveBeenCalledWith('midi:keys', 0, true); expect(c.releaseSource).toHaveBeenCalledWith('midi:keys', 0)
+  useMidiStore.getState().cancelLearn(); send(p, [0xb0, 21, 64])
+  expect(useProjectStore.getState().project.master.volume).toBeCloseTo(64 / 127)
+  dispose()
+})
+
+it('allows an unrelated held momentary release while a different source assignment awaits confirmation', async () => {
+  const project = useProjectStore.getState().project, id = project.tracks[0]!.id
+  const held = { kind: 'graph' as const, owner: { kind: 'track' as const, trackId: id }, domain: 'patch' as const, path: [], nodeId: 'button', nodeType: 'switch', paramId: 'on' }
+  useProjectStore.getState().resetProject({ ...project, tracks: project.tracks.map(t => t.id === id && t.kind === 'instrument' ? { ...t, patch: { nodes: [{ id: 'button', type: 'switch', x: 0, y: 0, params: { on: 0, mode: 1 } }], connections: [] } } : t) })
+  const p = port(), adapter = createMidiInput(controls(), async () => fakeAccess(p)), dispose = adapter.connect()
+  await adapter.enable()
+  editMidiMappings(() => [mapping({ pickup: false }), mapping({ id: 'held', cc: 22, target: held, pickup: false })])
+  send(p, [0xb0, 22, 127]); expect(resolveControlTarget(useProjectStore.getState().project, held)).toMatchObject({ baseValue: 1 })
+  useMidiStore.getState().learn(held); send(p, [0xb0, 21, 127]); expect(useMidiStore.getState().conflict).toBeDefined()
+  send(p, [0xb0, 22, 0]); expect(resolveControlTarget(useProjectStore.getState().project, held)).toMatchObject({ baseValue: 0 })
+  useMidiStore.getState().confirmReassign()
+  expect(resolveControlTarget(useProjectStore.getState().project, held)).toMatchObject({ baseValue: 0 })
+  expect(useProjectStore.getState().project.master.volume).toBeUndefined()
+  dispose()
+})

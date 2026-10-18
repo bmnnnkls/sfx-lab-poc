@@ -72,3 +72,19 @@ test('bundle review/cancel/export/import into fresh and conflicting libraries su
     expect(errors).toEqual([])
   } finally { await fresh.close() }
 })
+
+test('records production Chromium review latency for a legal near-limit folder chain', async ({ page, browser }, testInfo) => {
+  const os = await import('node:os')
+  const catalog = { ...emptyLibrary(), folders: Array.from({ length: 1023 }, (_, i) => ({ id: `f${i}`, name: `Folder ${i}`, parentId: i ? `f${i - 1}` : null })) }
+  const file = await exportLibraryBundle(catalog, { folderIds: ['f0'] }, 'Folder chain', async () => undefined)
+  await page.goto('/?starter')
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  const panel = page.getByRole('region', { name: 'Personal library' })
+  const start = performance.now()
+  await panel.getByLabel('Import library bundle', { exact: true }).setInputFiles({ name: file.fileName, mimeType: file.mimeType, buffer: Buffer.from(file.bytes) })
+  await expect(panel.getByRole('region', { name: 'Bundle review' })).toContainText('1023 folders')
+  await expect(panel.getByRole('button', { name: 'Import into new folder', exact: true })).toBeEnabled()
+  const reviewMs = performance.now() - start
+  await testInfo.attach('folder-review-measurement.json', { body: JSON.stringify({ cpu: os.cpus()[0]?.model, platform: os.platform(), arch: os.arch(), browser: browser.version(), folders: 1023, reviewMs, includes: 'upload, stage validation, review rendering and browser polling; no callback deadline measurement' }, null, 2), contentType: 'application/json' })
+  await panel.getByRole('button', { name: 'Cancel bundle', exact: true }).click()
+})

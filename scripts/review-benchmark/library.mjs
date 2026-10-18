@@ -1,0 +1,13 @@
+import { performance } from 'node:perf_hooks';
+import os from 'node:os';
+import { execFileSync } from 'node:child_process';
+const { validateLibraryCatalog } = await import(process.env.BUNDLE_MODULE ?? '../../src/core/library/bundle.ts');
+import { captureLibraryAsset } from '../../src/core/library/assets.ts';
+import { emptyLibrary } from '../../src/core/library/types.ts';
+import { createEmptyProject } from '../../src/core/project/index.ts';
+console.log(JSON.stringify({commit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),node:process.version,cpu:os.cpus()[0]?.model,platform:os.platform(),bundleModule:process.env.BUNDLE_MODULE??'working-tree',warmups:1,trials:5}));
+const measure = (label,catalog) => {validateLibraryCatalog(catalog);const ms=[];for(let i=0;i<5;i++){const start=performance.now();validateLibraryCatalog(catalog);ms.push(performance.now()-start)}console.log(JSON.stringify({label,folders:catalog.folders.length,items:catalog.items.length,revisions:catalog.revisions.length,ms}));};
+for(const n of [128,512,1024])measure('folders', {...emptyLibrary(),folders:Array.from({length:n},(_,i)=>({id:`f${i}`,name:'Folder',parentId:i?`f${i-1}`:null}))});
+const p=createEmptyProject(),scope={owner:{kind:'track',trackId:p.tracks[0].id},domain:'patch'};
+const catalog=captureLibraryAsset(emptyLibrary(),p,scope,'Asset',null),asset=catalog.items[0];
+for(const n of [16,64,256])measure('shared-sounds',{...catalog,items:[asset,...Array.from({length:n},(_,i)=>({...asset,id:`sound${i}`,content:{kind:'preset',assetId:asset.id,revisionId:asset.content.revisionId,state:{...asset.content.state,id:`state${i}`,name:`Sound ${i}`}}}))]});

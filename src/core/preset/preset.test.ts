@@ -156,3 +156,47 @@ describe('snapshots and immutable embedded presets', () => {
     expect(committed.ok && committed.warnings).toEqual([])
   })
 })
+
+it('remaps snapshot routes for root, nested and shared-definition group/unlink while keeping revisions immutable', () => {
+  const { p, scope, target } = setup()
+  const a = captureSnapshot(p, scope, 'A'), b = captureSnapshot(editControlBase(p, target, 2000).project, scope, 'B')
+  const original = saveProjectPreset(putSnapshot(putSnapshot(p, a), b), scope, 'Immutable')
+  const shared = groupNodesAsModule(original, { moduleId: 'm' }, ['knob'])
+  const sharedUse = shared.modules.find(m => m.id === 'm')!.patch.nodes.find(n => n.type === 'module')!
+  const root = groupNodesAsModule(original, { trackId: scope.owner.trackId }, ['left'])
+  const rootUse = (root.tracks[0] as InstrumentTrack).patch.nodes.find(n => n.type === 'module' && n.id !== 'right')!
+  const variants = [shared, root, unlinkModuleNode(original, { trackId: scope.owner.trackId }, 'left'), unlinkModuleNode(shared, { moduleId: 'm' }, sharedUse.id), unlinkModuleNode(root, { trackId: scope.owner.trackId }, rootUse.id)]
+  for (const changed of variants) {
+    expect(changed.presets).toBe(original.presets)
+    expect(changed.assetRevisions).toBe(original.assetRevisions)
+    const reloaded = read(changed)
+    for (const snapshot of reloaded.snapshots!) expect(recallSnapshot(reloaded, snapshot).issues).toEqual([])
+    expect(() => morphSnapshots(reloaded, reloaded.snapshots![0]!, reloaded.snapshots![1]!, 0.5)).not.toThrow()
+    // Both uses of the shared definition retain their saved values.
+    expect(reloaded.snapshots![0]!.values.length).toBe(a.values.length)
+  }
+})
+it('keeps unrelated and already-stale snapshot routes through history and a project package round trip', async () => {
+  const { createHistory, commit, undo, redo } = await import('../history')
+  const { exportProject, importProject } = await import('../../storage')
+  const p = createEmptyProject(), t = p.tracks[0] as InstrumentTrack
+  const root = { ...t, patch: { nodes: [{ ...createNode('control', 0, 0), id: 'k' }], connections: [] } }
+  const other = { ...root, id: 'other' }, owner = { kind: 'track' as const, trackId: t.id }
+  const base = { ...p, tracks: [root, other] }
+  let saved = putSnapshot(base, captureSnapshot(base, { owner, domain: 'patch' }, 'Root'))
+  const unrelated = captureSnapshot(base, { owner: { kind: 'track', trackId: 'other' }, domain: 'patch' }, 'Other')
+  saved = putSnapshot(saved, unrelated)
+  const value = saved.snapshots![0]!.values[0]!
+  if (value.target.kind !== 'graph') throw new Error('Expected graph')
+  const stale = { ...saved.snapshots![0]!, id: 'stale', values: [{ ...value, target: { ...value.target, nodeId: 'gone' } }] }
+  saved = putSnapshot(saved, stale)
+  const changed = groupNodesAsModule(saved, { trackId: t.id }, ['k'])
+  expect(changed.snapshots![1]!.values).toEqual(unrelated.values)
+  expect(changed.snapshots![2]!.values).toEqual(stale.values)
+  expect(recallSnapshot(changed, changed.snapshots![2]!).issues).toHaveLength(1)
+  const history = commit(createHistory(saved), changed, { now: 1 })
+  expect(undo(history).present).toBe(saved); expect(redo(undo(history)).present).toBe(changed)
+  const exported = await exportProject(changed, async () => undefined), imported = await importProject(exported.bytes)
+  expect(imported.ok && imported.project).toEqual(changed)
+  if (imported.ok) expect(recallSnapshot(imported.project, imported.project.snapshots![0]!).issues).toEqual([])
+})

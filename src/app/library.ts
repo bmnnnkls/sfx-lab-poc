@@ -79,23 +79,24 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
           const audio = await decodeAudio(bytes)
           decoded.push({ id, data: audio.mono, sampleRate: audio.sampleRate })
         }
-        if (generation !== token) return
+        if (generation !== token) return 'cancelled'
         let left: Float32Array, right: Float32Array, rate = 48000
         if (item.content.kind === 'sample') {
           left = decoded[0]!.data.slice(0, decoded[0]!.sampleRate * 4); right = left; rate = decoded[0]!.sampleRate
         } else {
           const project = libraryPreviewProject(catalog, item)
           const bounce = new Bounce(project, decoded, { scope: { kind: 'scene', scene: 0 }, bars: 1, maxTail: 0.5 })
-          while (!bounce.done) { if (generation !== token) return; bounce.step(); await new Promise(resolve => setTimeout(resolve, 0)) }
+          while (!bounce.done) { if (generation !== token) return 'cancelled'; bounce.step(); await new Promise(resolve => setTimeout(resolve, 0)) }
           const result = bounce.result(); left = result.left; right = result.right; rate = result.sampleRate
         }
-        if (generation !== token) return
+        if (generation !== token) return 'cancelled'
         const buffer = previewContext.createBuffer(2, left.length, rate)
         buffer.copyToChannel(new Float32Array(left), 0); buffer.copyToChannel(new Float32Array(right), 1)
         localSource.buffer = buffer; localSource.connect(previewContext.destination)
         localSource.onended = () => { if (token === generation) stopPreview() }
         localSource.start()
-      } catch (error) { if (token === generation) stopPreview(); throw error }
+        return 'started'
+      } catch (error) { if (token !== generation) return 'cancelled'; stopPreview(); throw error }
     },
   }
 }

@@ -1,9 +1,10 @@
 import { type AutomationLane, type AutomationPoint, MAX_AUTOMATION_LANES, MAX_AUTOMATION_POINTS, canonicalAutomationPoints } from '../automation'
-import { controlTargetKey } from '../control'
+import { automationOwnerKey } from '../automation'
+import { type ControlOwner, controlTargetKey } from '../control'
 import { isRecord, type Warn } from './raw'
 import { targetOf } from './sanitize-midi-mappings'
 const id = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256
-export const sanitizeAutomation = (raw: unknown, length: number, warn: Warn): readonly AutomationLane[] | undefined => {
+export const sanitizeAutomation = (raw: unknown, length: number, warn: Warn, owner?: ControlOwner): readonly AutomationLane[] | undefined => {
   if (raw === undefined) return undefined
   if (!Array.isArray(raw)) { warn('Invalid automation lanes'); return undefined }
   if (raw.length > MAX_AUTOMATION_LANES) warn('Automation lane limit exceeded')
@@ -11,6 +12,7 @@ export const sanitizeAutomation = (raw: unknown, length: number, warn: Warn): re
   for (const lane of raw.slice(0, MAX_AUTOMATION_LANES)) {
     const target = isRecord(lane) ? targetOf(lane.target) : undefined
     if (!isRecord(lane) || !id(lane.id) || ids.has(lane.id) || !target || !Array.isArray(lane.points) || typeof lane.enabled !== 'boolean') { warn('Invalid automation lane skipped'); continue }
+    if (owner && automationOwnerKey(target.owner) !== automationOwnerKey(owner)) warn(`Unsupported automation owner in lane "${lane.id}"; lane retained but will not play`)
     const key = controlTargetKey(target)
     if (targets.has(key)) { warn('Duplicate automation target skipped'); continue }
     ids.add(lane.id); targets.add(key)

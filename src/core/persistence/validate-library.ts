@@ -21,6 +21,7 @@ export const validateLibraryPayloads = (catalog: LibraryCatalog): void => {
     if ('state' in c) {
       same(c.state, sanitizePresetFields({ presets: [c.state] }, ids, fail).presets?.[0])
     } else if (c.kind === 'midi-clip' || c.kind === 'audio-clip') {
+      if ('automation' in c.clip) fail('portable clip automation must use owner-relative lanes')
       same(c.clip, c.kind === 'midi-clip' ? sanitizeClip(c.clip, item.name, new Set(), fail) : sanitizeAudioClip(c.clip, item.name, ids, new Set(), fail))
       const owner = { kind: 'track', trackId: 'bundle-validation' }
       const lanes = c.lanes.map(l => ({ id: l.id, enabled: l.enabled, points: l.points, target: { ...l.target, owner } }))

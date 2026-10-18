@@ -10,6 +10,7 @@ export const createMemoryLibraryStorage = (files = new Map<string, Uint8Array>()
   let catalog = emptyLibrary()
   return { read: async () => structuredClone(catalog), update: async (edit, blobs) => {
     const next = structuredClone(edit(structuredClone(catalog)))
+    if (next.version !== 1) throw new Error('Invalid library version')
     for (const [id, bytes] of blobs ?? []) { const known = files.get(id); if (known && !sameBytes(known, bytes)) throw new Error('Existing sample bytes conflict with bundle; previous catalog retained') }
     const copies = [...(blobs ?? [])].map(([id, bytes]) => [id, bytes.slice()] as const)
     for (const [id, bytes] of copies) if (!files.has(id)) files.set(id, bytes)

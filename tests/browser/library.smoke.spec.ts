@@ -119,3 +119,62 @@ test('an older open database connection blocks upgrade visibly, then preserves i
   }))
   expect(bytes).toEqual([7, 8, 9])
 })
+
+test('canceled preview completions cannot clear a newer busy state or overwrite its status', async ({ page }) => {
+  await page.goto('/?starter')
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  const panel = page.getByRole('region', { name: 'Personal library' })
+  await panel.getByLabel('Library name', { exact: true }).fill('Owned preview')
+  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+  await panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Owned preview/ }).click()
+  await page.evaluate(() => {
+    const resume = AudioContext.prototype.resume
+    const pending: { resolve(): void; reject(): void }[] = []
+    Object.assign(window, { __previewPending: pending })
+    AudioContext.prototype.resume = function () {
+      return new Promise<void>((resolve, reject) => pending.push({ resolve: () => { void resume.call(this).then(resolve, reject) }, reject: () => reject(new Error('Obsolete preview failure')) }))
+    }
+  })
+  const preview = panel.getByRole('button', { name: 'Preview', exact: true })
+  for (const reject of [true, false]) {
+    await preview.click()
+    await panel.getByRole('button', { name: 'Stop preview', exact: true }).click()
+    await preview.click()
+    await page.evaluate(reject => {
+      const pending = (window as unknown as { __previewPending: { resolve(): void; reject(): void }[] }).__previewPending
+      const old = pending.shift()!; if (reject) old.reject(); else old.resolve()
+    }, reject)
+    await expect(preview).toBeDisabled()
+    await expect(panel.getByRole('status')).not.toContainText('Obsolete')
+    await page.evaluate(() => (window as unknown as { __previewPending: { resolve(): void }[] }).__previewPending.shift()!.resolve())
+    await expect(panel.getByRole('status')).toContainText('Preview in isolated engine')
+    await expect(preview).toBeEnabled()
+    await panel.getByRole('button', { name: 'Stop preview', exact: true }).click()
+  }
+})
+
+test('library selection survives filtering and clears on trash; invalid scene input disables both insert actions', async ({ page }) => {
+  const { sweepProject } = await import('./automation-project')
+  await page.addInitScript(saved => localStorage.setItem('sfxlab:project', saved), serializeProject(sweepProject(true)))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Edit Sweep clip', exact: true }).click()
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  const panel = page.getByRole('region', { name: 'Personal library' })
+  await panel.getByLabel('Library name', { exact: true }).fill('Portable clip')
+  await panel.getByRole('button', { name: 'Save selected clip', exact: true }).click()
+  await panel.getByLabel('Include Portable clip in bundle', { exact: true }).check()
+  await panel.getByLabel('Search library', { exact: true }).fill('hidden')
+  await expect(panel.getByText('1 selected · 1 hidden', { exact: true })).toBeVisible()
+  await panel.getByLabel('Search library', { exact: true }).fill('')
+  await panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Portable clip/ }).click()
+  const scene = panel.getByLabel('Library destination scene', { exact: true })
+  for (const value of ['', '0', '-1', '1.5', '999']) {
+    await scene.fill(value)
+    await expect(panel.getByRole('button', { name: 'Insert into empty slot', exact: true })).toBeDisabled()
+    await expect(panel.getByRole('button', { name: 'Replace clip in slot', exact: true })).toBeDisabled()
+  }
+  await scene.fill('1'); await expect(panel.getByRole('button', { name: 'Replace clip in slot', exact: true })).toBeEnabled()
+  await panel.getByRole('button', { name: 'Trash item + associated presets', exact: true }).click()
+  await expect(panel.getByText('0 selected · 0 hidden', { exact: true })).toBeVisible()
+  await expect(panel.getByRole('button', { name: 'Review selected items export', exact: true })).toBeDisabled()
+})

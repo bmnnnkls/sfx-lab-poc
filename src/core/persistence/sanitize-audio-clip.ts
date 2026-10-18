@@ -1,3 +1,4 @@
+import type { ControlOwner } from '../control'
 import { sanitizeAutomation } from './sanitize-automation'
 import { type AudioClip, WARP_MODES, clampAudioClip } from '../project'
 import { createId } from '../shared'
@@ -13,6 +14,7 @@ export const sanitizeAudioClip = (
   sampleIds: ReadonlySet<string>,
   usedIds: Set<string>,
   warn: Warn,
+  owner?: ControlOwner,
 ): AudioClip | null => {
   if (raw === null || raw === undefined) return null
   if (!isRecord(raw)) {
@@ -42,6 +44,6 @@ export const sanitizeAudioClip = (
     fadeIn: finiteNumber(raw.fadeIn, 0),
     fadeOut: finiteNumber(raw.fadeOut, 0),
   })
-  const automation = sanitizeAutomation(raw.automation, clip.lengthBeats, warn)
+  const automation = sanitizeAutomation(raw.automation, clip.lengthBeats, warn, owner)
   return { ...clip, ...(automation && { automation }) }
 }

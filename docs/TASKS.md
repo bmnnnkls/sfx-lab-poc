@@ -15,13 +15,20 @@ findings in [REVIEW-performance-and-library.md](REVIEW-performance-and-library.m
   [F2–F25](ASSESSMENT-review-other-findings.md). The latter includes preserved diagnostic reproductions in
   [docs/tmp](tmp/claims.test.ts), separate from the normal regression suite. These record observed behavior,
   including defects; revisit assertions as fixes land.
-- Decide merge conditions and remediation from those assessments. Prioritize F1/F2/F3 audio scheduling and
-  helper timing, and F5 deterministic signatures with compatibility/migration handling. Preserve note timing,
-  automation, live/offline parity and saved data. Follow the assessments' qualified findings and evidence;
-  keep the original review intact rather than treating all of its claims or suggested fixes as accepted.
+- Follow [the remediation plan](PLAN-review-remediation.md): proposed merge blockers are F1/F2/F3 scheduling,
+  routing and helper timing, plus F5 signature compatibility/migration. R0–R5 define implementation order,
+  focused follow-ups and dispositions for all 25 findings; G1–G3 define measurable acceptance gates.
+  The plan is not implementation evidence or approval of deferrals. Preserve note timing, automation,
+  live/offline parity and saved data, and keep the original review and assessments intact.
 - Re-run checks appropriate to any resulting fixes. Preserve audio tolerances, worklet capture readiness and complete
   finite-window checks. The review did not independently re-run browser tests; the slice 7 delivery did pass all
   17 smoke and 12 real-output checks. Do not treat that earlier pass as verification of future fixes.
+- Bounded review remedies are implemented locally: F2 topology/gain separation; F10 snapshot remapping; F11 retained
+  unsupported-owner diagnostics; F14 format-neutral indexing/ancestry/identical-sound validation reuse; F16 preview
+  operation ownership; F18 conflict isolation; P3 F12/F15/F19 empty-copy/F22. See the plan's bounded execution record
+  and [raw validation/measurement evidence](measurements/README.md). These do not close R1/R3 or establish merge readiness.
+  Post-R1/R3 integration, callback/deadline baselines and G1/G2/G3 signoff remain open; F19 concurrent lane ownership and
+  R5 harness/deployment policy remain reserved. Existing signatures/formats and historical diagnostics are preserved.
 - Perform physical MIDI keyboard/controller checks for permission, routing, sustain, disconnect and timing/feel.
   Simulated ports and real-worklet tests have shipped; physical hardware verification remains unperformed.
 

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it, vi } from 'vitest'
 import { emptyLibrary, saveLibraryFolder, trashLibraryEntry } from '@core'
-import { createLibraryStorage } from './library-storage'
+import { createLibraryStorage, createMemoryLibraryStorage } from './library-storage'
 import { createIndexedDbSampleStorage } from './sample-storage'
 const name = () => `library-${crypto.randomUUID()}`
 const opened = (name: string, version: number, upgrade?: (db: IDBDatabase) => void): Promise<IDBDatabase> => new Promise((resolve, reject) => {
@@ -76,4 +76,14 @@ describe('atomic catalog and sample storage', () => {
     // An old app cannot downgrade a future schema and must show the error instead.
     await expect(library.read()).rejects.toMatchObject({ name: 'VersionError' })
   })
+})
+
+it('rejects future-version edits before publishing catalog or blobs in both adapters', async () => {
+  const files = new Map<string, Uint8Array>(), dbName = name()
+  for (const [storage, get] of [[createMemoryLibraryStorage(files), async (id: string) => files.get(id)], [createLibraryStorage(dbName), createIndexedDbSampleStorage(dbName).get]] as const) {
+    const before = await storage.update(c => saveLibraryFolder(c, 'Keep', null, 'keep'), new Map([['old', Uint8Array.of(1)]]))
+    await expect(storage.update(c => ({ ...c, version: 2 as 1 }), new Map([['new', Uint8Array.of(2)]]))).rejects.toThrow('Invalid library version')
+    expect(await storage.read()).toEqual(before)
+    expect(await get('old')).toEqual(Uint8Array.of(1)); expect(await get('new')).toBeUndefined()
+  }
 })

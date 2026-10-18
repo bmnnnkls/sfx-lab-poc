@@ -34,7 +34,7 @@ export const createMidiControls = () => {
     const channel = message.channel - 1
     const source = { deviceId, channel, cc: message.cc }
     const store = useMidiStore.getState()
-    if (store.conflict) return
+    if (store.conflict && midiSourceKey(store.conflict.mapping) === midiSourceKey(source)) return
     if (store.learning) {
       const resolved = resolveControlTarget(useProjectStore.getState().project, store.learning.target)
       if (resolved.status !== 'available' || !resolved.automatable) { store.cancelLearn(); return }

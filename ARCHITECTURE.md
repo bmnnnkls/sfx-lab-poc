@@ -202,7 +202,9 @@ at the next bar and restore authored bases. Scene launches launch/retrigger ever
 launch/stop uses the typed `automation/launch` owner command. Owner keys distinguish master from every possible
 track ID. Return launch status joins `EngineStatus.tracks`; master has `masterAutomation`. Configuration edits
 preserve launch phase; deletion drops ownership. Queued empty slots also cancel pending launches before first playback.
-Slots reject cross-owner lanes, reuse the editor/evaluator and bounds, and remap nested routes through group/unlink.
+Clip and slot parsing retains well-formed cross-owner lanes with explicit unsupported-owner warnings; the editor marks
+them unavailable and runtime compilation excludes them. Valid same-owner missing targets also remain recoverable.
+Slots reuse the editor/evaluator and bounds, and remap nested routes through group/unlink.
 Removing a return removes its slots plus saved control/MIDI/send-lane references without changing other owners' slots.
 
 The session grid creates/edits/deletes/launches these cells. The Clip tab shows their loop-length setting and the same
@@ -1472,7 +1474,8 @@ recreating `samples`. Connections close/reset on `versionchange`; blocked legacy
 catalog and invokes a synchronous edit before queuing catalog and optional sample writes; concurrent connections
 serialize rather than overwrite stale snapshots. Promises resolve only on `transaction.complete`, and reject on
 abort/quota, including after successful requests. The sample adapter now has the same completion guarantee. There is
-an in-memory adapter for storage-less environments. Bundle exchange now validates/stages before this transaction (slice 6 below).
+an in-memory adapter for storage-less environments. Both adapters reject unsupported next catalog versions before
+publishing metadata or bytes. Bundle exchange now validates/stages before this transaction (slice 6 below).
 
 `app/library` bridges storage to the document via `state/PersonalLibrary`; successful insertion commits once to project
 history. Saves and catalog edits do not change that history. Missing bytes are preflighted before save/load. Project
@@ -1483,10 +1486,14 @@ and never linked updates. Loaded project revisions/presets/sample metadata are s
 `libraryPreviewProject` creates a temporary project with a test note/tone and the appropriate effect input. `app/library`
 renders it through a fresh `Bounce`/`Engine`, decodes its own samples and plays the bounded result on a separate
 AudioContext/source. Generation tokens cancel asynchronous decoding/rendering; navigation stops/disconnects sources
-and closes contexts, including before source start. Preview does not use the project engine, transport, history or
+and closes contexts, including before source start. Preview resolves explicitly as started/canceled; stale failures
+resolve as canceled while current failures remain errors. The panel gates busy/status/catalog updates by operation
+ownership, invalidating pending preview UI work on stop/navigation/unmount. Preview does not use the project engine, transport, history or
 autosave. `app/library-service` and `ui/library/LibraryPanel` load on demand to keep production chunks below the existing
 warning limit. The Library panel provides folder navigation, mixed lists, search/type filters, dependency/sample detail,
-explicit save/insert/replace, preview and recoverable trash controls.
+explicit save/insert/replace, preview and recoverable trash controls. Bundle selection is reconciled against current
+nontrashed items, with hidden-selection counts and a clear action. Invalid scene inputs disable insertion; the core
+still enforces integer/range checks and occupied-slot replacement.
 
 Verification covers full nested interface/control/sample remapping and preset recalls after reload, independent project
 package export after catalog changes/deletion, one-step insertion undo, duplicate names/cycles, conservative retention,
@@ -1537,3 +1544,23 @@ build, 17 smoke checks and 12 real-output audio checks passed. The cap/selector 
 Delay and Ping-pong tails match offline through stamped 120→60→240 BPM changes within 0.00002 amplitude. Browser
 checks used isolated port 4175; the temporary configuration was removed before commit. Snapshot XY corners remain
 deferred. No physical MIDI hardware was tested.
+
+
+### Bounded review remedies (2026-10-18)
+
+Send level writes compare destination membership, including zero-valued destinations, before invalidating order and
+mute/solo caches. Constant/ramping gains on existing sends do not rebuild those caches. New/deleted destinations
+still invalidate before mixing. This is verified against the current engine; scheduler/helper integration awaits R1.
+Identity-preserving group/unlink applies the existing guarded route rewrite to snapshot values, including shared module
+uses, while keeping immutable preset/revision payloads unchanged. Unavailable old routes are retained without guessing.
+Duplicate track-owner ID repairs now warn that references are ambiguous and were not rebound.
+A pending MIDI learn conflict suppresses its own device/channel/CC tuple; other mappings and held momentary releases
+continue. Confirming messages retain their existing no-sound-change rule. Empty automation Copy/Cut does nothing.
+
+Bundle validation indexes record/module/sample IDs and memoizes validated folder ancestry within each call. Selection
+closure indexes folder children and shares completed ancestor walks. Identical revision/scope/value/sample sounds share
+the graph-instantiation check, after every record has passed strict field sanitation. No persisted signatures or format
+versions changed, and stage/commit validation, expansion/object budgets and transactional publication remain enforced.
+Strict portable clips carry automation only in owner-relative `lanes`; embedded project-owner clip automation is refused.
+Different sound states still receive independent graph/value checks. See `docs/measurements/README.md` for bounded
+validation evidence and the outstanding core acceptance gates; this does not establish overall merge readiness.

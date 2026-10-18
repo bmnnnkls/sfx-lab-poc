@@ -173,8 +173,7 @@ export class Engine {
         break
       case 'track/setSends':
         this.automationSends.set(command.trackId, { ...command.sends })
-        this.tracks.get(command.trackId)?.setSends(command.sends)
-        this.invalidateOrder() // which returns it sends to may have changed
+        this.setSendLevels(command.trackId, command.sends)
         break
       case 'track/setParam':
         this.tracks.get(command.trackId)?.setParam(command.nodeId, command.paramId, command.value, command.graph)
@@ -376,7 +375,7 @@ export class Engine {
           track.strip.sendCurves.set(target.returnId, values)
           const sends = this.automationSends.get(target.owner.trackId) ?? {}
           sends[target.returnId] = values[frames - 1]!
-          this.automationSends.set(target.owner.trackId, sends); track.setSends(sends); this.invalidateOrder()
+          this.automationSends.set(target.owner.trackId, sends); this.setSendLevels(target.owner.trackId, sends)
         }
       }
     }
@@ -392,6 +391,16 @@ export class Engine {
     for (const track of this.mixTracks()) track.mixInto(left, right, blockOffset + cursor, frames, mix)
     this.processMaster(left, right, blockOffset + cursor, frames)
     for (const [id, track] of this.tracks) if (track instanceof AudioTrackRuntime && !track.status().playingClipId) this.automation.finish(id)
+  }
+
+  /** Zero-valued destinations remain members: a curve may cross zero inside the next block. */
+  private setSendLevels(trackId: string, sends: Readonly<Record<string, number>>): void {
+    const track = this.tracks.get(trackId)
+    if (!track) return
+    const previous = track.sendTargets()
+    track.setSends(sends)
+    const next = track.sendTargets()
+    if (previous.length !== next.length || previous.some(id => !next.includes(id))) this.invalidateOrder()
   }
 
   private invalidateOrder(): void {
@@ -544,8 +553,7 @@ export class Engine {
       const sends = this.automationSends.get(target.owner.trackId) ?? {}
       sends[target.returnId] = value
       this.automationSends.set(target.owner.trackId, sends)
-      track.setSends(sends)
-      this.invalidateOrder()
+      this.setSendLevels(target.owner.trackId, sends)
     }
   }
 

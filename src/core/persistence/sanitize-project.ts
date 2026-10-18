@@ -43,6 +43,7 @@ const sanitizeTrack = (
   const where = `Track "${name}"`
 
   const id = typeof raw.id === 'string' && !usedTrackIds.has(raw.id) ? raw.id : createId('track')
+  if (typeof raw.id === 'string' && usedTrackIds.has(raw.id)) warn(`${where}: duplicate owner ID "${raw.id}" repaired; references to that ID are ambiguous and were not rebound. Recover intent from the original file or backup.`)
   usedTrackIds.add(id)
 
   const rawClips = asList(raw.clips)
@@ -79,13 +80,13 @@ const sanitizeTrack = (
       fx,
       sends: readSends(raw.sends),
       clips: Array.from({ length: sceneCount }, (_, scene) =>
-        sanitizeAudioClip(rawClips[scene], where, sampleIds, usedClipIds, warn),
+        sanitizeAudioClip(rawClips[scene], where, sampleIds, usedClipIds, warn, { kind: 'track', trackId: id }),
       ),
     }
   }
 
   const clips = Array.from({ length: sceneCount }, (_, scene) =>
-    sanitizeClip(rawClips[scene], where, usedClipIds, warn),
+    sanitizeClip(rawClips[scene], where, usedClipIds, warn, { kind: 'track', trackId: id }),
   )
 
   return {
