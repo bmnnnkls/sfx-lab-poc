@@ -1,4 +1,5 @@
 import { Params } from '../params'
+import { RIGHT, STEREO_FRAMES } from '../stereo'
 import type { DspNode, NodeDefinition, ParamSpec, ProcessContext } from '../types'
 import { designBiquad, FILTER_MODES, type Coefficients } from './biquad'
 
@@ -15,21 +16,29 @@ const PARAMS: readonly ParamSpec[] = [
   { id: 'highGain', label: 'High', min: -18, max: 18, default: 0, unit: 'dB' },
 ]
 
+/** One biquad's two state samples (transposed direct form II). */
+interface Stage {
+  z1: number
+  z2: number
+}
+
+const newStage = (): Stage => ({ z1: 0, z2: 0 })
+
 /**
  * Three RBJ biquads in series — a low shelf, a peak, a high shelf — redesigned only when a
  * parameter changes. Every gain default is 0, so untouched settings are an exact passthrough.
+ * Both channels of a stereo buffer share the coefficients and keep their own filter state.
  */
 class Eq implements DspNode {
   private readonly params = new Params(PARAMS)
   private low: Coefficients | null = null
   private mid: Coefficients | null = null
   private high: Coefficients | null = null
-  private lowZ1 = 0
-  private lowZ2 = 0
-  private midZ1 = 0
-  private midZ2 = 0
-  private highZ1 = 0
-  private highZ2 = 0
+  /** One stage per band per channel: the left channel's stages in [0], the right's in [1]. */
+  private readonly stages = [
+    [newStage(), newStage(), newStage()],
+    [newStage(), newStage(), newStage()],
+  ]
 
   setParam(id: string, value: number): void {
     if (this.params.set(id, value)) this.low = this.mid = this.high = null
@@ -44,22 +53,27 @@ class Eq implements DspNode {
     const low = this.low ??= designBiquad(FILTER_MODES.indexOf('low shelf'), this.params.get('lowFreq'), SHELF_Q, sampleRate, this.params.get('lowGain'))
     const mid = this.mid ??= designBiquad(FILTER_MODES.indexOf('peak'), this.params.get('midFreq'), this.params.get('midQ'), sampleRate, this.params.get('midGain'))
     const high = this.high ??= designBiquad(FILTER_MODES.indexOf('high shelf'), this.params.get('highFreq'), SHELF_Q, sampleRate, this.params.get('highGain'))
+    const coefficients = [low, mid, high]
+    const stereo = out.length === STEREO_FRAMES
 
     for (let i = 0; i < frames; i++) {
-      let x = input?.[i] ?? 0
-      let y = low.b0 * x + this.lowZ1
-      this.lowZ1 = low.b1 * x - low.a1 * y + this.lowZ2
-      this.lowZ2 = low.b2 * x - low.a2 * y
-      x = y
-      y = mid.b0 * x + this.midZ1
-      this.midZ1 = mid.b1 * x - mid.a1 * y + this.midZ2
-      this.midZ2 = mid.b2 * x - mid.a2 * y
-      x = y
-      y = high.b0 * x + this.highZ1
-      this.highZ1 = high.b1 * x - high.a1 * y + this.highZ2
-      this.highZ2 = high.b2 * x - high.a2 * y
-      out[i] = y
+      out[i] = this.chain(coefficients, this.stages[0]!, input?.[i] ?? 0)
+      if (stereo) out[RIGHT + i] = this.chain(coefficients, this.stages[1]!, input?.[RIGHT + i] ?? 0)
     }
+  }
+
+  /** One sample through the three bands, with the filter state of one channel. */
+  private chain(coefficients: readonly Coefficients[], stages: readonly Stage[], x: number): number {
+    let y = x
+    for (let band = 0; band < coefficients.length; band++) {
+      const c = coefficients[band]!
+      const stage = stages[band]!
+      const filtered = c.b0 * y + stage.z1
+      stage.z1 = c.b1 * y - c.a1 * filtered + stage.z2
+      stage.z2 = c.b2 * y - c.a2 * filtered
+      y = filtered
+    }
+    return y
   }
 }
 

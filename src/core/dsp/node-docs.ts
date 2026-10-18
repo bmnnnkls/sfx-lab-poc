@@ -241,7 +241,7 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     },
     outputs: { out: 'The filtered sound.' },
     params: {
-      mode: 'Lowpass lets the lows through, highpass the highs, bandpass a band, notch removes a band, peak boosts or cuts one, the shelves lift or lower the lows or the highs, all pass only shifts phase.',
+      mode: 'Lowpass lets the lows through, highpass the highs, bandpass a band, notch removes a band, peak boosts or cuts one, the shelves lift or lower the lows or the highs, all-pass only shifts phase.',
       cutoff: 'The frequency where the filter starts to cut (or the centre of a peak, or the corner of a shelf).',
       resonance: 'Emphasis around the cutoff: above 1 it rings, high values whistle.',
       cvAmount: 'How many octaves one unit at the Cutoff input moves the cutoff.',

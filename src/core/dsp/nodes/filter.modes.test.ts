@@ -107,6 +107,24 @@ describe('filter modes', () => {
     const steepDb = gainDb(input, steep!)
     expect(steepDb).toBeLessThan(gentleDb - 6) // well past the cutoff, two slopes are far apart
     expect(steepDb).toBeLessThan(-20)
+    expect(steepDb / gentleDb).toBeGreaterThan(1.7) // and almost exactly twice as far down
+    expect(steepDb / gentleDb).toBeLessThan(2.3)
+  })
+
+  it('the original lowpass, highpass and bandpass modes behave as before', () => {
+    const bass = sine(200, FRAMES)
+    const bright = sine(10000, FRAMES)
+    const tone = sine(1000, FRAMES)
+    const [lowKept] = render('filter', { mode: 0, cutoff: 1000 }, [bass, null], FRAMES)
+    const [lowCut] = render('filter', { mode: 0, cutoff: 1000 }, [bright, null], FRAMES)
+    const [highCut] = render('filter', { mode: 1, cutoff: 1000 }, [bass, null], FRAMES)
+    const [bandOutside] = render('filter', { mode: 2, cutoff: 1000 }, [bass, null], FRAMES)
+    const [bandCentre] = render('filter', { mode: 2, cutoff: 1000 }, [tone, null], FRAMES)
+    expect(gainDb(bass, lowKept!)).toBeGreaterThan(-1) // lowpass keeps the lows
+    expect(gainDb(bright, lowCut!)).toBeLessThan(-20) // and cuts the highs
+    expect(gainDb(bass, highCut!)).toBeLessThan(-20) // highpass is the other way round
+    expect(gainDb(bass, bandOutside!)).toBeLessThan(-8) // bandpass cuts well outside its band
+    expect(gainDb(tone, bandCentre!)).toBeGreaterThan(-1) // and keeps the band itself
   })
 
   it('the pass filters ignore the gain knob', () => {

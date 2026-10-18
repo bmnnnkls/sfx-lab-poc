@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { SampleBank } from '../../sample'
+import { MAX_BLOCK_FRAMES } from '../block'
 import { requireNodeDefinition } from '../registry'
+import { RIGHT, STEREO_FRAMES } from '../stereo'
 
 const SAMPLE_RATE = 48000
 
@@ -90,6 +92,23 @@ describe('eq', () => {
     const input = sine(3000, LENGTH)
     const out = run({ midFreq: 8000, midQ: 10, midGain: 18, highFreq: 20000, highGain: 18 }, input)
     expect(out.every((v) => Number.isFinite(v))).toBe(true)
+  })
+
+  it('filters both channels of a stereo buffer equally', () => {
+    const definition = requireNodeDefinition('eq')
+    const node = definition.create(SAMPLE_RATE)
+    for (const [id, value] of Object.entries({ lowGain: -18, midGain: 12, highGain: 6 })) node.setParam(id, value)
+    const input = new Float32Array(STEREO_FRAMES)
+    for (let i = 0; i < MAX_BLOCK_FRAMES; i++) {
+      const value = Math.sin((2 * Math.PI * 1000 * i) / SAMPLE_RATE)
+      input[i] = value
+      input[RIGHT + i] = value
+    }
+    const out = new Float32Array(STEREO_FRAMES)
+    for (let block = 0; block < 40; block++) node.process(context(MAX_BLOCK_FRAMES), [input], [out])
+    // The same wave in both channels comes out the same: shared coefficients, one filter state per channel.
+    for (let i = 1; i < 40; i++) expect(out[i]).toBeCloseTo(out[RIGHT + i]!, 5)
+    expect(Math.abs(out[MAX_BLOCK_FRAMES - 1]!)).toBeGreaterThan(2) // the mid boost is loud in both
   })
 
   it('is a shared effect with stereo-capable ports', () => {
