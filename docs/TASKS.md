@@ -11,13 +11,14 @@ The performance/library implementation sequence, slices **0–7**, is complete. 
 [PLAN-performance-and-library.md](PLAN-performance-and-library.md). Completion of the sequence does not close the
 findings in [REVIEW-performance-and-library.md](REVIEW-performance-and-library.md), added in commit `8caa072`.
 
-- Independently assess **F1**, the review's critical claim about notes-domain automation collapsing audio rendering
-  to individual samples. Establish actual runtime cost, affected paths and reproduction evidence; compare remediation
-  options while preserving note timing, automation and live/offline parity.
-- Validate **F2–F25** individually, including the review's major candidates F2–F5. Record confirmed defects, partial
-  findings, false positives and intentional contracts separately, with evidence and proportionate measures.
-- Decide merge conditions from those assessments. Review severity labels and suggested fixes are claims to validate;
-  they are not accepted defects or an implementation plan yet. Keep the original report intact.
+- Independent assessments are complete: [F1](ASSESSMENT-review-critical-F1.md) and
+  [F2–F25](ASSESSMENT-review-other-findings.md). The latter includes preserved diagnostic reproductions in
+  [docs/tmp](tmp/claims.test.ts), separate from the normal regression suite. These record observed behavior,
+  including defects; revisit assertions as fixes land.
+- Decide merge conditions and remediation from those assessments. Prioritize F1/F2/F3 audio scheduling and
+  helper timing, and F5 deterministic signatures with compatibility/migration handling. Preserve note timing,
+  automation, live/offline parity and saved data. Follow the assessments' qualified findings and evidence;
+  keep the original review intact rather than treating all of its claims or suggested fixes as accepted.
 - Re-run checks appropriate to any resulting fixes. Preserve audio tolerances, worklet capture readiness and complete
   finite-window checks. The review did not independently re-run browser tests; the slice 7 delivery did pass all
   17 smoke and 12 real-output checks. Do not treat that earlier pass as verification of future fixes.
