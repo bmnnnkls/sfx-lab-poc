@@ -1,16 +1,16 @@
 import { Params } from '../params'
 import { RIGHT } from '../stereo'
 import type { DspNode, NodeDefinition, ParamSpec, ProcessContext } from '../types'
-import { syncedSeconds, timeSyncParam } from './time-sync'
-
-const MAX_DELAY_SECONDS = 2
+import { timeSyncParam } from './time-sync'
+import { delaySeconds, delayDivisionParam, DelayTap, MAX_DELAY_SECONDS } from './delay-timing'
 
 const PARAMS: readonly ParamSpec[] = [
   // In seconds, or in beats when Sync is `beat`; so no fixed unit is shown.
-  { id: 'time', label: 'Time', min: 0.001, max: MAX_DELAY_SECONDS, default: 0.3 },
+  { id: 'time', label: 'Time', min: 0.001, max: 2, default: 0.3 },
   { id: 'feedback', label: 'Feedback', min: 0, max: 0.95, default: 0.5 },
   { id: 'mix', label: 'Mix', min: 0, max: 1, default: 0.35 },
   timeSyncParam,
+  delayDivisionParam,
 ]
 
 /**
@@ -22,8 +22,10 @@ class PingPong implements DspNode {
   private readonly left: Float32Array
   private readonly right: Float32Array
   private writeIndex = 0
+  private readonly tap: DelayTap
 
   constructor(sampleRate: number) {
+    this.tap = new DelayTap(sampleRate)
     const length = Math.ceil(MAX_DELAY_SECONDS * sampleRate) + 2
     this.left = new Float32Array(length)
     this.right = new Float32Array(length)
@@ -37,17 +39,15 @@ class PingPong implements DspNode {
     if (!out) return
     const { frames, sampleRate } = context
     const size = this.left.length
-    const delaySamples = syncedSeconds(this.params.get('time'), this.params.get('sync'), context, MAX_DELAY_SECONDS) * sampleRate
+    const delaySamples = delaySeconds(this.params.values, context) * sampleRate
     const feedback = this.params.get('feedback')
     const mix = this.params.get('mix')
 
     for (let i = 0; i < frames; i++) {
-      const readPosition = (this.writeIndex - delaySamples + size) % size
-      const index = Math.floor(readPosition)
-      const fraction = readPosition - index
-      const next = (index + 1) % size
-      const echoLeft = (this.left[index] ?? 0) * (1 - fraction) + (this.left[next] ?? 0) * fraction
-      const echoRight = (this.right[index] ?? 0) * (1 - fraction) + (this.right[next] ?? 0) * fraction
+      this.tap.prepare(delaySamples)
+      const echoLeft = this.tap.read(this.left, this.writeIndex)
+      const echoRight = this.tap.read(this.right, this.writeIndex)
+      this.tap.advance()
 
       const dryLeft = input?.[i] ?? 0
       const dryRight = input?.[RIGHT + i] ?? 0

@@ -5,6 +5,24 @@ type Migration = (project: unknown) => unknown
 
 /** `MIGRATIONS[n]` upgrades the `project` payload from format version n to n + 1. */
 const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  // v7 did not interpret division. Walk graphs inside tracks, modules and saved revisions too.
+  7: (project) => {
+    if (!isRecord(project)) return project
+    const copy = JSON.parse(JSON.stringify(project)) as Record<string, unknown>
+    const pending: unknown[] = [copy]
+    while (pending.length) {
+      const value = pending.pop()
+      if (Array.isArray(value)) { for (const child of value) pending.push(child); continue }
+      if (!isRecord(value)) continue
+      if ((value.type === 'delay' || value.type === 'pingPong') && isRecord(value.params)) delete value.params.division
+      // Old unknown references must not acquire a newly introduced control.
+      for (const [key, child] of Object.entries(value)) {
+        if (Array.isArray(child)) value[key] = child.filter(entry => !(isRecord(entry) && isRecord(entry.target) && ['delay', 'pingPong'].includes(String(entry.target.nodeType)) && entry.target.paramId === 'division'))
+        pending.push(value[key])
+      }
+    }
+    return copy
+  },
   6: (project) => {
     if (!isRecord(project)) return project
     const { libraryOrigins: _unknown, ...authored } = project

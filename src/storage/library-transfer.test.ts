@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import 'fake-indexeddb/auto'
 import { zipSync, strToU8 } from 'fflate'
-import { createSamplerPatch, createModuleUse, enumerateSampleTargets, editSampleBinding, type ModuleDefinition, captureLibraryAsset, captureLibraryClip, captureLibrarySample, createEmptyProject, createAudioTrack, createAudioClip, createClip, createNote, emptyLibrary, saveLibraryFolder, mergeLibraryBundle, validateLibraryCatalog, saveProjectPreset, insertLibraryAsset, insertLibraryClip, parseProject, serializeProject, recallProjectPreset, trashLibraryEntry, type Project, type LibraryCatalog, type LibraryBundleManifest, type InstrumentTrack } from '@core'
+import { noteGraphFrom, createSamplerPatch, createModuleUse, enumerateSampleTargets, editSampleBinding, type ModuleDefinition, captureLibraryAsset, captureLibraryClip, captureLibrarySample, createEmptyProject, createAudioTrack, createAudioClip, createClip, createNote, emptyLibrary, saveLibraryFolder, mergeLibraryBundle, validateLibraryCatalog, saveProjectPreset, insertLibraryAsset, insertLibraryClip, parseProject, serializeProject, recallProjectPreset, trashLibraryEntry, type Project, type LibraryCatalog, type LibraryBundleManifest, type InstrumentTrack } from '@core'
 import { createMemoryLibraryStorage, createLibraryStorage } from './library-storage'
 import { createMemorySampleStorage, createIndexedDbSampleStorage } from './sample-storage'
 import { exportLibraryBundle, stageLibraryBundle, commitLibraryBundle, LIBRARY_ARCHIVE_LIMITS } from './library-transfer'
@@ -36,6 +36,24 @@ const fixture = async () => {
 }
 
 describe('library bundle exchange', () => {
+  it('retains v1 bundles with absent delay division and exchanges new synced divisions', async () => {
+    const raw = JSON.parse(readFileSync(new URL('../core/persistence/fixtures/v7-delay-timing.sfxlab.json', import.meta.url), 'utf8'))
+    const loaded = parseProject(JSON.stringify(raw)); if (!loaded.ok) throw new Error(loaded.error)
+    const scope = { owner: { kind: 'track' as const, trackId: loaded.project.tracks[0]!.id }, domain: 'fx' as const }
+    const old = captureLibraryAsset(emptyLibrary(), loaded.project, scope, 'Legacy echo', null)
+    const file = await exportLibraryBundle(old, { itemIds: [old.items[0]!.id] }, 'Legacy', async () => undefined)
+    expect(file.manifest.version).toBe(1)
+    const stage = await stageLibraryBundle(file.bytes)
+    expect(stage.manifest.catalog.revisions).toEqual(old.revisions)
+    const graph = noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 'delay', type: 'pingPong', params: { sync: 1, time: 0.75, division: 12 } }, { id: 'out', type: 'trackOut' }], ['in.out>delay.in', 'delay.out>out.in'])
+    const p = { ...loaded.project, tracks: loaded.project.tracks.map(t => ({ ...t, fx: graph })) }
+    const synced = captureLibraryAsset(emptyLibrary(), p, scope, 'Triplet', null)
+    const imported = await stageLibraryBundle((await exportLibraryBundle(synced, { itemIds: [synced.items[0]!.id] }, 'Triplet', async () => undefined)).bytes)
+    const destination = createEmptyProject()
+    const inserted = insertLibraryAsset(destination, imported.manifest.catalog, imported.manifest.catalog.items[0]!, { mode: 'replace', scope: { owner: { kind: 'track', trackId: destination.tracks[0]!.id }, domain: 'fx' } })
+    const reloaded = parseProject(serializeProject(inserted.project))
+    expect(reloaded.ok && reloaded.project.tracks[0]!.fx.nodes.find(n => n.type === 'pingPong')?.params.division).toBe(12)
+  })
   it('exports deterministic full folder closure, stages without writes, imports empty/conflicting/duplicate catalogs and inserts independent reloadable projects', async () => {
     const { c, read } = await fixture()
     const file = await exportLibraryBundle(c, { folderIds: ['collection'] }, 'Collection', read)

@@ -156,9 +156,9 @@ while opening a module definition still edits the shared definition deliberately
 normalized evaluation and compilation against current control specs. Clip lanes address only their own track's
 instrument, note graph, insert effects or mixer. Missing/wired targets stay in the document with feedback and do
 not acquire runtime ownership. Group/unlink remap lane paths together with instance values and MIDI mappings.
-Return/master slots arrived in format **v5** (clip lanes in v4; v6 adds saved sounds; current format v7 adds library origins below): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
+Return/master slots arrived in format **v5** (clip lanes in v4; v6 adds saved sounds; v7 adds library origins below; current format v8 adds optional delay divisions): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
 2048 points per lane, bounded IDs/paths and finite numbers. The explicit v3→v4 migration drops formerly unknown
-lane data; v4→v5 drops formerly unknown return/master slot fields. Committed v1–v7 fixtures cover compatibility. Saved bases remain authored values.
+lane data; v4→v5 drops formerly unknown return/master slot fields. Committed v1–v8 fixtures cover compatibility. Saved bases remain authored values.
 
 Each point holds a normalized value and linear/hold interpolation to the next point. Points are sorted, equal
 times collapse with last input winning, and the valid time interval is [0, clip length]. Before/after the point
@@ -1319,7 +1319,7 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 ## Natural next steps
 
 1. Unused-sample cleanup, loop points inside a clip, 2. stems and batch export for the bounce,
-3. MIDI hardware verification and later performance features, 4. more nodes (band-limited oscillators, chorus / stereo modulation effects, tempo sync for delays),
+3. MIDI hardware verification and later performance features, 4. more nodes (band-limited oscillators, chorus / stereo modulation effects),
 5. WASM DSP nodes (Faust/RNBO).
 
 ## Touch automation recording (slice 3c)
@@ -1357,9 +1357,44 @@ note-on becomes note-off; malformed bytes and unsupported messages are ignored. 
 the browser adapter interprets sustain/channel-mode cleanup and converts parser channels (1–16) to engine channels
 (0–15). The source-aware held-note path ships in slice 2a; browser input and learned mappings ship in slice 2b.
 
-The basic beat-synced delay mode retains the existing two-second buffer limit and changes delay time at block
-boundaries without smoothing. Long divisions, dotted/triplet selection and click-free tempo transitions remain
-follow-up work; this does not complete the performance/library plan's tempo-polish slice.
+## Delay timing and tempo transitions (slice 7)
+
+`dsp/nodes/delay-timing` owns a shared pure resolver and fixed division table. Existing `time` (0.001–2) and `sync`
+(off/beat, 0/1) retain their bounds/defaults and normalized automation meanings. Optional `division=0` means legacy
+numeric beats; 1–24 enumerate 1/32 through four bars, each straight/dotted/triplet (quarter note = one beat, 4/4).
+Dotted multiplies by 3/2, triplet by 2/3. Sync off ignores division and preserves stored seconds. Example echoes select
+index 8 (dotted eighth), keeping their original `time=0.75` bases and original-tempo sound.
+
+Delay/Ping-pong allocate eight seconds/channel once (at 48 kHz, 1,536,008 bytes mono, 3,072,016 bytes stereo/Ping-pong;
+at 44.1 kHz, 1,411,208 and 2,822,416). Live audio follows the browser/device native context rate;
+per-channel bytes are `4 * (ceil(8 * sampleRate) + 2)`, so at 192 kHz stereo costs 12,288,016 bytes.
+No BPM-driven line allocations or resizes occur.
+Project tempo is 40–240 BPM: four dotted bars request 36–6 seconds. The resolver explicitly returns requested/applied
+seconds and a cap flag. Requests above eight seconds use eight; node properties visibly report the limit. Four-bar
+straight/dotted/triplet times fit at ≥120/180/80 BPM respectively. No global delay-count/memory cap is introduced.
+
+`DelayTap` crossfades two stationary, linearly interpolated read heads over 20 ms, applying initial timing immediately.
+The same blended signal enters feedback; Ping-pong advances its shared crossfade once per stereo sample. Tempo comes
+from `ProcessContext`, so the normal tempo command never replaces graphs or lines. Changes during a fade coalesce
+until its end, then take the newest target (≤40 ms settling). Old samples remain in the rings. Transitions can overlap,
+attenuate or repeat historical echoes while the taps mix, without a pitch glide or abrupt tap jump. Off/seconds mode
+is tempo-independent. Transport Stop preserves effect tails through the existing engine lifecycle.
+
+Properties resolve wired/per-use/Read/override values and display current BPM and applied timing; moving wires retain
+a labelled static approximation. Delay pictures share the resolver and follow project BPM, omitting echoes beyond the
+existing two-second picture instead of drawing a false earlier tap. Offline `Bounce` detects delay nodes in graphs and
+modules and renders its explicit maxTail budget before trimming: 250 ms silence cannot establish an empty long delay,
+particularly a serial chain. Existing default/max tail budgets remain 10/30 seconds; delay projects may cost more offline
+CPU than the earlier silence shortcut. Other documents retain that shortcut.
+
+Project **v8** adds optional numeric node `division`. The explicit v7→v8 migration strips formerly unknown divisions
+and corresponding guarded target records across tracks/modules/saved revisions/automation/presets before sanitizing.
+Committed v7/v8 delay fixtures supplement v1–v7 compatibility fixtures. `sanitizeParams` retains an absent division
+instead of inserting zero into older graphs: strict `.sfxlib` v1 records still validate field-for-field, while newly
+created nodes carry the default. Bundle manifest and catalog versions remain independently v1, with regression coverage
+for legacy and new division assets through staging/insertion/project reload. Existing control ranges and lane values
+need no remapping. Browser tests cover timing/limit/undo/reload and full stereo worklet output versus offline at the
+actual stamped tempo-edit boundaries; existing finite capture checks and 0.00002 amplitude tolerance remain.
 
 ## Snapshots, asset revisions and project presets (slice 4)
 
@@ -1471,7 +1506,7 @@ are checked before publication. Module/node/interface IDs remain private within 
 folder/item/revision/state identities are refreshed on every import and project insertion remaps the full payload.
 
 `storage/library-transfer` owns independent bundle migration dispatch, canonical `.sfxlib` export, hash checking,
-read-only staging and commit. `.sfxlab` project transfer remains separate and project format remains v7.
+read-only staging and commit. `.sfxlab` project transfer remains separate; slice 6 retained project v7 and slice 7 adds project v8 independently.
 `storage/library-archive` preflights every ZIP local/central header and path before expanded allocation, then
 uses bounded incremental fflate inflation and actual-output/CRC checks. Limits cover compressed/aggregate expanded
 bytes, each entry, entry count, JSON size/objects/values/depth and module expansion. The complete format, strict ZIP
@@ -1495,3 +1530,10 @@ Slice 6 verification: 1,562 unit/architecture tests across 124 files, typecheck,
 after trash/reload and matches offline within 0.00002 amplitude. Bundle review/panel screenshots were inspected.
 Browser verification used isolated port 4175 with a temporary config removed before commit; default config stays 4173.
 No physical MIDI hardware was tested.
+
+
+Slice 7 verification (2026-10-18): 1,591 unit/architecture tests across 126 files, typecheck, warning-free production
+build, 17 smoke checks and 12 real-output audio checks passed. The cap/selector screenshot was inspected. Live stereo
+Delay and Ping-pong tails match offline through stamped 120→60→240 BPM changes within 0.00002 amplitude. Browser
+checks used isolated port 4175; the temporary configuration was removed before commit. Snapshot XY corners remain
+deferred. No physical MIDI hardware was tested.

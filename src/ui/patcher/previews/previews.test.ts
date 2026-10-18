@@ -244,3 +244,9 @@ describe('the set of pictures', () => {
     expect(points.at(-1)![0]).toBe(PREVIEW_WIDTH)
   })
 })
+
+it('delay preview follows actual tempo and dotted/triplet divisions, without drawing long delays early', () => {
+  expect(delayPreview({ sync: 1, division: 8, previewTempo: 90 })).toEqual(delayPreview({ time: 0.5 }))
+  expect(delayPreview({ sync: 1, division: 12, previewTempo: 120 })).toEqual(delayPreview({ time: 1 / 3 }))
+  expect(delayPreview({ sync: 1, division: 24, previewTempo: 40 }).shapes).toHaveLength(1)
+})

@@ -10,6 +10,7 @@ import {
   flattenPatch,
   resolveParams,
 } from '@core'
+import { useProjectStore } from '@state'
 import { type PointerEvent, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
 import type { MenuEntry } from '../shared/menu'
@@ -94,6 +95,7 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
   onUnlinkModule,
   onRequestAdd,
 }, handle) {
+  const tempo = useProjectStore(s => s.project.tempo)
   const surface = useRef<HTMLDivElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
   /** The last empty-canvas press and the selection it was about to clear, to tell a double-click and to keep the selection through it. */
@@ -144,11 +146,11 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
     for (const node of patch.nodes) {
       if (!hasPreview(node.type)) continue
       const { values, moving } = resolveParams(patch, node.id)
-      const preview = nodePreview(node.type, values)
+      const preview = nodePreview(node.type, { ...values, previewTempo: tempo })
       if (preview) map.set(node.id, { preview, moving: moving.size > 0 })
     }
     return map
-  }, [patch])
+  }, [patch, tempo])
   const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
   const visible = patch.nodes.filter((node) => shapes.has(node.id))
 

@@ -3,7 +3,9 @@
 `.sfxlib` exchanges personal-library selections. It is distinct from `.sfxlab` project packages and
 `.sfxlab.json` project documents. A project does not consult a bundle or the library at playback.
 Bundle migrations belong to `storage/library-transfer`, independently of project migrations. The first
-version has no legacy migration; unknown/future versions are rejected. Project format stays v7.
+version has no legacy migration; unknown/future versions are rejected. Project format is independently v8 (optional delay
+divisions). Missing node `division` remains absent in strict legacy v1 records and resolves to numeric beats;
+new divisions round-trip without changing the manifest contract.
 
 A bundle is a single-disk ZIP with these entries:
 

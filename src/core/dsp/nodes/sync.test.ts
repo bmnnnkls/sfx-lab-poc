@@ -57,9 +57,9 @@ describe('delays in beats', () => {
     expect(firstEcho(fast!)).toBe(SAMPLE_RATE / 2)
   })
 
-  it('never asks the line for more than it holds (2 s)', () => {
-    const [out] = render('delay', { time: 2, feedback: 0, mix: 1, sync: 1 }, impulse(3 * SAMPLE_RATE), { tempo: 30 })
-    expect(firstEcho(out!)).toBe(2 * SAMPLE_RATE)
+  it('supports legacy numeric beats beyond the old two-second capacity', () => {
+    const [out] = render('delay', { time: 2, feedback: 0, mix: 1, sync: 1 }, impulse(5 * SAMPLE_RATE), { tempo: 30 })
+    expect(firstEcho(out!)).toBe(4 * SAMPLE_RATE)
   })
 
   it('the ping-pong syncs the same way', () => {

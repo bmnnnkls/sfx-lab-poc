@@ -1,6 +1,6 @@
 # MIDI, automation, presets and library
 
-Status: **slices 0–6 implemented; tempo polish remains planned**. Written 2026-10-17.
+Status: **slices 0–7 implemented**. Written 2026-10-17.
 
 This is the product specification for the next development sequence. The implementation slices and verification
 gates are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). This document takes precedence
@@ -305,18 +305,37 @@ refreshes catalog IDs and preserves hierarchy/associations. Repeated imports cre
 sample blobs are shared and never overwritten. Logical, validation, hash, quota and abort failures retain the
 previous catalog and existing bytes. There are no automatic linked updates.
 
-Bundle manifest v1 (`sfx-lab-library`) and migration dispatch are independent of project format v7. The strict ZIP
+Bundle manifest v1 (`sfx-lab-library`) and migration dispatch are independent of project format v8. The strict ZIP
 subset, bounded streaming decompression, checksum rules and budgets are documented in [LIBRARY-BUNDLE.md](LIBRARY-BUNDLE.md).
 Defaults: 128 MiB compressed, 256 MiB expanded, 4097 entries, 32 MiB/sample, 8 MiB manifest; 100,000 containers,
 300,000 values, depth 64, module depth 16 and 10,000 expanded node visits/revision. Existing record limits remain.
 
 ## Tempo polish
 
-After the above, add free-seconds and synced beat-division modes to Delay and Ping-pong delay, including dotted and
-triplet divisions. Preserve old projects' seconds values and tails. Tempo changes follow the engine clock without
-rebuilding graphs; define smoothing to avoid clicks. Audit existing buffer limits for slow tempos and long divisions,
-and cap/report unsupported times rather than silently clamp. Update the example echoes to use sync. General timing
-controls can reuse the same beat-division representation where useful.
+Delay and Ping-pong offer free seconds (`sync=0`) or musical time (`sync=1`). Existing Time retains its 0.001–2
+range, default 0.3 and legacy numeric-beat interpretation when `division` is absent/zero. A named division selector
+covers 1/32, 1/16, 1/8, 1/4, 1/2, one/two/four bars, each straight, dotted (×3/2) or triplet (×2/3).
+A quarter note is one beat; bars contain four beats. Named divisions ignore Time only while synced. Switching modes
+never rewrites Time. Both shipped example echoes explicitly select dotted eighths and follow engine tempo edits.
+
+Each channel has a fixed eight-second line (1.465 MiB mono / 2.930 MiB stereo at 48 kHz). Supported
+project BPM is 40–240. Four dotted bars range from 36 to six seconds; requests beyond capacity play at eight seconds,
+with requested/applied times and an explicit cap message in properties. Four straight bars fit at ≥120 BPM, dotted at
+≥180, triplet at ≥80. Free seconds remain ≤2 seconds for compatibility. Defaults remain free 0.3 seconds, numeric
+beats when Sync is enabled, Delay feedback/mix 0.4/0.35 and Ping-pong 0.5/0.35. Live audio follows the browser/device rate; line memory scales with that rate
+(`4 * (ceil(8 * sampleRate) + 2)` bytes/channel; stereo at 192 kHz uses 11.719 MiB). No global instance-memory cap is imposed.
+
+Time changes crossfade stationary read heads over 20 ms without pitch glides, line resets or graph rebuilds. Rapid
+edits coalesce after the active fade (≤40 ms to settle). Feedback follows the same crossfade. Historical echoes can
+briefly overlap, attenuate or repeat while the taps mix; tails continue through Stop and tempo changes. Offline export
+with delay nodes renders the requested tail budget before trimming so silence between echoes cannot end it early;
+its existing 10-second default / 30-second maximum still bound export, including feedback and serial-delay tails.
+Card pictures use current BPM and show echoes within their existing two-second view; properties report longer times.
+Moving wired values are a static approximation, marked as such.
+
+Project v8 explicitly migrates the optional node `division` field; old seconds, numeric beats and normalized automation
+ranges stay valid. Missing division remains absent in old strict library records; `.sfxlib` manifest and catalog schema
+remain v1 independently. Snapshot XY corners and physical MIDI hardware verification remain deferred.
 
 ## Defaults open to refinement
 

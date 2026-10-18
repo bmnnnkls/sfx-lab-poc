@@ -283,10 +283,11 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     inputs: { in: 'The sound to echo.' },
     outputs: { out: 'The sound mixed with its echoes.' },
     params: {
-      time: 'The gap between echoes: seconds, or beats when Sync is beat (0.75 is a dotted eighth, 0.5 an eighth).',
+      time: 'Free time in seconds (0.001–2), or numeric beats when Beat division is Time in beats; named divisions ignore Time.',
+      division: 'With Sync on beat, choose 1/32 through four bars, straight, dotted (×1.5) or triplet (×2/3); times beyond eight seconds are capped and reported in properties.',
       feedback: 'How much of each echo is fed back to make more echoes (never quite 1, so they die away).',
       mix: 'How much echo is heard against the dry sound.',
-      sync: 'Off: Time is in seconds. Beat: Time is in beats of the project tempo, so the echoes stay in time when the tempo changes.',
+      sync: 'Off: Time is in seconds. Beat: use the selected division or numeric beats at engine tempo; changes crossfade taps over 20 ms, retaining the tail without a pitch glide.',
     },
   },
   reverb: {
@@ -338,10 +339,11 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     inputs: { in: 'The sound to echo (a mono sound is heard on both sides).' },
     outputs: { out: 'The sound mixed with its bouncing echoes, in stereo.' },
     params: {
-      time: 'The gap between echoes: seconds, or beats when Sync is beat (0.75 is a dotted eighth, 0.5 an eighth).',
+      time: 'Free time in seconds (0.001–2), or numeric beats when Beat division is Time in beats; named divisions ignore Time.',
+      division: 'With Sync on beat, choose 1/32 through four bars, straight, dotted (×1.5) or triplet (×2/3); times beyond eight seconds are capped and reported in properties.',
       feedback: 'How much of each echo is fed back to make more echoes (never quite 1, so they die away).',
       mix: 'How much echo is heard against the dry sound.',
-      sync: 'Off: Time is in seconds. Beat: Time is in beats of the project tempo, so the echoes stay in time when the tempo changes.',
+      sync: 'Off: Time is in seconds. Beat: use the selected division or numeric beats at engine tempo; changes crossfade taps over 20 ms, retaining the tail without a pitch glide.',
     },
   },
 

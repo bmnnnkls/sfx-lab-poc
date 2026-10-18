@@ -12,8 +12,8 @@ The shared control-target foundation and verification work come first. Product b
 criteria are in [SPEC-performance-and-library.md](SPEC-performance-and-library.md); ordered implementation slices and
 code touchpoints are in [PLAN-performance-and-library.md](PLAN-performance-and-library.md). The verification and shared control-target foundations
 (slices 0–1), held-note engine path (slice 2a), browser MIDI adapter/learn (slice 2b), and saved clip automation,
-engine Read playback and drawing editor (slice 3a), return/master automation slots (3b), Touch recording (3c), snapshots/project presets (4), and the library catalog/folders, reusable assets/presets, clips/samples and isolated preview (5a–5b), and reviewed atomic `.sfxlib` bundle exchange (6) are implemented. Next is
-tempo polish (7). A physical MIDI hardware check remains
+engine Read playback and drawing editor (slice 3a), return/master automation slots (3b), Touch recording (3c), snapshots/project presets (4), and the library catalog/folders, reusable assets/presets, clips/samples and isolated preview (5a–5b), and reviewed atomic `.sfxlib` bundle exchange (6) are implemented. Tempo polish (7) is also implemented,
+including bounded divisions, tap crossfades, visible limits and migration. A physical MIDI hardware check remains
 unperformed; fake-port browser and real-worklet tests cover the simulated path. Draft product defaults can be refined
 before their slice. These documents supersede the MIDI-mapping and personal-library sketches below where they differ.
 
@@ -34,7 +34,7 @@ Not nodes (the next batch of nodes is in [`IDEAS-nodes-and-controls.md`](IDEAS-n
 The math-node block optimization, basic beat-synced delays, filter key tracking, Comb, and pure MIDI message
 parser have been extracted from `origin/claude/stoic-cray-8d4r4x`. The held-note engine path ships in slice 2a;
 browser MIDI access, port management, settings, visible Panic and project-persisted CC learn ship in slice 2b.
-Delay divisions, smoothing and the two-second capacity limit still need the planned tempo-polish work.
+Slice 7 completes delay divisions, 20 ms tap crossfades and an eight-second capacity with visible limit reporting.
 The source and disposition of the remaining work are recorded in [ROADMAP.md](ROADMAP.md).
 
 ## Follow-ups from the example projects

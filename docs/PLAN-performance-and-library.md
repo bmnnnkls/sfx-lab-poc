@@ -1,6 +1,6 @@
 # Implementation plan: performance and library
 
-Status: **slices 0–6 implemented; slice 7 planned**. Product behavior and draft defaults are defined in
+Status: **slices 0–7 implemented**. Product behavior and draft defaults are defined in
 [SPEC-performance-and-library.md](SPEC-performance-and-library.md). Work proceeds in order below; each slice should
 be independently reviewable and leave the existing examples/project files usable.
 
@@ -479,17 +479,45 @@ and rollback on storage failure. Existing project package round-trips still pass
 
 ## 7. Tempo polish
 
-The salvage provides a basic `off`/`beat` mode and beat-based example echoes. It retains the existing
-two-second delay capacity and unsmoothed block-boundary time changes; the requirements below remain open.
+Implemented 2026-10-18 on `codex/performance-and-library`, after slice 6 (`ac33fc0`):
 
-Likely touchpoints: delay/ping-pong DSP definitions, timing helpers, node properties/previews, persistence and examples.
+- Preserves Time (0.001–2), Sync off/beat (0/1), their defaults and normalized automation ranges. New optional
+  `division` is a selector: 0 retains numeric Time in beats; indices 1–24 enumerate 1/32 through four bars,
+  each straight/dotted/triplet. Off ignores division and retains the original seconds value. Both example echoes
+  explicitly choose dotted eighths, retaining their authored numeric beat values and original-tempo timing.
+- Delay and Ping-pong allocate eight seconds per channel once at construction. At 48 kHz this is 1,536,008 bytes
+  per mono line / 3,072,016 bytes for stereo Delay or Ping-pong; at 44.1 kHz it is 1,411,208 / 2,822,416 bytes.
+  Live audio follows the browser/device context rate; bytes/channel are `4 * (ceil(8 * sampleRate) + 2)`
+  (stereo at 192 kHz: 12,288,016 bytes). There is no line allocation or resizing on BPM edits. Project tempo supports 40–240 BPM. The longest division,
+  four dotted bars (24 beats), requests 36–6 seconds over that range. Requests above eight seconds cap at eight;
+  properties visibly report requested/applied time and capacity. Four straight bars fit at ≥120 BPM, dotted at
+  ≥180, triplet at ≥80. No application-wide delay-count/memory budget is added; each instance incurs this fixed cost.
+- Two stationary interpolated taps crossfade linearly over 20 ms on time/mode/division/tempo changes. Initial timing
+  applies immediately. Feedback uses the same blended tap, including both Ping-pong channels. Running ring buffers
+  never reset; there is no pitch glide or graph rebuild. Rapid changes finish the active fade then take the newest
+  request, bounding settling latency at 40 ms. During a transition echoes can overlap, attenuate or repeat as the
+  two historical taps mix; this is an intentional transition sound, not musical rescheduling of stored echoes.
+- Properties show effective authored/per-use/Read/override timing at the current tempo; card previews use the same
+  resolver and project BPM (their existing two-second picture simply omits later echoes). Wired Time remains driven;
+  moving-wire pictures/readouts describe a static approximation. Long dormant echoes no longer terminate offline
+  export at the short silence gate: documents containing Delay/Ping-pong render the explicit maxTail budget before
+  trimming. Default/max tail limits remain 10/30 seconds; this also covers serial delays without guessing silence.
+- Project format **v8** adds optional `division`; explicit v7→v8 migration discards formerly unknown divisions and
+  target references throughout graph/module/revision/automation/preset data. Committed v7/v8 timing fixtures and all
+  existing v1–v7 migration/package round trips remain. Absent division stays absent when sanitizing old node records,
+  preserving strict existing `.sfxlib` node payloads. Catalog schema and bundle manifest remain independently v1;
+  bundle exchange covers old missing divisions and new divisions, insertion and project reload.
+- Verification covers known impulses across BPM/division combinations, cap endpoints, dotted/triplet arithmetic,
+  crossfade discontinuity bounds and rapid edits, block-size independence with running feedback, free-seconds tails,
+  stereo/ping-pong echoes, persistence, legacy bundles, UI limit reporting/undo/reload and real-worklet/offline stereo
+  agreement across live tempo edits at the unchanged 0.00002 amplitude tolerance.
 
-- Define seconds versus beat division and dotted/triplet representation; audit memory limits at supported BPMs.
-- Update delay processing and smoothing with no graph rebuild on tempo change. Preserve old seconds-mode documents.
-- Convert example echoes and document audible behavior when BPM changes.
-
-Exit: known impulse timings at several BPMs, tempo changes with running tails, persistence, stereo behavior and offline
-rendering agree. The examples remain playable at their original tempo and follow tempo edits.
+Final verification: **1,591 unit/architecture tests across 126 files**, typecheck and production build without
+chunk-size warnings, **17 production smoke checks and all 12 real-output audio checks passed**. The timing-limit
+screenshot was inspected. Browser checks used isolated port 4175 via a temporary config removed before commit;
+production defaults remain unchanged. An earlier unit run hit the existing worklet import test's five-second
+timeout; the unchanged final full suite passed. Existing audio tolerances, capture readiness and finite-window checks
+were preserved. Snapshot XY corners remain deferred. No physical MIDI hardware was tested.
 
 ## Delivery discipline
 

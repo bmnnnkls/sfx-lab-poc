@@ -1,4 +1,7 @@
 import {
+  delayTiming,
+  controlTargetKey,
+  resolveParams,
   type ControlOwner,
   type ControlDomain,
   controlTargetForGraphParam,
@@ -31,7 +34,7 @@ import {
   setNodeTrack,
   setNodeUnit,
 } from '@core'
-import { useProjectStore, editPresetProject } from '@state'
+import { useProjectStore, useControlStore, editPresetProject } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
 import { useMemo } from 'react'
@@ -99,6 +102,8 @@ interface NodePropertiesProps extends Omit<PropertyEditorProps, 'selected'> {
 
 const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCreateControl, onUnwire, controlOwner, controlDomain }: NodePropertiesProps) => {
   const project = useProjectStore((state) => state.project)
+  const overrides = useControlStore(s => s.overrides)
+  const playback = useControlStore(s => s.playback)
   const gesture = useControlGesture()
   const targetFor = (param: string) => controlOwner && controlDomain ? controlTargetForGraphParam(project, controlOwner, controlDomain, node.id, param) : undefined
   const sampleTarget: SampleTarget | undefined = controlOwner && controlDomain ? { kind: 'graph', owner: controlOwner, domain: controlDomain, path: [], nodeId: node.id, nodeType: node.type } : undefined
@@ -114,6 +119,15 @@ const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCre
 
   const driven = drivenParams(node.id, shape, patch, (id) => titles.get(id) ?? '')
   const rows = rowsOf(node, shape, driven)
+  const timingValues = { ...resolveParams(patch, node.id).values }
+  for (const paramId of ['time', 'sync', 'division']) {
+    const target = targetFor(paramId)
+    if (!target) continue
+    const resolved = resolveControlTarget(project, target)
+    const entry = [...overrides, ...playback].find(e => controlTargetKey(e.target) === controlTargetKey(target))
+    if (resolved.status === 'available') timingValues[paramId] = resolved.reason?.startsWith('Driven') ? timingValues[paramId]! : entry?.value ?? resolved.baseValue
+  }
+  const timing = ['delay', 'pingPong'].includes(node.type) ? delayTiming(timingValues, project) : undefined
   const set = (paramId: string, value: number) => {
     const target = targetFor(paramId)
     if (target) gesture.change([{ target, value }])
@@ -205,6 +219,11 @@ const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCre
 
       {shape.panelKind !== undefined && <PanelSettings node={node} modules={modules} edit={edit} />}
 
+      {timing && <output aria-label="Delay timing" className={styles.hint}>
+        {timing.label} · {timing.seconds.toFixed(3)} s at {project.tempo} BPM
+        {timing.capped && ` — Requested ${timing.requested.toFixed(3)} s exceeds capacity; capped at 8 s`}
+        {driven.has('time') && ' · Time wire: preview uses its current static value'}
+      </output>}
       <div className={styles.params}>
         {rows.length === 0 && <p className={styles.hint}>Nothing to set on this node.</p>}
         {rows.map((row) => {

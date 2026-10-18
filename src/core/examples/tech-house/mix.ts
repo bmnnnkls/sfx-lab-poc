@@ -67,7 +67,7 @@ export const echoReturn = (modules: ModuleLibrary): Patch =>
   patchOf(
     [
       { id: 'in', type: 'returnIn' },
-      { id: 'delay', type: 'pingPong', name: 'Dotted eighth', params: { time: 0.75, feedback: 0.52, mix: 1, sync: 1 } },
+      { id: 'delay', type: 'pingPong', name: 'Dotted eighth', params: { time: 0.75, feedback: 0.52, mix: 1, sync: 1, division: 8 } },
       { id: 'tone', type: 'filter', name: 'Darken', stereo: true, params: { mode: 0, cutoff: 3400, resonance: 0.7 } },
       { id: 'hp', type: 'filter', name: 'Low cut', stereo: true, params: { mode: 1, cutoff: 320, resonance: 0.7 } },
       duckUse(0.45, 180),

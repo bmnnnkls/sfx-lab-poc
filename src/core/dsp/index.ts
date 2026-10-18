@@ -24,3 +24,5 @@ export { fromSlider, isLogarithmic, snapToStep, toSlider } from './param-scale'
 export { createRng, type Rng } from './random'
 export { MAX_BLOCK_FRAMES } from './block'
 export { RIGHT, STEREO_FRAMES, isStereoBuffer, leftOf, rightOf, stereoPorts } from './stereo'
+
+export { delayTiming, DELAY_DIVISIONS, MAX_DELAY_SECONDS, DELAY_CROSSFADE_SECONDS } from './nodes/delay-timing'

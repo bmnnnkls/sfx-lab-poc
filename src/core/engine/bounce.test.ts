@@ -253,6 +253,18 @@ describe('the tail', () => {
     expect(rung.left.length).toBeGreaterThan(dry.left.length + RATE)
   })
 
+  it('retains a long pending delay across silent gaps in the bounce tail', () => {
+    const { project, trackId, clipId } = withTone([createNote(69, 0, 0.1, 1)], 1, tonePatch(0.01))
+    const fx = noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 'echo', type: 'delay', params: { sync: 1, division: 16, mix: 1, feedback: 0.5 } }, { id: 'out', type: 'trackOut' }], ['in.out>echo.in', 'echo.out>out.in'])
+    const wet = { ...project, tracks: project.tracks.map(t => ({ ...t, fx })) }
+    const result = renderProject(wet, [], { scope: { kind: 'clip', trackId, clipId }, maxTail: 5 })
+    // Division 16 is one bar: first echo at 2 s, second at 4 s, despite silence at body end (0.5 s).
+    expect(peakOf(result.left.subarray(0, RATE * 1.9))).toBe(0)
+    expect(peakOf(result.left.subarray(RATE * 2, RATE * 2.2))).toBeGreaterThan(0.05)
+    expect(peakOf(result.left.subarray(RATE * 4, RATE * 4.2))).toBeGreaterThan(0.02)
+    expect(result.left.length).toBeGreaterThan(RATE * 4)
+  })
+
   it('a silent project is just its bars of silence', () => {
     const clip = createClip('empty', 4)
     const track = createTrack('T', 4, tonePatch())
