@@ -20,7 +20,14 @@ export const installAudioTap = (page: Page) => page.addInitScript(() => {
   window.AudioWorkletNode = class extends Original {
     constructor(context: BaseAudioContext, name: string, options?: AudioWorkletNodeOptions) {
       super(context, name, options)
-      window.__sendEngineCommand = (command) => this.port.postMessage({ kind: 'command', command })
+      // Raw fixture commands bypass AudioHost's startup queue. Expose them only after its queued
+      // play/stop commands have drained and the first real quantum has reported, rather than at construction.
+      this.port.addEventListener('message', ({ data }) => {
+        if (data.kind === 'status' && context.state === 'running') {
+          window.__sendEngineCommand = (command) => this.port.postMessage({ kind: 'command', command })
+        }
+      })
+      this.port.start()
       const tap = context.createScriptProcessor(1024, 2, 1)
       tap.channelCount = 2
       tap.channelCountMode = 'explicit'

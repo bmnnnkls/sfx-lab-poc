@@ -84,3 +84,15 @@ for (const loop of [false, true]) it(`never proves a hidden step/return or wrap 
   expect(ons.map(e=>e.pitch)).toEqual(loop ? [60,72,60,72] : [60,72,60,60])
   ons.forEach((e,i)=>expect(e.beat).toBeCloseTo(beats[i]!,12))
 })
+
+it('retains compiled orders for compatible note-graph edits and rebuilds them for a rewire', () => {
+  const e = make(); e.prepareTopology(); quantum(e)
+  const runtime = e as unknown as { invalidateOrder(): void; sorted(...args: unknown[]): unknown }
+  const invalidate = vi.spyOn(runtime, 'invalidateOrder'), sorted = vi.spyOn(runtime, 'sorted')
+  e.apply({ type: 'track/setNoteGraph', trackId: 'unrelated', graph: { ...source, nodes: source.nodes.map(n=>n.id === 'tr' ? { ...n, params: { ...n.params, semitones: 12 } } : n) } })
+  quantum(e)
+  expect(invalidate).not.toHaveBeenCalled(); expect(sorted).not.toHaveBeenCalled()
+  e.apply({ type: 'track/setNoteGraph', trackId: 'unrelated', graph: reader('source') })
+  quantum(e)
+  expect(invalidate).toHaveBeenCalledTimes(1); expect(sorted.mock.calls.length).toBeGreaterThan(0)
+})

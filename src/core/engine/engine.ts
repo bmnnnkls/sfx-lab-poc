@@ -76,6 +76,16 @@ export class Engine {
     this.master = new FxGraph(createDefaultMasterGraph(), sampleRate, this.samples)
   }
 
+  /** Compile topology and empty routing boards without rendering, scheduling or advancing a clock.
+   * The host can do this while suspended; subsequent topology edits retain normal invalidation.
+   */
+  prepareTopology(): void {
+    this.noteTracks()
+    this.components()
+    this.mixTracks()
+    if (this.mixStateStale) this.updateMixState()
+  }
+
   apply(command: EngineCommand): void {
     switch (command.type) {
       case 'automation/launch':
@@ -145,8 +155,10 @@ export class Engine {
         this.invalidateOrder() // which returns it sends to may have changed
         break
       case 'track/setNoteGraph':
-        if (this.instrument(command.trackId)?.setNoteGraph(command.graph)) this.cancelTrackNotes(command.trackId)
-        this.invalidateOrder()
+        if (this.instrument(command.trackId)?.setNoteGraph(command.graph)) {
+          this.cancelTrackNotes(command.trackId)
+          this.invalidateOrder()
+        }
         break
       case 'track/setVoices':
         this.cancelTrackNotes(command.trackId)

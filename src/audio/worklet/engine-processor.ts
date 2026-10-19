@@ -1,5 +1,6 @@
-import { Engine } from '@core'
+import { Engine, type EngineCommand } from '@core'
 import { type HostMessage, PROCESSOR_NAME, type WorkletMessage } from '../protocol'
+import { prepareEngine } from './prepare-engine'
 
 const STATUS_INTERVAL_SECONDS = 1 / 30
 
@@ -8,14 +9,20 @@ class EngineProcessor extends AudioWorkletProcessor {
   private readonly engine = new Engine(sampleRate)
   private framesSinceStatus = 0
   private clockChanged = true
+  private initialCommands: EngineCommand[] | null = []
+  private prepared = false
+  private preparationError: string | null = null
 
   constructor() {
     super()
     this.port.onmessage = (event: MessageEvent<HostMessage>) => {
       if (event.data.kind === 'command') {
         this.engine.apply(event.data.command)
+        this.initialCommands?.push(event.data.command)
         const type = event.data.command.type
         if (type.startsWith('transport/') || type.endsWith('/launch')) this.clockChanged = true
+      } else if (event.data.kind === 'prepare') {
+        this.prepare()
       }
     }
   }
@@ -23,6 +30,7 @@ class EngineProcessor extends AudioWorkletProcessor {
   process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
     const [left, right] = outputs[0] ?? []
     if (!left || !right) return true
+    if (!this.prepared) { left.fill(0); right.fill(0); return true }
 
     if (this.clockChanged) {
       // Stamp tempo/transport changes at the next quantum's start, before its beats advance.
@@ -33,6 +41,24 @@ class EngineProcessor extends AudioWorkletProcessor {
     this.engine.render(left, right)
     this.reportStatus(left.length)
     return true
+  }
+
+  private prepare(): void {
+    if (this.preparationError !== null) {
+      this.port.postMessage({ kind: 'preparation-error', message: this.preparationError } satisfies WorkletMessage)
+      return
+    }
+    try {
+      if (!this.prepared) {
+        prepareEngine(this.initialCommands ?? [], sampleRate)
+        this.engine.prepareTopology()
+        this.prepared = true
+      }
+      this.port.postMessage({ kind: 'ready' } satisfies WorkletMessage)
+    } catch (error) {
+      this.preparationError = error instanceof Error ? error.message : String(error)
+      this.port.postMessage({ kind: 'preparation-error', message: this.preparationError } satisfies WorkletMessage)
+    } finally { this.initialCommands = null }
   }
 
   private reportStatus(frames: number): void {

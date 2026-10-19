@@ -51,21 +51,37 @@ export class AudioHost {
 
   private async boot(): Promise<void> {
     const context = new AudioContext({ latencyHint: 'interactive' })
-    await context.audioWorklet.addModule(workletUrl)
-
-    const node = new AudioWorkletNode(context, PROCESSOR_NAME, { outputChannelCount: [2] })
-    node.port.onmessage = (event: MessageEvent<WorkletMessage>) => {
-      if (event.data.kind === 'clock') { this.clock.update(event.data.clock, event.data.audioTime); return }
-      if (event.data.kind !== 'status') return
-      if (event.data.audioTime !== undefined) this.clock.update(event.data.status, event.data.audioTime)
-      for (const listener of this.listeners) listener(event.data.status)
+    try {
+      // A disconnected running worklet can still process. Suspension and the processor's ready guard
+      // jointly prevent the audible engine's clocks from advancing during preparation.
+      await context.suspend()
+      await context.audioWorklet.addModule(workletUrl)
+      const node = new AudioWorkletNode(context, PROCESSOR_NAME, { outputChannelCount: [2] })
+      let resolveReady!: () => void, rejectReady!: (error: Error) => void
+      const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject })
+      node.port.onmessage = (event: MessageEvent<WorkletMessage>) => {
+        if (event.data.kind === 'ready') { resolveReady(); return }
+        if (event.data.kind === 'preparation-error') { rejectReady(new Error(event.data.message)); return }
+        if (event.data.kind === 'clock') { this.clock.update(event.data.clock, event.data.audioTime); return }
+        if (event.data.kind !== 'status') return
+        if (event.data.audioTime !== undefined) this.clock.update(event.data.status, event.data.audioTime)
+        for (const listener of this.listeners) listener(event.data.status)
+      }
+      node.onprocessorerror = (event) => {
+        console.error('Audio engine stopped unexpectedly', event)
+        rejectReady(new Error('Audio engine preparation failed'))
+      }
+      // Keep send() queued until ready, including commands arriving while the temporary engine runs.
+      for (const { command, transfer } of this.queue.splice(0)) node.port.postMessage({ kind: 'command', command } satisfies HostMessage, transfer)
+      node.port.postMessage({ kind: 'prepare' } satisfies HostMessage)
+      await ready
+      this.context = context
+      this.node = node
+      for (const { command, transfer } of this.queue.splice(0)) this.send(command, transfer)
+      node.connect(context.destination)
+    } catch (error) {
+      await context.close()
+      throw error
     }
-    // An exception inside the worklet would otherwise fail silently and just stop the sound.
-    node.onprocessorerror = (event) => console.error('Audio engine stopped unexpectedly', event)
-    node.connect(context.destination)
-
-    this.context = context
-    this.node = node
-    for (const { command, transfer } of this.queue.splice(0)) this.send(command, transfer)
   }
 }
