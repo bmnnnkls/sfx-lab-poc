@@ -15,6 +15,8 @@ const initialLoad = os.loadavg()
 const harnessSHA256 = createHash('sha256').update(readFileSync(import.meta.filename)).digest('hex')
 const activity = process.env.CAPACITY_ACTIVITY ?? 'interactive'
 const diagnostics = process.env.CAPACITY_DIAGNOSTICS === '1'
+// Diagnostic A/B only: avoid changing the actual Engine instance shape with an own render hook.
+const prototypeHook = process.env.CAPACITY_PROTOTYPE_HOOK === '1'
 if (!['interactive', 'steady', 'arrangement'].includes(activity)) throw Error('Unknown activity mode')
 const scenario = process.env.CAPACITY_SCENARIO ?? 'low-notes'
 const output = process.env.CAPACITY_OUTPUT ?? 'docs/measurements/f1-fix/worklet'
@@ -50,12 +52,13 @@ try {
           if(${diagnostics}){const status=this.engine.status.bind(this.engine);this.engine.status=()=>{console.timeStamp('F1:status:start');const result=status();console.timeStamp('F1:status:end');return result}} 
           if(typeof this.prepare==='function'){const prepare=this.prepare.bind(this);this.prepare=()=>{const before={audioTime:currentTime,noteBeat:this.engine.noteBeat,transportBeat:this.engine.transport.positionBeats,renderedFrames:this.frames};console.timeStamp('F1:prepare:start');prepare();console.timeStamp('F1:prepare:end');this.port.postMessage({kind:'capacity-prepared',before,after:{audioTime:currentTime,noteBeat:this.engine.noteBeat,transportBeat:this.engine.transport.positionBeats,renderedFrames:this.frames},prepared:this.prepared})}}
           this.port.addEventListener('message',({data})=>{if(data.kind==='capacity-report')this.port.postMessage({kind:'capacity-report',firstState:this.firstState,frames:this.frames,quanta:[...this.quanta],nonfinite:this.nonfinite,peak:this.peak,jump:this.jump,rate:sampleRate})});this.port.start();
-          const render=this.engine.render.bind(this.engine);this.engine.render=(l,r)=>{if(!this.firstState){this.firstState={tracks:this.engine.tracks.size,playing:this.engine.transport.playing,automation:this.engine.automation.configured};
+          const render=this.engine.render.bind(this.engine);const measuredRender=(l,r)=>{if(!this.firstState){this.firstState={tracks:this.engine.tracks.size,playing:this.engine.transport.playing,automation:this.engine.automation.configured};
               if(${diagnostics}){const wrap=(object,key,label)=>{const fn=object[key].bind(object);object[key]=(...args)=>{if(this.frames)return fn(...args);console.timeStamp('F1:detail:'+label+':start');const value=fn(...args);console.timeStamp('F1:detail:'+label+':end');return value}};
                 for(const key of ['collectEvents','planNoteComponents','mixSegment','processMaster','mixTracks','scheduleTracks'])wrap(this.engine,key,key);
                 for(const [id,track] of this.engine.tracks)for(const key of ['schedule','mixInto'])wrap(track,key,id+':'+key);
               }}console.timeStamp('F1:engine:start');render(l,r);console.timeStamp('F1:engine:end');this.frames+=l.length;this.quanta.add(l.length);
             for(let channel=0;channel<2;channel++){const signal=channel?r:l;for(let i=0;i<signal.length;i++){const value=signal[i];if(!Number.isFinite(value))this.nonfinite++;this.peak=Math.max(this.peak,Math.abs(value));this.jump=Math.max(this.jump,Math.abs(value-this.previous[channel]));this.previous[channel]=value}}};
+          if(${prototypeHook}){const actual=this.engine;const prototype=Object.getPrototypeOf(actual);const original=prototype.render;prototype.render=function(l,r){return this===actual?measuredRender(l,r):original.call(this,l,r)}}else this.engine.render=measuredRender;
           if(${diagnostics}){const apply=this.engine.apply.bind(this.engine);this.engine.apply=(command)=>{console.timeStamp('F1:command:'+command.type);apply(command)}}
           for(let i=0;i<1000;i++){console.timeStamp('F1:overhead:start');console.timeStamp('F1:overhead:end')}
         }
@@ -168,7 +171,7 @@ try {
     }))
     return { ...summary(intervals.map(i=>i.ms)), first: intervals[0]?.ms, afterFirstTwoSeconds: summary(intervals.filter(i=>i.start-first>=2e6).map(i=>i.ms)), overruns }
   }
-  const report = { scenario, seconds, activity, diagnostics, scenes, harnessSHA256, renderedAudioSeconds: traffic.report.frames / traffic.report.rate, initialLoad, finalLoad: os.loadavg(), dataLossOccurred, cpu: os.cpus()[0]?.model, elapsed: (Date.now()-start)/1000, browser: browser.version(), commit: process.env.CAPACITY_REVISION ?? execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(), bundles, traffic, edits, preparation: { ...durations('prepare'), audioDeadlineApplies: false }, engine: durations('engine'), callback: durations('callback'), overhead: durations('overhead'), eventNames: [...new Set(events.map((e:any)=>e.name))] }
+  const report = { scenario, seconds, activity, diagnostics, hookMode: prototypeHook ? 'prototype' : 'instance', scenes, harnessSHA256, renderedAudioSeconds: traffic.report.frames / traffic.report.rate, initialLoad, finalLoad: os.loadavg(), dataLossOccurred, cpu: os.cpus()[0]?.model, elapsed: (Date.now()-start)/1000, browser: browser.version(), commit: process.env.CAPACITY_REVISION ?? execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(), bundles, traffic, edits, preparation: { ...durations('prepare'), audioDeadlineApplies: false }, engine: durations('engine'), callback: durations('callback'), overhead: durations('overhead'), eventNames: [...new Set(events.map((e:any)=>e.name))] }
   writeFileSync(`${output}/report.json`, JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report, null, 2))
 } finally { writeFileSync(bundlePath, originalBundle); await browser.close() }

@@ -1,0 +1,7 @@
+{
+  "sourceMismatches": [],
+  "bundleMismatches": [],
+  "fullCampaignSource": "docs/measurements/f1-fix/startup/clock-source/manifest.json",
+  "testFixtureReadinessChangedAfterCampaign": true,
+  "prototypeHookIsOptInAndUnapproved": true
+}

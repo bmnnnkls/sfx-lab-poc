@@ -1,0 +1,1381 @@
+diff --git a/scripts/review-benchmark/README.md b/scripts/review-benchmark/README.md
+index d916b44..3291f83 100644
+--- a/scripts/review-benchmark/README.md
++++ b/scripts/review-benchmark/README.md
+@@ -37,6 +37,58 @@ remain under `docs/tmp`, excluded from normal suites. They deliberately describe
+ pre-fix defects and are not expected to pass against repaired code.
+ 
+ These are offline capacity/counter measurements, not worklet callback durations or
+-underrun evidence. The global notes-lane one-frame path and helper timing remain
+-reserved for R1. Do not reinterpret their continued poor counts as an F2 regression
+-or claim G1/G2/G3 acceptance from these runs.
++underrun evidence. The historical global one-frame path is addressed by the current conservative R1 candidate; its final capacity
++acceptance remains open. Do not reinterpret historical counts as current results, an F2 regression or G1/G2/G3 acceptance.
++
++## F1 implementation measurements
++
++`source-identity.ts` saves hashes, the tracked source diff and a complete source/config archive (including untracked
++fixtures) alongside build hashes. Run before a verification/capture series and verify source hashes afterward:
++
++```sh
++node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/review-benchmark/source-identity.ts
++```
++
++`worklet-capacity.ts` runs against a separately started production preview on port 4173. It temporarily prepends a
++trace-only shim to the built worklet and restores it in `finally`; never run concurrent builds/captures. The real
++Chromium worklet lacks `performance`, so native trace timestamps bracket engine render and the complete callback.
++1,000 empty timestamp pairs characterize part of the instrumentation cost. Whole-callback measurements include
++bounded sample scanning; no per-quantum messages/logging are sent. Raw traces are compressed, reports include actual
++rate/quanta, finite/peak/jump scans, trace-loss flag and host load averages. Peak/jump scans alone cannot prove
++absence of musical discontinuities; retain finite-window real-output comparisons and diagnose trace outliers.
++
++```sh
++CAPACITY_SECONDS=60 CAPACITY_SCENARIO=low-moving-notes CAPACITY_OUTPUT=docs/measurements/f1-fix/candidate-worklet node --experimental-transform-types --disable-warning=ExperimentalWarning --import ./scripts/review-benchmark/loader.mjs scripts/review-benchmark/worklet-capacity.ts
++```
++
++Scenarios `low`, `low-notes`, `low-moving-notes`, `low-continuous-notes` and `glass` retain complete examples.
++The notes variants add diagnostic lanes: a constant root, a discrete root change, or a continuous velocity-node sweep
++inserted before the stab's output. The stored examples are unchanged. `CAPACITY_ACTIVITY=interactive` sends tempo,
++control/graph updates and quantized stop/launch commands; `steady` sends no edits; `arrangement` traverses every scene,
++allowing its longest pattern plus quantization guards, sends graph/master edits every five seconds and requests an
++empty final scene for ten seconds of tails. Use at least 120 seconds for Low Light and 310 for all six Glass Rain scenes.
++Reports record requested scene beats; inspect them before claiming full musical coverage.
++
++`CAPACITY_DIAGNOSTICS=1` adds V8 compilation categories and first-render method brackets. Treat those as diagnostics,
++not acceptance timings. `trace-outliers.ts <capture-directory>` adds native thread-clock comparisons to wall overruns;
++these may identify time not executing on the audio thread but never erase a failed wall deadline.
++`f1-scaling.ts` probes 32 tracks, active/allocated voices, 1/8/64 lanes, 2/2048 points and inactive clips; set
++`SCALING_OUTPUT` to save JSON. `plain-overhead.ts` isolates a repeated short no-lane benchmark regression with longer
++warmup/trials; `ENGINE_SOURCE_ROOT` selects the archived baseline and `DIAGNOSTIC_OUTPUT` saves its JSON.
++These stress/diagnostic runs do not replace the plan's unchanged five-trial acceptance benchmark.
++
++`capacity-campaign.ts` serially captures constant (65 s), continuous (65 s), full Low Light (120 s) and full Glass Rain
++(310 s). Set `CAPACITY_CAMPAIGN_OUTPUT` to a fresh directory; a `STOP` file there stops between complete captures.
++Each child restores the worklet shim before the next begins. Do not build, run tests or poll memory during captures.
++Reports include separate suspended preparation latency/actual-clock audits, first actual callback, compact clock
++anchor counts and full-status traffic. Preparation never excludes an actual playback callback from timing.
++
++`startup-memory.ts` uses `MEMORY_URL` (production preview) and `MEMORY_SCENARIO=low|glass` for separate sampled
++renderer-RSS comparisons. Pass an output JSON path as its first argument. Polling perturbs load; never treat it as capacity timing.
++Identify served builds using source manifests: page response hooks may not expose worklet bundle requests.
++
++Headless Chromium exercises the production worklet path; no physical device underrun telemetry is claimed. The first
++baseline used an earlier harness with only tempo/master traffic and timing brackets; later captures retain harness
++hashes and their own overhead distributions. Run all throughput/capacity work serially after other projects finish,
++preserve failed/noisy runs and all outliers, and report both wall and rendered-audio durations. A load average alone
++is not proof of quiescence. See `docs/measurements/f1-fix/README.md` for exact source, results and outstanding gates.
+diff --git a/src/audio/audio-host.ts b/src/audio/audio-host.ts
+index 9588624..5860daa 100644
+--- a/src/audio/audio-host.ts
++++ b/src/audio/audio-host.ts
+@@ -51,20 +51,37 @@ export class AudioHost {
+ 
+   private async boot(): Promise<void> {
+     const context = new AudioContext({ latencyHint: 'interactive' })
+-    await context.audioWorklet.addModule(workletUrl)
+-
+-    const node = new AudioWorkletNode(context, PROCESSOR_NAME, { outputChannelCount: [2] })
+-    node.port.onmessage = (event: MessageEvent<WorkletMessage>) => {
+-      if (event.data.kind !== 'status') return
+-      if (event.data.audioTime !== undefined) this.clock.update(event.data.status, event.data.audioTime)
+-      for (const listener of this.listeners) listener(event.data.status)
++    try {
++      // A disconnected running worklet can still process. Suspension and the processor's ready guard
++      // jointly prevent the audible engine's clocks from advancing during preparation.
++      await context.suspend()
++      await context.audioWorklet.addModule(workletUrl)
++      const node = new AudioWorkletNode(context, PROCESSOR_NAME, { outputChannelCount: [2] })
++      let resolveReady!: () => void, rejectReady!: (error: Error) => void
++      const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject })
++      node.port.onmessage = (event: MessageEvent<WorkletMessage>) => {
++        if (event.data.kind === 'ready') { resolveReady(); return }
++        if (event.data.kind === 'preparation-error') { rejectReady(new Error(event.data.message)); return }
++        if (event.data.kind === 'clock') { this.clock.update(event.data.clock, event.data.audioTime); return }
++        if (event.data.kind !== 'status') return
++        if (event.data.audioTime !== undefined) this.clock.update(event.data.status, event.data.audioTime)
++        for (const listener of this.listeners) listener(event.data.status)
++      }
++      node.onprocessorerror = (event) => {
++        console.error('Audio engine stopped unexpectedly', event)
++        rejectReady(new Error('Audio engine preparation failed'))
++      }
++      // Keep send() queued until ready, including commands arriving while the temporary engine runs.
++      for (const { command, transfer } of this.queue.splice(0)) node.port.postMessage({ kind: 'command', command } satisfies HostMessage, transfer)
++      node.port.postMessage({ kind: 'prepare' } satisfies HostMessage)
++      await ready
++      this.context = context
++      this.node = node
++      for (const { command, transfer } of this.queue.splice(0)) this.send(command, transfer)
++      node.connect(context.destination)
++    } catch (error) {
++      await context.close()
++      throw error
+     }
+-    // An exception inside the worklet would otherwise fail silently and just stop the sound.
+-    node.onprocessorerror = (event) => console.error('Audio engine stopped unexpectedly', event)
+-    node.connect(context.destination)
+-
+-    this.context = context
+-    this.node = node
+-    for (const { command, transfer } of this.queue.splice(0)) this.send(command, transfer)
+   }
+ }
+diff --git a/src/audio/protocol.ts b/src/audio/protocol.ts
+index db17587..8834330 100644
+--- a/src/audio/protocol.ts
++++ b/src/audio/protocol.ts
+@@ -4,7 +4,11 @@ import type { EngineCommand, EngineStatus } from '@core'
+ export const PROCESSOR_NAME = 'sfx-engine'
+ 
+ /** Main thread -> audio thread. */
+-export type HostMessage = { readonly kind: 'command'; readonly command: EngineCommand }
++export type HostMessage = { readonly kind: 'command'; readonly command: EngineCommand } | { readonly kind: 'prepare' }
+ 
+ /** Audio thread -> main thread. */
+-export type WorkletMessage = { readonly kind: 'status'; readonly status: EngineStatus; readonly audioTime?: number }
++export type WorkletMessage =
++  | { readonly kind: 'status'; readonly status: EngineStatus; readonly audioTime?: number }
++  | { readonly kind: 'clock'; readonly clock: Pick<EngineStatus, 'tempo' | 'playing' | 'beat'>; readonly audioTime: number }
++  | { readonly kind: 'ready' }
++  | { readonly kind: 'preparation-error'; readonly message: string }
+diff --git a/src/audio/recording-clock.ts b/src/audio/recording-clock.ts
+index 5510726..d118c88 100644
+--- a/src/audio/recording-clock.ts
++++ b/src/audio/recording-clock.ts
+@@ -3,7 +3,7 @@ interface Anchor { beat: number; audioTime: number; tempo: number; playing: bool
+ /** Sparse tempo/transport segments, in the AudioContext clock domain. */
+ export class RecordingClock {
+   private anchors: Anchor[] = []
+-  update(status: EngineStatus, audioTime: number): void {
++  update(status: Pick<EngineStatus, 'tempo' | 'playing' | 'beat'>, audioTime: number): void {
+     const anchor = { beat: status.beat, audioTime, tempo: status.tempo ?? 120, playing: status.playing }
+     const previous = this.anchors.at(-1)
+     const predicted = previous && previous.beat + (audioTime - previous.audioTime) * (previous.playing ? previous.tempo / 60 : 0)
+diff --git a/src/audio/worklet/engine-processor.test.ts b/src/audio/worklet/engine-processor.test.ts
+index 43b7afe..f69045b 100644
+--- a/src/audio/worklet/engine-processor.test.ts
++++ b/src/audio/worklet/engine-processor.test.ts
+@@ -2,28 +2,114 @@ import { afterEach, expect, it, vi } from 'vitest'
+ import type { WorkletMessage, HostMessage } from '../protocol'
+ import { RecordingClock } from '../recording-clock'
+ 
+-afterEach(() => vi.unstubAllGlobals())
++afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.resetModules(); vi.doUnmock('./prepare-engine') })
+ it('anchors tempo/transport changes at quantum start and periodic beat status at quantum end', async () => {
+   const messages: WorkletMessage[] = []
+   class Shell {
+     port = { onmessage: (_event: { data: HostMessage }) => {}, postMessage: (message: WorkletMessage) => messages.push(message) }
+   }
+-  let Processor: new () => Shell & { process(input: Float32Array[][], output: Float32Array[][]): boolean } = undefined!
++  let Processor: new () => Shell & { engine: import('@core').Engine; process(input: Float32Array[][], output: Float32Array[][]): boolean } = undefined!
+   vi.stubGlobal('sampleRate', 8000); vi.stubGlobal('currentTime', 10)
+   vi.stubGlobal('AudioWorkletProcessor', Shell)
+   vi.stubGlobal('registerProcessor', (_name: string, factory: typeof Processor) => { Processor = factory })
+   await import('./engine-processor')
+   const processor = new Processor(), output = [[new Float32Array(128), new Float32Array(128)]]
+   processor.port.onmessage({ data: { kind: 'command', command: { type: 'transport/play' } } })
++  processor.port.onmessage({ data: { kind: 'prepare' } })
++  messages.length = 0
++  const fullStatus = vi.spyOn(processor.engine, 'status')
++  const clockSnapshot = vi.spyOn(processor.engine, 'clock')
+   processor.process([], output)
+-  expect(messages[0]).toMatchObject({ audioTime: 10, status: { beat: 0, tempo: 120, playing: true } })
++  expect(clockSnapshot).toHaveBeenCalledTimes(1)
++  expect(fullStatus).toHaveBeenCalledTimes(1)
++  expect(messages[0]).toMatchObject({ kind: 'clock', audioTime: 10, clock: { beat: 0, tempo: 120, playing: true } })
+   expect(messages[1]).toMatchObject({ audioTime: 10.016, status: { beat: 0.032, tempo: 120 } })
+   vi.stubGlobal('currentTime', 10.016)
+   processor.port.onmessage({ data: { kind: 'command', command: { type: 'transport/setTempo', bpm: 60 } } })
+   processor.process([], output)
+-  expect(messages[2]).toMatchObject({ audioTime: 10.016, status: { beat: 0.032, tempo: 60 } })
++  expect(fullStatus).toHaveBeenCalledTimes(2)
++  expect(messages[2]).toMatchObject({ kind: 'clock', audioTime: 10.016, clock: { beat: 0.032, tempo: 60 } })
+   const clock = new RecordingClock()
+-  for (const message of messages) clock.update(message.status, message.audioTime!)
++  for (const message of messages) {
++    if (message.kind === 'clock') clock.update(message.clock, message.audioTime)
++    else if (message.kind === 'status') clock.update(message.status, message.audioTime!)
++  }
+   expect(clock.beat(10.012)).toBeCloseTo(0.024)
+   expect(clock.beat(10.024)).toBeCloseTo(0.04)
+ })
++
++for (const rate of [8000, 44100, 48000, 96000]) it(`prepares only a throwaway engine; retains first live note, helper clock and assets at ${rate} Hz`, async () => {
++  const { Engine, createEmptyProject, noteGraphFrom, diffProject } = await import('@core')
++  const messages: WorkletMessage[] = []
++  class Shell {
++    port = { onmessage: (_event: { data: HostMessage }) => {}, postMessage: (message: WorkletMessage) => messages.push(message) }
++  }
++  let Processor: new () => Shell & { engine: InstanceType<typeof Engine>; process(input: Float32Array[][], output: Float32Array[][]): boolean } = undefined!
++  vi.stubGlobal('sampleRate', rate); vi.stubGlobal('currentTime', 10)
++  vi.stubGlobal('AudioWorkletProcessor', Shell)
++  vi.stubGlobal('registerProcessor', (_name: string, factory: typeof Processor) => { Processor = factory })
++  await import('./engine-processor')
++  const p = createEmptyProject(), t = p.tracks[0]!
++  if (t.kind !== 'instrument') throw Error('instrument fixture')
++  const noteGraph = noteGraphFrom([{ id: 'live', type: 'clipNotes' }, { id: 'v', type: 'control', params: { value: 0 } }, { id: 's', type: 'smooth', params: { time: .01 } }, { id: 'tr', type: 'transpose' }, { id: 'out', type: 'noteOut' }], ['v.out>s.in','s.out>tr.param:semitones','live.out>tr.in','tr.out>out.in'])
++  const target = { kind: 'graph' as const, owner: { kind: 'track' as const, trackId: t.id }, domain: 'notes' as const, path: [], nodeId: 'v', nodeType: 'control', paramId: 'value' }
++  const project = { ...p, tracks: [{ ...t, noteGraph, clips: [{ id: 'c', name: 'install', lengthBeats: 4, notes: [], automation: [{ id: 'l', enabled: false, target, points: [] }] }] }] }
++  const commands = diffProject(null, project), address = { sourceId: 'keyboard', channel: 2, noteId: 'held' }
++  const asset = new Float32Array([.1,.2,.3,.4]), savedAsset = asset.slice()
++  commands.push({ type: 'sample/add', sample: { id: 'asset', sampleRate: rate, data: asset } }, { type: 'track/noteOn', trackId: t.id, note: address, pitch: 60, velocity: .5 })
++  const processor = new Processor(), reference = new Engine(rate)
++  for (const command of commands) { processor.port.onmessage({ data: { kind: 'command', command } }); reference.apply(command) }
++  const allRenders = vi.spyOn(Engine.prototype, 'render')
++  const before = processor.engine.status(), realRenders = () => allRenders.mock.contexts.filter(context=>context === processor.engine).length
++  const output = [[new Float32Array(128).fill(3), new Float32Array(128).fill(3)]]
++  processor.process([], output)
++  expect(realRenders()).toBe(0); expect(output[0]![0]!.every(v=>v === 0)).toBe(true)
++  processor.port.onmessage({ data: { kind: 'prepare' } })
++  const primingCalls = allRenders.mock.calls.length
++  expect(primingCalls).toBeGreaterThan(0)
++  processor.port.onmessage({ data: { kind: 'prepare' } }) // readiness is idempotent; never renders the real engine
++  expect(realRenders()).toBe(0)
++  expect(allRenders).toHaveBeenCalledTimes(primingCalls)
++  expect(processor.engine.status()).toEqual(before)
++  expect(asset).toEqual(savedAsset)
++  expect(messages.filter(m=>m.kind === 'ready')).toHaveLength(2)
++  const change = { type: 'track/setParam' as const, trackId: t.id, graph: 'notes' as const, nodeId: 'v', paramId: 'value', value: 1 }
++  processor.port.onmessage({ data: { kind: 'command', command: change } }); reference.apply(change)
++  const tracks = (processor.engine as unknown as { tracks: Map<string, { apply(event: import('../../core/session').NoteEvent): void }> }).tracks
++  const notes = vi.spyOn(tracks.get(t.id)!, 'apply')
++  for (const n of [1,97,128,173]) {
++    const l = new Float32Array(n), r = new Float32Array(n), a = new Float32Array(n), b = new Float32Array(n)
++    processor.process([], [[l,r]]); reference.render(a,b)
++    expect(l).toEqual(a); expect(r).toEqual(b)
++  }
++  const on = notes.mock.calls.map(([e])=>e).find(e=>e.kind === 'noteOn')
++  expect(on).toMatchObject({ kind: 'noteOn', pitch: 61, identity: { source: JSON.stringify(['live','keyboard']), channel: 2, id: 'held' } })
++  const off = { type: 'track/noteOff' as const, trackId: t.id, note: address }
++  processor.port.onmessage({ data: { kind: 'command', command: off } }); reference.apply(off)
++  const l = new Float32Array(173), r = new Float32Array(173), a = new Float32Array(173), b = new Float32Array(173)
++  processor.process([], [[l,r]]); reference.render(a,b)
++  expect(l).toEqual(a); expect(r).toEqual(b)
++  const released = notes.mock.calls.map(([e])=>e).find(e=>e.kind === 'noteOff')
++  expect(released?.identity).toEqual(on?.identity)
++  expect(released).toMatchObject({ kind: 'noteOff', pitch: 61 })
++})
++
++it('keeps the real engine silent and unadvanced after preparation fails, including duplicate requests', async () => {
++  const { Engine } = await import('@core')
++  const prime = vi.fn(() => { throw Error('prime failed') })
++  vi.doMock('./prepare-engine', () => ({ prepareEngine: prime }))
++  const messages: WorkletMessage[] = []
++  class Shell { port = { onmessage: (_event: { data: HostMessage }) => {}, postMessage: (message: WorkletMessage) => messages.push(message) } }
++  let Processor: new () => Shell & { engine: InstanceType<typeof Engine>; process(input: Float32Array[][], output: Float32Array[][]): boolean } = undefined!
++  vi.stubGlobal('sampleRate', 8000); vi.stubGlobal('currentTime', 0); vi.stubGlobal('AudioWorkletProcessor', Shell)
++  vi.stubGlobal('registerProcessor', (_name: string, factory: typeof Processor) => { Processor = factory })
++  await import('./engine-processor')
++  const processor = new Processor(), render = vi.spyOn(processor.engine, 'render')
++  processor.port.onmessage({ data: { kind: 'prepare' } }); processor.port.onmessage({ data: { kind: 'prepare' } })
++  const l = new Float32Array(128).fill(3), r = l.slice()
++  processor.process([], [[l,r]])
++  expect(prime).toHaveBeenCalledTimes(1)
++  expect(render).not.toHaveBeenCalled()
++  expect(l.every(v=>v === 0) && r.every(v=>v === 0)).toBe(true)
++  expect(messages).toEqual([{ kind: 'preparation-error', message: 'prime failed' }, { kind: 'preparation-error', message: 'prime failed' }])
++})
+diff --git a/src/audio/worklet/engine-processor.ts b/src/audio/worklet/engine-processor.ts
+index 207b1cd..97a4d69 100644
+--- a/src/audio/worklet/engine-processor.ts
++++ b/src/audio/worklet/engine-processor.ts
+@@ -1,5 +1,6 @@
+-import { Engine } from '@core'
++import { Engine, type EngineCommand } from '@core'
+ import { type HostMessage, PROCESSOR_NAME, type WorkletMessage } from '../protocol'
++import { prepareEngine } from './prepare-engine'
+ 
+ const STATUS_INTERVAL_SECONDS = 1 / 30
+ 
+@@ -8,14 +9,20 @@ class EngineProcessor extends AudioWorkletProcessor {
+   private readonly engine = new Engine(sampleRate)
+   private framesSinceStatus = 0
+   private clockChanged = true
++  private initialCommands: EngineCommand[] | null = []
++  private prepared = false
++  private preparationError: string | null = null
+ 
+   constructor() {
+     super()
+     this.port.onmessage = (event: MessageEvent<HostMessage>) => {
+       if (event.data.kind === 'command') {
+         this.engine.apply(event.data.command)
++        this.initialCommands?.push(event.data.command)
+         const type = event.data.command.type
+         if (type.startsWith('transport/') || type.endsWith('/launch')) this.clockChanged = true
++      } else if (event.data.kind === 'prepare') {
++        this.prepare()
+       }
+     }
+   }
+@@ -23,10 +30,11 @@ class EngineProcessor extends AudioWorkletProcessor {
+   process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
+     const [left, right] = outputs[0] ?? []
+     if (!left || !right) return true
++    if (!this.prepared) { left.fill(0); right.fill(0); return true }
+ 
+     if (this.clockChanged) {
+       // Stamp tempo/transport changes at the next quantum's start, before its beats advance.
+-      this.port.postMessage({ kind: 'status', status: this.engine.status(), audioTime: currentTime } satisfies WorkletMessage)
++      this.port.postMessage({ kind: 'clock', clock: this.engine.clock(), audioTime: currentTime } satisfies WorkletMessage)
+       this.clockChanged = false
+       this.framesSinceStatus = sampleRate * STATUS_INTERVAL_SECONDS
+     }
+@@ -35,6 +43,24 @@ class EngineProcessor extends AudioWorkletProcessor {
+     return true
+   }
+ 
++  private prepare(): void {
++    if (this.preparationError !== null) {
++      this.port.postMessage({ kind: 'preparation-error', message: this.preparationError } satisfies WorkletMessage)
++      return
++    }
++    try {
++      if (!this.prepared) {
++        prepareEngine(this.initialCommands ?? [], sampleRate)
++        this.engine.prepareTopology()
++        this.prepared = true
++      }
++      this.port.postMessage({ kind: 'ready' } satisfies WorkletMessage)
++    } catch (error) {
++      this.preparationError = error instanceof Error ? error.message : String(error)
++      this.port.postMessage({ kind: 'preparation-error', message: this.preparationError } satisfies WorkletMessage)
++    } finally { this.initialCommands = null }
++  }
++
+   private reportStatus(frames: number): void {
+     this.framesSinceStatus += frames
+     if (this.framesSinceStatus < sampleRate * STATUS_INTERVAL_SECONDS) return
+diff --git a/src/core/engine/automation-audio.test.ts b/src/core/engine/automation-audio.test.ts
+index c8a7198..75021cd 100644
+--- a/src/core/engine/automation-audio.test.ts
++++ b/src/core/engine/automation-audio.test.ts
+@@ -53,3 +53,21 @@ it('applies per-frame Send-node automation at the correct stereo buffer offset',
+     expect(right[i]).toBeCloseTo(left[i]!, 6)
+   }
+ })
++
++import { createClip, type InstrumentTrack } from '../project'
++
++for (const warp of ['off', 'repitch'] as const) it(`bounds lookahead at a newly launched ${warp} one-shot and restores the first delay tail sample`, () => {
++  const p = projectOf(false, warp), t = p.tracks[0] as AudioTrack, c = t.clips[0]!
++  const instrument = createEmptyProject().tracks[0] as InstrumentTrack
++  const notes = noteGraphFrom([{ id: 'in', type: 'clipNotes' }, { id: 'tr', type: 'transpose' }, { id: 'out', type: 'noteOut' }], ['in.out>tr.in', 'tr.out>out.in'])
++  const fx = noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 'delay', type: 'delay', params: { time: 8 / RATE, feedback: 0, mix: 1 } }, { id: 'out', type: 'trackOut' }], ['in.out>delay.in', 'delay.out>out.in'])
++  const project = { ...p, tracks: [{ ...t, fx, clips: [{ ...c, end: 17 / RATE, lengthBeats: 17 * 2 / RATE, automation: [{ ...c.automation![0]!, points: [{ id: 'p', beat: 0, value: .8, interpolation: 'hold' as const }] }] }] },
++    { ...instrument, id: 'n', noteGraph: notes, clips: [{ ...createClip('clock', 4, []), automation: [{ id: 'notes', enabled: true, target: { kind: 'graph' as const, owner: { kind: 'track' as const, trackId: 'n' }, domain: 'notes' as const, path: [], nodeId: 'tr', nodeType: 'transpose', paramId: 'semitones' }, points: [{ id: 'p', beat: 0, value: .5, interpolation: 'hold' as const }] }] }] }] }
++  const e = new Engine(RATE); e.apply({ type: 'sample/add', sample }); diffProject(null, project).forEach(c => e.apply(c)); e.apply({ type: 'scene/launch', scene: 0 })
++  const out = render(e, 128, 128)
++  expect(out[16]).toBeCloseTo(Math.tanh(.8), 5)
++  for (const i of [17, 18, 19]) expect(out[i]).toBeCloseTo(Math.tanh(.2), 5)
++  expect(out[25]).toBe(0)
++  expect(e.status().tracks.a?.playingClipId).toBeNull()
++  expect(e.status().automation?.every(v => v.target.owner.kind !== 'track' || v.target.owner.trackId !== 'a')).toBe(true)
++})
+diff --git a/src/core/engine/automation-perf.test.ts b/src/core/engine/automation-perf.test.ts
+index bfbfcc0..fd2210a 100644
+--- a/src/core/engine/automation-perf.test.ts
++++ b/src/core/engine/automation-perf.test.ts
+@@ -14,3 +14,52 @@ it('renders a dense Low Light scene with an automated mixer lane through normal
+   expect(Math.max(...l.map(Math.abs))).toBeGreaterThan(0.02)
+   expect(e.status().automation).toHaveLength(1)
+ })
++
++import { vi } from 'vitest'
++import { createClip, createEmptyProject, createNote, type InstrumentTrack, type Project } from '../project'
++import { noteGraphFrom } from '../patch'
++
++const constantNotes = (mode: 'base' | 'mixer' | 'notes' | 'disabled' | 'empty'): Project => {
++  const p = createEmptyProject(), t = p.tracks[0] as InstrumentTrack
++  const owner = { kind: 'track' as const, trackId: 't0' }
++  const target = mode === 'mixer' ? { kind: 'mixer' as const, owner, control: 'volume' as const }
++    : { kind: 'graph' as const, owner, domain: 'notes' as const, path: [], nodeId: 'tr', nodeType: 'transpose', paramId: 'semitones' }
++  return { ...p, tracks: Array.from({ length: 4 }, (_, i) => ({ ...t, id: `t${i}`,
++    noteGraph: noteGraphFrom([{ id: 'in', type: 'clipNotes' }, { id: 'tr', type: 'transpose' }, { id: 'out', type: 'noteOut' }], ['in.out>tr.in', 'tr.out>out.in']),
++    clips: [{ ...createClip('held', 100, [createNote(60, 0, 100, .5)]), id: `c${i}`, automation: i || mode === 'base' ? [] : [{ id: 'lane', enabled: mode !== 'disabled', target, points: mode === 'empty' ? [] : [{ id: 'p', beat: 0, value: .5, interpolation: 'hold' as const }] }] }],
++  })) }
++}
++const engineOf = (p: Project) => { const e = new Engine(48000); diffProject(null, p).forEach(c => e.apply(c)); e.apply({ type: 'scene/launch', scene: 0 }); return e }
++const quantum = (e: Engine) => e.render(new Float32Array(128), new Float32Array(128))
++
++for (const mode of ['base', 'mixer', 'notes', 'disabled', 'empty'] as const) for (const silent of [false, true]) {
++  it(`keeps event-free ${mode} audio in one block (silent/muted owner=${silent})`, () => {
++    let p = constantNotes(mode)
++    if (silent) p = { ...p, tracks: p.tracks.map(t => t.kind !== 'instrument' ? t : { ...t, muted: true, clips: t.clips.map(c => c && ({ ...c, notes: [] })) }) }
++    const e = engineOf(p); quantum(e); quantum(e)
++    const runtime = e as unknown as { processMaster(...args: unknown[]): void; automation: { tick(from: number, to: number): void } }
++    const master = vi.spyOn(runtime, 'processMaster'), tick = vi.spyOn(runtime.automation, 'tick')
++    const NativeMap = globalThis.Map
++    let maps = 0
++    vi.stubGlobal('Map', class extends NativeMap { constructor() { super(); maps++ } })
++    try { quantum(e) } finally { vi.unstubAllGlobals() }
++    expect(master).toHaveBeenCalledTimes(1)
++    expect(tick.mock.calls.length).toBeLessThanOrEqual(128)
++    expect(maps).toBe(0)
++  })
++}
++
++it('does not fragment audio for an overridden or queued notes lane', () => {
++  const p = constantNotes('notes'), e = engineOf(p)
++  quantum(e)
++  const lane = (p.tracks[0] as InstrumentTrack).clips[0]!.automation![0]!
++  e.apply({ type: 'automation/overrides', values: [{ target: lane.target, value: 0 }] })
++  const runtime = e as unknown as { processMaster(...args: unknown[]): void }
++  const master = vi.spyOn(runtime, 'processMaster')
++  quantum(e); expect(master).toHaveBeenCalledTimes(1)
++  e.apply({ type: 'transport/stop' }); e.apply({ type: 'transport/play' }); quantum(e)
++  e.apply({ type: 'clip/launch', trackId: 't0', clipId: 'c0' })
++  master.mockClear(); quantum(e)
++  expect(e.status().tracks.t0?.queued).toBe('c0')
++  expect(master).toHaveBeenCalledTimes(1)
++})
+diff --git a/src/core/engine/automation.ts b/src/core/engine/automation.ts
+index 4e1346a..b25c7c8 100644
+--- a/src/core/engine/automation.ts
++++ b/src/core/engine/automation.ts
+@@ -1,4 +1,4 @@
+-import { automationOwnerKey, automationValue, type AutomationClip, type AutomationTrack, type PlaybackLane } from '../automation'
++import { automationOwnerKey, automationPosition, automationValue, type AutomationClip, type AutomationTrack, type PlaybackLane } from '../automation'
+ import { controlTargetKey, type ControlOwner, type ControlTarget, type ControlValue } from '../control'
+ import { LaunchQueue, type LauncherStatus } from '../session'
+ 
+@@ -6,6 +6,8 @@ import { LaunchQueue, type LauncherStatus } from '../session'
+ export class EngineAutomation {
+   private tracks = new Map<string, { clips: AutomationTrack['clips']; slots: boolean; queue: LaunchQueue<AutomationClip> }>()
+   private active = new Map<string, { lane: PlaybackLane; value: number }>()
++  private next = new Map<string, { lane: PlaybackLane; value: number }>()
++  private readonly metadata = new Map<PlaybackLane, { key: string; entry: { lane: PlaybackLane; value: number }; uniform: boolean }>()
+   overrideRevision = 0
+   private overrides = new Map<string, ControlValue>()
+   constructor(private readonly write: (target: ControlTarget, value: number, baseValue?: number) => void) {}
+@@ -39,6 +41,8 @@ export class EngineAutomation {
+       next.set(key, { clips: track.clips, queue, slots: !!track.slotOwner })
+     }
+     this.tracks = next
++    this.metadata.clear()
++    for (const track of tracks) for (const clip of track.clips) for (const lane of clip?.lanes ?? []) this.metadata.set(lane, { key: controlTargetKey(lane.target), entry: { lane, value: lane.baseValue }, uniform: lane.points.every(point => point.value === lane.points[0]?.value) })
+   }
+   setOverrides(values: readonly ControlValue[], revision = 0): void {
+     this.overrideRevision = revision
+@@ -67,7 +71,8 @@ export class EngineAutomation {
+   }
+   /** Queues commit before scheduling notes, so note-graph parameters see the new lane at launch. */
+   tick(from: number, to: number): void {
+-    const next = new Map<string, { lane: PlaybackLane; value: number }>()
++    const next = this.next
++    next.clear()
+     for (const [trackId, track] of this.tracks) {
+       const boundary = track.queue.pendingBoundary(from - 1e-10, to - 1e-10)
+       if (boundary !== null) {
+@@ -81,18 +86,70 @@ export class EngineAutomation {
+       const phase = Math.max(0, local - Math.floor((local + 1e-10) / clip.lengthBeats) * clip.lengthBeats)
+       for (const lane of clip.lanes) {
+         const value = automationValue(lane, phase)
+-        if (value !== undefined) next.set(controlTargetKey(lane.target), { lane, value })
++        if (value !== undefined) {
++          const meta = this.metadata.get(lane)!
++          // Each lane owns its entry; both evaluation maps borrow it until the next tick.
++          meta.entry.value = value
++          next.set(meta.key, meta.entry)
++        }
+       }
+     }
+     for (const [key, previous] of this.active) if (!next.has(key)) this.write(previous.lane.target, this.overrides.get(key)?.value ?? previous.lane.baseValue)
+     for (const [key, entry] of next) {
+       this.write(entry.lane.target, this.overrides.get(key)?.value ?? entry.value, entry.lane.baseValue)
+     }
++    this.next = this.active
+     this.active = next
+   }
+-  /** Idle projects retain the normal block render path. */
+-  get noteLanes(): boolean { return [...this.tracks.values()].some(({ queue }) => [queue.playback?.clip, queue.queued?.clip].some((clip) => clip?.lanes.some((lane) => lane.enabled && lane.points.length && lane.target.kind === 'graph' && lane.target.domain === 'notes'))) }
++  /** Only provably constant note controls may use interval processors. Helpers are handled by the caller.
++   * Called after the first sample tick: ownership/restoration at the horizon start has already committed.
++   * A queued transition inside the horizon conservatively retains sample cadence on both sides.
++   */
++  noteOwners(into: Set<string>, from: number, to: number): void {
++    for (const { queue } of this.tracks.values()) {
++      const boundary = queue.pendingBoundary(from - 1e-10, to - 1e-10)
++      if (boundary !== null) {
++        for (const clip of [queue.playback?.clip, queue.queued?.clip]) for (const lane of clip?.lanes ?? []) this.addNoteOwner(into, lane)
++        continue
++      }
++      const playback = queue.playback
++      if (!playback) continue
++      const { clip, startBeat } = playback
++      const local = Math.max(0, from - startBeat), end = Math.max(0, to - startBeat)
++      const loop = Math.floor((local + 1e-10) / clip.lengthBeats)
++      const phase = Math.max(0, local - loop * clip.lengthBeats)
++      const endPhase = Math.max(0, end - loop * clip.lengthBeats)
++      for (const lane of clip.lanes) {
++        const meta = this.metadata.get(lane)!
++        if (this.overrides.has(meta.key) || meta.uniform) continue
++        if (endPhase >= clip.lengthBeats || !constantPosition(lane, phase, endPhase)) this.addNoteOwner(into, lane)
++      }
++    }
++  }
++  private addNoteOwner(into: Set<string>, lane: PlaybackLane): void {
++    if (lane.enabled && lane.points.length && lane.target.kind === 'graph' && lane.target.domain === 'notes' && lane.target.owner.kind === 'track') into.add(lane.target.owner.trackId)
++  }
++  /** Kept for the structural diagnostic; render planning uses reusable owner/component sets. */
++  get noteLanes(): boolean {
++    for (const { queue } of this.tracks.values()) for (const clip of [queue.playback?.clip, queue.queued?.clip]) {
++      if (clip?.lanes.some(lane => lane.enabled && lane.points.length && lane.target.kind === 'graph' && lane.target.domain === 'notes')) return true
++    }
++    return false
++  }
+   get configured(): boolean { return this.tracks.size > 0 }
+   overrideValues(): readonly ControlValue[] { return [...this.overrides.values()] }
+   readouts(): readonly ControlValue[] { return [...this.active.values()].map(({ lane, value }) => ({ target: lane.target, value })) }
+ }
++
++/** Equal endpoints alone are insufficient: a hold or ramp can leave and return within the range.
++ * Compare normalized positions conservatively (even where rounding would produce the same scalar).
++ */
++const constantPosition = (lane: PlaybackLane, from: number, to: number): boolean => {
++  const value = automationPosition(lane, from, lane.discrete)
++  if (automationPosition(lane, to, lane.discrete) !== value) return false
++  const points = lane.points
++  let lo = 0, hi = points.length
++  while (lo < hi) { const mid = (lo + hi) >>> 1; if (points[mid]!.beat < from - 1e-10) lo = mid + 1; else hi = mid }
++  for (let i = lo; i < points.length && points[i]!.beat <= to + 1e-10; i++) if (points[i]!.value !== value) return false
++  return true
++}
+diff --git a/src/core/engine/engine.ts b/src/core/engine/engine.ts
+index 590c094..aab5293 100644
+--- a/src/core/engine/engine.ts
++++ b/src/core/engine/engine.ts
+@@ -20,6 +20,7 @@ import { TrackRuntime } from './track-runtime'
+ 
+ interface ScheduledEvent {
+   readonly frame: number
++  readonly order: number
+   readonly action: ScheduledAction
+ }
+ 
+@@ -30,7 +31,10 @@ interface ScheduledEvent {
+  */
+ export class Engine {
+   private readonly automation = new EngineAutomation((target, value, baseValue) => this.writeAutomation(target, value, baseValue))
+-  private collecting: { frame: number; frames: number; curves: Map<string, { target: ControlTarget; values: Float64Array; baseValue: number }> } | null = null
++  private collecting: { frame: number; frames: number } | null = null
++  /** Curves live until every audio subrun of their planning horizon has consumed them. */
++  private targetMetadata = new WeakMap<ControlTarget, { key: string; nodeId: string }>()
++  private readonly curves = new Map<string, { target: ControlTarget; values: Float64Array; baseValue: number; used: boolean }>()
+   private readonly automationSends = new Map<string, Record<string, number>>()
+   private readonly transport: Transport
+   private readonly tracks = new Map<string, PlayableTrack>()
+@@ -50,6 +54,12 @@ export class Engine {
+    */
+   private scheduleOrder: PlayableTrack[] | null = null
+   private mixOrder: PlayableTrack[] | null = null
++  private instrumentOrder: readonly TrackRuntime[] | null = null
++  private noteComponents: readonly { tracks: readonly TrackRuntime[]; ids: readonly string[] }[] | null = null
++  private readonly noteOwners = new Set<string>()
++  private readonly sampleTracks: TrackRuntime[] = []
++  private readonly intervalTracks: TrackRuntime[] = []
++  private readonly scheduleRanks = new Map<PlayableTrack, number>()
+   /** What each track's note graph produced in the current block, for other tracks to read. */
+   private readonly noteTaps: TapBoard = new Map()
+   /** What the tracks sent to each return track in the stretch being mixed. */
+@@ -66,6 +76,16 @@ export class Engine {
+     this.master = new FxGraph(createDefaultMasterGraph(), sampleRate, this.samples)
+   }
+ 
++  /** Compile topology and empty routing boards without rendering, scheduling or advancing a clock.
++   * The host can do this while suspended; subsequent topology edits retain normal invalidation.
++   */
++  prepareTopology(): void {
++    this.noteTracks()
++    this.components()
++    this.mixTracks()
++    if (this.mixStateStale) this.updateMixState()
++  }
++
+   apply(command: EngineCommand): void {
+     switch (command.type) {
+       case 'automation/launch':
+@@ -73,6 +93,8 @@ export class Engine {
+         this.transport.play()
+         break
+       case 'automation/configure':
++        this.curves.clear()
++        this.targetMetadata = new WeakMap()
+         this.automation.configure(command.tracks, new Map([...this.tracks].map(([id, track]) => [id, track.status()])))
+         for (const [id, track] of this.tracks) if (track instanceof TrackRuntime) track.setAutomationNoteGraph(command.tracks.find((t) => t.trackId === id)?.noteGraph)
+         break
+@@ -133,8 +155,10 @@ export class Engine {
+         this.invalidateOrder() // which returns it sends to may have changed
+         break
+       case 'track/setNoteGraph':
+-        if (this.instrument(command.trackId)?.setNoteGraph(command.graph)) this.cancelTrackNotes(command.trackId)
+-        this.invalidateOrder()
++        if (this.instrument(command.trackId)?.setNoteGraph(command.graph)) {
++          this.cancelTrackNotes(command.trackId)
++          this.invalidateOrder()
++        }
+         break
+       case 'track/setVoices':
+         this.cancelTrackNotes(command.trackId)
+@@ -221,7 +245,7 @@ export class Engine {
+     right.fill(0)
+     for (let offset = 0; offset < left.length;) {
+       // Note-graph automation schedules at sample boundaries; audio and mixer curves keep block processing.
+-      const frames = Math.min(this.transport.playing && this.automation.noteLanes ? 1 : MAX_BLOCK_FRAMES, left.length - offset)
++      const frames = Math.min(MAX_BLOCK_FRAMES, left.length - offset)
+       this.renderBlock(left, right, offset, frames)
+       offset += frames
+     }
+@@ -232,6 +256,11 @@ export class Engine {
+     this.peak = Math.max(this.peak, peakOf(left), peakOf(right))
+   }
+ 
++  /** Clock-only snapshot: no readout traversal, peak reset or audio-state mutation. */
++  clock(): Pick<EngineStatus, 'tempo' | 'playing' | 'beat'> {
++    return { tempo: this.transport.tempo, playing: this.transport.playing, beat: this.transport.positionBeats }
++  }
++
+   /** Snapshot for display. Reading it also resets the output-level peak. */
+   status(): EngineStatus {
+     const tracks: Record<string, LauncherStatus> = {}
+@@ -291,36 +320,97 @@ export class Engine {
+   }
+ 
+   private renderBlock(left: Float32Array, right: Float32Array, offset: number, frames: number): void {
+-    if (this.transport.playing && this.automation.noteLanes) this.automation.tick(this.transport.positionBeats, this.transport.beatAfter(frames))
+-    const events = this.collectEvents(frames)
+-
+-    let cursor = 0
+-    for (const { frame, action } of events) {
+-      this.mixSegment(left, right, offset, cursor, frame - cursor)
+-      cursor = frame
+-      action.run()
++    const audioEvents: ScheduledEvent[] = []
++    if (this.transport.playing) for (const track of this.scheduleTracks()) if (!(track instanceof TrackRuntime)) {
++      for (const action of track.schedule(this.transport.positionBeats, this.transport.beatAfter(frames), this.noteTaps)) {
++        audioEvents.push({ frame: this.eventFrame(action.beat, this.transport.positionBeats, frames), order: this.scheduleRanks.get(track)!, action })
++      }
++    }
++    audioEvents.sort((a, b) => a.frame - b.frame)
++    const instruments = this.noteTracks()
++    if (!this.automation.configured && !instruments.some(track => track.hasNoteControls)) {
++      // No ownership/curves/helper clock needs a planning horizon. Retain the established interval path,
++      // including audio clip actions and generators, without paying automation's bookkeeping per block.
++      const events = audioEvents
++      this.collectEvents(0, frames, events, instruments)
++      events.sort((a, b) => a.frame - b.frame || a.order - b.order)
++      let cursor = 0
++      for (const { frame, action } of events) {
++        this.mixSegment(left, right, offset, cursor, frame - cursor)
++        cursor = frame
++        action.run()
++      }
++      this.mixSegment(left, right, offset, cursor, frames - cursor)
++      this.transport.advance(frames)
++      this.noteBeat += frames * this.transport.beatsPerSample
++      return
++    }
++    let cursor = 0, audioIndex = 0
++    while (cursor < frames) {
++      // Apply starts/stops before discovering the new state's one-shot horizon.
++      while (audioIndex < audioEvents.length && audioEvents[audioIndex]!.frame === cursor) audioEvents[audioIndex++]!.action.run()
++      let end = audioEvents[audioIndex]?.frame ?? frames
++      for (const [id, track] of this.tracks) if (track instanceof AudioTrackRuntime) {
++        const remaining = track.framesUntilEnd({ beat: this.transport.beatAfter(cursor), beatsPerSample: this.transport.beatsPerSample })
++        if (remaining === 0) { track.finishClip(this.transport.beatAfter(cursor)); this.automation.finish(id) }
++        else end = Math.min(end, cursor + remaining)
++      }
++      // A zero-length lifecycle was committed above; every planned horizon must now advance.
++      if (end <= cursor) throw new Error('Non-progressing audio planning horizon')
++      for (const curve of this.curves.values()) curve.used = false
++      const collecting = { frame: 0, frames: end - cursor }
++      this.collecting = collecting
++      const events: ScheduledEvent[] = []
++      // Commit first-sample ownership and note values before any interval scheduling. A constant-range
++      // proof may then retain the established processor without observing a later sample's parameters.
++      if (this.transport.playing && this.automation.configured) this.automation.tick(this.transport.beatAfter(cursor), this.transport.beatAfter(cursor + 1))
++      this.planNoteComponents(this.transport.beatAfter(cursor), this.transport.beatAfter(end))
++      // Disconnected components cannot read each other's taps. Fixed-parameter components retain their
++      // established interval processors (including autonomous generators); affected components keep sample cadence.
++      this.collectEvents(cursor, end - cursor, events, this.intervalTracks)
++      if (this.sampleTracks.length) {
++        for (let frame = cursor; frame < end; frame++) {
++          collecting.frame = frame - cursor
++          if (frame > cursor && this.transport.playing && this.automation.configured) this.automation.tick(this.transport.beatAfter(frame), this.transport.beatAfter(frame + 1))
++          this.collectEvents(frame, 1, events, this.sampleTracks)
++        }
++      } else if (this.transport.playing && this.automation.configured) {
++        for (let frame = cursor + 1; frame < end; frame++) {
++          collecting.frame = frame - cursor
++          this.automation.tick(this.transport.beatAfter(frame), this.transport.beatAfter(frame + 1))
++        }
++      }
++      this.collecting = null
++      for (const curve of this.curves.values()) if (curve.used) {
++        let last = curve.baseValue
++        for (let i = 0; i < collecting.frames; i++) { if (Number.isNaN(curve.values[i]!)) curve.values[i] = last; else last = curve.values[i]! }
++      }
++      events.sort((a, b) => a.frame - b.frame || a.order - b.order)
++      let mixed = cursor
++      for (const { frame, action } of events) {
++        this.mixSegment(left, right, offset, mixed, frame - mixed, mixed - cursor)
++        mixed = frame
++        action.run()
++      }
++      this.mixSegment(left, right, offset, mixed, end - mixed, mixed - cursor)
++      cursor = end
+     }
+-    this.mixSegment(left, right, offset, cursor, frames - cursor)
+     this.transport.advance(frames)
+     this.noteBeat += frames * this.transport.beatsPerSample
+   }
+ 
+-  private collectEvents(frames: number): ScheduledEvent[] {
+-    const from = this.noteBeat
++  private eventFrame(beat: number, from: number, frames: number): number {
++    return Math.max(0, Math.min(frames - 1, Math.round((beat - from) / this.transport.beatsPerSample)))
++  }
++
++  private collectEvents(cursor: number, frames: number, scheduled: ScheduledEvent[], tracks: readonly TrackRuntime[]): void {
++    const from = this.noteBeat + cursor * this.transport.beatsPerSample
+     const to = from + frames * this.transport.beatsPerSample
+-    const scheduled: ScheduledEvent[] = []
+     this.noteTaps.clear()
+-    for (const track of this.scheduleTracks()) {
+-      const actions = track instanceof TrackRuntime
+-        ? track.schedule(from, to, this.noteTaps, this.transport.playing ? this.transport.positionBeats : undefined, this.transport.beatAfter(frames))
+-        : this.transport.playing ? track.schedule(this.transport.positionBeats, this.transport.beatAfter(frames), this.noteTaps)
+-          .map((action) => ({ beat: from + action.beat - this.transport.positionBeats, run: () => action.run() })) : []
+-      for (const action of actions) {
+-        scheduled.push({ frame: Math.max(0, Math.min(frames - 1, Math.round((action.beat - from) / this.transport.beatsPerSample))), action })
+-      }
++    for (const track of tracks) {
++      const actions = track.schedule(from, to, this.noteTaps, this.transport.playing ? this.transport.beatAfter(cursor) : undefined, this.transport.beatAfter(cursor + frames))
++      for (const action of actions) scheduled.push({ frame: cursor + this.eventFrame(action.beat, from, frames), order: this.scheduleRanks.get(track)!, action })
+     }
+-    // Array#sort is stable, so same-frame events keep each launcher's own order (offs before ons).
+-    return scheduled.sort((a, b) => a.frame - b.frame)
+   }
+ 
+   /**
+@@ -333,50 +423,31 @@ export class Engine {
+     blockOffset: number,
+     cursor: number,
+     frames: number,
++    curveOffset = 0,
+   ): void {
+     if (frames <= 0) return
+-    const timing = { beat: this.transport.beatAfter(cursor), beatsPerSample: this.transport.beatsPerSample }
+-    let boundary = frames
+-    for (const [id, track] of this.tracks) if (this.automation.configured && track instanceof AudioTrackRuntime) {
+-      const remaining = track.framesUntilEnd(timing)
+-      if (remaining === 0) { track.finishClip(timing.beat); this.automation.finish(id) }
+-      else boundary = Math.min(boundary, remaining)
+-    }
+-    if (boundary < frames) {
+-      this.mixSegment(left, right, blockOffset, cursor, boundary)
+-      this.mixSegment(left, right, blockOffset, cursor + boundary, frames - boundary)
+-      return
+-    }
+     this.master.clearAutomation()
+     this.masterVolumeCurve = null
+     for (const track of this.tracks.values()) { track.clearAutomation(); track.strip.clearAutomation() }
+-    if (this.transport.playing && this.automation.configured) {
+-      const collecting = { frame: 0, frames, curves: new Map<string, { target: ControlTarget; values: Float64Array; baseValue: number }>() }
+-      this.collecting = collecting
+-      for (let frame = 0; frame < frames; frame++) {
+-        collecting.frame = frame
+-        this.automation.tick(this.transport.beatAfter(cursor + frame), this.transport.beatAfter(cursor + frame + 1))
++    for (const curve of this.curves.values()) if (curve.used) {
++      const { target } = curve
++      const values = curve.values.subarray(curveOffset, curveOffset + frames)
++      if (target.owner.kind === 'master') {
++        if (target.kind === 'graph') this.master.setAutomationCurve(flatControlNodeId(target), target.paramId, values)
++        else { this.masterVolumeCurve = values; this.masterVolume = values[frames - 1]! }
++        continue
+       }
+-      this.collecting = null
+-      for (const { target, values, baseValue } of collecting.curves.values()) {
+-        let last = baseValue
+-        for (let i = 0; i < frames; i++) { if (Number.isNaN(values[i]!)) values[i] = last; else last = values[i]! }
+-        if (target.owner.kind === 'master') {
+-          if (target.kind === 'graph') this.master.setAutomationCurve(flatControlNodeId(target), target.paramId, values)
+-          else { this.masterVolumeCurve = values; this.masterVolume = values[frames - 1]! }
+-          continue
+-        }
+-        const track = this.tracks.get(target.owner.trackId)
+-        if (!track) continue
+-        if (target.kind === 'graph') track.setAutomationCurve(flatControlNodeId(target), target.paramId, values, target.domain)
+-        else if (target.control === 'volume') { track.strip.volumeCurve = values; track.strip.volume = values[frames - 1]! }
+-        else if (target.control === 'pan') { track.strip.panCurve = values; track.strip.pan = values[frames - 1]! }
+-        else {
+-          track.strip.sendCurves.set(target.returnId, values)
+-          const sends = this.automationSends.get(target.owner.trackId) ?? {}
+-          sends[target.returnId] = values[frames - 1]!
+-          this.automationSends.set(target.owner.trackId, sends); this.setSendLevels(target.owner.trackId, sends)
+-        }
++      const track = this.tracks.get(target.owner.trackId)
++      if (!track) continue
++      if (target.kind === 'graph') track.setAutomationCurve(flatControlNodeId(target), target.paramId, values, target.domain)
++      else if (target.control === 'volume') { track.strip.volumeCurve = values; track.strip.volume = values[frames - 1]! }
++      else if (target.control === 'pan') { track.strip.panCurve = values; track.strip.pan = values[frames - 1]! }
++      else {
++        track.strip.sendCurves.set(target.returnId, values)
++        const sends = this.automationSends.get(target.owner.trackId) ?? {}
++        sends[target.returnId] = values[frames - 1]!
++        this.automationSends.set(target.owner.trackId, sends)
++        this.setSendLevels(target.owner.trackId, sends)
+       }
+     }
+     const mix: MixContext = {
+@@ -405,6 +476,8 @@ export class Engine {
+ 
+   private invalidateOrder(): void {
+     this.scheduleOrder = null
++    this.noteComponents = null
++    this.instrumentOrder = null
+     this.mixOrder = null
+     this.mixStateStale = true // which tracks feed which returns may have changed
+   }
+@@ -447,9 +520,58 @@ export class Engine {
+     }
+   }
+ 
++  private noteTracks(): readonly TrackRuntime[] {
++    return this.instrumentOrder ??= this.scheduleTracks().filter((track): track is TrackRuntime => track instanceof TrackRuntime)
++  }
++
++  /** Topology-only compilation: an undirected closure includes every upstream source and transitive reader. */
++  private components(): readonly { tracks: readonly TrackRuntime[]; ids: readonly string[] }[] {
++    if (this.noteComponents) return this.noteComponents
++    const ordered = this.noteTracks()
++    const ids = new Map([...this.tracks].map(([id, track]) => [track, id]))
++    const neighbors = new Map(ordered.map(track => [track, new Set<TrackRuntime>()]))
++    for (const track of ordered) for (const id of track.tapSources()) {
++      const source = this.tracks.get(id)
++      if (!(source instanceof TrackRuntime)) continue
++      neighbors.get(track)!.add(source)
++      neighbors.get(source)!.add(track)
++    }
++    const seen = new Set<TrackRuntime>()
++    const components: { tracks: TrackRuntime[]; ids: string[] }[] = []
++    for (const root of ordered) {
++      if (seen.has(root)) continue
++      const members = new Set<TrackRuntime>(), pending = [root]
++      while (pending.length) {
++        const track = pending.pop()!
++        if (members.has(track)) continue
++        members.add(track); seen.add(track)
++        for (const neighbor of neighbors.get(track)!) pending.push(neighbor)
++      }
++      const tracks = ordered.filter(track => members.has(track))
++      components.push({ tracks, ids: tracks.map(track => ids.get(track)!) })
++    }
++    return this.noteComponents = components
++  }
++
++  private planNoteComponents(from: number, to: number): void {
++    this.noteOwners.clear()
++    if (this.transport.playing) this.automation.noteOwners(this.noteOwners, from, to)
++    this.sampleTracks.length = 0
++    this.intervalTracks.length = 0
++    for (const component of this.components()) {
++      const sample = component.ids.some(id => this.noteOwners.has(id)) || component.tracks.some(track => track.hasNoteControls)
++      const into = sample ? this.sampleTracks : this.intervalTracks
++      into.push(...component.tracks)
++    }
++  }
++
+   /** The tracks in the order their events are scheduled in: each after the tracks it takes notes from. */
+   private scheduleTracks(): readonly PlayableTrack[] {
+-    this.scheduleOrder ??= this.sorted(new Map([...this.tracks].map(([id, track]) => [id, track.tapSources()])))
++    if (!this.scheduleOrder) {
++      this.scheduleOrder = this.sorted(new Map([...this.tracks].map(([id, track]) => [id, track.tapSources()])))
++      this.scheduleRanks.clear()
++      this.scheduleOrder.forEach((track, index) => this.scheduleRanks.set(track, index))
++    }
+     return this.scheduleOrder
+   }
+ 
+@@ -529,22 +651,31 @@ export class Engine {
+   }
+ 
+   private writeAutomation(target: ControlTarget, value: number, baseValue = value): void {
+-    if (this.collecting) {
+-      const key = controlTargetKey(target)
+-      const curve = this.collecting.curves.get(key) ?? { target, values: new Float64Array(this.collecting.frames).fill(NaN), baseValue }
++    let metadata = this.targetMetadata.get(target)
++    if (!metadata) {
++      metadata = { key: controlTargetKey(target), nodeId: target.kind === 'graph' ? flatControlNodeId(target) : '' }
++      this.targetMetadata.set(target, metadata)
++    }
++    if (this.collecting && !(target.kind === 'graph' && target.domain === 'notes')) {
++      const key = metadata.key
++      let curve = this.curves.get(key)
++      if (!curve) {
++        curve = { target, values: new Float64Array(MAX_BLOCK_FRAMES), baseValue, used: false }
++        this.curves.set(key, curve)
++      }
++      if (!curve.used) { curve.values.fill(NaN); curve.baseValue = baseValue; curve.used = true }
+       curve.values[this.collecting.frame] = value
+-      this.collecting.curves.set(key, curve)
+       return
+     }
+     if (target.owner.kind === 'master') {
+-      if (target.kind === 'graph') this.master.setParam(flatControlNodeId(target), target.paramId, value)
++      if (target.kind === 'graph') this.master.setParam(metadata.nodeId, target.paramId, value)
+       else this.masterVolume = value
+       return
+     }
+     const track = this.tracks.get(target.owner.trackId)
+     if (!track) return
+     if (target.kind === 'graph') {
+-      const nodeId = flatControlNodeId(target)
++      const nodeId = metadata.nodeId
+       if (track.setAutomationParam) track.setAutomationParam(nodeId, target.paramId, value, target.domain)
+       else track.setParam(nodeId, target.paramId, value, target.domain)
+     } else if (target.control === 'volume') track.strip.volume = value
+diff --git a/src/core/engine/live-notes.ts b/src/core/engine/live-notes.ts
+index 9582e33..d09deb2 100644
+--- a/src/core/engine/live-notes.ts
++++ b/src/core/engine/live-notes.ts
+@@ -11,6 +11,8 @@ export interface LiveNoteAddress {
+ export const liveSource = (sourceId: string): string => JSON.stringify(['live', sourceId])
+ export const clipSource = (trackId: string): string => JSON.stringify(['clip', trackId])
+ 
++const EMPTY_EVENTS: NoteEvent[] = []
++
+ interface Held {
+   readonly identity: NoteIdentity
+   readonly pitch: number
+@@ -72,6 +74,7 @@ export class LiveNotes {
+   }
+ 
+   take(beat: number): NoteEvent[] {
++    if (!this.pending.length) return EMPTY_EVENTS
+     const events = this.pending.map((event) => ({ ...event, beat }))
+     this.pending = []
+     return events
+diff --git a/src/core/engine/track-runtime.ts b/src/core/engine/track-runtime.ts
+index b8a3f39..fa1e587 100644
+--- a/src/core/engine/track-runtime.ts
++++ b/src/core/engine/track-runtime.ts
+@@ -12,6 +12,7 @@ import type { MixContext, PlayableTrack, ScheduledAction } from './playable-trac
+ 
+ /** How long an audition note sounds before it is released. */
+ const AUDITION_SECONDS = 0.3
++const EMPTY_EVENTS: NoteEvent[] = []
+ 
+ /** Live, audio-thread counterpart of a project Track: voice + clip player + level. */
+ export class TrackRuntime implements PlayableTrack {
+@@ -32,6 +33,7 @@ export class TrackRuntime implements PlayableTrack {
+   /** Kept here as well, since the instrument and the insert graph are rebuilt by edits and must start with it. */
+   private tempo = DEFAULT_TEMPO
+   private beatOrigin = 0
++  private readonly tap = { clip: EMPTY_EVENTS, out: EMPTY_EVENTS }
+ 
+   constructor(
+     private readonly trackId: string,
+@@ -118,10 +120,12 @@ export class TrackRuntime implements PlayableTrack {
+   }
+ 
+   setAutomationNoteGraph(patch?: Patch): void {
+-    this.noteControls?.process((nodeId, paramId, value) => this.graph.setParam(nodeId, paramId, value))
+-    this.noteControls = patch ? new NoteControlGraph(patch) : undefined
++    if (!patch) this.noteControls = undefined
++    else if (!this.noteControls?.sync(patch)) this.noteControls = new NoteControlGraph(patch, this.sampleRate)
+   }
+ 
++  get hasNoteControls(): boolean { return this.noteControls?.clocked === true }
++
+   setAutomationParam(nodeId: string, paramId: string, value: number, graph: 'patch' | 'fx' | 'notes'): void {
+     if (graph === 'notes') { this.graph.setParam(nodeId, paramId, value); this.noteControls?.setParam(nodeId, paramId, value) }
+     else if (graph === 'patch') this.instrument.setParam(nodeId, paramId, value)
+@@ -136,7 +140,7 @@ export class TrackRuntime implements PlayableTrack {
+   }
+ 
+   setParam(nodeId: string, paramId: string, value: number, graph?: 'patch' | 'fx' | 'notes'): void {
+-    if (graph === 'notes') { this.graph.setParam(nodeId, paramId, value); return }
++    if (graph === 'notes') { this.graph.setParam(nodeId, paramId, value); this.noteControls?.setParam(nodeId, paramId, value); return }
+     if (graph !== 'fx') {
+       this.patch = setNodeParam(this.patch, nodeId, paramId, value)
+       this.instrument.setParam(nodeId, paramId, value)
+@@ -170,13 +174,16 @@ export class TrackRuntime implements PlayableTrack {
+     this.noteControls?.process((nodeId, paramId, value) => this.graph.setParam(nodeId, paramId, value))
+     // Clips follow transport; the graph follows a continuous render clock even while stopped.
+     if (transportFrom !== undefined) this.beatOrigin = from - transportFrom
+-    const clipEvents = transportFrom === undefined ? [] : this.launcher.collectEvents(transportFrom, transportTo ?? transportFrom + (to - from))
++    const clipEvents = transportFrom === undefined ? EMPTY_EVENTS : this.launcher.collectEvents(transportFrom, transportTo ?? transportFrom + (to - from))
+       .map((event) => ({ ...event, beat: from + event.beat - transportFrom }))
+-    const input = [...clipEvents, ...this.live.take(from)].sort((a, b) => a.beat - b.beat)
+-    const events = this.graph.process(input, from, to, board, this.beatOrigin)
+-    events.unshift(...this.cancellations.map((scope): NoteEvent => ({ beat: from, kind: 'allOff', ...(scope ? { scope } : {}) })))
+-    this.cancellations = []
+-    board.set(this.trackId, { clip: input, out: events })
++    const live = this.live.take(from)
++    const input = live.length ? [...clipEvents, ...live].sort((a, b) => a.beat - b.beat) : clipEvents
++    let events = this.graph.process(input, from, to, board, this.beatOrigin)
++    if (this.cancellations.length) events = [...this.cancellations.map((scope): NoteEvent => ({ beat: from, kind: 'allOff', ...(scope ? { scope } : {}) })), ...events]
++    this.cancellations.length = 0
++    this.tap.clip = input
++    this.tap.out = events
++    board.set(this.trackId, this.tap)
+     return events.map((event) => ({ beat: event.beat, run: () => this.apply(event) }))
+   }
+ 
+diff --git a/src/core/instrument/note-control-graph.ts b/src/core/instrument/note-control-graph.ts
+index 04b75ee..12f921d 100644
+--- a/src/core/instrument/note-control-graph.ts
++++ b/src/core/instrument/note-control-graph.ts
+@@ -1,17 +1,21 @@
+ import { type ProcessContext, findNodeDefinition, paramOfPort } from '../dsp'
+ import { type Patch, topologicalOrder } from '../patch'
+ import { bufferKey, compileStage, processStage, setStageParam } from './compile'
+-const CONTEXT: ProcessContext = { frames: 1, sampleRate: 48000, note: { frequency: 0, velocity: 0, gate: false, trigger: 0 }, samples: { get: () => undefined } }
++
+ 
+ /** Dynamic counterpart of note-graph constant baking. Helpers retain normal wire ownership. */
+ export class NoteControlGraph {
+   private readonly stage: ReturnType<typeof compileStage>
+   private readonly feeds: readonly { nodeId: string; paramId: string; sources: readonly Float32Array[] }[]
+-  constructor(patch: Patch) {
++  private readonly context: ProcessContext
++  private readonly signature: string
++  constructor(patch: Patch, sampleRate: number) {
++    this.context = { frames: 1, sampleRate, note: { frequency: 0, velocity: 0, gate: false, trigger: 0 }, samples: { get: () => undefined } }
++    this.signature = structure(patch)
+     const nodes = patch.nodes.filter((node) => findNodeDefinition(node.type)?.global === true)
+     const ids = new Set(nodes.map((node) => node.id))
+     const helpers = { nodes, connections: patch.connections.filter((wire) => ids.has(wire.to.node) && ids.has(wire.from.node)) }
+-    this.stage = compileStage(helpers, topologicalOrder(helpers) ?? [], 48000)
++    this.stage = compileStage(helpers, topologicalOrder(helpers) ?? [], sampleRate)
+     const feeds = new Map<string, { nodeId: string; paramId: string; sources: Float32Array[]; valid: boolean }>()
+     for (const wire of patch.connections) {
+       const paramId = paramOfPort(wire.to.port)
+@@ -24,12 +28,22 @@ export class NoteControlGraph {
+     }
+     this.feeds = [...feeds.values()].filter((entry) => entry.valid)
+   }
++  get clocked(): boolean { return this.stage.nodes.length > 0 }
++
++  /** Parameter-only/configuration updates never clock a helper. Structural changes reset it. */
++  sync(patch: Patch): boolean {
++    if (structure(patch) !== this.signature) return false
++    for (const node of patch.nodes) for (const [id, value] of Object.entries(node.params)) this.setParam(node.id, id, value)
++    return true
++  }
+   setParam(nodeId: string, paramId: string, value: number): void { setStageParam(this.stage, nodeId, paramId, value) }
+   process(write: (nodeId: string, paramId: string, value: number) => void): void {
+-    processStage(this.stage, CONTEXT)
++    processStage(this.stage, this.context)
+     for (const feed of this.feeds) {
+       const value = feed.sources.reduce((sum, source) => sum + (source[0] ?? 0), 0)
+       if (Number.isFinite(value)) write(feed.nodeId, feed.paramId, value)
+     }
+   }
+ }
++
++const structure = (patch: Patch): string => JSON.stringify([patch.nodes.map(n => [n.id, n.type]), patch.connections.map(w => [w.from.node, w.from.port, w.to.node, w.to.port])])
+diff --git a/src/core/notefx/arpeggiator.ts b/src/core/notefx/arpeggiator.ts
+index 047c6f3..f17a4d8 100644
+--- a/src/core/notefx/arpeggiator.ts
++++ b/src/core/notefx/arpeggiator.ts
+@@ -1,6 +1,6 @@
+ import { Params, type ParamSpec } from '../dsp'
+ import { noteKey, inNoteScope, childIdentity, type NoteIdentity, type NoteEvent } from '../session'
+-import { EventQueue, compareEvents } from './events'
++import { EventQueue, NOTE_BEAT_EPSILON, compareEvents } from './events'
+ import { NOTE_IN, NOTE_OUT, type NoteNodeDefinition, type NoteProcessor } from './types'
+ 
+ const RATES = ['1/4', '1/8', '1/16', '1/32'] as const
+@@ -71,7 +71,7 @@ class Arpeggiator implements NoteProcessor {
+     let index = 0
+     while (true) {
+       const inputBeat = input[index]?.beat ?? Infinity
+-      if (inputBeat >= to && stepBeat >= to) break
++      if (inputBeat >= to - NOTE_BEAT_EPSILON && stepBeat >= to - NOTE_BEAT_EPSILON) break
+ 
+       // Input at or before a step is handled first, so a chord that starts on a step is heard on that step.
+       if (inputBeat <= stepBeat) {
+diff --git a/src/core/notefx/events.ts b/src/core/notefx/events.ts
+index af22680..4a96533 100644
+--- a/src/core/notefx/events.ts
++++ b/src/core/notefx/events.ts
+@@ -1,5 +1,8 @@
+ import { eventInScope, type NoteScope, type NoteEvent } from '../session'
+ 
++/** Beat comparisons share automation's tolerance so a rounded block end cannot consume the next sample's event. */
++export const NOTE_BEAT_EPSILON = 1e-10
++
+ const KIND_PRIORITY: Record<NoteEvent['kind'], number> = { allOff: 0, noteOff: 1, noteOn: 2 }
+ 
+ /** Time order, and at the same beat: everything off first, then note-offs, then note-ons. */
+@@ -16,8 +19,8 @@ export class EventQueue {
+ 
+   /** Removes and returns the events due before `to` (in order). */
+   takeBefore(to: number): NoteEvent[] {
+-    const due = this.events.filter((event) => event.beat < to)
+-    if (due.length > 0) this.events = this.events.filter((event) => event.beat >= to)
++    const due = this.events.filter((event) => event.beat < to - NOTE_BEAT_EPSILON)
++    if (due.length > 0) this.events = this.events.filter((event) => event.beat >= to - NOTE_BEAT_EPSILON)
+     return due.sort(compareEvents)
+   }
+ 
+diff --git a/src/core/notefx/graph.ts b/src/core/notefx/graph.ts
+index a8f5afd..d31ac4c 100644
+--- a/src/core/notefx/graph.ts
++++ b/src/core/notefx/graph.ts
+@@ -29,11 +29,16 @@ interface RunningNode {
+   readonly processor: NoteProcessor
+   /** One merger per input port that has several sources. */
+   readonly mergers: Map<string, Merger>
++  readonly params: Map<string, number>
++  inputKeys: string[]
++  outputKeys: string[]
+   trackId: string | undefined
+   tap: number
+   bypassed: boolean
+ }
+ 
++const EMPTY: NoteEvent[] = []
++
+ const key = (node: string, port: string): string => `${node}:${port}`
+ 
+ /** Identity of the wiring, ignoring parameters and canvas positions. */
+@@ -79,14 +84,20 @@ const dependencyOrder = (spec: NoteGraphSpec, known: ReadonlySet<string>): strin
+  */
+ export class NoteGraph {
+   private nodes = new Map<string, RunningNode>()
+-  private connections: NoteGraphSpec['connections'] = []
++  private readonly outputs = new Map<string, NoteEvent[]>()
++  private readonly sinks: NoteEvent[][] = []
+   private order: string[] = []
+   private signature: string | null = null
+   private restarted = false
+   private cancellations: (NoteScope | undefined)[] = []
+   private readonly final = new Merger()
+ 
+-  setParam(nodeId: string, paramId: string, value: number): void { this.nodes.get(nodeId)?.processor.setParam(paramId, value) }
++  setParam(nodeId: string, paramId: string, value: number): void {
++    const node = this.nodes.get(nodeId)
++    if (!node || node.params.get(paramId) === value) return
++    node.params.set(paramId, value)
++    node.processor.setParam(paramId, value)
++  }
+ 
+   sync(spec: NoteGraphSpec): boolean {
+     const signature = structureOf(spec)
+@@ -103,19 +114,22 @@ export class NoteGraph {
+           definition,
+           processor: definition.create(),
+           mergers: new Map(),
++          params: new Map(),
++          inputKeys: spec.connections.filter(c => c.to.node === node.id && c.to.port === definition.inputs[0]?.id).map(c => key(c.from.node, c.from.port)),
++          outputKeys: definition.outputs.map(p => key(node.id, p.id)),
+           trackId: undefined,
+           tap: 0,
+           bypassed: false,
+         })
+       }
+-      this.connections = spec.connections
++      this.outputs.clear()
+       this.order = dependencyOrder(spec, new Set(this.nodes.keys()))
+       this.final.reset()
+     }
+     for (const node of spec.nodes) {
+       const running = this.nodes.get(node.id)
+       if (!running) continue
+-      for (const [id, value] of Object.entries(node.params)) running.processor.setParam(id, value)
++      for (const [id, value] of Object.entries(node.params)) this.setParam(node.id, id, value)
+       running.trackId = node.trackId
+       running.tap = node.params.tap ?? 0
+       running.bypassed = node.bypassed === true
+@@ -132,8 +146,10 @@ export class NoteGraph {
+ 
+   /** The events leaving the graph for the beat range [from, to). */
+   process(clipEvents: NoteEvent[], from: number, to: number, board: TapBoard, beatOrigin = 0): NoteEvent[] {
+-    const outputs = new Map<string, NoteEvent[]>()
+-    const sinks: NoteEvent[][] = []
++    const outputs = this.outputs
++    outputs.clear()
++    const sinks = this.sinks
++    sinks.length = 0
+ 
+     for (const id of this.order) {
+       const node = this.nodes.get(id) as RunningNode
+@@ -143,7 +159,7 @@ export class NoteGraph {
+       if (definition.type === CLIP_NOTES_TYPE) feed = clipEvents
+       else if (definition.role === 'source') {
+         const tapped = node.trackId ? board.get(node.trackId) : undefined
+-        feed = (node.tap === TAP_AFTER_GRAPH ? tapped?.out : tapped?.clip) ?? []
++        feed = (node.tap === TAP_AFTER_GRAPH ? tapped?.out : tapped?.clip) ?? EMPTY
+       } else feed = this.gather(node, outputs)
+ 
+       if (this.cancellations.length) feed = [...this.cancellations.map((scope): NoteEvent => ({ beat: from, kind: 'allOff', ...(scope ? { scope } : {}) })), ...feed]
+@@ -156,30 +172,28 @@ export class NoteGraph {
+         results = processor.processAll ? processor.processAll(feed, from, to, beatOrigin) : [processor.process(feed, from, to, beatOrigin)]
+       }
+       // Qualify effect output identities by graph route; identical passthrough routes still merge.
+-      if (definition.role === 'effect' && !node.bypassed) results = results.map((list, index) => list.map((event) =>
++      if (definition.role === 'effect' && !node.bypassed && results.some(list => list.length)) results = results.map((list, index) => list.map((event) =>
+         event.kind === 'allOff' || !event.identity ? event : { ...event, ...childIdentity(event.identity, JSON.stringify([id, index])) }))
+-      definition.outputs.forEach((port, index) => outputs.set(key(id, port.id), results[index] ?? []))
++      definition.outputs.forEach((_port, index) => outputs.set(node.outputKeys[index]!, results[index] ?? EMPTY))
+       if (definition.role === 'sink') sinks.push(results[0] ?? feed)
+     }
+ 
+-    let events: NoteEvent[] = sinks.length === 1 ? (sinks[0] as NoteEvent[]) : this.final.process(sinks.flat().sort(compareEvents))
++    let events: NoteEvent[] = sinks.length === 1 ? (sinks[0] as NoteEvent[]) : sinks.some(list => list.length) ? this.final.process(sinks.flat().sort(compareEvents)) : EMPTY
+     if (this.restarted) {
+       this.restarted = false
+       events = [{ beat: from, kind: 'allOff' }, ...events]
+     }
+-    this.cancellations = []
++    this.cancellations.length = 0
+     return events
+   }
+ 
+   /** What arrives at a node's input: its one source as is, or several merged. */
+   private gather(node: RunningNode, outputs: Map<string, NoteEvent[]>): NoteEvent[] {
+     const port = node.definition.inputs[0]
+-    if (!port) return []
+-    const sources = this.connections
+-      .filter((c) => c.to.node === node.id && c.to.port === port.id)
+-      .map((c) => outputs.get(key(c.from.node, c.from.port)) ?? [])
+-    if (sources.length === 0) return []
+-    if (sources.length === 1) return sources[0] as NoteEvent[]
++    if (!port || node.inputKeys.length === 0) return EMPTY
++    if (node.inputKeys.length === 1) return outputs.get(node.inputKeys[0]!) ?? EMPTY
++    const sources = node.inputKeys.map(k => outputs.get(k) ?? EMPTY)
++    if (!sources.some(list => list.length)) return EMPTY
+     let merger = node.mergers.get(port.id)
+     if (!merger) node.mergers.set(port.id, (merger = new Merger()))
+     return merger.process(sources.flat())
+diff --git a/src/core/notefx/stateless.ts b/src/core/notefx/stateless.ts
+index 9b8a01b..f625d72 100644
+--- a/src/core/notefx/stateless.ts
++++ b/src/core/notefx/stateless.ts
+@@ -2,6 +2,8 @@ import { Params, type ParamSpec } from '../dsp'
+ import { noteKey, inNoteScope, childIdentity, type NoteIdentity, type NoteEvent } from '../session'
+ import type { NoteProcessor } from './types'
+ 
++const EMPTY_EVENTS: NoteEvent[] = []
++
+ /** One note that comes out of a pitch transformation. */
+ export interface MappedNote {
+   readonly pitch: number
+@@ -29,6 +31,7 @@ export abstract class MappingProcessor implements NoteProcessor {
+   protected abstract map(pitch: number, velocity: number): MappedNote[]
+ 
+   process(input: readonly NoteEvent[]): NoteEvent[] {
++    if (!input.length) return EMPTY_EVENTS
+     const out: NoteEvent[] = []
+     for (const event of input) {
+       if (event.kind === 'noteOn') {
+diff --git a/src/core/session/clip-launcher.ts b/src/core/session/clip-launcher.ts
+index 62a6d31..e75d502 100644
+--- a/src/core/session/clip-launcher.ts
++++ b/src/core/session/clip-launcher.ts
+@@ -80,7 +80,7 @@ export class ClipLauncher {
+     this.pendingReleases = []
+     let cursor = from
+ 
+-    const boundary = this.queue.pendingBoundary(from, to)
++    const boundary = this.queue.pendingBoundary(from - 1e-10, to - 1e-10)
+     if (boundary !== null) {
+       events.push(...this.clipEvents(cursor, boundary))
+       events.push({ beat: boundary, kind: 'allOff', ...(this.source ? { scope: { source: this.source } } : {}) })
+@@ -128,13 +128,17 @@ export class ClipLauncher {
+         if (note.start >= length) continue
+         const on = loopStart + note.start
+         const off = loopStart + Math.min(note.start + note.duration, length)
++        const starts = on >= localFrom - 1e-10 && on < localTo - 1e-10
++        const ends = off >= localFrom - 1e-10 && off < localTo - 1e-10
++        // Identity belongs to an emitted event, not every idle scan of every stored note.
++        if (!starts && !ends) continue
+         const identity = this.source ? { source: this.source, channel: 0, id: JSON.stringify([clip.id, startBeat, loop, note.id]) } : undefined
+         const owner = identity ? { identity } : {}
+-        if (on >= localFrom && on < localTo) {
++        if (starts) {
+           events.push({ beat: startBeat + on, kind: 'noteOn', pitch: note.pitch, velocity: note.velocity, ...owner })
+           this.held.set(note.id, { pitch: note.pitch, start: note.start, loopBase: startBeat + loopStart, ...owner })
+         }
+-        if (off >= localFrom && off < localTo) {
++        if (ends) {
+           events.push({ beat: startBeat + off, kind: 'noteOff', pitch: note.pitch, ...owner })
+           this.held.delete(note.id)
+         }
+diff --git a/tests/browser/audio-tap.ts b/tests/browser/audio-tap.ts
+index ff631b5..453ca3a 100644
+--- a/tests/browser/audio-tap.ts
++++ b/tests/browser/audio-tap.ts
+@@ -20,7 +20,14 @@ export const installAudioTap = (page: Page) => page.addInitScript(() => {
+   window.AudioWorkletNode = class extends Original {
+     constructor(context: BaseAudioContext, name: string, options?: AudioWorkletNodeOptions) {
+       super(context, name, options)
+-      window.__sendEngineCommand = (command) => this.port.postMessage({ kind: 'command', command })
++      // Raw fixture commands bypass AudioHost's startup queue. Expose them only after its queued
++      // play/stop commands have drained and the first real quantum has reported, rather than at construction.
++      this.port.addEventListener('message', ({ data }) => {
++        if (data.kind === 'status' && context.state === 'running') {
++          window.__sendEngineCommand = (command) => this.port.postMessage({ kind: 'command', command })
++        }
++      })
++      this.port.start()
+       const tap = context.createScriptProcessor(1024, 2, 1)
+       tap.channelCount = 2
+       tap.channelCountMode = 'explicit'
+diff --git a/tests/browser/automation-project.ts b/tests/browser/automation-project.ts
+index c9b18e4..ad440e4 100644
+--- a/tests/browser/automation-project.ts
++++ b/tests/browser/automation-project.ts
+@@ -14,3 +14,13 @@ export const slotSweepProject = (): Project => {
+   result = setAutomationSlot(result, target.owner, 0, { id: 'master-slot', name: 'Master sweep', lengthBeats: 3, automation: [{ id: 'master-lane', target, enabled: true, points: [{ id: 'a', beat: 0, value: 0.1, interpolation: 'linear' }, { id: 'b', beat: 3, value: 0.9, interpolation: 'linear' }] }] })
+   return setAutomationSlot(result, { kind: 'track', trackId: 'throw' }, 0, { id: 'throw-slot', name: 'Return throw', lengthBeats: 1, automation: [{ id: 'throw-lane', target: { kind: 'mixer', owner: { kind: 'track', trackId: 'throw' }, control: 'volume' }, enabled: true, points: [{ id: 'a', beat: 0, value: 0, interpolation: 'hold' }, { id: 'b', beat: 0.5, value: 0.8, interpolation: 'hold' }] }] })
+ }
++
++/** Note/helper automation plus a filter curve; deterministic pitch signal makes note actions audible. */
++export const noteSweepProject = (): Project => {
++  const p = sweepProject()
++  return { ...p, tracks: p.tracks.map(t => ({ ...t,
++    patch: noteGraphFrom([{ id: 'note', type: 'note' }, { id: 'gain', type: 'gain', params: { gain: .001 } }, { id: 'filter', type: 'filter', params: { cutoff: 2000 } }, { id: 'out', type: 'output' }], ['note.frequency>gain.in', 'gain.out>filter.in', 'filter.out>out.in']),
++    noteGraph: noteGraphFrom([{ id: 'in', type: 'clipNotes' }, { id: 'amount', type: 'control', params: { value: 0, min: 0, max: 12 } }, { id: 'smooth', type: 'smooth', params: { time: .02 } }, { id: 'tr', type: 'transpose' }, { id: 'out', type: 'noteOut' }], ['in.out>tr.in', 'tr.out>out.in', 'amount.out>smooth.in', 'smooth.out>tr.param:semitones']),
++    clips: t.clips.map(c => c && ({ ...c, notes: [createNote(60, 0, .5, 1), createNote(60, 1, .5, 1)], automation: [...c.automation!, { id: 'notes', enabled: true, target: { kind: 'graph' as const, owner: { kind: 'track' as const, trackId: t.id }, domain: 'notes' as const, path: [], nodeId: 'amount', nodeType: 'control', paramId: 'value' }, points: [{ id: 'a', beat: 0, value: 0, interpolation: 'hold' as const }, { id: 'b', beat: .75, value: 1, interpolation: 'hold' as const }] }] })),
++  })) }
++}
+diff --git a/tests/browser/automation.audio.spec.ts b/tests/browser/automation.audio.spec.ts
+index 411e740..b55024e 100644
+--- a/tests/browser/automation.audio.spec.ts
++++ b/tests/browser/automation.audio.spec.ts
+@@ -2,13 +2,13 @@ import { samplePresetProject } from './preset-project'
+ import { exportLibraryBundle } from '../../src/storage'
+ import { captureLibraryAsset, emptyLibrary, renderProject, serializeProject, parseProject, saveProjectPreset, editControlBase, type Project } from '../../src/core'
+ import { test, expect, expectSaved } from './fixtures'
+-import { slotSweepProject, sweepProject, sweepTarget } from './automation-project'
++import { noteSweepProject, slotSweepProject, sweepProject, sweepTarget } from './automation-project'
+ 
+ declare global { interface Window { __sweepSamples: number[] } }
+-for (const mode of ['clip', 'slots', 'touch', 'preset', 'sample-preset', 'library-preset', 'bundle-preset']) {
++for (const mode of ['clip', 'notes', 'slots', 'touch', 'preset', 'sample-preset', 'library-preset', 'bundle-preset']) {
+ const slots = mode === 'slots', touch = mode === 'touch', preset = mode === 'preset', bundlePreset = mode === 'bundle-preset', samplePreset = mode === 'sample-preset' || mode === 'library-preset' || bundlePreset, libraryPreset = mode === 'library-preset' || bundlePreset
+-test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after trash/reload' : libraryPreset ? 'independent library sample asset after trash/reload' : samplePreset ? 'recalled instance sample preset' : preset ? 'recalled project preset' : touch ? 'Touch take' : slots ? 'return/master slots' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
+-  let project: Project = slots ? slotSweepProject() : sweepProject()
++test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after trash/reload' : libraryPreset ? 'independent library sample asset after trash/reload' : samplePreset ? 'recalled instance sample preset' : preset ? 'recalled project preset' : touch ? 'Touch take' : slots ? 'return/master slots' : mode === 'notes' ? 'helper/notes and filter curves' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
++  let project: Project = slots ? slotSweepProject() : mode === 'notes' ? noteSweepProject() : sweepProject()
+   if (preset) {
+     project = { ...project, tracks: project.tracks.map(t => t.kind === 'instrument' ? { ...t, clips: t.clips.map(c => c ? { ...c, automation: [] } : c) } : t) }
+     const scope = { owner: sweepTarget.owner, domain: 'patch' as const }
+diff --git a/tests/browser/tempo.audio.spec.ts b/tests/browser/tempo.audio.spec.ts
+index 52c4dfa..9d5d31a 100644
+--- a/tests/browser/tempo.audio.spec.ts
++++ b/tests/browser/tempo.audio.spec.ts
+@@ -22,7 +22,8 @@ for (const type of ['delay', 'pingPong']) test(`${type} real stereo output follo
+         super(context, name, options)
+         const capture: Window['__tempoCapture'] = window.__tempoCapture = { ready: false, clocks: [] as Window['__tempoCapture']['clocks'], chunks: [] as Window['__tempoCapture']['chunks'], send: (command: EngineCommand) => this.port.postMessage({ kind: 'command', command }) }
+         this.port.addEventListener('message', ({ data }) => {
+-          if (data.kind === 'status' && typeof data.audioTime === 'number') capture.clocks.push({ frame: Math.round(data.audioTime * context.sampleRate), bpm: data.status.tempo, playing: data.status.playing, beat: data.status.beat })
++          const clock = data.kind === 'clock' ? data.clock : data.kind === 'status' ? data.status : undefined
++          if (clock && typeof data.audioTime === 'number') capture.clocks.push({ frame: Math.round(data.audioTime * context.sampleRate), bpm: clock.tempo, playing: clock.playing, beat: clock.beat })
+         })
+         const url = URL.createObjectURL(new Blob([`
+           class TempoCapture extends AudioWorkletProcessor {
