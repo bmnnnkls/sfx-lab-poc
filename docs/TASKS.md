@@ -20,6 +20,17 @@ findings in [REVIEW-performance-and-library.md](REVIEW-performance-and-library.m
   focused follow-ups and dispositions for all 25 findings; G1–G3 define measurable acceptance gates.
   The plan is not implementation evidence or approval of deferrals. Preserve note timing, automation,
   live/offline parity and saved data, and keep the original review and assessments intact.
+- F1 implementation wrap-up: [status and decision review](REPORT-fix-F1-implementation-status.md), following
+  [the execution plan](PLAN-fix-F1.md). TypeScript block audio, actual-rate/sample helpers, storage improvements,
+  exact components/constant ranges, startup readiness and compact clock/full-status packets are implemented.
+  C1–C5 decisions were explicitly reviewed; C6 prototype-hook measurement remains proposed, not approved.
+  All 1,742 unit tests, build/typecheck, 21 smoke and 13 real-output audio checks pass. Two fresh offline pairs pass
+  every notes-capacity case. The full production campaign passes all engine gates and both full arrangements but
+  retains a 3.265 ms constant-case first callback. One-track no-lane overhead repeats at +27/+30% and needs diagnosis.
+  F1/R1 remain open. Work wrapped at the user's request; no further C6 campaign was started.
+  The user subsequently authorized local commits; the report lists separate implementation/evidence/experiment groups. Preserve all failures
+  and exact-source evidence in [the implementation record](measurements/f1-fix/README.md); no gate relaxation,
+  compatibility exception, muted-DSP change or merge authorization follows from these results.
 - Re-run checks appropriate to any resulting fixes. Preserve audio tolerances, worklet capture readiness and complete
   finite-window checks. The review did not independently re-run browser tests; the slice 7 delivery did pass all
   17 smoke and 12 real-output checks. Do not treat that earlier pass as verification of future fixes.
@@ -34,6 +45,13 @@ findings in [REVIEW-performance-and-library.md](REVIEW-performance-and-library.m
 
 ## Performance, verification and storage follow-ups
 
+- Check and reduce unnecessary DSP work on muted and solo-excluded tracks. Currently instruments and effects render
+  before the channel strip applies audibility, so mute is not a DSP suspension mechanism. Measure scheduling,
+  active voices, inserts and sends separately; define safe suspension conditions that account for audio/note taps,
+  sidechains, audible returns, automation, held-note ownership and release/effect tails. Review any change to mute/unmute
+  state continuity before implementation. Verify CPU/call-count savings and correct unmute/resume behavior without
+  stuck notes, clicks, lost tails or broken dependent tracks. Keep this separate from the F1 scheduling fix; update
+  the examples' "mute a few tracks" performance advice to match the verified behavior.
 - Profile idle-track insert/send processing and dense automated note graphs using current reproducible measurements.
   Historical CPU figures in exploration notes are not a current benchmark. Preserve release/effect tails when idle.
 - Extend portable browser assertions for remaining legacy scenarios: trim/fades, LFO/reverb import, piano-roll editing,

@@ -1,0 +1,13 @@
+
+ RUN  v5.0.3 /private/tmp/sfx-commit-check.qwqd2i8a
+
+
+ Test Files  13 passed (13)
+      Tests  232 passed (232)
+   Start at  09:43:25
+   Duration  2.81s (transform 48%, tests 38%, import 14%)
+
+  Transform  transforming modules took 5.61s · 48% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

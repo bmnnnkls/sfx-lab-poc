@@ -353,3 +353,47 @@ Reserved escalation remains R1/F1/F3 timing/scheduling/helper lifecycle, R3/F5 s
 F19 concurrent lane-edit ownership and R5 clock-aware harness/deployment policy. None was implemented or weakened.
 No additional speculative redesign or rejected finding was promoted. Continue with the reserved stronger-reasoning
 work, then rerun integration and final acceptance against its exact candidate. No overall merge-readiness claim.
+
+## R1 implementation checkpoint — 2026-10-18
+
+The [F1 execution plan](PLAN-fix-F1.md) now has a TypeScript implementation: bounded sample planning
+with block audio; one effective automation pass with deferred audio curves; actual-rate/sample helper progression
+and compatible-update continuity; compiled note adjacency and reused storage. Structural fixtures enforce one
+master pass in an event-free 128-frame notes block, no idle graph Map allocation, and no duplicate sample evaluation.
+F2 notes/send integration remains covered without altering topology/gain separation.
+
+C1, C2 and the C3 component schedule were reviewed and approved. The component implementation retains sample
+cadence for connected notes-automation/helper tracks and interval processing elsewhere. The separately approved exact constant-range
+expansion passes every required offline case in two processes. Cold and some later worklet callbacks still fail the
+unchanged wall deadline gate; full verification/sustained evidence is being recorded. Do not mark R1/F1 closed or relax G1–G3. F3's clock/lifecycle correction has focused
+correctness evidence, with final integrated signoff still open. [Raw evidence/status](measurements/f1-fix/README.md)
+records source identity, measurements and verification, including failed/overlapping runs and their disposition.
+R3/F5, unrelated blockers, saved formats and mute/DSP-suspension work remain separate. No merge is authorized.
+
+
+C4 was subsequently approved after the quiet exact-scheduling checkpoint failed worklet gates. A suspended-context
+readiness phase primes a separate Engine and compiles only pure topology caches on the actual Engine. Actual clocks,
+helpers, pending notes and assets remain unchanged; compatible note-graph edits retain cached orders. Four-rate state/
+output fixtures and all 1,740 unit tests pass. Final offline processes pass all notes cases (Low Light 131/133 ms per
+audio-second); first-use delay/RSS and sustained callback gates are in the separate [startup record](measurements/f1-fix/startup/README.md).
+Do not close R1/F1 or substitute the short passing probe for full acceptance. No threshold change or merge is approved.
+
+
+C5 was explicitly approved after the retained 2.804 ms first-callback miss: compact clock anchor at quantum start,
+full readout/track status at quantum end and existing 30 Hz cadence. Recording consumes both; UI listeners only full
+status, with at most one-quantum readout delay. The split passes all 1,742 unit tests. The new exact-source campaign
+retains a constant-case first-callback failure rather than treating this design approval as acceptance. Final
+sustained/browser checks and diagnosis remain in progress; G1–G3 are unchanged.
+
+
+## R1 wrap-up — 2026-10-19
+
+The user requested a status report, persisted learnings and decision review; see
+[the implementation report](REPORT-fix-F1-implementation-status.md). Production correctness verification passes:
+1,742 unit tests, build/typecheck, 21 smoke, 13 audio. Two new offline pairs pass all required notes cases.
+Full C5 worklet captures pass engine p99/deadline gates and both complete arrangements, but constant notes retains
+one 3.265 ms first-callback miss. One-track no-lane medians repeat a +27/+30% regression and remain unresolved.
+C6 prototype-hook placement is an opt-in diagnostic proposal, not approved acceptance methodology; no full rerun
+was started. C1–C5 approvals, tradeoffs, failed attempts and exact-source evidence are preserved in the report.
+R1/F1 and G1–G3 signoff remain open. F2 integration and F3 correctness are verified within this slice; F5 and all
+unrelated blockers remain separate. No thresholds, formats, examples, tails or merge policy were relaxed.

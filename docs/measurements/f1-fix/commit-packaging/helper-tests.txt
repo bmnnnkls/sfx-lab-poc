@@ -1,0 +1,9 @@
+
+ RUN  v5.0.3 /private/tmp/sfx-commit-check.rawtj8w_
+
+
+ Test Files  2 passed (2)
+      Tests  43 passed (43)
+   Start at  09:43:12
+   Duration  430ms (transform 72%, import 17%, tests 10%, worker 1%)
+

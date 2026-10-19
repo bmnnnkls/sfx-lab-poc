@@ -168,13 +168,47 @@ trimmed material. Doubling refuses point-limit overflow. Session copies use fres
 preserve identities and rewrite the owner. Incompatible destination nodes remain visibly unavailable.
 
 `EngineAutomation` owns launch queues, beat-phase evaluation and temporary overrides. Configuration is compiled
-from authored data, separately from the main thread's effective-value projection. The engine evaluates per-sample
-curves for each mix segment. Instrument stages apply curves only to addressed DSP processors; varying helper
+from authored data, separately from the main thread's effective-value projection. The engine evaluates automation once per required sample in a bounded planning horizon, routing note writes
+immediately to the note runtime and retaining audio/mixer writes in reusable block curves. Instrument stages apply curves only to addressed DSP processors; varying helper
 buffers propagate to parameter-socket consumers without taking ownership away from the wire. Mono/stereo scratch
 buffers preserve port shape. Send sinks accept an optional segment offset so automated Send nodes write at the
 correct frame. Mixer volume/pan/post-fader sends read curves inside their sample loops. Unrelated processors keep
-normal block processing. Note lanes use sample-sized scheduling and `NoteControlGraph` for control/math helpers
-that ordinary note graphs bake once; helper-fed parameters are applied before collecting note events.
+normal block processing. An outer block is at most 128 frames; actual note actions split audio runs, while changing a
+note parameter alone does not split the mix. Curves survive every subrun and are sliced at its horizon-relative offset.
+Planning stops at audio start/stop/replacement or the current one-shot end; newly started clips supply their new end
+before further planning. This keeps base restoration ahead of the first effect-tail sample.
+
+Before first audible playback, `AudioHost` suspends its context, sends queued commands and requests preparation.
+The worklet primes a separate temporary Engine, sharing decoded assets for read access, and precompiles only topology/
+routing caches on the actual Engine. It does not render, schedule notes, tick automation or advance actual helper/
+transport clocks during preparation. A processor guard emits zeros before ready. The host queues later commands,
+waits for readiness, flushes them, then connects/resumes; preparation failure closes the suspended context. Initial
+sample buffers transfer once. This reviewed C4 phase adds first-use startup latency and temporary memory, measured
+in `docs/measurements/f1-fix/startup/README.md`. The entire actual callback window still includes the first render.
+The [implementation status and decision review](docs/REPORT-fix-F1-implementation-status.md) records approved
+tradeoffs, passing correctness checks and the remaining F1 capacity failures; startup preparation is not gate signoff.
+
+Note lanes use sample-sized scheduling and `NoteControlGraph` for control/math helpers that ordinary note graphs bake
+once. Installed helper nodes advance chronologically once per rendered sample at the engine rate, including while
+transport is stopped or their lane is inactive/queued/disabled/overridden. Installation scope is unchanged. Compatible
+parameter/configuration edits preserve helper state without processing an extra sample; a node/type/wiring change
+rebuilds the helper runtime. Helper-fed parameters are applied before that sample's input and generated notes.
+This deliberately corrects the previous fixed-48-kHz, once-per-scheduling-call helper speed and restores normal
+block sampling of unrelated DSP sockets (C1 reviewed on 2026-10-18); no saved format or compatibility mode changed.
+Clip and generated-event half-open boundaries share automation's 1e-10 beat tolerance so floating-point block ends
+cannot apply the pre-boundary parameter to the next sample's note. Transport and existing event rounding remain in use.
+
+Note graphs compile input adjacency and reuse their output maps; effective lane metadata and alternating ownership
+maps are retained. Empty live/mapping outputs and per-track tap entries are reused only after downstream consumption.
+Deferred actions retain immutable event objects; legitimate bursts have no event cap. Clip ownership identities are
+constructed only for emitted events. The reviewed C3 scheduler compiles full undirected note-tap components,
+including upstream sources and transitive readers. Components containing playing/queued notes automation or
+installed clocked helpers retain sample cadence; other components keep their existing interval processors, including
+autonomous generators. Topology edits rebuild the component/order caches; compatible note-graph scalar edits keep them. Deferred actions retain the original
+global track order at equal frames. The separately reviewed constant-range proof allows interval scheduling only after first-sample ownership/values
+commit and when endpoints plus intermediate points prove the normalized controls constant. Nonuniform wraps and
+queued ownership transitions conservatively retain sample cadence; uniform loops and constant overrides remain
+constant. Clocked helpers always retain sample cadence. Capacity acceptance remains open; see `docs/measurements/f1-fix/README.md`.
 
 Clip launch/retrigger/stop/empty-scene behavior follows the shared quantized launch queue. Audio one-shot boundaries
 split mix segments so automation releases when playback ends, including unwarped clips and tempo changes. Stop
@@ -1335,7 +1369,11 @@ valid takes. Document-epoch replacement cancels and disarms; incompatible, remov
 that take atomically. Stop finishes before dispatch, and runtime status closes takes at actual launch/stop/retrigger
 or one-shot boundaries. `LauncherStatus.stopBeat` carries owner stops even when a queued status was never delivered.
 
-The worklet stamps tempo/transport changes at the next quantum's start and periodic beat status at its end. `audio/recording-clock` retains sparse audio-time
+The worklet sends a compact tempo/playing/beat/audio-time clock anchor at the next quantum's start after tempo,
+transport or launch commands. It builds the full track/readout/peak status once at that quantum's end, then at the
+existing 30 Hz cadence. Clock snapshots do not traverse readouts or reset peaks. `AudioHost` updates recording from
+both packet types but publishes only full status to UI listeners; readouts may arrive one quantum after the anchor
+(2.667 ms at 48 kHz/128 frames). `audio/recording-clock` retains sparse audio-time
 segments across tempo and transport changes; `AudioHost.recordingBeat` bridges AudioContext.currentTime and native
 performance event timestamps into beats. Delayed events and MIDI release callbacks use their original timestamps;
 render frames, animation callbacks and status message arrival times never advance recording. Suspended contexts
@@ -1550,7 +1588,7 @@ deferred. No physical MIDI hardware was tested.
 
 Send level writes compare destination membership, including zero-valued destinations, before invalidating order and
 mute/solo caches. Constant/ramping gains on existing sends do not rebuild those caches. New/deleted destinations
-still invalidate before mixing. This is verified against the current engine; scheduler/helper integration awaits R1.
+still invalidate before mixing. Focused F2 integration also covers notes-plus-send automation in the R1 candidate; final R1 capacity acceptance remains open.
 Identity-preserving group/unlink applies the existing guarded route rewrite to snapshot values, including shared module
 uses, while keeping immutable preset/revision payloads unchanged. Unavailable old routes are retained without guessing.
 Duplicate track-owner ID repairs now warn that references are ambiguous and were not rebound.
