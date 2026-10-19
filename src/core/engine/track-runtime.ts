@@ -120,9 +120,11 @@ export class TrackRuntime implements PlayableTrack {
   }
 
   setAutomationNoteGraph(patch?: Patch): void {
-    this.noteControls?.process((nodeId, paramId, value) => this.graph.setParam(nodeId, paramId, value))
-    this.noteControls = patch ? new NoteControlGraph(patch) : undefined
+    if (!patch) this.noteControls = undefined
+    else if (!this.noteControls?.sync(patch)) this.noteControls = new NoteControlGraph(patch, this.sampleRate)
   }
+
+  get hasNoteControls(): boolean { return this.noteControls?.clocked === true }
 
   setAutomationParam(nodeId: string, paramId: string, value: number, graph: 'patch' | 'fx' | 'notes'): void {
     if (graph === 'notes') { this.graph.setParam(nodeId, paramId, value); this.noteControls?.setParam(nodeId, paramId, value) }
@@ -138,7 +140,7 @@ export class TrackRuntime implements PlayableTrack {
   }
 
   setParam(nodeId: string, paramId: string, value: number, graph?: 'patch' | 'fx' | 'notes'): void {
-    if (graph === 'notes') { this.graph.setParam(nodeId, paramId, value); return }
+    if (graph === 'notes') { this.graph.setParam(nodeId, paramId, value); this.noteControls?.setParam(nodeId, paramId, value); return }
     if (graph !== 'fx') {
       this.patch = setNodeParam(this.patch, nodeId, paramId, value)
       this.instrument.setParam(nodeId, paramId, value)
