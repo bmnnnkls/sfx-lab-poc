@@ -26,7 +26,7 @@ class EngineProcessor extends AudioWorkletProcessor {
 
     if (this.clockChanged) {
       // Stamp tempo/transport changes at the next quantum's start, before its beats advance.
-      this.port.postMessage({ kind: 'status', status: this.engine.status(), audioTime: currentTime } satisfies WorkletMessage)
+      this.port.postMessage({ kind: 'clock', clock: this.engine.clock(), audioTime: currentTime } satisfies WorkletMessage)
       this.clockChanged = false
       this.framesSinceStatus = sampleRate * STATUS_INTERVAL_SECONDS
     }

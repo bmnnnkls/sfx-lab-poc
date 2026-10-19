@@ -244,6 +244,11 @@ export class Engine {
     this.peak = Math.max(this.peak, peakOf(left), peakOf(right))
   }
 
+  /** Clock-only snapshot: no readout traversal, peak reset or audio-state mutation. */
+  clock(): Pick<EngineStatus, 'tempo' | 'playing' | 'beat'> {
+    return { tempo: this.transport.tempo, playing: this.transport.playing, beat: this.transport.positionBeats }
+  }
+
   /** Snapshot for display. Reading it also resets the output-level peak. */
   status(): EngineStatus {
     const tracks: Record<string, LauncherStatus> = {}

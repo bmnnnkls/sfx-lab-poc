@@ -22,7 +22,8 @@ for (const type of ['delay', 'pingPong']) test(`${type} real stereo output follo
         super(context, name, options)
         const capture: Window['__tempoCapture'] = window.__tempoCapture = { ready: false, clocks: [] as Window['__tempoCapture']['clocks'], chunks: [] as Window['__tempoCapture']['chunks'], send: (command: EngineCommand) => this.port.postMessage({ kind: 'command', command }) }
         this.port.addEventListener('message', ({ data }) => {
-          if (data.kind === 'status' && typeof data.audioTime === 'number') capture.clocks.push({ frame: Math.round(data.audioTime * context.sampleRate), bpm: data.status.tempo, playing: data.status.playing, beat: data.status.beat })
+          const clock = data.kind === 'clock' ? data.clock : data.kind === 'status' ? data.status : undefined
+          if (clock && typeof data.audioTime === 'number') capture.clocks.push({ frame: Math.round(data.audioTime * context.sampleRate), bpm: clock.tempo, playing: clock.playing, beat: clock.beat })
         })
         const url = URL.createObjectURL(new Blob([`
           class TempoCapture extends AudioWorkletProcessor {

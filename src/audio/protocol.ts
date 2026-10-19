@@ -7,4 +7,6 @@ export const PROCESSOR_NAME = 'sfx-engine'
 export type HostMessage = { readonly kind: 'command'; readonly command: EngineCommand }
 
 /** Audio thread -> main thread. */
-export type WorkletMessage = { readonly kind: 'status'; readonly status: EngineStatus; readonly audioTime?: number }
+export type WorkletMessage =
+  | { readonly kind: 'clock'; readonly clock: Pick<EngineStatus, 'tempo' | 'playing' | 'beat'>; readonly audioTime: number }
+  | { readonly kind: 'status'; readonly status: EngineStatus; readonly audioTime?: number }

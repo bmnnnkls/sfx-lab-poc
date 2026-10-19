@@ -55,6 +55,7 @@ export class AudioHost {
 
     const node = new AudioWorkletNode(context, PROCESSOR_NAME, { outputChannelCount: [2] })
     node.port.onmessage = (event: MessageEvent<WorkletMessage>) => {
+      if (event.data.kind === 'clock') { this.clock.update(event.data.clock, event.data.audioTime); return }
       if (event.data.kind !== 'status') return
       if (event.data.audioTime !== undefined) this.clock.update(event.data.status, event.data.audioTime)
       for (const listener of this.listeners) listener(event.data.status)

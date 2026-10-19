@@ -3,7 +3,7 @@ interface Anchor { beat: number; audioTime: number; tempo: number; playing: bool
 /** Sparse tempo/transport segments, in the AudioContext clock domain. */
 export class RecordingClock {
   private anchors: Anchor[] = []
-  update(status: EngineStatus, audioTime: number): void {
+  update(status: Pick<EngineStatus, 'tempo' | 'playing' | 'beat'>, audioTime: number): void {
     const anchor = { beat: status.beat, audioTime, tempo: status.tempo ?? 120, playing: status.playing }
     const previous = this.anchors.at(-1)
     const predicted = previous && previous.beat + (audioTime - previous.audioTime) * (previous.playing ? previous.tempo / 60 : 0)
