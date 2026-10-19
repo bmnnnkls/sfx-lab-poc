@@ -12,6 +12,7 @@ import type { MixContext, PlayableTrack, ScheduledAction } from './playable-trac
 
 /** How long an audition note sounds before it is released. */
 const AUDITION_SECONDS = 0.3
+const EMPTY_EVENTS: NoteEvent[] = []
 
 /** Live, audio-thread counterpart of a project Track: voice + clip player + level. */
 export class TrackRuntime implements PlayableTrack {
@@ -32,6 +33,7 @@ export class TrackRuntime implements PlayableTrack {
   /** Kept here as well, since the instrument and the insert graph are rebuilt by edits and must start with it. */
   private tempo = DEFAULT_TEMPO
   private beatOrigin = 0
+  private readonly tap = { clip: EMPTY_EVENTS, out: EMPTY_EVENTS }
 
   constructor(
     private readonly trackId: string,
@@ -170,13 +172,16 @@ export class TrackRuntime implements PlayableTrack {
     this.noteControls?.process((nodeId, paramId, value) => this.graph.setParam(nodeId, paramId, value))
     // Clips follow transport; the graph follows a continuous render clock even while stopped.
     if (transportFrom !== undefined) this.beatOrigin = from - transportFrom
-    const clipEvents = transportFrom === undefined ? [] : this.launcher.collectEvents(transportFrom, transportTo ?? transportFrom + (to - from))
+    const clipEvents = transportFrom === undefined ? EMPTY_EVENTS : this.launcher.collectEvents(transportFrom, transportTo ?? transportFrom + (to - from))
       .map((event) => ({ ...event, beat: from + event.beat - transportFrom }))
-    const input = [...clipEvents, ...this.live.take(from)].sort((a, b) => a.beat - b.beat)
-    const events = this.graph.process(input, from, to, board, this.beatOrigin)
-    events.unshift(...this.cancellations.map((scope): NoteEvent => ({ beat: from, kind: 'allOff', ...(scope ? { scope } : {}) })))
-    this.cancellations = []
-    board.set(this.trackId, { clip: input, out: events })
+    const live = this.live.take(from)
+    const input = live.length ? [...clipEvents, ...live].sort((a, b) => a.beat - b.beat) : clipEvents
+    let events = this.graph.process(input, from, to, board, this.beatOrigin)
+    if (this.cancellations.length) events = [...this.cancellations.map((scope): NoteEvent => ({ beat: from, kind: 'allOff', ...(scope ? { scope } : {}) })), ...events]
+    this.cancellations.length = 0
+    this.tap.clip = input
+    this.tap.out = events
+    board.set(this.trackId, this.tap)
     return events.map((event) => ({ beat: event.beat, run: () => this.apply(event) }))
   }
 

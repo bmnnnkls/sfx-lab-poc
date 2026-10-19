@@ -11,6 +11,8 @@ export interface LiveNoteAddress {
 export const liveSource = (sourceId: string): string => JSON.stringify(['live', sourceId])
 export const clipSource = (trackId: string): string => JSON.stringify(['clip', trackId])
 
+const EMPTY_EVENTS: NoteEvent[] = []
+
 interface Held {
   readonly identity: NoteIdentity
   readonly pitch: number
@@ -72,6 +74,7 @@ export class LiveNotes {
   }
 
   take(beat: number): NoteEvent[] {
+    if (!this.pending.length) return EMPTY_EVENTS
     const events = this.pending.map((event) => ({ ...event, beat }))
     this.pending = []
     return events

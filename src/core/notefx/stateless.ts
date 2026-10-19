@@ -2,6 +2,8 @@ import { Params, type ParamSpec } from '../dsp'
 import { noteKey, inNoteScope, childIdentity, type NoteIdentity, type NoteEvent } from '../session'
 import type { NoteProcessor } from './types'
 
+const EMPTY_EVENTS: NoteEvent[] = []
+
 /** One note that comes out of a pitch transformation. */
 export interface MappedNote {
   readonly pitch: number
@@ -29,6 +31,7 @@ export abstract class MappingProcessor implements NoteProcessor {
   protected abstract map(pitch: number, velocity: number): MappedNote[]
 
   process(input: readonly NoteEvent[]): NoteEvent[] {
+    if (!input.length) return EMPTY_EVENTS
     const out: NoteEvent[] = []
     for (const event of input) {
       if (event.kind === 'noteOn') {
