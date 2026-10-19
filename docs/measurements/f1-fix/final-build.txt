@@ -1,0 +1,22 @@
+
+> sfx-lab-poc@0.0.0 build
+> tsc --noEmit && vite build
+
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 501 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                             0.74 kB │ gzip:  0.36 kB
+dist/assets/engine-processor-BqSI7rOt.js  145.45 kB
+dist/assets/LibraryPanel-DwJ39g1i.css       1.24 kB │ gzip:  0.51 kB
+dist/assets/index-Bkxaz7av.css             40.03 kB │ gzip:  8.55 kB
+dist/assets/rolldown-runtime-CbXtAM7H.js    0.58 kB │ gzip:  0.36 kB
+dist/assets/library-DFxiOh3P.js             3.56 kB │ gzip:  1.62 kB
+dist/assets/LibraryPanel-BmtDByQu.js       13.42 kB │ gzip:  4.15 kB
+dist/assets/ui-vendor-2eX_cCFm.js          85.79 kB │ gzip: 29.11 kB
+dist/assets/index-YFeT5Fji.js             207.38 kB │ gzip: 70.04 kB
+dist/assets/react-BPWasKn7.js             218.76 kB │ gzip: 68.27 kB
+dist/assets/state-C1rJmvCT.js             329.62 kB │ gzip: 96.85 kB
+
+✓ built in 842ms

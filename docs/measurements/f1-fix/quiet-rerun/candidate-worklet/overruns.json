@@ -1,0 +1,497 @@
+[
+  {
+    "pid": 9611,
+    "tid": 36143449,
+    "start": 384548913979,
+    "end": 384548923028,
+    "ms": 9.049,
+    "relativeSeconds": 0.0,
+    "overlappingEvents": [
+      {
+        "name": "FunctionCall",
+        "phase": "X",
+        "us": 9771,
+        "startRelativeMs": -0.434,
+        "cat": "devtools.timeline"
+      },
+      {
+        "name": "V8.GC_HEAP_EXTERNAL_PROLOGUE",
+        "phase": "X",
+        "us": 3,
+        "startRelativeMs": 5.059,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "MinorGC",
+        "phase": "X",
+        "us": 360,
+        "startRelativeMs": 5.063,
+        "cat": "devtools.timeline,v8"
+      },
+      {
+        "name": "V8.GC_HEAP_PROLOGUE",
+        "phase": "I",
+        "us": null,
+        "startRelativeMs": 5.065,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_TIME_TO_SAFEPOINT",
+        "phase": "X",
+        "us": 7,
+        "startRelativeMs": 5.066,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER",
+        "phase": "X",
+        "us": 330,
+        "startRelativeMs": 5.074,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_HEAP_PROLOGUE_SAFEPOINT",
+        "phase": "I",
+        "us": null,
+        "startRelativeMs": 5.076,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE",
+        "phase": "X",
+        "us": 325,
+        "startRelativeMs": 5.076,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_IDENTIFY",
+        "phase": "X",
+        "us": 7,
+        "startRelativeMs": 5.088,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ComputeWeaknessProcessor start",
+        "phase": "I",
+        "us": null,
+        "startRelativeMs": 5.088,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_TRACED_HANDLES_COMPUTE_WEAKNESS_PARALLEL",
+        "phase": "X",
+        "us": 2,
+        "startRelativeMs": 5.092,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_COLLECT_OLD_TO_NEW_PAGES",
+        "phase": "X",
+        "us": 1,
+        "startRelativeMs": 5.095,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_PARALLEL_PHASE",
+        "phase": "X",
+        "us": 273,
+        "startRelativeMs": 5.097,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "Parallel scavenge started",
+        "phase": "I",
+        "us": null,
+        "startRelativeMs": 5.098,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_ROOTS",
+        "phase": "X",
+        "us": 17,
+        "startRelativeMs": 5.102,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_PARALLEL",
+        "phase": "X",
+        "us": 118,
+        "startRelativeMs": 5.12,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_PROCESS",
+        "phase": "X",
+        "us": 5,
+        "startRelativeMs": 5.37,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ClearWeaknessProcessor start",
+        "phase": "I",
+        "us": null,
+        "startRelativeMs": 5.371,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_TRACED_HANDLES_RESET_PARALLEL",
+        "phase": "X",
+        "us": 1,
+        "startRelativeMs": 5.374,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_FINALIZE",
+        "phase": "X",
+        "us": 17,
+        "startRelativeMs": 5.375,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_RESTORE_AND_QUARANTINE_PINNED",
+        "phase": "I",
+        "us": null,
+        "startRelativeMs": 5.393,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_FREE_REMEMBERED_SET",
+        "phase": "X",
+        "us": 2,
+        "startRelativeMs": 5.394,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SWEEP_ARRAY_BUFFERS",
+        "phase": "X",
+        "us": 3,
+        "startRelativeMs": 5.396,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_RESIZE_NEW_SPACE",
+        "phase": "I",
+        "us": null,
+        "startRelativeMs": 5.4,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_HEAP_EPILOGUE_SAFEPOINT",
+        "phase": "X",
+        "us": 1,
+        "startRelativeMs": 5.402,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_HEAP_EPILOGUE",
+        "phase": "X",
+        "us": 2,
+        "startRelativeMs": 5.406,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_HEAP_EXTERNAL_EPILOGUE",
+        "phase": "X",
+        "us": 1,
+        "startRelativeMs": 5.424,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_HEAP_EXTERNAL_PROLOGUE",
+        "phase": "X",
+        "us": 2,
+        "startRelativeMs": 6.995,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "MinorGC",
+        "phase": "X",
+        "us": 1374,
+        "startRelativeMs": 6.998,
+        "cat": "devtools.timeline,v8"
+      },
+      {
+        "name": "V8.GC_HEAP_PROLOGUE",
+        "phase": "X",
+        "us": 1,
+        "startRelativeMs": 6.999,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_COMPLETE_SWEEP_ARRAY_BUFFERS",
+        "phase": "X",
+        "us": 5,
+        "startRelativeMs": 7.001,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_TIME_TO_SAFEPOINT",
+        "phase": "X",
+        "us": 1151,
+        "startRelativeMs": 7.007,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER",
+        "phase": "X",
+        "us": 183,
+        "startRelativeMs": 8.162,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_HEAP_PROLOGUE_SAFEPOINT",
+        "phase": "X",
+        "us": 1,
+        "startRelativeMs": 8.174,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE",
+        "phase": "X",
+        "us": 167,
+        "startRelativeMs": 8.175,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_IDENTIFY",
+        "phase": "X",
+        "us": 12,
+        "startRelativeMs": 8.184,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ComputeWeaknessProcessor start",
+        "phase": "I",
+        "us": null,
+        "startRelativeMs": 8.185,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_TRACED_HANDLES_COMPUTE_WEAKNESS_PARALLEL",
+        "phase": "X",
+        "us": 1,
+        "startRelativeMs": 8.193,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_COLLECT_OLD_TO_NEW_PAGES",
+        "phase": "X",
+        "us": 3,
+        "startRelativeMs": 8.196,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_PARALLEL_PHASE",
+        "phase": "X",
+        "us": 66,
+        "startRelativeMs": 8.2,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "Parallel scavenge started",
+        "phase": "I",
+        "us": null,
+        "startRelativeMs": 8.201,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_ROOTS",
+        "phase": "X",
+        "us": 44,
+        "startRelativeMs": 8.204,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_PROCESS",
+        "phase": "X",
+        "us": 4,
+        "startRelativeMs": 8.266,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ClearWeaknessProcessor start",
+        "phase": "I",
+        "us": null,
+        "startRelativeMs": 8.267,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_TRACED_HANDLES_RESET_PARALLEL",
+        "phase": "X",
+        "us": 1,
+        "startRelativeMs": 8.269,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_FINALIZE",
+        "phase": "X",
+        "us": 56,
+        "startRelativeMs": 8.27,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SCAVENGE_RESTORE_AND_QUARANTINE_PINNED",
+        "phase": "X",
+        "us": 1,
+        "startRelativeMs": 8.327,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_FREE_REMEMBERED_SET",
+        "phase": "X",
+        "us": 7,
+        "startRelativeMs": 8.33,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SWEEP_ARRAY_BUFFERS",
+        "phase": "X",
+        "us": 2,
+        "startRelativeMs": 8.338,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_RESIZE_NEW_SPACE",
+        "phase": "I",
+        "us": null,
+        "startRelativeMs": 8.341,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_HEAP_EPILOGUE_SAFEPOINT",
+        "phase": "X",
+        "us": 2,
+        "startRelativeMs": 8.343,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_HEAP_EPILOGUE",
+        "phase": "X",
+        "us": 2,
+        "startRelativeMs": 8.348,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_HEAP_EXTERNAL_EPILOGUE",
+        "phase": "X",
+        "us": 1,
+        "startRelativeMs": 8.373,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ComputeWeaknessProcessor start",
+        "phase": "s",
+        "us": null,
+        "startRelativeMs": 5.088,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ComputeWeaknessProcessor start",
+        "phase": "f",
+        "us": null,
+        "startRelativeMs": 5.092,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "Parallel scavenge started",
+        "phase": "s",
+        "us": null,
+        "startRelativeMs": 5.098,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ClearWeaknessProcessor start",
+        "phase": "s",
+        "us": null,
+        "startRelativeMs": 5.371,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ClearWeaknessProcessor start",
+        "phase": "f",
+        "us": null,
+        "startRelativeMs": 5.374,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SWEEP_ARRAY_BUFFERS",
+        "phase": "s",
+        "us": null,
+        "startRelativeMs": 5.396,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ComputeWeaknessProcessor start",
+        "phase": "s",
+        "us": null,
+        "startRelativeMs": 8.185,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ComputeWeaknessProcessor start",
+        "phase": "f",
+        "us": null,
+        "startRelativeMs": 8.193,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "Parallel scavenge started",
+        "phase": "s",
+        "us": null,
+        "startRelativeMs": 8.201,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ClearWeaknessProcessor start",
+        "phase": "s",
+        "us": null,
+        "startRelativeMs": 8.267,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "ClearWeaknessProcessor start",
+        "phase": "f",
+        "us": null,
+        "startRelativeMs": 8.269,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      },
+      {
+        "name": "V8.GC_SCAVENGER_SWEEP_ARRAY_BUFFERS",
+        "phase": "s",
+        "us": null,
+        "startRelativeMs": 8.338,
+        "cat": "devtools.timeline,disabled-by-default-v8.gc"
+      }
+    ],
+    "nearbyGC": [
+      {
+        "name": "MinorGC",
+        "tid": 36143332,
+        "phase": "X",
+        "us": 1179,
+        "startRelativeMs": 2.421
+      },
+      {
+        "name": "MinorGC",
+        "tid": 36143449,
+        "phase": "X",
+        "us": 360,
+        "startRelativeMs": 5.063
+      },
+      {
+        "name": "MinorGC",
+        "tid": 36143449,
+        "phase": "X",
+        "us": 1374,
+        "startRelativeMs": 6.998
+      },
+      {
+        "name": "MinorGC",
+        "tid": 36143449,
+        "phase": "X",
+        "us": 148,
+        "startRelativeMs": 11.363
+      }
+    ]
+  }
+]

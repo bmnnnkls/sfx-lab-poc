@@ -1,0 +1,88 @@
+{"commit":"36f71d1dea37367d4f1a0f4a18f1d4c17a19e9ec","dirty":"M docs/TASKS.md\n?? docs/ASSESSMENT-review-critical-F1-second-opinion.md\n?? docs/PLAN-fix-F1.md\n?? docs/PLAN-review-critical-F1-second-opinion.md\n?? docs/REPORT-browser-audio-capacity-and-rust-engine.md\n?? docs/measurements/browser-capacity/\n?? docs/measurements/f1-fix/\n?? docs/measurements/f1-second-opinion/","node":"v24.21.0","cpu":"Apple M3 Pro","platform":"darwin","arch":"arm64","rate":48000,"quantum":128,"warmSeconds":1,"trials":5}
+{
+  "node": "v24.21.0",
+  "cpu": "Apple M3 Pro",
+  "baseline": {
+    "noteLanes": 2,
+    "renderBlock": 1,
+    "collectEvents": 1,
+    "schedule": 4,
+    "maps": 4,
+    "clearAutomation": 4,
+    "mixInto": 4,
+    "processMaster": 1
+  },
+  "mixer": {
+    "noteLanes": 2,
+    "renderBlock": 1,
+    "collectEvents": 1,
+    "schedule": 4,
+    "maps": 133,
+    "clearAutomation": 4,
+    "tick": 128,
+    "f64": 1,
+    "mixInto": 4,
+    "processMaster": 1
+  },
+  "notes": {
+    "noteLanes": 256,
+    "renderBlock": 128,
+    "tick": 256,
+    "maps": 896,
+    "collectEvents": 128,
+    "schedule": 512,
+    "clearAutomation": 512,
+    "f64": 128,
+    "mixInto": 512,
+    "processMaster": 128
+  },
+  "disabled": {
+    "noteLanes": 2,
+    "renderBlock": 1,
+    "collectEvents": 1,
+    "schedule": 4,
+    "maps": 133,
+    "clearAutomation": 4,
+    "tick": 128,
+    "mixInto": 4,
+    "processMaster": 1
+  },
+  "empty": {
+    "noteLanes": 2,
+    "renderBlock": 1,
+    "collectEvents": 1,
+    "schedule": 4,
+    "maps": 133,
+    "clearAutomation": 4,
+    "tick": 128,
+    "mixInto": 4,
+    "processMaster": 1
+  },
+  "send": {
+    "noteLanes": 2,
+    "renderBlock": 1,
+    "collectEvents": 1,
+    "schedule": 5,
+    "maps": 133,
+    "clearAutomation": 5,
+    "tick": 128,
+    "f64": 1,
+    "mixInto": 5,
+    "processMaster": 1
+  },
+  "notes-send": {
+    "noteLanes": 256,
+    "renderBlock": 128,
+    "tick": 256,
+    "maps": 896,
+    "collectEvents": 128,
+    "schedule": 640,
+    "clearAutomation": 640,
+    "f64": 256,
+    "mixInto": 640,
+    "processMaster": 128
+  }
+}
+configured idle noteLanes false
+queued prelaunch true { playingClipId: null, startBeat: null, queued: 'c0' }
+queued remains { playingClipId: null, startBeat: null, queued: 'c0' }

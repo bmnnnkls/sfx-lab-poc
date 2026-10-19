@@ -1,0 +1,129 @@
+
+> sfx-lab-poc@0.0.0 test
+> vitest run src/core/engine/automation-mixed-timeline.test.ts
+
+
+ RUN  v5.0.3 /Users/niklaus.baumann/git/local/sfx-lab-poc
+
+ ❯ src/core/engine/automation-mixed-timeline.test.ts (45 tests | 45 failed) 435ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/40/1) 55ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/40/97) 16ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/40/128) 9ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/40/173) 9ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/40/4096) 8ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/120/1) 16ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/120/97) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/120/128) 6ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/120/173) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/120/4096) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/240/1) 17ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/240/97) 7ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/240/128) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/240/173) 7ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/240/4096) 6ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/40/1) 15ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/40/97) 6ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/40/128) 6ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/40/173) 6ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/40/4096) 10ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/120/1) 21ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/120/97) 9ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/120/128) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/120/173) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/120/4096) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/240/1) 13ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/240/97) 6ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/240/128) 9ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/240/173) 10ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/240/4096) 7ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/40/1) 19ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/40/97) 13ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/40/128) 7ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/40/173) 11ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/40/4096) 7ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/120/1) 15ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/120/97) 6ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/120/128) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/120/173) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/120/4096) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/240/1) 12ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/240/97) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/240/128) 4ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/240/173) 5ms
+   × slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/240/4096) 4ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 45 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/40/1)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/40/97)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/40/128)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/40/173)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/40/4096)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/120/1)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/120/97)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/120/128)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/120/173)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/120/4096)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/240/1)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/240/97)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/240/128)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/240/173)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (44100/240/4096)
+AssertionError: expected 0.016610148688771087 to be less than 0.00002
+ ❯ src/core/engine/automation-mixed-timeline.test.ts:38:121
+     36|       const sent = (.2 + .5 * beat) * (.4 + .4 * beat)
+     37|       const master = (.5 + .5 * beat) * (.8 - .2 * beat)
+     38|       expect(Math.abs(left[i]! - Math.tanh(signal * (Math.SQRT2 * Math…
+       |                                                                                                                         ^
+     39|       expect(Math.abs(right[i]! - Math.tanh(signal * (Math.SQRT2 * Mat…
+     40|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/45]⎯
+
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/40/1)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/40/97)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/40/128)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/40/173)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/40/4096)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/120/1)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/120/97)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/120/128)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/120/173)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/120/4096)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/240/1)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/240/97)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/240/128)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/240/173)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (48000/240/4096)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/40/1)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/40/97)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/40/128)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/40/173)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/40/4096)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/120/1)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/120/97)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/120/128)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/120/173)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/120/4096)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/240/1)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/240/97)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/240/128)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/240/173)
+ FAIL  src/core/engine/automation-mixed-timeline.test.ts > slices simultaneous patch/fx/mixer/send/return/master curves through note actions (96000/240/4096)
+AssertionError: expected 0.016611382008104164 to be less than 0.00002
+ ❯ src/core/engine/automation-mixed-timeline.test.ts:38:121
+     36|       const sent = (.2 + .5 * beat) * (.4 + .4 * beat)
+     37|       const master = (.5 + .5 * beat) * (.8 - .2 * beat)
+     38|       expect(Math.abs(left[i]! - Math.tanh(signal * (Math.SQRT2 * Math…
+       |                                                                                                                         ^
+     39|       expect(Math.abs(right[i]! - Math.tanh(signal * (Math.SQRT2 * Mat…
+     40|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/45]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  45 failed (45)
+   Start at  17:16:11
+   Duration  1.06s (tests 45%, transform 45%, import 9%)
+

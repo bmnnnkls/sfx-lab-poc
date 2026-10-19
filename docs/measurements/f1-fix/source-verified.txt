@@ -1,0 +1,2 @@
+Verified 565 source/config hashes and 8 production JS hashes against the stabilized checkout.
+Manifest SHA-256: 90bfe1f758e797fec65a406854b11142e10077509e75d8b0eb2a11a85db12c56

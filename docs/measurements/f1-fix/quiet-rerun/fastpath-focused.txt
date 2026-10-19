@@ -1,0 +1,17 @@
+
+> sfx-lab-poc@0.0.0 test
+> vitest run src/core/engine/note-components.test.ts src/core/engine/automation-perf.test.ts src/core/engine/engine.test.ts src/core/engine/audio-clips.test.ts src/core/engine/automation-audio.test.ts src/core/engine/held-notes.test.ts src/core/engine/bounce.test.ts
+
+
+ RUN  v5.0.3 /Users/niklaus.baumann/git/local/sfx-lab-poc
+
+
+ Test Files  7 passed (7)
+      Tests  119 passed (119)
+   Start at  17:38:20
+   Duration  3.20s (tests 57%, transform 35%, import 8%)
+
+  Transform  transforming modules took 2.94s · 35% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

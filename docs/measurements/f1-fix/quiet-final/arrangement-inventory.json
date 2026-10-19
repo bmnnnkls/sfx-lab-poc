@@ -1,0 +1,28 @@
+[
+  {
+    "title": "Low Light",
+    "tempo": 125,
+    "sceneBeats": [
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16
+    ]
+  },
+  {
+    "title": "Glass Rain",
+    "tempo": 92,
+    "sceneBeats": [
+      64,
+      64,
+      64,
+      64,
+      64,
+      64
+    ]
+  }
+]

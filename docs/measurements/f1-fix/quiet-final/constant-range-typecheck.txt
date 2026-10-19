@@ -1,0 +1,4 @@
+
+> sfx-lab-poc@0.0.0 typecheck
+> tsc --noEmit
+

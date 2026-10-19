@@ -1,0 +1,6 @@
+{
+  performance: 'undefined',
+  date: 'function',
+  consoleTime: 'function',
+  rate: 48000
+}

@@ -1,0 +1,320 @@
+{
+  "cpu": "Apple M3 Pro",
+  "loadAverage": [
+    4.154296875,
+    4.93798828125,
+    5.97509765625
+  ],
+  "rate": 48000,
+  "quantum": 128,
+  "trialAudioSeconds": 0.25,
+  "trials": 5,
+  "warmAudioSeconds": 0.25,
+  "note": "Engine render plus output-view dispatch; full finite windows checked outside timed interval. Stress characterization only.",
+  "results": [
+    {
+      "shape": {
+        "tracks": 32,
+        "voices": 4,
+        "active": 1,
+        "lanes": 1,
+        "points": 2,
+        "inactiveClips": 0
+      },
+      "configureMs": 6.210125000000005,
+      "trialsMsPerAudioSecond": [
+        91.371668,
+        87.75883199999998,
+        87.36049999999989,
+        86.25299999999993,
+        86.23416399999996
+      ],
+      "median": 87.36049999999989
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 0,
+        "lanes": 1,
+        "points": 2,
+        "inactiveClips": 0
+      },
+      "configureMs": 0.6038750000000164,
+      "trialsMsPerAudioSecond": [
+        35.77033200000005,
+        32.215999999999894,
+        30.195335999999998,
+        31.29966800000011,
+        31.033331999999973
+      ],
+      "median": 31.29966800000011
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 1,
+        "lanes": 1,
+        "points": 2,
+        "inactiveClips": 0
+      },
+      "configureMs": 0.5196249999999623,
+      "trialsMsPerAudioSecond": [
+        37.5,
+        34.274000000000115,
+        35.78099999999995,
+        35.701335999999856,
+        35.41583200000014
+      ],
+      "median": 35.701335999999856
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 4,
+        "lanes": 1,
+        "points": 2,
+        "inactiveClips": 0
+      },
+      "configureMs": 0.4397920000000113,
+      "trialsMsPerAudioSecond": [
+        46.05099999999993,
+        45.04133200000001,
+        46.37799999999993,
+        44.25033200000007,
+        46.37699999999995
+      ],
+      "median": 46.05099999999993
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 16,
+        "active": 0,
+        "lanes": 1,
+        "points": 2,
+        "inactiveClips": 0
+      },
+      "configureMs": 1.0651249999999663,
+      "trialsMsPerAudioSecond": [
+        30.467667999999776,
+        30.324835999999777,
+        30.529336000000058,
+        31.58216799999991,
+        32.0920000000001
+      ],
+      "median": 30.529336000000058
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 16,
+        "active": 1,
+        "lanes": 1,
+        "points": 2,
+        "inactiveClips": 0
+      },
+      "configureMs": 0.9331250000000182,
+      "trialsMsPerAudioSecond": [
+        34.12116799999967,
+        35.42116799999985,
+        34.65650000000005,
+        35.09833200000003,
+        35.33916799999997
+      ],
+      "median": 35.09833200000003
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 16,
+        "active": 16,
+        "lanes": 1,
+        "points": 2,
+        "inactiveClips": 0
+      },
+      "configureMs": 0.7661249999999882,
+      "trialsMsPerAudioSecond": [
+        86.8531640000001,
+        85.76766799999996,
+        85.69033600000012,
+        86.97633199999973,
+        87.50716800000009
+      ],
+      "median": 86.8531640000001
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 1,
+        "lanes": 1,
+        "points": 2,
+        "inactiveClips": 0
+      },
+      "configureMs": 0.5974579999999605,
+      "trialsMsPerAudioSecond": [
+        38.145668000000114,
+        35.67750000000024,
+        35.11866800000007,
+        35.35516800000005,
+        35.11299999999983
+      ],
+      "median": 35.35516800000005
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 1,
+        "lanes": 1,
+        "points": 2048,
+        "inactiveClips": 0
+      },
+      "configureMs": 1.3183330000000524,
+      "trialsMsPerAudioSecond": [
+        40.39033600000039,
+        35.86650000000009,
+        34.34516799999983,
+        34.63683200000014,
+        34.00216799999998
+      ],
+      "median": 34.63683200000014
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 1,
+        "lanes": 8,
+        "points": 2,
+        "inactiveClips": 0
+      },
+      "configureMs": 0.7008330000001024,
+      "trialsMsPerAudioSecond": [
+        116.18333200000006,
+        115.71849999999995,
+        114.29100000000017,
+        118.14266800000041,
+        117.07600000000048
+      ],
+      "median": 116.18333200000006
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 1,
+        "lanes": 8,
+        "points": 2048,
+        "inactiveClips": 0
+      },
+      "configureMs": 5.037541999999803,
+      "trialsMsPerAudioSecond": [
+        116.8231679999999,
+        117.9516679999997,
+        121.87016399999993,
+        122.79316800000015,
+        120.40583199999946
+      ],
+      "median": 120.40583199999946
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 1,
+        "lanes": 64,
+        "points": 2,
+        "inactiveClips": 0
+      },
+      "configureMs": 2.111750000000029,
+      "trialsMsPerAudioSecond": [
+        1120.2299999999996,
+        842.060332,
+        826.5659999999989,
+        847.5558360000014,
+        832.6130000000012
+      ],
+      "median": 842.060332
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 1,
+        "lanes": 64,
+        "points": 2048,
+        "inactiveClips": 0
+      },
+      "configureMs": 40.45808299999999,
+      "trialsMsPerAudioSecond": [
+        971.2463360000002,
+        958.9073360000002,
+        972.6831680000014,
+        1012.3108319999992,
+        1039.7361679999995
+      ],
+      "median": 972.6831680000014
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 1,
+        "lanes": 1,
+        "points": 2,
+        "inactiveClips": 0
+      },
+      "configureMs": 0.40791699999999764,
+      "trialsMsPerAudioSecond": [
+        35.434832000000824,
+        34.27600000000166,
+        34.05199999999968,
+        33.627668000000995,
+        34.17366800000309
+      ],
+      "median": 34.17366800000309
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 1,
+        "lanes": 1,
+        "points": 2,
+        "inactiveClips": 64
+      },
+      "configureMs": 0.5879160000004049,
+      "trialsMsPerAudioSecond": [
+        35.5716680000005,
+        79.95950000000084,
+        67.3760000000002,
+        67.07099999999991,
+        40.81633200000215
+      ],
+      "median": 67.07099999999991
+    },
+    {
+      "shape": {
+        "tracks": 4,
+        "voices": 4,
+        "active": 1,
+        "lanes": 1,
+        "points": 2,
+        "inactiveClips": 512
+      },
+      "configureMs": 1.2082499999996799,
+      "trialsMsPerAudioSecond": [
+        41.379164000001765,
+        34.81299999999828,
+        56.70083599999998,
+        37.66766799999823,
+        65.08549999999741
+      ],
+      "median": 41.379164000001765
+    }
+  ]
+}

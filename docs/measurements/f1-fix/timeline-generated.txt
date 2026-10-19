@@ -1,0 +1,59 @@
+
+> sfx-lab-poc@0.0.0 test
+> vitest run src/core/engine/automation-timeline.test.ts
+
+
+ RUN  v5.0.3 /Users/niklaus.baumann/git/local/sfx-lab-poc
+
+ ❯ src/core/engine/automation-timeline.test.ts (27 tests | 10 failed) 2705ms
+   × orders a same-frame automation step before an arp-generated note (44100/1) 119ms
+   × orders a same-frame automation step before an arp-generated note (44100/97) 32ms
+   × orders a same-frame automation step before an arp-generated note (44100/128) 28ms
+   × orders a same-frame automation step before an arp-generated note (44100/173) 30ms
+   × orders a same-frame automation step before an arp-generated note (48000/1) 126ms
+   × orders a same-frame automation step before an arp-generated note (48000/97) 31ms
+   × orders a same-frame automation step before an arp-generated note (96000/1) 193ms
+   × orders a same-frame automation step before an arp-generated note (96000/97) 57ms
+   × orders a same-frame automation step before an arp-generated note (96000/128) 55ms
+   × orders a same-frame automation step before an arp-generated note (96000/173) 55ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/core/engine/automation-timeline.test.ts > orders a same-frame automation step before an arp-generated note (44100/1)
+ FAIL  src/core/engine/automation-timeline.test.ts > orders a same-frame automation step before an arp-generated note (44100/97)
+ FAIL  src/core/engine/automation-timeline.test.ts > orders a same-frame automation step before an arp-generated note (44100/128)
+ FAIL  src/core/engine/automation-timeline.test.ts > orders a same-frame automation step before an arp-generated note (44100/173)
+ FAIL  src/core/engine/automation-timeline.test.ts > orders a same-frame automation step before an arp-generated note (48000/1)
+ FAIL  src/core/engine/automation-timeline.test.ts > orders a same-frame automation step before an arp-generated note (48000/97)
+ FAIL  src/core/engine/automation-timeline.test.ts > orders a same-frame automation step before an arp-generated note (96000/1)
+ FAIL  src/core/engine/automation-timeline.test.ts > orders a same-frame automation step before an arp-generated note (96000/97)
+ FAIL  src/core/engine/automation-timeline.test.ts > orders a same-frame automation step before an arp-generated note (96000/128)
+ FAIL  src/core/engine/automation-timeline.test.ts > orders a same-frame automation step before an arp-generated note (96000/173)
+AssertionError: expected { identity: { …(4) }, beat: 1, …(3) } to match object { kind: 'noteOn', pitch: 72 }
+(7 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "kind": "noteOn",
+-   "pitch": 72,
++   "pitch": 60,
+  }
+
+ ❯ src/core/engine/automation-timeline.test.ts:65:17
+     63|   for (let i = 0; i < frames; i += chunk) { const n = Math.min(chunk, …
+     64|   const event = capture.mock.calls.map(([e]) => e).find(e => e.kind ==…
+     65|   expect(event).toMatchObject({ kind: 'noteOn', pitch: 72 })
+       |                 ^
+     66| })
+     67|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  10 failed | 17 passed (27)
+   Start at  17:12:33
+   Duration  3.62s (tests 77%, transform 20%, import 4%)
+
