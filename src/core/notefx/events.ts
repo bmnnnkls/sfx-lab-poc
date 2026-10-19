@@ -1,5 +1,8 @@
 import { eventInScope, type NoteScope, type NoteEvent } from '../session'
 
+/** Beat comparisons share automation's tolerance so a rounded block end cannot consume the next sample's event. */
+export const NOTE_BEAT_EPSILON = 1e-10
+
 const KIND_PRIORITY: Record<NoteEvent['kind'], number> = { allOff: 0, noteOff: 1, noteOn: 2 }
 
 /** Time order, and at the same beat: everything off first, then note-offs, then note-ons. */
@@ -16,8 +19,8 @@ export class EventQueue {
 
   /** Removes and returns the events due before `to` (in order). */
   takeBefore(to: number): NoteEvent[] {
-    const due = this.events.filter((event) => event.beat < to)
-    if (due.length > 0) this.events = this.events.filter((event) => event.beat >= to)
+    const due = this.events.filter((event) => event.beat < to - NOTE_BEAT_EPSILON)
+    if (due.length > 0) this.events = this.events.filter((event) => event.beat >= to - NOTE_BEAT_EPSILON)
     return due.sort(compareEvents)
   }
 

@@ -1,6 +1,6 @@
 import { Params, type ParamSpec } from '../dsp'
 import { noteKey, inNoteScope, childIdentity, type NoteIdentity, type NoteEvent } from '../session'
-import { EventQueue, compareEvents } from './events'
+import { EventQueue, NOTE_BEAT_EPSILON, compareEvents } from './events'
 import { NOTE_IN, NOTE_OUT, type NoteNodeDefinition, type NoteProcessor } from './types'
 
 const RATES = ['1/4', '1/8', '1/16', '1/32'] as const
@@ -71,7 +71,7 @@ class Arpeggiator implements NoteProcessor {
     let index = 0
     while (true) {
       const inputBeat = input[index]?.beat ?? Infinity
-      if (inputBeat >= to && stepBeat >= to) break
+      if (inputBeat >= to - NOTE_BEAT_EPSILON && stepBeat >= to - NOTE_BEAT_EPSILON) break
 
       // Input at or before a step is handled first, so a chord that starts on a step is heard on that step.
       if (inputBeat <= stepBeat) {

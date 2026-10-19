@@ -20,6 +20,7 @@ import { TrackRuntime } from './track-runtime'
 
 interface ScheduledEvent {
   readonly frame: number
+  readonly order: number
   readonly action: ScheduledAction
 }
 
@@ -30,7 +31,10 @@ interface ScheduledEvent {
  */
 export class Engine {
   private readonly automation = new EngineAutomation((target, value, baseValue) => this.writeAutomation(target, value, baseValue))
-  private collecting: { frame: number; frames: number; curves: Map<string, { target: ControlTarget; values: Float64Array; baseValue: number }> } | null = null
+  private collecting: { frame: number; frames: number } | null = null
+  /** Curves live until every audio subrun of their planning horizon has consumed them. */
+  private targetMetadata = new WeakMap<ControlTarget, { key: string; nodeId: string }>()
+  private readonly curves = new Map<string, { target: ControlTarget; values: Float64Array; baseValue: number; used: boolean }>()
   private readonly automationSends = new Map<string, Record<string, number>>()
   private readonly transport: Transport
   private readonly tracks = new Map<string, PlayableTrack>()
@@ -50,6 +54,12 @@ export class Engine {
    */
   private scheduleOrder: PlayableTrack[] | null = null
   private mixOrder: PlayableTrack[] | null = null
+  private instrumentOrder: readonly TrackRuntime[] | null = null
+  private noteComponents: readonly { tracks: readonly TrackRuntime[]; ids: readonly string[] }[] | null = null
+  private readonly noteOwners = new Set<string>()
+  private readonly sampleTracks: TrackRuntime[] = []
+  private readonly intervalTracks: TrackRuntime[] = []
+  private readonly scheduleRanks = new Map<PlayableTrack, number>()
   /** What each track's note graph produced in the current block, for other tracks to read. */
   private readonly noteTaps: TapBoard = new Map()
   /** What the tracks sent to each return track in the stretch being mixed. */
@@ -73,6 +83,8 @@ export class Engine {
         this.transport.play()
         break
       case 'automation/configure':
+        this.curves.clear()
+        this.targetMetadata = new WeakMap()
         this.automation.configure(command.tracks, new Map([...this.tracks].map(([id, track]) => [id, track.status()])))
         for (const [id, track] of this.tracks) if (track instanceof TrackRuntime) track.setAutomationNoteGraph(command.tracks.find((t) => t.trackId === id)?.noteGraph)
         break
@@ -221,7 +233,7 @@ export class Engine {
     right.fill(0)
     for (let offset = 0; offset < left.length;) {
       // Note-graph automation schedules at sample boundaries; audio and mixer curves keep block processing.
-      const frames = Math.min(this.transport.playing && this.automation.noteLanes ? 1 : MAX_BLOCK_FRAMES, left.length - offset)
+      const frames = Math.min(MAX_BLOCK_FRAMES, left.length - offset)
       this.renderBlock(left, right, offset, frames)
       offset += frames
     }
@@ -291,36 +303,97 @@ export class Engine {
   }
 
   private renderBlock(left: Float32Array, right: Float32Array, offset: number, frames: number): void {
-    if (this.transport.playing && this.automation.noteLanes) this.automation.tick(this.transport.positionBeats, this.transport.beatAfter(frames))
-    const events = this.collectEvents(frames)
-
-    let cursor = 0
-    for (const { frame, action } of events) {
-      this.mixSegment(left, right, offset, cursor, frame - cursor)
-      cursor = frame
-      action.run()
+    const audioEvents: ScheduledEvent[] = []
+    if (this.transport.playing) for (const track of this.scheduleTracks()) if (!(track instanceof TrackRuntime)) {
+      for (const action of track.schedule(this.transport.positionBeats, this.transport.beatAfter(frames), this.noteTaps)) {
+        audioEvents.push({ frame: this.eventFrame(action.beat, this.transport.positionBeats, frames), order: this.scheduleRanks.get(track)!, action })
+      }
     }
-    this.mixSegment(left, right, offset, cursor, frames - cursor)
+    audioEvents.sort((a, b) => a.frame - b.frame)
+    const instruments = this.noteTracks()
+    if (!this.automation.configured && !instruments.some(track => track.hasNoteControls)) {
+      // No ownership/curves/helper clock needs a planning horizon. Retain the established interval path,
+      // including audio clip actions and generators, without paying automation's bookkeeping per block.
+      const events = audioEvents
+      this.collectEvents(0, frames, events, instruments)
+      events.sort((a, b) => a.frame - b.frame || a.order - b.order)
+      let cursor = 0
+      for (const { frame, action } of events) {
+        this.mixSegment(left, right, offset, cursor, frame - cursor)
+        cursor = frame
+        action.run()
+      }
+      this.mixSegment(left, right, offset, cursor, frames - cursor)
+      this.transport.advance(frames)
+      this.noteBeat += frames * this.transport.beatsPerSample
+      return
+    }
+    let cursor = 0, audioIndex = 0
+    while (cursor < frames) {
+      // Apply starts/stops before discovering the new state's one-shot horizon.
+      while (audioIndex < audioEvents.length && audioEvents[audioIndex]!.frame === cursor) audioEvents[audioIndex++]!.action.run()
+      let end = audioEvents[audioIndex]?.frame ?? frames
+      for (const [id, track] of this.tracks) if (track instanceof AudioTrackRuntime) {
+        const remaining = track.framesUntilEnd({ beat: this.transport.beatAfter(cursor), beatsPerSample: this.transport.beatsPerSample })
+        if (remaining === 0) { track.finishClip(this.transport.beatAfter(cursor)); this.automation.finish(id) }
+        else end = Math.min(end, cursor + remaining)
+      }
+      // A zero-length lifecycle was committed above; every planned horizon must now advance.
+      if (end <= cursor) throw new Error('Non-progressing audio planning horizon')
+      for (const curve of this.curves.values()) curve.used = false
+      const collecting = { frame: 0, frames: end - cursor }
+      this.collecting = collecting
+      const events: ScheduledEvent[] = []
+      // Commit first-sample ownership and note values before any interval scheduling. A constant-range
+      // proof may then retain the established processor without observing a later sample's parameters.
+      if (this.transport.playing && this.automation.configured) this.automation.tick(this.transport.beatAfter(cursor), this.transport.beatAfter(cursor + 1))
+      this.planNoteComponents(this.transport.beatAfter(cursor), this.transport.beatAfter(end))
+      // Disconnected components cannot read each other's taps. Fixed-parameter components retain their
+      // established interval processors (including autonomous generators); affected components keep sample cadence.
+      this.collectEvents(cursor, end - cursor, events, this.intervalTracks)
+      if (this.sampleTracks.length) {
+        for (let frame = cursor; frame < end; frame++) {
+          collecting.frame = frame - cursor
+          if (frame > cursor && this.transport.playing && this.automation.configured) this.automation.tick(this.transport.beatAfter(frame), this.transport.beatAfter(frame + 1))
+          this.collectEvents(frame, 1, events, this.sampleTracks)
+        }
+      } else if (this.transport.playing && this.automation.configured) {
+        for (let frame = cursor + 1; frame < end; frame++) {
+          collecting.frame = frame - cursor
+          this.automation.tick(this.transport.beatAfter(frame), this.transport.beatAfter(frame + 1))
+        }
+      }
+      this.collecting = null
+      for (const curve of this.curves.values()) if (curve.used) {
+        let last = curve.baseValue
+        for (let i = 0; i < collecting.frames; i++) { if (Number.isNaN(curve.values[i]!)) curve.values[i] = last; else last = curve.values[i]! }
+      }
+      events.sort((a, b) => a.frame - b.frame || a.order - b.order)
+      let mixed = cursor
+      for (const { frame, action } of events) {
+        this.mixSegment(left, right, offset, mixed, frame - mixed, mixed - cursor)
+        mixed = frame
+        action.run()
+      }
+      this.mixSegment(left, right, offset, mixed, end - mixed, mixed - cursor)
+      cursor = end
+    }
     this.transport.advance(frames)
     this.noteBeat += frames * this.transport.beatsPerSample
   }
 
-  private collectEvents(frames: number): ScheduledEvent[] {
-    const from = this.noteBeat
+  private eventFrame(beat: number, from: number, frames: number): number {
+    return Math.max(0, Math.min(frames - 1, Math.round((beat - from) / this.transport.beatsPerSample)))
+  }
+
+  private collectEvents(cursor: number, frames: number, scheduled: ScheduledEvent[], tracks: readonly TrackRuntime[]): void {
+    const from = this.noteBeat + cursor * this.transport.beatsPerSample
     const to = from + frames * this.transport.beatsPerSample
-    const scheduled: ScheduledEvent[] = []
     this.noteTaps.clear()
-    for (const track of this.scheduleTracks()) {
-      const actions = track instanceof TrackRuntime
-        ? track.schedule(from, to, this.noteTaps, this.transport.playing ? this.transport.positionBeats : undefined, this.transport.beatAfter(frames))
-        : this.transport.playing ? track.schedule(this.transport.positionBeats, this.transport.beatAfter(frames), this.noteTaps)
-          .map((action) => ({ beat: from + action.beat - this.transport.positionBeats, run: () => action.run() })) : []
-      for (const action of actions) {
-        scheduled.push({ frame: Math.max(0, Math.min(frames - 1, Math.round((action.beat - from) / this.transport.beatsPerSample))), action })
-      }
+    for (const track of tracks) {
+      const actions = track.schedule(from, to, this.noteTaps, this.transport.playing ? this.transport.beatAfter(cursor) : undefined, this.transport.beatAfter(cursor + frames))
+      for (const action of actions) scheduled.push({ frame: cursor + this.eventFrame(action.beat, from, frames), order: this.scheduleRanks.get(track)!, action })
     }
-    // Array#sort is stable, so same-frame events keep each launcher's own order (offs before ons).
-    return scheduled.sort((a, b) => a.frame - b.frame)
   }
 
   /**
@@ -333,50 +406,31 @@ export class Engine {
     blockOffset: number,
     cursor: number,
     frames: number,
+    curveOffset = 0,
   ): void {
     if (frames <= 0) return
-    const timing = { beat: this.transport.beatAfter(cursor), beatsPerSample: this.transport.beatsPerSample }
-    let boundary = frames
-    for (const [id, track] of this.tracks) if (this.automation.configured && track instanceof AudioTrackRuntime) {
-      const remaining = track.framesUntilEnd(timing)
-      if (remaining === 0) { track.finishClip(timing.beat); this.automation.finish(id) }
-      else boundary = Math.min(boundary, remaining)
-    }
-    if (boundary < frames) {
-      this.mixSegment(left, right, blockOffset, cursor, boundary)
-      this.mixSegment(left, right, blockOffset, cursor + boundary, frames - boundary)
-      return
-    }
     this.master.clearAutomation()
     this.masterVolumeCurve = null
     for (const track of this.tracks.values()) { track.clearAutomation(); track.strip.clearAutomation() }
-    if (this.transport.playing && this.automation.configured) {
-      const collecting = { frame: 0, frames, curves: new Map<string, { target: ControlTarget; values: Float64Array; baseValue: number }>() }
-      this.collecting = collecting
-      for (let frame = 0; frame < frames; frame++) {
-        collecting.frame = frame
-        this.automation.tick(this.transport.beatAfter(cursor + frame), this.transport.beatAfter(cursor + frame + 1))
+    for (const curve of this.curves.values()) if (curve.used) {
+      const { target } = curve
+      const values = curve.values.subarray(curveOffset, curveOffset + frames)
+      if (target.owner.kind === 'master') {
+        if (target.kind === 'graph') this.master.setAutomationCurve(flatControlNodeId(target), target.paramId, values)
+        else { this.masterVolumeCurve = values; this.masterVolume = values[frames - 1]! }
+        continue
       }
-      this.collecting = null
-      for (const { target, values, baseValue } of collecting.curves.values()) {
-        let last = baseValue
-        for (let i = 0; i < frames; i++) { if (Number.isNaN(values[i]!)) values[i] = last; else last = values[i]! }
-        if (target.owner.kind === 'master') {
-          if (target.kind === 'graph') this.master.setAutomationCurve(flatControlNodeId(target), target.paramId, values)
-          else { this.masterVolumeCurve = values; this.masterVolume = values[frames - 1]! }
-          continue
-        }
-        const track = this.tracks.get(target.owner.trackId)
-        if (!track) continue
-        if (target.kind === 'graph') track.setAutomationCurve(flatControlNodeId(target), target.paramId, values, target.domain)
-        else if (target.control === 'volume') { track.strip.volumeCurve = values; track.strip.volume = values[frames - 1]! }
-        else if (target.control === 'pan') { track.strip.panCurve = values; track.strip.pan = values[frames - 1]! }
-        else {
-          track.strip.sendCurves.set(target.returnId, values)
-          const sends = this.automationSends.get(target.owner.trackId) ?? {}
-          sends[target.returnId] = values[frames - 1]!
-          this.automationSends.set(target.owner.trackId, sends); this.setSendLevels(target.owner.trackId, sends)
-        }
+      const track = this.tracks.get(target.owner.trackId)
+      if (!track) continue
+      if (target.kind === 'graph') track.setAutomationCurve(flatControlNodeId(target), target.paramId, values, target.domain)
+      else if (target.control === 'volume') { track.strip.volumeCurve = values; track.strip.volume = values[frames - 1]! }
+      else if (target.control === 'pan') { track.strip.panCurve = values; track.strip.pan = values[frames - 1]! }
+      else {
+        track.strip.sendCurves.set(target.returnId, values)
+        const sends = this.automationSends.get(target.owner.trackId) ?? {}
+        sends[target.returnId] = values[frames - 1]!
+        this.automationSends.set(target.owner.trackId, sends)
+        this.setSendLevels(target.owner.trackId, sends)
       }
     }
     const mix: MixContext = {
@@ -405,6 +459,8 @@ export class Engine {
 
   private invalidateOrder(): void {
     this.scheduleOrder = null
+    this.noteComponents = null
+    this.instrumentOrder = null
     this.mixOrder = null
     this.mixStateStale = true // which tracks feed which returns may have changed
   }
@@ -447,9 +503,58 @@ export class Engine {
     }
   }
 
+  private noteTracks(): readonly TrackRuntime[] {
+    return this.instrumentOrder ??= this.scheduleTracks().filter((track): track is TrackRuntime => track instanceof TrackRuntime)
+  }
+
+  /** Topology-only compilation: an undirected closure includes every upstream source and transitive reader. */
+  private components(): readonly { tracks: readonly TrackRuntime[]; ids: readonly string[] }[] {
+    if (this.noteComponents) return this.noteComponents
+    const ordered = this.noteTracks()
+    const ids = new Map([...this.tracks].map(([id, track]) => [track, id]))
+    const neighbors = new Map(ordered.map(track => [track, new Set<TrackRuntime>()]))
+    for (const track of ordered) for (const id of track.tapSources()) {
+      const source = this.tracks.get(id)
+      if (!(source instanceof TrackRuntime)) continue
+      neighbors.get(track)!.add(source)
+      neighbors.get(source)!.add(track)
+    }
+    const seen = new Set<TrackRuntime>()
+    const components: { tracks: TrackRuntime[]; ids: string[] }[] = []
+    for (const root of ordered) {
+      if (seen.has(root)) continue
+      const members = new Set<TrackRuntime>(), pending = [root]
+      while (pending.length) {
+        const track = pending.pop()!
+        if (members.has(track)) continue
+        members.add(track); seen.add(track)
+        for (const neighbor of neighbors.get(track)!) pending.push(neighbor)
+      }
+      const tracks = ordered.filter(track => members.has(track))
+      components.push({ tracks, ids: tracks.map(track => ids.get(track)!) })
+    }
+    return this.noteComponents = components
+  }
+
+  private planNoteComponents(from: number, to: number): void {
+    this.noteOwners.clear()
+    if (this.transport.playing) this.automation.noteOwners(this.noteOwners, from, to)
+    this.sampleTracks.length = 0
+    this.intervalTracks.length = 0
+    for (const component of this.components()) {
+      const sample = component.ids.some(id => this.noteOwners.has(id)) || component.tracks.some(track => track.hasNoteControls)
+      const into = sample ? this.sampleTracks : this.intervalTracks
+      into.push(...component.tracks)
+    }
+  }
+
   /** The tracks in the order their events are scheduled in: each after the tracks it takes notes from. */
   private scheduleTracks(): readonly PlayableTrack[] {
-    this.scheduleOrder ??= this.sorted(new Map([...this.tracks].map(([id, track]) => [id, track.tapSources()])))
+    if (!this.scheduleOrder) {
+      this.scheduleOrder = this.sorted(new Map([...this.tracks].map(([id, track]) => [id, track.tapSources()])))
+      this.scheduleRanks.clear()
+      this.scheduleOrder.forEach((track, index) => this.scheduleRanks.set(track, index))
+    }
     return this.scheduleOrder
   }
 
@@ -529,22 +634,31 @@ export class Engine {
   }
 
   private writeAutomation(target: ControlTarget, value: number, baseValue = value): void {
-    if (this.collecting) {
-      const key = controlTargetKey(target)
-      const curve = this.collecting.curves.get(key) ?? { target, values: new Float64Array(this.collecting.frames).fill(NaN), baseValue }
+    let metadata = this.targetMetadata.get(target)
+    if (!metadata) {
+      metadata = { key: controlTargetKey(target), nodeId: target.kind === 'graph' ? flatControlNodeId(target) : '' }
+      this.targetMetadata.set(target, metadata)
+    }
+    if (this.collecting && !(target.kind === 'graph' && target.domain === 'notes')) {
+      const key = metadata.key
+      let curve = this.curves.get(key)
+      if (!curve) {
+        curve = { target, values: new Float64Array(MAX_BLOCK_FRAMES), baseValue, used: false }
+        this.curves.set(key, curve)
+      }
+      if (!curve.used) { curve.values.fill(NaN); curve.baseValue = baseValue; curve.used = true }
       curve.values[this.collecting.frame] = value
-      this.collecting.curves.set(key, curve)
       return
     }
     if (target.owner.kind === 'master') {
-      if (target.kind === 'graph') this.master.setParam(flatControlNodeId(target), target.paramId, value)
+      if (target.kind === 'graph') this.master.setParam(metadata.nodeId, target.paramId, value)
       else this.masterVolume = value
       return
     }
     const track = this.tracks.get(target.owner.trackId)
     if (!track) return
     if (target.kind === 'graph') {
-      const nodeId = flatControlNodeId(target)
+      const nodeId = metadata.nodeId
       if (track.setAutomationParam) track.setAutomationParam(nodeId, target.paramId, value, target.domain)
       else track.setParam(nodeId, target.paramId, value, target.domain)
     } else if (target.control === 'volume') track.strip.volume = value

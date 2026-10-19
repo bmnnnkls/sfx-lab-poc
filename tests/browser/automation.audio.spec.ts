@@ -2,13 +2,13 @@ import { samplePresetProject } from './preset-project'
 import { exportLibraryBundle } from '../../src/storage'
 import { captureLibraryAsset, emptyLibrary, renderProject, serializeProject, parseProject, saveProjectPreset, editControlBase, type Project } from '../../src/core'
 import { test, expect, expectSaved } from './fixtures'
-import { slotSweepProject, sweepProject, sweepTarget } from './automation-project'
+import { noteSweepProject, slotSweepProject, sweepProject, sweepTarget } from './automation-project'
 
 declare global { interface Window { __sweepSamples: number[] } }
-for (const mode of ['clip', 'slots', 'touch', 'preset', 'sample-preset', 'library-preset', 'bundle-preset']) {
+for (const mode of ['clip', 'notes', 'slots', 'touch', 'preset', 'sample-preset', 'library-preset', 'bundle-preset']) {
 const slots = mode === 'slots', touch = mode === 'touch', preset = mode === 'preset', bundlePreset = mode === 'bundle-preset', samplePreset = mode === 'sample-preset' || mode === 'library-preset' || bundlePreset, libraryPreset = mode === 'library-preset' || bundlePreset
-test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after trash/reload' : libraryPreset ? 'independent library sample asset after trash/reload' : samplePreset ? 'recalled instance sample preset' : preset ? 'recalled project preset' : touch ? 'Touch take' : slots ? 'return/master slots' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
-  let project: Project = slots ? slotSweepProject() : sweepProject()
+test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after trash/reload' : libraryPreset ? 'independent library sample asset after trash/reload' : samplePreset ? 'recalled instance sample preset' : preset ? 'recalled project preset' : touch ? 'Touch take' : slots ? 'return/master slots' : mode === 'notes' ? 'helper/notes and filter curves' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
+  let project: Project = slots ? slotSweepProject() : mode === 'notes' ? noteSweepProject() : sweepProject()
   if (preset) {
     project = { ...project, tracks: project.tracks.map(t => t.kind === 'instrument' ? { ...t, clips: t.clips.map(c => c ? { ...c, automation: [] } : c) } : t) }
     const scope = { owner: sweepTarget.owner, domain: 'patch' as const }

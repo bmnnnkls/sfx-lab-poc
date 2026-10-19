@@ -14,3 +14,13 @@ export const slotSweepProject = (): Project => {
   result = setAutomationSlot(result, target.owner, 0, { id: 'master-slot', name: 'Master sweep', lengthBeats: 3, automation: [{ id: 'master-lane', target, enabled: true, points: [{ id: 'a', beat: 0, value: 0.1, interpolation: 'linear' }, { id: 'b', beat: 3, value: 0.9, interpolation: 'linear' }] }] })
   return setAutomationSlot(result, { kind: 'track', trackId: 'throw' }, 0, { id: 'throw-slot', name: 'Return throw', lengthBeats: 1, automation: [{ id: 'throw-lane', target: { kind: 'mixer', owner: { kind: 'track', trackId: 'throw' }, control: 'volume' }, enabled: true, points: [{ id: 'a', beat: 0, value: 0, interpolation: 'hold' }, { id: 'b', beat: 0.5, value: 0.8, interpolation: 'hold' }] }] })
 }
+
+/** Note/helper automation plus a filter curve; deterministic pitch signal makes note actions audible. */
+export const noteSweepProject = (): Project => {
+  const p = sweepProject()
+  return { ...p, tracks: p.tracks.map(t => ({ ...t,
+    patch: noteGraphFrom([{ id: 'note', type: 'note' }, { id: 'gain', type: 'gain', params: { gain: .001 } }, { id: 'filter', type: 'filter', params: { cutoff: 2000 } }, { id: 'out', type: 'output' }], ['note.frequency>gain.in', 'gain.out>filter.in', 'filter.out>out.in']),
+    noteGraph: noteGraphFrom([{ id: 'in', type: 'clipNotes' }, { id: 'amount', type: 'control', params: { value: 0, min: 0, max: 12 } }, { id: 'smooth', type: 'smooth', params: { time: .02 } }, { id: 'tr', type: 'transpose' }, { id: 'out', type: 'noteOut' }], ['in.out>tr.in', 'tr.out>out.in', 'amount.out>smooth.in', 'smooth.out>tr.param:semitones']),
+    clips: t.clips.map(c => c && ({ ...c, notes: [createNote(60, 0, .5, 1), createNote(60, 1, .5, 1)], automation: [...c.automation!, { id: 'notes', enabled: true, target: { kind: 'graph' as const, owner: { kind: 'track' as const, trackId: t.id }, domain: 'notes' as const, path: [], nodeId: 'amount', nodeType: 'control', paramId: 'value' }, points: [{ id: 'a', beat: 0, value: 0, interpolation: 'hold' as const }, { id: 'b', beat: .75, value: 1, interpolation: 'hold' as const }] }] })),
+  })) }
+}

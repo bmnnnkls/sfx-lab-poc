@@ -53,3 +53,21 @@ it('applies per-frame Send-node automation at the correct stereo buffer offset',
     expect(right[i]).toBeCloseTo(left[i]!, 6)
   }
 })
+
+import { createClip, type InstrumentTrack } from '../project'
+
+for (const warp of ['off', 'repitch'] as const) it(`bounds lookahead at a newly launched ${warp} one-shot and restores the first delay tail sample`, () => {
+  const p = projectOf(false, warp), t = p.tracks[0] as AudioTrack, c = t.clips[0]!
+  const instrument = createEmptyProject().tracks[0] as InstrumentTrack
+  const notes = noteGraphFrom([{ id: 'in', type: 'clipNotes' }, { id: 'tr', type: 'transpose' }, { id: 'out', type: 'noteOut' }], ['in.out>tr.in', 'tr.out>out.in'])
+  const fx = noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 'delay', type: 'delay', params: { time: 8 / RATE, feedback: 0, mix: 1 } }, { id: 'out', type: 'trackOut' }], ['in.out>delay.in', 'delay.out>out.in'])
+  const project = { ...p, tracks: [{ ...t, fx, clips: [{ ...c, end: 17 / RATE, lengthBeats: 17 * 2 / RATE, automation: [{ ...c.automation![0]!, points: [{ id: 'p', beat: 0, value: .8, interpolation: 'hold' as const }] }] }] },
+    { ...instrument, id: 'n', noteGraph: notes, clips: [{ ...createClip('clock', 4, []), automation: [{ id: 'notes', enabled: true, target: { kind: 'graph' as const, owner: { kind: 'track' as const, trackId: 'n' }, domain: 'notes' as const, path: [], nodeId: 'tr', nodeType: 'transpose', paramId: 'semitones' }, points: [{ id: 'p', beat: 0, value: .5, interpolation: 'hold' as const }] }] }] }] }
+  const e = new Engine(RATE); e.apply({ type: 'sample/add', sample }); diffProject(null, project).forEach(c => e.apply(c)); e.apply({ type: 'scene/launch', scene: 0 })
+  const out = render(e, 128, 128)
+  expect(out[16]).toBeCloseTo(Math.tanh(.8), 5)
+  for (const i of [17, 18, 19]) expect(out[i]).toBeCloseTo(Math.tanh(.2), 5)
+  expect(out[25]).toBe(0)
+  expect(e.status().tracks.a?.playingClipId).toBeNull()
+  expect(e.status().automation?.every(v => v.target.owner.kind !== 'track' || v.target.owner.trackId !== 'a')).toBe(true)
+})

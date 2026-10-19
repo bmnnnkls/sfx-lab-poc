@@ -80,7 +80,7 @@ export class ClipLauncher {
     this.pendingReleases = []
     let cursor = from
 
-    const boundary = this.queue.pendingBoundary(from, to)
+    const boundary = this.queue.pendingBoundary(from - 1e-10, to - 1e-10)
     if (boundary !== null) {
       events.push(...this.clipEvents(cursor, boundary))
       events.push({ beat: boundary, kind: 'allOff', ...(this.source ? { scope: { source: this.source } } : {}) })
@@ -128,13 +128,17 @@ export class ClipLauncher {
         if (note.start >= length) continue
         const on = loopStart + note.start
         const off = loopStart + Math.min(note.start + note.duration, length)
+        const starts = on >= localFrom - 1e-10 && on < localTo - 1e-10
+        const ends = off >= localFrom - 1e-10 && off < localTo - 1e-10
+        // Identity belongs to an emitted event, not every idle scan of every stored note.
+        if (!starts && !ends) continue
         const identity = this.source ? { source: this.source, channel: 0, id: JSON.stringify([clip.id, startBeat, loop, note.id]) } : undefined
         const owner = identity ? { identity } : {}
-        if (on >= localFrom && on < localTo) {
+        if (starts) {
           events.push({ beat: startBeat + on, kind: 'noteOn', pitch: note.pitch, velocity: note.velocity, ...owner })
           this.held.set(note.id, { pitch: note.pitch, start: note.start, loopBase: startBeat + loopStart, ...owner })
         }
-        if (off >= localFrom && off < localTo) {
+        if (ends) {
           events.push({ beat: startBeat + off, kind: 'noteOff', pitch: note.pitch, ...owner })
           this.held.delete(note.id)
         }
