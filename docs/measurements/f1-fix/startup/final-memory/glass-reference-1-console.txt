@@ -1,0 +1,17 @@
+{
+  "scenario": "glass",
+  "url": "http://127.0.0.1:4174",
+  "browser": "156.0.8078.4",
+  "intervalMs": 25,
+  "harnessSHA256": "4ce6d2a3bbabf8802ea571db3752186e500b062213cc954f5cadf5d919392950",
+  "bundles": {},
+  "note": "Sampled whole renderer RSS, including DOM/runtime, actual and temporary engines. Peak is a sampled lower bound; allocator retention is not live JS heap. Polling adds load; not capacity or authoritative latency evidence.",
+  "timing": {
+    "readyMs": null,
+    "firstStatusMs": 40.60000002384186
+  },
+  "baselineKiB": 113440,
+  "peakKiB": 193616,
+  "endKiB": 158672,
+  "samples": 88
+}

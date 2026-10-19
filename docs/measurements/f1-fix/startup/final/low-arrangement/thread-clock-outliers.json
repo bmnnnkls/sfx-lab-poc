@@ -1,0 +1,26 @@
+{
+  "budgetMs": 2.6666666666666665,
+  "threadDistributions": [
+    {
+      "label": "engine",
+      "threadMs": {
+        "count": 44906,
+        "p50": 0.366,
+        "p95": 0.749,
+        "p99": 1.01,
+        "max": 1.904
+      }
+    },
+    {
+      "label": "callback",
+      "threadMs": {
+        "count": 44906,
+        "p50": 0.376,
+        "p95": 0.775,
+        "p99": 1.049,
+        "max": 1.918
+      }
+    }
+  ],
+  "rows": []
+}

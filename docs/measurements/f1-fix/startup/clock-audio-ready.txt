@@ -1,0 +1,48 @@
+
+> sfx-lab-poc@0.0.0 test:audio
+> npm run build && playwright test --project=audio
+
+
+> sfx-lab-poc@0.0.0 build
+> tsc --noEmit && vite build
+
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 501 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                             0.74 kB │ gzip:  0.36 kB
+dist/assets/engine-processor-ue0YKzeD.js  150.01 kB
+dist/assets/LibraryPanel-DwJ39g1i.css       1.24 kB │ gzip:  0.51 kB
+dist/assets/index-Bkxaz7av.css             40.03 kB │ gzip:  8.55 kB
+dist/assets/rolldown-runtime-CbXtAM7H.js    0.58 kB │ gzip:  0.36 kB
+dist/assets/library-0kNCaCDU.js             3.56 kB │ gzip:  1.62 kB
+dist/assets/LibraryPanel-C7TuTxQQ.js       13.42 kB │ gzip:  4.14 kB
+dist/assets/ui-vendor-2eX_cCFm.js          85.79 kB │ gzip: 29.11 kB
+dist/assets/index-DWdlOhht.js             207.84 kB │ gzip: 70.15 kB
+dist/assets/react-BPWasKn7.js             218.76 kB │ gzip: 68.27 kB
+dist/assets/state-edI7jZwS.js             332.68 kB │ gzip: 97.67 kB
+
+✓ built in 336ms
+[WebServer] (node:87687) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 13 tests using 1 worker
+
+(node:87691) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [audio] › tests/browser/automation.audio.spec.ts:10:1 › the real worklet clip filter sweep matches offline sample timing across wraps (4.5s)
+  ✓   2 [audio] › tests/browser/automation.audio.spec.ts:10:1 › the real worklet helper/notes and filter curves matches offline sample timing across wraps (4.1s)
+  ✓   3 [audio] › tests/browser/automation.audio.spec.ts:10:1 › the real worklet return/master slots matches offline sample timing across wraps (6.6s)
+  ✓   4 [audio] › tests/browser/automation.audio.spec.ts:10:1 › the real worklet Touch take matches offline sample timing across wraps (7.0s)
+  ✓   5 [audio] › tests/browser/automation.audio.spec.ts:10:1 › the real worklet recalled project preset matches offline sample timing across wraps (4.9s)
+  ✓   6 [audio] › tests/browser/automation.audio.spec.ts:10:1 › the real worklet recalled instance sample preset matches offline sample timing across wraps (5.0s)
+  ✓   7 [audio] › tests/browser/automation.audio.spec.ts:10:1 › the real worklet independent library sample asset after trash/reload matches offline sample timing across wraps (6.9s)
+  ✓   8 [audio] › tests/browser/automation.audio.spec.ts:10:1 › the real worklet imported bundle sample asset after trash/reload matches offline sample timing across wraps (7.0s)
+  ✓   9 [audio] › tests/browser/held-notes.audio.spec.ts:21:1 › stopped worklet holds notes, sustains, runs note effects and cancels owned generated events (15.3s)
+  ✓  10 [audio] › tests/browser/midi.audio.spec.ts:6:1 › fake browser ports play and release real stopped worklet notes on sustain, disconnect and panic (14.1s)
+  ✓  11 [audio] › tests/browser/mixer.audio.spec.ts:4:1 › real output follows pan, master mute and undo (15.0s)
+  ✓  12 [audio] › tests/browser/tempo.audio.spec.ts:15:43 › delay real stereo output follows tempo edits with running tails and matches offline (4.3s)
+  ✓  13 [audio] › tests/browser/tempo.audio.spec.ts:15:43 › pingPong real stereo output follows tempo edits with running tails and matches offline (4.2s)
+
+  13 passed (1.7m)

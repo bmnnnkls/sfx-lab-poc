@@ -1,0 +1,56 @@
+{
+  "candidateProductionSourceMatches": true,
+  "candidateBundlesMatch": true,
+  "referenceDirectory": "/private/tmp/sfx-f1-before-startup.r1hyu68s",
+  "referenceBundlesMatch": true,
+  "reports": [
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-memory/low-reference-1.json",
+      "harnessMatches": true,
+      "url": "http://127.0.0.1:4174",
+      "peakMiB": 211.6875
+    },
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-memory/glass-reference-1.json",
+      "harnessMatches": true,
+      "url": "http://127.0.0.1:4174",
+      "peakMiB": 192.375
+    },
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-memory/glass-prepared-1.json",
+      "harnessMatches": true,
+      "url": "http://127.0.0.1:4173",
+      "peakMiB": 206.4375
+    },
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-memory/low-prepared-1.json",
+      "harnessMatches": true,
+      "url": "http://127.0.0.1:4173",
+      "peakMiB": 227.125
+    },
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-memory/low-prepared-2.json",
+      "harnessMatches": true,
+      "url": "http://127.0.0.1:4173",
+      "peakMiB": 226.515625
+    },
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-memory/glass-prepared-2.json",
+      "harnessMatches": true,
+      "url": "http://127.0.0.1:4173",
+      "peakMiB": 207.328125
+    },
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-memory/glass-reference-2.json",
+      "harnessMatches": true,
+      "url": "http://127.0.0.1:4174",
+      "peakMiB": 191.484375
+    },
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-memory/low-reference-2.json",
+      "harnessMatches": true,
+      "url": "http://127.0.0.1:4174",
+      "peakMiB": 212.359375
+    }
+  ]
+}

@@ -1,0 +1,873 @@
+{
+  "scenario": "glass",
+  "url": "http://127.0.0.1:4174",
+  "browser": "156.0.8078.4",
+  "intervalMs": 25,
+  "harnessSHA256": "4ce6d2a3bbabf8802ea571db3752186e500b062213cc954f5cadf5d919392950",
+  "bundles": {},
+  "note": "Sampled whole renderer RSS, including DOM/runtime, actual and temporary engines. Peak is a sampled lower bound; allocator retention is not live JS heap. Polling adds load; not capacity or authoritative latency evidence.",
+  "timing": {
+    "readyMs": null,
+    "firstStatusMs": 44
+  },
+  "baselineKiB": 108992,
+  "peakKiB": 196160,
+  "endKiB": 196160,
+  "samples": [
+    {
+      "elapsedMs": 0,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 108992
+        }
+      ]
+    },
+    {
+      "elapsedMs": 71,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 161872
+        }
+      ]
+    },
+    {
+      "elapsedMs": 112,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 161984
+        }
+      ]
+    },
+    {
+      "elapsedMs": 154,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 162144
+        }
+      ]
+    },
+    {
+      "elapsedMs": 197,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 162288
+        }
+      ]
+    },
+    {
+      "elapsedMs": 240,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 163136
+        }
+      ]
+    },
+    {
+      "elapsedMs": 286,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 164512
+        }
+      ]
+    },
+    {
+      "elapsedMs": 330,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 164512
+        }
+      ]
+    },
+    {
+      "elapsedMs": 384,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 168544
+        }
+      ]
+    },
+    {
+      "elapsedMs": 465,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 181152
+        }
+      ]
+    },
+    {
+      "elapsedMs": 531,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 182752
+        }
+      ]
+    },
+    {
+      "elapsedMs": 579,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 182864
+        }
+      ]
+    },
+    {
+      "elapsedMs": 632,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 183280
+        }
+      ]
+    },
+    {
+      "elapsedMs": 701,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 184608
+        }
+      ]
+    },
+    {
+      "elapsedMs": 791,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 184944
+        }
+      ]
+    },
+    {
+      "elapsedMs": 841,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 185120
+        }
+      ]
+    },
+    {
+      "elapsedMs": 892,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 185488
+        }
+      ]
+    },
+    {
+      "elapsedMs": 943,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 185696
+        }
+      ]
+    },
+    {
+      "elapsedMs": 995,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 186400
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1056,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 187056
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1108,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 187488
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1153,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 187696
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1206,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 188864
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1261,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 188912
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1312,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 189040
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1357,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 189104
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1404,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 189248
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1448,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 189312
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1494,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 189408
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1542,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 189488
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1591,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 189584
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1635,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 189648
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1677,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 189744
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1727,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 189872
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1768,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 190016
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1813,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 190560
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1857,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 190640
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1897,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 190768
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1940,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 190832
+        }
+      ]
+    },
+    {
+      "elapsedMs": 1982,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 190928
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2022,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 190976
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2064,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 191072
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2106,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 191184
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2148,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 191296
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2190,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 191440
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2232,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 191568
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2272,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 191632
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2312,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 191696
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2352,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 191792
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2392,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 191840
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2434,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 192016
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2475,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 192064
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2516,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 192144
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2559,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 192208
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2604,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 192304
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2651,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 192400
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2717,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 192560
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2761,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 192656
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2804,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 192752
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2849,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 192848
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2892,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 192960
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2941,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 193088
+        }
+      ]
+    },
+    {
+      "elapsedMs": 2986,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 193168
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3036,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 193264
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3081,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 193392
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3124,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 193488
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3181,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 193600
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3225,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 193680
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3268,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 193792
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3320,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 193936
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3366,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194048
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3407,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194128
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3455,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194256
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3499,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194352
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3541,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194432
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3583,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194528
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3624,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194608
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3664,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194656
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3704,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194784
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3746,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194832
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3789,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194928
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3835,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 194992
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3880,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195088
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3924,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195152
+        }
+      ]
+    },
+    {
+      "elapsedMs": 3968,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195264
+        }
+      ]
+    },
+    {
+      "elapsedMs": 4012,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195344
+        }
+      ]
+    },
+    {
+      "elapsedMs": 4055,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195424
+        }
+      ]
+    },
+    {
+      "elapsedMs": 4098,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195472
+        }
+      ]
+    },
+    {
+      "elapsedMs": 4139,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195568
+        }
+      ]
+    },
+    {
+      "elapsedMs": 4179,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195616
+        }
+      ]
+    },
+    {
+      "elapsedMs": 4220,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195728
+        }
+      ]
+    },
+    {
+      "elapsedMs": 4260,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195776
+        }
+      ]
+    },
+    {
+      "elapsedMs": 4304,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195872
+        }
+      ]
+    },
+    {
+      "elapsedMs": 4346,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 195936
+        }
+      ]
+    },
+    {
+      "elapsedMs": 4387,
+      "renderers": [
+        {
+          "pid": 11056,
+          "rssKiB": 196160
+        }
+      ]
+    }
+  ]
+}

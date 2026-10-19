@@ -1,0 +1,266 @@
+{"commit":"36f71d1dea37367d4f1a0f4a18f1d4c17a19e9ec","dirty":"M ARCHITECTURE.md\n M docs/PLAN-review-remediation.md\n M docs/TASKS.md\n M scripts/review-benchmark/README.md\n M src/audio/audio-host.ts\n M src/audio/protocol.ts\n M src/audio/recording-clock.ts\n M src/audio/worklet/engine-processor.test.ts\n M src/audio/worklet/engine-processor.ts\n M src/core/engine/automation-audio.test.ts\n M src/core/engine/automation-perf.test.ts\n M src/core/engine/automation.ts\n M src/core/engine/engine.ts\n M src/core/engine/live-notes.ts\n M src/core/engine/track-runtime.ts\n M src/core/instrument/note-control-graph.ts\n M src/core/notefx/arpeggiator.ts\n M src/core/notefx/events.ts\n M src/core/notefx/graph.ts\n M src/core/notefx/stateless.ts\n M src/core/session/clip-launcher.ts\n M tests/browser/audio-tap.ts\n M tests/browser/automation-project.ts\n M tests/browser/automation.audio.spec.ts\n M tests/browser/tempo.audio.spec.ts\n?? docs/ASSESSMENT-review-critical-F1-second-opinion.md\n?? docs/PLAN-fix-F1.md\n?? docs/PLAN-review-critical-F1-second-opinion.md\n?? docs/REPORT-browser-audio-capacity-and-rust-engine.md\n?? docs/measurements/browser-capacity/\n?? docs/measurements/f1-fix/\n?? docs/measurements/f1-second-opinion/\n?? scripts/review-benchmark/capacity-campaign.ts\n?? scripts/review-benchmark/f1-scaling.ts\n?? scripts/review-benchmark/plain-overhead.ts\n?? scripts/review-benchmark/source-identity.ts\n?? scripts/review-benchmark/startup-memory.ts\n?? scripts/review-benchmark/startup-probe.ts\n?? scripts/review-benchmark/trace-outliers.ts\n?? scripts/review-benchmark/worklet-capacity.ts\n?? src/audio/audio-host.test.ts\n?? src/audio/worklet/prepare-engine.ts\n?? src/core/engine/automation-mixed-timeline.test.ts\n?? src/core/engine/automation-timeline.test.ts\n?? src/core/engine/helper-clock.test.ts\n?? src/core/engine/note-components.test.ts\n?? src/core/instrument/note-control-graph.test.ts","node":"v24.21.0","cpu":"Apple M3 Pro","platform":"darwin","arch":"arm64","rate":48000,"quantum":128,"warmSeconds":1,"trials":5}
+{"label":"simple1","tracks":1,"voices":4,"ms":{"base":[4.93420900000001,4.320082999999954,4.480625000000032,4.080624999999998,4.151792],"mixer":[12.497707999999989,11.665917000000036,10.31283400000001,9.82733300000001,10.857666999999992],"notes":[14.214166000000034,13.124834000000021,12.64549999999997,12.929458000000011,12.459791999999993]},"median":{"base":4.320082999999954,"mixer":10.857666999999992,"notes":12.929458000000011},"automation":[{"target":{"kind":"graph","owner":{"kind":"track","trackId":"t0"},"domain":"notes","path":[],"nodeId":"tr","nodeType":"transpose","paramId":"semitones"},"value":0}]}
+{"label":"simple4","tracks":4,"voices":16,"ms":{"base":[9.480999999999995,9.26416699999993,8.536375000000021,7.921040999999946,8.067709000000036],"mixer":[16.114999999999952,15.124750000000063,15.033000000000015,13.686958000000004,14.219124999999963],"notes":[19.418583000000012,17.538375000000087,16.765040999999997,16.339291000000003,17.738833999999997]},"median":{"base":8.536375000000021,"mixer":15.033000000000015,"notes":17.538375000000087},"automation":[{"target":{"kind":"graph","owner":{"kind":"track","trackId":"t0"},"domain":"notes","path":[],"nodeId":"tr","nodeType":"transpose","paramId":"semitones"},"value":0}]}
+{"label":"simple8","tracks":8,"voices":32,"ms":{"base":[15.281041999999957,17.652584000000047,17.56766700000003,16.222999999999956,16.55379199999993],"mixer":[20.738166999999976,26.480458999999996,24.123874999999998,23.933209000000033,24.05054199999995],"notes":[23.27445799999998,25.00983300000007,26.442999999999984,23.433750000000032,23.193708000000015]},"median":{"base":16.55379199999993,"mixer":24.05054199999995,"notes":23.433750000000032},"automation":[{"target":{"kind":"graph","owner":{"kind":"track","trackId":"t0"},"domain":"notes","path":[],"nodeId":"tr","nodeType":"transpose","paramId":"semitones"},"value":0}]}
+{"label":"simple16","tracks":16,"voices":64,"ms":{"base":[35.01262500000007,29.19033300000001,30.00541599999997,28.68987500000003,29.864000000000033],"mixer":[35.52679199999989,36.71558399999981,34.80549999999994,34.22437500000001,37.478875000000016],"notes":[37.33762499999989,37.148750000000064,37.87279200000012,36.23141600000008,37.540500000000065]},"median":{"base":29.864000000000033,"mixer":35.52679199999989,"notes":37.33762499999989},"automation":[{"target":{"kind":"graph","owner":{"kind":"track","trackId":"t0"},"domain":"notes","path":[],"nodeId":"tr","nodeType":"transpose","paramId":"semitones"},"value":0}]}
+{"label":"LowLightDrop","tracks":16,"voices":50,"ms":{"base":[116.21670899999981,114.33958399999983,111.91716700000006,121.1641669999999,109.21391700000004],"mixer":[133.01199999999972,125.90179099999978,121.88341600000012,130.25395899999967,119.1306669999999],"notes":[132.3990829999998,125.84725000000026,123.70070799999985,130.5252499999997,120.32416699999976]},"median":{"base":114.33958399999983,"mixer":125.90179099999978,"notes":125.84725000000026},"automation":[{"target":{"kind":"graph","owner":{"kind":"track","trackId":"stab"},"domain":"notes","path":[],"nodeId":"ng_key","nodeType":"scaleLock","paramId":"root"},"value":9}]}
+{
+  "node": "v24.21.0",
+  "cpu": "Apple M3 Pro",
+  "rate": 48000,
+  "quantum": 128,
+  "warmSeconds": 1,
+  "trials": 5,
+  "results": [
+    {
+      "label": "simple1",
+      "tracks": 1,
+      "voices": 4,
+      "ms": {
+        "base": [
+          4.93420900000001,
+          4.320082999999954,
+          4.480625000000032,
+          4.080624999999998,
+          4.151792
+        ],
+        "mixer": [
+          12.497707999999989,
+          11.665917000000036,
+          10.31283400000001,
+          9.82733300000001,
+          10.857666999999992
+        ],
+        "notes": [
+          14.214166000000034,
+          13.124834000000021,
+          12.64549999999997,
+          12.929458000000011,
+          12.459791999999993
+        ]
+      },
+      "median": {
+        "base": 4.320082999999954,
+        "mixer": 10.857666999999992,
+        "notes": 12.929458000000011
+      },
+      "automation": [
+        {
+          "target": {
+            "kind": "graph",
+            "owner": {
+              "kind": "track",
+              "trackId": "t0"
+            },
+            "domain": "notes",
+            "path": [],
+            "nodeId": "tr",
+            "nodeType": "transpose",
+            "paramId": "semitones"
+          },
+          "value": 0
+        }
+      ]
+    },
+    {
+      "label": "simple4",
+      "tracks": 4,
+      "voices": 16,
+      "ms": {
+        "base": [
+          9.480999999999995,
+          9.26416699999993,
+          8.536375000000021,
+          7.921040999999946,
+          8.067709000000036
+        ],
+        "mixer": [
+          16.114999999999952,
+          15.124750000000063,
+          15.033000000000015,
+          13.686958000000004,
+          14.219124999999963
+        ],
+        "notes": [
+          19.418583000000012,
+          17.538375000000087,
+          16.765040999999997,
+          16.339291000000003,
+          17.738833999999997
+        ]
+      },
+      "median": {
+        "base": 8.536375000000021,
+        "mixer": 15.033000000000015,
+        "notes": 17.538375000000087
+      },
+      "automation": [
+        {
+          "target": {
+            "kind": "graph",
+            "owner": {
+              "kind": "track",
+              "trackId": "t0"
+            },
+            "domain": "notes",
+            "path": [],
+            "nodeId": "tr",
+            "nodeType": "transpose",
+            "paramId": "semitones"
+          },
+          "value": 0
+        }
+      ]
+    },
+    {
+      "label": "simple8",
+      "tracks": 8,
+      "voices": 32,
+      "ms": {
+        "base": [
+          15.281041999999957,
+          17.652584000000047,
+          17.56766700000003,
+          16.222999999999956,
+          16.55379199999993
+        ],
+        "mixer": [
+          20.738166999999976,
+          26.480458999999996,
+          24.123874999999998,
+          23.933209000000033,
+          24.05054199999995
+        ],
+        "notes": [
+          23.27445799999998,
+          25.00983300000007,
+          26.442999999999984,
+          23.433750000000032,
+          23.193708000000015
+        ]
+      },
+      "median": {
+        "base": 16.55379199999993,
+        "mixer": 24.05054199999995,
+        "notes": 23.433750000000032
+      },
+      "automation": [
+        {
+          "target": {
+            "kind": "graph",
+            "owner": {
+              "kind": "track",
+              "trackId": "t0"
+            },
+            "domain": "notes",
+            "path": [],
+            "nodeId": "tr",
+            "nodeType": "transpose",
+            "paramId": "semitones"
+          },
+          "value": 0
+        }
+      ]
+    },
+    {
+      "label": "simple16",
+      "tracks": 16,
+      "voices": 64,
+      "ms": {
+        "base": [
+          35.01262500000007,
+          29.19033300000001,
+          30.00541599999997,
+          28.68987500000003,
+          29.864000000000033
+        ],
+        "mixer": [
+          35.52679199999989,
+          36.71558399999981,
+          34.80549999999994,
+          34.22437500000001,
+          37.478875000000016
+        ],
+        "notes": [
+          37.33762499999989,
+          37.148750000000064,
+          37.87279200000012,
+          36.23141600000008,
+          37.540500000000065
+        ]
+      },
+      "median": {
+        "base": 29.864000000000033,
+        "mixer": 35.52679199999989,
+        "notes": 37.33762499999989
+      },
+      "automation": [
+        {
+          "target": {
+            "kind": "graph",
+            "owner": {
+              "kind": "track",
+              "trackId": "t0"
+            },
+            "domain": "notes",
+            "path": [],
+            "nodeId": "tr",
+            "nodeType": "transpose",
+            "paramId": "semitones"
+          },
+          "value": 0
+        }
+      ]
+    },
+    {
+      "label": "LowLightDrop",
+      "tracks": 16,
+      "voices": 50,
+      "ms": {
+        "base": [
+          116.21670899999981,
+          114.33958399999983,
+          111.91716700000006,
+          121.1641669999999,
+          109.21391700000004
+        ],
+        "mixer": [
+          133.01199999999972,
+          125.90179099999978,
+          121.88341600000012,
+          130.25395899999967,
+          119.1306669999999
+        ],
+        "notes": [
+          132.3990829999998,
+          125.84725000000026,
+          123.70070799999985,
+          130.5252499999997,
+          120.32416699999976
+        ]
+      },
+      "median": {
+        "base": 114.33958399999983,
+        "mixer": 125.90179099999978,
+        "notes": 125.84725000000026
+      },
+      "automation": [
+        {
+          "target": {
+            "kind": "graph",
+            "owner": {
+              "kind": "track",
+              "trackId": "stab"
+            },
+            "domain": "notes",
+            "path": [],
+            "nodeId": "ng_key",
+            "nodeType": "scaleLock",
+            "paramId": "root"
+          },
+          "value": 9
+        }
+      ]
+    }
+  ]
+}
