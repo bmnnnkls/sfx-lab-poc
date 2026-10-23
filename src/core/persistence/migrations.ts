@@ -5,6 +5,9 @@ type Migration = (project: unknown) => unknown
 
 /** `MIGRATIONS[n]` upgrades the `project` payload from format version n to n + 1. */
 const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  // v9 uses deterministic signatures; sanitation reconstructs them from preserved revision payloads.
+  // Opaque revision IDs and preset references are unchanged.
+  8: (project) => project,
   // v7 did not interpret division. Walk graphs inside tracks, modules and saved revisions too.
   7: (project) => {
     if (!isRecord(project)) return project

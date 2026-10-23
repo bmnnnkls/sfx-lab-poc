@@ -18,7 +18,7 @@ const setup = (control = target, audio = false) => {
   useProjectStore.getState().resetProject(project); useControlStore.getState().clear()
   const engine = new Engine(8000)
   let listener = (_: EngineStatus) => {}, beat = 0
-  const host = { recordingBeat: () => beat, send: (c: EngineCommand) => engine.apply(c), onStatus: (fn: typeof listener) => { listener = fn; return () => {} } } as unknown as AudioHost
+  const host = { recordingBeat: () => beat, send: (c: EngineCommand) => engine.apply(c), onStatus: (fn: typeof listener) => { listener = fn; return () => {} }, onFailure: () => () => {} } as unknown as AudioHost
   const disconnect = connectEngine(host)
   if (audio) engine.apply({ type: 'sample/add', sample: { id: sample.id, sampleRate: 8000, data: new Float32Array(16000).fill(0.2) } })
   const step = (frames = 128) => { engine.render(new Float32Array(frames), new Float32Array(frames)); const status = engine.status(); beat = status.beat; listener(status) }
@@ -31,7 +31,7 @@ const setup = (control = target, audio = false) => {
   return { engine, project, step, disconnect, lanes, at: (n: number) => { beat = n } }
 }
 const cleanup: (() => void)[] = []
-afterEach(() => { for (const stop of cleanup.splice(0)) stop(); cancelTouches(); setTouchClock(); useControlStore.getState().clear(); useStatusStore.setState({ status: null }); vi.useRealTimers(); vi.unstubAllGlobals() })
+afterEach(() => { for (const stop of cleanup.splice(0)) stop(); cancelTouches(); setTouchClock(); useControlStore.getState().clear(); useStatusStore.setState({ status: null, audioFailure: null }); vi.useRealTimers(); vi.unstubAllGlobals() })
 describe('Touch takes through common gestures', () => {
   it.each([target, master, ret])('records one transaction into the playing owner and returns to Read (%j)', (control) => {
     const s = setup(control); cleanup.push(s.disconnect)

@@ -42,7 +42,7 @@ describe('library bundle exchange', () => {
     const scope = { owner: { kind: 'track' as const, trackId: loaded.project.tracks[0]!.id }, domain: 'fx' as const }
     const old = captureLibraryAsset(emptyLibrary(), loaded.project, scope, 'Legacy echo', null)
     const file = await exportLibraryBundle(old, { itemIds: [old.items[0]!.id] }, 'Legacy', async () => undefined)
-    expect(file.manifest.version).toBe(1)
+    expect(file.manifest.version).toBe(2)
     const stage = await stageLibraryBundle(file.bytes)
     expect(stage.manifest.catalog.revisions).toEqual(old.revisions)
     const graph = noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 'delay', type: 'pingPong', params: { sync: 1, time: 0.75, division: 12 } }, { id: 'out', type: 'trackOut' }], ['in.out>delay.in', 'delay.out>out.in'])
@@ -88,6 +88,19 @@ describe('library bundle exchange', () => {
     for (const preset of project.presets ?? []) expect(recallProjectPreset(project, preset).issues).toEqual([])
     const packageFile = await exportProject(project, samples.get), roundtrip = await importProject(packageFile.bytes)
     expect(packageFile.missing).toEqual([]); expect(roundtrip.ok && roundtrip.project).toEqual(project)
+  })
+  it('upgrades a legacy v1 bundle catalog while preserving strict manifest and normalized signatures', async () => {
+    const { c, read } = await fixture()
+    const files = Object.fromEntries(await Promise.all(c.samples.map(async sample => [`samples/${sample.id}`, (await read(sample.id))!] as const)))
+    const catalog = { ...structuredClone(c), version: 1, revisions: structuredClone(c.revisions).map(revision => {
+      const shape = JSON.parse(revision.signature)
+      if (shape[0] === 'instrument') shape[1][0].nodes.reverse()
+      return { ...revision, signature: JSON.stringify(shape) }
+    }) }
+    const stage = await stageLibraryBundle(archive({ format: 'sfx-lab-library', version: 1, name: 'Legacy', partial: false, missing: [], catalog }, files))
+    expect(stage.manifest.version).toBe(2)
+    expect(stage.manifest.catalog).toEqual(c)
+    await expect(stageLibraryBundle(archive({ format: 'sfx-lab-library', version: 1, name: 'Legacy', partial: false, missing: [], catalog: emptyLibrary() }))).rejects.toThrow(/versions do not match/)
   })
   it('exchanges two-level sampled modules and per-use preset overrides through project reload', async () => {
     const { c: samples, read } = await fixture(), original = createEmptyProject()
@@ -168,7 +181,7 @@ describe('library bundle exchange', () => {
     const { c, read } = await fixture(), file = await exportLibraryBundle(c, { folderIds: ['collection'] }, 'Bundle', read)
     const files = Object.fromEntries([...(await stageLibraryBundle(file.bytes)).blobs.entries()].map(([id, b]) => [`samples/${id}`, b]))
     const bad: LibraryBundleManifest = structuredClone(file.manifest)
-    await expect(stageLibraryBundle(archive({ ...bad, version: 2 }, files))).rejects.toThrow(/version/)
+    await expect(stageLibraryBundle(archive({ ...bad, version: 3 }, files))).rejects.toThrow(/version/)
     await expect(stageLibraryBundle(archive({ ...bad, format: 'sfx-lab-project' }, files))).rejects.toThrow(/format/)
     await expect(stageLibraryBundle(archive(bad, { ...files, [Object.keys(files)[0]!]: Uint8Array.of(8, 9, 8, 9) }))).rejects.toThrow(/hash/)
     await expect(stageLibraryBundle(archive(bad))).rejects.toThrow(/missing/)

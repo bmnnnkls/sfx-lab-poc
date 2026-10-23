@@ -1,7 +1,7 @@
 import { controlGraph } from '../control'
 import type { ModuleDefinition, Patch } from '../patch'
 import type { Project } from '../project'
-import { createId } from '../shared'
+import { compareCodeUnits, createId } from '../shared'
 import { enumerateSampleTargets, editSampleBinding, resolveSampleTarget } from './samples'
 import { captureSnapshot, inSnapshotScope, recallSnapshot } from './snapshots'
 import type { AssetPayload, AssetRevision, ProjectPreset, RecallIssue, SnapshotScope } from './types'
@@ -40,11 +40,11 @@ export const captureAsset = (project: Project, scope: SnapshotScope): AssetPaylo
 }
 /** A collision-free canonical structural identity, separate from the opaque revision ID. */
 export const assetSignature = (payload: AssetPayload): string => {
-  const shape = (graph: Patch) => ({ nodes: [...graph.nodes].sort((a,b) => a.id.localeCompare(b.id)).map(n => ({ id: n.id, type: n.type, moduleId: n.moduleId, stereo: n.stereo ?? false, bypassed: n.bypassed ?? false,
+  const shape = (graph: Patch) => ({ nodes: [...graph.nodes].sort((a,b) => compareCodeUnits(a.id, b.id)).map(n => ({ id: n.id, type: n.type, moduleId: n.moduleId, stereo: n.stereo ?? false, bypassed: n.bypassed ?? false,
     // Control ranges/modes change interpretation; ordinary sound values are preset state.
-    config: ['control', 'xy', 'switch', 'selector'].includes(n.type) ? Object.fromEntries(Object.entries(n.params).filter(([key]) => !['value', 'x', 'y', 'on', 'index'].includes(key)).sort(([a], [b]) => a.localeCompare(b))) : undefined })),
-    connections: graph.connections.map(c => [c.from.node, c.from.port, c.to.node, c.to.port]).sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b))) })
-  return JSON.stringify([payload.kind, payload.kind === 'instrument' ? [shape(payload.patch), shape(payload.noteGraph), payload.voices] : shape(payload.graph), [...payload.modules].sort((a,b) => a.id.localeCompare(b.id)).map(m => [m.id, m.inputs.map(p => [p.id, p.inner.node, p.inner.port]).sort(), m.outputs.map(p => [p.id, p.inner.node, p.inner.port]).sort(), m.knobs.map(k => [k.id, k.node, k.param]).sort(), shape(m.patch)])])
+    config: ['control', 'xy', 'switch', 'selector'].includes(n.type) ? Object.fromEntries(Object.entries(n.params).filter(([key]) => !['value', 'x', 'y', 'on', 'index'].includes(key)).sort(([a], [b]) => compareCodeUnits(a, b))) : undefined })),
+    connections: graph.connections.map(c => [c.from.node, c.from.port, c.to.node, c.to.port]).sort((a,b) => compareCodeUnits(JSON.stringify(a), JSON.stringify(b))) })
+  return JSON.stringify([payload.kind, payload.kind === 'instrument' ? [shape(payload.patch), shape(payload.noteGraph), payload.voices] : shape(payload.graph), [...payload.modules].sort((a,b) => compareCodeUnits(a.id, b.id)).map(m => [m.id, m.inputs.map(p => [p.id, p.inner.node, p.inner.port]).sort(), m.outputs.map(p => [p.id, p.inner.node, p.inner.port]).sort(), m.knobs.map(k => [k.id, k.node, k.param]).sort(), shape(m.patch)])])
 }
 export const saveProjectPreset = (project: Project, scope: SnapshotScope, name: string, id = createId('preset')): Project => {
   if (!project.presets?.some(p => p.id === id) && (project.presets?.length ?? 0) >= 128) throw new Error('Project preset limit reached (128)')

@@ -1,4 +1,4 @@
-import { LIBRARY_BUNDLE_VERSION, canonicalRecord, selectLibraryBundle, validateLibraryCatalog, validateBundleObjectBudget, libraryName, mergeLibraryBundle, type LibraryBundleManifest, type LibraryBundleSelection, type LibraryBundleStage, type LibraryCatalog } from '@core'
+import { LIBRARY_BUNDLE_VERSION, LIBRARY_CATALOG_VERSION, canonicalRecord, selectLibraryBundle, validateLibraryCatalog, upgradeLibraryCatalog, validateBundleObjectBudget, libraryName, mergeLibraryBundle, type LibraryBundleManifest, type LibraryBundleSelection, type LibraryBundleStage, type LibraryCatalog } from '@core'
 import { strFromU8, strToU8, zipSync } from 'fflate'
 import { sha256Hex } from './hash'
 import { fileStem } from './project-transfer'
@@ -8,10 +8,14 @@ import type { LibraryStorage } from './library-storage'
 /** Independent from project migrations. Add explicit vN→vN+1 steps here when the bundle format changes. */
 const migrateLibraryManifest = (raw: unknown): LibraryBundleManifest => {
   validateBundleObjectBudget(raw)
-  if (!raw || typeof raw !== 'object' || !('format' in raw) || raw.format !== 'sfx-lab-library' || !('version' in raw) || raw.version !== LIBRARY_BUNDLE_VERSION) throw new Error('Unsupported library bundle format/version. Update SFX Lab to import this bundle.')
+  if (!raw || typeof raw !== 'object' || !('format' in raw) || raw.format !== 'sfx-lab-library' || !('version' in raw) || (raw.version !== LIBRARY_BUNDLE_VERSION && raw.version !== 1)) throw new Error('Unsupported library bundle format/version. Update SFX Lab to import this bundle.')
   const m = raw as LibraryBundleManifest
+  const rawManifest = raw as Record<string, unknown>, manifestVersion = rawManifest.version, rawCatalog = rawManifest.catalog
   if (Object.keys(m).some(k => !['format', 'version', 'name', 'partial', 'missing', 'catalog'].includes(k)) || typeof m.name !== 'string' || libraryName(m.name) !== m.name || typeof m.partial !== 'boolean' || !Array.isArray(m.missing) || m.missing.length > 4096 || m.missing.some(id => typeof id !== 'string' || !/^[a-f0-9]{64}$/.test(id)) || new Set(m.missing).size !== m.missing.length || m.partial !== (m.missing.length > 0)) throw new Error('Invalid library bundle manifest/completeness marker')
-  return { ...m, catalog: validateLibraryCatalog(m.catalog) }
+  const catalogVersion = rawCatalog && typeof rawCatalog === 'object' && 'version' in rawCatalog ? rawCatalog.version : undefined
+  if (manifestVersion === 1 && catalogVersion !== 1 || manifestVersion === LIBRARY_BUNDLE_VERSION && catalogVersion !== LIBRARY_CATALOG_VERSION) throw new Error('Library bundle and catalog versions do not match')
+  const catalog = manifestVersion === 1 ? validateLibraryCatalog(upgradeLibraryCatalog(rawCatalog)) : validateLibraryCatalog(rawCatalog)
+  return { ...m, version: LIBRARY_BUNDLE_VERSION, catalog }
 }
 
 export const exportLibraryBundle = async (catalog: LibraryCatalog, selection: LibraryBundleSelection, name: string, readSample: (id: string) => Promise<Uint8Array | undefined>, allowPartial = false) => {

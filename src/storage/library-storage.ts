@@ -1,4 +1,4 @@
-import { emptyLibrary, type LibraryCatalog } from '@core'
+import { emptyLibrary, LIBRARY_CATALOG_VERSION, upgradeLibraryCatalog, type LibraryCatalog } from '@core'
 import { openLibraryDatabase, transactionDone } from './library-database'
 export interface LibraryStorage {
   read(): Promise<LibraryCatalog>
@@ -10,7 +10,7 @@ export const createMemoryLibraryStorage = (files = new Map<string, Uint8Array>()
   let catalog = emptyLibrary()
   return { read: async () => structuredClone(catalog), update: async (edit, blobs) => {
     const next = structuredClone(edit(structuredClone(catalog)))
-    if (next.version !== 1) throw new Error('Invalid library version')
+    if (next.version !== LIBRARY_CATALOG_VERSION) throw new Error('Invalid library version')
     for (const [id, bytes] of blobs ?? []) { const known = files.get(id); if (known && !sameBytes(known, bytes)) throw new Error('Existing sample bytes conflict with bundle; previous catalog retained') }
     const copies = [...(blobs ?? [])].map(([id, bytes]) => [id, bytes.slice()] as const)
     for (const [id, bytes] of copies) if (!files.has(id)) files.set(id, bytes)
@@ -20,18 +20,31 @@ export const createMemoryLibraryStorage = (files = new Map<string, Uint8Array>()
 export const createLibraryStorage = (databaseName = 'sfxlab'): LibraryStorage => {
   const open = openLibraryDatabase(databaseName)
   const run = async (edit?: (catalog: LibraryCatalog) => LibraryCatalog, blobs?: ReadonlyMap<string, Uint8Array>): Promise<LibraryCatalog> => {
-    const db = await open(), tx = db.transaction(edit ? ['catalog', 'samples'] : ['catalog'], edit ? 'readwrite' : 'readonly')
+    // Reads can discover a legacy catalog. Keeping the migration in a single
+    // readwrite transaction makes the original backup and replacement atomic.
+    const db = await open(), tx = db.transaction(edit ? ['catalog', 'samples'] : ['catalog'], 'readwrite')
     const done = transactionDone(tx)
     let result = emptyLibrary(), failure: unknown
     const request = tx.objectStore('catalog').get('current')
     request.onsuccess = () => {
       try {
-        const saved = request.result as LibraryCatalog | undefined
-        if (saved && saved.version !== 1) throw new Error('Unsupported library version; update SFX Lab')
-        result = saved ?? emptyLibrary()
+        const saved = request.result as unknown
+        if (saved === undefined) result = emptyLibrary()
+        else {
+          const legacy = !!saved && typeof saved === 'object' && 'version' in saved && saved.version === 1
+          if (legacy) {
+            const upgraded = upgradeLibraryCatalog(saved)
+            tx.objectStore('catalog').put(saved, 'pre-signature-v2')
+            tx.objectStore('catalog').put(upgraded, 'current')
+            result = upgraded
+          } else {
+            if (!saved || typeof saved !== 'object' || !('version' in saved) || saved.version !== LIBRARY_CATALOG_VERSION) throw new Error('Unsupported library version; update SFX Lab')
+            result = saved as LibraryCatalog
+          }
+        }
         if (edit) {
           result = edit(result)
-          if (result.version !== 1) throw new Error('Invalid library version')
+          if (result.version !== LIBRARY_CATALOG_VERSION) throw new Error('Invalid library version')
           tx.objectStore('catalog').put(result, 'current')
           for (const [id, bytes] of blobs ?? []) {
             const store = tx.objectStore('samples'), existing = store.get(id)

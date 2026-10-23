@@ -9,7 +9,7 @@ import { createEngineControls } from './engine-controls'
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); useControlStore.getState().clear() })
 const master: ControlTarget = { kind: 'mixer', owner: { kind: 'master' }, control: 'volume' }
-const hostFor = (engine: Engine) => ({ send: (command: EngineCommand) => engine.apply(command), onStatus: () => () => {}, start: async () => {} }) as unknown as AudioHost
+const hostFor = (engine: Engine) => ({ send: (command: EngineCommand) => engine.apply(command), onStatus: () => () => {}, onFailure: () => () => {}, start: async () => {} }) as unknown as AudioHost
 const peak = (engine: Engine) => {
   const left = new Float32Array(128), right = new Float32Array(128)
   engine.render(left, right)
@@ -60,7 +60,7 @@ describe('runtime control ownership', () => {
     const project = createDemoProject()
     useProjectStore.getState().resetProject(project)
     const sent: EngineCommand[] = []
-    const host = { send: (command: EngineCommand) => sent.push(command), onStatus: () => () => {} } as unknown as AudioHost
+    const host = { send: (command: EngineCommand) => sent.push(command), onStatus: () => () => {}, onFailure: () => () => {} } as unknown as AudioHost
     const disconnect = connectEngine(host)
     try {
       useControlStore.getState().setOverride(master, 0.2)
@@ -120,7 +120,7 @@ it('routes held-note controls without document/history writes and panics on repl
   useProjectStore.getState().resetProject(project)
   const engine = new Engine(48000)
   const sent: EngineCommand[] = []
-  const host = { send: (command: EngineCommand) => { sent.push(command); engine.apply(command) }, onStatus: () => () => {}, start: async () => {} } as unknown as AudioHost
+    const host = { send: (command: EngineCommand) => { sent.push(command); engine.apply(command) }, onStatus: () => () => {}, onFailure: () => () => {}, start: async () => {} } as unknown as AudioHost
   const disconnect = connectEngine(host)
   const controls = createEngineControls(host)
   const track = project.tracks.find((track) => track.kind === 'instrument')!

@@ -5,6 +5,7 @@ import { Splitter } from './shared/Splitter'
 import { TooltipLayer } from './shared/tooltip/TooltipLayer'
 import { useStoredState } from './shared/use-stored-state'
 import { useUndoShortcuts } from './shortcuts/use-undo-shortcuts'
+import { useStatusStore } from '@state'
 import { ToastStack } from './toasts/ToastStack'
 import { TransportBar } from './transport-bar/TransportBar'
 import styles from './Workspace.module.css'
@@ -18,6 +19,7 @@ const isNumber = (value: unknown): value is number => typeof value === 'number' 
 
 export const Workspace = () => {
   useUndoShortcuts()
+  const audioFailure = useStatusStore((state) => state.audioFailure)
   const [stored, setEditorHeight] = useStoredState('sfxlab:editor-height', DEFAULT_EDITOR_HEIGHT, isNumber)
   const [windowHeight, setWindowHeight] = useState(window.innerHeight)
 
@@ -33,6 +35,7 @@ export const Workspace = () => {
 
   return (
     <div className={styles.workspace}>
+      {audioFailure && <div className={styles.audioFailure} role="alert">{audioFailure}. Your project remains available; save or export your work before reloading.</div>}
       <TransportBar />
       <main className={styles.session}>
         <SessionView />

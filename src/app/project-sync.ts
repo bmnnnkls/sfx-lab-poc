@@ -54,6 +54,9 @@ export const connectEngine = (host: AudioHost): (() => void) => {
       if (retained.length !== useControlStore.getState().overrides.length) useControlStore.setState({ overrides: retained })
     }
   })
+  const stopFailure = host.onFailure(() => {
+    useStatusStore.getState().setAudioFailure('Audio failed to start—reload to retry')
+  })
 
   return () => {
     cancelTouches(); setTouchClock()
@@ -61,6 +64,7 @@ export const connectEngine = (host: AudioHost): (() => void) => {
     stopProject()
     stopControls()
     stopStatus()
+    stopFailure()
     useControlStore.setState({ playback: [] })
   }
 }

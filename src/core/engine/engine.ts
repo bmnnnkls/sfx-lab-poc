@@ -35,6 +35,8 @@ export class Engine {
   /** Curves live until every audio subrun of their planning horizon has consumed them. */
   private targetMetadata = new WeakMap<ControlTarget, { key: string; nodeId: string }>()
   private readonly curves = new Map<string, { target: ControlTarget; values: Float64Array; baseValue: number; used: boolean }>()
+  /** Reused per horizon; a queued launch may clear overrides before its earlier samples are mixed. */
+  private readonly horizonEntryOverrides = new Map<string, number>()
   private readonly automationSends = new Map<string, Record<string, number>>()
   private readonly transport: Transport
   private readonly tracks = new Map<string, PlayableTrack>()
@@ -358,6 +360,7 @@ export class Engine {
       // A zero-length lifecycle was committed above; every planned horizon must now advance.
       if (end <= cursor) throw new Error('Non-progressing audio planning horizon')
       for (const curve of this.curves.values()) curve.used = false
+      this.automation.copyOverrides(this.horizonEntryOverrides)
       const collecting = { frame: 0, frames: end - cursor }
       this.collecting = collecting
       const events: ScheduledEvent[] = []
@@ -381,6 +384,7 @@ export class Engine {
         }
       }
       this.collecting = null
+      this.horizonEntryOverrides.clear()
       for (const curve of this.curves.values()) if (curve.used) {
         let last = curve.baseValue
         for (let i = 0; i < collecting.frames; i++) { if (Number.isNaN(curve.values[i]!)) curve.values[i] = last; else last = curve.values[i]! }
@@ -663,7 +667,11 @@ export class Engine {
         curve = { target, values: new Float64Array(MAX_BLOCK_FRAMES), baseValue, used: false }
         this.curves.set(key, curve)
       }
-      if (!curve.used) { curve.values.fill(NaN); curve.baseValue = baseValue; curve.used = true }
+      if (!curve.used) {
+        curve.values.fill(NaN)
+        curve.baseValue = this.horizonEntryOverrides.get(key) ?? baseValue
+        curve.used = true
+      }
       curve.values[this.collecting.frame] = value
       return
     }

@@ -1,0 +1,143 @@
+{
+  "started": "2026-10-23T23:19:24.085Z",
+  "examples": [
+    {
+      "name": "Low Light",
+      "scenes": [
+        {
+          "scene": 1,
+          "patternBeats": 16,
+          "requestedBeat": 0,
+          "throughBeat": 20,
+          "observedBeat": 20,
+          "peak": 0.71,
+          "elapsedMs": 10026
+        },
+        {
+          "scene": 2,
+          "patternBeats": 16,
+          "requestedBeat": 20,
+          "throughBeat": 40,
+          "observedBeat": 40,
+          "peak": 0.729,
+          "elapsedMs": 9487
+        },
+        {
+          "scene": 3,
+          "patternBeats": 16,
+          "requestedBeat": 40,
+          "throughBeat": 60,
+          "observedBeat": 60,
+          "peak": 0.705,
+          "elapsedMs": 9736
+        },
+        {
+          "scene": 4,
+          "patternBeats": 16,
+          "requestedBeat": 60,
+          "throughBeat": 80,
+          "observedBeat": 80,
+          "peak": 0.746,
+          "elapsedMs": 9474
+        },
+        {
+          "scene": 5,
+          "patternBeats": 16,
+          "requestedBeat": 80,
+          "throughBeat": 100,
+          "observedBeat": 100,
+          "peak": 0.422,
+          "elapsedMs": 9493
+        },
+        {
+          "scene": 6,
+          "patternBeats": 16,
+          "requestedBeat": 100,
+          "throughBeat": 120,
+          "observedBeat": 120,
+          "peak": 0.693,
+          "elapsedMs": 9725
+        },
+        {
+          "scene": 7,
+          "patternBeats": 16,
+          "requestedBeat": 120,
+          "throughBeat": 140,
+          "observedBeat": 140,
+          "peak": 0.699,
+          "elapsedMs": 9484
+        },
+        {
+          "scene": 8,
+          "patternBeats": 16,
+          "requestedBeat": 140,
+          "throughBeat": 160,
+          "observedBeat": 160,
+          "peak": 0.729,
+          "elapsedMs": 9492
+        }
+      ]
+    },
+    {
+      "name": "Glass Rain",
+      "scenes": [
+        {
+          "scene": 1,
+          "patternBeats": 64,
+          "requestedBeat": 0,
+          "throughBeat": 68,
+          "observedBeat": 68,
+          "peak": 0.213,
+          "elapsedMs": 44625
+        },
+        {
+          "scene": 2,
+          "patternBeats": 64,
+          "requestedBeat": 68,
+          "throughBeat": 136,
+          "observedBeat": 136,
+          "peak": 0.373,
+          "elapsedMs": 44091
+        },
+        {
+          "scene": 3,
+          "patternBeats": 64,
+          "requestedBeat": 136,
+          "throughBeat": 204,
+          "observedBeat": 204,
+          "peak": 0.557,
+          "elapsedMs": 44307
+        },
+        {
+          "scene": 4,
+          "patternBeats": 64,
+          "requestedBeat": 204,
+          "throughBeat": 272,
+          "observedBeat": 272,
+          "peak": 0.742,
+          "elapsedMs": 44437
+        },
+        {
+          "scene": 5,
+          "patternBeats": 64,
+          "requestedBeat": 272,
+          "throughBeat": 340,
+          "observedBeat": 340,
+          "peak": 0.764,
+          "elapsedMs": 44161
+        },
+        {
+          "scene": 6,
+          "patternBeats": 64,
+          "requestedBeat": 340,
+          "throughBeat": 408,
+          "observedBeat": 408,
+          "peak": 0.711,
+          "elapsedMs": 44487
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "completed": "2026-10-23T23:25:10.308Z"
+}

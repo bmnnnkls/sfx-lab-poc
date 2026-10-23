@@ -156,7 +156,7 @@ while opening a module definition still edits the shared definition deliberately
 normalized evaluation and compilation against current control specs. Clip lanes address only their own track's
 instrument, note graph, insert effects or mixer. Missing/wired targets stay in the document with feedback and do
 not acquire runtime ownership. Group/unlink remap lane paths together with instance values and MIDI mappings.
-Return/master slots arrived in format **v5** (clip lanes in v4; v6 adds saved sounds; v7 adds library origins below; current format v8 adds optional delay divisions): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
+Return/master slots arrived in format **v5** (clip lanes in v4; v6 adds saved sounds; v7 adds library origins below; v8 adds optional delay divisions; current format v9 versions deterministic signatures): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
 2048 points per lane, bounded IDs/paths and finite numbers. The explicit v3→v4 migration drops formerly unknown
 lane data; v4→v5 drops formerly unknown return/master slot fields. Committed v1–v8 fixtures cover compatibility. Saved bases remain authored values.
 
@@ -1431,7 +1431,7 @@ Project **v8** adds optional numeric node `division`. The explicit v7→v8 migra
 and corresponding guarded target records across tracks/modules/saved revisions/automation/presets before sanitizing.
 Committed v7/v8 delay fixtures supplement v1–v7 compatibility fixtures. `sanitizeParams` retains an absent division
 instead of inserting zero into older graphs: strict `.sfxlib` v1 records still validate field-for-field, while newly
-created nodes carry the default. Bundle manifest and catalog versions remain independently v1, with regression coverage
+created nodes carry the default. At slice 7, bundle manifest and catalog remained independently v1, with regression coverage
 for legacy and new division assets through staging/insertion/project reload. Existing control ranges and lane values
 need no remapping. Browser tests cover timing/limit/undo/reload and full stereo worklet output versus offline at the
 actual stamped tempo-edit boundaries; existing finite capture checks and 0.00002 amplitude tolerance remain.
@@ -1483,7 +1483,7 @@ match offline output within 0.00002 amplitude. Physical MIDI hardware remains un
 
 ## Personal library catalog, independent copies and preview (slice 5)
 
-`core/library` owns `LibraryCatalog` (schema v1), folders, mixed item contents and pure edits. Item IDs survive names
+`core/library` owns `LibraryCatalog` (schema v2), folders, mixed item contents and pure edits. Item IDs survive names
 and folder moves. Instruments/audio effects/note effects reference immutable `AssetRevision` payloads plus a saved
 `ProjectPreset` current state. Associated preset items are first-class catalog entries referencing the same revision.
 Capture includes compatible presets for the selected owner, transitive modules, node defaults, per-use sample bindings
@@ -1602,3 +1602,48 @@ versions changed, and stage/commit validation, expansion/object budgets and tran
 Strict portable clips carry automation only in owner-relative `lanes`; embedded project-owner clip automation is refused.
 Different sound states still receive independent graph/value checks. See `docs/measurements/README.md` for bounded
 validation evidence and the outstanding core acceptance gates; this does not establish overall merge readiness.
+
+
+## Demo stabilization and signature transition (2026-10-23)
+
+Automation planning snapshots entry overrides into reused storage before ticking a horizon. When a target first
+acquires a curve later in that horizon, its prefix uses the value effective at entry. A queued launch can therefore
+clear an override at its actual boundary without changing earlier samples. Curves remain alive across all audio
+subruns. Regression tests cover mixer, graph, send, return/master and partitioned rendering.
+
+AudioHost treats startup/preparation/resume or processor failure as terminal for that page. `start()` settles without
+an unhandled rejection and `onFailure` publishes the error. Failed hosts stop queuing commands and close their context.
+A persistent workspace alert instructs the user to save/export and reload; editing and persistence remain available.
+There is no automatic reload or partial engine reconstruction after transferred sample buffers may have detached.
+
+Structural signatures use explicit UTF-16 code-unit comparison rather than locale collation. Sample choices remain
+outside structural identity. The enclosing versions identify this canonicalization: project envelope **v9**, local
+library catalog **v2**, and `.sfxlib` manifest **v2**. `.sfxlab` packages contain the same v9 project envelope; IndexedDB
+schema stays v2. Previous application readers reject these newer enclosing versions.
+
+Project v8→v9 retains the existing repair/sanitize contract and recomputes revision signatures from validated payloads.
+The first overwrite of an older browser project stores its original serialized envelope at localStorage key
+`sfxlab:pre-signature-v9`; if that write fails, current data is not overwritten. This backup is independent of the
+ordinary import/new-project backup and is not replaced by subsequent saves.
+
+Local library v1→v2 conversion preserves opaque IDs, payloads, preset state, samples, unreferenced records and trash.
+Only understood ordering differences in parsed legacy signatures are accepted; signatures must still match the
+reconstructed payload. Portable clip guards have no source graph, so their bounded tuple structure and lane indexes
+are validated while retaining node order. Unknown or ambiguous legacy forms fail with recovery/re-export guidance.
+The original catalog is stored under `catalog/pre-signature-v2` and `catalog/current` replaced in the same readwrite
+transaction. Failure aborts both writes; sample bytes are untouched. The strict bundle validator is deliberately not
+applied to local catalogs, because local trash and retained dependencies are legal.
+
+Bundle v1/catalog v1 imports convert in staging and then pass strict current validation and sample hash checks.
+Bundle v2 requires catalog v2; mixed or future versions reject. Current portable guards must already be canonical
+and match the lane's indexed node type. Import never modifies the source file. Revision IDs are not deduplicated
+merely because canonical signatures converge. Existing project/package, nested preset recall, library insertion,
+legacy/strict bundle and transaction rollback checks cover the transition.
+
+Recovery requires an original compatible project/catalog, not just reverting the application. Before intentionally
+rolling back, export current work, close other app tabs, preserve the raw backup keys and sample store, and use the
+previous app with the old project export or restored catalog backup. Do not clear site storage: that deletes sample
+bytes as well. Neither backup is a substitute for an external export, and browser eviction can remove both.
+
+The demo accepts the historical first-callback and no-lane overhead limitations recorded in
+`docs/measurements/f1-fix`. No new capacity claim or C6 experiment is included in this stabilization.

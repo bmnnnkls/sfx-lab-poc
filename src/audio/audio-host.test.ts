@@ -3,21 +3,23 @@ import type { HostMessage, WorkletMessage } from './protocol'
 import { AudioHost } from './audio-host'
 
 afterEach(() => vi.unstubAllGlobals())
-const fixture = () => {
+const fixture = ({ failResume = false }: { failResume?: boolean } = {}) => {
   const order: string[] = []
   const sent: HostMessage[] = []
+  let contexts = 0
   class Context {
+    constructor() { contexts++ }
     state = 'running'
     currentTime = 0
     destination = {}
     audioWorklet = { addModule: async () => { order.push('module') } }
     async suspend() { order.push('suspend'); this.state = 'suspended' }
-    async resume() { order.push('resume'); this.state = 'running' }
+    async resume() { order.push('resume'); if (failResume) throw new Error('resume failed'); this.state = 'running' }
     async close() { order.push('close'); this.state = 'closed' }
   }
   let node!: Node
   class Node {
-    onprocessorerror?: () => void
+    onprocessorerror?: (event: Event) => void
     port = {
       onmessage: (_event: { data: WorkletMessage }) => {},
       postMessage: (message: HostMessage, transfer: Transferable[] = []) => {
@@ -29,7 +31,7 @@ const fixture = () => {
     connect() { order.push('connect') }
   }
   vi.stubGlobal('AudioContext', Context); vi.stubGlobal('AudioWorkletNode', Node)
-  return { order, sent, get node() { return node } }
+  return { order, sent, get contexts() { return contexts }, get node() { return node } }
 }
 
 it('keeps the context suspended and later commands queued until ready; transfers initial samples once', async () => {
@@ -51,14 +53,57 @@ it('keeps the context suspended and later commands queued until ready; transfers
   expect(f.sent.filter(m=>m.kind === 'command' && m.command.type === 'sample/add')).toHaveLength(1)
 })
 
-it('surfaces preparation failure and closes the suspended context without connecting or resuming', async () => {
-  const f = fixture(), host = new AudioHost()
-  const starting = host.start(), rejected = expect(starting).rejects.toThrow('fixture failed')
+it('makes preparation failure terminal after sample transfer and safely ignores later actions', async () => {
+  const f = fixture(), host = new AudioHost(), failure = vi.fn(), bytes = new Float32Array([.25, .5])
+  host.send({ type: 'sample/add', sample: { id: 'asset', sampleRate: 48000, data: bytes } }, [bytes.buffer])
+  host.onFailure(failure)
+  const starting = host.start()
   await vi.waitFor(() => expect(f.order).toContain('prepare'))
+  expect(bytes.byteLength).toBe(0)
   f.node.port.onmessage({ data: { kind: 'preparation-error', message: 'fixture failed' } })
-  await rejected
-  expect(f.order).toEqual(['suspend','module','prepare','close'])
+  await starting
+  expect(f.order).toEqual(['suspend','module','sample/add','prepare','close'])
   expect(host.isRunning).toBe(false)
+  expect(failure).toHaveBeenCalledExactlyOnceWith(new Error('fixture failed'))
+
+  host.send({ type: 'transport/play' })
+  await host.start()
+  expect(f.contexts).toBe(1)
+  expect(f.sent.filter((message) => message.kind === 'command')).toHaveLength(1)
+  expect(f.sent.filter((message) => message.kind === 'command').map((message) => message.kind === 'command' ? message.command.type : '')).toEqual(['sample/add'])
+  expect(f.order).toEqual(['suspend','module','sample/add','prepare','close'])
+  expect(failure).toHaveBeenCalledTimes(1)
+})
+
+it('handles a rejected context resume as a terminal failure without rejecting start', async () => {
+  const f = fixture({ failResume: true }), host = new AudioHost(), failure = vi.fn()
+  host.onFailure(failure)
+  const starting = host.start()
+  await vi.waitFor(() => expect(f.order).toContain('prepare'))
+  f.node.port.onmessage({ data: { kind: 'ready' } })
+  await expect(starting).resolves.toBeUndefined()
+  expect(f.order).toEqual(['suspend','module','prepare','connect','resume','close'])
+  expect(host.isRunning).toBe(false)
+  expect(failure).toHaveBeenCalledExactlyOnceWith(new Error('resume failed'))
+  host.send({ type: 'transport/play' })
+  await host.start()
+  expect(f.contexts).toBe(1)
+  expect(failure).toHaveBeenCalledTimes(1)
+})
+
+it('surfaces a processor error that arrives after the host became ready', async () => {
+  const f = fixture(), host = new AudioHost(), failure = vi.fn()
+  host.onFailure(failure)
+  const starting = host.start()
+  await vi.waitFor(() => expect(f.order).toContain('prepare'))
+  f.node.port.onmessage({ data: { kind: 'ready' } })
+  await starting
+  f.node.onprocessorerror?.(new Event('processorerror'))
+  await vi.waitFor(() => expect(f.order).toContain('close'))
+  expect(host.isRunning).toBe(false)
+  expect(failure).toHaveBeenCalledExactlyOnceWith(new Error('Audio engine stopped unexpectedly'))
+  host.send({ type: 'transport/play' })
+  expect(f.sent.filter((message) => message.kind === 'command')).toHaveLength(0)
 })
 
 it('ignores measurement/extension packets without publishing an undefined engine status', async () => {

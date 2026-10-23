@@ -1,8 +1,26 @@
 # Open tasks
 
-Reconciled against the implementation on `codex/performance-and-library`, 2026-10-18.
+Reconciled against the implementation on `codex/performance-and-library`, 2026-10-24.
 This file lists remaining work. Shipped behavior belongs in [ARCHITECTURE.md](../ARCHITECTURE.md);
 older handoffs and exploration notes retain historical scope, not current delivery status.
+
+## Current iteration: demo release candidate
+
+The user accepted a bounded demo-release scope on 2026-10-23. The automation curve-prefix regression and
+terminal audio failure UX are fixed; deterministic signatures now use project v9 / catalog v2 / bundle v2,
+with preserving migration and recovery backups. See the current [demo release record](measurements/demo-release/README.md).
+
+For this experimental demo, the retained 3.265 ms first callback (2.667 ms budget) and one-track no-lane
++27/+30% overhead are accepted limitations. The original strict F1/R1 performance gate remains unmet;
+this decision does not turn its recorded failures into passes. C6 and further capacity/optimization campaigns
+are deferred. Physical MIDI checks and wider device/browser performance qualification remain deferred.
+
+Unit/build/production-browser verification is complete (1,783 unit checks, 22 smoke checks and 13 real-output audio checks).
+All 14 example scenes passed the complete-pattern walkthrough. Do a short human listening/demo pass, then publish the reviewed branch through the existing main deployment workflow and tag the verified commit.
+No deployment-policy changes, additional feature work or automatic application rollback are part of this iteration.
+
+The dated review records below retain their original acceptance criteria and historical results; this explicit
+release disposition supersedes their indefinite hold for the accepted demo performance limitations only.
 
 ## Branch review and merge readiness
 

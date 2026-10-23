@@ -1,7 +1,7 @@
 import { controlGraph, enumerateControlTargets, resolveControlTarget, type ControlOwner, type ControlTarget } from '../control'
 import { flattenPatch } from '../patch'
 import type { Project, Track } from '../project'
-import { createId } from '../shared'
+import { compareCodeUnits, createId } from '../shared'
 import { saveLibraryItem } from './catalog'
 import type { LibraryCatalog, LibraryItem, PortableLane } from './types'
 
@@ -10,7 +10,7 @@ const graphShape = (project: Project, owner: ControlOwner, domain: 'patch' | 'fx
   const graph = controlGraph(project, owner, domain)
   if (!graph) return undefined
   const flat = flattenPatch(graph, project.modules), index = (id: string) => flat.nodes.findIndex(n => n.id === id)
-  return { flat, signature: JSON.stringify([flat.nodes.map(n => [n.type, n.stereo ?? false, n.bypassed ?? false, ['control', 'xy', 'switch', 'selector'].includes(n.type) ? Object.entries(n.params).filter(([key]) => !['value', 'x', 'y', 'on', 'index'].includes(key)).sort() : null]), flat.connections.map(c => [index(c.from.node), c.from.port, index(c.to.node), c.to.port]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))]) }
+  return { flat, signature: JSON.stringify([flat.nodes.map(n => [n.type, n.stereo ?? false, n.bypassed ?? false, ['control', 'xy', 'switch', 'selector'].includes(n.type) ? Object.entries(n.params).filter(([key]) => !['value', 'x', 'y', 'on', 'index'].includes(key)).sort() : null]), flat.connections.map(c => [index(c.from.node), c.from.port, index(c.to.node), c.to.port]).sort((a, b) => compareCodeUnits(JSON.stringify(a), JSON.stringify(b)))]) }
 }
 export const captureLibraryClip = (catalog: LibraryCatalog, project: Project, trackId: string, clipId: string, name: string, folderId: string | null): LibraryCatalog => {
   const track = project.tracks.find(t => t.id === trackId)

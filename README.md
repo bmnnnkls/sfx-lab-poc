@@ -4,6 +4,17 @@ A browser-based music/sound-design sandbox: an Ableton-style **session view** (c
 on top of a Max-style **patcher** (node graph) for building instruments. Everything runs client-side on
 the Web Audio API with a custom DSP engine inside an `AudioWorklet`.
 
+## Demo release scope
+
+This is an experimental music/sound-design demo. The current candidate fixes queued automation transitions,
+shows persistent recovery guidance if audio initialization fails, and makes saved-asset compatibility independent
+of browser locale. Older projects and supported library bundles migrate with browser recovery backups.
+New exports use project v9 / library bundle v2 and require this version of the app.
+
+Dense projects can still exceed the audio callback budget, including the first callback. Muting tracks does not
+suspend their DSP. Physical MIDI hardware and broad device performance are not release-qualified.
+See the [release verification record](docs/measurements/demo-release/README.md) for checked behavior and remaining limits.
+
 ## Run it
 
 ```bash

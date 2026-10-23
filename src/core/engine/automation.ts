@@ -138,6 +138,11 @@ export class EngineAutomation {
   }
   get configured(): boolean { return this.tracks.size > 0 }
   overrideValues(): readonly ControlValue[] { return [...this.overrides.values()] }
+  /** Copy ownership that must survive planning a later queued transition in this horizon. */
+  copyOverrides(into: Map<string, number>): void {
+    into.clear()
+    for (const [key, entry] of this.overrides) into.set(key, entry.value)
+  }
   readouts(): readonly ControlValue[] { return [...this.active.values()].map(({ lane, value }) => ({ target: lane.target, value })) }
 }
 

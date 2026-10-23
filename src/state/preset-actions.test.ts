@@ -21,7 +21,7 @@ const setup = () => {
   const sound: Snapshot = { id: 'sound', name: 'Sound', scope: { owner: volume.owner, domain: 'track' }, values: [{ target: volume, value: 0.9 }, { target: pan, value: -0.5 }] }
   return { project, sound }
 }
-afterEach(() => { cancelTouches(); setTouchClock(); useControlStore.getState().clear(); useStatusStore.setState({ status: null }) })
+afterEach(() => { cancelTouches(); setTouchClock(); useControlStore.getState().clear(); useStatusStore.setState({ status: null, audioFailure: null }) })
 describe('sound recall history and Read/Touch', () => {
   it('recalls bases under Read without rewriting lanes, undoes once, and reloads either saved sound', () => {
     const { project, sound } = setup()

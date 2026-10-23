@@ -4,6 +4,7 @@ import { RecordingClock } from './recording-clock'
 import workletUrl from './worklet/engine-processor.ts?worker&url'
 
 type StatusListener = (status: EngineStatus) => void
+type FailureListener = (error: Error) => void
 
 /**
  * Owns the AudioContext and the engine worklet. Commands sent before `start()` are
@@ -13,8 +14,10 @@ export class AudioHost {
   private context: AudioContext | null = null
   private node: AudioWorkletNode | null = null
   private starting: Promise<void> | null = null
+  private startupFailure: Error | null = null
   private readonly queue: Array<{ command: EngineCommand; transfer: Transferable[] }> = []
   private readonly listeners = new Set<StatusListener>()
+  private readonly failureListeners = new Set<FailureListener>()
 
   private readonly clock = new RecordingClock()
 
@@ -28,14 +31,30 @@ export class AudioHost {
     return this.context?.state === 'running'
   }
 
-  /** Must be called from a user gesture the first time (browser autoplay policy). */
+  /**
+   * Must be called from a user gesture the first time (browser autoplay policy).
+   * Resolves when the startup attempt settles; callers must use `onFailure` to detect
+   * a terminal failure because this promise deliberately never rejects.
+   */
   start(): Promise<void> {
-    this.starting ??= this.boot()
-    return this.starting.then(() => this.context?.resume()).then(() => undefined)
+    if (this.startupFailure) return Promise.resolve()
+    this.starting ??= this.boot().catch((error: unknown) => { this.fail(error) })
+    return this.starting.then(async () => {
+      if (this.startupFailure || !this.context) return
+      try {
+        await this.context.resume()
+      } catch (error) {
+        this.fail(error)
+        await this.closeAfterFailure()
+      }
+    })
   }
 
   /** `transfer` lists buffers to hand over to the audio thread without copying (they become unusable here). */
   send(command: EngineCommand, transfer: Transferable[] = []): void {
+    // A failed preparation may already have detached sample buffers from the main thread.
+    // The engine mirror cannot be rebuilt safely without reloading/resynchronizing the project.
+    if (this.startupFailure) return
     if (!this.node) {
       this.queue.push({ command, transfer })
       return
@@ -47,6 +66,14 @@ export class AudioHost {
   onStatus(listener: StatusListener): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
+  }
+
+  onFailure(listener: FailureListener): () => void {
+    this.failureListeners.add(listener)
+    if (this.startupFailure) {
+      try { listener(this.startupFailure) } catch (error) { console.error('Audio failure listener failed', error) }
+    }
+    return () => this.failureListeners.delete(listener)
   }
 
   private async boot(): Promise<void> {
@@ -69,7 +96,12 @@ export class AudioHost {
       }
       node.onprocessorerror = (event) => {
         console.error('Audio engine stopped unexpectedly', event)
-        rejectReady(new Error('Audio engine preparation failed'))
+        const error = new Error('Audio engine stopped unexpectedly')
+        rejectReady(error)
+        if (this.context) {
+          this.fail(error)
+          void this.closeAfterFailure()
+        }
       }
       // Keep send() queued until ready, including commands arriving while the temporary engine runs.
       for (const { command, transfer } of this.queue.splice(0)) node.port.postMessage({ kind: 'command', command } satisfies HostMessage, transfer)
@@ -80,8 +112,28 @@ export class AudioHost {
       for (const { command, transfer } of this.queue.splice(0)) this.send(command, transfer)
       node.connect(context.destination)
     } catch (error) {
-      await context.close()
+      this.fail(error)
+      try { await context.close() } catch { /* Preserve the preparation error shown to the user. */ }
       throw error
+    }
+  }
+
+  private async closeAfterFailure(): Promise<void> {
+    const context = this.context
+    this.context = null
+    this.node = null
+    if (context) {
+      try { await context.close() } catch { /* The original startup error is more useful. */ }
+    }
+  }
+
+  private fail(reason: unknown): void {
+    if (this.startupFailure) return
+    const error = reason instanceof Error ? reason : new Error(String(reason))
+    this.startupFailure = error
+    this.queue.length = 0
+    for (const listener of this.failureListeners) {
+      try { listener(error) } catch (listenerError) { console.error('Audio failure listener failed', listenerError) }
     }
   }
 }

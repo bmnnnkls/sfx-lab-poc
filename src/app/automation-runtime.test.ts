@@ -18,7 +18,7 @@ const setup = (laneTarget: ControlTarget = target) => {
   useControlStore.setState({ overrides: [], playback: [] })
   const engine = new Engine(8000)
   let listener = (_: EngineStatus) => {}
-  const host = { send: (c: EngineCommand) => engine.apply(c), onStatus: (fn: typeof listener) => { listener = fn; return () => {} }, start: async () => {} } as unknown as AudioHost
+  const host = { send: (c: EngineCommand) => engine.apply(c), onStatus: (fn: typeof listener) => { listener = fn; return () => {} }, onFailure: () => () => {}, start: async () => {} } as unknown as AudioHost
   const disconnect = connectEngine(host)
   const step = (frames = 128) => { engine.render(new Float32Array(frames), new Float32Array(frames)); listener(engine.status()) }
   engine.apply({ type: 'scene/launch', scene: 0 }); step()

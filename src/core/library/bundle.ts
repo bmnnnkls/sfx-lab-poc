@@ -1,15 +1,15 @@
 import { createId } from '../shared'
 import { resolveControlTarget } from '../control'
-import { canonicalRecord, validateLibraryPayloads } from '../persistence'
+import { canonicalPortableSignature, canonicalRecord, validateLibraryPayloads } from '../persistence'
 import { createEmptyProject } from '../project'
 import { insertLibraryAsset } from './assets'
 import { libraryName } from './catalog'
-import type { LibraryCatalog, LibraryItem } from './types'
+import { LIBRARY_CATALOG_VERSION, type LibraryCatalog, type LibraryItem } from './types'
 
-export const LIBRARY_BUNDLE_VERSION = 1
+export const LIBRARY_BUNDLE_VERSION = 2
 export interface LibraryBundleManifest {
   readonly format: 'sfx-lab-library'
-  readonly version: 1
+  readonly version: 2
   readonly name: string
   readonly partial: boolean
   readonly missing: readonly string[]
@@ -48,7 +48,7 @@ export const validateBundleObjectBudget = (root: unknown): void => {
 /** Validate closure references before the project record validators. No silent sanitizing or dropped records. */
 export const validateLibraryCatalog = (input: unknown): LibraryCatalog => {
   validateBundleObjectBudget(input)
-  if (!record(input) || input.version !== 1) return fail('unsupported catalog version')
+  if (!record(input) || input.version !== LIBRARY_CATALOG_VERSION) return fail('unsupported catalog version')
   keys(input, ['version', 'folders', 'items', 'revisions', 'samples'])
   const folders = list(input.folders, 1024), items = list(input.items, 4096), revisions = list(input.revisions, 4096), samples = list(input.samples, 4096)
   if ([...folders, ...items, ...revisions, ...samples].some(v => !record(v) || !id(v.id))) return fail('malformed records')
@@ -129,6 +129,11 @@ export const validateLibraryCatalog = (input: unknown): LibraryCatalog => {
         if (!record(lane) || !record(lane.target)) fail('lane fields')
         keys(lane, ['id', 'target', 'points', 'enabled', 'graphSignature', 'nodeIndex'])
         if ('owner' in lane.target || lane.target.kind === 'mixer' && lane.target.control === 'send' || lane.target.kind === 'graph' && (['send', 'trackAudio', 'trackNotes'].includes(lane.target.nodeType) || typeof lane.graphSignature !== 'string' || !Number.isInteger(lane.nodeIndex) || lane.nodeIndex! < 0 || lane.nodeIndex! >= 10000)) fail('unsafe portable lane')
+        if (lane.target.kind === 'graph') {
+          const signature = canonicalPortableSignature(lane.graphSignature)
+          const nodes = JSON.parse(signature)[0] as unknown[][]
+          if (signature !== lane.graphSignature || nodes[lane.nodeIndex!]?.[0] !== lane.target.nodeType) fail('noncanonical or mismatched portable signature')
+        }
       }
     } else fail('unknown item kind')
   }
@@ -197,7 +202,7 @@ export const selectLibraryBundle = (catalog: LibraryCatalog, selection: LibraryB
   if (revisions.length !== revisionIds.size) fail('missing immutable revision')
   const sampleIds = new Set([...revisions.flatMap(r => r.payload.sampleIds), ...items.flatMap(i => i.content.kind === 'sample' ? [i.content.sampleId] : i.content.kind === 'audio-clip' ? [i.content.clip.sampleId] : [])])
   const clean = <T extends { readonly trashed?: boolean }>(v: T): Omit<T, 'trashed'> => { const { trashed: _trash, ...rest } = v; return rest }
-  return validateLibraryCatalog({ version: 1, folders: byId(catalog.folders.filter(f => folders.has(f.id)).map(clean)), items: byId(items.map(clean)), revisions: byId(revisions), samples: byId(catalog.samples.filter(s => sampleIds.has(s.id))) })
+  return validateLibraryCatalog({ version: LIBRARY_CATALOG_VERSION, folders: byId(catalog.folders.filter(f => folders.has(f.id)).map(clean)), items: byId(items.map(clean)), revisions: byId(revisions), samples: byId(catalog.samples.filter(s => sampleIds.has(s.id))) })
 }
 
 export const libraryBundleConflicts = (current: LibraryCatalog, incoming: LibraryCatalog): number =>
@@ -213,7 +218,7 @@ export const mergeLibraryBundle = (current: LibraryCatalog, incoming: LibraryCat
   }
   const root = createId('folder'), folders = new Map(incoming.folders.map(f => [f.id, createId('folder')])), items = new Map(incoming.items.map(i => [i.id, createId('item')])), revisions = new Map(incoming.revisions.map(r => [r.id, createId('revision')]))
   const state = (s: Extract<LibraryItem['content'], { state: unknown }>['state']) => ({ ...s, id: createId('preset'), revisionId: revisions.get(s.revisionId)! })
-  return { version: 1,
+  return { version: LIBRARY_CATALOG_VERSION,
     folders: [...current.folders, { id: root, name: libraryName(name), parentId: null }, ...incoming.folders.map(f => ({ ...f, id: folders.get(f.id)!, parentId: f.parentId === null ? root : folders.get(f.parentId)! }))],
     items: [...current.items, ...incoming.items.map(i => ({ ...i, id: items.get(i.id)!, folderId: i.folderId === null ? root : folders.get(i.folderId)!, content: 'revisionId' in i.content ? { ...i.content, revisionId: revisions.get(i.content.revisionId)!, state: state(i.content.state), ...(i.content.kind === 'preset' && { assetId: items.get(i.content.assetId)! }) } : i.content }))],
     revisions: [...current.revisions, ...incoming.revisions.map(r => ({ ...r, id: revisions.get(r.id)! }))],

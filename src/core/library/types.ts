@@ -17,13 +17,14 @@ export type LibraryContent =
   | { readonly kind: 'audio-clip'; readonly clip: Omit<AudioClip, 'automation'>; readonly lanes: readonly PortableLane[] }
   | { readonly kind: 'sample'; readonly sampleId: string }
 export type LibraryItem = { readonly id: string; readonly name: string; readonly folderId: string | null; readonly trashed?: boolean; readonly content: LibraryContent }
+export const LIBRARY_CATALOG_VERSION = 2
 export interface LibraryCatalog {
-  readonly version: 1
+  readonly version: 2
   readonly folders: readonly LibraryFolder[]
   readonly items: readonly LibraryItem[]
   readonly revisions: readonly AssetRevision[]
   readonly samples: readonly SampleInfo[]
 }
-export const emptyLibrary = (): LibraryCatalog => ({ version: 1, folders: [], items: [], revisions: [], samples: [] })
+export const emptyLibrary = (): LibraryCatalog => ({ version: LIBRARY_CATALOG_VERSION, folders: [], items: [], revisions: [], samples: [] })
 /** Informational origin only. The project never consults the library to play or reload. */
 export interface LibraryOrigin { readonly itemId: string; readonly revisionId?: string; readonly trackId?: string; readonly domain?: 'patch' | 'notes' | 'fx'; readonly clipId?: string }
