@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Actions, DockLocation, type IJsonModel, type IJsonRowNode, type IJsonTabSetNode, Model, TabSetNode } from 'flexlayout-react'
+import { Actions, DockLocation, type IJsonModel, type IJsonRowNode, type IJsonTabSetNode, Model, TabNode, TabSetNode } from 'flexlayout-react'
 import { defaultLayout, GLOBAL_ATTRIBUTES } from './default-layout'
 import { migratedLayout, parseStoredLayout, serializeLayout } from './layout-storage'
 
@@ -24,6 +24,20 @@ describe('parseStoredLayout', () => {
     expect(reloaded.getNodeById('mixer')?.getParent()?.getParent()).toBe(reloaded.getNodeById('editor')?.getParent())
     expect((reloaded.getNodeById('panel') as TabSetNode).getAttrMaxHeight()).toBe(0)
     expect(reloaded.toJson().layout).toEqual(model.toJson().layout)
+  })
+
+  it('gives the tabs of a layout saved without minimum sizes their views\' minimums', () => {
+    const json = defaultLayout()
+    const strip = (node: unknown): unknown => {
+      if (Array.isArray(node)) return node.map(strip)
+      if (typeof node !== 'object' || node === null) return node
+      const { minWidth: _width, minHeight: _height, ...rest } = node as Record<string, unknown>
+      return Object.fromEntries(Object.entries(rest).map(([key, value]) => [key, strip(value)]))
+    }
+    expect(JSON.stringify(strip(json))).not.toContain('minWidth')
+    const reloaded = Model.fromJson(parse(stored(strip(json)))!)
+    expect([(reloaded.getNodeById('clip') as TabNode).getMinWidth(), (reloaded.getNodeById('clip') as TabNode).getMinHeight()]).toEqual([480, 240])
+    expect((reloaded.getNodeById('sounds') as TabNode).getMinWidth()).toBe(280)
   })
 
   it('uses the default when nothing is saved', () => {
@@ -91,8 +105,8 @@ describe('parseStoredLayout', () => {
     json.borders = [{ type: 'border', location: 'left', selected: 0, children: [{ type: 'tab', id: 'sounds', component: 'view' }] }]
     const parsed = parse(stored(json))!
     expect(tabsOf(parsed, 'editor')).toEqual(['session', 'arrangement', 'wave'])
-    expect(tabsOf(parsed, 'panel')).toEqual(['mixer', 'instrument', 'effects', 'notes', 'clip', 'samples', 'library'])
-    expect(borderTabs(parsed, 'left')).toEqual(['sounds'])
+    expect(tabsOf(parsed, 'panel')).toEqual(['mixer', 'instrument', 'effects', 'notes', 'clip'])
+    expect(borderTabs(parsed, 'left')).toEqual(['sounds', 'samples', 'library'])
     expect(parsed.borders!.map((border) => [border.location, border.show])).toEqual([['left', undefined], ['right', false]])
     expect(() => Model.fromJson(parsed)).not.toThrow()
   })
@@ -178,7 +192,8 @@ describe('parseStoredLayout with a version-1 layout', () => {
   it('adds a panel when the bottom border is missing, with the missing views in their default regions', () => {
     const parsed = parseStoredLayout(v1(undefined))!
     expect(group(parsed.model, 'panel')).toMatchObject({ maxHeight: 0 })
-    expect(tabsOf(parsed.model, 'panel')).toEqual(PANEL_VIEWS.filter((id) => id !== 'sounds'))
+    expect(tabsOf(parsed.model, 'panel')).toEqual(['instrument', 'effects', 'notes', 'clip', 'mixer'])
+    expect(borderTabs(parsed.model, 'left')).toEqual(['samples', 'library'])
     expect(borderTabs(parsed.model, 'right')).toEqual(['sounds'])
   })
 

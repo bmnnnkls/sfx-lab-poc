@@ -1,6 +1,6 @@
 import { type ViewId, useLayoutStore } from '@state'
 import type { TabNode } from 'flexlayout-react'
-import { Activity, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Activity, type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { VIEW_HIDE } from './view-events'
 import { views } from './views'
 import styles from './ViewHost.module.css'
@@ -10,7 +10,7 @@ import styles from './ViewHost.module.css'
  * named after the view: flexlayout's DOM has no element per region to carry one. It takes the focus on a click, so
  * F6 knows which group the user is in. A hidden view stays mounted
  * inside `<Activity mode="hidden">`: it keeps its state and scroll offsets, and its Effects are cleaned up until it
- * shows again.
+ * shows again. The view itself sits in a frame that is never smaller than the view's minimum size.
  */
 export const ViewHost = ({ id, visible }: { id: ViewId; visible: boolean }) => {
   // `<Activity>` detaches refs while hidden, so keep the element from the last time it was attached.
@@ -23,11 +23,15 @@ export const ViewHost = ({ id, visible }: { id: ViewId; visible: boolean }) => {
     if (!visible) root.current?.dispatchEvent(new Event(VIEW_HIDE))
   }, [visible])
 
-  const { component: View, title } = views[id]
+  const { component: View, title, minSize } = views[id]
+  // Below its minimum the view keeps its layout and the root scrolls it.
+  const frame = { '--min-width': `${minSize.width}px`, '--min-height': `${minSize.height}px` } as CSSProperties
   return (
     <Activity mode={visible ? 'visible' : 'hidden'}>
       <div ref={attach} data-view={id} className={styles.view} role="region" aria-label={title} tabIndex={-1}>
-        <View />
+        <div className={styles.frame} style={frame}>
+          <View />
+        </div>
       </div>
     </Activity>
   )

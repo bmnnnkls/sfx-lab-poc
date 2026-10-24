@@ -4,7 +4,7 @@ import { Actions, BorderNode, DockLocation, type IJsonModel, type IJsonTabSetNod
 import { defaultLayout } from './default-layout'
 import { FlexLayoutDriver } from './layout-driver'
 
-const PANEL_VIEWS = ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'library']
+const PANEL_VIEWS = ['instrument', 'effects', 'notes', 'clip', 'mixer']
 
 const driverFor = (json: IJsonModel = defaultLayout()) => {
   const published: LayoutSnapshot[] = []
@@ -29,6 +29,7 @@ describe('FlexLayoutDriver', () => {
       groups: [
         { id: 'editor', region: 'editor', views: ['session', 'arrangement', 'wave'], active: 'session' },
         { id: 'panel', region: 'panel', views: PANEL_VIEWS, active: 'instrument' },
+        { id: 'border_left', region: 'primary', views: ['samples', 'library'], active: 'samples' },
         { id: 'border_right', region: 'secondary', views: ['sounds'], active: 'sounds' },
       ],
       visible: ['session', 'instrument'],
@@ -91,6 +92,30 @@ describe('FlexLayoutDriver', () => {
     expect(collapsed(model)).toBe(false)
   })
 
+  it("clears the minimum height of the tabs a collapsed panel squeezes, and puts it back on expanding", () => {
+    const { driver, model } = driverFor()
+    const minHeight = (id: string) => (model.getNodeById(id) as TabNode).getMinHeight()
+    model.doAction(Actions.moveNode('mixer', 'panel', DockLocation.RIGHT, -1))
+    driver.setRegionVisible('panel', false)
+    // The panel's tabs, and those of the group beside it that collapses with it.
+    expect(PANEL_VIEWS.map(minHeight)).toEqual(PANEL_VIEWS.map(() => 0))
+    expect(minHeight('session')).toBe(240)
+    driver.setRegionVisible('panel', true)
+    expect(PANEL_VIEWS.map(minHeight)).toEqual([240, 240, 240, 240, 200])
+  })
+
+  it('gives a tab dragged out of a collapsed panel its minimum height, and a saved collapsed panel none', () => {
+    const json = defaultLayout()
+    panelJson(json).maxHeight = 0
+    const { driver, model } = driverFor(json)
+    driver.sync()
+    expect((model.getNodeById('clip') as TabNode).getMinHeight()).toBe(0)
+    model.doAction(Actions.moveNode('clip', 'editor', DockLocation.CENTER, -1))
+    driver.sync()
+    expect((model.getNodeById('clip') as TabNode).getMinHeight()).toBe(240)
+    expect((model.getNodeById('notes') as TabNode).getMinHeight()).toBe(0)
+  })
+
   it('expands a collapsed panel when a tab is dropped into it', () => {
     const { driver, model } = driverFor()
     driver.setRegionVisible('panel', false)
@@ -105,7 +130,7 @@ describe('FlexLayoutDriver', () => {
     expect(panel(model)).toBeInstanceOf(TabSetNode)
     expect(panel(model).getChildren()).toEqual([])
     driver.sync()
-    expect(last().groups.map((group) => group.id)).toEqual(['editor', 'border_right'])
+    expect(last().groups.map((group) => group.id)).toEqual(['editor', 'border_left', 'border_right'])
     driver.setRegionVisible('panel', false)
     expect(last().hiddenRegions).toContain('panel')
     driver.setRegionVisible('panel', true)
@@ -221,15 +246,15 @@ describe('FlexLayoutDriver', () => {
 
   it('adds a view missing from the layout to its default region', () => {
     const json = defaultLayout()
-    panelJson(json).children = panelJson(json).children!.filter((tab) => tab.id !== 'library')
+    panelJson(json).children = panelJson(json).children!.filter((tab) => tab.id !== 'mixer')
     panelJson(json).maxHeight = 0
     const { driver, model, last } = driverFor(json)
-    driver.reveal('library')
-    const library = model.getNodeById('library')
-    expect(library).toBeInstanceOf(TabNode)
-    expect((library as TabNode).getParent()).toBe(panel(model))
+    driver.reveal('mixer')
+    const mixer = model.getNodeById('mixer')
+    expect(mixer).toBeInstanceOf(TabNode)
+    expect((mixer as TabNode).getParent()).toBe(panel(model))
     expect(collapsed(model)).toBe(false)
-    expect(last().visible).toContain('library')
+    expect(last().visible).toContain('mixer')
   })
 
   it('keeps a sidebar open on a neighbouring tab when its open tab is dragged away', () => {

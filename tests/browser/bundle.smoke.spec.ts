@@ -4,6 +4,9 @@ import { stageLibraryBundle, exportLibraryBundle, importProject } from '../../sr
 import { samplePresetProject } from './preset-project'
 import { test, expect, expectSaved, openView } from './fixtures'
 
+/** A folder's row in the library's tree, named by the folder and its item count. */
+const folderName = (name: string) => new RegExp(`^${name}(, \\d+ items?)?$`)
+
 test('bundle review/cancel/export/import into fresh and conflicting libraries survives reload and independent project package export', async ({ page, browser }, testInfo) => {
   const fixture = samplePresetProject(), scope = { owner: { kind: 'track' as const, trackId: 'sweep' }, domain: 'patch' as const }
   const catalog = captureLibraryAsset(saveLibraryFolder(emptyLibrary(), 'Nested', null, 'nested'), fixture.project, scope, 'Exchange instrument', 'nested')
@@ -23,13 +26,13 @@ test('bundle review/cancel/export/import into fresh and conflicting libraries su
     await upload()
     await review.getByRole('button', { name: 'Import into new folder', exact: true }).click()
     await expect(panel.getByRole('status')).toContainText('Library saved')
-    await expect(panel.getByRole('button', { name: 'Exchange', exact: true })).toHaveCount(n + 1)
+    await expect(panel.getByRole('treeitem', { name: folderName('Exchange') })).toHaveCount(n + 1)
   }
   // Fresh IDs make both imported roots coexist with no name-based overwrite.
   await page.reload()
   await openView(page, 'Library')
-  await panel.getByRole('button', { name: 'Exchange', exact: true }).first().click()
-  await panel.getByRole('button', { name: 'Nested', exact: true }).first().click()
+  await panel.getByRole('treeitem', { name: folderName('Exchange') }).first().click()
+  await panel.getByRole('treeitem', { name: folderName('Nested') }).first().click()
   await expect(items.getByRole('button')).toHaveCount(3)
   await items.getByRole('button', { name: /^Exchange instrument/ }).click()
   await panel.getByRole('button', { name: 'Insert new instrument track', exact: true }).click()
@@ -67,7 +70,11 @@ test('bundle review/cancel/export/import into fresh and conflicting libraries su
     await expect(targetPanel.getByRole('status')).toContainText('Library saved')
     await target.reload()
     await openView(target, 'Library')
-    await targetPanel.getByRole('button', { name: 'Nested', exact: true }).last().click()
+    // The import's new folder holds the bundle's folders: open them down to the exported one.
+    await targetPanel.getByRole('treeitem', { name: folderName('Nested') }).click()
+    await targetPanel.getByRole('treeitem', { name: folderName('Exchange') }).click()
+    await targetPanel.getByRole('treeitem', { name: folderName('Nested') }).last().click()
+    await expect(targetPanel.getByRole('treeitem', { name: folderName('Nested') }).last()).toHaveAttribute('aria-selected', 'true')
     await expect(targetPanel.getByLabel('Library items', { exact: true }).getByRole('button')).toHaveCount(3)
     expect(errors).toEqual([])
   } finally { await fresh.close() }

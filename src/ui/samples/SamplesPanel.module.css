@@ -11,6 +11,7 @@
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
@@ -50,4 +51,32 @@
 .meta span {
   color: var(--text-dim);
   font-size: 11px;
+}
+
+.toolbar button,
+.row button {
+  white-space: nowrap;
+}
+
+/* Below 420 px the drop hint goes under the buttons. */
+@container view (width < 420px) {
+  .hint {
+    flex-basis: 100%;
+  }
+}
+
+/*
+ * Below 700 px, where the actions would leave the name a sliver, a row takes two lines: a waveform (narrower in a
+ * narrow view) and the name, then the actions.
+ */
+@container view (width < 700px) {
+  .row {
+    --thumb-width: min(160px, 40cqw);
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+
+  .meta {
+    flex-basis: calc(100% - var(--thumb-width) - 10px);
+  }
 }

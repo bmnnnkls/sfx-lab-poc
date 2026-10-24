@@ -1,6 +1,7 @@
 import type { GroupState, LayoutDriver, LayoutSnapshot, RegionId, ViewId } from '@state'
 import { type Action, Actions, BorderNode, DockLocation, Model, type Node, Orientation, RowNode, TabNode, TabSetNode } from 'flexlayout-react'
 import { BORDER_LOCATIONS, borderId, defaultRegionOf, PANEL_GROUP, viewTab } from './default-layout'
+import { viewMinSizes } from './view-titles'
 
 const borderOf = (model: Model, region: RegionId): BorderNode | undefined => {
   const location = BORDER_LOCATIONS[region]
@@ -78,7 +79,25 @@ export class FlexLayoutDriver implements LayoutDriver {
 
   /** Mirror the model into the store. Called after each change, the user's included (`onModelChange`). */
   sync(): void {
+    this.keepMinimumHeights()
     this.publish(this.snapshot())
+  }
+
+  /**
+   * flexlayout raises a tab group's maximum height to its minimum, so a collapsed panel (`maxHeight: 0`) would stay
+   * as tall as its tabs' minimum. The tabs the collapse squeezes have no minimum height; every other tab has its
+   * view's. Kept after every change, so collapsing, expanding, a tab dragged out and a saved layout all follow it.
+   */
+  private keepMinimumHeights(): void {
+    const squeezed = new Set(this.squeezed())
+    const updates: Action[] = []
+    this.model.visitNodes((node) => {
+      if (!(node instanceof TabNode)) return
+      const parent = node.getParent()
+      const height = parent instanceof TabSetNode && squeezed.has(parent) ? 0 : viewMinSizes[node.getId() as ViewId].height
+      if (node.getMinHeight() !== height) updates.push(Actions.updateNodeAttributes(node.getId(), { minHeight: height }))
+    })
+    if (updates.length > 0) this.model.doAction(Actions.group(updates))
   }
 
   /**

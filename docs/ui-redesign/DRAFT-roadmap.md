@@ -98,8 +98,8 @@ outline below is what the round started from.
 
 ## Round 4: views that work anywhere
 
-See the [plan](PLAN-round-4-views.md), written as round 3 from measurements of every view in a sidebar, a narrow
-split and a short panel.
+**Done** 2026-10-24; see the [plan](PLAN-round-4-views.md), written as round 3 from measurements of every view in a
+sidebar, a narrow split and a short panel, and checked against round 3's shell before it started.
 
 * Minimum sizes (280 × 200 for tool views, 480 × 240 for editors), and the shell never squeezes a view below its own.
 * Container queries on each view's size; a rule test keeps window-size reads out.
@@ -110,6 +110,11 @@ split and a short panel.
 
 Round 2 settled two bullets this outline had here: a hidden view keeps its state, since it stays mounted inside
 `<Activity>`, and its per-frame work pauses, since its Effects are cleaned up while hidden.
+
+What moved while it ran: the panel, a tab group since round 3, shrinks with the editor area in a window smaller than
+the minimums (only the sidebars keep theirs); the Wave editor needed no narrow layout of its own; a narrow Library
+tree shows the open folder's path and the folders in it. Still open from the proposal: `regionId` in the selection
+store (round 6) and a view open twice (round 9's pinned panels).
 
 ## Round 5: actions and context menus
 

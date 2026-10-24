@@ -28,3 +28,29 @@ export const viewTooltips: Readonly<Partial<Record<ViewId, string>>> = {
   notes: 'MIDI effects: change the notes before they reach the instrument',
   mixer: 'Mixer: a channel strip for every track, the returns and the master',
 }
+
+export interface ViewMinSize {
+  readonly width: number
+  readonly height: number
+}
+
+const TOOL_VIEW: ViewMinSize = { width: 280, height: 200 }
+const EDITOR: ViewMinSize = { width: 480, height: 240 }
+
+/**
+ * The least each view is laid out at. The shell never takes a view below it (a sash, the keyboard or a drop stops
+ * there), and below it the view scrolls rather than reflowing further. Tool views fit a sidebar; editors need room.
+ */
+export const viewMinSizes: Readonly<Record<ViewId, ViewMinSize>> = {
+  session: EDITOR,
+  arrangement: EDITOR,
+  wave: EDITOR,
+  instrument: EDITOR,
+  effects: EDITOR,
+  notes: EDITOR,
+  clip: EDITOR,
+  mixer: TOOL_VIEW,
+  samples: TOOL_VIEW,
+  sounds: TOOL_VIEW,
+  library: TOOL_VIEW,
+}

@@ -6,6 +6,7 @@ export {
   type ProjectState,
 } from './project-store'
 export { useSelectionStore } from './selection-store'
+export { canvasKey, graphKey, livePath, useGraphViewStore, type GraphViewport } from './graph-view-store'
 export {
   useLayoutStore,
   groupIn,

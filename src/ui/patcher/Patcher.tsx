@@ -1,4 +1,4 @@
-import { openMasterEffects, openTrackView, useProjectStore, useSelectionStore } from '@state'
+import { openClip, openMasterEffects, openTrackView, useLayoutStore, useProjectStore, useSelectionStore } from '@state'
 import { viewTitles } from '../layout/view-titles'
 import { GraphEditor } from './GraphEditor'
 import styles from './Patcher.module.css'
@@ -10,6 +10,7 @@ export const Patcher = () => {
   const tracks = useProjectStore((state) => state.project.tracks)
   const selectedId = useSelectionStore((state) => state.trackId)
   const master = useSelectionStore((state) => state.master)
+  const addTrack = useProjectStore((state) => state.addTrack)
 
   if (master) {
     return (
@@ -23,13 +24,29 @@ export const Patcher = () => {
   // Fall back to the first instrument track when nothing (or an audio track) is selected.
   const track =
     tracks.find((candidate) => candidate.id === selectedId) ?? tracks.find((candidate) => candidate.kind === 'instrument')
-  if (!track) return <p className={styles.empty}>Add an instrument track to edit its instrument.</p>
-  if (track.kind === 'audio') {
+  if (!track) {
     return (
-      <p className={styles.empty}>
-        “{track.name}” is an audio track: it plays samples directly and has no instrument. Select an instrument
-        track to edit its patch, or open one of this track’s clips to edit it.
-      </p>
+      <div className={styles.empty}>
+        <p>There is no instrument track to edit.</p>
+        <div className={styles.emptyActions}>
+          <button onClick={addTrack}>Add instrument track</button>
+        </div>
+      </div>
+    )
+  }
+  if (track.kind === 'audio') {
+    const clips = track.clips.filter((clip) => clip !== null)
+    return (
+      <div className={styles.empty}>
+        <p>
+          “{track.name}” is an audio track: it plays samples directly and has no instrument. Select an instrument
+          track to edit its patch, or open one of this track’s clips.
+        </p>
+        <div className={styles.emptyActions} role="group" aria-label={`Clips of ${track.name}`}>
+          {clips.map((clip) => <button key={clip.id} onClick={() => openClip(track.id, clip.id)}>{clip.name}</button>)}
+          <button onClick={() => useLayoutStore.getState().revealView('session')}>Show {viewTitles.session.toLowerCase()}</button>
+        </div>
+      </div>
     )
   }
   if (track.kind === 'return') {

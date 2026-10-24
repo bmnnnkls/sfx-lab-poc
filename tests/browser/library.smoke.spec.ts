@@ -2,6 +2,9 @@ import { serializeProject, parseProject } from '../../src/core'
 import { samplePresetProject } from './preset-project'
 import { test, expect, expectSaved, openView, viewRoot } from './fixtures'
 
+/** A folder's row in the library's tree, named by the folder and its item count. */
+const folderName = (name: string) => new RegExp(`^${name}(, \\d+ items?)?$`)
+
 test('library folders, associated presets, independent insert/undo/reload and trash survive production storage', async ({ page }, testInfo) => {
   const fixture = samplePresetProject()
   await page.addInitScript(saved => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(fixture.project))
@@ -14,10 +17,11 @@ test('library folders, associated presets, independent insert/undo/reload and tr
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Collection')
   await panel.getByRole('button', { name: 'New folder', exact: true }).click()
-  await expect(panel.getByRole('button', { name: 'Collection', exact: true })).toBeVisible()
-  await panel.getByRole('button', { name: 'Collection', exact: true }).click()
+  await expect(panel.getByRole('treeitem', { name: folderName('Collection') })).toBeVisible()
+  await panel.getByRole('treeitem', { name: folderName('Collection') }).click()
   await panel.getByLabel('Library name', { exact: true }).fill('Two samples')
-  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+  // The toolbar's; an empty library offers the same action below.
+  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
   const items = panel.getByLabel('Library items', { exact: true })
   await expect(items.getByRole('button')).toHaveCount(3)
   await items.getByRole('button', { name: /^Two samples/ }).click()
@@ -48,7 +52,7 @@ test('library folders, associated presets, independent insert/undo/reload and tr
   await items.getByRole('button', { name: /^Two samples/ }).click()
   await panel.getByRole('button', { name: 'Restore item', exact: true }).click()
   await panel.getByRole('button', { name: 'Back to library', exact: true }).click()
-  await panel.getByRole('button', { name: 'Collection', exact: true }).click()
+  await panel.getByRole('treeitem', { name: folderName('Collection') }).click()
   await expect(items.getByRole('button')).toHaveCount(3)
   await items.getByRole('button', { name: /^Two samples/ }).click()
   await page.screenshot({ path: testInfo.outputPath('library-panel.png') })
@@ -74,7 +78,7 @@ test('isolated previews close their audio context on navigation, including cance
   await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Preview synth')
-  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
   await panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Preview synth/ }).click()
   const baseline = await page.evaluate(() => (window as unknown as { __libraryContexts: AudioContext[] }).__libraryContexts.length)
   const saved = await page.evaluate(() => localStorage.getItem('sfxlab:project'))
@@ -125,7 +129,7 @@ test('canceled preview completions cannot clear a newer busy state or overwrite 
   await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Owned preview')
-  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
   await panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Owned preview/ }).click()
   await page.evaluate(() => {
     const resume = AudioContext.prototype.resume

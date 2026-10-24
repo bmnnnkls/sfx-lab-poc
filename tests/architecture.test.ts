@@ -46,6 +46,33 @@ const EXTERNAL_ALLOWED: Record<string, readonly string[]> = {
   app: ['react', 'react-dom'],
 }
 
+/** Source files a view's layout can live in: code and styles. */
+const styledFiles = (readdirSync(SRC, { recursive: true }) as string[])
+  .filter((file) => /\.(ts|tsx|css)$/.test(file) && !file.endsWith('.d.ts') && !/\.test\.tsx?$/.test(file))
+  .map((file) => join(SRC, file))
+
+/** Files that place popups and overlays against the window, which is what they are positioned in. */
+const WINDOW_SIZED = new Set([
+  'ui/patcher/QuickAdd.tsx',
+  'ui/shared/tooltip/TooltipLayer.tsx',
+  'ui/midi/MidiSettings.module.css',
+  'ui/file-menu/ExportAudioDialog.module.css',
+  'ui/layout/SaveLayoutDialog.module.css',
+])
+
+/** What reads the window's size: script APIs, viewport units, and `@media` queries other than `prefers-*` ones. */
+const windowSizeReads = (source: string): string[] => {
+  const found = [
+    ...[...source.matchAll(/\b(innerWidth|innerHeight|outerWidth|outerHeight|matchMedia)\b/g)].map((match) => match[1]!),
+    ...[...source.matchAll(/\b\d+(?:\.\d+)?(?:[dsl]?v[wh]|vmin|vmax)\b/g)].map((match) => match[0]),
+  ]
+  for (const [, query] of source.matchAll(/@media([^{]*)\{/g)) {
+    const features = query!.match(/\([^)]*\)/g) ?? []
+    if (features.length === 0 || features.some((feature) => !/^\(\s*prefers-/.test(feature))) found.push(`@media${query!.trimEnd()}`)
+  }
+  return found
+}
+
 describe('architecture', () => {
   it('finds source files to check', () => {
     expect(sourceFiles.length).toBeGreaterThan(20)
@@ -94,6 +121,16 @@ describe('architecture', () => {
   it('pins the docking library to an exact version', () => {
     const manifest = JSON.parse(readFileSync(resolve(SRC, '../package.json'), 'utf8')) as { dependencies: Record<string, string> }
     expect(manifest.dependencies['flexlayout-react']).toMatch(/^\d+\.\d+\.\d+$/)
+  })
+
+  it("lays views out from their own size, never the window's", () => {
+    const violations = styledFiles
+      .filter((file) => !WINDOW_SIZED.has(relative(SRC, file).split(sep).join('/')))
+      .flatMap((file) => windowSizeReads(readFileSync(file, 'utf8')).map((read) => `${relative(SRC, file)}: ${read}`))
+    expect(violations).toEqual([])
+    // The check finds what it looks for.
+    expect(windowSizeReads('@media (max-width: 600px) { a { width: 50vw } } const w = window.innerWidth')).toEqual(['innerWidth', '50vw', '@media (max-width: 600px)'])
+    expect(windowSizeReads('@media (prefers-reduced-motion: reduce) { a { transition: none } } @container view (width < 400px) {}')).toEqual([])
   })
 
   it('reaches other core modules only through their index', () => {

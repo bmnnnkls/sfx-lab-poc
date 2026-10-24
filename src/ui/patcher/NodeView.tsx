@@ -73,6 +73,7 @@ export const NodeView = ({
       className={`${styles.node} ${selected ? styles.selected : ''} ${node.bypassed ? styles.nodeBypassed : ''}`}
       style={{ left: node.x, top: node.y, width: NODE_WIDTH }}
       data-testid={`node-${node.id}`}
+      data-node={node.id}
       data-selected={selected}
       onPointerDown={(event) => {
         // A press on the body selects the card too, but never one on a port, button or the header (which also drags).

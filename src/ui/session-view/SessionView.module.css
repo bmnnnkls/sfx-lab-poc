@@ -1,11 +1,33 @@
+.scroller {
+  height: 100%;
+  overflow: auto;
+}
+
+/*
+ * At least as wide as its columns at their minimum (gaps and padding included), so the sticky scene column has the
+ * whole width to stick in.
+ */
 .grid {
+  --track-min: 150px;
   display: grid;
   gap: 4px;
+  width: max(100%, calc(var(--columns) * (var(--track-min) + 4px) + 56px + 20px));
   padding: 10px;
   align-content: start;
 }
 
+/* Below 640 px the track columns may narrow to 120 px. */
+@container view (width < 640px) {
+  .grid {
+    --track-min: 120px;
+  }
+}
+
+/* Track headers stay at the top while the grid scrolls. */
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: grid;
   grid-template-columns: 1fr auto auto auto;
   gap: 4px;
@@ -55,6 +77,20 @@
 .addTrack,
 .scene {
   align-self: stretch;
+}
+
+/* The scene column stays at the right while the grid scrolls; its + stays at the top too. */
+.scene {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+}
+
+.addTrack {
+  position: sticky;
+  top: 0;
+  right: 0;
+  z-index: 2;
 }
 
 /* The scene's number, and under it what it is called. */

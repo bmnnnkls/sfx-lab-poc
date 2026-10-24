@@ -1,6 +1,6 @@
 import { DEFAULT_LAYOUT, groupIn, type RegionId, type ViewId } from '@state'
 import type { IBorderLocation, IGlobalAttributes, IJsonBorderNode, IJsonModel, IJsonTabNode, IJsonTabSetNode } from 'flexlayout-react'
-import { viewTitles, viewTooltips } from './view-titles'
+import { viewMinSizes, viewTitles, viewTooltips } from './view-titles'
 
 /** The sidebars are flexlayout borders; the editor area and the panel are tab groups in its main layout. */
 export const BORDER_LOCATIONS: Readonly<Partial<Record<RegionId, IBorderLocation>>> = {
@@ -43,12 +43,17 @@ export const GLOBAL_ATTRIBUTES: IGlobalAttributes = {
 /** The panel's own attributes, saved layouts included: it is never deleted, so the toggles always find it. */
 export const PANEL_ATTRIBUTES: Partial<IJsonTabSetNode> = { enableDeleteWhenEmpty: false }
 
-/** A view's tab. The name and tooltip come from the registry, so a saved layout gets the current ones. */
+/**
+ * A view's tab. The name, tooltip and minimum size come from the registry, so a saved layout gets the current ones.
+ * flexlayout gives a tab group the largest minimum of its tabs, and a sidebar its open tab's.
+ */
 export const viewTab = (id: ViewId): IJsonTabNode => ({
   type: 'tab',
   id,
   name: viewTitles[id],
   component: 'view',
+  minWidth: viewMinSizes[id].width,
+  minHeight: viewMinSizes[id].height,
   ...(viewTooltips[id] ? { helpText: viewTooltips[id] } : {}),
 })
 

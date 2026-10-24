@@ -1,6 +1,6 @@
 # Round 4: views that work anywhere
 
-Status: **plan**, 2026-10-24, decisions open. Part of the [UI redesign](README.md). Carries out
+Status: **done** 2026-10-24, decisions signed off as proposed. What changed on the way is under [Changes made while implementing](#changes-made-while-implementing); shipped behavior is in [ARCHITECTURE.md § Layout and navigation](../../ARCHITECTURE.md#layout-and-navigation). Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 4](DRAFT-roadmap.md#round-4-views-that-work-anywhere), the parts of the
 [audit remediation proposal](PROPOSAL-audit-remediation.md) left after round 2 (§3, container queries and `minSize`;
 what is left of §4, empty states; and §1's graph-view store), and the two rows the
@@ -9,8 +9,8 @@ what is left of §4, empty states; and §1's graph-view store), and the two rows
 Written as round 3 and renumbered on 2026-10-24, when the review of round 2's shell put a
 [shell rework](PLAN-round-3-shell-rework.md) first. This plan builds on that rework: the panel is a tab group, the
 sidebars run full height, the sample editor is the *Wave editor* view, Sounds sits in the secondary sidebar, sidebars
-open at 300 px and the transport bar wraps. The measurements below were taken on round 2's shell, where the panel was
-still the bottom border; the views' own breakage doesn't depend on that.
+open at 300 px and the transport bar wraps. Checked against the merged rework (`fbd3f21`) on 2026-10-24: the
+measurements were taken again on its shell, and the parts the rework settled or changed are updated below.
 
 ## Goal
 
@@ -41,27 +41,28 @@ After this round:
 
 ## Measured
 
-Before proposing anything, each view was docked into a sidebar, a narrow split and a short panel on round 2's dev
-build (`f90de1b`) and checked for overflow.
+Before proposing anything, each view was docked into a sidebar, a narrow split and a short panel and checked for
+overflow: first on round 2's dev build (`f90de1b`), then again on round 3's merged shell (`fbd3f21`), with the same
+results to within a few pixels. The numbers below are round 3's.
 
-**Setup.** Headless Chromium at 1440 × 900 with the starter project. Samples had the demo samples added; Clip was
-shown empty, with a MIDI clip open, and in automation mode; Instrument in both Graph and Panel modes. Each view was
-docked alone in these places:
+**Setup.** Headless Chromium at 1440 × 900 with the starter project. Samples had the demo samples added, and the Wave
+editor had the first one open; Clip was shown empty, with a MIDI clip open, and in automation mode; Instrument in both
+Graph and Panel modes. Each view was docked alone in these places:
 
 * the primary sidebar at 240, 280, 320 and 400 px wide;
 * a split of the editor area at 280, 360 and 480 px;
-* the panel at 200 and 240 px high;
-* a box at its proposed minimum (280 × 200, or 480 × 240 for Session and Arrangement).
+* the panel (the tab group `panel`, sized by weights) at 200 and 240 px high;
+* a box at about its proposed minimum (280 × 200 for tool views, 480 × 240 for editors).
 
-The layouts were written straight into `sfxlab:layout`; the parser keeps tab and border attributes, so no dragging
-was needed. For each view root the script recorded:
+The layouts were written straight into `sfxlab:layout` as version 2; the parser keeps tab and border attributes, so no
+dragging was needed. For each view root the script recorded:
 
 * every element that scrolls sideways, and what sticks out of it;
 * content cut off by `overflow: hidden`;
 * a screenshot.
 
-The scripts, their raw output and 148 screenshots are kept outside the repo with the session notes
-(`round-3-measure/`). Step 2's smoke spec makes the important checks permanent.
+The scripts, their raw output and the screenshots are kept outside the repo with the session notes
+(`round-3-measure/` for round 2's shell, `round-4/` for round 3's). Step 2's smoke spec makes the important checks permanent.
 
 ### Per view
 
@@ -71,14 +72,14 @@ The scripts, their raw output and 148 screenshots are kept outside the repo with
 |---|---|---|---|
 | Session | 682 px with three tracks: a column of at least 150 px per track and for the master, then the 56 px scene column | The grid scrolls, as intended, but only 1½ tracks show. The scene-launch column sits at the far right, off-screen, and the track headers scroll away with the grid. | Scrolls 38 px; fine. |
 | Arrangement | 427 px (toolbar) | The toolbar doesn't wrap, and the view's `overflow: hidden` cuts it off below 427 px. At 280 px the right-click hint wraps a word per line, the toolbar grows to about 350 px tall, and the lanes start 390 px down. The 120 px name column stays. | Fine; the timeline scrolls. |
-| Instrument, Effects | 372 px (toolbar: the Randomize, Mutate and Seed group doesn't wrap) | The 260 px property editor stays beside the canvas. The canvas is 20 px wide at 280, 60 at 320, 140 at 400 and 218 at 480. The 204 px zoom controls are cut off. Panel mode has the same toolbar. | Usable: the canvas is 150 px high. |
-| Notes | 372 px | As Instrument, plus the heard-notes aside (30 %, at most 440 px): at 400 px the canvas is 20 px wide. The aside's clip picker overflows it at 320 px and below. | Usable. |
+| Instrument, Effects | 368 px (toolbar: the Randomize, Mutate and Seed group doesn't wrap) | The 260 px property editor stays beside the canvas. The canvas is 20 px wide at 280, 60 at 320, 140 at 400 and 218 at 480. The 204 px zoom controls are cut off. Panel mode has the same toolbar. | Usable: the canvas is 150 px high. |
+| Notes | 368 px | As Instrument, plus the heard-notes aside (30 %, at most 440 px): at 400 px the canvas is 20 px wide. The aside's clip picker overflows it at 320 px and below. | Usable. |
 | Clip, notes | 667 px (toolbar: the shortcut hint at its end) | At 480 px the Length field is already cut off. | The velocity lane keeps its height, so the piano roll shows about 60 px of rows. |
 | Clip, automation | Fits | The 240 px lane list leaves the curve 40 px at 280 px, and its hint wraps a word per line. | Fine at 200 (fixed 180 px canvas). `min-height: 260px` on the editor is taller than the panel. |
 | Clip, empty | Fits | Fine. | Fine. |
 | Mixer | 695 px with three tracks (120 px strips), scrolled by design | About two strips show. The master strip, pushed right by `margin-left: auto`, is off-screen. | Track names are squashed at 240 px and gone at 200; the faders shrink to about 60 px. |
 | Samples, list | 305 px (toolbar), 454 px (rows) | The three toolbar buttons wrap to two or three lines and the drop hint to a word per line. In a row, the 160 px waveform leaves the name a narrow column, and *New audio track* and × (remove) end up past the right edge. | Fine. |
-| Samples, sample editor | 305 px | The toolbar wraps to three rows. | At 280 × 200 the toolbar takes about 130 of 196 px and the waveform is out of sight. |
+| Wave editor | Fits (the waveform scrolls) | The toolbar wraps to two or three rows; the waveform stays in view. | At 480 × 240 the two toolbar rows, the 150 px waveform and the hint all fit. Round 2 measured the sample editor inside Samples at 280 × 200, where the waveform was out of sight; as an editor it is now at least 480 × 240. |
 | Sounds | 247 px | Fine at 280 px; 7 px over at 240. | Fine. |
 | Library | 656 px (`180px minmax(180px, 1fr) minmax(260px, 1.5fr)`) | Its own panel scrolls sideways. At 280 px the items and details columns are off-screen; the toolbar wraps into a tall stack. | Fine (it scrolls). |
 
@@ -86,23 +87,26 @@ The scripts, their raw output and 148 screenshots are kept outside the repo with
 
 * **No view reads the window size today.** `innerWidth`, `innerHeight` and `matchMedia` appear only in `QuickAdd` and
   `TooltipLayer`, which place popups against the window. `vw` and `vh` appear only in the `MidiSettings` and
-  `ExportAudioDialog` overlays. There is no `@media` rule in `src/`. So this round's job is to build the narrow
+  `ExportAudioDialog` overlays, and in round 3's `SaveLayoutDialog`. There is no `@media` rule in `src/`. So this round's job is to build the narrow
   layouts on container queries, and to add a rule test so nothing reads the window size later.
 * **flexlayout's minimums are hard, and they overflow.** `minWidth` and `minHeight` on a tab become CSS `min-width`
   and `min-height` on its tab group's container (the largest of its tabs), and on a border's content (the open tab's).
   * Sash drags and keyboard steps stop at them. Measured: sixty ArrowLeft presses on the split between Session and
     Arrangement stopped Session at 480 px.
-  * But when the window is smaller than the sum, the editor area's groups don't shrink: they slide under the right
-    sidebar. Measured at 1440 × 900 with both sidebars open at 280 px and Session beside Arrangement at 480 px each:
-    Arrangement ran to x = 1317, under the Mixer sidebar, which starts at 1133.
-  * One rule fixes it: `min-width: 0 !important; min-height: 0 !important` on the editor area's elements that carry
-    the inline minimums. With it, the two groups shrank to 386 px each, side by side, with no overlap. The sashes still
-    stopped at the minimum, since flexlayout clamps them from the model, not from the CSS.
-* **Sidebars open at 460 px.** `GLOBAL_ATTRIBUTES.borderSize` is the panel's default height, and it applies to every
-  border, so a view dropped into a sidebar opens 460 px wide. `borderMinSize` (180 px) applies to the sidebars too.
-  Round 3 sets 300 px.
-* **The transport bar is about 1,124 px wide and doesn't wrap.** In a narrower window the whole page scrolls
-  sideways, whatever the layout (measured at 1100 and 1024 px; fine at 1180). Round 3 makes it wrap.
+  * But when the window is smaller than the sum, the main layout's groups don't shrink: they slide under the right
+    sidebar. Measured on round 3's shell at 1440 × 900 with both sidebars open at 280 px and Session beside
+    Arrangement at 480 px each: Arrangement and the panel ran to x = 1318, under the Sounds sidebar, which starts at
+    1133 (round 2's shell: 1317, under Mixer).
+  * One rule fixes it: `min-width: 0 !important; min-height: 0 !important` on the main layout's elements that carry
+    the inline minimums. With it, the two groups shrank to 387 px each, side by side, with no overlap (179 px each at
+    1024 × 700). The sashes still stopped at the minimum, since flexlayout clamps them from the model, not from the
+    CSS.
+* **A collapsed panel can't hold a minimum height.** Round 3 collapses the panel with `maxHeight: 0`, but flexlayout
+  raises a tab group's maximum to its minimum (`calcMinMaxSize`). With the minimums on the panel's tabs, a collapsed
+  panel stayed 266 px high (240 and its strip): it no longer collapses.
+* **Settled by round 3.** Sidebars open 300 px wide (`borderSize`, which round 2 shared with the panel's 460 px
+  height), with `borderMinSize` = `MIN_SIDEBAR_SIZE` (180 px), and the transport bar wraps instead of making the page
+  scroll sideways below about 1,124 px.
 * **`container-type: size` on view roots is safe for the popups inside them.** `QuickAdd` is `position: fixed` and
   rendered inside the view. With `container: view / size` on every `[data-view]`, it opened in exactly the same place
   (`container-type` doesn't make the view root a containing block for fixed elements).
@@ -129,14 +133,16 @@ The scripts, their raw output and 148 screenshots are kept outside the repo with
   * flexlayout then does the rest: a tab group's minimum is its largest tab's, and a border's minimum is the larger
     of `borderMinSize` and its open tab's. So a sidebar showing Instrument is at least 480 px wide, and the panel,
     now a tab group, is at least 240 px high while it holds any editor, whichever tab is open.
-  * **The collapsed panel.** Round 3 collapses the panel with `maxHeight: 0`, but flexlayout raises a tab group's
-    maximum to its minimum, so the panel's 240 px minimum would stop it collapsing. While the panel is collapsed, the
-    driver clears `minHeight` on its tabs and puts it back on expanding. Step 1 checks this first; if flexlayout
-    still holds the height, the panel's tabs get width minimums only, and its height minimum moves to a tab-group
-    `minHeight` that the driver sets and clears with the collapse.
-* **When the window is too small.** `flex-theme.css` overrides the editor area's inline minimums (above), so its
-  groups shrink with the window instead of sliding under a sidebar. The sidebars and the panel keep theirs: hiding
-  them is the user's way to make room. Sashes and keyboard steps still stop at the minimum.
+  * **The collapsed panel.** flexlayout raises a tab group's maximum to its minimum (measured above), so the
+    driver keeps one rule after every change to the model: a tab in a group the collapsed panel squeezes (the panel,
+    or the row it shares when split sideways) has `minHeight: 0`; every other tab has its view's minimum. Collapsing,
+    expanding, a tab dragged out of a collapsed panel and a saved collapsed layout (whose tabs `viewTab` rebuilds with
+    their minimums) all go through it. A tab group-level `minHeight` was considered; it is raised to the maximum the
+    same way, and it wouldn't move with a tab.
+* **When the window is too small.** `flex-theme.css` overrides the inline minimums in flexlayout's main layout
+  (above), so its groups shrink with the window instead of sliding under a sidebar. Since round 3 the panel is a tab
+  group in that layout, so it shrinks with the editor area (see the decisions); collapsing it is the user's way to make
+  room. The sidebars, flexlayout's borders, keep theirs. Sashes and keyboard steps still stop at the minimum.
 * **Below its minimum, a view scrolls; it doesn't reflow further.** `ViewHost` puts a frame inside the `data-view`
   root:
 
@@ -160,7 +166,8 @@ The scripts, their raw output and 148 screenshots are kept outside the repo with
 * **The rule.** A view's layout depends only on its own size, through `@container view (…)` rules in its CSS module,
   or `cqw` and `cqh` units. It never uses `@media` for layout, `vw` or `vh`, or reads `innerWidth`, `innerHeight` or
   `matchMedia`.
-  * `tests/architecture.test.ts` gains a case that checks this, with an allow-list for the four popup files above.
+  * `tests/architecture.test.ts` gains a case that checks this, with an allow-list for the five files that place popups and overlays against the window: the four above
+    and `SaveLayoutDialog` (round 3's *Save layout as…* dialog, `100vw`).
   * `@media (prefers-reduced-motion)` and other `prefers-*` features stay allowed.
 * **Breakpoints are per view**, written where they apply, with a comment saying what the layout gives up. A shared
   scale (narrow, compact) was considered. The views break at different widths (Library at 656 px, Samples at
@@ -183,7 +190,7 @@ The measurements above give the breakpoints. All of them are on the view's own f
 | **Clip, automation** | Below 600 px, the 240 px lane list collapses into a `<select>` of lanes above the curve, with the search box beside it. The canvas takes the full width. | The canvas height becomes `clamp(80px, 45cqh, 180px)` instead of a fixed 180 px, and the editor's `min-height: 260px` goes (the view's minimum covers it). |
 | **Mixer** | The strips keep scrolling sideways (`data-scroll="x"`). The master strip is sticky on the right, so the master fader is always visible. | Names never shrink (`flex-shrink: 0`). Below 300 px high, the pan row and the sends drop out of track strips, keeping the name, mute and solo, the fader and the meter. |
 | **Samples, list** | The toolbar's buttons don't wrap their labels, and the drop hint moves under them below 420 px. Below 420 px, a row becomes two lines: the waveform (`min(160px, 40cqw)`) and the name on the first; ▶, ✎, the two *New … track* buttons and × on the second. | Nothing: the list scrolls. |
-| **Wave editor** (round 3 moved the sample editor here) | The toolbar wraps without breaking labels. | The waveform is `min(150px, 40cqh)` high (the proposal's rule), so it stays in view when short. The editor's hint line goes below 280 px high. |
+| **Wave editor** (round 3 moved the sample editor here) | No change: the toolbar already wraps, and the waveform scrolls. | No change: at 480 × 240 everything fits (measured). The proposal's `min(150px, 40cqh)` waveform was for the sample editor at 200 px high inside Samples. |
 | **Sounds** | No change: it fits at 280 px. Rows already wrap. | No change. |
 | **Library** | The folder column becomes a **tree** at every width (folders are already nested, `parentId`): ARIA `tree` with expand and collapse, arrow keys, and the folder's item count. Three columns down to 640 px. Below that, two (tree and items side by side, details below). Below 440 px, one: the tree sits above the items, collapsed to the open folder's path until expanded, and details follow. Toolbar inputs take the full width. | No change: it scrolls. |
 
@@ -269,7 +276,7 @@ independent of each other once step 2 has landed.
    * `viewTab` sets `minWidth` and `minHeight`.
    * `ViewHost`'s frame, with the minimum as CSS variables.
    * The `flex-theme.css` override for the editor area.
-   * The collapsed panel and the minimums (above), checked first.
+   * The driver's rule for the collapsed panel's minimum heights (above), with unit tests.
    * Unit tests: the default layout's tabs carry the minimums, and a saved layout without them gets them.
    * The `layout.smoke.spec.ts` checks for sashes and overlap.
 2. **Container queries, the rule test and the min-size spec.**
@@ -279,8 +286,8 @@ independent of each other once step 2 has landed.
    * Re-run the `QuickAdd` placement check in the dev build (open it in a narrow Instrument near the window's edge).
 3. **Library.** The folder tree (with keyboard unit tests for its expand state); three, two and one columns; the
    toolbar. Joins the spec.
-4. **Samples and the Wave editor.** The Samples toolbar and two-line rows; the Wave editor's waveform height and
-   toolbar. Both join the spec.
+4. **Samples and the Wave editor.** The Samples toolbar and two-line rows. Both join the spec (the Wave editor with a
+   sample open, unchanged).
 5. **Mixer.** The sticky master strip, names that keep their height, and the short strip. Joins the spec.
 6. **Session and Arrangement.**
    * Session: the grid's own scroller, the sticky scene column and headers, and narrower columns.
@@ -311,6 +318,116 @@ independent of each other once step 2 has landed.
     * ARCHITECTURE.md § Layout and navigation: minimum sizes, the frame, the container-query rule, `data-scroll`, the
       graph-view store and the default layout.
     * [README.md](README.md) marks round 4 done. The roadmap notes what moved.
+
+## Changes made while implementing
+
+What turned out different from the design above, step by step.
+
+* **Step 1: the override names flexlayout's classes.** The measured rule matched `[style*="min-width"]`, which would
+  also match the frame's `--min-width`; it selects `.flexlayout__row` and `.flexlayout__tabset_container` inside
+  `.flexlayout__layout_main` instead.
+* **Step 1: the collapsed panel's rule runs in `sync`.** The driver's `keepMinimumHeights` runs before each mirror,
+  so it covers the driver's own actions and the user's (`onModelChange`) alike, and a saved collapsed layout on its
+  first sync.
+* **Step 2: `dockAtSize` holds a size with a tab group's maximums, not weights.** flexlayout's weights didn't give
+  exact sizes (a box weighted to 480 px came out 544 px). A tab group's `maxWidth` and `maxHeight` (the strip not
+  counted) give the size exactly, without first loading the page to measure it.
+* **Step 2: the rule test also catches** `outerWidth`, `outerHeight` and the `dvh` / `svh` / `lvh` units, and checks
+  itself on a sample.
+* **Step 2: `QuickAdd` re-checked.** Opened from a 480 px Instrument in the right sidebar at 1440 × 900, the popup's
+  box equals its `left` / `top` in window coordinates (1092, 81) and fits inside the window.
+* **Step 2: the spec checks a view at its starting scroll position.** It scrolls everything in the view back to the
+  top left before looking for the controls; a `prepare` step (saving a Library item) can scroll it.
+* **Step 3: the tree's rows.** The root row keeps today's *All / root*. Clicking a folder opens and expands it; its
+  twisty only expands or collapses it; the arrow keys move the open folder (selection follows focus) without
+  expanding. A folder's row is named with its item count (*Nested, 3 items*), so specs find folders by a pattern. The
+  aside around the tree and the folder actions is now *Library folder actions*; the tree is *Library folders*.
+* **Step 3: the narrow tree** collapses to the open folder's path with an *All folders* toggle that only shows below
+  440 px, by CSS on `data-on-path`, so no component measures its width.
+* **Step 3: the search toolbar comes first below 440 px.** At 280 × 200 the three toolbars wrap to more than the
+  view's height; with the search first it shows without scrolling. The first item is a scroll away there (the plan's
+  "short: it scrolls"), so the spec looks for it only at the minimum width and the minimum height apart.
+* **Step 3: the bundle import's file input shrinks** below 440 px: it held Library at 302 px.
+* **Step 4: rows take two lines below 700 px, not 420.** With labels that no longer wrap, a row needs about 584 px
+  plus the name, so it broke at 478 px. At 280 px the actions themselves take two lines (*New sampler track* and
+  *New audio track* don't fit beside ▶ and ✎); nothing scrolls sideways. The drop hint moves under the buttons below
+  420 px as planned.
+* **Step 4: the waveform thumbnail narrows through `--thumb-width`** (`WaveformThumb`'s inline width is its default),
+  and its drawing scales to fit.
+* **Step 4: the Wave editor's waveform scroller carries `data-scroll="x"`**, and the spec checks that scroller, not
+  the canvas inside it.
+* **Step 5: the sticky master sits past the scroller's padding** (`right: calc(-1 * var(--padding))`); at `right: 0`
+  the strips scrolling under it showed in the 10 px gutter beside it.
+* **Step 5: the short strip also drops the effects badges and lets the fader row shrink to 40 px.** Without that, a
+  strip at 200 px still needed more height than the view has; it keeps its name, mute and solo, fader, meter and
+  value, as planned.
+* **Step 6: the session grid's width is set from its column count.** The sticky scene column needs the grid box as
+  wide as its columns; `width: max-content` made every track as wide as the widest header's content (about 150 px),
+  so the narrower columns never showed. The grid gets `--columns` inline and is
+  `max(100%, columns × (minimum + gap) + scene column + padding)` wide.
+* **Step 6: the arrangement's hint is the toolbar's tooltip at every width**, since CSS can't move a `title`; below
+  720 px the visible hint goes. The timeline's scroller carries `data-scroll="both"`.
+* **Step 7: the drawer is a wrapper** (`display: contents` while wide), holding the property editor and, inside a
+  module, its interface, so the two stay beside the canvas as before when wide and become one drawer when narrow. A
+  double-click on a node's card (`data-node`) opens it; one on a port, button or field doesn't.
+* **Step 7: the zoom readout stays.** It was to go below 360 px, but a graph editor is never laid out below its
+  480 px minimum; there the zoom controls fit.
+* **Step 7: Panel mode at 480 × 240** shows its toolbar and *Edit panel*; the empty panel's explanation scrolls
+  vertically.
+* **Step 8: the toolbar's hint held the editor's grid column**, not the toolbar: the column was `auto`, so the
+  nowrap hint's full length set it. The column is `minmax(0, 1fr)`; the hint shows *Shortcuts* below 720 px.
+* **Step 8: the velocity lane's height is CSS's.** The lane's geometry took a fixed 72 px, so the bars are placed with
+  `calc()` on the lane's height and a drag reads the height from the lane's box (`velocityAtY`, `barTop` and
+  `pickNoteAt` take it, 72 px by default). At 480 × 240 the toolbar still takes three lines; the roll shows about
+  one row above a 60 px lane, and hiding the lane (*Velocity*) gives it the rest.
+* **Step 8: the narrow automation editor keeps the open lane's row** (enable, delete) beside the lane `<select>`,
+  the search and *Add target…*, by CSS (`:has(button[aria-pressed='true'])`), so nothing measures.
+* **Step 9: the texts changed with the actions.** "Add an instrument track to edit its instrument" became "There is
+  no instrument track to edit." beside *Add instrument track* (and likewise for Effects and Notes), since the button
+  now says what to do.
+* **Step 9: the Library's empty state shows only while it has no items outside the trash.** Its *Save asset +
+  presets* runs the toolbar's action, so specs that click the toolbar's take the first of the two.
+* **Step 9: the min-size spec checks the empty states** of Instrument and Effects without tracks, Notes on the
+  master (its action reveals Effects) and the empty Library, besides the empty Clip.
+* **Step 10: each level of a graph keeps its own view.** The store keeps a path per graph (`graphKey`, as planned)
+  and a viewport per canvas (`canvasKey`: the graph's key and the open path), since `PatchCanvas` remounts for each
+  sub-patch; one viewport per graph would have carried the top level's zoom into every module.
+* **Step 10: the canvas writes its view when it unmounts or hides** (an Effect cleanup), not when a gesture ends:
+  nothing reads it before then, and wheel zooming has no end to catch. The stale-path rule moved into the store as
+  `livePath`, which `GraphEditor` already applied inline.
+* **Step 11: a narrow tree shows the folders in the open folder too.** In the 300 px sidebar Library is one column,
+  and a tree collapsed to the open folder's path showed only *All / root*: no folder could be reached without
+  *All folders*. It now shows the path and the folders directly in the open folder (`essential`), so it reads as a
+  path down to where the user is, and onwards.
+* **Step 11: the specs.** `layout.smoke.spec.ts` checks the new default (Samples and Library in the collapsed primary
+  sidebar, opening 300 px wide; the panel's five tabs), Mixer's neighbour in the panel is now Clip, and the
+  activity-bar check takes Library from the primary sidebar first, then from the panel. Saved layouts missing Samples
+  or Library now get them in the primary sidebar.
+* **Step 12: the profile.** `scripts/profile-status.cjs` now collapses Library's sidebar too in the `all` setup (it
+  sits in a sidebar since this round; before it, the same click collapses the panel, and showing Mixer expands it).
+  Base (`feat/ui-redesign` at `fbd3f21`, round 3 merged) and this branch ran interleaved in one session, 10 s each
+  after 2 s of warm-up, headless Chromium, 1500 × 1000, both with this branch's script:
+
+  | Per second | Base `editor`, 2 runs | Round 4 `editor`, 2 runs | Base `four`, 2 runs | Round 4 `four`, 2 runs | Round 4 `all` |
+  |---|---|---|---|---|---|
+  | Component renders (dev) | 145, 145 | 145, 145 | 173, 173 | 173, 173 | 145 |
+  | React render time (dev) | 7.6, 8.4 ms | 8.0, 8.3 ms | 9.0, 8.8 ms | 8.7, 9.4 ms | 8.4 ms |
+  | Script (production) | 12.7, 13.4 ms | 12.8, 13.2 ms | 14.9, 15.7 ms | 15.6, 16.2 ms | 13.1 ms |
+  | Main-thread tasks (production) | 82.7, 90.4 ms | 76.5, 85.0 ms | 102.0, 106.0 ms | 109.7, 116.8 ms | 88.1 ms |
+  | Layout + style (production) | 23.0, 25.3 ms | 19.6, 23.2 ms | 20.7, 21.4 ms | 22.8, 23.4 ms | 24.6 ms |
+
+  * Component renders stay at 145 a second in `editor` and 173 in `four`: container queries, sticky cells and the
+    frames add no React work.
+  * In `four` (Session and Arrangement side by side over Clip), round 4 spends about 2 ms more a second on layout
+    and style and 8 to 11 ms more on main-thread tasks in both runs, most likely Session's sticky headers and scene
+    column and the size containers being laid out again while the playheads move. In `editor` it is no slower.
+* **Step 12: before and after.** `measure.cjs` ran again on the finished branch (`round-4/after/` in the session
+  notes, beside `before/`). At 1440 × 900 with round 3's default layout loaded into both builds, every view's
+  screenshot matches round 3's pixel for pixel, apart from the graph editors' random seed and Library's tree and
+  empty state. With round 4's own default the editor area is 27 px narrower: the collapsed primary sidebar's strip.
+* **Step 12: an audio spec still clicked a folder as a button.** `automation.audio.spec.ts` opens an imported
+  bundle's folder; step 3 changed the smoke specs only, since the audio suite runs once at the end. It now clicks the
+  folder's tree row.
 
 ## Behavior changes
 
@@ -351,10 +468,13 @@ Anything else a reviewer notices is a bug in this round.
 
 ## Decisions to sign off
 
+Signed off 2026-10-24: every row as proposed. The row on a window smaller than the minimums was changed when the plan
+was checked against round 3's shell, before sign-off.
+
 | Question | Proposed | Notes |
 |---|---|---|
 | Minimum sizes | **280 × 200** for Samples, Sounds, Library and Mixer; **480 × 240** for Session, Arrangement, Wave editor, Instrument, Effects, Notes and Clip | The proposal's values, signed off as proposed in round 2 but left to this plan. One change: **Notes is an editor**, not a tool view. It is a graph editor and broke like Instrument (a 20 px canvas at 400 px). Consequence: a sidebar showing an editor is at least 480 px wide. |
-| When the window is smaller than the minimums | **Editor groups shrink and their views scroll**; sidebars and the panel keep their minimums | flexlayout's own behavior lets groups slide under a sidebar (measured). The alternative is hiding sidebars automatically, as VS Code does, which needs code that watches the workbench's size and changes the user's layout behind their back. The override relies on flexlayout's inline styles, which the version pin and the `ui/layout`-only rule contain. |
+| When the window is smaller than the minimums | **The editor area's groups and the panel shrink and their views scroll**; the sidebars keep their minimums | flexlayout's own behavior lets groups slide under a sidebar (measured). Changed after round 3: the panel is now a tab group in the same layout as the editor area, and the rule covers that layout; keeping the panel's minimum would need a selector for its group in flexlayout's DOM. The panel still collapses to make room. The alternative is hiding sidebars automatically, as VS Code does, which needs code that watches the workbench's size and changes the user's layout behind their back. The override relies on flexlayout's inline styles, which the version pin and the `ui/layout`-only rule contain. |
 | Patch canvas view per graph (round-2 row) | **In memory** | Persisting it would extend `sfxlab:layout` with project-specific track ids. Revisit if users ask. |
 | VS Code-style default layout | **Yes**: Samples and Library in the primary sidebar, **shown but collapsed**; Sounds stays in the secondary sidebar (round 3); the panel keeps Instrument, Effects, Notes, Clip and Mixer | Round 2 deferred it; the user asked for Sounds on the right. Alternatives: the sidebar **open on Samples** (the editor area loses 300 px from the start), or **round 3's default** (Samples and Library stay in the panel). Saved layouts are untouched either way. |
 | Library's folders | **A tree at every width** | The user asked for a tree. Folders are already nested. It replaces the `<select>` this plan first proposed for narrow widths. |

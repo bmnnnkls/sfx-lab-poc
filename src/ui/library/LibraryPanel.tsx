@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { type LibraryBundleStage, type LibraryBundleSelection, libraryBundleConflicts, type LibraryCatalog, type LibraryItem, type SnapshotScope, emptyLibrary, browseLibrary, libraryDependencies, saveLibraryFolder, saveLibraryItem, trashLibraryEntry } from '@core'
 import { usePersonalLibrary, useProjectStore, useSelectionStore } from '@state'
+import { FolderTree } from './FolderTree'
 import styles from './LibraryPanel.module.css'
 
 export const LibraryPanel = () => {
@@ -47,7 +48,6 @@ export const LibraryPanel = () => {
   })
   const navigate = (id: string | null) => { stopPreview(); setFolder(id); setSelected('') }
   const choose = (i: LibraryItem) => { stopPreview(); setSelected(i.id); setName(i.name) }
-  const tree = (parent: string | null, depth = 0): React.ReactNode => catalog.folders.filter(f => f.parentId === parent && !f.trashed).map(f => <div key={f.id}><button className={folder === f.id ? styles.active : ''} style={{ marginLeft: depth * 12 }} onClick={() => navigate(f.id)}>{f.name}</button>{tree(f.id, depth + 1)}</div>)
   useEffect(() => {
     const available = new Set(catalog.items.filter(i => !i.trashed).map(i => i.id))
     setChecked(ids => ids.filter(id => available.has(id)))
@@ -70,7 +70,7 @@ export const LibraryPanel = () => {
       <select aria-label="Project sample to catalog" value={sampleId} onChange={e => setSampleId(e.target.value)}><option value="">Choose sample</option>{project.samples.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
       <button disabled={busy || trash || !sampleId} onClick={() => void run(() => library.saveSample(sampleId, name, folder))}>Catalog sample</button>
     </div>
-    <div className={styles.toolbar}>
+    <div className={`${styles.toolbar} ${styles.search}`}>
       <input aria-label="Search library" placeholder="Search all folders" value={query} onChange={e => setQuery(e.target.value)} />
       <select aria-label="Library type filter" value={kind} onChange={e => setKind(e.target.value)}><option value="">All types</option>{['instrument', 'audio-effect', 'note-effect', 'preset', 'midi-clip', 'audio-clip', 'sample'].map(k => <option key={k}>{k}</option>)}</select>
       <button onClick={() => { stopPreview(); setTrash(!trash); setSelected('') }}>{trash ? 'Back to library' : 'Trash'}</button>
@@ -108,7 +108,7 @@ export const LibraryPanel = () => {
       <button disabled={busy} onClick={() => setBundle(null)}>Cancel bundle</button>
     </section>}
     <div className={styles.columns}>
-      <aside aria-label="Library folders"><button onClick={() => navigate(null)}>All / root</button>{tree(null)}
+      <aside aria-label="Library folder actions"><FolderTree catalog={catalog} open={folder} onOpen={navigate} />
         {currentFolder && !trash && <><hr /><strong>{currentFolder.name}</strong><button disabled={busy} onClick={() => void run(() => library.update(c => saveLibraryFolder(c, name, currentFolder.parentId, currentFolder.id)))}>Rename folder</button><button disabled={busy} onClick={() => void run(async () => { const value = await library.update(c => trashLibraryEntry(c, currentFolder.id)); navigate(null); return value })}>Trash folder and contents</button><button disabled={busy} onClick={() => void run(() => library.update(c => saveLibraryFolder(c, currentFolder.name, moveTo || null, currentFolder.id)))}>Move folder</button></>}
         <label>Move destination<select aria-label="Move destination" value={moveTo} onChange={e => setMoveTo(e.target.value)}><option value="">Root</option>{catalog.folders.filter(f => !f.trashed).map(f => <option key={f.id} value={f.id}>{f.name} · {f.id.slice(-6)}</option>)}</select></label>
         {trash && catalog.folders.filter(f => f.trashed).map(f => <button key={f.id} disabled={busy} onClick={() => void run(() => library.update(c => trashLibraryEntry(c, f.id, false)))}>Restore folder {f.name}</button>)}
@@ -135,7 +135,10 @@ export const LibraryPanel = () => {
           <button disabled={busy} title="Retains dependencies and all sample bytes. Restore from Trash." onClick={() => void run(async () => { stopPreview(); return library.update(c => trashLibraryEntry(c, item.id)) })}>Trash item + associated presets</button>
         </> : <button disabled={busy} onClick={() => void run(() => library.update(c => trashLibraryEntry(c, item.id, false)))}>Restore item</button>}
         <p>Project copies are independent. Trash retains library records and sample bytes; it has no effect on project undo.</p>
-      </> : <p>Select a library item for dependencies, preview and explicit load scope. Save includes nested modules, sample choices and compatible project presets. Duplicate names are allowed.</p>}</article>
+      </> : !trash && !catalog.items.some(i => !i.trashed) ? <div className={styles.empty}>
+        <p>Your library is empty. Save the selected instrument, a clip or a sample to reuse it in other projects.</p>
+        <button disabled={busy} onClick={() => void run(() => library.saveAsset(scope, name, folder))}>Save asset + presets</button>
+      </div> : <p>Select a library item for dependencies, preview and explicit load scope. Save includes nested modules, sample choices and compatible project presets. Duplicate names are allowed.</p>}</article>
     </div>
   </section>
 }

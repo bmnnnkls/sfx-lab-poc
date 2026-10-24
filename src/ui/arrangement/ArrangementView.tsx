@@ -27,6 +27,10 @@ const isZoom = (value: unknown): value is number =>
 /** Snap to sixteenth beats. */
 const snap = (beats: number): number => Math.round(beats * 4) / 4
 
+/** How to fill the timeline. Shown in the toolbar while it fits, and always its tooltip. */
+const HINT =
+  'Right-click an empty lane to add a session clip; right-click a session slot to place it here; drag regions to move (across lanes too), the edge to resize.'
+
 /**
  * The "Arrangement" view: copies of session clips on a timeline, one lane per track. Playback follows
  * the transport; ▶ starts it from the beginning (or resumes from where it was stopped). Session slots
@@ -74,7 +78,7 @@ export const ArrangementView = () => {
 
   return (
     <div className={styles.view} data-testid="arrangement-view">
-      <div className={styles.toolbar}>
+      <div className={styles.toolbar} title={HINT}>
         <strong>Arrangement</strong>
         <button onClick={start} aria-label="Play arrangement">
           ▶ Arrangement
@@ -91,11 +95,9 @@ export const ArrangementView = () => {
             onChange={(event) => setPxPerBeat(Number(event.target.value))}
           />
         </label>
-        <span className={styles.info}>
-          Right-click an empty lane to add a session clip; right-click a session slot to place it here; drag regions to move (across lanes too), the edge to resize.
-        </span>
+        <span className={styles.info}>{HINT}</span>
       </div>
-      <div className={styles.scroll}>
+      <div className={styles.scroll} data-scroll="both">
         <div className={styles.rulerRow}>
           <div className={styles.rulerCorner} />
           <div className={styles.ruler} style={{ width }}>

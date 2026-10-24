@@ -47,7 +47,7 @@ test('a view moved next to Session stays there after a reload, and Reset layout 
   await dragView(page, 'Mixer', 'Session', 'right')
   await expectMixerBesideSession(page)
   // The panel stays open on Mixer's neighbour.
-  await expect(viewRoot(page, 'Samples')).toBeVisible()
+  await expect(viewRoot(page, 'Clip')).toBeVisible()
 
   await expect.poll(() => page.evaluate(() => localStorage.getItem('sfxlab:layout'))).toContain('"mixer"')
   await page.reload()
@@ -192,6 +192,7 @@ test("clicking the panel's open tab collapses it to its strip, and clicking agai
   await tab.click()
   await expect(viewRoot(page, 'Instrument')).toBeHidden()
   await expect(tab).toBeVisible()
+  // All the way to the strip, although the panel's views have minimum heights.
   await expect.poll(async () => (await session.boundingBox())!.height).toBeGreaterThan(before + 300)
   await tab.click()
   await expect(viewRoot(page, 'Instrument')).toBeVisible()
@@ -305,20 +306,42 @@ test('the activity bar shows Session, Arrangement, the Wave editor and Library w
     await expect(viewRoot(page, title)).toBeVisible()
   }
   // A view showing in the editor area or the panel stays on a second click.
-  await button('Library').click()
-  await expect(viewRoot(page, 'Library')).toBeVisible()
   await button('Arrangement').click()
   await expect(viewRoot(page, 'Arrangement')).toBeVisible()
 
-  // Docked in a sidebar, its button shows the sidebar, and hides it while the view shows.
-  await tabStrip(page, 'Instrument').getByRole('button', { name: 'Secondary sidebar', exact: true }).click()
-  await dragViewToSidebar(page, 'Library', 'secondary')
+  // Library starts in the primary sidebar: its button shows the sidebar, and hides it while the view shows.
+  const primary = tabStrip(page, 'Instrument').getByRole('button', { name: 'Primary sidebar', exact: true })
   await expect(viewRoot(page, 'Library')).toBeVisible()
   await button('Library').click()
   await expect(viewRoot(page, 'Library')).toBeHidden()
-  await expect(tabStrip(page, 'Instrument').getByRole('button', { name: 'Secondary sidebar', exact: true })).toHaveAttribute('aria-pressed', 'false')
+  await expect(primary).toHaveAttribute('aria-pressed', 'false')
   await button('Library').click()
   await expect(viewRoot(page, 'Library')).toBeVisible()
+  await expect(primary).toHaveAttribute('aria-pressed', 'true')
+
+  // Docked in the panel, it stays on a second click.
+  await dragView(page, 'Library', 'Instrument', 'center')
+  await button('Library').click()
+  await expect(viewRoot(page, 'Library')).toBeVisible()
+  await button('Library').click()
+  await expect(viewRoot(page, 'Library')).toBeVisible()
+})
+
+test('Samples and Library start in the primary sidebar, collapsed, and open 300 px wide', async ({ page }) => {
+  await page.goto('/?starter')
+  const primary = tabStrip(page, 'Instrument').getByRole('button', { name: 'Primary sidebar', exact: true })
+  await expect(page.getByRole('tab', { name: 'Samples', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Library', exact: true })).toBeVisible()
+  await expect(viewRoot(page, 'Samples')).toBeHidden()
+  await expect(primary).toHaveAttribute('aria-pressed', 'false')
+  const samples = (await (await openView(page, 'Samples')).boundingBox())!
+  const session = (await viewRoot(page, 'Session').boundingBox())!
+  expect(Math.round(samples.width)).toBe(300)
+  expect(samples.x + samples.width).toBeLessThanOrEqual(session.x)
+  await expect(primary).toHaveAttribute('aria-pressed', 'true')
+  // The panel holds the editors and the Mixer.
+  const panelTabs = tabStrip(page, 'Instrument').getByRole('tab')
+  await expect(panelTabs).toHaveText(['Instrument', 'Effects', 'Notes', 'Clip', 'Mixer'])
 })
 
 test('a layout saved under a name loads again after changes and a reload, and can be deleted', async ({ page }) => {
@@ -375,4 +398,50 @@ test('the transport bar wraps at 1024 px instead of making the page scroll sidew
     expect(box.x + box.width).toBeLessThanOrEqual(1024)
   }
   expect((await page.getByLabel('Project name').boundingBox())!.width).toBeGreaterThanOrEqual(120)
+})
+
+test("a splitter stops at the views' minimum sizes, from the keyboard too", async ({ page }) => {
+  await page.goto('/?starter')
+  const splitter = page.getByRole('separator')
+  await expect(splitter).toHaveCount(1)
+  await splitter.focus()
+  for (let i = 0; i < 60; i++) await page.keyboard.press('ArrowUp')
+  await expect.poll(async () => Math.round((await viewRoot(page, 'Session').boundingBox())!.height)).toBeGreaterThanOrEqual(240)
+  for (let i = 0; i < 120; i++) await page.keyboard.press('ArrowDown')
+  await expect.poll(async () => Math.round((await viewRoot(page, 'Instrument').boundingBox())!.height)).toBeGreaterThanOrEqual(240)
+  expect(Math.round((await viewRoot(page, 'Session').boundingBox())!.height)).toBeGreaterThan(400)
+})
+
+test('in a window smaller than the minimums, the groups shrink beside open sidebars instead of sliding under them', async ({ page }) => {
+  const tab = (id: string) => ({ type: 'tab', id, component: 'view' })
+  await page.addInitScript((value) => localStorage.setItem('sfxlab:layout', value), JSON.stringify({ version: 2, model: {
+    global: {},
+    borders: [
+      { type: 'border', location: 'left', show: true, selected: 0, size: 280, children: ['samples', 'library'].map(tab) },
+      { type: 'border', location: 'right', show: true, selected: 0, size: 280, children: ['sounds'].map(tab) },
+    ],
+    layout: { type: 'row', children: [{ type: 'row', children: [
+      { type: 'row', weight: 50, children: [
+        { type: 'tabset', id: 'editor', weight: 50, children: ['session', 'wave'].map(tab) },
+        { type: 'tabset', id: 'right', weight: 50, children: ['arrangement'].map(tab) },
+      ] },
+      { type: 'tabset', id: 'panel', weight: 50, children: ['instrument', 'effects', 'notes', 'clip', 'mixer'].map(tab) },
+    ] }] },
+  } }))
+  await page.setViewportSize({ width: 1024, height: 700 })
+  await page.goto('/?starter')
+  const box = async (title: Parameters<typeof viewRoot>[1]) => (await viewRoot(page, title).boundingBox())!
+  await expect(viewRoot(page, 'Arrangement')).toBeVisible()
+  const samples = await box('Samples')
+  const sounds = await box('Sounds')
+  expect(Math.round(samples.width)).toBe(280)
+  expect(Math.round(sounds.width)).toBe(280)
+  for (const title of ['Session', 'Arrangement', 'Instrument'] as const) {
+    const view = await box(title)
+    expect(view.x, title).toBeGreaterThanOrEqual(samples.x + samples.width)
+    expect(view.x + view.width, title).toBeLessThanOrEqual(sounds.x)
+  }
+  // Below its minimum a view scrolls inside its own root.
+  const session = viewRoot(page, 'Session')
+  expect(await session.evaluate((root) => root.scrollWidth > root.clientWidth)).toBe(true)
 })

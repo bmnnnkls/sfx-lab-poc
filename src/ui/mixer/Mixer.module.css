@@ -1,8 +1,9 @@
 .mixer {
+  --padding: 10px;
   display: flex;
   gap: 6px;
   height: 100%;
-  padding: 10px;
+  padding: var(--padding);
   overflow: auto hidden;
 }
 
@@ -26,9 +27,25 @@
   border-style: dashed;
 }
 
+/*
+ * At the right end, or at the right edge while the strips scroll under it, so the master fader is always there. The
+ * edge is the scroller's, past its padding, so no strip shows beside the master.
+ */
 .masterStrip {
+  position: sticky;
+  right: calc(-1 * var(--padding));
+  z-index: 1;
   margin-left: auto;
   border-width: 2px;
+}
+
+/* In a short mixer only the fader row gives up height; the name and buttons keep theirs. */
+.strip > * {
+  flex-shrink: 0;
+}
+
+.strip > .faderRow {
+  flex-shrink: 1;
 }
 
 .mutedStrip .name,
@@ -167,4 +184,17 @@ span.name {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
+}
+
+/* Below 300 px high a strip keeps its name, mute and solo, the fader and the meter; pan, sends and badges go. */
+@container view (height < 300px) {
+  .pan,
+  .sends,
+  .badges {
+    display: none;
+  }
+
+  .faderRow {
+    min-height: 40px;
+  }
 }

@@ -143,13 +143,15 @@ export const PianoRoll = ({
   } as React.CSSProperties
 
   return (
-    <div ref={scroller} className={styles.scroller}>
+    <div ref={scroller} className={styles.scroller} data-scroll="both">
       <div
         className={styles.layout}
         style={{
           gridTemplateColumns: `${KEY_WIDTH}px ${width}px`,
-          gridTemplateRows: `${RULER_HEIGHT}px ${ROWS * ROW_HEIGHT}px ${laneHeight}px`,
-        }}
+          // The velocity lane's height is CSS's: it shrinks in a short editor.
+          gridTemplateRows: `${RULER_HEIGHT}px ${ROWS * ROW_HEIGHT}px ${showVelocity ? 'var(--lane-height)' : '0px'}`,
+          '--lane-full': `${LANE_HEIGHT}px`,
+        } as React.CSSProperties}
       >
         <div className={styles.corner} />
         <Ruler lengthBeats={lengthBeats} pixelsPerBeat={pixelsPerBeat} />

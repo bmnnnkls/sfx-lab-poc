@@ -1387,8 +1387,9 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
     one split off the panel. It holds the tool views and is never deleted, even when empty. The primary and
     secondary sidebars are flexlayout's left and right borders and run the full height, from the transport bar to
     the status bar (flexlayout spans top and bottom borders across the sidebars, which is why the panel isn't one).
-    Sounds starts in the secondary sidebar, collapsed to its strip; the primary sidebar starts empty and off;
-    sidebars open 300 px wide. A border shows one tab at a time. Views can be dragged between all of them; tabs
+    By default the panel holds Instrument, Effects, Notes, Clip and Mixer; Samples and Library start in the primary
+    sidebar and Sounds in the secondary one, both collapsed to their strips; sidebars open 300 px wide. A border
+    shows one tab at a time. Views can be dragged between all of them; tabs
     can't be closed, so every view is always somewhere.
   * **Collapsing.** Clicking the open tab of a sidebar or the panel collapses it to its tab strip; clicking a tab
     there opens it again. The panel collapses with `maxHeight: 0` (flexlayout adds the strip to a group's
@@ -1412,6 +1413,29 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
     Shift+F6 move the focus between the tab groups that show, the panel and sidebars included (`group-focus.ts`;
     flexlayout's own key skips borders). Tab toggles Session and Arrangement, except in form fields and the chrome:
     a tab, a splitter, the activity bar, the region toggles, a tab group's buttons and dialogs.
+* **Minimum sizes.** `viewMinSizes` in `ui/layout/view-titles.ts` (also `minSize` in the registry): 480 × 240 for the
+  editors (Session, Arrangement, Wave editor, Instrument, Effects, Notes, Clip), 280 × 200 for the tool views
+  (Samples, Sounds, Library, Mixer). `viewTab` puts them on each tab as flexlayout's `minWidth` and `minHeight`, so
+  saved layouts get them too; a tab group takes its largest tab's, a sidebar its open tab's (and at least
+  `MIN_SIDEBAR_SIZE`). Sashes and keyboard steps stop there. flexlayout raises a group's maximum to its minimum, so
+  the driver (`keepMinimumHeights`, on every sync) clears the minimum height of the tabs a collapsed panel squeezes
+  and gives every other tab its view's. When the window is smaller than the minimums, `flex-theme.css` overrides
+  the inline minimums of the main layout's rows and groups, so they shrink beside the sidebars instead of sliding
+  under them; the sidebars keep theirs.
+* **Views at any size.** `ViewHost` puts each view in a frame (`container: view / size`) that is the root's size but
+  never smaller than the view's minimum, so below it the root scrolls and the view keeps its smallest layout. A view
+  lays itself out from its own size only: `@container view (…)` rules and `cqw` / `cqh` in its CSS module, with the
+  breakpoints written where they apply. No `@media` (other than `prefers-*`), viewport units or window-size reads,
+  except in the five files that place popups and overlays against the window; the architecture test enforces it.
+  Elements meant to scroll sideways (the session grid, the mixer's strips, timelines, the piano roll, waveforms)
+  carry `data-scroll="x" | "y" | "both"`. The narrow layouts: Session's grid scrolls under sticky track headers and a
+  sticky scene column; the Mixer's master strip stays at the right edge and short strips drop pan, sends and
+  badges; Arrangement's toolbar wraps and its names narrow; graph editors below 720 px show the property editor
+  (and a module's interface) as a drawer over the canvas, opened by *Properties* or a double-click on a node, with
+  Notes' heard notes under the canvas below 640 px; Clip's hint shortens, its velocity lane shrinks when short and
+  the automation lanes become a `<select>`; Samples' rows take two lines; Library's folders are a tree
+  (`FolderTree`, the WAI-ARIA tree pattern) in three, two or one columns, the narrowest showing the open folder's
+  path and its folders until *All folders*.
 * **Keep-alive** (`ui/layout/ViewHost.tsx`). flexlayout renders a tab the first time it is shown and keeps it;
   `ViewTab` follows the tab's `visibility` event into `ViewHost`, which wraps the view in
   `<Activity mode={visible ? 'visible' : 'hidden'}>`. A collapsed panel keeps its open tab selected, so `ViewTab`
@@ -1421,7 +1445,12 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   Just before hiding a view, `ViewHost` dispatches `view-hide` on its root; popups that should close with their
   view (`QuickAdd`, `GroovePanel`) listen with `onViewHide` (`view-events.ts`) rather than closing in an Effect
   cleanup, which StrictMode would trigger on open. Each view's root is `<div data-view={id}>`, its own scroll
-  container and a landmark (`region`) named after the view.
+  container and a landmark (`region`) named after the view, with the view's frame inside it.
+* **Graph view per track** (`state/graph-view-store.ts`). Switching tracks remounts the graph editors, so the sub-patch
+  open in each graph (`graphKey`: the track or `master`, and the graph) and the pan and zoom of each canvas
+  (`canvasKey`: the graph's key and the open path) are kept in memory for the session. `GraphEditor` and `PatchCanvas`
+  start from them and leave theirs when they change or unmount; a path whose modules are gone is cut where it breaks
+  (`livePath`). Not saved: track ids belong to the project, and this is a way of looking.
 * **Layout store** (`state/layout-store.ts`), a façade over the shell. The library owns the layout tree; the store
   keeps round 1's API and mirrors what shows: `groups` (each tab group with its region, views and active view),
   `visible` and `hiddenRegions` (a collapsed sidebar or panel counts as hidden). `revealView(id)` shows a view
@@ -1457,6 +1486,8 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   and reads its data from the stores. The titles and tooltips live apart in `ui/layout/view-titles.ts`, which
   imports no components, so a view can use another view's title without an import cycle and the layout can name
   its tabs without loading the views. Adding a `ViewId` without a registry entry fails the typecheck.
+* **Every empty state offers its action**, in a row that wraps under the text at the view's minimum size: *Add
+  instrument track*, a track's clips, *Open effects*, *Save asset + presets*, *Show session*.
 * **A view never names another view in its text.** An empty state or menu that would say "in the Samples tab"
   offers an action instead (*Import samples…*, *Open effects*, *Show session*) that calls `revealView` or an intent,
   because the other view may be docked anywhere, or already visible. Where a label must name a view, it takes the
@@ -1465,7 +1496,10 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   the view's tab and returns its root once visible; look inside that root, since hidden views stay in the DOM
   (`viewRoot(page, title)` finds a root without showing it); on a collapsed panel it clicks the open tab to expand
   it. `dragView` and `dragViewToSidebar` dock a tab with the stepped mouse moves flexlayout needs; `tabStrip`
-  finds a group's strip and its buttons. `ViewTitle` and the ids are kept in sync with `viewTitles` by hand.
+  finds a group's strip and its buttons. `dockAtSize(page, title, { width?, height? })` loads the page with a view
+  alone at a size (in the primary sidebar, the panel, or a group held by its maximums), and
+  `views-at-min-size.smoke.spec.ts` checks every view there: nothing scrolls sideways without `data-scroll`, and its
+  main controls and empty-state actions show inside its box. `ViewTitle` and the ids are kept in sync with `viewTitles` by hand.
 * **Profiling** (`scripts/profile-status.cjs`): React renders and Chrome's main-thread counters while the
   transport plays; usage in its header.
 

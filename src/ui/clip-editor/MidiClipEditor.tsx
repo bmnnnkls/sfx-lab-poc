@@ -120,7 +120,8 @@ export const MidiClipEditor = ({ track, clip }: { track: InstrumentTrack; clip: 
           Velocity
         </label>
         <span className={styles.help} title={HINT}>
-          {HINT}
+          <span className={styles.helpFull}>{HINT}</span>
+          <span className={styles.helpShort}>Shortcuts</span>
         </span>
       </div>
       <PianoRoll

@@ -93,8 +93,11 @@ const setUp = async (page, url) => {
   }
   if (SETUP === 'all') {
     for (const title of ['Instrument', 'Effects', 'Notes', 'Clip', 'Samples', 'Sounds', 'Library']) await show(page, title)
-    // Sounds sits in a sidebar since round 3, so showing the others leaves it open: collapse its sidebar again.
-    if (await page.locator('[data-view="sounds"]').isVisible()) await page.getByRole('tab', { name: 'Sounds', exact: true }).click()
+    // Sounds sits in a sidebar since round 3, and Library since round 4, so showing the others leaves them open:
+    // collapse their sidebars again. (Before round 4 this collapses the panel on Library; showing Mixer expands it.)
+    for (const title of ['Sounds', 'Library']) {
+      if (await page.locator(`[data-view="${title.toLowerCase()}"]`).isVisible()) await page.getByRole('tab', { name: title, exact: true }).click()
+    }
   }
   if (SETUP === 'four') {
     await dock(page, 'Session', 'arrangement', 0.1, 0.5)
