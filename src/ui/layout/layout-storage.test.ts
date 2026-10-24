@@ -175,10 +175,11 @@ describe('parseStoredLayout with a version-1 layout', () => {
     expect(model.getNodeById('editor')!.getParent()!.getOrientation().getName()).toBe('horz')
   })
 
-  it('adds a panel when the bottom border is missing, with the missing views in it', () => {
+  it('adds a panel when the bottom border is missing, with the missing views in their default regions', () => {
     const parsed = parseStoredLayout(v1(undefined))!
     expect(group(parsed.model, 'panel')).toMatchObject({ maxHeight: 0 })
-    expect(tabsOf(parsed.model, 'panel')).toEqual(PANEL_VIEWS)
+    expect(tabsOf(parsed.model, 'panel')).toEqual(PANEL_VIEWS.filter((id) => id !== 'sounds'))
+    expect(borderTabs(parsed.model, 'right')).toEqual(['sounds'])
   })
 
   it('still rejects a version-1 layout with an unknown view', () => {

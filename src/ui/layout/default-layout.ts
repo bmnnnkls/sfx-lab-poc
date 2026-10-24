@@ -34,7 +34,8 @@ export const GLOBAL_ATTRIBUTES: IGlobalAttributes = {
   // Every tab group has a button that fills the main layout with it, and back (the sidebars stay).
   tabSetEnableMaximize: true,
   borderMinSize: MIN_SIDEBAR_SIZE,
-  borderSize: 460,
+  // A sidebar's width when first opened.
+  borderSize: 300,
   // A view dropped into a closed border (an empty sidebar) opens there.
   borderAutoSelectTabWhenClosed: true,
 }
@@ -67,13 +68,15 @@ export const defaultLayout = ({ editorView, panelWeight = DEFAULT_PANEL_WEIGHT }
   const views = editor?.views ?? []
   const editorActive = editorView && views.includes(editorView) ? editorView : editor?.active
   const panel = groupIn(DEFAULT_LAYOUT, 'panel')
+  // A hidden sidebar with views starts collapsed to its strip, so its tabs show; an empty one is off.
   const borders = (Object.keys(BORDER_LOCATIONS) as RegionId[]).map((region): IJsonBorderNode => {
     const group = groupIn(DEFAULT_LAYOUT, region)
+    const hidden = DEFAULT_LAYOUT.hiddenRegions.includes(region)
     return {
       type: 'border',
       location: BORDER_LOCATIONS[region]!,
-      show: !DEFAULT_LAYOUT.hiddenRegions.includes(region),
-      selected: group ? group.views.indexOf(group.active) : -1,
+      show: !hidden || group !== undefined,
+      selected: group && !hidden ? group.views.indexOf(group.active) : -1,
       children: (group?.views ?? []).map(viewTab),
     }
   })

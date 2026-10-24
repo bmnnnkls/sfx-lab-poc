@@ -1,13 +1,27 @@
 import { test, expect, dragView, dragViewToSidebar, openView, tabStrip, viewRoot } from './fixtures'
 
-test('a view keeps its state while another view is shown', async ({ page }) => {
+test('a view keeps its state while it is hidden', async ({ page }) => {
   await page.goto('/?starter')
   const sounds = await openView(page, 'Sounds')
   await sounds.getByLabel('Sound name', { exact: true }).fill('Kept while hidden')
-  await openView(page, 'Mixer')
+  // Clicking its open tab collapses the sidebar it is in.
+  await page.getByRole('tab', { name: 'Sounds', exact: true }).click()
   await expect(sounds).toBeHidden()
   await openView(page, 'Sounds')
   await expect(sounds.getByLabel('Sound name', { exact: true })).toHaveValue('Kept while hidden')
+})
+
+test('Sounds starts in the secondary sidebar, collapsed, and opens 300 px wide', async ({ page }) => {
+  await page.goto('/?starter')
+  const toggle = tabStrip(page, 'Instrument').getByRole('button', { name: 'Secondary sidebar', exact: true })
+  await expect(page.getByRole('tab', { name: 'Sounds', exact: true })).toBeVisible()
+  await expect(viewRoot(page, 'Sounds')).toBeHidden()
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  const session = (await viewRoot(page, 'Session').boundingBox())!
+  const sounds = (await (await openView(page, 'Sounds')).boundingBox())!
+  expect(Math.round(sounds.width)).toBe(300)
+  expect(sounds.x).toBeGreaterThan(session.x + session.width / 2)
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true')
 })
 
 /** Choose an entry in the status bar's Layout menu. */
@@ -106,7 +120,8 @@ test("the toggles in the panel's strip hide and show the panel and each sidebar"
   await toggle('Panel').click()
   await expect(viewRoot(page, 'Instrument')).toBeVisible()
 
-  for (const [sidebar, name, view] of [['primary', 'Primary sidebar', 'Sounds'], ['secondary', 'Secondary sidebar', 'Mixer']] as const) {
+  // The primary sidebar starts off and empty, the secondary collapsed on Sounds.
+  for (const [sidebar, name, view] of [['primary', 'Primary sidebar', 'Library'], ['secondary', 'Secondary sidebar', 'Mixer']] as const) {
     await expect(toggle(name)).toHaveAttribute('aria-pressed', 'false')
     await toggle(name).click()
     await expect(toggle(name)).toHaveAttribute('aria-pressed', 'true')
@@ -218,6 +233,7 @@ test("a round-2 layout loads with the panel's tabs, open tab and height kept, an
   await expect(viewRoot(page, 'Arrangement')).toBeVisible()
   await expect(viewRoot(page, 'Mixer')).toBeVisible()
   const tabs = await page.getByRole('tab').allTextContents()
+  // The round-2 layout kept Sounds in the panel; only the Wave editor is new.
   expect(tabs).toEqual(['Session', 'Arrangement', 'Wave editor', 'Instrument', 'Effects', 'Notes', 'Clip', 'Mixer', 'Samples', 'Sounds', 'Library'])
   const mixer = await viewRoot(page, 'Mixer').boundingBox()
   expect(mixer!.height).toBeGreaterThan(220)

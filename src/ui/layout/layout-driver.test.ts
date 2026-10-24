@@ -4,7 +4,7 @@ import { Actions, BorderNode, DockLocation, type IJsonModel, type IJsonTabSetNod
 import { defaultLayout } from './default-layout'
 import { FlexLayoutDriver } from './layout-driver'
 
-const PANEL_VIEWS = ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'sounds', 'library']
+const PANEL_VIEWS = ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'library']
 
 const driverFor = (json: IJsonModel = defaultLayout()) => {
   const published: LayoutSnapshot[] = []
@@ -29,6 +29,7 @@ describe('FlexLayoutDriver', () => {
       groups: [
         { id: 'editor', region: 'editor', views: ['session', 'arrangement', 'wave'], active: 'session' },
         { id: 'panel', region: 'panel', views: PANEL_VIEWS, active: 'instrument' },
+        { id: 'border_right', region: 'secondary', views: ['sounds'], active: 'sounds' },
       ],
       visible: ['session', 'instrument'],
       hiddenRegions: ['primary', 'secondary'],
@@ -104,7 +105,7 @@ describe('FlexLayoutDriver', () => {
     expect(panel(model)).toBeInstanceOf(TabSetNode)
     expect(panel(model).getChildren()).toEqual([])
     driver.sync()
-    expect(last().groups.map((group) => group.id)).toEqual(['editor'])
+    expect(last().groups.map((group) => group.id)).toEqual(['editor', 'border_right'])
     driver.setRegionVisible('panel', false)
     expect(last().hiddenRegions).toContain('panel')
     driver.setRegionVisible('panel', true)
@@ -147,18 +148,17 @@ describe('FlexLayoutDriver', () => {
     expect(panel(model).getWeight()).toBe(30)
   })
 
-  it('hides and shows a sidebar, and reveals into a hidden one', () => {
-    const json = defaultLayout()
-    json.borders![0]!.children = [{ type: 'tab', id: 'sounds', component: 'view' }]
-    json.borders![0]!.selected = 0
-    panelJson(json).children = panelJson(json).children!.filter((tab) => tab.id !== 'sounds')
-    const { driver, model, last } = driverFor(json)
-    expect(driver.snapshot().hiddenRegions).toEqual(['primary', 'secondary'])
+  it('opens the collapsed secondary sidebar to reveal Sounds, and hides and shows it', () => {
+    const { driver, model, last } = driverFor()
+    const secondary = model.getNodeById('border_right') as BorderNode
+    expect(secondary.isShowing()).toBe(true)
     driver.reveal('sounds')
-    expect((model.getNodeById('border_left') as BorderNode).isShowing()).toBe(true)
-    expect(last()).toMatchObject({ visible: ['session', 'instrument', 'sounds'], hiddenRegions: ['secondary'] })
-    driver.setRegionVisible('primary', false)
+    expect(secondary.getSelectedNode()?.getId()).toBe('sounds')
+    expect(last()).toMatchObject({ visible: ['session', 'instrument', 'sounds'], hiddenRegions: ['primary'] })
+    driver.setRegionVisible('secondary', false)
     expect(last()).toMatchObject({ visible: ['session', 'instrument'], hiddenRegions: ['primary', 'secondary'] })
+    driver.setRegionVisible('secondary', true)
+    expect(last().visible).toContain('sounds')
   })
 
   it('counts a collapsed sidebar as hidden and brings back its last tab when shown', () => {

@@ -24,10 +24,11 @@ const recordingDriver = () => {
 const group = (id: string, region: RegionId, views: readonly ViewId[], current: ViewId): GroupState => ({ id, region, views, active: current })
 
 describe('layout store without a driver', () => {
-  it('starts on the default layout: session above, instrument below, the sidebars hidden', () => {
+  it('starts on the default layout: session above, instrument below, sounds in a hidden secondary sidebar', () => {
     expect(layout().groups).toEqual([
       group('editor', 'editor', ['session', 'arrangement', 'wave'], 'session'),
-      group('panel', 'panel', ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'sounds', 'library'], 'instrument'),
+      group('panel', 'panel', ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'library'], 'instrument'),
+      group('border_right', 'secondary', ['sounds'], 'sounds'),
     ])
     expect(layout().visible).toEqual(['session', 'instrument'])
     expect(layout().hiddenRegions).toEqual(['primary', 'secondary'])

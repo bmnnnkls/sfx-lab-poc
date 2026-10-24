@@ -264,6 +264,10 @@ What turned out different from the design above, step by step.
   which *Show samples* does once there are more than eight.
 * **Step 5: a second click hides the sidebar** through `toggleRegion`, the same action as its toggle, so showing it
   again brings back the view it showed.
+* **Step 6: "collapsed" comes from the default's shape.** The store's mirror has no word for a collapsed sidebar
+  (it counts as hidden), so `defaultLayout` starts a hidden sidebar that has views collapsed to its strip, and an
+  empty one off. `DEFAULT_LAYOUT` holds Sounds in a `secondary` group with the border's id, as the driver mirrors it.
+* **Step 6: the state-keeping spec hides Sounds by collapsing its sidebar**, since opening Mixer no longer hides it.
 
 ## Behavior changes
 
