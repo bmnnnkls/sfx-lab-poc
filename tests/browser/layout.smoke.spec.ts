@@ -10,6 +10,14 @@ test('a view keeps its state while another view is shown', async ({ page }) => {
   await expect(sounds.getByLabel('Sound name', { exact: true })).toHaveValue('Kept while hidden')
 })
 
+/** Choose an entry in the status bar's Layout menu. */
+const layoutMenu = async (page: import('@playwright/test').Page, entry: string) => {
+  await page.getByRole('contentinfo').getByRole('button', { name: 'Layout', exact: true }).click()
+  await page.getByRole('menuitem', { name: entry, exact: true }).click()
+  // The menu hands the focus back to its button as it closes.
+  await expect(page.getByRole('menu')).toHaveCount(0)
+}
+
 /** Session and Mixer side by side: Mixer docked to the right of Session, both showing. */
 const expectMixerBesideSession = async (page: import('@playwright/test').Page) => {
   const session = await viewRoot(page, 'Session').boundingBox()
@@ -31,7 +39,7 @@ test('a view moved next to Session stays there after a reload, and Reset layout 
   await page.reload()
   await expectMixerBesideSession(page)
 
-  await page.getByRole('navigation', { name: 'Views' }).getByRole('button', { name: 'Reset layout', exact: true }).click()
+  await layoutMenu(page, 'Reset layout')
   await expect(viewRoot(page, 'Mixer')).toBeHidden()
   await openView(page, 'Mixer')
   const panel = await viewRoot(page, 'Mixer').boundingBox()
@@ -79,10 +87,15 @@ for (const [name, saved] of [
   await expect(page.getByRole('tab')).toHaveCount(10)
 })
 
-test('the activity bar hides and shows the panel and each sidebar', async ({ page }) => {
+test("the toggles in the panel's strip hide and show the panel and each sidebar", async ({ page }) => {
   await page.goto('/?starter')
-  const bar = page.getByRole('navigation', { name: 'Views' })
-  const toggle = (name: string) => bar.getByRole('button', { name, exact: true })
+  const toggle = (name: string) => tabStrip(page, 'Instrument').getByRole('button', { name, exact: true })
+
+  // Tab moves through the toggles rather than switching views.
+  await toggle('Primary sidebar').focus()
+  await page.keyboard.press('Tab')
+  await expect(toggle('Panel')).toBeFocused()
+  await expect(viewRoot(page, 'Session')).toBeVisible()
 
   await expect(toggle('Panel')).toHaveAttribute('aria-pressed', 'true')
   await toggle('Panel').click()
@@ -105,9 +118,18 @@ test('the activity bar hides and shows the panel and each sidebar', async ({ pag
     await expect(viewRoot(page, view)).toBeVisible()
   }
   // The status bar's layout menu does the same.
-  await page.getByRole('contentinfo').getByRole('button', { name: 'Layout', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Hide panel', exact: true }).click()
+  await layoutMenu(page, 'Hide panel')
   await expect(viewRoot(page, 'Instrument')).toBeHidden()
+  await expect(toggle('Panel')).toHaveAttribute('aria-pressed', 'false')
+  await layoutMenu(page, 'Show panel')
+  await expect(viewRoot(page, 'Instrument')).toBeVisible()
+})
+
+test('the activity bar has no region toggles or Reset layout any more', async ({ page }) => {
+  await page.goto('/?starter')
+  const bar = page.getByRole('navigation', { name: 'Views' })
+  await expect(bar.getByRole('button', { name: 'Session', exact: true })).toBeVisible()
+  for (const name of ['Primary sidebar', 'Panel', 'Secondary sidebar', 'Reset layout']) await expect(bar.getByRole('button', { name, exact: true })).toHaveCount(0)
 })
 
 test('F6 moves between tab groups, and Tab moves through the chrome without switching views', async ({ page }) => {
@@ -135,8 +157,7 @@ test('F6 moves between tab groups, and Tab moves through the chrome without swit
 
 test('the sidebars run the full height, with the panel between them', async ({ page }) => {
   await page.goto('/?starter')
-  const bar = page.getByRole('navigation', { name: 'Views' })
-  await bar.getByRole('button', { name: 'Primary sidebar', exact: true }).click()
+  await tabStrip(page, 'Instrument').getByRole('button', { name: 'Primary sidebar', exact: true }).click()
   await dragViewToSidebar(page, 'Sounds', 'primary')
   const sounds = await viewRoot(page, 'Sounds').boundingBox()
   const session = await viewRoot(page, 'Session').boundingBox()
@@ -219,18 +240,24 @@ test('the editor area and the panel maximize inside the window, and restore', as
   await page.goto('/?starter')
   const session = viewRoot(page, 'Session')
   const instrument = viewRoot(page, 'Instrument')
-  const panelToggle = page.getByRole('navigation', { name: 'Views' }).getByRole('button', { name: 'Panel', exact: true })
+  const panelToggle = tabStrip(page, 'Instrument').getByRole('button', { name: 'Panel', exact: true })
   const before = (await session.boundingBox())!.height
 
   await tabStrip(page, 'Session').getByRole('button', { name: 'Maximize', exact: true }).click()
   await expect(instrument).toBeHidden()
   await expect.poll(async () => (await session.boundingBox())!.height).toBeGreaterThan(before + 300)
-  await expect(panelToggle).toHaveAttribute('aria-pressed', 'false')
   const restore = tabStrip(page, 'Session').getByRole('button', { name: 'Restore', exact: true })
   await expect(restore).toHaveAttribute('aria-pressed', 'true')
   await restore.click()
   await expect(instrument).toBeVisible()
   await expect(panelToggle).toHaveAttribute('aria-pressed', 'true')
+
+  // With the panel's strip off screen, the layout menu shows the panel, restoring the editor area.
+  await tabStrip(page, 'Session').getByRole('button', { name: 'Maximize', exact: true }).click()
+  await expect(instrument).toBeHidden()
+  await layoutMenu(page, 'Show panel')
+  await expect(instrument).toBeVisible()
+  await expect(session).toBeVisible()
 
   await tabStrip(page, 'Instrument').getByRole('button', { name: 'Maximize', exact: true }).click()
   await expect(session).toBeHidden()

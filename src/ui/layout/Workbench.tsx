@@ -1,16 +1,22 @@
 import { useLayoutStore } from '@state'
-import { Layout, Model, type TabNode } from 'flexlayout-react'
+import { type BorderNode, type ITabSetRenderValues, Layout, Model, type TabNode, type TabSetNode } from 'flexlayout-react'
 import 'flexlayout-react/style/dark.css'
 import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { defaultLayout } from './default-layout'
+import { defaultLayout, PANEL_GROUP } from './default-layout'
 import './flex-theme.css'
 import { groupToFocus, tabButtonId, viewOfElement, viewOfTab } from './group-focus'
 import { FlexLayoutDriver } from './layout-driver'
+import { RegionToggles } from './RegionToggles'
 import type { LayoutPersistence } from './use-layout-persistence'
 import { ViewTab } from './ViewHost'
 import styles from './Workbench.module.css'
 
 const factory = (node: TabNode) => <ViewTab node={node} />
+
+/** The panel's tab strip ends with the region toggles, before flexlayout's maximize button. */
+const renderTabSet = (node: TabSetNode | BorderNode, values: ITabSetRenderValues) => {
+  if (node.getId() === PANEL_GROUP) values.buttons.push(<RegionToggles key="region-toggles" />)
+}
 
 /** flexlayout's labels that differ from ours; every other text (tab names among them) passes through. */
 const LABELS: Readonly<Record<string, string>> = {
@@ -78,6 +84,7 @@ export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) =
         model={model}
         factory={factory}
         i18nTranslator={translate}
+        onRenderTabSet={renderTabSet}
         onAction={(action) => driver.current?.intercept(action) ?? action}
         onModelChange={onModelChange}
       />

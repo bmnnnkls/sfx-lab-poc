@@ -252,6 +252,10 @@ What turned out different from the design above, step by step.
 * **Step 2: maximizing a collapsed panel expands it first.** A maximized group keeps its maximum height, so it would
   otherwise fill the layout with a 25 px strip. Double-clicking the panel's open tab clicks it twice (collapse,
   expand) before the double-click maximizes; the result is the same.
+* **Step 3: the toggles stop the tab strip's own handling.** The strip starts drags on pointer down and maximizes on
+  a double-click, so `RegionToggles` stops both. The Tab key's chrome rule now also covers the toggles
+  (`data-region-toggles`) and flexlayout's tab group buttons (`button[data-layout-path]`), so Tab moves through
+  them instead of switching Session and Arrangement.
 
 ## Behavior changes
 

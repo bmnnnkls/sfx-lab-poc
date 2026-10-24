@@ -23,19 +23,6 @@
   border-color: var(--border);
 }
 
-.bar button[aria-pressed='true'],
 .bar .showing {
   color: var(--accent);
-}
-
-.separator {
-  width: 100%;
-  margin: 2px 0;
-  border: none;
-  border-top: 1px solid var(--border);
-}
-
-/* Pushes itself and what follows to the bottom of the bar. */
-.end {
-  margin-top: auto;
 }
