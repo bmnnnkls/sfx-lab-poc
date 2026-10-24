@@ -1,10 +1,9 @@
 # Round 2: the docking shell
 
-Status: **plan**, 2026-10-24. Part of the [UI redesign](README.md). Carries out
+Status: **plan, decisions signed off** 2026-10-24 (every row as proposed). Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 2](DRAFT-roadmap.md#round-2-the-shell) and the round-2 parts of the
 [audit remediation proposal](PROPOSAL-audit-remediation.md): §1 (keep-alive) and §3 (the shell).
-Steps 1 to 3 don't depend on the library and can start now; step 4 onwards waits for the
-[decisions](#decisions-to-sign-off) to be signed off.
+The [decisions](#decisions-to-sign-off) were accepted as proposed on 2026-10-24.
 
 ## Goal
 
@@ -442,7 +441,9 @@ Anything else a reviewer notices is a bug in this round.
 
 ## Decisions to sign off
 
-| Question | Proposed | Notes |
+Signed off 2026-10-24: every row as proposed.
+
+| Question | Decided | Notes |
 |---|---|---|
 | Docking library | **flexlayout-react 0.11.1**, pinned, imported only from `ui/layout/` | The roadmap proposed dockview "subject to the spike". The spike shows dockview fails keyboard splitters, charges for keyboard group navigation, and costs twice the bundle. See [Recommendation](#recommendation). |
 | Keep hidden views mounted (`<Activity>`) or lift their state into stores | **`<Activity>`** | Still "proposed" in the proposal. The spike found no conflict with either library: no remounts, scroll kept, portals hidden. |
