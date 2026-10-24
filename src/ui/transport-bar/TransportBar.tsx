@@ -4,7 +4,7 @@ import { useEngineControls, useLayoutStore, useProjectStore, useStatusStore, use
 import { FileMenu } from '../file-menu/FileMenu'
 import { HistoryButtons } from '../history-buttons/HistoryButtons'
 import { LevelMeter } from './LevelMeter'
-import { formatPosition } from './format-position'
+import { TransportPosition } from './TransportPosition'
 import styles from './TransportBar.module.css'
 
 export const TransportBar = () => {
@@ -15,7 +15,6 @@ export const TransportBar = () => {
   const tempo = useProjectStore((state) => state.project.tempo)
   const setTempo = useProjectStore((state) => state.setTempo)
   const playing = useStatusStore((state) => state.status?.playing ?? false)
-  const beat = useStatusStore((state) => state.status?.beat ?? 0)
 
   return (
     <header className={styles.bar}>
@@ -38,7 +37,7 @@ export const TransportBar = () => {
           onChange={(event) => setTempo(Number(event.target.value) || tempo)}
         />
       </label>
-      <span className={styles.position}>{formatPosition(beat)}</span>
+      <TransportPosition />
       <LevelMeter />
       <div className={styles.views}>
         <button
