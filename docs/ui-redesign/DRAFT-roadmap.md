@@ -147,6 +147,13 @@ delete and duplicate for graph selections wait for round 10.
 
 The point of seeing several views at once.
 
+**Planned** 2026-10-24; see the [plan](PLAN-round-6-across-views.md), decisions to sign off. Its inventory changed the
+outline below: the default layout shares one tab group between Session and Arrangement, so drags hold over a tab to
+show its view; a region opens in Clip as its own copy, through a clip reference in `core`, and selecting it doesn't
+reveal Clip; "the inspector" is the views that already follow the selected track; project presets drop only on a
+matching graph; a sample gets *Add audio clip* on audio lanes and *Add sampler* on instrument canvases, so every drop
+has a menu twin; *Place on arrangement* stays as the keyboard's route to the timeline.
+
 * One drag-and-drop payload type for clips, samples, presets and library items, with drop targets in the session
   grid, arrangement lanes, tracks and the patcher.
 * Drag a session slot onto an arrangement lane. This replaces the right-click workaround the architecture doc
