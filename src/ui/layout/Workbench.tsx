@@ -12,6 +12,13 @@ import styles from './Workbench.module.css'
 
 const factory = (node: TabNode) => <ViewTab node={node} />
 
+/** flexlayout's labels that differ from ours; every other text (tab names among them) passes through. */
+const LABELS: Readonly<Record<string, string>> = {
+  'flexlayout.ui.maximize.tabset': 'Maximize',
+  'flexlayout.ui.restore.tabset': 'Restore',
+}
+const translate = (key: string): string => LABELS[key] ?? key
+
 /**
  * The docking layout. flexlayout owns the layout tree; the layout store is a façade over it, through the driver
  * this registers. *Reset layout* replaces the model, and the `generation` key remounts the layout with it.
@@ -70,6 +77,7 @@ export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) =
         key={generation}
         model={model}
         factory={factory}
+        i18nTranslator={translate}
         onAction={(action) => driver.current?.intercept(action) ?? action}
         onModelChange={onModelChange}
       />

@@ -31,6 +31,8 @@ export const GLOBAL_ATTRIBUTES: IGlobalAttributes = {
   // Each view's root is its own scroll container.
   tabEnableScrollbars: false,
   tabSetEnableClose: false,
+  // Every tab group has a button that fills the main layout with it, and back (the sidebars stay).
+  tabSetEnableMaximize: true,
   borderMinSize: MIN_SIDEBAR_SIZE,
   borderSize: 460,
   // A view dropped into a closed border (an empty sidebar) opens there.

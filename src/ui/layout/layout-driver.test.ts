@@ -193,6 +193,32 @@ describe('FlexLayoutDriver', () => {
     expect(last().visible).toEqual(expect.arrayContaining(['session', 'mixer', 'instrument']))
   })
 
+  it('counts the panel hidden while the editor area is maximized; showing it restores the editor area', () => {
+    const { driver, model, last } = driverFor()
+    user(driver, Actions.maximizeToggle('editor'))
+    expect(last()).toMatchObject({ visible: ['session'], hiddenRegions: ['panel', 'primary', 'secondary'] })
+    driver.setRegionVisible('panel', true)
+    expect(model.getMaximizedTabset()).toBeUndefined()
+    expect(last()).toMatchObject({ visible: ['session', 'instrument'], hiddenRegions: ['primary', 'secondary'] })
+  })
+
+  it('maximizes the panel, expanding it first if it is collapsed, and hiding it restores the others', () => {
+    const { driver, model, last } = driverFor()
+    driver.setRegionVisible('panel', false)
+    user(driver, Actions.maximizeToggle('panel'))
+    expect(model.getMaximizedTabset()).toBe(panel(model))
+    expect(collapsed(model)).toBe(false)
+    expect(last()).toMatchObject({ visible: ['instrument'], hiddenRegions: ['primary', 'secondary'] })
+    // A reveal in the editor area restores it.
+    driver.reveal('arrangement')
+    expect(model.getMaximizedTabset()).toBeUndefined()
+    user(driver, Actions.maximizeToggle('panel'))
+    driver.setRegionVisible('panel', false)
+    expect(model.getMaximizedTabset()).toBeUndefined()
+    expect(collapsed(model)).toBe(true)
+    expect(last().visible).toEqual(['arrangement'])
+  })
+
   it('adds a view missing from the layout to its default region', () => {
     const json = defaultLayout()
     panelJson(json).children = panelJson(json).children!.filter((tab) => tab.id !== 'library')

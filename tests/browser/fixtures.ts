@@ -50,6 +50,10 @@ export const openView = async (page: Page, title: ViewTitle): Promise<Locator> =
   return root
 }
 
+/** The tab strip of the group a view's tab is in, with the group's buttons (maximize; the panel's toggles). */
+export const tabStrip = (page: Page, title: ViewTitle): Locator =>
+  page.locator('[data-layout-path$="/tabstrip"]', { has: page.getByRole('tab', { name: title, exact: true }) })
+
 /** Drag a view's tab to a point. flexlayout starts a drag only from real pointer movement, so the mouse moves in steps. */
 const dragTab = async (page: Page, title: ViewTitle, x: number, y: number) => {
   const from = await page.getByRole('tab', { name: title, exact: true }).boundingBox()

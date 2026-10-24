@@ -1,4 +1,4 @@
-import { test, expect, dragView, dragViewToSidebar, openView, viewRoot } from './fixtures'
+import { test, expect, dragView, dragViewToSidebar, openView, tabStrip, viewRoot } from './fixtures'
 
 test('a view keeps its state while another view is shown', async ({ page }) => {
   await page.goto('/?starter')
@@ -213,4 +213,40 @@ test('a round-2 layout with the panel hidden loads with the panel collapsed', as
   await expect(page.getByRole('tab', { name: 'Instrument', exact: true })).toBeVisible()
   await expect(viewRoot(page, 'Instrument')).toBeHidden()
   await openView(page, 'Instrument')
+})
+
+test('the editor area and the panel maximize inside the window, and restore', async ({ page }) => {
+  await page.goto('/?starter')
+  const session = viewRoot(page, 'Session')
+  const instrument = viewRoot(page, 'Instrument')
+  const panelToggle = page.getByRole('navigation', { name: 'Views' }).getByRole('button', { name: 'Panel', exact: true })
+  const before = (await session.boundingBox())!.height
+
+  await tabStrip(page, 'Session').getByRole('button', { name: 'Maximize', exact: true }).click()
+  await expect(instrument).toBeHidden()
+  await expect.poll(async () => (await session.boundingBox())!.height).toBeGreaterThan(before + 300)
+  await expect(panelToggle).toHaveAttribute('aria-pressed', 'false')
+  const restore = tabStrip(page, 'Session').getByRole('button', { name: 'Restore', exact: true })
+  await expect(restore).toHaveAttribute('aria-pressed', 'true')
+  await restore.click()
+  await expect(instrument).toBeVisible()
+  await expect(panelToggle).toHaveAttribute('aria-pressed', 'true')
+
+  await tabStrip(page, 'Instrument').getByRole('button', { name: 'Maximize', exact: true }).click()
+  await expect(session).toBeHidden()
+  await expect.poll(async () => (await instrument.boundingBox())!.height).toBeGreaterThan(before + 300)
+  // Showing a view elsewhere restores the layout.
+  await page.getByRole('navigation', { name: 'Views' }).getByRole('button', { name: 'Session', exact: true }).click()
+  await expect(session).toBeVisible()
+  await expect(instrument).toBeVisible()
+
+  // Double-clicking an empty part of a tab strip maximizes too, a collapsed panel included.
+  await panelToggle.click()
+  const strip = tabStrip(page, 'Instrument')
+  const box = (await strip.boundingBox())!
+  await strip.dblclick({ position: { x: box.width / 2, y: box.height / 2 } })
+  await expect(instrument).toBeVisible()
+  await expect(session).toBeHidden()
+  await strip.getByRole('button', { name: 'Restore', exact: true }).click()
+  await expect(session).toBeVisible()
 })

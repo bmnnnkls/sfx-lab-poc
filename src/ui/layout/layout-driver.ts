@@ -47,7 +47,8 @@ export class FlexLayoutDriver implements LayoutDriver {
       groups.push({ id: node.getId(), region: node.getId() === PANEL_GROUP ? 'panel' : 'editor', views: viewIds(node.getTabNodes()), active: selected.getId() as ViewId })
       if ((!maximized || maximized === node) && !squeezed.includes(node)) visible.push(selected.getId() as ViewId)
     })
-    if (this.isCollapsed()) hiddenRegions.push('panel')
+    // The panel is hidden while collapsed, and while another group fills the layout.
+    if (this.isCollapsed() || (maximized && maximized !== this.panel())) hiddenRegions.push('panel')
     for (const region of SIDEBARS) {
       const border = borderOf(this.model, region)
       if (!border) continue
@@ -76,8 +77,13 @@ export class FlexLayoutDriver implements LayoutDriver {
    *   instead, as the panel does.
    * * Selecting a tab in a collapsed panel, or dropping a tab into it, expands it.
    * * A splitter dragged while the panel is collapsed leaves the panel's weight alone, so it expands to its height.
+   * * Maximizing a collapsed panel expands it first: a maximized group keeps its maximum height.
    */
   intercept(action: Action): Action {
+    if (action.type === Actions.MAXIMIZE_TOGGLE) {
+      const node = this.model.getNodeById(action.data.node as string)
+      return node instanceof TabSetNode && this.squeezed().includes(node) ? Actions.group([this.expandAction(), action]) : action
+    }
     if (action.type === Actions.SELECT_TAB) {
       const node = this.model.getNodeById(action.data.tabNode as string)
       const parent = node?.getParent()
@@ -127,6 +133,9 @@ export class FlexLayoutDriver implements LayoutDriver {
 
   setRegionVisible(region: RegionId, visible: boolean): void {
     if (region === 'panel') {
+      // Showing the panel restores a group that fills the layout; hiding a maximized panel restores the others.
+      const maximized = this.model.getMaximizedTabset()
+      if (maximized && (maximized === this.panel()) !== visible) this.model.doAction(Actions.maximizeToggle(maximized.getId()))
       if (visible && this.isCollapsed()) this.model.doAction(this.expandAction())
       if (!visible && !this.isCollapsed() && this.band()) this.model.doAction(Actions.updateNodeAttributes(PANEL_GROUP, { maxHeight: 0 }))
       return this.sync()

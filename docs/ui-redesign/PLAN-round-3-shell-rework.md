@@ -244,6 +244,14 @@ What turned out different from the design above, step by step.
   `borderMinSize` is `MIN_SIDEBAR_SIZE` (180).
 * **Step 1: `parseStoredLayout` returns `{ model, migrated }`**, so `useLayoutPersistence` saves a migrated layout at
   once.
+* **Step 2: maximize was already on.** flexlayout's `tabSetEnableMaximize` defaults to true, and round 2's single
+  editor group simply had nothing to maximize against. The attribute is now set on purpose, the button is themed,
+  and its names are *Maximize* and *Restore* (flexlayout's "Maximize tabset", through `i18nTranslator`).
+* **Step 2: the panel counts as hidden while another group is maximized**, so its toggle reads "off" and shows it by
+  restoring the layout; hiding a maximized panel restores the others and collapses it.
+* **Step 2: maximizing a collapsed panel expands it first.** A maximized group keeps its maximum height, so it would
+  otherwise fill the layout with a 25 px strip. Double-clicking the panel's open tab clicks it twice (collapse,
+  expand) before the double-click maximizes; the result is the same.
 
 ## Behavior changes
 
