@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { type ViewId, useLayoutStore } from './layout-store'
 
 export type EditorTab = 'device' | 'fx' | 'notes' | 'clip' | 'samples' | 'mixer' | 'presets' | 'library'
 
@@ -18,17 +19,21 @@ interface SelectionState {
   reset(): void
 }
 
+/** Transitional: the old tab ids still drive the panel until every caller uses a navigation intent. */
+const VIEW_OF_TAB: Record<EditorTab, ViewId> = { device: 'instrument', fx: 'effects', notes: 'notes', clip: 'clip', samples: 'samples', mixer: 'mixer', presets: 'sounds', library: 'library' }
+const show = (tab: EditorTab) => useLayoutStore.getState().revealView(VIEW_OF_TAB[tab])
+
 /** What the user is currently looking at / editing. Pure UI state, never sent to the engine. */
 export const useSelectionStore = create<SelectionState>((set) => ({
   automationScene: 0,
-  selectAutomation: (owner, scene) => set({ master: owner.kind === 'master', trackId: owner.kind === 'track' ? owner.trackId : null, automationScene: scene, clipId: null, tab: 'clip' }),
+  selectAutomation: (owner, scene) => { show('clip'); set({ master: owner.kind === 'master', trackId: owner.kind === 'track' ? owner.trackId : null, automationScene: scene, clipId: null, tab: 'clip' }) },
   trackId: null,
   master: false,
   clipId: null,
   tab: 'device',
   selectTrack: (trackId) => set({ trackId, master: false }),
-  selectMaster: () => set({ master: true, trackId: null, tab: 'fx' }),
-  selectClip: (trackId, clipId) => set({ trackId, master: false, clipId, tab: 'clip' }),
-  setTab: (tab) => set({ tab }),
-  reset: () => set({ trackId: null, master: false, clipId: null, automationScene: 0, tab: 'device' }),
+  selectMaster: () => { show('fx'); set({ master: true, trackId: null, tab: 'fx' }) },
+  selectClip: (trackId, clipId) => { show('clip'); set({ trackId, master: false, clipId, tab: 'clip' }) },
+  setTab: (tab) => { show(tab); set({ tab }) },
+  reset: () => { useLayoutStore.getState().resetPanel(); set({ trackId: null, master: false, clipId: null, automationScene: 0, tab: 'device' }) },
 }))

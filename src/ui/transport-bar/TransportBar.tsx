@@ -1,13 +1,15 @@
 import { MidiSettings } from '../midi/MidiSettings'
 import { MAX_TEMPO, MIN_TEMPO } from '@core'
-import { useEngineControls, useProjectStore, useStatusStore, useTouchStore } from '@state'
+import { useEngineControls, useLayoutStore, useProjectStore, useStatusStore, useTouchStore } from '@state'
 import { FileMenu } from '../file-menu/FileMenu'
 import { HistoryButtons } from '../history-buttons/HistoryButtons'
 import { LevelMeter } from './LevelMeter'
 import { formatPosition } from './format-position'
 import styles from './TransportBar.module.css'
 
-export const TransportBar = ({ view, onView }: { view: 'session' | 'arrangement'; onView(view: 'session' | 'arrangement'): void }) => {
+export const TransportBar = () => {
+  const view = useLayoutStore((state) => state.regions.main.active)
+  const revealView = useLayoutStore((state) => state.revealView)
   const touch = useTouchStore()
   const controls = useEngineControls()
   const tempo = useProjectStore((state) => state.project.tempo)
@@ -41,7 +43,7 @@ export const TransportBar = ({ view, onView }: { view: 'session' | 'arrangement'
       <div className={styles.views}>
         <button
           className={view === 'session' ? styles.active : undefined}
-          onClick={() => onView('session')}
+          onClick={() => revealView('session')}
           aria-label="Session view"
           title="Session view (Tab)"
         >
@@ -49,7 +51,7 @@ export const TransportBar = ({ view, onView }: { view: 'session' | 'arrangement'
         </button>
         <button
           className={view === 'arrangement' ? styles.active : undefined}
-          onClick={() => onView('arrangement')}
+          onClick={() => revealView('arrangement')}
           aria-label="Arrangement view"
           title="Arrangement view (Tab)"
         >
