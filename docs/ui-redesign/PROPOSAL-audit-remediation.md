@@ -1,6 +1,6 @@
 # Remediating the container audit
 
-Status: **proposal**, 2026-10-24. Part of the [UI redesign](README.md). Answers the
+Status: **proposal**, 2026-10-24. Round 1b (§2, §4 and the arrangement zoom) **done** 2026-10-24. Part of the [UI redesign](README.md). Answers the
 [container audit](PLAN-round-1-untangling.md#container-audit-round-1-result) from round 1.
 
 ## Summary
@@ -116,6 +116,43 @@ get an allow-list entry with a reason.
 with Session, Arrangement and Mixer visible. The roadmap already asks for this in rounds 2 and 3. Doing it now gives
 round 2 a clean baseline.
 
+### Measured (round 1b, 2026-10-24)
+
+Setup: the starter project (`/?starter`) with three regions placed on the arrangement, Arrangement in the main
+region and Mixer in the panel, the arrangement playing. Each figure is averaged over 10 s in headless Chromium on
+the developer's Mac, after 2 s of warm-up. Two runs:
+
+* **Dev build, React's own timings.** A stub `__REACT_DEVTOOLS_GLOBAL_HOOK__` puts React into profiling mode
+  and counts commits, the root's `actualDuration`, and the components that rendered in each commit.
+* **Production build, Chrome's counters** (`Performance.getMetrics` over CDP), with no React instrumentation.
+
+"Before" is `feat/ui-redesign` at the start of round 1b; "after" includes the three per-frame fixes.
+
+| Per second | Before | After |
+|---|---|---|
+| React commits (dev) | 28.9 | 28.9 |
+| React render time (dev) | 126.9 ms | 51.2 ms |
+| Component renders (dev) | 3,555 | 462 |
+| … `ArrangementView` / `ArrangementRegion` | 29 / 87 | 0 / 0 |
+| … `LevelBar` (4 strips) | 116 | 0 |
+| … `ArrangementPlayhead` (one per lane) | n/a | 87 |
+| Script time (production) | 40.2 ms | 20.7 ms |
+| Main-thread task time (production) | 126.4 ms | 99.6 ms |
+| Layout + style (production) | 27.7 ms | 24.9 ms |
+
+Most of the "before" renders were Radix context-menu wrappers in the arrangement lanes, re-rendered with the view.
+This setup doesn't show the automation editor, so its fix isn't in these numbers.
+
+**What still renders at 30 Hz:**
+
+* **`EffectiveValue`**: 202 renders a second. It selects the whole status only to ask `touchDestination` whether
+  Touch can record, so a boolean selector would do. It's on the guard test's allow-list as pending.
+* **`TransportBar`**: it subscribes to `beat` for the position display, so `HistoryButtons`, `FileMenu`,
+  `SaveIndicator` and `MidiSettings` re-render with it, 29 times a second each. The position should move into a
+  leaf component.
+
+Both are small, separate fixes, and are not part of round 1b.
+
 ## 3. Size assumptions
 
 ### The shell (round 2)
@@ -167,6 +204,10 @@ the region uses `overflow: hidden`), so Session and Arrangement each keep their 
 `revealView` or an intent. Where a label must name a view, take it from the registry. To avoid an import cycle
 (views → `views.ts` → views), split the titles into `ui/layout/view-titles.ts`, which imports no components, and
 have `views.ts` compose the two.
+
+Found while doing round 1b and left as it was: the Arrangement's empty state ("Add a track in the session view
+first") and its toolbar hint ("right-click a session slot") still name the session view. Neither was in the audit.
+The empty state could offer **Show session**, like the Clip view does.
 
 ## Proposed order
 
