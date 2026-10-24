@@ -1,4 +1,4 @@
-import { MidiTargetMenu } from '../midi/MidiTargetMenu'
+import { ActionMenu } from '../shared/menu'
 import type { ControlTarget } from '@core'
 import type { ReactNode } from 'react'
 import { type ControlSize, type ModuleLibrary, type PanelItem, describeNode } from '@core'
@@ -89,7 +89,7 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
   }
 
   return (
-    <MidiTargetMenu targets={midiTargets}><div
+    <ActionMenu subject={midiTargets.length ? { kind: 'control', targets: midiTargets } : null}><div
       className={styles.cell}
       style={{ gridColumn: `span ${span.cols}`, gridRow: `span ${span.rows}`, ['--knob-max' as string]: `${knobWidth(item.size)}px` }}
       data-kind={item.kind}
@@ -152,6 +152,6 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
           <RenameField name={node.name ?? ''} placeholder={title} onCommit={actions.rename} />
         </div>
       )}
-    </div></MidiTargetMenu>
+    </div></ActionMenu>
   )
 }

@@ -35,7 +35,7 @@ export { createControlGesture } from './control-gesture'
 export { useMidiStore, useMidi, MidiProvider, editMidiMappings, type MidiService, type MidiInputInfo } from './midi-store'
 
 export * from './automation-store'
-export * from './clip-actions'
+export * from './actions'
 
 export { editAutomationSlot, editOwnerAutomation } from './automation-store'
 

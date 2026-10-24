@@ -1,5 +1,4 @@
 import {
-  type ArrangementClip,
   arrangementEnd,
   arrangementLoopEnd,
   arrangementOnTrack,
@@ -7,7 +6,7 @@ import {
 import { useEngineControls, useLayoutStore, useProjectStore, useStatusStore } from '@state'
 import { Fragment, useState } from 'react'
 import { viewTitles } from '../layout/view-titles'
-import { ContextMenu } from '../shared/menu'
+import { ActionMenu } from '../shared/menu'
 import { useStoredState } from '../shared/use-stored-state'
 import { ArrangementPlayhead } from './ArrangementPlayhead'
 import { ArrangementRegion } from './ArrangementRegion'
@@ -41,12 +40,11 @@ export const ArrangementView = () => {
   const tracks = useProjectStore((state) => state.project.tracks)
   const placed = useProjectStore((state) => state.project.arrangement)
   const arrangement = placed ?? []
-  const addRegion = useProjectStore((state) => state.addArrangementClip)
-  const updateRegion = useProjectStore((state) => state.updateArrangementClip)
-  const removeRegion = useProjectStore((state) => state.removeArrangementClip)
   // The zoom is remembered between sessions, as the piano roll's is.
   const [pxPerBeat, setPxPerBeat] = useStoredState('sfxlab:arrangement-zoom', DEFAULT_PX_PER_BEAT, isZoom)
-  const [selected, setSelected] = useState<string | null>(null)
+  const [picked, setPicked] = useState<string | null>(null)
+  // A region deleted from its menu (or by undo) drops out of the selection here.
+  const selected = arrangement.some((region) => region.id === picked) ? picked : null
   /** Where an empty lane was right-clicked, so "add" places the clip there. */
   const [placedAt, setPlacedAt] = useState(0)
 
@@ -57,24 +55,6 @@ export const ArrangementView = () => {
   // Read when clicked rather than subscribed to, so the timeline doesn't re-render with the transport.
   const start = () => controls.playArrangement(useStatusStore.getState().status?.playing ? undefined : 0)
   const stop = () => controls.stop()
-
-  const clipsOf = (trackId: string) => {
-    const track = tracks.find((candidate) => candidate.id === trackId)
-    return track && track.kind !== 'return' ? track.clips.filter((clip) => clip !== null) : []
-  }
-
-  const regionMenu = (region: ArrangementClip) => [
-    { label: 'Duplicate', onSelect: () => addRegion(region.trackId, arrangementEnd(region), region.content) },
-    { label: region.loop ? 'Stop looping' : 'Loop until next region', onSelect: () => updateRegion(region.id, { loop: !region.loop }) },
-    {
-      label: 'Delete',
-      danger: true,
-      onSelect: () => {
-        removeRegion(region.id)
-        setSelected(null)
-      },
-    },
-  ]
 
   return (
     <div className={styles.view} data-testid="arrangement-view">
@@ -114,26 +94,7 @@ export const ArrangementView = () => {
             <div key={track.id} className={styles.lane}>
               <div className={styles.name}>{track.name}</div>
               <div className={styles.row} style={{ width }}>
-                <ContextMenu
-                  entries={[
-                    ...clipsOf(track.id).map((clip) => ({
-                      label: `Add ${clip.name}`,
-                      onSelect: () => addRegion(track.id, placedAt, clip),
-                    })),
-                    {
-                      kind: 'separator' as const,
-                    },
-                    {
-                      label: 'Clear this track',
-                      danger: true,
-                      disabled: !arrangement.some((region) => region.trackId === track.id),
-                      onSelect: () => {
-                        for (const region of arrangementOnTrack(arrangement, track.id)) removeRegion(region.id)
-                        setSelected(null)
-                      },
-                    },
-                  ]}
-                >
+                <ActionMenu subject={{ kind: 'lane', trackId: track.id, beat: placedAt }}>
                   <div
                     className={styles.laneBody}
                     style={{ width }}
@@ -143,7 +104,7 @@ export const ArrangementView = () => {
                       setPlacedAt(snap(Math.max(0, (event.clientX - rect.left) / pxPerBeat)))
                     }}
                   />
-                </ContextMenu>
+                </ActionMenu>
                 {arrangementOnTrack(arrangement, track.id).map((region) => {
                   const loopEnd = arrangementLoopEnd(region, arrangement)
                   const tailStart = arrangementEnd(region)
@@ -158,14 +119,14 @@ export const ArrangementView = () => {
                           aria-hidden
                         />
                       )}
-                      <ContextMenu entries={regionMenu(region)}>
+                      <ActionMenu subject={{ kind: 'region', regionId: region.id }}>
                         <ArrangementRegion
                           region={region}
                           pxPerBeat={pxPerBeat}
                           selected={selected === region.id}
-                          onSelect={() => setSelected(region.id)}
+                          onSelect={() => setPicked(region.id)}
                         />
-                      </ContextMenu>
+                      </ActionMenu>
                     </Fragment>
                   )
                 })}

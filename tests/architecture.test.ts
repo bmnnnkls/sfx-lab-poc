@@ -118,6 +118,21 @@ describe('architecture', () => {
     expect(violations).toEqual([])
   })
 
+  it('builds right-click menus from actions, except the menus that act on view state', () => {
+    const menuRoot = join(SRC, 'ui', 'shared', 'menu') + sep
+    const allowed = new Set(['ui/clip-editor/PianoRoll.tsx', 'ui/patcher/GraphEditor.tsx', 'ui/patcher/NodeView.tsx'])
+    const importsContextMenu = (source: string) =>
+      [...source.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*shared\/menu(?:\/[^'"]*)?['"]/g)].some((match) => /\bContextMenu\b/.test(match[1]!))
+    const violations = sourceFiles
+      .filter((file) => !file.startsWith(menuRoot) && !allowed.has(relative(SRC, file).split(sep).join('/')))
+      .filter((file) => importsContextMenu(readFileSync(file, 'utf8')))
+      .map((file) => relative(SRC, file))
+    expect(violations).toEqual([])
+    // The check finds what it looks for.
+    expect(importsContextMenu("import { ActionMenu, ContextMenu } from '../shared/menu'")).toBe(true)
+    expect(importsContextMenu("import { ActionMenu, type MenuEntry } from '../shared/menu'")).toBe(false)
+  })
+
   it('pins the docking library to an exact version', () => {
     const manifest = JSON.parse(readFileSync(resolve(SRC, '../package.json'), 'utf8')) as { dependencies: Record<string, string> }
     expect(manifest.dependencies['flexlayout-react']).toMatch(/^\d+\.\d+\.\d+$/)

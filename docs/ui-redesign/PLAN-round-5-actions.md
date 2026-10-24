@@ -393,3 +393,34 @@ Signed off 2026-10-24: every row as proposed.
 | *Save to library* from menus | **Not in this round** | `PersonalLibrary.saveClip`, `saveSample` and `saveAsset` exist, but they need a name and a folder, which the Library view's toolbar supplies today. A follow-up once the lists exist. |
 | Where view-local menus go | **The piano roll and the input port keep their own entries** through `ContextMenu`, as allowed exceptions | They act on view state (the note selection and hover beat; `GraphEditor`'s `createControl`). Moving that state into stores only to fit the pattern isn't worth it. |
 | Shortcuts in menus | **Only the ones that exist** (the piano roll's) | Round 10 adds keys from the same action ids, and their labels then appear in the menus. |
+
+## Changes made while implementing
+
+What turned out different from the design above, step by step.
+
+* **Step 1: actions that ask which one.** The lane's *Add* entries and the control's per-axis entries are one action
+  each, with `choices` (an id and a title, each maybe disabled) and `run` getting the chosen id. They draw as a submenu
+  under the action's title, or with `inline` as one entry per choice. Step 1 draws both inline, so the lane still
+  shows *Add Root*, *Add Walk*; step 6 turns the lane's into the *Add clip* ▸ submenu. `ActionMenu` builds its entries
+  from `describeActions(subject, context)`, which unit tests call too.
+* **Step 1: groups add separators.** The clip menu gains one between its *open* and *edit* entries, and the region
+  menu one before *Delete*. Entries and labels are unchanged.
+* **Step 1: the menu subscribes through its entries.** `tests/status-subscriptions.test.ts` forbids selecting the whole
+  status in `ui`, so the open menu selects a signature of its entries from each store. It re-renders only when an
+  entry changes, not 30 times a second.
+* **Step 1: `runAction(id, subject, context, { choice, report })`.** It runs nothing that doesn't apply or isn't
+  enabled. `report` is where an asynchronous action's message goes, the toasts by default; step 7's view buttons pass
+  their status line.
+* **Step 1: the view origin** comes from a React context that `ViewHost` provides around each view
+  (`ViewOriginProvider`), read by `useActionContext()`.
+* **Step 1: Shift+F10 is handled by `ContextMenu`.** Chromium on macOS fires `contextmenu` only for the Menu key, not
+  for Shift+F10 (checked with Playwright: headless and headed). `ContextMenu` now prevents the browser's own handling
+  of Shift+F10 and sends a `contextmenu` from the focused trigger's bottom-left corner, so it works alike on every
+  platform and for the view-local menus too. The smoke spec checks it in Chromium. Firefox and Safari weren't checked:
+  the Playwright builds of both installed here don't match the Playwright version, and installing them is a download
+  left to the owner.
+* **Step 1: a region deleted from its menu** drops out of `ArrangementView`'s selection on the next render, as the
+  design says, instead of the menu clearing it.
+* **Step 1: `MidiTargetMenu` is gone.** The panel cell, the channel strip and the master strip wrap their controls in
+  `ActionMenu` with a `control` subject (none when a cell has no targets). They no longer subscribe to the project.
+
