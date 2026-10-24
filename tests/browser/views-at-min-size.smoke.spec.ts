@@ -12,8 +12,8 @@ interface Case {
   readonly min: { readonly width: number; readonly height: number }
   /** Brings the view into the state the case checks. */
   readonly prepare?: (page: Page, root: Locator) => Promise<void>
-  /** The controls that must show inside the view's box without scrolling. */
-  readonly controls: (root: Locator) => Locator[]
+  /** The controls that must show inside the view's box without scrolling, at a size the case is docked at. */
+  readonly controls: (root: Locator, size: { width?: number; height?: number }) => Locator[]
 }
 
 const CASES: readonly Case[] = [
@@ -28,6 +28,19 @@ const CASES: readonly Case[] = [
     min: EDITOR,
     // The empty state's action.
     controls: (root) => [root.getByRole('button', { name: 'Show session' })],
+  },
+  {
+    title: 'Library',
+    min: TOOL_VIEW,
+    prepare: async (_page, root) => {
+      await root.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+      await expect(root.getByLabel('Library items', { exact: true }).getByRole('button')).not.toHaveCount(0)
+    },
+    // At 280 × 200 the toolbars fill the height, and the items are a scroll away.
+    controls: (root, { width, height }) => [
+      root.getByLabel('Search library', { exact: true }),
+      ...(width && height ? [] : [root.getByLabel('Library items', { exact: true }).getByRole('button').first()]),
+    ],
   },
 ]
 
@@ -47,6 +60,8 @@ const expectFits = async (root: Locator, controls: Locator[]) => {
       .map((el) => `${el === element ? 'the root' : name(el)}: ${el.scrollWidth} > ${el.clientWidth}`)
   })
   expect(sideways, 'elements that scroll sideways without data-scroll').toEqual([])
+  // Where the view starts: everything in it scrolled back to the top left.
+  await root.evaluate((element) => [element, ...element.querySelectorAll('*')].forEach((el) => el.scrollTo(0, 0)))
   const box = (await root.boundingBox())!
   for (const control of controls) {
     await expect(control).toBeVisible()
@@ -71,7 +86,7 @@ for (const { title, state, min, prepare, controls } of CASES) {
       if ('width' in size) expect(Math.abs(box.width - min.width)).toBeLessThanOrEqual(2)
       if ('height' in size) expect(Math.abs(box.height - min.height)).toBeLessThanOrEqual(2)
       await prepare?.(page, root)
-      await expectFits(root, controls(root))
+      await expectFits(root, controls(root, size))
     })
   }
 }

@@ -2,6 +2,9 @@ import { serializeProject, parseProject } from '../../src/core'
 import { samplePresetProject } from './preset-project'
 import { test, expect, expectSaved, openView, viewRoot } from './fixtures'
 
+/** A folder's row in the library's tree, named by the folder and its item count. */
+const folderName = (name: string) => new RegExp(`^${name}(, \\d+ items?)?$`)
+
 test('library folders, associated presets, independent insert/undo/reload and trash survive production storage', async ({ page }, testInfo) => {
   const fixture = samplePresetProject()
   await page.addInitScript(saved => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(fixture.project))
@@ -14,8 +17,8 @@ test('library folders, associated presets, independent insert/undo/reload and tr
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Collection')
   await panel.getByRole('button', { name: 'New folder', exact: true }).click()
-  await expect(panel.getByRole('button', { name: 'Collection', exact: true })).toBeVisible()
-  await panel.getByRole('button', { name: 'Collection', exact: true }).click()
+  await expect(panel.getByRole('treeitem', { name: folderName('Collection') })).toBeVisible()
+  await panel.getByRole('treeitem', { name: folderName('Collection') }).click()
   await panel.getByLabel('Library name', { exact: true }).fill('Two samples')
   await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
   const items = panel.getByLabel('Library items', { exact: true })
@@ -48,7 +51,7 @@ test('library folders, associated presets, independent insert/undo/reload and tr
   await items.getByRole('button', { name: /^Two samples/ }).click()
   await panel.getByRole('button', { name: 'Restore item', exact: true }).click()
   await panel.getByRole('button', { name: 'Back to library', exact: true }).click()
-  await panel.getByRole('button', { name: 'Collection', exact: true }).click()
+  await panel.getByRole('treeitem', { name: folderName('Collection') }).click()
   await expect(items.getByRole('button')).toHaveCount(3)
   await items.getByRole('button', { name: /^Two samples/ }).click()
   await page.screenshot({ path: testInfo.outputPath('library-panel.png') })

@@ -336,6 +336,18 @@ What turned out different from the design above, step by step.
   itself on a sample.
 * **Step 2: `QuickAdd` re-checked.** Opened from a 480 px Instrument in the right sidebar at 1440 × 900, the popup's
   box equals its `left` / `top` in window coordinates (1092, 81) and fits inside the window.
+* **Step 2: the spec checks a view at its starting scroll position.** It scrolls everything in the view back to the
+  top left before looking for the controls; a `prepare` step (saving a Library item) can scroll it.
+* **Step 3: the tree's rows.** The root row keeps today's *All / root*. Clicking a folder opens and expands it; its
+  twisty only expands or collapses it; the arrow keys move the open folder (selection follows focus) without
+  expanding. A folder's row is named with its item count (*Nested, 3 items*), so specs find folders by a pattern. The
+  aside around the tree and the folder actions is now *Library folder actions*; the tree is *Library folders*.
+* **Step 3: the narrow tree** collapses to the open folder's path with an *All folders* toggle that only shows below
+  440 px, by CSS on `data-on-path`, so no component measures its width.
+* **Step 3: the search toolbar comes first below 440 px.** At 280 × 200 the three toolbars wrap to more than the
+  view's height; with the search first it shows without scrolling. The first item is a scroll away there (the plan's
+  "short: it scrolls"), so the spec looks for it only at the minimum width and the minimum height apart.
+* **Step 3: the bundle import's file input shrinks** below 440 px: it held Library at 302 px.
 
 ## Behavior changes
 

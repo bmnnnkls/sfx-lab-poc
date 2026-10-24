@@ -1,9 +1,11 @@
 .panel { height: 100%; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .toolbar input { max-width: 210px; }
-.columns { display: grid; grid-template-columns: 180px minmax(180px, 1fr) minmax(260px, 1.5fr); gap: 12px; min-height: 150px; }
+.columns { display: grid; grid-template-columns: 180px minmax(180px, 1fr) minmax(260px, 1.5fr); grid-template-areas: 'folders items details'; gap: 12px; min-height: 150px; }
+.columns aside { grid-area: folders; min-width: 0; }
+.items { grid-area: items; min-width: 0; }
+.columns article { grid-area: details; min-width: 0; padding: 0 12px; border-left: 1px solid var(--border); }
 .columns aside, .items { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
-.columns article { padding: 0 12px; border-left: 1px solid var(--border); }
 .columns article button { margin: 3px; }
 .columns article p { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
 .items button { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
@@ -17,3 +19,37 @@
 .panel > section { border: 1px solid var(--border); padding: 10px; overflow-wrap: anywhere; }
 .panel > section p { font-size: 12px; }
 .panel > section details { max-height: 220px; overflow: auto; margin-bottom: 8px; }
+
+/* The folder tree: one row per folder, indented by its level, with a twisty and the folder's item count. */
+.folders { display: flex; flex-direction: column; gap: 4px; }
+.allFolders { display: none; align-self: flex-start; }
+.tree { margin: 0; padding: 0; list-style: none; }
+.folder { display: flex; align-items: center; gap: 4px; min-height: 26px; padding-inline-end: 6px; border: 1px solid transparent; border-radius: var(--radius); cursor: pointer; }
+.folder:hover { background: var(--panel-raised); }
+.folder:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.folder.active { background: var(--panel-raised); }
+.twisty { flex: 0 0 14px; text-align: center; color: var(--text-dim); }
+.folderName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.count { color: var(--text-dim); font-size: 11px; }
+
+/* Two columns below 640 px: the folders beside the items, the details under both. */
+@container view (width < 640px) {
+  .columns { grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); grid-template-areas: 'folders items' 'details details'; }
+  .columns article { padding: 12px 0 0; border-left: 0; border-top: 1px solid var(--border); }
+}
+
+/*
+ * One column below 440 px: the folders over the items, then the details. The tree shows only the open folder's path
+ * until *All folders* opens it, so the items stay near the top. The search comes first, and toolbar inputs take the
+ * full width.
+ */
+@container view (width < 440px) {
+  .search { order: -1; }
+  .columns { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'folders' 'items' 'details'; }
+  .allFolders { display: block; }
+  .tree:not(.treeOpen) .folder:not([data-on-path]) { display: none; }
+  .toolbar input, .toolbar select { flex: 1 1 100%; max-width: none; }
+  /* The bundle import: its label over a file input that shrinks. */
+  .toolbar label { display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; }
+  .toolbar input[type='file'] { min-width: 0; }
+}
