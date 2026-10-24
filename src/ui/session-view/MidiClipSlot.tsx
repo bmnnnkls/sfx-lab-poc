@@ -1,5 +1,5 @@
 import type { Clip } from '@core'
-import { duplicateSessionClip, useAutomationEditor, useEngineControls, useProjectStore, useSelectionStore, useStatusStore } from '@state'
+import { duplicateSessionClip, useAutomationEditor, useEngineControls, openClip, useProjectStore, useStatusStore } from '@state'
 import { ContextMenu } from '../shared/menu'
 import { placeOnArrangement } from './place-on-arrangement'
 import styles from './SessionView.module.css'
@@ -14,7 +14,6 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
   const controls = useEngineControls()
   const createClip = useProjectStore((state) => state.createClip)
   const deleteClip = useProjectStore((state) => state.deleteClip)
-  const selectClip = useSelectionStore((state) => state.selectClip)
   const playing = useStatusStore(
     (state) => !!clip && state.status?.tracks[trackId]?.playingClipId === clip.id,
   )
@@ -23,7 +22,7 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
   )
 
   if (!clip) {
-    const create = () => selectClip(trackId, createClip(trackId, scene).id)
+    const create = () => openClip(trackId, createClip(trackId, scene).id)
     return (
       <ContextMenu entries={[{ label: 'Create clip', onSelect: create }]}>
         <div className={`${styles.slot} ${styles.empty}`}>
@@ -40,8 +39,8 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
     <ContextMenu
       entries={[
         { label: playing ? 'Restart clip' : 'Launch clip', onSelect: () => controls.launchClip(trackId, clip.id) },
-        { label: 'Edit notes', onSelect: () => selectClip(trackId, clip.id) },
-        { label: 'Edit automation', onSelect: () => { selectClip(trackId, clip.id); useAutomationEditor.getState().show() } },
+        { label: 'Edit notes', onSelect: () => openClip(trackId, clip.id) },
+        { label: 'Edit automation', onSelect: () => { openClip(trackId, clip.id); useAutomationEditor.getState().show() } },
         { label: 'Duplicate to empty slot', disabled: !useProjectStore.getState().project.tracks.some((t) => t.id === trackId && t.kind !== 'return' && t.clips.some((c) => !c)), onSelect: () => duplicateSessionClip(trackId, clip.id) },
         { label: 'Place on arrangement', onSelect: () => placeOnArrangement(trackId, clip) },
         { kind: 'separator' },
@@ -52,7 +51,7 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
         <button className={styles.launch} onClick={() => controls.launchClip(trackId, clip.id)}>
           {playing ? '■' : '▶'} {clip.name}
         </button>
-        <button onClick={() => selectClip(trackId, clip.id)} aria-label={`Edit ${clip.name}`}>
+        <button onClick={() => openClip(trackId, clip.id)} aria-label={`Edit ${clip.name}`}>
           ✎
         </button>
         <button onClick={() => deleteClip(trackId, scene)} aria-label={`Delete ${clip.name}`}>

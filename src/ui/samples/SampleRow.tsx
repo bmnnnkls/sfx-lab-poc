@@ -1,5 +1,5 @@
 import type { SampleInfo } from '@core'
-import { useProjectStore, useSampleLibrary, useSampleStore, useSelectionStore } from '@state'
+import { openClip, openTrackView, useProjectStore, useSampleLibrary, useSampleStore } from '@state'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import styles from './SamplesPanel.module.css'
 
@@ -11,17 +11,13 @@ export const SampleRow = ({ sample, onEdit }: { sample: SampleInfo; onEdit(): vo
   const removeSample = useProjectStore((state) => state.removeSample)
   const addSamplerTrack = useProjectStore((state) => state.addSamplerTrack)
   const addAudioTrack = useProjectStore((state) => state.addAudioTrackFromSample)
-  const selectTrack = useSelectionStore((state) => state.selectTrack)
-  const selectClip = useSelectionStore((state) => state.selectClip)
-  const setTab = useSelectionStore((state) => state.setTab)
   const ready = useSampleStore((state) => state.status[sample.id] === 'ready')
 
   const makeTrack = () => {
     addSamplerTrack(sample)
     const tracks = useProjectStore.getState().project.tracks
     const added = tracks[tracks.length - 1]
-    if (added) selectTrack(added.id)
-    setTab('device')
+    if (added) openTrackView(added.id, 'instrument')
   }
 
   /** An audio track that plays the sample as a looping clip, opened for editing. */
@@ -31,7 +27,7 @@ export const SampleRow = ({ sample, onEdit }: { sample: SampleInfo; onEdit(): vo
     const added = tracks[tracks.length - 1]
     if (added?.kind === 'audio') {
       const clip = added.clips[0]
-      if (clip) selectClip(added.id, clip.id)
+      if (clip) openClip(added.id, clip.id)
     }
   }
 

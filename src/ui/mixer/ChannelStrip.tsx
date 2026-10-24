@@ -1,6 +1,6 @@
 import { MidiTargetMenu } from '../midi/MidiTargetMenu'
 import { type ControlTarget, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode, mixesAfter, panOf } from '@core'
-import { useProjectStore, useSelectionStore } from '@state'
+import { openTrackView, useProjectStore, useSelectionStore } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
 import { LevelBar } from './LevelBar'
@@ -26,7 +26,6 @@ export const EffectsBadge = ({ name, labels, onOpen }: { name: string; labels: s
 export const ChannelStrip = ({ track }: { track: Track }) => {
   const selected = useSelectionStore((state) => state.trackId === track.id)
   const selectTrack = useSelectionStore((state) => state.selectTrack)
-  const setTab = useSelectionStore((state) => state.setTab)
   const modules = useProjectStore((state) => state.project.modules)
   const tracks = useProjectStore((state) => state.project.tracks)
   const gesture = useControlGesture()
@@ -59,10 +58,7 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
         <EffectsBadge
           name={track.name}
           labels={labels}
-          onOpen={() => {
-            selectTrack(track.id)
-            setTab('fx')
-          }}
+          onOpen={() => openTrackView(track.id, 'effects')}
         />
       </div>
 

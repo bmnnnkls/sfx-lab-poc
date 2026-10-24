@@ -1,5 +1,5 @@
 import type { AudioClip } from '@core'
-import { duplicateSessionClip, useAutomationEditor, useEngineControls, useProjectStore, useSelectionStore, useStatusStore } from '@state'
+import { duplicateSessionClip, useAutomationEditor, useEngineControls, openClip, useProjectStore, useStatusStore } from '@state'
 import { ContextMenu, type MenuEntry, PopupMenu } from '../shared/menu'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import { placeOnArrangement } from './place-on-arrangement'
@@ -17,7 +17,6 @@ export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
   const samples = useProjectStore((state) => state.project.samples)
   const createAudioClip = useProjectStore((state) => state.createAudioClip)
   const deleteClip = useProjectStore((state) => state.deleteAudioClip)
-  const selectClip = useSelectionStore((state) => state.selectClip)
   const playing = useStatusStore((state) => !!clip && state.status?.tracks[trackId]?.playingClipId === clip.id)
   const queued = useStatusStore((state) => !!clip && state.status?.tracks[trackId]?.queued === clip.id)
 
@@ -31,7 +30,7 @@ export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
               createAudioClip(trackId, scene, sample)
               const track = useProjectStore.getState().project.tracks.find((candidate) => candidate.id === trackId)
               const added = track?.kind === 'audio' ? track.clips[scene] : null
-              if (added) selectClip(trackId, added.id)
+              if (added) openClip(trackId, added.id)
             },
           }))
     return (
@@ -50,8 +49,8 @@ export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
     <ContextMenu
       entries={[
         { label: playing ? 'Restart clip' : 'Launch clip', onSelect: () => controls.launchClip(trackId, clip.id) },
-        { label: 'Edit clip', onSelect: () => selectClip(trackId, clip.id) },
-        { label: 'Edit automation', onSelect: () => { selectClip(trackId, clip.id); useAutomationEditor.getState().show() } },
+        { label: 'Edit clip', onSelect: () => openClip(trackId, clip.id) },
+        { label: 'Edit automation', onSelect: () => { openClip(trackId, clip.id); useAutomationEditor.getState().show() } },
         { label: 'Duplicate to empty slot', disabled: !useProjectStore.getState().project.tracks.some((t) => t.id === trackId && t.kind !== 'return' && t.clips.some((c) => !c)), onSelect: () => duplicateSessionClip(trackId, clip.id) },
         { label: 'Place on arrangement', onSelect: () => placeOnArrangement(trackId, clip) },
         { kind: 'separator' },
@@ -64,7 +63,7 @@ export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
           <span className={styles.slotName}>{clip.name}</span>
           <WaveformThumb sampleId={clip.sampleId} width={44} height={16} />
         </button>
-        <button onClick={() => selectClip(trackId, clip.id)} aria-label={`Edit ${clip.name}`}>
+        <button onClick={() => openClip(trackId, clip.id)} aria-label={`Edit ${clip.name}`}>
           ✎
         </button>
         <button onClick={() => deleteClip(trackId, scene)} aria-label={`Delete ${clip.name}`}>

@@ -1,5 +1,5 @@
 import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type ControlTarget, type Track, describeNode } from '@core'
-import { useEngineControls, useProjectStore, useSelectionStore } from '@state'
+import { openTrackView, useEngineControls, useProjectStore, useSelectionStore } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
 import styles from './SessionView.module.css'
@@ -11,7 +11,6 @@ export const TrackHeader = ({ track }: { track: Track }) => {
   const removeTrack = useProjectStore((state) => state.removeTrack)
   const selected = useSelectionStore((state) => state.trackId === track.id)
   const selectTrack = useSelectionStore((state) => state.selectTrack)
-  const setTab = useSelectionStore((state) => state.setTab)
   const modules = useProjectStore((state) => state.project.modules)
   // Everything in a graph except where the notes or the sound come in and go out counts as an effect.
   const ENDS = new Set([TRACK_IN_TYPE, TRACK_OUT_TYPE, RETURN_IN_TYPE])
@@ -33,10 +32,7 @@ export const TrackHeader = ({ track }: { track: Track }) => {
           className={styles.fxBadge}
           title={`Effects: ${soundEffects.map((node) => describeNode(node, modules)?.label ?? node.type).join(', ')}`}
           aria-label={`${track.name} has ${soundEffects.length} effect${soundEffects.length === 1 ? '' : 's'}`}
-          onClick={() => {
-            selectTrack(track.id)
-            setTab('fx')
-          }}
+          onClick={() => openTrackView(track.id, 'effects')}
         >
           fx {soundEffects.length}
         </button>
@@ -46,10 +42,7 @@ export const TrackHeader = ({ track }: { track: Track }) => {
           className={styles.fxBadge}
           title={`Note graph: ${effects.map((node) => describeNode(node, modules)?.label ?? node.type).join(', ')}`}
           aria-label={`${track.name} has ${effects.length} note effect${effects.length === 1 ? '' : 's'}`}
-          onClick={() => {
-            selectTrack(track.id)
-            setTab('notes')
-          }}
+          onClick={() => openTrackView(track.id, 'notes')}
         >
           notes {effects.length}
         </button>

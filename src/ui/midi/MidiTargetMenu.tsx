@@ -1,5 +1,5 @@
 import { type ControlTarget, resolveControlTarget } from '@core'
-import { useMidiStore, useProjectStore, useSelectionStore, useAutomationEditor } from '@state'
+import { openClip, useMidiStore, useProjectStore, useSelectionStore, useAutomationEditor } from '@state'
 import type { ReactElement } from 'react'
 import { ContextMenu } from '../shared/menu'
 
@@ -26,7 +26,7 @@ export const MidiTargetMenu = ({ targets, children }: { targets: readonly Contro
       if (!track || track.kind === 'return') return
       const selected = useSelectionStore.getState().clipId
       const clip = track.clips.find((clip) => clip?.id === selected) ?? track.clips.find(Boolean)
-      if (clip) useSelectionStore.getState().selectClip(trackId, clip.id)
+      if (clip) openClip(trackId, clip.id)
       useAutomationEditor.getState().show(target)
     },
   }))]}>{children}</ContextMenu>

@@ -1,5 +1,5 @@
 import { automationSlotsOf, type ControlOwner } from '@core'
-import { editAutomationSlot, useEngineControls, useProjectStore, useSelectionStore, useStatusStore } from '@state'
+import { editAutomationSlot, openAutomationSlot, useEngineControls, useProjectStore, useStatusStore } from '@state'
 import styles from './SessionView.module.css'
 
 /** A dedicated automation-only cell. An empty cell explicitly stops this owner at the next bar. */
@@ -7,7 +7,7 @@ export const AutomationSlotCell = ({ owner, scene }: { owner: ControlOwner; scen
   const slot = useProjectStore((s) => automationSlotsOf(s.project, owner)?.[scene])
   const status = useStatusStore((s) => owner.kind === 'master' ? s.status?.masterAutomation : s.status?.tracks[owner.trackId])
   const controls = useEngineControls()
-  const select = () => useSelectionStore.getState().selectAutomation(owner, scene)
+  const select = () => openAutomationSlot(owner, scene)
   const playing = slot && status?.playingClipId === slot.id
   const queued = slot ? status?.queued === slot.id : status?.queued === 'stop'
   const label = owner.kind === 'master' ? 'Master' : useProjectStore.getState().project.tracks.find((t) => t.id === owner.trackId)?.name ?? 'Return'
