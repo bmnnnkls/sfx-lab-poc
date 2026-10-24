@@ -14,6 +14,7 @@ import type { SampleInfo } from '../sample'
 import { clamp, createId } from '../shared'
 import { createNote, notesEqual, shiftedCopies, trimNotesToLength } from './note-edit'
 import { clampAudioClip, createAudioClip } from './audio-clip'
+import { type ClipRef, editClipAt } from './clip-ref'
 import { mixesAfter } from './mix-order'
 import { MAX_CLIP_BEATS, MIN_CLIP_BEATS } from './limits'
 import type { AudioClip, AudioTrack, Clip, InstrumentTrack, MasterBus, Note, Project, ReturnTrack, Track } from './types'
@@ -219,34 +220,21 @@ export const setClipAt = (
     clips: track.clips.map((existing, index) => (index === scene ? clip : existing)),
   }))
 
-const updateClip = (
-  project: Project,
-  trackId: string,
-  clipId: string,
-  change: (clip: Clip) => Clip,
-): Project =>
-  updateInstrument(project, trackId, (track) => {
-    const clips = track.clips.map((clip) => (clip?.id === clipId ? change(clip) : clip))
-    // Keep identity when nothing changed, so a no-op edit doesn't create an undo step.
-    return clips.every((clip, index) => clip === track.clips[index]) ? track : { ...track, clips }
-  })
+/** Edits the MIDI clip a ref points at; an audio clip, or nothing, stays as it is. */
+const updateClip = (project: Project, ref: ClipRef, change: (clip: Clip) => Clip): Project =>
+  editClipAt(project, ref, (clip) => ('notes' in clip ? change(clip) : clip))
 
 /** Resizes a clip. Shortening trims notes that no longer fit (undo restores them). */
-export const setClipLength = (
-  project: Project,
-  trackId: string,
-  clipId: string,
-  lengthBeats: number,
-): Project =>
-  updateClip(project, trackId, clipId, (clip) => {
+export const setClipLength = (project: Project, ref: ClipRef, lengthBeats: number): Project =>
+  updateClip(project, ref, (clip) => {
     const length = clamp(lengthBeats, MIN_CLIP_BEATS, MAX_CLIP_BEATS)
     if (length === clip.lengthBeats) return clip
     return { ...resizeAutomation(clip, length), lengthBeats: length, notes: trimNotesToLength(clip.notes, length) }
   })
 
 /** Doubles a clip's length and repeats its notes into the new half ("double loop"). */
-export const doubleClip = (project: Project, trackId: string, clipId: string): Project =>
-  updateClip(project, trackId, clipId, (clip) => {
+export const doubleClip = (project: Project, ref: ClipRef): Project =>
+  updateClip(project, ref, (clip) => {
     const length = clip.lengthBeats * 2
     if (length > MAX_CLIP_BEATS || clip.automation?.some((lane) => lane.points.length * 2 + 2 > MAX_AUTOMATION_POINTS)) return clip
     return {
@@ -257,14 +245,9 @@ export const doubleClip = (project: Project, trackId: string, clipId: string): P
     }
   })
 
-export const setClipNotes = (
-  project: Project,
-  trackId: string,
-  clipId: string,
-  notes: readonly Note[],
-): Project =>
+export const setClipNotes = (project: Project, ref: ClipRef, notes: readonly Note[]): Project =>
   // Identical notes keep the same project, so e.g. quantizing an already-quantized clip adds no undo step.
-  updateClip(project, trackId, clipId, (clip) =>
+  updateClip(project, ref, (clip) =>
     notesEqual(clip.notes, notes) ? clip : { ...clip, notes },
   )
 
@@ -341,22 +324,14 @@ export type AudioClipChanges = Partial<
 >
 
 /** Edits an audio clip's settings, keeping them in range. No change keeps the same project (no empty undo step). */
-export const updateAudioClip = (
-  project: Project,
-  trackId: string,
-  clipId: string,
-  changes: AudioClipChanges,
-): Project =>
-  updateAudio(project, trackId, (track) => {
-    const clips = track.clips.map((clip) => (clip?.id === clipId ? clampAudioClip({ ...resizeAutomation(clip, changes.lengthBeats ?? clip.lengthBeats), ...changes }) : clip))
-    const unchanged = clips.every((clip, index) => {
-      const before = track.clips[index]
-      return clip === before || (clip && before && JSON.stringify(clip) === JSON.stringify(before))
-    })
-    return unchanged ? track : { ...track, clips }
+/** Edits the audio clip a ref points at, kept in range; a MIDI clip, or nothing, stays as it is. */
+export const updateAudioClip = (project: Project, ref: ClipRef, changes: AudioClipChanges): Project =>
+  editClipAt(project, ref, (clip) => {
+    if (!('sampleId' in clip)) return clip
+    const next = clampAudioClip({ ...resizeAutomation(clip, changes.lengthBeats ?? clip.lengthBeats), ...changes })
+    return JSON.stringify(next) === JSON.stringify(clip) ? clip : next
   })
 
-/** Puts a new audio clip for `sample` in a slot, at the project tempo's best-guess length. */
 export const addAudioClip = (project: Project, trackId: string, scene: number, sample: SampleInfo): Project =>
   setAudioClipAt(project, trackId, scene, createAudioClip(sample, project.tempo))
 

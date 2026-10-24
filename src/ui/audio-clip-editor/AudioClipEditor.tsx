@@ -9,6 +9,7 @@ import {
   isTrimmed,
   playbackSpeed,
   regionFraction,
+  sessionClipRef,
 } from '@core'
 import { useProjectStore } from '@state'
 import toolbar from '../clip-editor/ClipEditor.module.css'
@@ -57,7 +58,7 @@ export const AudioClipEditor = ({ track, clip }: { track: AudioTrack; clip: Audi
   const update = useProjectStore((state) => state.updateAudioClip)
 
   const sample = samples.find((candidate) => candidate.id === clip.sampleId)
-  const change = (changes: Parameters<typeof update>[2]) => update(track.id, clip.id, changes)
+  const change = (changes: Parameters<typeof update>[1]) => update(sessionClipRef(track.id, clip.id), changes)
 
   return (
     <div className={toolbar.editor} data-clip-editor>

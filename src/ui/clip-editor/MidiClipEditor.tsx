@@ -5,6 +5,7 @@ import {
   type Note,
   humanizeNotes,
   quantizeNotes,
+  sessionClipRef,
   swingNotes,
 } from '@core'
 import { useEngineControls, useProjectStore } from '@state'
@@ -33,6 +34,7 @@ export const MidiClipEditor = ({ track, clip }: { track: InstrumentTrack; clip: 
   const setClipNotes = useProjectStore((state) => state.setClipNotes)
   const setClipLength = useProjectStore((state) => state.setClipLength)
   const doubleClip = useProjectStore((state) => state.doubleClip)
+  const ref = sessionClipRef(track.id, clip.id)
 
   // Editor preferences are remembered between sessions.
   const [step, setStep] = useStoredState('sfxlab:roll-grid', 0.5, isGridStep)
@@ -49,7 +51,7 @@ export const MidiClipEditor = ({ track, clip }: { track: InstrumentTrack; clip: 
   /** Applies a groove tool to the selection, or the whole clip when nothing is selected. */
   const applyGroove = (tool: (notes: readonly Note[], ids: ReadonlySet<string>) => Note[]) => {
     const ids = selected.size > 0 ? selected : new Set(clip.notes.map((note) => note.id))
-    setClipNotes(track.id, clip.id, tool(clip.notes, ids))
+    setClipNotes(ref, tool(clip.notes, ids))
   }
   const quantize = () =>
     applyGroove((notes, ids) =>
@@ -90,7 +92,7 @@ export const MidiClipEditor = ({ track, clip }: { track: InstrumentTrack; clip: 
         </label>
         <LengthField
           lengthBeats={clip.lengthBeats}
-          onCommit={(beats) => setClipLength(track.id, clip.id, beats)}
+          onCommit={(beats) => setClipLength(ref, beats)}
         />
         <GroovePanel
           settings={groove}
@@ -101,7 +103,7 @@ export const MidiClipEditor = ({ track, clip }: { track: InstrumentTrack; clip: 
           onHumanize={humanize}
         />
         <button
-          onClick={() => doubleClip(track.id, clip.id)}
+          onClick={() => doubleClip(ref)}
           disabled={clip.lengthBeats * 2 > MAX_CLIP_BEATS}
           title="Double the length and repeat the notes into the new half"
         >
@@ -137,7 +139,7 @@ export const MidiClipEditor = ({ track, clip }: { track: InstrumentTrack; clip: 
         onSelect={setSelected}
         groove={{ quantize, humanize }}
         onZoom={setZoom}
-        onChange={(notes) => setClipNotes(track.id, clip.id, notes)}
+        onChange={(notes) => setClipNotes(ref, notes)}
         onAudition={audition ? (pitch, velocity) => controls.auditionNote(track.id, pitch, velocity) : undefined}
       />
     </div>

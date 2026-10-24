@@ -1,5 +1,6 @@
 import {
   type Clip,
+  type ClipRef,
   type History,
   type ModuleDefinition,
   type Note,
@@ -120,8 +121,11 @@ interface ProjectActions {
   deleteAudioClip(trackId: string, scene: number): void
   /** Puts a new audio clip of `sample` into a slot of an audio track. */
   createAudioClip(trackId: string, scene: number, sample: SampleInfo): void
-  /** Edits an audio clip; rapid edits of the same setting (a slider drag) merge into one undo step. */
-  updateAudioClip(trackId: string, clipId: string, changes: AudioClipChanges): void
+  /**
+   * Edits an audio clip, in its slot or a region's copy; rapid edits of the same setting (a slider drag) merge into
+   * one undo step.
+   */
+  updateAudioClip(ref: ClipRef, changes: AudioClipChanges): void
   setTrackVoices(trackId: string, voices: number): void
   /**
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
@@ -181,14 +185,15 @@ interface ProjectActions {
    */
   moveClip(fromTrackId: string, clipId: string, toTrackId: string, scene: number): void
   deleteClip(trackId: string, scene: number): void
-  setClipNotes(trackId: string, clipId: string, notes: readonly Note[]): void
-  /** Resizes a clip; shortening trims notes that no longer fit. */
-  setClipLength(trackId: string, clipId: string, lengthBeats: number): void
+  /** Sets a MIDI clip's notes, in its slot or a region's copy. */
+  setClipNotes(ref: ClipRef, notes: readonly Note[]): void
+  /** Resizes a clip; shortening trims notes that no longer fit. A region grows into the next one, as its edge does. */
+  setClipLength(ref: ClipRef, lengthBeats: number): void
   /** Doubles the clip's length and repeats its notes into the new half. */
-  doubleClip(trackId: string, clipId: string): void
+  doubleClip(ref: ClipRef): void
   /** Puts a copy of a session clip on the arrangement timeline of one track. */
   addArrangementClip(trackId: string, startBeat: number, content: Clip | AudioClip): void
-  /** Moves or resizes an arrangement region; a drag merges into one undo step. */
+  /** Moves or resizes an arrangement region; a drag merges into one undo step. A selected region keeps its selection. */
   updateArrangementClip(id: string, changes: ArrangementChanges, mergeKey?: string): void
   removeArrangementClip(id: string): void
 }
@@ -275,10 +280,10 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     deleteAudioClip: (trackId, scene) => edit((project) => setAudioClipAt(project, trackId, scene, null)),
     createAudioClip: (trackId, scene, sample) =>
       edit((project) => addAudioClip(project, trackId, scene, sample)),
-    updateAudioClip: (trackId, clipId, changes) =>
+    updateAudioClip: (ref, changes) =>
       edit(
-        (project) => updateAudioClip(project, trackId, clipId, changes),
-        `audio:${clipId}:${Object.keys(changes).sort().join(',')}`,
+        (project) => updateAudioClip(project, ref, changes),
+        `audio:${ref.kind === 'region' ? ref.regionId : ref.clipId}:${Object.keys(changes).sort().join(',')}`,
       ),
     setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
 
@@ -313,22 +318,24 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     },
     deleteClip: (trackId, scene) => edit((project) => setClipAt(project, trackId, scene, null)),
     pasteClip: (clip, trackId, scene) => edit((project) => pasteSessionClip(project, clip, trackId, scene)),
-    setClipNotes: (trackId, clipId, notes) =>
-      edit((project) => setClipNotes(project, trackId, clipId, notes)),
-    setClipLength: (trackId, clipId, lengthBeats) =>
-      edit((project) => setClipLength(project, trackId, clipId, lengthBeats)),
-    doubleClip: (trackId, clipId) => edit((project) => doubleClip(project, trackId, clipId)),
+    setClipNotes: (ref, notes) => edit((project) => setClipNotes(project, ref, notes)),
+    setClipLength: (ref, lengthBeats) => edit((project) => setClipLength(project, ref, lengthBeats)),
+    doubleClip: (ref) => edit((project) => doubleClip(project, ref)),
 
     addArrangementClip: (trackId, startBeat, content) =>
       edit((project) => ({
         ...project,
         arrangement: addArrangementClip(project.arrangement ?? [], createArrangementClip(trackId, startBeat, content)),
       })),
-    updateArrangementClip: (id, changes, mergeKey) =>
+    updateArrangementClip: (id, changes, mergeKey) => {
       edit((project) => {
         const arrangement = updateArrangementClip(project.arrangement ?? [], id, changes)
         return arrangement === (project.arrangement ?? []) ? project : { ...project, arrangement }
-      }, mergeKey),
+      }, mergeKey)
+      // A selected region moved to another lane stays selected, with its new track.
+      const selection = useSelectionStore.getState()
+      if (changes.trackId && selection.regionId === id && selection.trackId !== changes.trackId) selection.selectRegion(id, changes.trackId)
+    },
     removeArrangementClip: (id) =>
       edit((project) => ({ ...project, arrangement: removeArrangementClip(project.arrangement ?? [], id) })),
   }

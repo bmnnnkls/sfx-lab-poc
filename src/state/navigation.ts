@@ -1,5 +1,6 @@
 import type { ControlOwner } from '@core'
 import { type ViewId, useLayoutStore } from './layout-store'
+import { useProjectStore } from './project-store'
 import { useSelectionStore } from './selection-store'
 
 /*
@@ -12,6 +13,14 @@ const reveal = (id: ViewId) => useLayoutStore.getState().revealView(id)
 /** Edit a clip: its piano roll, audio editor or automation. */
 export const openClip = (trackId: string, clipId: string) => {
   useSelectionStore.getState().selectClip(trackId, clipId)
+  reveal('clip')
+}
+
+/** Edit a region's own copy of its clip, on the arrangement. */
+export const openRegion = (regionId: string) => {
+  const region = useProjectStore.getState().project.arrangement?.find((candidate) => candidate.id === regionId)
+  if (!region) return
+  useSelectionStore.getState().selectRegion(regionId, region.trackId)
   reveal('clip')
 }
 

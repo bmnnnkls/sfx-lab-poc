@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { automationPosition, canonicalAutomationPoints, doubleAutomation, duplicateAutomation, setClipAutomation } from './index'
 import type { AutomationLane, AutomationPoint } from './types'
-import { createClip, createEmptyProject, doubleClip, setClipLength } from '../project'
+import { createClip, createEmptyProject, doubleClip, sessionClipRef, setClipLength } from '../project'
 import { createHistory, commit, undo } from '../history'
 const point = (beat: number, value: number, interpolation: 'linear' | 'hold' = 'linear'): AutomationPoint => ({ id: `p${beat}`, beat, value, interpolation })
 const target = { kind: 'mixer', owner: { kind: 'track', trackId: 'a' }, control: 'volume' } as const
@@ -27,11 +27,11 @@ describe('automation curves and edits', () => {
     const initial = createEmptyProject(), track = initial.tracks[0]!
     const clip = { ...createClip('clip', 4), automation: [lane([point(0, 0), point(2, 0.5), point(4, 1)])] }
     const project = { ...initial, tracks: [{ ...track, kind: 'instrument' as const, clips: [clip] } as typeof track] }
-    const shorter = setClipLength(project, track.id, clip.id, 2)
+    const shorter = setClipLength(project, sessionClipRef(track.id, clip.id), 2)
     const shortTrack = shorter.tracks[0]!
     expect(shortTrack.kind !== 'return' && shortTrack.clips[0]?.automation?.[0]?.points.map((p) => p.beat)).toEqual([0, 2])
     expect(undo(commit(createHistory(project), shorter, { now: 0 })).present).toBe(project)
-    expect(doubleClip(project, track.id, clip.id).tracks[0]).not.toEqual(track)
+    expect(doubleClip(project, sessionClipRef(track.id, clip.id)).tracks[0]).not.toEqual(track)
   })
   it('doubling repeats the left limit and wrap without adding a ramp across the join', () => {
     const original = lane([point(1, 0.2), point(3, 0.8)])
@@ -80,6 +80,6 @@ it('refuses to double beyond the saved point limit and keeps no-op lane edits ou
   if (t.kind !== 'instrument') throw new Error('instrument')
   const clip = { ...createClip('clip', 4), automation: [{ ...lane(Array.from({ length: 1024 }, (_, i) => point(i / 1024 * 4, 0))), target: { ...target, owner: { kind: 'track' as const, trackId: t.id } } }] }
   const project = { ...initial, tracks: [{ ...t, clips: [clip] }] }
-  expect(doubleClip(project, t.id, clip.id)).toBe(project)
+  expect(doubleClip(project, sessionClipRef(t.id, clip.id))).toBe(project)
   expect(setClipAutomation(project, t.id, clip.id, clip.automation)).toBe(project)
 })

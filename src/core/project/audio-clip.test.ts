@@ -21,6 +21,7 @@ import {
   updateAudioClip,
   addTrack,
   createClip,
+  sessionClipRef,
 } from '.'
 
 const sample = (overrides: Partial<SampleInfo> = {}): SampleInfo => ({
@@ -122,16 +123,16 @@ describe('audio tracks in the project', () => {
       return isAudioTrack(t) ? (t.clips[0] as AudioClip) : (undefined as never)
     }
 
-    expect(read(updateAudioClip(project, track.id, clip.id, { gain: 0.5, loop: false })))
+    expect(read(updateAudioClip(project, sessionClipRef(track.id, clip.id), { gain: 0.5, loop: false })))
       .toMatchObject({ gain: 0.5, loop: false })
-    expect(read(updateAudioClip(project, track.id, clip.id, { gain: 99, lengthBeats: 0 })))
+    expect(read(updateAudioClip(project, sessionClipRef(track.id, clip.id), { gain: 99, lengthBeats: 0 })))
       .toMatchObject({ gain: 2, lengthBeats: 1 })
   })
 
   it('updateAudioClip with nothing to change keeps the same project (no empty undo step)', () => {
     const { project, track, clip } = withAudioTrack()
-    expect(updateAudioClip(project, track.id, clip.id, { gain: clip.gain })).toBe(project)
-    expect(updateAudioClip(project, track.id, 'missing', { gain: 0.1 })).toBe(project)
+    expect(updateAudioClip(project, sessionClipRef(track.id, clip.id), { gain: clip.gain })).toBe(project)
+    expect(updateAudioClip(project, sessionClipRef(track.id, 'missing'), { gain: 0.1 })).toBe(project)
   })
 
   it('removing a sample removes the audio clips that played it, and nothing else', () => {
@@ -149,7 +150,7 @@ describe('audio tracks in the project', () => {
     const midi = createClip('m', 4)
 
     expect(setClipAt(project, track.id, 0, midi)).toBe(project)
-    expect(setClipNotes(project, track.id, 'x', [])).toBe(project)
+    expect(setClipNotes(project, sessionClipRef(track.id, 'x'), [])).toBe(project)
     expect(setTrackVoices(project, track.id, 3)).toBe(project)
   })
 
@@ -203,7 +204,7 @@ describe('trim and fades', () => {
 
   it('updateAudioClip applies and clamps trim changes', () => {
     const { project, track, clip: created } = withAudioTrack()
-    const edited = updateAudioClip(project, track.id, created.id, { start: 0.3, end: 0.2 })
+    const edited = updateAudioClip(project, sessionClipRef(track.id, created.id), { start: 0.3, end: 0.2 })
     const t = edited.tracks.find((x) => x.id === track.id)!
     const result = (isAudioTrack(t) ? t.clips[0] : null) as AudioClip
     expect(result.start).toBe(0.3)

@@ -457,3 +457,10 @@ What turned out different from the design above, step by step.
   row's menu, so the hooks aren't called inside a list. Snapshot rows don't drag.
 * **Step 6: the smoke spec drops on the session header only.** The mixer strips, the lane names and the master's
   header and strip take the same `track` and `master` targets, and the unit tests cover the drops on each kind.
+* **Step 7: `clipAt(project, ref)`, `sessionClipRef` and `regionClipRef`** join `editClipAt` in `core`. A setter given
+  a ref to a clip of the other kind (notes for an audio clip) leaves the project as it is.
+* **Step 7: selecting a sample keeps the region,** as it keeps `clipId`: the Wave editor is a different selection.
+  Every other `select…` and `reset` clear `regionId`; `selectTrack` keeps `clipId`, as before.
+* **Step 7: the project store keeps a moved region selected.** `updateArrangementClip` selects it again with its new
+  track when a selected region changes lanes, as `moveClip` does for a moved session clip.
+* **Step 7: `npm run test:audio` passed** (14 tests) after the setters moved onto refs.
