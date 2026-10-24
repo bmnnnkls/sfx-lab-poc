@@ -1,6 +1,6 @@
 # Round 4: views that work anywhere
 
-Status: **in progress**, 2026-10-24, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
+Status: **done** 2026-10-24, decisions signed off as proposed. What changed on the way is under [Changes made while implementing](#changes-made-while-implementing); shipped behavior is in [ARCHITECTURE.md § Layout and navigation](../../ARCHITECTURE.md#layout-and-navigation). Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 4](DRAFT-roadmap.md#round-4-views-that-work-anywhere), the parts of the
 [audit remediation proposal](PROPOSAL-audit-remediation.md) left after round 2 (§3, container queries and `minSize`;
 what is left of §4, empty states; and §1's graph-view store), and the two rows the
@@ -403,6 +403,31 @@ What turned out different from the design above, step by step.
   sidebar, opening 300 px wide; the panel's five tabs), Mixer's neighbour in the panel is now Clip, and the
   activity-bar check takes Library from the primary sidebar first, then from the panel. Saved layouts missing Samples
   or Library now get them in the primary sidebar.
+* **Step 12: the profile.** `scripts/profile-status.cjs` now collapses Library's sidebar too in the `all` setup (it
+  sits in a sidebar since this round; before it, the same click collapses the panel, and showing Mixer expands it).
+  Base (`feat/ui-redesign` at `fbd3f21`, round 3 merged) and this branch ran interleaved in one session, 10 s each
+  after 2 s of warm-up, headless Chromium, 1500 × 1000, both with this branch's script:
+
+  | Per second | Base `editor`, 2 runs | Round 4 `editor`, 2 runs | Base `four`, 2 runs | Round 4 `four`, 2 runs | Round 4 `all` |
+  |---|---|---|---|---|---|
+  | Component renders (dev) | 145, 145 | 145, 145 | 173, 173 | 173, 173 | 145 |
+  | React render time (dev) | 7.6, 8.4 ms | 8.0, 8.3 ms | 9.0, 8.8 ms | 8.7, 9.4 ms | 8.4 ms |
+  | Script (production) | 12.7, 13.4 ms | 12.8, 13.2 ms | 14.9, 15.7 ms | 15.6, 16.2 ms | 13.1 ms |
+  | Main-thread tasks (production) | 82.7, 90.4 ms | 76.5, 85.0 ms | 102.0, 106.0 ms | 109.7, 116.8 ms | 88.1 ms |
+  | Layout + style (production) | 23.0, 25.3 ms | 19.6, 23.2 ms | 20.7, 21.4 ms | 22.8, 23.4 ms | 24.6 ms |
+
+  * Component renders stay at 145 a second in `editor` and 173 in `four`: container queries, sticky cells and the
+    frames add no React work.
+  * In `four` (Session and Arrangement side by side over Clip), round 4 spends about 2 ms more a second on layout
+    and style and 8 to 11 ms more on main-thread tasks in both runs, most likely Session's sticky headers and scene
+    column and the size containers being laid out again while the playheads move. In `editor` it is no slower.
+* **Step 12: before and after.** `measure.cjs` ran again on the finished branch (`round-4/after/` in the session
+  notes, beside `before/`). At 1440 × 900 with round 3's default layout loaded into both builds, every view's
+  screenshot matches round 3's pixel for pixel, apart from the graph editors' random seed and Library's tree and
+  empty state. With round 4's own default the editor area is 27 px narrower: the collapsed primary sidebar's strip.
+* **Step 12: an audio spec still clicked a folder as a button.** `automation.audio.spec.ts` opens an imported
+  bundle's folder; step 3 changed the smoke specs only, since the audio suite runs once at the end. It now clicks the
+  folder's tree row.
 
 ## Behavior changes
 

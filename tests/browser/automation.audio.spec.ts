@@ -69,7 +69,8 @@ test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after tras
         const bundle = await exportLibraryBundle(catalog, { itemIds: catalog.items.map(i => i.id) }, 'Audible exchange', async id => sampleFixture.samples.find(s => s.info.id === id)?.bytes)
         await panel.getByLabel('Import library bundle', { exact: true }).setInputFiles({ name: bundle.fileName, mimeType: bundle.mimeType, buffer: Buffer.from(bundle.bytes) })
         await panel.getByRole('button', { name: 'Import into new folder', exact: true }).click()
-        await panel.getByRole('button', { name: 'Audible exchange', exact: true }).click()
+        // The import's folder, in the library's folder tree (named with its item count).
+        await panel.getByRole('treeitem', { name: /^Audible exchange(, \d+ items?)?$/ }).click()
       } else {
         await panel.getByLabel('Library name', { exact: true }).fill('Reusable sampled voice')
         await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
