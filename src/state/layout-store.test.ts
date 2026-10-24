@@ -24,9 +24,9 @@ const recordingDriver = () => {
 const group = (id: string, region: RegionId, views: readonly ViewId[], current: ViewId): GroupState => ({ id, region, views, active: current })
 
 describe('layout store without a driver', () => {
-  it("starts on today's layout: session above, instrument below, the sidebars hidden", () => {
+  it('starts on the default layout: session above, instrument below, the sidebars hidden', () => {
     expect(layout().groups).toEqual([
-      group('editor', 'editor', ['session', 'arrangement'], 'session'),
+      group('editor', 'editor', ['session', 'arrangement', 'wave'], 'session'),
       group('panel', 'panel', ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'sounds', 'library'], 'instrument'),
     ])
     expect(layout().visible).toEqual(['session', 'instrument'])
@@ -180,10 +180,10 @@ describe('navigation intents', () => {
     expect(useSelectionStore.getState()).toMatchObject({ trackId: null, master: true, automationScene: 1 })
   })
 
-  it('openSampleEditor selects the sample and shows Samples; switching views keeps it, reset clears it', () => {
+  it('openSampleEditor selects the sample and shows the wave editor; switching views keeps it, reset clears it', () => {
     openSampleEditor('s')
     expect(useSelectionStore.getState().sampleId).toBe('s')
-    expect(active('panel')).toBe('samples')
+    expect(active('editor')).toBe('wave')
     layout().revealView('mixer')
     expect(useSelectionStore.getState().sampleId).toBe('s')
     useSelectionStore.getState().selectSample(null)

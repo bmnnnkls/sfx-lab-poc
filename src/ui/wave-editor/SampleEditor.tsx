@@ -9,7 +9,7 @@ import {
 } from '@core'
 import { useSampleLibrary, useSampleStore } from '@state'
 import { useEffect, useRef, useState } from 'react'
-import styles from './SamplesPanel.module.css'
+import styles from './WaveEditor.module.css'
 
 const HEIGHT = 150
 const MIN_PX_PER_BUCKET = 1
@@ -103,7 +103,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
             onChange={(event) => setPxPerBucket(Number(event.target.value))}
           />
         </label>
-        <button onClick={onClose} title="Back to the library">Done</button>
+        <button onClick={onClose} title="Close this sample">Close</button>
       </div>
       <div className={styles.waveformFrame}>
         {peaks ? (

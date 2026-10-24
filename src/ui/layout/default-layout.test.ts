@@ -10,7 +10,7 @@ describe('default layout', () => {
     expect(column).toMatchObject({ type: 'row' })
     const [editor, panel] = column!.children! as IJsonTabSetNode[]
     expect(editor).toMatchObject({ type: 'tabset', id: 'editor', selected: 0, weight: 48 })
-    expect(editor!.children!.map((tab) => tab.id)).toEqual(['session', 'arrangement'])
+    expect(editor!.children!.map((tab) => tab.id)).toEqual(['session', 'arrangement', 'wave'])
     expect(panel).toMatchObject({ type: 'tabset', id: 'panel', selected: 0, weight: 52, enableDeleteWhenEmpty: false })
     expect(panel).not.toHaveProperty('maxHeight')
     expect(panel!.children!.map((tab) => tab.id)).toEqual(['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'sounds', 'library'])

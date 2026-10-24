@@ -8,6 +8,7 @@ import type { ViewId } from '@state'
 export const viewTitles: Readonly<Record<ViewId, string>> = {
   session: 'Session',
   arrangement: 'Arrangement',
+  wave: 'Wave editor',
   instrument: 'Instrument',
   effects: 'Effects',
   notes: 'Notes',
@@ -22,6 +23,7 @@ export const viewTitles: Readonly<Record<ViewId, string>> = {
 export const viewTooltips: Readonly<Partial<Record<ViewId, string>>> = {
   session: 'Session view (Tab)',
   arrangement: 'Arrangement view (Tab)',
+  wave: 'Wave editor: normalize, reverse, trim and fade a sample',
   effects: "Effects: process the track's sound after the instrument (or the samples) and before the fader",
   notes: 'MIDI effects: change the notes before they reach the instrument',
   mixer: 'Mixer: a channel strip for every track, the returns and the master',

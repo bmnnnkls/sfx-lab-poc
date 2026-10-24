@@ -47,7 +47,7 @@ describe('parseStoredLayout', () => {
   }
 
   it('rejects a tab that is not a view', () => {
-    expect(parse(withEditorTab({ type: 'tab', id: 'wave', component: 'view' }))).toBeUndefined()
+    expect(parse(withEditorTab({ type: 'tab', id: 'tuner', component: 'view' }))).toBeUndefined()
     expect(parse(withEditorTab({ type: 'tab', id: 'toString', component: 'view' }))).toBeUndefined()
     const json = defaultLayout()
     const panel = group(json, 'panel')
@@ -90,7 +90,7 @@ describe('parseStoredLayout', () => {
     group(json, 'panel').children = [{ type: 'tab', id: 'mixer', component: 'view' }]
     json.borders = [{ type: 'border', location: 'left', selected: 0, children: [{ type: 'tab', id: 'sounds', component: 'view' }] }]
     const parsed = parse(stored(json))!
-    expect(tabsOf(parsed, 'editor')).toEqual(['session', 'arrangement'])
+    expect(tabsOf(parsed, 'editor')).toEqual(['session', 'arrangement', 'wave'])
     expect(tabsOf(parsed, 'panel')).toEqual(['mixer', 'instrument', 'effects', 'notes', 'clip', 'samples', 'library'])
     expect(borderTabs(parsed, 'left')).toEqual(['sounds'])
     expect(parsed.borders!.map((border) => [border.location, border.show])).toEqual([['left', undefined], ['right', false]])
@@ -102,7 +102,7 @@ describe('parseStoredLayout', () => {
     const column = json.layout.children![0] as IJsonRowNode
     column.children = [column.children![1]!, column.children![0]!] // the panel above the editor area
     group(json, 'editor').children = [{ type: 'tab', id: 'session', component: 'view' }]
-    expect(tabsOf(parse(stored(json))!, 'editor')).toEqual(['session', 'arrangement'])
+    expect(tabsOf(parse(stored(json))!, 'editor')).toEqual(['session', 'arrangement', 'wave'])
   })
 
   it("gives tabs the registry's names and tooltips, the panel its attributes, and every layout today's global attributes", () => {
@@ -141,6 +141,7 @@ describe('parseStoredLayout with a version-1 layout', () => {
     expect(group(parsed.model, 'panel')).not.toHaveProperty('maxHeight')
     expect(tabsOf(parsed.model, 'panel')).toEqual(PANEL_VIEWS)
     expect(group(parsed.model, 'editor')).toMatchObject({ selected: 1 })
+    expect(tabsOf(parsed.model, 'editor')).toEqual(['session', 'arrangement', 'wave'])
     expect(parsed.model.borders!.map((border) => border.location)).toEqual(['left', 'right'])
     const model = Model.fromJson(parsed.model)
     expect((model.getNodeById('panel') as TabSetNode).getSelectedNode()?.getId()).toBe('mixer')
@@ -181,7 +182,7 @@ describe('parseStoredLayout with a version-1 layout', () => {
   })
 
   it('still rejects a version-1 layout with an unknown view', () => {
-    expect(parseStoredLayout(v1({ show: true, selected: 0, children: [tab('wave')] }))).toBeUndefined()
+    expect(parseStoredLayout(v1({ show: true, selected: 0, children: [tab('tuner')] }))).toBeUndefined()
   })
 })
 

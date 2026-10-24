@@ -27,7 +27,7 @@ describe('FlexLayoutDriver', () => {
     const { driver } = driverFor()
     expect(driver.snapshot()).toEqual({
       groups: [
-        { id: 'editor', region: 'editor', views: ['session', 'arrangement'], active: 'session' },
+        { id: 'editor', region: 'editor', views: ['session', 'arrangement', 'wave'], active: 'session' },
         { id: 'panel', region: 'panel', views: PANEL_VIEWS, active: 'instrument' },
       ],
       visible: ['session', 'instrument'],
@@ -179,7 +179,7 @@ describe('FlexLayoutDriver', () => {
     const { driver, model } = driverFor()
     model.doAction(Actions.moveNode('mixer', 'editor', DockLocation.RIGHT, -1))
     const snapshot = driver.snapshot()
-    expect(snapshot.groups.filter((group) => group.region === 'editor').map((group) => group.views)).toEqual([['session', 'arrangement'], ['mixer']])
+    expect(snapshot.groups.filter((group) => group.region === 'editor').map((group) => group.views)).toEqual([['session', 'arrangement', 'wave'], ['mixer']])
     expect(snapshot.visible).toEqual(expect.arrayContaining(['session', 'mixer', 'instrument']))
   })
 

@@ -33,8 +33,8 @@ export const openAutomationSlot = (owner: ControlOwner, scene: number) => {
   reveal('clip')
 }
 
-/** Open a sample in the sample editor. */
+/** Open a sample in the wave editor. */
 export const openSampleEditor = (sampleId: string) => {
   useSelectionStore.getState().selectSample(sampleId)
-  reveal('samples')
+  reveal('wave')
 }

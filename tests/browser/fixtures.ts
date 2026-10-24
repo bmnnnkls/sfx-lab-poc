@@ -17,13 +17,14 @@ export { expect }
 
 /** The views' titles. Specs import no `src/`, so keep this in sync by hand with `src/ui/layout/view-titles.ts`. */
 export type ViewTitle =
-  | 'Session' | 'Arrangement'
+  | 'Session' | 'Arrangement' | 'Wave editor'
   | 'Instrument' | 'Effects' | 'Notes' | 'Clip' | 'Mixer' | 'Samples' | 'Sounds' | 'Library'
 
 /** Each view's id, its `data-view` attribute. Kept in sync by hand with `ViewId` in `src/state/layout-store.ts`. */
 const VIEW_IDS: Readonly<Record<ViewTitle, string>> = {
   Session: 'session',
   Arrangement: 'arrangement',
+  'Wave editor': 'wave',
   Instrument: 'instrument',
   Effects: 'effects',
   Notes: 'notes',

@@ -84,7 +84,7 @@ for (const [name, saved] of [
   await page.goto('/?starter')
   await expect(viewRoot(page, 'Session')).toBeVisible()
   await expect(viewRoot(page, 'Instrument')).toBeVisible()
-  await expect(page.getByRole('tab')).toHaveCount(10)
+  await expect(page.getByRole('tab')).toHaveCount(11)
 })
 
 test("the toggles in the panel's strip hide and show the panel and each sidebar", async ({ page }) => {
@@ -218,7 +218,7 @@ test("a round-2 layout loads with the panel's tabs, open tab and height kept, an
   await expect(viewRoot(page, 'Arrangement')).toBeVisible()
   await expect(viewRoot(page, 'Mixer')).toBeVisible()
   const tabs = await page.getByRole('tab').allTextContents()
-  expect(tabs).toEqual(['Session', 'Arrangement', 'Instrument', 'Effects', 'Notes', 'Clip', 'Mixer', 'Samples', 'Sounds', 'Library'])
+  expect(tabs).toEqual(['Session', 'Arrangement', 'Wave editor', 'Instrument', 'Effects', 'Notes', 'Clip', 'Mixer', 'Samples', 'Sounds', 'Library'])
   const mixer = await viewRoot(page, 'Mixer').boundingBox()
   expect(mixer!.height).toBeGreaterThan(220)
   expect(mixer!.height).toBeLessThanOrEqual(300)

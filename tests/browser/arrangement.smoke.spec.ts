@@ -1,5 +1,5 @@
 import type { Locator } from '@playwright/test'
-import { test, expect, openView } from './fixtures'
+import { test, expect, openView, viewRoot } from './fixtures'
 
 /** The regions of one lane: the lane body is a sibling of the regions, both children of the lane row. */
 const regionsInLane = (view: Locator, index: number) =>
@@ -123,9 +123,10 @@ test('the sample editor derives a reversed copy without touching the original', 
   await expect(page.getByRole('listitem')).toHaveCount(5)
 
   await page.getByRole('listitem').filter({ hasText: 'Demo Kick' }).getByRole('button', { name: '✎', exact: true }).click()
-  await expect(samples.getByTestId('sample-editor')).toBeVisible()
-  await page.getByRole('button', { name: 'Reverse', exact: true }).click()
-  await page.getByRole('button', { name: 'Done', exact: true }).click()
+  const wave = viewRoot(page, 'Wave editor')
+  await expect(wave.getByTestId('sample-editor')).toBeVisible()
+  await wave.getByRole('button', { name: 'Reverse', exact: true }).click()
+  await wave.getByRole('button', { name: 'Close', exact: true }).click()
   // The derived copy joins the library; the original is still there, untouched.
   await expect(page.getByRole('listitem')).toHaveCount(6)
   await expect(page.getByRole('listitem').filter({ hasText: 'Demo Kick (reversed)' })).toHaveCount(1)

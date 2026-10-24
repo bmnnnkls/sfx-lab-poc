@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 /** Every view the workbench can show. The ids are stable: layouts are saved by them. */
 export type ViewId =
-  | 'session' | 'arrangement'
+  | 'session' | 'arrangement' | 'wave'
   | 'instrument' | 'effects' | 'notes' | 'clip' | 'mixer' | 'samples' | 'sounds' | 'library'
 
 /** Where a view can sit: the editor area in the middle, the panel below it, and a sidebar on either side. */
@@ -55,12 +55,12 @@ const visibleOf = (groups: readonly GroupState[], hiddenRegions: readonly Region
   groups.filter((group) => !hiddenRegions.includes(group.region)).map((group) => group.active)
 
 const DEFAULT_GROUPS: readonly GroupState[] = [
-  { id: 'editor', region: 'editor', views: MAIN_VIEWS, active: 'session' },
+  { id: 'editor', region: 'editor', views: [...MAIN_VIEWS, 'wave'], active: 'session' },
   { id: 'panel', region: 'panel', views: PANEL_VIEWS, active: 'instrument' },
 ]
 const DEFAULT_HIDDEN: readonly RegionId[] = ['primary', 'secondary']
 
-/** Today's layout: Session and Arrangement over the tool views in the panel; the sidebars are empty and hidden. */
+/** The default layout: Session, Arrangement and the wave editor over the tool views in the panel; the sidebars are empty and hidden. */
 export const DEFAULT_LAYOUT: LayoutSnapshot = {
   groups: DEFAULT_GROUPS,
   visible: visibleOf(DEFAULT_GROUPS, DEFAULT_HIDDEN),

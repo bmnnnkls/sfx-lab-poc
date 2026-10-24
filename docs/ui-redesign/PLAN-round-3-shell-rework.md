@@ -256,6 +256,12 @@ What turned out different from the design above, step by step.
   a double-click, so `RegionToggles` stops both. The Tab key's chrome rule now also covers the toggles
   (`data-region-toggles`) and flexlayout's tab group buttons (`button[data-layout-path]`), so Tab moves through
   them instead of switching Session and Arrangement.
+* **Step 4: `SampleEditor` moved to `ui/wave-editor/`** with its styles (`WaveEditor.module.css`), beside
+  `WaveEditorView`. Its *Done* button became *Close*, as the plan names it; its tooltip said "Back to the library",
+  which names another view.
+* **Step 4: *Import samples…* opens the file picker** in the Wave editor itself and imports into the project, as the
+  Samples view's *Import sample…* does; the empty state then offers the new samples. It doesn't reveal Samples,
+  which *Show samples* does once there are more than eight.
 
 ## Behavior changes
 
