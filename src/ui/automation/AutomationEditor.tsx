@@ -1,4 +1,4 @@
-import { MAX_AUTOMATION_POINTS, type AutomationSlot, type ControlOwner, automationOwnerKey, automationSlotsOf, type AudioClip, type AudioTrack, type AutomationLane, type AutomationPoint, type Clip, type ControlTarget, type InstrumentTrack, automationPosition, canonicalAutomationPoints, controlFromNormalized, controlTargetKey, controlTargetLabel, controlToNormalized, enumerateControlTargets, resolveControlTarget } from '@core'
+import { MAX_AUTOMATION_POINTS, type AutomationSlot, type ControlOwner, automationOwnerKey, automationSlotsOf, type AudioClip, type AudioTrack, type AutomationLane, type AutomationPoint, type Clip, type ControlTarget, type EngineStatus, type InstrumentTrack, automationPosition, canonicalAutomationPoints, controlFromNormalized, controlTargetKey, controlTargetLabel, controlToNormalized, enumerateControlTargets, resolveControlTarget } from '@core'
 import { automationGestureKey, editOwnerAutomation, useAutomationEditor, useControlStore, useProjectStore, useStatusStore, useTouchStore, finishTargetTouch } from '@state'
 import { type PointerEvent, useEffect, useRef, useState } from 'react'
 import { formatParam } from '../shared/param-scale'
@@ -7,6 +7,17 @@ import styles from './AutomationEditor.module.css'
 let clipboard: readonly AutomationPoint[] = []
 const pointId = () => crypto.randomUUID()
 
+/** The status entry that plays an owner's clips or automation slots. */
+const launcherOf = (status: EngineStatus | null, owner: ControlOwner) => owner.kind === 'master' ? status?.masterAutomation : status?.tracks[owner.trackId]
+
+/** The phase line of a playing clip. Owns its status subscription so the editor doesn't re-render at 30 Hz. */
+const AutomationPhase = ({ owner, clipId, lengthBeats }: { owner: ControlOwner; clipId: string; lengthBeats: number }) => {
+  const phase = useStatusStore((s) => {
+    const launcher = launcherOf(s.status, owner)
+    return s.status && launcher?.playingClipId === clipId && launcher.startBeat !== null ? ((s.status.beat - launcher.startBeat) % lengthBeats) / lengthBeats : undefined
+  })
+  return phase === undefined ? null : <line x1={phase * 1000} x2={phase * 1000} y1={0} y2={100} className={styles.playhead} />
+}
 
 export const AutomationEditor = ({ track, clip, owner: explicitOwner }: { track: Pick<InstrumentTrack | AudioTrack, 'id' | 'name'>; clip: Clip | AudioClip | AutomationSlot; owner?: ControlOwner }) => {
   const owner: ControlOwner = explicitOwner ?? { kind: 'track', trackId: track.id }
@@ -16,7 +27,7 @@ export const AutomationEditor = ({ track, clip, owner: explicitOwner }: { track:
   const targetName = (target: ControlTarget) => controlTargetLabel(project, target)
   const requested = useAutomationEditor((s) => s.target)
   const overrides = useControlStore((s) => s.overrides)
-  const status = useStatusStore((s) => s.status)
+  const launched = useStatusStore((s) => launcherOf(s.status, owner)?.playingClipId === clip.id)
   const lanes = clip.automation ?? []
   const [laneId, setLaneId] = useState(lanes[0]?.id)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
@@ -93,13 +104,11 @@ export const AutomationEditor = ({ track, clip, owner: explicitOwner }: { track:
     return `${prev && (prev.interpolation === 'hold' || available?.interpolation === 'hold') ? `L ${p.beat / clip.lengthBeats * 1000} ${100 - prev.value * 100} ` : ''}L ${p.beat / clip.lengthBeats * 1000} ${100 - p.value * 100}`
   }).join(' ') + ` L 1000 ${100 - points.at(-1)!.value * 100}` : ''
   const only = selected.size === 1 ? points.find((p) => selected.has(p.id)) : undefined
-  const playing = owner.kind === 'master' ? status?.masterAutomation : status?.tracks[owner.trackId]
-  const phase = playing?.playingClipId === clip.id && playing.startBeat !== null ? ((status!.beat - playing.startBeat) % clip.lengthBeats) / clip.lengthBeats : undefined
   const targets = enumerateControlTargets(project).filter((t) => owns(t) && targetName(t).toLowerCase().includes(search.toLowerCase()))
   const overridden = lane && overrides.some((entry) => controlTargetKey(entry.target) === controlTargetKey(lane.target))
   return <section className={styles.editor} aria-label="Automation editor" data-automation-editor>
     <header className={styles.toolbar}><strong>{track.name} / {clip.name} · {touch.armed ? 'Touch armed' : 'Read'}</strong><button onClick={() => overrides.filter((entry) => owns(entry.target)).forEach((entry) => { finishTargetTouch(entry.target); useControlStore.getState().release(entry.target) })}>Re-enable automation</button><label>Grid <select aria-label="Automation grid" value={step} onChange={(e) => setStep(Number(e.target.value))}>{[0, 0.125, 0.25, 0.5, 1].map((n) => <option key={n} value={n}>{n || 'Off'}</option>)}</select></label><label>Zoom <input aria-label="Automation zoom" type="range" min={1} max={8} step={0.5} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} /></label></header>
-    {touch.armed && playing?.playingClipId !== clip.id && <output>Touch unavailable here: launch this clip or automation slot</output>}
+    {touch.armed && !launched && <output>Touch unavailable here: launch this clip or automation slot</output>}
     <div className={styles.body}><aside className={styles.lanes}><input aria-label="Search automation targets" placeholder="Search targets…" value={search} onChange={(e) => setSearch(e.target.value)} /><select aria-label="Add automation lane" value="" disabled={lanes.length >= 64} onChange={(e) => { const target = targets.find((t) => controlTargetKey(t) === e.target.value); if (target) addLane(target) }}><option value="">Add target…</option>{targets.map((target) => { const r = resolveControlTarget(project, target); return <option key={controlTargetKey(target)} value={controlTargetKey(target)} disabled={r.status !== 'available' || !r.automatable}>{targetName(target)}{r.status !== 'available' || !r.automatable ? ' (unavailable)' : ''}</option> })}</select>
       {lanes.map((l) => { const r = resolveLane(l.target); const missing = r.status !== 'available' || !r.automatable; return <div key={l.id} className={styles.lane}><input type="checkbox" aria-label={`Enable ${targetName(l.target)}`} checked={l.enabled} onChange={(e) => edit(lanes.map((v) => v.id === l.id ? { ...v, enabled: e.target.checked } : v))} /><button aria-pressed={lane?.id === l.id} onClick={() => { setLaneId(l.id); setSelected(new Set()) }} title={missing ? r.reason : targetName(l.target)}>{missing ? '⚠ Unavailable: ' : ''}{targetName(l.target)}</button><button aria-label="Delete automation lane" onClick={() => edit(lanes.filter((v) => v.id !== l.id))}>×</button></div> })}</aside>
       <div className={styles.main}>{lane ? <><div className={styles.toolbar}><span>{touch.recording.includes(controlTargetKey(lane.target)) ? 'Touch recording' : overridden ? 'Override' : lane.enabled ? 'Read' : 'Disabled'}{resolution && (resolution.status !== 'available' || !resolution.automatable) ? ` · ${resolution.reason}` : ''}</span><button disabled={!selected.size} onClick={copy}>Copy</button><button disabled={!selected.size} onClick={() => { copy(); remove() }}>Cut</button><button onClick={() => paste()}>Paste</button><button disabled={!selected.size} onClick={() => { copy(); paste(Math.min(clip.lengthBeats, Math.max(...points.filter((p) => selected.has(p.id)).map((p) => p.beat)) + (step || 0.25))) }}>Duplicate</button><button disabled={!selected.size} onClick={remove}>Delete points</button><button onClick={() => change([])}>Clear lane</button><label>Paste at <input aria-label="Paste beat" type="number" min={0} max={clip.lengthBeats} step={step || 'any'} value={pasteBeat} onChange={(e) => setPasteBeat(Number(e.target.value))} /></label></div>
@@ -112,7 +121,7 @@ export const AutomationEditor = ({ track, clip, owner: explicitOwner }: { track:
         if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); remove() }
       }}>
         {Array.from({ length: Math.min(1024, Math.ceil(clip.lengthBeats / (step || 1))) }, (_, i) => <line key={i} x1={i * (step || 1) / clip.lengthBeats * 1000} x2={i * (step || 1) / clip.lengthBeats * 1000} y1={0} y2={100} className={styles.grid} />)}
-        <path d={path} className={styles.curve} />{points.map((p) => <ellipse key={p.id} data-point-id={p.id} cx={p.beat / clip.lengthBeats * 1000} cy={100 - p.value * 100} rx={6 / zoom} ry={2.3} className={selected.has(p.id) ? styles.selected : styles.point}><title>{p.beat} beats · {available ? formatParam(available.spec, controlFromNormalized(available.spec, p.value)) : p.value}</title></ellipse>)}{phase !== undefined && <line x1={phase * 1000} x2={phase * 1000} y1={0} y2={100} className={styles.playhead} />}
+        <path d={path} className={styles.curve} />{points.map((p) => <ellipse key={p.id} data-point-id={p.id} cx={p.beat / clip.lengthBeats * 1000} cy={100 - p.value * 100} rx={6 / zoom} ry={2.3} className={selected.has(p.id) ? styles.selected : styles.point}><title>{p.beat} beats · {available ? formatParam(available.spec, controlFromNormalized(available.spec, p.value)) : p.value}</title></ellipse>)}<AutomationPhase owner={owner} clipId={clip.id} lengthBeats={clip.lengthBeats} />
       </svg></div></div>
       {only && <div className={styles.toolbar}><label>Beat <input key={`beat:${only.id}:${only.beat}`} aria-label="Point beat" type="number" defaultValue={only.beat} min={0} max={clip.lengthBeats} step={step || 'any'} onBlur={(e) => change(points.map((p) => p.id === only.id ? { ...p, beat: Number(e.target.value) } : p))} /></label><label>Value {available?.spec.unit ?? ''}<input key={`value:${only.id}:${only.value}`} aria-label="Point value" type="number" step="any" defaultValue={available ? controlFromNormalized(available.spec, only.value) : only.value} onBlur={(e) => change(points.map((p) => p.id === only.id ? { ...p, value: available ? controlToNormalized(available.spec, Number(e.target.value)) : Number(e.target.value) } : p))} /></label><label>Segment <select aria-label="Point interpolation" value={only.interpolation} onChange={(e) => change(points.map((p) => p.id === only.id ? { ...p, interpolation: e.target.value as 'linear' | 'hold' } : p))}><option value="linear">Linear</option><option value="hold">Hold</option></select></label></div>}
       <p className={styles.hint}>{points.length} / {MAX_AUTOMATION_POINTS} points · Click to draw · drag selected points · Shift-click to select · ⌘/Ctrl A/C/X/V · Delete · times are beats, values follow the control scale{available && points.length ? ` · first: ${formatParam(available.spec, controlFromNormalized(available.spec, automationPosition(lane, 0)!))}` : ''}</p></> : <p className={styles.hint}>Add a target to draw automation. Empty lanes leave base values unchanged.</p>}</div>
