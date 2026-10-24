@@ -1,7 +1,7 @@
 import { type PointerEvent, useRef } from 'react'
 
 /** Pointer handlers that drag a node by its header, clamped to the canvas origin. */
-export const useNodeDrag = (x: number, y: number, onMove: (x: number, y: number) => void) => {
+export const useNodeDrag = (x: number, y: number, onMove: (x: number, y: number) => void, zoom = 1) => {
   const origin = useRef<{ px: number; py: number; x: number; y: number } | null>(null)
 
   return {
@@ -14,8 +14,8 @@ export const useNodeDrag = (x: number, y: number, onMove: (x: number, y: number)
       const start = origin.current
       if (!start) return
       onMove(
-        Math.max(0, start.x + event.clientX - start.px),
-        Math.max(0, start.y + event.clientY - start.py),
+        Math.max(0, start.x + (event.clientX - start.px) / zoom),
+        Math.max(0, start.y + (event.clientY - start.py) / zoom),
       )
     },
     onPointerUp: (event: PointerEvent<HTMLElement>) => {

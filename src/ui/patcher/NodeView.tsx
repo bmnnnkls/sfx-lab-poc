@@ -11,6 +11,7 @@ import type { Preview } from './previews'
 import { useNodeDrag } from './use-node-drag'
 
 interface NodeViewProps {
+  zoom: number
   node: PatchNode
   shape: NodeShape
   /** What the node is called here: its name, or its type numbered when alike. */
@@ -45,6 +46,7 @@ interface NodeViewProps {
  */
 export const NodeView = ({
   node,
+  zoom,
   shape,
   title,
   driven,
@@ -61,7 +63,7 @@ export const NodeView = ({
   onWireStart,
   onWireEnd,
 }: NodeViewProps) => {
-  const drag = useNodeDrag(node.x, node.y, onMove)
+  const drag = useNodeDrag(node.x, node.y, onMove, zoom)
   const rows = Math.max(shape.inputs.length, shape.outputs.length)
   // A socket shows its parameter's facts; a control's own range is the live one.
   const paramSpecOf = (paramId: string | undefined) => shape.params.find((candidate) => candidate.id === paramId)

@@ -25,18 +25,56 @@
   color: var(--text-dim);
 }
 
-.scroller {
+.canvasHost {
+  position: relative;
   height: 100%;
-  overflow: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.scroller {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.scroller[data-hand-tool='true'] { cursor: grab; }
+.scroller[data-panning='true'],
+.scroller[data-panning='true'] * { cursor: grabbing !important; }
+
+.navigation {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.navigation button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.navigationHint {
+  position: absolute;
+  right: 12px;
+  bottom: 16px;
+  color: var(--text-dim);
+  font-size: 11px;
+  pointer-events: none;
+  background: var(--panel);
 }
 
 .surface {
-  position: relative;
-  /* Fills the whole canvas, so a double-click or a marquee works on any empty part of it, not only near the nodes. */
-  min-width: 100%;
-  min-height: 100%;
-  background-image: radial-gradient(var(--border) 1px, transparent 1px);
-  background-size: 20px 20px;
+  position: absolute;
+  transform-origin: 0 0;
 }
 
 .wires {
@@ -234,7 +272,7 @@
   min-height: 0;
 }
 
-.editorBody > .scroller {
+.editorBody > .canvasHost {
   flex: 1 1 0;
   min-width: 0;
 }

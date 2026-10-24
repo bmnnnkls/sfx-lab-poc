@@ -329,6 +329,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
           </div>
         ) : (
           <PatchCanvas
+            key={scope}
             ref={canvas}
             patch={patch}
             modules={modules}
