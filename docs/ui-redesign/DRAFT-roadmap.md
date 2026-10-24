@@ -82,7 +82,8 @@ earlier plans refer to the old order: old round 4 is now 6, 5 is 10, 6 is 11, 7 
 
 ## Round 3: shell rework
 
-See the [plan](PLAN-round-3-shell-rework.md).
+**Done** 2026-10-24, see the [plan](PLAN-round-3-shell-rework.md) and its changes made while implementing. The
+outline below is what the round started from.
 
 * **The panel becomes a tab group** in the layout instead of flexlayout's bottom border, so the sidebars can run the
   full height (flexlayout always spans its top and bottom borders across the sidebars). This overrides a round-2

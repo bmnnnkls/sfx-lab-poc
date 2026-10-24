@@ -7,7 +7,8 @@
 //
 // Setups (the starter project, three regions placed on the arrangement, 2 s of warm-up before measuring):
 //   editor  Arrangement and Mixer showing, the arrangement playing (the setup rounds 1b and 2 compare against).
-//   all     The same, after every panel view has been shown once: hidden views stay mounted and must do nothing.
+//   all     The same, after every panel view (and Sounds) has been shown once: hidden views stay mounted and must do
+//           nothing.
 //   four    Session and Arrangement side by side over Clip, Mixer in the panel; scene 1 plays, its first clip
 //           open in Clip, so Clip's playhead runs too. Needs the docking shell (round 2).
 //
@@ -92,6 +93,8 @@ const setUp = async (page, url) => {
   }
   if (SETUP === 'all') {
     for (const title of ['Instrument', 'Effects', 'Notes', 'Clip', 'Samples', 'Sounds', 'Library']) await show(page, title)
+    // Sounds sits in a sidebar since round 3, so showing the others leaves it open: collapse its sidebar again.
+    if (await page.locator('[data-view="sounds"]').isVisible()) await page.getByRole('tab', { name: 'Sounds', exact: true }).click()
   }
   if (SETUP === 'four') {
     await dock(page, 'Session', 'arrangement', 0.1, 0.5)

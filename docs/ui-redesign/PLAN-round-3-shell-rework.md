@@ -1,6 +1,6 @@
 # Round 3: shell rework
 
-Status: **plan**, 2026-10-24, decisions signed off: the first row by the user's own decision, the rest as proposed. Part of the
+Status: **done** 2026-10-24, decisions signed off: the first row by the user's own decision, the rest as proposed. What changed on the way is under [Changes made while implementing](#changes-made-while-implementing); shipped behavior is in [ARCHITECTURE.md § Layout and navigation](../../ARCHITECTURE.md#layout-and-navigation). Part of the
 [UI redesign](README.md). Carries out [roadmap § Round 3](DRAFT-roadmap.md#round-3-shell-rework), which the review
 of round 2's shell added on 2026-10-24. It comes before the views round, now
 [round 4](PLAN-round-4-views.md), and overrides one round-2 decision: the panel stops being a flexlayout border.
@@ -284,6 +284,24 @@ What turned out different from the design above, step by step.
   the File group takes the bar's spare width with its contents at the right end, where `margin-left: auto` held it.
   Measured: one row down to about 1,110 px (the name at 137 px at 1,124), two rows below; no sideways scroll at
   900 px either.
+* **Step 9: the profile.** `scripts/profile-status.cjs` now collapses Sounds' sidebar again in the `all` setup
+  (showing every view used to leave only the last panel view showing; Sounds would stay open in its sidebar).
+  Base (`feat/ui-redesign` at a9fd8ca) and this branch ran interleaved in one session, 10 s each after 2 s of
+  warm-up, headless Chromium, 1500 × 1000:
+
+  | Per second | Base `editor`, 2 runs | Round 3 `editor`, 2 runs | Base `four`, 2 runs | Round 3 `four`, 2 runs | Round 3 `all` |
+  |---|---|---|---|---|---|
+  | Component renders (dev) | 145, 145 | 145, 144 | 173, 173 | 173, 173 | 144 |
+  | React render time (dev) | 5.7, 6.3 ms | 6.7, 11.7 ms | 7.8, 9.7 ms | 7.3, 12.2 ms | 12.5 ms |
+  | Script (production) | 8.3, 11.3 ms | 9.1, 11.4 ms | 11.6, 14.6 ms | 10.7, 18.8 ms | 15.6 ms |
+  | Main-thread tasks (production) | 56.7, 76.9 ms | 63.2, 79.6 ms | 83.5, 102.8 ms | 81.0, 127.9 ms | 108.4 ms |
+  | Layout + style (production) | 15.7, 20.3 ms | 16.7, 21.1 ms | 16.3, 20.9 ms | 15.7, 25.9 ms | 29.6 ms |
+
+  * Component renders stay at 145 a second in `editor` (173 in `four`, where Clip's playhead adds its 29), the same
+    components as round 2: the structure changed, the views didn't. Hidden views add nothing (`all`, 144).
+  * The timings rose through the session for both builds alike (every second pass is slower than the first), so
+    the pairs compare and the passes don't. Round 3's second `four` pass is the one outlier (tasks 127.9 against
+    the base's 102.8 just before it); its first pass was below the base's.
 
 ## Behavior changes
 
