@@ -1,6 +1,6 @@
 # Round 4: views that work anywhere
 
-Status: **plan**, 2026-10-24, decisions open. Part of the [UI redesign](README.md). Carries out
+Status: **in progress**, 2026-10-24, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 4](DRAFT-roadmap.md#round-4-views-that-work-anywhere), the parts of the
 [audit remediation proposal](PROPOSAL-audit-remediation.md) left after round 2 (§3, container queries and `minSize`;
 what is left of §4, empty states; and §1's graph-view store), and the two rows the
@@ -357,6 +357,9 @@ Anything else a reviewer notices is a bug in this round.
 * Profiling as in step 12.
 
 ## Decisions to sign off
+
+Signed off 2026-10-24: every row as proposed. The row on a window smaller than the minimums was changed when the plan
+was checked against round 3's shell, before sign-off.
 
 | Question | Proposed | Notes |
 |---|---|---|
