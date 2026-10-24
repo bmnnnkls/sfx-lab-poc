@@ -11,9 +11,21 @@ export const FxPanel = () => {
   const tracks = useProjectStore((state) => state.project.tracks)
   const selectedId = useSelectionStore((state) => state.trackId)
   const master = useSelectionStore((state) => state.master)
+  const addTrack = useProjectStore((state) => state.addTrack)
+  const addAudioTrack = useProjectStore((state) => state.addAudioTrack)
 
   if (master) return <GraphEditor key="master" owner="master" graph="fx" />
   const track = tracks.find((candidate) => candidate.id === selectedId) ?? tracks[0]
-  if (!track) return <p className={styles.empty}>Add a track to give it effects.</p>
+  if (!track) {
+    return (
+      <div className={styles.empty}>
+        <p>There is no track to give effects.</p>
+        <div className={styles.emptyActions}>
+          <button onClick={addTrack}>Add instrument track</button>
+          <button onClick={addAudioTrack}>Add audio track</button>
+        </div>
+      </div>
+    )
+  }
   return <GraphEditor key={track.id} owner={track} graph="fx" />
 }

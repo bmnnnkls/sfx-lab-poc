@@ -72,7 +72,7 @@ test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after tras
         await panel.getByRole('button', { name: 'Audible exchange', exact: true }).click()
       } else {
         await panel.getByLabel('Library name', { exact: true }).fill('Reusable sampled voice')
-        await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+        await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
       }
       await panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Reusable sampled voice/ }).click()
       await panel.getByRole('button', { name: 'Replace selected graph', exact: true }).click()

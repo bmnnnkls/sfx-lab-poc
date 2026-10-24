@@ -382,6 +382,13 @@ What turned out different from the design above, step by step.
   one row above a 60 px lane, and hiding the lane (*Velocity*) gives it the rest.
 * **Step 8: the narrow automation editor keeps the open lane's row** (enable, delete) beside the lane `<select>`,
   the search and *Add target…*, by CSS (`:has(button[aria-pressed='true'])`), so nothing measures.
+* **Step 9: the texts changed with the actions.** "Add an instrument track to edit its instrument" became "There is
+  no instrument track to edit." beside *Add instrument track* (and likewise for Effects and Notes), since the button
+  now says what to do.
+* **Step 9: the Library's empty state shows only while it has no items outside the trash.** Its *Save asset +
+  presets* runs the toolbar's action, so specs that click the toolbar's take the first of the two.
+* **Step 9: the min-size spec checks the empty states** of Instrument and Effects without tracks, Notes on the
+  master (its action reveals Effects) and the empty Library, besides the empty Clip.
 
 ## Behavior changes
 

@@ -20,7 +20,8 @@ test('library folders, associated presets, independent insert/undo/reload and tr
   await expect(panel.getByRole('treeitem', { name: folderName('Collection') })).toBeVisible()
   await panel.getByRole('treeitem', { name: folderName('Collection') }).click()
   await panel.getByLabel('Library name', { exact: true }).fill('Two samples')
-  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+  // The toolbar's; an empty library offers the same action below.
+  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
   const items = panel.getByLabel('Library items', { exact: true })
   await expect(items.getByRole('button')).toHaveCount(3)
   await items.getByRole('button', { name: /^Two samples/ }).click()
@@ -77,7 +78,7 @@ test('isolated previews close their audio context on navigation, including cance
   await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Preview synth')
-  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
   await panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Preview synth/ }).click()
   const baseline = await page.evaluate(() => (window as unknown as { __libraryContexts: AudioContext[] }).__libraryContexts.length)
   const saved = await page.evaluate(() => localStorage.getItem('sfxlab:project'))
@@ -128,7 +129,7 @@ test('canceled preview completions cannot clear a newer busy state or overwrite 
   await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Owned preview')
-  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
   await panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Owned preview/ }).click()
   await page.evaluate(() => {
     const resume = AudioContext.prototype.resume

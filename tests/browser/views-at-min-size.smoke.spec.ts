@@ -47,6 +47,13 @@ const openFirstClip = async (page: Page, root: Locator) => {
   await expect(root.getByLabel('Clip length in beats', { exact: true })).toBeVisible()
 }
 
+/** Removes the starter's tracks in Session, which shows in the editor group beside the docked view. */
+const removeEveryTrack = async (page: Page) => {
+  const session = await openView(page, 'Session')
+  for (const name of ['Bass', 'Lead', 'Pad']) await session.getByRole('button', { name: `Remove ${name}`, exact: true }).click()
+  await expect(session.getByRole('button', { name: /^Remove / })).toHaveCount(0)
+}
+
 /** ✎ on each sample in Samples. */
 const editButtons = (root: Locator) => root.locator('button[title^="Open in the wave editor"]')
 
@@ -128,10 +135,49 @@ const CASES: readonly Case[] = [
   ...graphEditorCases('Effects'),
   ...graphEditorCases('Notes'),
   {
+    title: 'Instrument',
+    state: 'no tracks',
+    min: EDITOR,
+    prepare: removeEveryTrack,
+    controls: (root) => [root.getByRole('button', { name: 'Add instrument track', exact: true })],
+    // The action fills the empty state.
+    check: async (root) => {
+      await root.getByRole('button', { name: 'Add instrument track', exact: true }).click()
+      await expect(root.getByRole('button', { name: 'Add', exact: true })).toBeVisible()
+    },
+  },
+  {
+    title: 'Effects',
+    state: 'no tracks',
+    min: EDITOR,
+    prepare: removeEveryTrack,
+    controls: (root) => [root.getByRole('button', { name: 'Add instrument track', exact: true }), root.getByRole('button', { name: 'Add audio track', exact: true })],
+  },
+  {
+    title: 'Notes',
+    state: 'the master',
+    min: EDITOR,
+    prepare: async (page) => {
+      await viewRoot(page, 'Session').getByRole('button', { name: 'Master', exact: true }).click()
+    },
+    controls: (root) => [root.getByRole('button', { name: 'Open effects', exact: true })],
+    check: async (root) => {
+      await root.getByRole('button', { name: 'Open effects', exact: true }).click()
+      await expect(viewRoot(root.page(), 'Effects')).toBeVisible()
+    },
+  },
+  {
+    title: 'Library',
+    state: 'empty',
+    min: TOOL_VIEW,
+    // At 280 × 200 the toolbars fill the height, and the empty state is a scroll away.
+    controls: (root, { width, height }) => width && height ? [] : [root.getByLabel('Library item details', { exact: true }).getByRole('button', { name: 'Save asset + presets', exact: true })],
+  },
+  {
     title: 'Library',
     min: TOOL_VIEW,
     prepare: async (_page, root) => {
-      await root.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
+      await root.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
       await expect(root.getByLabel('Library items', { exact: true }).getByRole('button')).not.toHaveCount(0)
     },
     // At 280 × 200 the toolbars fill the height, and the items are a scroll away.

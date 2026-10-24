@@ -135,7 +135,10 @@ export const LibraryPanel = () => {
           <button disabled={busy} title="Retains dependencies and all sample bytes. Restore from Trash." onClick={() => void run(async () => { stopPreview(); return library.update(c => trashLibraryEntry(c, item.id)) })}>Trash item + associated presets</button>
         </> : <button disabled={busy} onClick={() => void run(() => library.update(c => trashLibraryEntry(c, item.id, false)))}>Restore item</button>}
         <p>Project copies are independent. Trash retains library records and sample bytes; it has no effect on project undo.</p>
-      </> : <p>Select a library item for dependencies, preview and explicit load scope. Save includes nested modules, sample choices and compatible project presets. Duplicate names are allowed.</p>}</article>
+      </> : !trash && !catalog.items.some(i => !i.trashed) ? <div className={styles.empty}>
+        <p>Your library is empty. Save the selected instrument, a clip or a sample to reuse it in other projects.</p>
+        <button disabled={busy} onClick={() => void run(() => library.saveAsset(scope, name, folder))}>Save asset + presets</button>
+      </div> : <p>Select a library item for dependencies, preview and explicit load scope. Save includes nested modules, sample choices and compatible project presets. Duplicate names are allowed.</p>}</article>
     </div>
   </section>
 }

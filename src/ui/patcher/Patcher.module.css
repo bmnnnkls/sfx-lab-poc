@@ -29,6 +29,13 @@
   margin: 0 0 8px;
 }
 
+/* What an empty editor offers: text first, then the actions in a row that wraps. */
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .canvasHost {
   position: relative;
   height: 100%;
