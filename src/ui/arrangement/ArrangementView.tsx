@@ -7,6 +7,7 @@ import {
 import { useEngineControls, useProjectStore, useStatusStore } from '@state'
 import { Fragment, useState } from 'react'
 import { ContextMenu } from '../shared/menu'
+import { useStoredState } from '../shared/use-stored-state'
 import { ArrangementPlayhead } from './ArrangementPlayhead'
 import { ArrangementRegion } from './ArrangementRegion'
 import styles from './arrangement.module.css'
@@ -18,6 +19,9 @@ const MAX_PX_PER_BEAT = 64
 /** The timeline is at least this many bars, and always shows 4 empty bars past the last clip. */
 const MIN_BARS = 32
 const TRAILING_BARS = 4
+
+const isZoom = (value: unknown): value is number =>
+  typeof value === 'number' && value >= MIN_PX_PER_BEAT && value <= MAX_PX_PER_BEAT
 
 /** Snap to sixteenth beats. */
 const snap = (beats: number): number => Math.round(beats * 4) / 4
@@ -35,7 +39,8 @@ export const ArrangementView = () => {
   const addRegion = useProjectStore((state) => state.addArrangementClip)
   const updateRegion = useProjectStore((state) => state.updateArrangementClip)
   const removeRegion = useProjectStore((state) => state.removeArrangementClip)
-  const [pxPerBeat, setPxPerBeat] = useState(DEFAULT_PX_PER_BEAT)
+  // The zoom is remembered between sessions, as the piano roll's is.
+  const [pxPerBeat, setPxPerBeat] = useStoredState('sfxlab:arrangement-zoom', DEFAULT_PX_PER_BEAT, isZoom)
   const [selected, setSelected] = useState<string | null>(null)
   /** Where an empty lane was right-clicked, so "add" places the clip there. */
   const [placedAt, setPlacedAt] = useState(0)
