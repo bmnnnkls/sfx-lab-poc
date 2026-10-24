@@ -1,6 +1,6 @@
 # Round 6: working across views
 
-Status: **planned** 2026-10-24, decisions to sign off below. Part of the [UI redesign](README.md). Carries out
+Status: **planned** 2026-10-24, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 6](DRAFT-roadmap.md#round-6-working-across-views), from an inventory of every drag, drop and
 view-local selection in the app, taken on `feat/ui-redesign` at `048bf83` (round 5 merged).
 
@@ -388,6 +388,9 @@ Anything else a reviewer notices is a bug in this round.
   `ArrangementView` now subscribes to `regionId`, which changes only on a click.
 
 ## Decisions to sign off
+
+Signed off 2026-10-24: every row as proposed. On popouts the user noted they may be turned on at some point; that
+round checks HTML5 drags between windows.
 
 | Question | Proposed | Notes |
 |---|---|---|

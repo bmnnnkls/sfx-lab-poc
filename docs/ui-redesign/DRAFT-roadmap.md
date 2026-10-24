@@ -147,7 +147,7 @@ delete and duplicate for graph selections wait for round 10.
 
 The point of seeing several views at once.
 
-**Planned** 2026-10-24; see the [plan](PLAN-round-6-across-views.md), decisions to sign off. Its inventory changed the
+**Planned** 2026-10-24; see the [plan](PLAN-round-6-across-views.md), signed off as proposed. Its inventory changed the
 outline below: the default layout shares one tab group between Session and Arrangement, so drags hold over a tab to
 show its view; a region opens in Clip as its own copy, through a clip reference in `core`, and selecting it doesn't
 reveal Clip; "the inspector" is the views that already follow the selected track; project presets drop only on a
