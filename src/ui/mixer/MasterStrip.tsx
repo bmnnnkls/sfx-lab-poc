@@ -20,6 +20,7 @@ export const MasterStrip = () => {
     .map((node) => describeNode(node, modules)?.label ?? node.type)
 
   return (
+    <ActionMenu subject={{ kind: 'master' }}>
     <section {...gesture.events} className={`${styles.strip} ${styles.masterStrip}`} aria-label="Master channel">
       <span className={styles.name}>Master</span>
       <div className={styles.badges}>
@@ -42,5 +43,6 @@ export const MasterStrip = () => {
       <EffectiveValue target={target} />
       <output className={styles.value}>{Math.round(volume * 100)}</output>
     </section>
+    </ActionMenu>
   )
 }

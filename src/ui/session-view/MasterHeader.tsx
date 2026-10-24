@@ -1,5 +1,6 @@
 import { MASTER_IN_TYPE, TRACK_OUT_TYPE, describeNode } from '@core'
 import { openMasterEffects, useProjectStore, useSelectionStore } from '@state'
+import { ActionMenu } from '../shared/menu'
 import styles from './SessionView.module.css'
 
 /** The master bus at the end of the session grid: select it to edit the effects on the final mix. */
@@ -10,6 +11,7 @@ export const MasterHeader = () => {
   const effects = fx.nodes.filter((node) => node.type !== MASTER_IN_TYPE && node.type !== TRACK_OUT_TYPE)
 
   return (
+    <ActionMenu subject={{ kind: 'master' }}>
     <div className={`${styles.header} ${styles.masterHeader} ${selected ? styles.selected : ''}`}>
       <button className={styles.trackName} onClick={openMasterEffects} title="Effects on the final mix of all tracks">
         Master
@@ -25,5 +27,6 @@ export const MasterHeader = () => {
         </button>
       )}
     </div>
+    </ActionMenu>
   )
 }

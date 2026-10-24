@@ -2,9 +2,11 @@ import { usePersistenceStore } from '../persistence-store'
 import { clipActions } from './clip'
 import { controlActions } from './control'
 import { laneActions } from './lane'
+import { masterActions } from './master'
 import { regionActions } from './region'
 import { renameAction } from './rename'
 import { slotActions } from './slot'
+import { trackActions } from './track'
 import type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf } from './types'
 
 export type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf } from './types'
@@ -12,8 +14,8 @@ export { duplicateSessionClip, placeOnArrangement } from './clip'
 export { commitRename, startRename } from './rename'
 
 const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = {
-  track: [renameAction('track')],
-  master: [],
+  track: trackActions,
+  master: masterActions,
   clip: clipActions,
   slot: slotActions,
   'automation-slot': [],

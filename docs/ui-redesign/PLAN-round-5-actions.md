@@ -446,4 +446,18 @@ What turned out different from the design above, step by step.
 * **Step 3: the module bar and panel controls keep a field that is always there.** Both use `RenameField` without
   selecting on mount. The module bar commits through `commitRename` on Enter or blur instead of on every key (still
   one undo step). A panel control may still be given an empty name, which falls back to its parameter's.
+* **Step 4: `duplicateTrack` also copies the track's sample choices** (`sampleBindings` for its owner) next to its
+  control values, since they decide which sample a sampler plays, so the copy sounds the same. Node ids stay the same
+  inside the copy's graphs, so its values and lanes only change owner. `MAX_TRACKS` and `MAX_SCENES` now live in
+  `core/project`, and `LIMITS` reads them, so `core/project` doesn't import the file format.
+* **Step 4: *Show automation* on a track** opens its volume lane, as the fader's menu does: in the selected (or first)
+  clip of a track, in a slot of a return (created when empty). It is disabled on a track without clips.
+* **Step 4: the innermost menu opens.** The mixer strip's menu holds the pan, send and fader menus, so `ContextMenu`
+  stops a `contextmenu` event at its trigger, and Shift+F10 is handled once. The session header, the mixer strip and
+  the master's header and strip are triggers as a whole; the arrangement lane's name is focusable now
+  (`tabIndex={0}`), so Shift+F10 reaches its menu.
+* **Step 4: M and S in the mixer** run *Mute* and *Solo*, and the session header's ■ runs *Stop*, next to × running
+  *Delete*.
+* **Step 4: the audio test** pans the original hard left and the copy hard right, launches the scene, and checks that
+  the two channels match (`tests/browser/duplicate-track.audio.spec.ts`); turning the copy's fader down makes it fail.
 

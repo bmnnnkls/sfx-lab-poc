@@ -27,7 +27,7 @@ const OpenEntries = ({ build }: { build: () => readonly MenuEntry[] }) => <MenuE
  * prevented, and one is sent from the element's bottom-left corner, where the menu opens.
  */
 const openFromKeyboard = (event: KeyboardEvent<HTMLElement>) => {
-  if (event.key !== 'F10' || !event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return
+  if (event.key !== 'F10' || !event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return
   event.preventDefault()
   const box = event.currentTarget.getBoundingClientRect()
   event.currentTarget.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.left, clientY: box.bottom }))
@@ -38,14 +38,15 @@ const openFromKeyboard = (event: KeyboardEvent<HTMLElement>) => {
  * supplies the accessibility work: keyboard navigation, typeahead, focus return and keeping the
  * menu inside the window. Callers only describe entries, so the library can be swapped here alone.
  *
- * Shift+F10 and the Menu key open it on the focused element too.
+ * Shift+F10 and the Menu key open it on the focused element too. Inside another menu's trigger (a fader in a mixer
+ * strip), the innermost menu opens.
  *
  * To make entries depend on what was clicked, set state from `children`'s own `onContextMenu`;
  * it runs before the menu opens.
  */
 export const ContextMenu = ({ entries, children, onCloseAutoFocus }: ContextMenuProps) => (
   <Menu.Root>
-    <Menu.Trigger asChild onKeyDown={openFromKeyboard}>
+    <Menu.Trigger asChild onKeyDown={openFromKeyboard} onContextMenu={(event) => event.stopPropagation()}>
       {children}
     </Menu.Trigger>
     <Menu.Portal>

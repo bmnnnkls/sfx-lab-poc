@@ -1,3 +1,5 @@
+import { MAX_SCENES, MAX_TRACKS } from '../project'
+
 /** Identifies our files so the importer can reject anything else with a clear message. */
 export const FORMAT = 'sfx-lab-project'
 
@@ -6,8 +8,8 @@ export const CURRENT_VERSION = 9
 
 /** Hard caps so a malformed or hostile file cannot make the app allocate without bound. */
 export const LIMITS = {
-  tracks: 64,
-  scenes: 64,
+  tracks: MAX_TRACKS,
+  scenes: MAX_SCENES,
   samples: 256,
   modules: 128,
   portsPerModule: 64,

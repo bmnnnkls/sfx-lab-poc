@@ -92,7 +92,11 @@ export const ArrangementView = () => {
           .filter((track) => track.kind !== 'return')
           .map((track) => (
             <div key={track.id} className={styles.lane}>
-              <div className={styles.name}>{track.name}</div>
+              <ActionMenu subject={{ kind: 'track', trackId: track.id }}>
+                <div className={styles.name} tabIndex={0}>
+                  {track.name}
+                </div>
+              </ActionMenu>
               <div className={styles.row} style={{ width }}>
                 <ActionMenu subject={{ kind: 'lane', trackId: track.id, beat: placedAt }}>
                   <div

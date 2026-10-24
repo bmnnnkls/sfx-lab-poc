@@ -13,7 +13,8 @@ const axis = (target: ControlTarget) => (target.kind === 'graph' ? target.paramI
 
 const ownerTrack = (target: ControlTarget) => (target.owner.kind === 'track' ? trackOf(target.owner.trackId) : undefined)
 
-const showAutomation = (target: ControlTarget) => {
+/** Shows a control's lane: in a return's or the master's slot, or in the selected (or first) clip of a track. */
+export const showAutomation = (target: ControlTarget) => {
   const track = ownerTrack(target)
   if (target.owner.kind === 'master' || track?.kind === 'return') {
     useAutomationEditor.getState().show(target)

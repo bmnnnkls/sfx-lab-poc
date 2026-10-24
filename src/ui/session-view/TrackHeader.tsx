@@ -1,15 +1,16 @@
 import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type ControlTarget, type Track, describeNode } from '@core'
-import { openTrackView, useEngineControls, useProjectStore, useSelectionStore } from '@state'
+import { type Subject, openTrackView, runAction, useProjectStore, useSelectionStore } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
+import { ActionMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename } from '../shared/RenameField'
 import styles from './SessionView.module.css'
 
 export const TrackHeader = ({ track }: { track: Track }) => {
-  const controls = useEngineControls()
+  const context = useActionContext()
+  const subject: Subject = { kind: 'track', trackId: track.id }
   const gesture = useControlGesture()
   const target: ControlTarget = { kind: 'mixer', owner: { kind: 'track', trackId: track.id }, control: 'volume' }
-  const removeTrack = useProjectStore((state) => state.removeTrack)
   const selected = useSelectionStore((state) => state.trackId === track.id)
   const selectTrack = useSelectionStore((state) => state.selectTrack)
   const modules = useProjectStore((state) => state.project.modules)
@@ -22,8 +23,9 @@ export const TrackHeader = ({ track }: { track: Track }) => {
       : []
 
   return (
+    <ActionMenu subject={subject}>
     <div {...gesture.events} className={`${styles.header} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnHeader : ''} ${track.muted ? styles.mutedHeader : ''}`}>
-      <InPlaceRename subject={{ kind: 'track', trackId: track.id }} name={track.name} label={`Name of ${track.name}`} className={styles.trackName}>
+      <InPlaceRename subject={subject} name={track.name} label={`Name of ${track.name}`} className={styles.trackName}>
         <button className={styles.trackName} onClick={() => selectTrack(track.id)}>
           {track.name}
           {track.kind === 'audio' && <span className={styles.audioTag}> audio</span>}
@@ -61,13 +63,14 @@ export const TrackHeader = ({ track }: { track: Track }) => {
       />
       <EffectiveValue target={target} />
       {track.kind !== 'return' && (
-        <button onClick={() => controls.stopTrack(track.id)} aria-label={`Stop ${track.name}`}>
+        <button onClick={() => runAction('track.stop', subject, context)} aria-label={`Stop ${track.name}`}>
           ■
         </button>
       )}
-      <button onClick={() => removeTrack(track.id)} aria-label={`Remove ${track.name}`}>
+      <button onClick={() => runAction('track.delete', subject, context)} aria-label={`Remove ${track.name}`}>
         ×
       </button>
     </div>
+    </ActionMenu>
   )
 }

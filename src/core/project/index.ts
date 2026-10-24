@@ -46,6 +46,8 @@ export {
   DEFAULT_VOICES,
   MAX_CLIP_BEATS,
   MAX_NAME_LENGTH,
+  MAX_SCENES,
+  MAX_TRACKS,
   MAX_VOICES,
   MIN_CLIP_BEATS,
   MIN_VOICES,
@@ -136,5 +138,6 @@ export {
 } from './groove'
 export { copySessionClip } from './clip-copy'
 export { NAME_LIMITS, setClipName, setSampleName, setSceneName, setTrackName } from './rename'
+export { duplicateTrack } from './track-duplicate'
 
 export type { AutomationSlot } from './types'

@@ -28,6 +28,7 @@ import {
   createHistory,
   createTrack,
   doubleClip,
+  duplicateTrack,
   editPatchAt,
   groupNodesAsModule,
   removeModule,
@@ -78,6 +79,8 @@ interface ProjectActions {
   /** Adds a return track: a place for other tracks to send sound to, with its own effects. */
   addReturnTrack(): void
   removeTrack(trackId: string): void
+  /** Adds a copy of a track right after it (see `duplicateTrack`); returns its id, or null at the track limit. */
+  duplicateTrack(trackId: string): string | null
   /** Renames a track; an empty name keeps the old one. */
   setTrackName(trackId: string, name: string): void
   /** Renames a session clip; an empty name keeps the old one. */
@@ -217,6 +220,11 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         return addTrack(project, createReturnTrack(`Return ${String.fromCharCode(65 + (count % 26))}`))
       }),
     removeTrack: (trackId) => edit((project) => removeTrack(project, trackId)),
+    duplicateTrack: (trackId) => {
+      const result = duplicateTrack(get().project, trackId)
+      if (result.trackId) edit(() => result.project)
+      return result.trackId
+    },
     setTrackName: (trackId, name) => edit((project) => setTrackName(project, trackId, name)),
     setClipName: (trackId, clipId, name) => edit((project) => setClipName(project, trackId, clipId, name)),
     setSceneName: (scene, name) => edit((project) => setSceneName(project, scene, name)),
