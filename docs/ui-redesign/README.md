@@ -22,6 +22,7 @@ layer of navigation coupling, which round 1 removes.
 | Document | Status |
 |---|---|
 | [PLAN-round-1-untangling.md](PLAN-round-1-untangling.md) | **Done** 2026-10-24. Layout store, navigation intents, view registry, `openView`; container audit appended. Shipped behavior is in [ARCHITECTURE.md § Layout and navigation](../../ARCHITECTURE.md#layout-and-navigation). |
+| [PROPOSAL-audit-remediation.md](PROPOSAL-audit-remediation.md) | Proposal. How to fix the round-1 container audit: keep-alive with `<Activity>`, narrow per-frame subscriptions, container queries and `minSize`, empty states with actions. Proposes a round 1b. |
 | [DRAFT-roadmap.md](DRAFT-roadmap.md) | Draft outline of rounds 2+ (shell, views, wave editor, …). To be refined round by round. |
 
 ## Ground rules for the whole redesign
