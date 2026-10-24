@@ -27,6 +27,7 @@ import {
   createDemoProject,
   createHistory,
   createTrack,
+  copySessionClip,
   doubleClip,
   duplicateScene,
   duplicateTrack,
@@ -64,6 +65,7 @@ import {
 } from '@core'
 import { create } from 'zustand'
 import type { ArrangementChanges, AudioClip } from '@core'
+import { useSelectionStore } from './selection-store'
 
 const DEFAULT_CLIP_BEATS = 4
 
@@ -173,6 +175,11 @@ interface ProjectActions {
   createClip(trackId: string, scene: number): Clip
   /** Puts a copy of a clip value into an empty slot of a track of its kind (see `pasteSessionClip`). */
   pasteClip(clip: Clip | AudioClip, trackId: string, scene: number): void
+  /**
+   * Moves a session clip into an empty slot of a track of its kind, keeping its id (see `copySessionClip`). The
+   * selection follows the clip when it is the selected one.
+   */
+  moveClip(fromTrackId: string, clipId: string, toTrackId: string, scene: number): void
   deleteClip(trackId: string, scene: number): void
   setClipNotes(trackId: string, clipId: string, notes: readonly Note[]): void
   /** Resizes a clip; shortening trims notes that no longer fit. */
@@ -297,6 +304,12 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       const clip = createClip(`Clip ${scene + 1}`, DEFAULT_CLIP_BEATS)
       edit((project) => setClipAt(project, trackId, scene, clip))
       return clip
+    },
+    moveClip: (fromTrackId, clipId, toTrackId, scene) => {
+      const before = get().project
+      edit((project) => copySessionClip(project, fromTrackId, clipId, toTrackId, scene, true))
+      const selection = useSelectionStore.getState()
+      if (get().project !== before && selection.clipId === clipId) selection.selectClip(toTrackId, clipId)
     },
     deleteClip: (trackId, scene) => edit((project) => setClipAt(project, trackId, scene, null)),
     pasteClip: (clip, trackId, scene) => edit((project) => pasteSessionClip(project, clip, trackId, scene)),

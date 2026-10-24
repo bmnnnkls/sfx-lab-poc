@@ -1,4 +1,4 @@
-import { arrangementOnTrack, clipCopyFor, clipFitsTrack } from '@core'
+import { type AudioClip, type Clip, arrangementOnTrack, clipCopyFor, clipFitsTrack } from '@core'
 import { useProjectStore } from '../project-store'
 import { clipClipboard } from './clipboards'
 import { project, trackOf } from './lookup'
@@ -10,6 +10,14 @@ const sessionClips = (trackId: string) => {
   const track = trackOf(trackId)
   return track && track.kind !== 'return' ? track.clips.filter((clip) => clip !== null) : []
 }
+
+/** Whether a clip value plays on a lane's track: of its kind, and an audio clip's sample still in the project. */
+export const canPasteClipOnLane = (clip: Clip | AudioClip, trackId: string): boolean =>
+  clipFitsTrack(clip, trackOf(trackId)) && ('notes' in clip || project().samples.some((sample) => sample.id === clip.sampleId))
+
+/** Puts a copy of a clip value (fresh ids) on a lane at a beat: *Paste*, and a session clip dropped on another track's lane. */
+export const pasteClipOnLane = (clip: Clip | AudioClip, trackId: string, beat: number): void =>
+  useProjectStore.getState().addArrangementClip(trackId, beat, clipCopyFor(project(), clip, trackId))
 
 /** A track's lane on the arrangement timeline, at the beat that was clicked. */
 export const laneActions: readonly Action<LaneSubject>[] = [
@@ -30,11 +38,11 @@ export const laneActions: readonly Action<LaneSubject>[] = [
     group: 'clipboard',
     enabled: ({ trackId }) => {
       const copied = clipClipboard.get()
-      return !!copied && clipFitsTrack(copied.clip, trackOf(trackId)) && ('notes' in copied.clip || project().samples.some((sample) => 'sampleId' in copied.clip && sample.id === copied.clip.sampleId))
+      return !!copied && canPasteClipOnLane(copied.clip, trackId)
     },
     run: ({ trackId, beat }) => {
       const copied = clipClipboard.get()
-      if (copied) useProjectStore.getState().addArrangementClip(trackId, beat, clipCopyFor(project(), copied.clip, trackId))
+      if (copied) pasteClipOnLane(copied.clip, trackId, beat)
     },
   },
   {

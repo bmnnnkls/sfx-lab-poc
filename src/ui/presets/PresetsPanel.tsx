@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { captureSnapshot, putSnapshot, saveProjectPreset, enumerateSampleTargets, resolveSampleTarget, sampleTargetKey, editSampleBinding, inSnapshotScope, morphSnapshots, type SnapshotScope, type Snapshot } from '@core'
-import { useProjectStore, useSelectionStore, editPresetProject, recallSavedSound, runAction } from '@state'
+import { useProjectStore, useSelectionStore, editPresetProject, recallPresetOn, runAction } from '@state'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename } from '../shared/RenameField'
 import styles from './PresetsPanel.module.css'
@@ -48,7 +48,7 @@ export const PresetsPanel = () => {
       <section><h3>Embedded presets</h3>{(project.presets ?? []).map(s => <ActionMenu key={s.id} subject={{ kind: 'sound', soundId: s.id, preset: true }}><div className={styles.row}>
         {labelled(s, true)}<small title={s.revisionId}>Revision {s.revisionId.slice(-8)}</small>
         {/* These two act on the scope chosen above, the menu's on the preset's own. */}
-        <button onClick={() => act(() => recallSavedSound(s, scope))}>Recall preset {s.name}</button>
+        <button onClick={() => act(() => recallPresetOn(s, scope.owner, scope.domain))}>Recall preset {s.name}</button>
         <button onClick={() => act(() => editPresetProject(p => {
           return saveProjectPreset(p, scope, s.name, s.id)
         }))}>Update</button>

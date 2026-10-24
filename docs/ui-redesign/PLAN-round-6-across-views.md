@@ -410,4 +410,21 @@ round checks HTML5 drags between windows.
 
 ## Changes made while implementing
 
-Filled in as the round lands.
+What turned out different from the design above, step by step.
+
+* **Step 1: the sample drops onto a lane and a canvas come with step 5,** with the two actions they run. Step 1 has
+  every other cell of the table, and its tests.
+* **Step 1: `canRunAction(id, subject, context, choice?)`** says whether `runAction` would run an action now, the
+  chosen choice included. A drop that runs an action as it is (*Add clip*, *Add audio clip*) accepts by it, so its
+  `accepts` is the action's own check. `settle(result, report?)` is `runAction`'s reporting, shared with `runDrop`.
+* **Step 1: the drop list is exported from `state/index.ts`,** not from the actions' index, since it imports
+  `runAction` from there.
+* **Step 1: `recallPresetOn(preset, owner, domain?)`.** The domain is the preset's own by default; Sounds' *Recall*
+  button passes the view's, so a scope of another kind still refuses with the same message as before.
+  `canRecallPresetOn` is the drop's check over `canRecallProjectPreset`.
+* **Step 1: `graphFitsOwner(item, owner)`** is the check for a library graph dropped on a track, the master or a
+  canvas: an instrument or note effect on an instrument track, an audio effect on an owner that provides the input it
+  was made for (`trackIn`, `returnIn` or `masterIn`). Without it, an instrument's effects dropped on the master would
+  show as accepted and fail with a toast. `libraryClipFitsSlot` is the slot's check for a library clip.
+* **Step 1: graphs match by node ids,** so a project preset fits its own track and copies of it (*Duplicate track*),
+  not the starter's other instruments, whose default patches are alike but made apart.

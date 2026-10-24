@@ -46,3 +46,4 @@ export * from './touch-store'
 export * from './preset-actions'
 
 export * from './library'
+export * from './actions/drops'

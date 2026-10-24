@@ -18,7 +18,10 @@ import type { Action, ActionChoice, ActionContext, Subject, SubjectKind, Subject
 export type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf } from './types'
 export { duplicateSessionClip, placeOnArrangement } from './clip'
 export { commitRename, startRename } from './rename'
-export { insertionScope, isInstrumentItem } from './library'
+export { graphFitsOwner, insertLibraryClipAt, insertionScope, isInstrumentItem, libraryClipFitsSlot, replaceGraph } from './library'
+export { canPasteClipOnLane, pasteClipOnLane } from './lane'
+export { canPasteClipInSlot, pasteClipInSlot } from './slot'
+export { canRecallPresetOn, recallPresetOn } from './sound'
 export { automationSlotClipboard, clipClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes } from './clipboards'
 export { editTargetOf, graphKeyOf } from './nodes'
 
@@ -90,9 +93,22 @@ const toToasts = (kind: 'info' | 'error', message: string) => usePersistenceStor
 export const runAction = (id: string, subject: Subject, context: ActionContext, options: RunOptions = {}): void | Promise<void> => {
   const action = actionsFor(subject).find((candidate) => candidate.id === id)
   if (!action || !(action.applies?.(subject, context) ?? true) || !(action.enabled?.(subject, context) ?? true)) return
-  const result = action.run(subject, context, options.choice)
+  return settle(action.run(subject, context, options.choice), options.report)
+}
+
+/**
+ * Whether `runAction` would run an action on a subject now, with that choice: it applies, is enabled, and the choice
+ * is one of its enabled choices.
+ */
+export const canRunAction = (id: string, subject: Subject, context: ActionContext, choice?: string): boolean => {
+  const action = actionsFor(subject).find((candidate) => candidate.id === id)
+  if (!action || !(action.applies?.(subject, context) ?? true) || !(action.enabled?.(subject, context) ?? true)) return false
+  return choice === undefined || !!action.choices?.(subject, context).some((candidate) => candidate.id === choice && (candidate.enabled ?? true))
+}
+
+/** Reports what an asynchronous action (or drop) resolves with, or the error it throws; the promise settles after that. */
+export const settle = (result: void | Promise<string | void>, report: RunOptions['report'] = toToasts): void | Promise<void> => {
   if (!result) return
-  const report = options.report ?? toToasts
   return result.then(
     (message) => {
       if (message) report('info', message)

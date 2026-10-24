@@ -1,4 +1,4 @@
-import { canPasteSessionClip } from '@core'
+import { type AudioClip, type Clip, canPasteSessionClip } from '@core'
 import { useLayoutStore } from '../layout-store'
 import { openClip } from '../navigation'
 import { useProjectStore } from '../project-store'
@@ -12,6 +12,12 @@ const isEmpty = ({ trackId, scene }: SlotSubject) => {
   const track = trackOf(trackId)
   return !!track && track.kind !== 'return' && !track.clips[scene]
 }
+
+/** Whether a clip value can be pasted into a slot (see `canPasteSessionClip`), from the clipboard or dropped with Alt. */
+export const canPasteClipInSlot = (clip: Clip | AudioClip, trackId: string, scene: number): boolean => canPasteSessionClip(project(), clip, trackId, scene)
+
+/** Puts a copy of a clip value into an empty slot: *Paste*, and a session clip dropped there with Alt. */
+export const pasteClipInSlot = (clip: Clip | AudioClip, trackId: string, scene: number): void => useProjectStore.getState().pasteClip(clip, trackId, scene)
 
 /** The choice that offers to import samples when the project has none. */
 const IMPORT = ''
@@ -53,11 +59,11 @@ export const slotActions: readonly Action<SlotSubject>[] = [
     applies: isEmpty,
     enabled: ({ trackId, scene }) => {
       const copied = clipClipboard.get()
-      return !!copied && canPasteSessionClip(project(), copied.clip, trackId, scene)
+      return !!copied && canPasteClipInSlot(copied.clip, trackId, scene)
     },
     run: ({ trackId, scene }) => {
       const copied = clipClipboard.get()
-      if (copied) useProjectStore.getState().pasteClip(copied.clip, trackId, scene)
+      if (copied) pasteClipInSlot(copied.clip, trackId, scene)
     },
   },
 ]
