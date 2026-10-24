@@ -126,32 +126,28 @@ the developer's Mac, after 2 s of warm-up. Two runs:
   and counts commits, the root's `actualDuration`, and the components that rendered in each commit.
 * **Production build, Chrome's counters** (`Performance.getMetrics` over CDP), with no React instrumentation.
 
-"Before" is `feat/ui-redesign` at the start of round 1b; "after" includes the three per-frame fixes.
+"Before" is `feat/ui-redesign` at the start of round 1b. "Round 1b" adds the three per-frame fixes above.
+"Leftovers" adds the two that profiling turned up afterwards: `EffectiveValue` selects only whether Touch can
+record, and the transport's position readout became a leaf (`TransportPosition`).
 
-| Per second | Before | After |
-|---|---|---|
-| React commits (dev) | 28.9 | 28.9 |
-| React render time (dev) | 126.9 ms | 51.2 ms |
-| Component renders (dev) | 3,555 | 462 |
-| … `ArrangementView` / `ArrangementRegion` | 29 / 87 | 0 / 0 |
-| … `LevelBar` (4 strips) | 116 | 0 |
-| … `ArrangementPlayhead` (one per lane) | n/a | 87 |
-| Script time (production) | 40.2 ms | 20.7 ms |
-| Main-thread task time (production) | 126.4 ms | 99.6 ms |
-| Layout + style (production) | 27.7 ms | 24.9 ms |
+| Per second | Before | Round 1b | Leftovers |
+|---|---|---|---|
+| React commits (dev) | 28.9 | 28.9 | 28.9 |
+| React render time (dev) | 126.9 ms | 51.2 ms | 8.7 ms |
+| Component renders (dev) | 3,555 | 462 | 145 |
+| … `ArrangementView` / `ArrangementRegion` | 29 / 87 | 0 / 0 | 0 / 0 |
+| … `LevelBar` (4 strips) | 116 | 0 | 0 |
+| … `EffectiveValue` | 202 | 202 | 0 |
+| … `TransportBar` and each of its 4 child components | 29 | 29 | 0 |
+| Script time (production) | 40.2 ms | 20.7 ms | 12.4 ms |
+| Main-thread task time (production) | 126.4 ms | 99.6 ms | 87.9 ms |
+| Layout + style (production) | 27.7 ms | 24.9 ms | 25.0 ms |
 
 Most of the "before" renders were Radix context-menu wrappers in the arrangement lanes, re-rendered with the view.
 This setup doesn't show the automation editor, so its fix isn't in these numbers.
 
-**What still renders at 30 Hz:**
-
-* **`EffectiveValue`**: 202 renders a second. It selects the whole status only to ask `touchDestination` whether
-  Touch can record, so a boolean selector would do. It's on the guard test's allow-list as pending.
-* **`TransportBar`**: it subscribes to `beat` for the position display, so `HistoryButtons`, `FileMenu`,
-  `SaveIndicator` and `MidiSettings` re-render with it, 29 times a second each. The position should move into a
-  leaf component.
-
-Both are small, separate fixes, and are not part of round 1b.
+What still renders on every update is only the leaves that show it: `ArrangementPlayhead` (one per lane, 87),
+`TransportPosition` (29) and the transport's `LevelMeter` (29). The guard test's allow-list is empty.
 
 ## 3. Size assumptions
 
@@ -205,9 +201,9 @@ the region uses `overflow: hidden`), so Session and Arrangement each keep their 
 (views → `views.ts` → views), split the titles into `ui/layout/view-titles.ts`, which imports no components, and
 have `views.ts` compose the two.
 
-Found while doing round 1b and left as it was: the Arrangement's empty state ("Add a track in the session view
-first") and its toolbar hint ("right-click a session slot") still name the session view. Neither was in the audit.
-The empty state could offer **Show session**, like the Clip view does.
+Found while doing round 1b: the Arrangement's empty state named the session view too. It now offers **Show
+session**, like the Clip view. Its toolbar hint ("right-click a session slot to place it here") still describes the
+session grid; round 4's drag and drop replaces that workflow, and the hint with it.
 
 ## Proposed order
 
