@@ -460,4 +460,9 @@ What turned out different from the design above, step by step.
   *Delete*.
 * **Step 4: the audio test** pans the original hard left and the copy hard right, launches the scene, and checks that
   the two channels match (`tests/browser/duplicate-track.audio.spec.ts`); turning the copy's fader down makes it fail.
+* **Step 5: lists that end early stay short.** The master's and the returns' automation slots may be shorter than the
+  row count; an edit only pads one when it puts a slot past its end (a duplicated row). `sceneNames` drops trailing
+  empty names, and goes away when none is left.
+* **Step 5: the automation scene follows its row.** Inserting or deleting a row above the selection store's
+  `automationScene` moves it with its row; deleting its own row resets it to the first scene.
 

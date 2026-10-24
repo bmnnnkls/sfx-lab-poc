@@ -28,7 +28,10 @@ import {
   createHistory,
   createTrack,
   doubleClip,
+  duplicateScene,
   duplicateTrack,
+  insertScene,
+  removeScene,
   editPatchAt,
   groupNodesAsModule,
   removeModule,
@@ -87,6 +90,12 @@ interface ProjectActions {
   setClipName(trackId: string, clipId: string, name: string): void
   /** Names a scene; an empty name clears it. */
   setSceneName(scene: number, name: string): void
+  /** Inserts an empty scene before `at`, up to 64 scenes. */
+  insertScene(at: number): void
+  /** Inserts a copy of a scene's row after it, up to 64 scenes. */
+  duplicateScene(scene: number): void
+  /** Removes a scene's row; the last scene stays. */
+  removeScene(scene: number): void
   /** Renames a sample; an empty name keeps the old one. */
   setSampleName(sampleId: string, name: string): void
   setTrackVolume(trackId: string, volume: number): void
@@ -228,6 +237,9 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     setTrackName: (trackId, name) => edit((project) => setTrackName(project, trackId, name)),
     setClipName: (trackId, clipId, name) => edit((project) => setClipName(project, trackId, clipId, name)),
     setSceneName: (scene, name) => edit((project) => setSceneName(project, scene, name)),
+    insertScene: (at) => edit((project) => insertScene(project, at)),
+    duplicateScene: (scene) => edit((project) => duplicateScene(project, scene)),
+    removeScene: (scene) => edit((project) => removeScene(project, scene)),
     setSampleName: (sampleId, name) => edit((project) => setSampleName(project, sampleId, name)),
     setTrackVolume: (trackId, volume) =>
       edit((project) => setTrackVolume(project, trackId, volume), `volume:${trackId}`),

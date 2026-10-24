@@ -139,5 +139,6 @@ export {
 export { copySessionClip } from './clip-copy'
 export { NAME_LIMITS, setClipName, setSampleName, setSceneName, setTrackName } from './rename'
 export { duplicateTrack } from './track-duplicate'
+export { duplicateScene, insertScene, removeScene } from './scenes'
 
 export type { AutomationSlot } from './types'

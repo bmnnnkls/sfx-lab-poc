@@ -98,3 +98,33 @@ test('the master has a menu in the session grid and the mixer', async ({ page })
   await mixer.getByRole('slider', { name: 'Master fader', exact: true }).click({ button: 'right' })
   expect(await menuEntries(page)).toEqual(['MIDI learn', 'Show automation'])
 })
+
+test('a scene renames, inserts and deletes from its menu', async ({ page }) => {
+  await page.goto('/?starter')
+  const session = await openView(page, 'Session')
+  const scenes = session.getByRole('button', { name: /^Launch scene \d+/ })
+  await expect(scenes).toHaveCount(4)
+
+  // Escape keeps the name.
+  await session.getByRole('button', { name: 'Launch scene 2', exact: true }).click({ button: 'right' })
+  expect(await menuEntries(page)).toEqual(['Launch', '—', 'Rename', 'Insert scene before', 'Duplicate', '—', 'Delete'])
+  await page.getByRole('menuitem', { name: 'Rename', exact: true }).click()
+  const field = session.getByRole('textbox', { name: 'Name of scene 2', exact: true })
+  await expect(field).toBeFocused()
+  await field.pressSequentially('Verse')
+  await page.keyboard.press('Escape')
+  await expect(session.getByRole('button', { name: 'Launch scene 2', exact: true })).toBeVisible()
+
+  await session.getByRole('button', { name: 'Launch scene 2', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Insert scene before', exact: true }).click()
+  await expect(scenes).toHaveCount(5)
+  // The Bass's Walk clip moved down a row with its scene.
+  await expect(session.getByRole('button', { name: '▶ Walk', exact: true })).toBeVisible()
+
+  await session.getByRole('button', { name: 'Launch scene 1', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
+  await expect(scenes).toHaveCount(4)
+  await expect(session.getByRole('button', { name: '▶ Root', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(session.getByRole('button', { name: '▶ Root', exact: true })).toBeVisible()
+})

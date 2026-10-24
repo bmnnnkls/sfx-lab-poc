@@ -5,6 +5,7 @@ import { laneActions } from './lane'
 import { masterActions } from './master'
 import { regionActions } from './region'
 import { renameAction } from './rename'
+import { sceneActions } from './scene'
 import { slotActions } from './slot'
 import { trackActions } from './track'
 import type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf } from './types'
@@ -19,7 +20,7 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   clip: clipActions,
   slot: slotActions,
   'automation-slot': [],
-  scene: [renameAction('scene')],
+  scene: sceneActions,
   sample: [renameAction('sample')],
   'library-item': [renameAction('library-item')],
   'library-folder': [renameAction('library-folder')],
