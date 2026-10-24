@@ -1,4 +1,4 @@
-import { type ActionContext, type Subject, describeActions, runAction, subscribeToClipboards, useProjectStore, useStatusStore } from '@state'
+import { type ActionContext, type Subject, describeActions, runAction, subscribeToClipboards, useProjectStore, useSampleStore, useStatusStore } from '@state'
 import { type ReactElement, type RefObject, useRef, useSyncExternalStore } from 'react'
 import { useActionContext } from './action-context'
 import { ContextMenu } from './ContextMenu'
@@ -13,6 +13,7 @@ const useActionEntries = (subject: Subject, context: ActionContext, focusTaken: 
   const signature = () => JSON.stringify(describeActions(subject, context))
   useProjectStore(signature)
   useStatusStore(signature)
+  useSampleStore(signature)
   useSyncExternalStore(subscribeToClipboards, signature)
   const entries: MenuEntry[] = []
   let group: string | undefined

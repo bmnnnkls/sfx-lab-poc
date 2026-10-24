@@ -37,6 +37,7 @@ export { useMidiStore, useMidi, MidiProvider, editMidiMappings, type MidiService
 export * from './automation-store'
 export * from './actions'
 export { useRenameStore, sameSubject, type Renaming } from './rename-store'
+export { useLibraryStore } from './library-store'
 export { createClipboard, subscribeToClipboards, useClipboard, type Clipboard } from './clipboard'
 
 export { editAutomationSlot, editOwnerAutomation } from './automation-store'

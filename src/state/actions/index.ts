@@ -3,17 +3,21 @@ import { automationSlotActions } from './automation-slot'
 import { clipActions } from './clip'
 import { controlActions } from './control'
 import { laneActions } from './lane'
+import { libraryFolderActions, libraryItemActions } from './library'
 import { masterActions } from './master'
 import { regionActions } from './region'
 import { renameAction } from './rename'
+import { sampleActions } from './sample'
 import { sceneActions } from './scene'
 import { slotActions } from './slot'
+import { soundActions } from './sound'
 import { trackActions } from './track'
 import type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf } from './types'
 
 export type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf } from './types'
 export { duplicateSessionClip, placeOnArrangement } from './clip'
 export { commitRename, startRename } from './rename'
+export { insertionScope, isInstrumentItem } from './library'
 export { automationSlotClipboard, clipClipboard, type CopiedClip } from './clipboards'
 
 const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = {
@@ -23,16 +27,16 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   slot: slotActions,
   'automation-slot': automationSlotActions,
   scene: sceneActions,
-  sample: [renameAction('sample')],
-  'library-item': [renameAction('library-item')],
-  'library-folder': [renameAction('library-folder')],
+  sample: sampleActions,
+  'library-item': libraryItemActions,
+  'library-folder': libraryFolderActions,
   nodes: [],
   canvas: [],
   module: [renameAction('module')],
   region: regionActions,
   lane: laneActions,
   control: controlActions,
-  sound: [renameAction('sound')],
+  sound: soundActions,
 }
 
 /** The actions of a subject's kind, in menu order. Nothing else picks actions. */
@@ -78,16 +82,19 @@ const toToasts = (kind: 'info' | 'error', message: string) => usePersistenceStor
 
 /**
  * Runs an action on a subject, as a menu entry or a button does, unless it doesn't apply or isn't enabled now. An
- * asynchronous action's message, or the error it throws, is reported when it settles.
+ * asynchronous action's message, or the error it throws, is reported when it settles; the returned promise settles
+ * after that.
  */
-export const runAction = (id: string, subject: Subject, context: ActionContext, options: RunOptions = {}): void => {
+export const runAction = (id: string, subject: Subject, context: ActionContext, options: RunOptions = {}): void | Promise<void> => {
   const action = actionsFor(subject).find((candidate) => candidate.id === id)
   if (!action || !(action.applies?.(subject, context) ?? true) || !(action.enabled?.(subject, context) ?? true)) return
   const result = action.run(subject, context, options.choice)
   if (!result) return
   const report = options.report ?? toToasts
-  result.then(
-    (message) => message && report('info', message),
+  return result.then(
+    (message) => {
+      if (message) report('info', message)
+    },
     (error: unknown) => report('error', error instanceof Error ? error.message : String(error)),
   )
 }

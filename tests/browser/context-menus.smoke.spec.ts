@@ -1,4 +1,4 @@
-import { test, expect, openView } from './fixtures'
+import { test, expect, openView, viewRoot } from './fixtures'
 
 /** The entries of the open menu, by name, with separators as '—'. */
 const menuEntries = async (page: import('@playwright/test').Page) =>
@@ -168,4 +168,62 @@ test('an empty audio slot offers its samples from the menu, and automation slots
   expect(await menuEntries(page)).toEqual(['Create', '—', 'Paste'])
   await page.getByRole('menuitem', { name: 'Paste', exact: true }).click()
   await expect(session.getByRole('button', { name: 'Launch Master automation scene 2', exact: true })).toBeVisible()
+})
+
+test('a library item trashes and restores from its menu, and a folder makes one inside', async ({ page }) => {
+  await page.goto('/?starter')
+  await openView(page, 'Library')
+  const panel = page.getByRole('region', { name: 'Personal library' })
+  await panel.getByLabel('Library name', { exact: true }).fill('Synth')
+  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
+  const items = panel.getByLabel('Library items', { exact: true })
+  const synth = items.getByRole('button', { name: /^Synth/ })
+  await synth.click({ button: 'right' })
+  expect(await menuEntries(page)).toEqual(['Preview', '—', 'Rename', 'Duplicate', 'Insert new instrument track', 'Replace selected graph', '—', 'Trash'])
+  await page.getByRole('menuitem', { name: 'Trash', exact: true }).click()
+  await expect(page.getByText('Moved to the trash', { exact: true })).toBeVisible()
+  await expect(synth).toHaveCount(0)
+
+  await panel.getByRole('button', { name: 'Trash', exact: true }).click()
+  await synth.click({ button: 'right' })
+  expect(await menuEntries(page)).toEqual(['Restore'])
+  await page.getByRole('menuitem', { name: 'Restore', exact: true }).click()
+  await panel.getByRole('button', { name: 'Back to library', exact: true }).click()
+  await expect(synth).toBeVisible()
+
+  await panel.getByLabel('Library name', { exact: true }).fill('Leads')
+  await panel.getByRole('button', { name: 'New folder', exact: true }).click()
+  await panel.getByRole('treeitem', { name: 'Leads', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'New folder inside', exact: true }).click()
+  const field = panel.getByRole('textbox', { name: 'Name of New folder', exact: true })
+  await expect(field).toBeFocused()
+  await field.pressSequentially('Bright')
+  await page.keyboard.press('Enter')
+  await expect(panel.getByRole('treeitem', { name: 'Bright', exact: true })).toHaveAttribute('aria-selected', 'true')
+})
+
+test('samples and sounds have menus', async ({ page }) => {
+  await page.goto('/?starter')
+  const samples = await openView(page, 'Samples')
+  await samples.getByRole('button', { name: 'Add demo samples', exact: true }).click()
+  await expect(samples.locator('[data-status="ready"]')).toHaveCount(5)
+  await samples.getByText('Demo Kick', { exact: true }).click({ button: 'right' })
+  expect(await menuEntries(page)).toEqual(['Preview', 'Open in wave editor', '—', 'Rename', 'New sampler track', 'New audio track', '—', 'Remove from project'])
+  await page.getByRole('menuitem', { name: 'Rename', exact: true }).click()
+  const field = samples.getByRole('textbox', { name: 'Name of Demo Kick', exact: true })
+  await expect(field).toBeFocused()
+  await field.pressSequentially('Deep kick')
+  await page.keyboard.press('Enter')
+  await expect(samples.getByText('Deep kick', { exact: true })).toBeVisible()
+
+  await viewRoot(page, 'Session').getByText('Master', { exact: true }).first().click()
+  const sounds = await openView(page, 'Sounds')
+  await sounds.getByLabel('Sound scope').selectOption('track')
+  await sounds.getByLabel('Sound name').fill('Loud')
+  await sounds.getByRole('button', { name: 'Save snapshot', exact: true }).click()
+  // The row's label; the morph's two lists name the snapshot too.
+  await sounds.getByText(/^Loud · Master/).first().click({ button: 'right' })
+  expect(await menuEntries(page)).toEqual(['Recall', '—', 'Update', 'Rename', 'Duplicate', '—', 'Delete'])
+  await page.getByRole('menuitem', { name: 'Duplicate', exact: true }).click()
+  await expect(sounds.getByRole('button', { name: 'Recall Loud copy', exact: true })).toBeVisible()
 })

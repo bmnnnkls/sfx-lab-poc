@@ -475,4 +475,21 @@ What turned out different from the design above, step by step.
   sample as the choice; *Import samples…* is the choice when the project has none.
 * **Step 6: the automation cell's ✎, × and *+*** run *Edit*, *Delete* and *Create*. Its ▶ and ■ still launch and
   stop directly; the menu's *Launch* / *Stop* follows the cell's playing state.
+* **Step 7: the Library's catalog and open folder are in a store** (`state/library-store.ts`), so the actions and the
+  view see the same catalog: an action that changes it puts the new one there. The view's own selection, filters and
+  busy flag stay in the view.
+* **Step 7: `runAction` returns a promise for an asynchronous action**, which settles after it has reported. The
+  Library's buttons run actions inside the view's `run`, so the busy flag works as before, and pass `report` so the
+  message goes to the status line; from a menu it goes to the toasts.
+* **Step 7: a folder's field is in the tree.** Renaming a folder from its row's menu would show nothing when the
+  folder isn't open, so the field takes the place of the folder's name in the tree, for *Rename folder* too. Step 3
+  had put it above the folder actions.
+* **Step 7: *New folder inside* makes a folder named "New folder"**, opens it and renames it in place. The toolbar's
+  name field stays for the toolbar's *New folder*.
+* **Step 7: *Replace selected graph* from the menu** puts the item where its kind belongs on the selected track or the
+  master (`insertionScope`), as the button did; a sample has no graph, so the view's scope choice didn't matter there.
+* **Step 7: a preset's *Recall* and *Update* buttons keep the view's scope.** They recall onto, and capture from, the
+  scope chosen at the top of Sounds. The menu's *Recall* and *Update* use the preset's own scope, since a menu has no
+  scope to choose. A snapshot's buttons and every other button run the actions.
+* **Step 7: the open menu also follows the sample store**, so *Preview* enables once a sample's audio is ready.
 

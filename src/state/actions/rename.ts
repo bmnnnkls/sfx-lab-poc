@@ -1,5 +1,6 @@
 import { type LibraryCatalog, renameModule, putSnapshot, saveLibraryFolder, saveLibraryItem } from '@core'
 import { useLayoutStore, type ViewId } from '../layout-store'
+import { useLibraryStore } from '../library-store'
 import { editPresetProject } from '../preset-actions'
 import { useProjectStore } from '../project-store'
 import { useRenameStore } from '../rename-store'
@@ -35,7 +36,11 @@ export const renameAction = <K extends SubjectKind>(kind: K, applies?: (subject:
   run: (subject, context) => startRename(subject, context),
 })
 
-const updateLibrary = (context: ActionContext, edit: (catalog: LibraryCatalog) => LibraryCatalog) => context.library.update(edit)
+const updateLibrary = async (context: ActionContext, edit: (catalog: LibraryCatalog) => LibraryCatalog) => {
+  const catalog = await context.library.update(edit)
+  useLibraryStore.getState().setCatalog(catalog)
+  return catalog
+}
 
 /**
  * Gives `subject` a new name with its kind's setter, as one undo step for project edits. An empty name changes nothing.

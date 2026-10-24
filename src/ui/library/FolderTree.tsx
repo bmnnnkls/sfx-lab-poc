@@ -1,5 +1,7 @@
 import type { LibraryCatalog } from '@core'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { ActionMenu } from '../shared/menu'
+import { InPlaceRename } from '../shared/RenameField'
 import { expandedFor, folderRows, ROOT, treeKey } from './folder-tree'
 import styles from './LibraryPanel.module.css'
 
@@ -9,7 +11,15 @@ import styles from './LibraryPanel.module.css'
  * opens it and expands it; clicking its twisty only expands or collapses it. In a narrow library the tree shows only
  * the open folder's path and the folders in it until *All folders* opens it.
  */
-export const FolderTree = ({ catalog, open, onOpen }: { catalog: LibraryCatalog; open: string | null; onOpen: (id: string | null) => void }) => {
+interface FolderTreeProps {
+  readonly catalog: LibraryCatalog
+  readonly open: string | null
+  onOpen(id: string | null): void
+  /** Commits a folder's new name, typed in place of its name in the tree. */
+  onRename(folderId: string, name: string): void
+}
+
+export const FolderTree = ({ catalog, open, onOpen, onRename }: FolderTreeProps) => {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set([ROOT]))
   const [all, setAll] = useState(false)
   const tree = useRef<HTMLUListElement>(null)
@@ -48,8 +58,8 @@ export const FolderTree = ({ catalog, open, onOpen }: { catalog: LibraryCatalog;
       <button className={styles.allFolders} aria-expanded={all} onClick={() => setAll(!all)}>All folders</button>
       <ul ref={tree} role="tree" aria-label="Library folders" className={all ? `${styles.tree} ${styles.treeOpen}` : styles.tree} onKeyDown={onKeyDown}>
         {rows.map((row) => (
+          <ActionMenu key={row.id ?? ROOT} subject={row.id === null ? null : { kind: 'library-folder', folderId: row.id }}>
           <li
-            key={row.id ?? ROOT}
             role="treeitem"
             aria-level={row.level}
             aria-selected={row.id === open}
@@ -72,9 +82,16 @@ export const FolderTree = ({ catalog, open, onOpen }: { catalog: LibraryCatalog;
             >
               {row.hasChildren ? (row.expanded ? '▾' : '▸') : ''}
             </span>
-            <span className={styles.folderName}>{row.name}</span>
+            {row.id === null ? (
+              <span className={styles.folderName}>{row.name}</span>
+            ) : (
+              <InPlaceRename subject={{ kind: 'library-folder', folderId: row.id }} name={row.name} label={`Name of ${row.name}`} className={styles.folderName} onCommit={(name) => onRename(row.id!, name)}>
+                <span className={styles.folderName}>{row.name}</span>
+              </InPlaceRename>
+            )}
             {row.count > 0 && <span className={styles.count} aria-hidden>{row.count}</span>}
           </li>
+          </ActionMenu>
         ))}
       </ul>
     </div>
