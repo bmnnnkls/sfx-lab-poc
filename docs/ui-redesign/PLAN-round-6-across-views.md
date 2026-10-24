@@ -440,3 +440,11 @@ What turned out different from the design above, step by step.
 * **Step 3: the lane's whole row is the target,** not just the lane body under the regions, so a slot dropped over a
   region lands too. The beat comes from the row, which starts where the body does.
 * **Step 3: a filled slot is a target too,** of its slot subject, so it shows `refuse` when a clip is dragged over it.
+* **Step 4: the workbench listens, not each label.** A tab's button already carries its view in flexlayout's id
+  (`flexlayout-tabbutton-…`, read by `viewOfTab` for F6), so `Workbench` spring-loads through one `useSpringLoad` on
+  its root instead of a handler on each label from `onRenderTab`. The activity bar does the same on its strip, its
+  buttons marked with `data-view-button`. `useSpringLoad` lives in `ui/shared/drag`, so the rule holds for both.
+* **Step 4: the source view stays mounted when it is hidden.** A tab group keeps its hidden views in the DOM, so in
+  Chromium the dragged slot is still there, and `dragend` reaches it. The smoke spec checks that Session is hidden
+  while the pointer is over the lane and that the region lands; a spec also checks that passing over a tab without
+  resting there shows nothing.

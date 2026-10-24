@@ -126,3 +126,41 @@ test('a session slot dragged onto an empty slot moves it, and copies it with Alt
   await expect(slotOf(session, 4, 0, 0)).toContainText('Root')
   await expect(session.locator('[data-drop]')).toHaveCount(0)
 })
+
+test('in the default layout, a slot held on the Arrangement tab shows Arrangement and lands on a lane, though Session is hidden', async ({ page }) => {
+  await page.goto('/?starter')
+  const session = await openView(page, 'Session')
+  const arrangement = viewRoot(page, 'Arrangement')
+  await expect(arrangement).toBeHidden()
+  // The source's view is hidden mid-drag; the drag goes on.
+  await dragTo(page, session.getByRole('button', { name: '▶ Root', exact: true }), arrangement.locator('[data-lane]').first(), {
+    hold: page.getByRole('tab', { name: 'Arrangement', exact: true }),
+    position: { x: 4 * BEAT_PX + 1, y: 20 },
+    whileOver: () => expect(session).toBeHidden(),
+  })
+  await expect(arrangement.getByTestId('arrangement-region')).toHaveCount(1)
+  await expect(page.locator('[data-drop]')).toHaveCount(0)
+
+  // The activity bar's buttons spring-load too.
+  await openView(page, 'Session')
+  await dragTo(page, session.getByRole('button', { name: '▶ Walk', exact: true }), arrangement.locator('[data-lane]').first(), {
+    hold: page.getByRole('navigation', { name: 'Views' }).getByRole('button', { name: 'Arrangement', exact: true }),
+    position: { x: 12 * BEAT_PX + 1, y: 20 },
+  })
+  await expect(arrangement.getByTestId('arrangement-region')).toHaveCount(2)
+})
+
+test('a slot passing over a tab without resting there leaves the view as it was', async ({ page }) => {
+  await page.goto('/?starter')
+  const session = await openView(page, 'Session')
+  const tab = (await page.getByRole('tab', { name: 'Arrangement', exact: true }).boundingBox())!
+  const from = (await session.getByRole('button', { name: '▶ Root', exact: true }).boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(tab.x + tab.width / 2, tab.y + tab.height / 2, { steps: 10 })
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + 40, { steps: 5 })
+  await page.waitForTimeout(700)
+  await page.mouse.up()
+  await expect(session).toBeVisible()
+  await expect(viewRoot(page, 'Arrangement')).toBeHidden()
+})
