@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { test, expect, dockAtSize, type ViewTitle } from './fixtures'
+import { test, expect, dockAtSize, openView, type ViewTitle } from './fixtures'
 
 /** The views' minimum sizes. Specs import no `src/`, so keep these in sync by hand with `viewMinSizes`. */
 const TOOL_VIEW = { width: 280, height: 200 }
@@ -16,6 +16,9 @@ interface Case {
   readonly controls: (root: Locator, size: { width?: number; height?: number }) => Locator[]
 }
 
+/** ✎ on each sample in Samples. */
+const editButtons = (root: Locator) => root.locator('button[title^="Open in the wave editor"]')
+
 const CASES: readonly Case[] = [
   {
     title: 'Sounds',
@@ -28,6 +31,28 @@ const CASES: readonly Case[] = [
     min: EDITOR,
     // The empty state's action.
     controls: (root) => [root.getByRole('button', { name: 'Show session' })],
+  },
+  {
+    title: 'Samples',
+    min: TOOL_VIEW,
+    prepare: async (_page, root) => {
+      await root.getByRole('button', { name: 'Add demo samples', exact: true }).click()
+      await expect(editButtons(root).first()).toBeEnabled()
+    },
+    controls: (root) => [root.getByRole('button', { name: 'Import sample…', exact: true }), editButtons(root).first()],
+  },
+  {
+    title: 'Wave editor',
+    state: 'a sample open',
+    min: EDITOR,
+    prepare: async (page, root) => {
+      const samples = await openView(page, 'Samples')
+      await samples.getByRole('button', { name: 'Add demo samples', exact: true }).click()
+      await expect(editButtons(samples).first()).toBeEnabled()
+      await root.getByRole('button', { name: /^Demo / }).first().click()
+    },
+    // The waveform scrolls sideways inside its own scroller.
+    controls: (root) => [root.getByRole('button', { name: 'Close', exact: true }), root.locator('[data-scroll]')],
   },
   {
     title: 'Library',

@@ -107,7 +107,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
       </div>
       <div className={styles.waveformFrame}>
         {peaks ? (
-          <div className={styles.waveformScroll}>
+          <div className={styles.waveformScroll} data-scroll="x">
             <div className={styles.waveformBody} style={{ width }}>
               <canvas
                 ref={canvas}

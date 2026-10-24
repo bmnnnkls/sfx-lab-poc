@@ -348,6 +348,14 @@ What turned out different from the design above, step by step.
   view's height; with the search first it shows without scrolling. The first item is a scroll away there (the plan's
   "short: it scrolls"), so the spec looks for it only at the minimum width and the minimum height apart.
 * **Step 3: the bundle import's file input shrinks** below 440 px: it held Library at 302 px.
+* **Step 4: rows take two lines below 700 px, not 420.** With labels that no longer wrap, a row needs about 584 px
+  plus the name, so it broke at 478 px. At 280 px the actions themselves take two lines (*New sampler track* and
+  *New audio track* don't fit beside ▶ and ✎); nothing scrolls sideways. The drop hint moves under the buttons below
+  420 px as planned.
+* **Step 4: the waveform thumbnail narrows through `--thumb-width`** (`WaveformThumb`'s inline width is its default),
+  and its drawing scales to fit.
+* **Step 4: the Wave editor's waveform scroller carries `data-scroll="x"`**, and the spec checks that scroller, not
+  the canvas inside it.
 
 ## Behavior changes
 
