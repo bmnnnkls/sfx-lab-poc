@@ -1,18 +1,19 @@
-import { type ActionContext, type Subject, describeActions, runAction, useProjectStore, useStatusStore } from '@state'
-import type { ReactElement } from 'react'
+import { type ActionContext, type Subject, describeActions, runAction, subscribeToClipboards, useProjectStore, useStatusStore } from '@state'
+import { type ReactElement, useSyncExternalStore } from 'react'
 import { useActionContext } from './action-context'
 import { ContextMenu } from './ContextMenu'
 import type { MenuEntry } from './menu-types'
 
 /**
  * The entries for a subject, built while its menu is open. Subscribes to the stores the actions read, so an entry stays
- * right if something changes while the menu is open (*Launch* turns into *Restart*). Each store is selected through
+ * right if something changes while the menu is open (*Launch* turns into *Restart*, *Paste* enables). Each is read through
  * the entries themselves, so the status's 30 updates a second re-render the menu only when an entry changes.
  */
 const useActionEntries = (subject: Subject, context: ActionContext): readonly MenuEntry[] => {
   const signature = () => JSON.stringify(describeActions(subject, context))
   useProjectStore(signature)
   useStatusStore(signature)
+  useSyncExternalStore(subscribeToClipboards, signature)
   const entries: MenuEntry[] = []
   let group: string | undefined
   for (const item of describeActions(subject, context)) {

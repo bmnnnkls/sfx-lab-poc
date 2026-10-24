@@ -131,7 +131,11 @@ test('empty keyboard Copy/Cut preserves the automation clipboard and foreign-own
   const area = page.getByRole('application', { name: 'Automation drawing area' })
   const box = await area.boundingBox(); if (!box) throw new Error('No canvas')
   await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.5)
+  // Paste enables as soon as the new point is copied.
+  const paste = page.getByRole('button', { name: 'Paste', exact: true })
+  await expect(paste).toBeDisabled()
   await area.press('ControlOrMeta+c')
+  await expect(paste).toBeEnabled()
   const point = page.locator('[data-point-id]').first()
   await point.click({ modifiers: ['Shift'] })
   await expect(page.getByRole('button', { name: 'Copy', exact: true })).toBeDisabled()

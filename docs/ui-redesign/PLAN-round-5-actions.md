@@ -423,4 +423,9 @@ What turned out different from the design above, step by step.
   design says, instead of the menu clearing it.
 * **Step 1: `MidiTargetMenu` is gone.** The panel cell, the channel strip and the master strip wrap their controls in
   `ActionMenu` with a `control` subject (none when a cell has no targets). They no longer subscribe to the project.
+* **Step 2: the automation editor's *Paste* is disabled while nothing is copied**, and enables as soon as points are
+  copied. Before, it was always enabled and pasted nothing when empty.
+* **Step 2: one subscription for all clipboards.** `subscribeToClipboards` tells a listener about every clipboard
+  `createClipboard` made, so an open `ActionMenu` follows all of them without knowing which ones its actions read.
+  `useClipboard(store)` replaces `useNoteClipboard`; the note clipboard's own test became the factory's.
 
