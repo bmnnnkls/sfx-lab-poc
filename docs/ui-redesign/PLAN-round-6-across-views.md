@@ -428,3 +428,12 @@ What turned out different from the design above, step by step.
   show as accepted and fail with a toast. `libraryClipFitsSlot` is the slot's check for a library clip.
 * **Step 1: graphs match by node ids,** so a project preset fits its own track and copies of it (*Duplicate track*),
   not the starter's other instruments, whose default patches are alike but made apart.
+* **Step 2: feedback is set on the element, not rendered.** `useDropTarget` writes `data-drop` (and a lane's
+  `--drop-at`) on the element under the pointer and clears the one before, so a drag re-renders nothing at all. A
+  target handles `dragenter` as it does `dragover`, which Firefox needs to send `dragover` to it.
+* **Step 2: a target stops a drag of ours even when it refuses it,** so the innermost target decides and shows
+  `refuse`, rather than a target around it.
+* **Step 2: the window ends a drag in the capture phase,** on `dragend` and, a task after the target's handler, on
+  `drop`, since a target stops the `drop` it handles. A source hidden mid-drag sends `dragend` to nothing, so the
+  current drag stays until the next one starts; it is only read while a drag carries our type.
+* **Step 2: the rule ignores comments,** since two components describe a "draggable" selection or handle in theirs.

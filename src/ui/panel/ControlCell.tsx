@@ -42,6 +42,9 @@ interface ControlCellProps {
   actions: CellActions
 }
 
+/** The data type of a control dragged to another place on the panel; the cells accept nothing else. */
+const CONTROL_TYPE = 'application/x-sfxlab-control'
+
 const NEXT_SIZE: Record<ControlSize, ControlSize> = { S: 'M', M: 'L', L: 'S' }
 
 export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions, feedback, midiTargets = [] }: ControlCellProps) => {
@@ -57,7 +60,7 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
   })()
 
   const onDragOver = (event: DragEvent) => {
-    if (!editing) return
+    if (!editing || !event.dataTransfer.types.includes(CONTROL_TYPE)) return
     event.preventDefault()
     setOver(true)
   }
@@ -74,7 +77,7 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
       onDragLeave={() => setOver(false)}
       onDrop={(event) => {
         setOver(false)
-        const dragged = event.dataTransfer.getData('text/plain')
+        const dragged = event.dataTransfer.getData(CONTROL_TYPE)
         if (editing && dragged) {
           event.preventDefault()
           actions.dropped(dragged)
@@ -97,7 +100,7 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
             title="Drag to reorder"
             aria-label={`Drag ${title} to reorder`}
             onDragStart={(event) => {
-              event.dataTransfer.setData('text/plain', node.id)
+              event.dataTransfer.setData(CONTROL_TYPE, node.id)
               event.dataTransfer.effectAllowed = 'move'
             }}
           >
