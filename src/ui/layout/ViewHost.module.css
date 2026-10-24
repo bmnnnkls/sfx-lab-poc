@@ -3,3 +3,8 @@
   height: 100%;
   overflow: auto;
 }
+
+/* Focused by a click inside the view, for F6; the view's own controls show the focus. */
+.view:focus {
+  outline: none;
+}

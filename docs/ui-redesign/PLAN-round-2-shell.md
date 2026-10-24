@@ -454,6 +454,19 @@ What turned out different from the design above, step by step.
 * **Step 6: *Reset layout* arrived with a first activity bar** holding only that button; step 7 adds the rest.
   `useLayoutPersistence` now hands the saved model to `Workbench` instead of restoring the main view through
   `revealView`.
+* **Step 7: F6 is ours, not flexlayout's.** `focusNextTabset` cycles tab sets only, so it never reaches a border:
+  with the panel as a border it had nothing to cycle. `Workbench` handles F6 and Shift+F6 itself
+  (`group-focus.ts`): editor groups in order, then the panel and the sidebars that are showing; each move
+  focuses the group's open tab.
+* **Step 7: landmarks sit on the view roots.** flexlayout renders a region's tabs and its content in separate
+  places, so no element wraps a region. Each view's `data-view` root is a `region` named after the view, and
+  takes the focus on a click (`tabIndex={-1}`, no outline) so F6 knows where the user is. The activity bar is the
+  `nav`, the status bar the `contentinfo`.
+* **Step 7: the status bar's menu** is *Layout ▾*: hide or show the panel and each sidebar, and *Reset layout*.
+* **Step 7: a shown sidebar with no views is a thin strip**, the target to drop a view on, and a view dropped
+  into a closed border opens there (`borderAutoSelectTabWhenClosed`). Toggling an empty sidebar shows or hides
+  that strip.
+* **Step 7: the Tab-key rule** checks `closest('[role="tab"], [role="separator"], [data-activity-bar]')`.
 
 ## Behavior changes
 

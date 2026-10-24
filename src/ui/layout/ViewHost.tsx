@@ -6,7 +6,9 @@ import { views } from './views'
 import styles from './ViewHost.module.css'
 
 /**
- * One view's root. `data-view` is how tests and popups find the view a node belongs to. A hidden view stays mounted
+ * One view's root. `data-view` is how tests and popups find the view a node belongs to, and the root is a landmark
+ * named after the view: flexlayout's DOM has no element per region to carry one. It takes the focus on a click, so
+ * F6 knows which group the user is in. A hidden view stays mounted
  * inside `<Activity mode="hidden">`: it keeps its state and scroll offsets, and its Effects are cleaned up until it
  * shows again.
  */
@@ -21,10 +23,10 @@ export const ViewHost = ({ id, visible }: { id: ViewId; visible: boolean }) => {
     if (!visible) root.current?.dispatchEvent(new Event(VIEW_HIDE))
   }, [visible])
 
-  const View = views[id].component
+  const { component: View, title } = views[id]
   return (
     <Activity mode={visible ? 'visible' : 'hidden'}>
-      <div ref={attach} data-view={id} className={styles.view}>
+      <div ref={attach} data-view={id} className={styles.view} role="region" aria-label={title} tabIndex={-1}>
         <View />
       </div>
     </Activity>

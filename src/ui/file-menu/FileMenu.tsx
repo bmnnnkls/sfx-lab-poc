@@ -3,9 +3,8 @@ import { useProjectFiles, usePersistenceStore, useProjectStore } from '@state'
 import { useRef, useState } from 'react'
 import { ExportAudioDialog } from './ExportAudioDialog'
 import styles from './FileMenu.module.css'
-import { SaveIndicator } from './SaveIndicator'
 
-/** Project name, save status and the File dropdown (export / import / export audio / new / restore). */
+/** Project name and the File dropdown (export / import / export audio / new / restore). */
 export const FileMenu = () => {
   const files = useProjectFiles()
   const name = useProjectStore((state) => state.project.name)
@@ -28,7 +27,6 @@ export const FileMenu = () => {
         aria-label="Project name"
         onChange={(event) => setName(event.target.value)}
       />
-      <SaveIndicator />
       <details ref={menu} className={styles.menu}>
         <summary>File</summary>
         <div className={styles.items}>

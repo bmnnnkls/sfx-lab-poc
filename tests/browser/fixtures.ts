@@ -50,21 +50,31 @@ export const openView = async (page: Page, title: ViewTitle): Promise<Locator> =
   return root
 }
 
-/**
- * Drag a view's tab onto an edge of another view, to dock it there (`center` joins that view's tab group). flexlayout
- * starts a drag only from real pointer movement, so the mouse moves in steps; `dragTo` doesn't start one.
- */
-export const dragView = async (page: Page, title: ViewTitle, target: ViewTitle, side: 'left' | 'right' | 'top' | 'bottom' | 'center') => {
+/** Drag a view's tab to a point. flexlayout starts a drag only from real pointer movement, so the mouse moves in steps. */
+const dragTab = async (page: Page, title: ViewTitle, x: number, y: number) => {
   const from = await page.getByRole('tab', { name: title, exact: true }).boundingBox()
-  const to = await viewRoot(page, target).boundingBox()
-  if (!from || !to) throw new Error(`cannot drag ${title} onto ${target}: one of them isn't showing`)
-  const x = to.x + to.width * (side === 'left' ? 0.1 : side === 'right' ? 0.9 : 0.5)
-  const y = to.y + to.height * (side === 'top' ? 0.1 : side === 'bottom' ? 0.9 : 0.5)
+  if (!from) throw new Error(`the ${title} tab isn't showing`)
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
   await page.mouse.down()
   await page.mouse.move(from.x + from.width / 2 + 10, from.y + from.height / 2 + 10, { steps: 5 })
   await page.mouse.move(x, y, { steps: 20 })
   await page.mouse.up()
+}
+
+/** Drag a view's tab onto an edge of another view, to dock it there (`center` joins that view's tab group). `dragTo` doesn't start a drag. */
+export const dragView = async (page: Page, title: ViewTitle, target: ViewTitle, side: 'left' | 'right' | 'top' | 'bottom' | 'center') => {
+  const to = await viewRoot(page, target).boundingBox()
+  if (!to) throw new Error(`cannot drag ${title} onto ${target}: it isn't showing`)
+  await dragTab(page, title,
+    to.x + to.width * (side === 'left' ? 0.1 : side === 'right' ? 0.9 : 0.5),
+    to.y + to.height * (side === 'top' ? 0.1 : side === 'bottom' ? 0.9 : 0.5))
+}
+
+/** Drag a view's tab into a sidebar that is showing. An empty sidebar is only flexlayout's strip, found by its layout path. */
+export const dragViewToSidebar = async (page: Page, title: ViewTitle, sidebar: 'primary' | 'secondary') => {
+  const strip = await page.locator(`[data-layout-path="/border/${sidebar === 'primary' ? 'left' : 'right'}"]`).boundingBox()
+  if (!strip) throw new Error(`the ${sidebar} sidebar isn't showing`)
+  await dragTab(page, title, strip.x + strip.width / 2, strip.y + strip.height / 2)
 }
 
 export const openExample = async (page: Page, name: string) => {

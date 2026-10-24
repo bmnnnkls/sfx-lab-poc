@@ -1,9 +1,10 @@
 import { useLayoutStore } from '@state'
 import { Layout, Model, type TabNode } from 'flexlayout-react'
 import 'flexlayout-react/style/dark.css'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { defaultLayout } from './default-layout'
 import './flex-theme.css'
+import { groupToFocus, tabButtonId, viewOfElement } from './group-focus'
 import { FlexLayoutDriver } from './layout-driver'
 import type { LayoutPersistence } from './use-layout-persistence'
 import { ViewTab } from './ViewHost'
@@ -36,6 +37,20 @@ export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) =
       if (driver.current === next) driver.current = null
     }
   }, [model, persistence])
+
+  // F6 and Shift+F6 move the focus to the next or previous tab group, the panel and sidebars included.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'F6' || event.ctrlKey || event.metaKey || event.altKey) return
+      const target = groupToFocus(useLayoutStore.getState(), viewOfElement(document.activeElement), event.shiftKey ? -1 : 1)
+      const button = target && document.getElementById(tabButtonId(target))
+      if (!button) return
+      event.preventDefault()
+      button.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // Every change, the user's and the driver's: mirror it, and save the layout.
   const onModelChange = () => {

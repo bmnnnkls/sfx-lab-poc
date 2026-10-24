@@ -1,19 +1,7 @@
 .workspace {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100%;
-}
-
-.workspace:has(> .audioFailure) {
-  grid-template-rows: auto auto minmax(0, 1fr);
-}
-
-.audioFailure {
-  padding: 9px 14px;
-  color: var(--text);
-  background: color-mix(in srgb, #ff6b6b 18%, var(--panel-raised));
-  border-bottom: 1px solid #ff6b6b;
-  font-weight: 600;
 }
 
 /* The activity bar beside the layout. */

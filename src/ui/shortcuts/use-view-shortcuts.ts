@@ -4,11 +4,15 @@ import { useEffect } from 'react'
 const isTypingTarget = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
 
-/** Tab switches between the session grid and the arrangement, as in Ableton. */
+/** The workbench's own chrome, where Tab moves the focus as usual: a tab, a splitter, the activity bar. */
+const isChromeTarget = (target: EventTarget | null): boolean =>
+  target instanceof Element && target.closest('[role="tab"], [role="separator"], [data-activity-bar]') !== null
+
+/** Tab switches between the session grid and the arrangement, as in Ableton, except in form fields and the chrome. */
 export const useViewShortcuts = (): void => {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab' || event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) return
+      if (event.key !== 'Tab' || event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target) || isChromeTarget(event.target)) return
       event.preventDefault()
       useLayoutStore.getState().toggleMainView()
     }

@@ -26,7 +26,8 @@ test('audio startup failure stays visible while editing, undo/autosave and proje
   const originalName = await page.getByLabel('Project name').inputValue()
   await page.getByRole('button', { name: 'Play', exact: true }).click()
 
-  const failure = page.getByRole('alert')
+  // It sits in the status bar.
+  const failure = page.getByRole('contentinfo').getByRole('alert')
   await expect(failure).toContainText('Audio failed to start—reload to retry')
   await expect(failure).toContainText('save or export your work before reloading')
   expect(await page.evaluate(() => (window as typeof window & { __audioBootFailureInjected?: boolean }).__audioBootFailureInjected)).toBe(true)

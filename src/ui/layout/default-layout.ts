@@ -29,6 +29,8 @@ export const GLOBAL_ATTRIBUTES: IGlobalAttributes = {
   tabSetEnableClose: false,
   borderMinSize: MIN_PANEL_SIZE,
   borderSize: DEFAULT_PANEL_SIZE,
+  // A view dropped into a closed border (an empty sidebar, a collapsed panel) opens there.
+  borderAutoSelectTabWhenClosed: true,
 }
 
 /** A view's tab. The name and tooltip come from the registry, so a saved layout gets the current ones. */
