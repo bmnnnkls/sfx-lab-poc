@@ -1,5 +1,5 @@
 import type { AudioClip } from '@core'
-import { type Subject, openClip, runAction, useLayoutStore, useProjectStore, useStatusStore } from '@state'
+import { type Subject, runAction, useProjectStore, useStatusStore } from '@state'
 import { ActionMenu, type MenuEntry, PopupMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename } from '../shared/RenameField'
 import { WaveformThumb } from '../shared/WaveformThumb'
@@ -15,31 +15,27 @@ interface AudioClipSlotProps {
 export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
   const context = useActionContext()
   const samples = useProjectStore((state) => state.project.samples)
-  const createAudioClip = useProjectStore((state) => state.createAudioClip)
   const playing = useStatusStore((state) => !!clip && state.status?.tracks[trackId]?.playingClipId === clip.id)
   const queued = useStatusStore((state) => !!clip && state.status?.tracks[trackId]?.queued === clip.id)
 
   if (!clip) {
+    const slot: Subject = { kind: 'slot', trackId, scene }
+    // The same choices as the right-click menu's *Add audio clip* ▸.
+    const add = (choice: string) => () => runAction('slot.add-audio-clip', slot, context, { choice })
     const choices: MenuEntry[] =
       samples.length === 0
-        ? [{ label: 'Import samples…', onSelect: () => useLayoutStore.getState().revealView('samples') }]
-        : samples.map((sample) => ({
-            label: sample.name,
-            onSelect: () => {
-              createAudioClip(trackId, scene, sample)
-              const track = useProjectStore.getState().project.tracks.find((candidate) => candidate.id === trackId)
-              const added = track?.kind === 'audio' ? track.clips[scene] : null
-              if (added) openClip(trackId, added.id)
-            },
-          }))
+        ? [{ label: 'Import samples…', onSelect: add('') }]
+        : samples.map((sample) => ({ label: sample.name, onSelect: add(sample.id) }))
     return (
-      <div className={`${styles.slot} ${styles.empty}`}>
-        <PopupMenu entries={choices}>
-          <button aria-label="Add audio clip" title="Add an audio clip from the sample library">
-            +
-          </button>
-        </PopupMenu>
-      </div>
+      <ActionMenu subject={slot}>
+        <div className={`${styles.slot} ${styles.empty}`}>
+          <PopupMenu entries={choices}>
+            <button aria-label="Add audio clip" title="Add an audio clip from the sample library">
+              +
+            </button>
+          </PopupMenu>
+        </div>
+      </ActionMenu>
     )
   }
 

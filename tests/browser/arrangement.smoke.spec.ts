@@ -1,6 +1,12 @@
 import type { Locator } from '@playwright/test'
 import { test, expect, openView, viewRoot } from './fixtures'
 
+/** Runs a lane menu's *Add clip* ▸ entry for a clip, from the menu just opened. */
+const addClip = async (page: import('@playwright/test').Page, name: string) => {
+  await page.getByRole('menuitem', { name: 'Add clip', exact: true }).click()
+  await page.getByRole('menuitem', { name, exact: true }).click()
+}
+
 /** The regions of one lane: the lane body is a sibling of the regions, both children of the lane row. */
 const regionsInLane = (view: Locator, index: number) =>
   view.locator('[data-lane]').nth(index).locator('xpath=..').getByTestId('arrangement-region')
@@ -13,7 +19,7 @@ test('the arrangement view places clips on the timeline and plays them', async (
 
   const lane = arrangement.locator('[data-lane]').first()
   await lane.click({ button: 'right', position: { x: 120, y: 20 } })
-  await page.getByRole('menuitem', { name: 'Add Root', exact: true }).click()
+  await addClip(page, 'Root')
   await expect(arrangement.getByTestId('arrangement-region')).toHaveCount(1)
 
   // Playback follows the timeline: the placed clip sounds through the worklet.
@@ -47,9 +53,9 @@ test('looping regions repeat until the next region, and regions move across trac
   // Two regions on the first track, 16 beats apart.
   const lane = arrangement.locator('[data-lane]').first()
   await lane.click({ button: 'right', position: { x: 120, y: 20 } })
-  await page.getByRole('menuitem', { name: 'Add Root', exact: true }).click()
+  await addClip(page, 'Root')
   await lane.click({ button: 'right', position: { x: 120 + 16 * 24, y: 20 } })
-  await page.getByRole('menuitem', { name: 'Add Root', exact: true }).click()
+  await addClip(page, 'Root')
   await expect(arrangement.getByTestId('arrangement-region')).toHaveCount(2)
 
   // Loop the first: it shows the repeat badge and the span up to the next region.
@@ -97,7 +103,7 @@ test('the arrangement bounces to a WAV', async ({ page }) => {
   const arrangement = await openView(page, 'Arrangement')
   const lane = arrangement.locator('[data-lane]').first()
   await lane.click({ button: 'right', position: { x: 120, y: 20 } })
-  await page.getByRole('menuitem', { name: 'Add Root', exact: true }).click()
+  await addClip(page, 'Root')
   await expect(arrangement.getByTestId('arrangement-region')).toHaveCount(1)
 
   await page.getByText('File', { exact: true }).click()

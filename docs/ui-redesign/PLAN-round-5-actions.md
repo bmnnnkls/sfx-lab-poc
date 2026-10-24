@@ -465,4 +465,14 @@ What turned out different from the design above, step by step.
   empty names, and goes away when none is left.
 * **Step 5: the automation scene follows its row.** Inserting or deleting a row above the selection store's
   `automationScene` moves it with its row; deleting its own row resets it to the first scene.
+* **Step 6: `clipCopyFor(project, clip, trackId)`** gives a clip value fresh ids and moves its lanes to a track; both
+  `pasteSessionClip` and a lane's *Paste* use it, so a pasted region gets fresh ids too. `canPasteSessionClip` says
+  whether a value fits a slot (an empty slot of a track of its kind, an audio clip's sample still there).
+  `copySessionClip` (*Duplicate to empty slot*) doesn't check the sample, as before.
+* **Step 6: a region's *Edit clip*** opens the session clip whose id its content carries, on the region's track; it is
+  disabled once that clip is gone. A pasted region has fresh ids, so it has no source to open.
+* **Step 6: the empty audio slot's *+* popup runs the same action** as its *Add audio clip* ▸ submenu, with the
+  sample as the choice; *Import samples…* is the choice when the project has none.
+* **Step 6: the automation cell's ✎, × and *+*** run *Edit*, *Delete* and *Create*. Its ▶ and ■ still launch and
+  stop directly; the menu's *Launch* / *Stop* follows the cell's playing state.
 

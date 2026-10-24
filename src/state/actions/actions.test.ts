@@ -81,8 +81,8 @@ describe('session clip', () => {
   it('offers the same entries for MIDI and audio clips, naming the editor', () => {
     const midi: Subject = { kind: 'clip', trackId: track('Bass').id, clipId: clipOf('Bass', 0).id }
     const audio: Subject = { kind: 'clip', trackId: track('Kick').id, clipId: clipOf('Kick', 0).id }
-    expect(titles(midi)).toEqual(['Launch clip', 'Edit notes', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Delete clip'])
-    expect(titles(audio)).toEqual(['Launch clip', 'Edit clip', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Delete clip'])
+    expect(titles(midi)).toEqual(['Launch', 'Edit notes', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Copy', 'Cut', 'Delete'])
+    expect(titles(audio)).toEqual(['Launch', 'Edit clip', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Copy', 'Cut', 'Delete'])
     expect(describeActions(midi, fakeContext()).find((item) => item.id === 'clip.delete')).toMatchObject({ group: 'delete', danger: true })
   })
 
@@ -93,7 +93,7 @@ describe('session clip', () => {
     runAction('clip.launch', subject, context)
     expect(context.calls).toEqual([`engine.launchClip("${bass.id}", "${root.id}")`])
     useStatusStore.setState({ status: { tracks: { [bass.id]: { playingClipId: root.id, startBeat: 0, queued: null } } } as never })
-    expect(titles(subject)[0]).toBe('Restart clip')
+    expect(titles(subject)[0]).toBe('Restart')
   })
 
   it('opens the clip editor, and the automation editor', () => {
@@ -133,13 +133,23 @@ describe('session clip', () => {
 })
 
 describe('empty slot', () => {
-  it('creates a MIDI clip and opens it; audio slots have nothing yet', () => {
+  it('creates a MIDI clip and opens it', () => {
     const lead = track('Lead')
-    expect(titles({ kind: 'slot', trackId: lead.id, scene: 1 })).toEqual(['Create clip'])
-    expect(titles({ kind: 'slot', trackId: track('Kick').id, scene: 1 })).toEqual([])
+    expect(titles({ kind: 'slot', trackId: lead.id, scene: 1 })).toEqual(['Create clip', 'Paste'])
     runAction('slot.create-clip', { kind: 'slot', trackId: lead.id, scene: 1 }, fakeContext())
     expect(useSelectionStore.getState().clipId).toBe(clipOf('Lead', 1).id)
     expect(titles({ kind: 'slot', trackId: lead.id, scene: 1 })).toEqual([])
+  })
+
+  it('adds an audio clip of a sample from a submenu, or offers to import samples', () => {
+    const kick = track('Kick'), slot: Subject = { kind: 'slot', trackId: kick.id, scene: 1 }
+    const [add] = describeActions(slot, fakeContext())
+    expect(add).toMatchObject({ title: 'Add audio clip', inline: false, choices: [{ id: 'kick', title: 'Kick' }] })
+    runAction('slot.add-audio-clip', slot, fakeContext(), { choice: 'kick' })
+    expect(clipOf('Kick', 1)).toMatchObject({ sampleId: 'kick' })
+    expect(useSelectionStore.getState().clipId).toBe(clipOf('Kick', 1).id)
+    useProjectStore.getState().removeSample('kick')
+    expect(describeActions({ ...slot, scene: 2 }, fakeContext())[0]?.choices).toEqual([{ id: '', title: 'Import samples…' }])
   })
 })
 
@@ -153,11 +163,11 @@ describe('arrangement region and lane', () => {
   it('duplicates a region after itself, loops it and deletes it', () => {
     const region = placeRoot()
     const subject: Subject = { kind: 'region', regionId: region.id }
-    expect(titles(subject)).toEqual(['Duplicate', 'Loop until next region', 'Delete'])
+    expect(titles(subject)).toEqual(['Edit clip', 'Duplicate', 'Loop until next region', 'Copy', 'Delete'])
     runAction('region.duplicate', subject, fakeContext())
     expect(project().arrangement?.map((placed) => placed.startBeat)).toEqual([4, 4 + region.content.lengthBeats])
     runAction('region.loop', subject, fakeContext())
-    expect(titles(subject)[1]).toBe('Stop looping')
+    expect(titles(subject)[2]).toBe('Stop looping')
     runAction('region.delete', subject, fakeContext())
     expect(project().arrangement).toHaveLength(1)
   })
@@ -165,9 +175,10 @@ describe('arrangement region and lane', () => {
   it("adds the track's session clips at the clicked beat, and clears the track", () => {
     const bass = track('Bass')
     const lane: Subject = { kind: 'lane', trackId: bass.id, beat: 8 }
-    const [add, clear] = describeActions(lane, fakeContext())
-    expect(add?.choices?.map((choice) => choice.title)).toEqual(['Add Root', 'Add Walk'])
-    expect(add?.inline).toBe(true)
+    const [add, paste, clear] = describeActions(lane, fakeContext())
+    expect(add).toMatchObject({ title: 'Add clip', inline: false })
+    expect(add?.choices?.map((choice) => choice.title)).toEqual(['Root', 'Walk'])
+    expect(paste).toMatchObject({ title: 'Paste', enabled: false })
     expect(clear).toMatchObject({ title: 'Clear this track', enabled: false, danger: true })
     runAction('lane.add-clip', lane, fakeContext(), { choice: clipOf('Bass', 1).id })
     expect(project().arrangement?.map((region) => [region.startBeat, region.content.name])).toEqual([[8, 'Walk']])

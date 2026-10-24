@@ -41,6 +41,7 @@ import {
   removeArrangementClip,
   removeSample,
   removeTrack,
+  pasteSessionClip,
   setClipAt,
   setClipLength,
   setClipName,
@@ -164,6 +165,8 @@ interface ProjectActions {
   /** Deletes a module that nothing uses. */
   deleteModule(moduleId: string): void
   createClip(trackId: string, scene: number): Clip
+  /** Puts a copy of a clip value into an empty slot of a track of its kind (see `pasteSessionClip`). */
+  pasteClip(clip: Clip | AudioClip, trackId: string, scene: number): void
   deleteClip(trackId: string, scene: number): void
   setClipNotes(trackId: string, clipId: string, notes: readonly Note[]): void
   /** Resizes a clip; shortening trims notes that no longer fit. */
@@ -289,6 +292,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       return clip
     },
     deleteClip: (trackId, scene) => edit((project) => setClipAt(project, trackId, scene, null)),
+    pasteClip: (clip, trackId, scene) => edit((project) => pasteSessionClip(project, clip, trackId, scene)),
     setClipNotes: (trackId, clipId, notes) =>
       edit((project) => setClipNotes(project, trackId, clipId, notes)),
     setClipLength: (trackId, clipId, lengthBeats) =>

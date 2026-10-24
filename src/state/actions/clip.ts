@@ -4,6 +4,7 @@ import { openClip } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { useStatusStore } from '../status-store'
 import { sessionClipOf, trackOf } from './lookup'
+import { clipClipboard } from './clipboards'
 import { renameAction } from './rename'
 import type { Action, SubjectOf } from './types'
 
@@ -31,13 +32,27 @@ export const placeOnArrangement = (trackId: string, clip: Clip | AudioClip): voi
   addArrangementClip(trackId, endOf(project.arrangement ?? []), clip)
 }
 
+const copyClip = (trackId: string, clipId: string) => {
+  const found = sessionClipOf(trackId, clipId)
+  const kind = trackOf(trackId)?.kind
+  if (found && kind && kind !== 'return') clipClipboard.set({ clip: found.clip, kind })
+}
+
+const deleteClip = ({ trackId, clipId }: ClipSubject) => {
+  const found = sessionClipOf(trackId, clipId)
+  if (!found) return
+  const store = useProjectStore.getState()
+  if (trackOf(trackId)?.kind === 'audio') store.deleteAudioClip(trackId, found.scene)
+  else store.deleteClip(trackId, found.scene)
+}
+
 const playing = ({ trackId, clipId }: ClipSubject) => useStatusStore.getState().status?.tracks[trackId]?.playingClipId === clipId
 
 /** A session clip, MIDI or audio. */
 export const clipActions: readonly Action<ClipSubject>[] = [
   {
     id: 'clip.launch',
-    title: (subject) => (playing(subject) ? 'Restart clip' : 'Launch clip'),
+    title: (subject) => (playing(subject) ? 'Restart' : 'Launch'),
     group: 'open',
     run: ({ trackId, clipId }, { engine }) => engine.launchClip(trackId, clipId),
   },
@@ -77,16 +92,25 @@ export const clipActions: readonly Action<ClipSubject>[] = [
     },
   },
   {
+    id: 'clip.copy',
+    title: 'Copy',
+    group: 'clipboard',
+    run: ({ trackId, clipId }) => copyClip(trackId, clipId),
+  },
+  {
+    id: 'clip.cut',
+    title: 'Cut',
+    group: 'clipboard',
+    run: (subject) => {
+      copyClip(subject.trackId, subject.clipId)
+      deleteClip(subject)
+    },
+  },
+  {
     id: 'clip.delete',
-    title: 'Delete clip',
+    title: 'Delete',
     group: 'delete',
     danger: true,
-    run: ({ trackId, clipId }) => {
-      const found = sessionClipOf(trackId, clipId)
-      if (!found) return
-      const store = useProjectStore.getState()
-      if (trackOf(trackId)?.kind === 'audio') store.deleteAudioClip(trackId, found.scene)
-      else store.deleteClip(trackId, found.scene)
-    },
+    run: (subject) => deleteClip(subject),
   },
 ]

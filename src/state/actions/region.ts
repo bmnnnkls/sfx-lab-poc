@@ -1,6 +1,8 @@
-import { arrangementEnd } from '@core'
+import { arrangementEnd, isAudioContent } from '@core'
+import { openClip } from '../navigation'
 import { useProjectStore } from '../project-store'
-import { project } from './lookup'
+import { clipClipboard } from './clipboards'
+import { project, sessionClipOf } from './lookup'
 import type { Action, SubjectOf } from './types'
 
 type RegionSubject = SubjectOf<'region'>
@@ -9,6 +11,20 @@ const regionOf = ({ regionId }: RegionSubject) => (project().arrangement ?? []).
 
 /** A region on the arrangement timeline: a copy of a clip at a beat. */
 export const regionActions: readonly Action<RegionSubject>[] = [
+  {
+    id: 'region.edit-clip',
+    title: 'Edit clip',
+    group: 'open',
+    // A region's content is a copy; its session source may have been changed, moved or deleted since.
+    enabled: (subject) => {
+      const region = regionOf(subject)
+      return !!region && !!sessionClipOf(region.trackId, region.content.id)
+    },
+    run: (subject) => {
+      const region = regionOf(subject)
+      if (region) openClip(region.trackId, region.content.id)
+    },
+  },
   {
     id: 'region.duplicate',
     title: 'Duplicate',
@@ -25,6 +41,15 @@ export const regionActions: readonly Action<RegionSubject>[] = [
     run: (subject) => {
       const region = regionOf(subject)
       if (region) useProjectStore.getState().updateArrangementClip(region.id, { loop: !region.loop })
+    },
+  },
+  {
+    id: 'region.copy',
+    title: 'Copy',
+    group: 'clipboard',
+    run: (subject) => {
+      const region = regionOf(subject)
+      if (region) clipClipboard.set({ clip: region.content, kind: isAudioContent(region.content) ? 'audio' : 'instrument' })
     },
   },
   {

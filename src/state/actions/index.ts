@@ -1,4 +1,5 @@
 import { usePersistenceStore } from '../persistence-store'
+import { automationSlotActions } from './automation-slot'
 import { clipActions } from './clip'
 import { controlActions } from './control'
 import { laneActions } from './lane'
@@ -13,13 +14,14 @@ import type { Action, ActionChoice, ActionContext, Subject, SubjectKind, Subject
 export type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf } from './types'
 export { duplicateSessionClip, placeOnArrangement } from './clip'
 export { commitRename, startRename } from './rename'
+export { automationSlotClipboard, clipClipboard, type CopiedClip } from './clipboards'
 
 const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = {
   track: trackActions,
   master: masterActions,
   clip: clipActions,
   slot: slotActions,
-  'automation-slot': [],
+  'automation-slot': automationSlotActions,
   scene: sceneActions,
   sample: [renameAction('sample')],
   'library-item': [renameAction('library-item')],
