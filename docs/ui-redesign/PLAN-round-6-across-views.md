@@ -453,3 +453,7 @@ What turned out different from the design above, step by step.
   in the canvas menu's *edit* group, between *Add node…* and *Paste*, and is disabled at `MAX_PATCH_NODES`.
 * **Step 5: a sampler's card doesn't show its sample,** so the smoke spec opens the new card's properties and finds
   the sample chosen there.
+* **Step 6: the rows that drag are small components** (`PresetRow` in Sounds, `ItemRow` in the Library) holding the
+  row's menu, so the hooks aren't called inside a list. Snapshot rows don't drag.
+* **Step 6: the smoke spec drops on the session header only.** The mixer strips, the lane names and the master's
+  header and strip take the same `track` and `master` targets, and the unit tests cover the drops on each kind.

@@ -218,6 +218,17 @@
   outline-offset: -1px;
 }
 
+/* A lane's name a drag of ours is over. */
+.name[data-drop='accept'] {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.name[data-drop='refuse'] {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
+}
+
 /* The lane a dragged region is over. */
 .row[data-drag-over] {
   outline: 2px dashed var(--accent);

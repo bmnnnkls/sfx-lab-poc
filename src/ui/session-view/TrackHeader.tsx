@@ -2,6 +2,7 @@ import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OU
 import { type Subject, openTrackView, runAction, useProjectStore, useSelectionStore } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
+import { useDropTarget } from '../shared/drag'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename } from '../shared/RenameField'
 import styles from './SessionView.module.css'
@@ -10,6 +11,8 @@ export const TrackHeader = ({ track }: { track: Track }) => {
   const context = useActionContext()
   const subject: Subject = { kind: 'track', trackId: track.id }
   const gesture = useControlGesture()
+  // A preset or a library graph dropped here goes onto this track.
+  const drop = useDropTarget({ kind: 'track', trackId: track.id })
   const target: ControlTarget = { kind: 'mixer', owner: { kind: 'track', trackId: track.id }, control: 'volume' }
   const selected = useSelectionStore((state) => state.trackId === track.id)
   const selectTrack = useSelectionStore((state) => state.selectTrack)
@@ -24,7 +27,7 @@ export const TrackHeader = ({ track }: { track: Track }) => {
 
   return (
     <ActionMenu subject={subject}>
-    <div {...gesture.events} className={`${styles.header} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnHeader : ''} ${track.muted ? styles.mutedHeader : ''}`}>
+    <div {...gesture.events} {...drop} className={`${styles.header} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnHeader : ''} ${track.muted ? styles.mutedHeader : ''}`}>
       <InPlaceRename subject={subject} name={track.name} label={`Name of ${track.name}`} className={styles.trackName}>
         <button className={styles.trackName} onClick={() => selectTrack(track.id)}>
           {track.name}

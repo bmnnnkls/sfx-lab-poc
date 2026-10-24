@@ -1,10 +1,18 @@
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { captureSnapshot, putSnapshot, saveProjectPreset, enumerateSampleTargets, resolveSampleTarget, sampleTargetKey, editSampleBinding, inSnapshotScope, morphSnapshots, type SnapshotScope, type Snapshot } from '@core'
 import { useProjectStore, useSelectionStore, editPresetProject, recallPresetOn, runAction } from '@state'
+import { useDragSource } from '../shared/drag'
 import { ActionMenu, useActionContext } from '../shared/menu'
-import { InPlaceRename } from '../shared/RenameField'
+import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import styles from './PresetsPanel.module.css'
+
+/** A project preset's row: its menu, and it drags onto a track (or the master) whose graph matches it. */
+const PresetRow = ({ soundId, children }: { soundId: string; children: ReactNode }) => {
+  const subject = { kind: 'sound', soundId, preset: true } as const
+  const drag = useDragSource(useRenaming(subject) ? null : subject)
+  return <ActionMenu subject={subject}><div className={styles.row} {...drag}>{children}</div></ActionMenu>
+}
 
 export const PresetsPanel = () => {
   const project = useProjectStore(s => s.project)
@@ -45,7 +53,7 @@ export const PresetsPanel = () => {
         <button onClick={() => run('sound.duplicate', s, false)}>Duplicate</button>
         <button onClick={() => run('sound.delete', s, false)}>Delete</button>
       </div></ActionMenu>)}</section>
-      <section><h3>Embedded presets</h3>{(project.presets ?? []).map(s => <ActionMenu key={s.id} subject={{ kind: 'sound', soundId: s.id, preset: true }}><div className={styles.row}>
+      <section><h3>Embedded presets</h3>{(project.presets ?? []).map(s => <PresetRow key={s.id} soundId={s.id}>
         {labelled(s, true)}<small title={s.revisionId}>Revision {s.revisionId.slice(-8)}</small>
         {/* These two act on the scope chosen above, the menu's on the preset's own. */}
         <button onClick={() => act(() => recallPresetOn(s, scope.owner, scope.domain))}>Recall preset {s.name}</button>
@@ -55,7 +63,7 @@ export const PresetsPanel = () => {
         <button onClick={() => run('sound.rename', s, true)}>Rename</button>
         <button onClick={() => run('sound.duplicate', s, true)}>Duplicate</button>
         <button onClick={() => run('sound.delete', s, true)}>Delete</button>
-      </div></ActionMenu>)}</section>
+      </PresetRow>)}</section>
     </div>
     <fieldset><legend>A/B snapshot morph</legend>
       <label>A <select aria-label="Snapshot A" value={a} onChange={e => setA(e.target.value)}><option value="">Choose A</option>{snapshots.map(s => <option key={s.id} value={s.id}>{label(s)}</option>)}</select></label>

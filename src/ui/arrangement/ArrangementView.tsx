@@ -44,6 +44,18 @@ const LaneRow = ({ trackId, pxPerBeat, width, children }: { trackId: string; pxP
   )
 }
 
+/** A lane's track name: its menu is the track's, and a preset or a library graph dropped on it goes onto the track. */
+const LaneName = ({ trackId, name }: { trackId: string; name: string }) => {
+  const drop = useDropTarget({ kind: 'track', trackId })
+  return (
+    <ActionMenu subject={{ kind: 'track', trackId }}>
+      <div className={styles.name} tabIndex={0} {...drop}>
+        {name}
+      </div>
+    </ActionMenu>
+  )
+}
+
 /**
  * The "Arrangement" view: copies of session clips on a timeline, one lane per track. Playback follows
  * the transport; ▶ starts it from the beginning (or resumes from where it was stopped). Session slots
@@ -107,11 +119,7 @@ export const ArrangementView = () => {
           .filter((track) => track.kind !== 'return')
           .map((track) => (
             <div key={track.id} className={styles.lane}>
-              <ActionMenu subject={{ kind: 'track', trackId: track.id }}>
-                <div className={styles.name} tabIndex={0}>
-                  {track.name}
-                </div>
-              </ActionMenu>
+              <LaneName trackId={track.id} name={track.name} />
               <LaneRow trackId={track.id} pxPerBeat={pxPerBeat} width={width}>
                 <ActionMenu subject={{ kind: 'lane', trackId: track.id, beat: placedAt }}>
                   <div
