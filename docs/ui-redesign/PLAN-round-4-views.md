@@ -356,6 +356,11 @@ What turned out different from the design above, step by step.
   and its drawing scales to fit.
 * **Step 4: the Wave editor's waveform scroller carries `data-scroll="x"`**, and the spec checks that scroller, not
   the canvas inside it.
+* **Step 5: the sticky master sits past the scroller's padding** (`right: calc(-1 * var(--padding))`); at `right: 0`
+  the strips scrolling under it showed in the 10 px gutter beside it.
+* **Step 5: the short strip also drops the effects badges and lets the fader row shrink to 40 px.** Without that, a
+  strip at 200 px still needed more height than the view has; it keeps its name, mute and solo, fader, meter and
+  value, as planned.
 
 ## Behavior changes
 

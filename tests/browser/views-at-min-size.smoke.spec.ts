@@ -55,6 +55,12 @@ const CASES: readonly Case[] = [
     controls: (root) => [root.getByRole('button', { name: 'Close', exact: true }), root.locator('[data-scroll]')],
   },
   {
+    title: 'Mixer',
+    min: TOOL_VIEW,
+    // The master strip stays at the right edge while the strips scroll.
+    controls: (root) => [root.getByLabel('Master fader', { exact: true }), root.getByRole('button', { name: 'Bass', exact: true })],
+  },
+  {
     title: 'Library',
     min: TOOL_VIEW,
     prepare: async (_page, root) => {
