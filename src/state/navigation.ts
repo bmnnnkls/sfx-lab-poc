@@ -32,3 +32,9 @@ export const openAutomationSlot = (owner: ControlOwner, scene: number) => {
   useSelectionStore.getState().selectAutomation(owner, scene)
   reveal('clip')
 }
+
+/** Open a sample in the sample editor. */
+export const openSampleEditor = (sampleId: string) => {
+  useSelectionStore.getState().selectSample(sampleId)
+  reveal('samples')
+}

@@ -1,4 +1,4 @@
-import { useProjectStore, useSampleLibrary } from '@state'
+import { useProjectStore, useSampleLibrary, useSelectionStore } from '@state'
 import { type DragEvent, useRef, useState } from 'react'
 import { SampleEditor } from './SampleEditor'
 import { SampleRow } from './SampleRow'
@@ -8,7 +8,10 @@ import styles from './SamplesPanel.module.css'
 export const SamplesPanel = () => {
   const library = useSampleLibrary()
   const samples = useProjectStore((state) => state.project.samples)
-  const [editing, setEditing] = useState<string | null>(null)
+  const sampleId = useSelectionStore((state) => state.sampleId)
+  const selectSample = useSelectionStore((state) => state.selectSample)
+  // The selection outlives this view, so its sample may have been removed (by undo, say) in the meantime.
+  const editing = samples.find((sample) => sample.id === sampleId)
   const input = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -52,14 +55,11 @@ export const SamplesPanel = () => {
           No samples yet. Import audio files, or add the demo samples to try the sampler.
         </p>
       ) : editing ? (
-        <SampleEditor
-          sample={samples.find((sample) => sample.id === editing)!}
-          onClose={() => setEditing(null)}
-        />
+        <SampleEditor sample={editing} onClose={() => selectSample(null)} />
       ) : (
         <ul className={styles.list}>
           {samples.map((sample) => (
-            <SampleRow key={sample.id} sample={sample} onEdit={() => setEditing(sample.id)} />
+            <SampleRow key={sample.id} sample={sample} />
           ))}
         </ul>
       )}

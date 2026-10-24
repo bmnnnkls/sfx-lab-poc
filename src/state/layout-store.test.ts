@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { DEFAULT_REGIONS, useLayoutStore } from './layout-store'
-import { openAutomationSlot, openClip, openMasterEffects, openTrackView } from './navigation'
+import { openAutomationSlot, openClip, openMasterEffects, openSampleEditor, openTrackView } from './navigation'
 import { useSelectionStore } from './selection-store'
 
 const regions = () => useLayoutStore.getState().regions
@@ -82,5 +82,18 @@ describe('navigation intents', () => {
     expect(regions().panel.active).toBe('clip')
     openAutomationSlot({ kind: 'master' }, 1)
     expect(useSelectionStore.getState()).toMatchObject({ trackId: null, master: true, automationScene: 1 })
+  })
+
+  it('openSampleEditor selects the sample and shows Samples; switching views keeps it, reset clears it', () => {
+    openSampleEditor('s')
+    expect(useSelectionStore.getState().sampleId).toBe('s')
+    expect(regions().panel.active).toBe('samples')
+    layout().revealView('mixer')
+    expect(useSelectionStore.getState().sampleId).toBe('s')
+    useSelectionStore.getState().selectSample(null)
+    expect(useSelectionStore.getState().sampleId).toBeNull()
+    openSampleEditor('s')
+    useSelectionStore.getState().reset()
+    expect(useSelectionStore.getState().sampleId).toBeNull()
   })
 })

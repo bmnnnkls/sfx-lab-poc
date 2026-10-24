@@ -1,12 +1,12 @@
 import type { SampleInfo } from '@core'
-import { openClip, openTrackView, useProjectStore, useSampleLibrary, useSampleStore } from '@state'
+import { openClip, openSampleEditor, openTrackView, useProjectStore, useSampleLibrary, useSampleStore } from '@state'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import styles from './SamplesPanel.module.css'
 
 const describeSample = (sample: SampleInfo): string =>
   `${sample.durationSeconds.toFixed(2)} s · ${sample.channels === 1 ? 'mono' : `${sample.channels} ch`} · .${sample.extension}`
 
-export const SampleRow = ({ sample, onEdit }: { sample: SampleInfo; onEdit(): void }) => {
+export const SampleRow = ({ sample }: { sample: SampleInfo }) => {
   const library = useSampleLibrary()
   const removeSample = useProjectStore((state) => state.removeSample)
   const addSamplerTrack = useProjectStore((state) => state.addSamplerTrack)
@@ -41,7 +41,7 @@ export const SampleRow = ({ sample, onEdit }: { sample: SampleInfo; onEdit(): vo
       <button onClick={() => library.preview(sample.id)} disabled={!ready} title="Preview" aria-label={`Preview ${sample.name}`}>
         ▶
       </button>
-      <button onClick={onEdit} title="Open the sample editor: normalize, reverse, trim and fades" disabled={!ready}>
+      <button onClick={() => openSampleEditor(sample.id)} title="Open the sample editor: normalize, reverse, trim and fades" disabled={!ready}>
         ✎
       </button>
       <button onClick={makeTrack} title="Create an instrument track whose sampler plays this sample from MIDI notes">
