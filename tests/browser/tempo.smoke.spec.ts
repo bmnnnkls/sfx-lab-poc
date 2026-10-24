@@ -6,9 +6,9 @@ test('delay divisions report limits at project tempo and survive undo/reload', a
   await page.addInitScript(saved => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, fixture)
   await page.goto('/')
   const selectEcho = async () => {
-    await openView(page, 'Effects')
-    await page.getByRole('group', { name: 'View', exact: true }).getByRole('button', { name: 'Graph', exact: true }).click()
-    await page.getByTestId('node-echo').locator('[data-header]').click()
+    const effects = await openView(page, 'Effects')
+    await effects.getByRole('group', { name: 'View', exact: true }).getByRole('button', { name: 'Graph', exact: true }).click()
+    await effects.getByTestId('node-echo').locator('[data-header]').click()
   }
   await selectEcho()
   const timing = page.getByLabel('Delay timing', { exact: true })

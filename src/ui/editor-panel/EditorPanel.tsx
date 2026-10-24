@@ -1,4 +1,5 @@
 import { useLayoutStore } from '@state'
+import { ViewHost } from '../layout/ViewHost'
 import { views } from '../layout/views'
 import styles from './EditorPanel.module.css'
 
@@ -6,7 +7,6 @@ import styles from './EditorPanel.module.css'
 export const EditorPanel = () => {
   const panel = useLayoutStore((state) => state.regions.panel)
   const revealView = useLayoutStore((state) => state.revealView)
-  const Active = views[panel.active].component
 
   return (
     <div className={styles.panel}>
@@ -18,7 +18,7 @@ export const EditorPanel = () => {
         ))}
       </nav>
       <div className={styles.body}>
-        <Active />
+        <ViewHost key={panel.active} id={panel.active} />
       </div>
     </div>
   )

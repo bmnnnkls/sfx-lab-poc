@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from '@playwright/test'
+import { test as base, expect, type Locator, type Page } from '@playwright/test'
 
 /** Every test gets a fresh browser context, including localStorage and IndexedDB. */
 export const test = base.extend<{ browserErrors: string[] }>({
@@ -20,13 +20,36 @@ export type ViewTitle =
   | 'Session' | 'Arrangement'
   | 'Instrument' | 'Effects' | 'Notes' | 'Clip' | 'Mixer' | 'Samples' | 'Sounds' | 'Library'
 
+/** Each view's id, its `data-view` attribute. Kept in sync by hand with `ViewId` in `src/state/layout-store.ts`. */
+const VIEW_IDS: Readonly<Record<ViewTitle, string>> = {
+  Session: 'session',
+  Arrangement: 'arrangement',
+  Instrument: 'instrument',
+  Effects: 'effects',
+  Notes: 'notes',
+  Clip: 'clip',
+  Mixer: 'mixer',
+  Samples: 'samples',
+  Sounds: 'sounds',
+  Library: 'library',
+}
+
 /** The main views are switched from the transport bar, whose buttons say which view they show. */
 const MAIN_VIEWS: ReadonlySet<ViewTitle> = new Set(['Session', 'Arrangement'])
 
-/** Show a view wherever it is docked. The only place specs know how views are opened. */
-export const openView = async (page: Page, title: ViewTitle) => {
+/** A view's root, wherever it is docked and whether or not it is showing. */
+export const viewRoot = (page: Page, title: ViewTitle): Locator => page.locator(`[data-view="${VIEW_IDS[title]}"]`)
+
+/**
+ * Show a view wherever it is docked and return its root, once it is visible. The only place specs know how views are
+ * opened. Look inside the returned locator rather than the page: a hidden view can stay in the DOM.
+ */
+export const openView = async (page: Page, title: ViewTitle): Promise<Locator> => {
   const name = MAIN_VIEWS.has(title) ? `${title} view` : title
   await page.getByRole('button', { name, exact: true }).click()
+  const root = viewRoot(page, title)
+  await expect(root).toBeVisible()
+  return root
 }
 
 export const openExample = async (page: Page, name: string) => {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { EditorPanel } from './editor-panel/EditorPanel'
 import { useLayoutPersistence } from './layout/use-layout-persistence'
-import { views } from './layout/views'
+import { ViewHost } from './layout/ViewHost'
 import { Splitter } from './shared/Splitter'
 import { TooltipLayer } from './shared/tooltip/TooltipLayer'
 import { useStoredState } from './shared/use-stored-state'
@@ -25,7 +25,7 @@ export const Workspace = () => {
   useViewShortcuts()
   const audioFailure = useStatusStore((state) => state.audioFailure)
   const [stored, setEditorHeight] = useStoredState('sfxlab:editor-height', DEFAULT_EDITOR_HEIGHT, isNumber)
-  const Main = views[useLayoutStore((state) => state.regions.main.active)].component
+  const main = useLayoutStore((state) => state.regions.main.active)
   const [windowHeight, setWindowHeight] = useState(window.innerHeight)
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export const Workspace = () => {
       {audioFailure && <div className={styles.audioFailure} role="alert">{audioFailure}. Your project remains available; save or export your work before reloading.</div>}
       <TransportBar />
       <main className={styles.session}>
-        <Main />
+        <ViewHost key={main} id={main} />
       </main>
       <Splitter size={editorHeight} min={MIN_EDITOR_HEIGHT} max={max} onResize={setEditorHeight} />
       <section className={styles.editor} style={{ height: editorHeight }}>
