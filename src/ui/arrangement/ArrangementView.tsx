@@ -7,6 +7,7 @@ import {
 import { useEngineControls, useProjectStore, useStatusStore } from '@state'
 import { Fragment, useState } from 'react'
 import { ContextMenu } from '../shared/menu'
+import { ArrangementPlayhead } from './ArrangementPlayhead'
 import { ArrangementRegion } from './ArrangementRegion'
 import styles from './arrangement.module.css'
 
@@ -34,8 +35,6 @@ export const ArrangementView = () => {
   const addRegion = useProjectStore((state) => state.addArrangementClip)
   const updateRegion = useProjectStore((state) => state.updateArrangementClip)
   const removeRegion = useProjectStore((state) => state.removeArrangementClip)
-  const playing = useStatusStore((state) => state.status?.playing ?? false)
-  const beat = useStatusStore((state) => state.status?.beat ?? 0)
   const [pxPerBeat, setPxPerBeat] = useState(DEFAULT_PX_PER_BEAT)
   const [selected, setSelected] = useState<string | null>(null)
   /** Where an empty lane was right-clicked, so "add" places the clip there. */
@@ -45,7 +44,8 @@ export const ArrangementView = () => {
   const bars = Math.max(MIN_BARS, Math.ceil(end / BEATS_PER_BAR) + TRAILING_BARS)
   const width = bars * BEATS_PER_BAR * pxPerBeat
 
-  const start = () => controls.playArrangement(playing ? undefined : 0)
+  // Read when clicked rather than subscribed to, so the timeline doesn't re-render with the transport.
+  const start = () => controls.playArrangement(useStatusStore.getState().status?.playing ? undefined : 0)
   const stop = () => controls.stop()
 
   const clipsOf = (trackId: string) => {
@@ -161,7 +161,7 @@ export const ArrangementView = () => {
                     </Fragment>
                   )
                 })}
-                {playing && <div className={styles.playhead} style={{ left: beat * pxPerBeat }} />}
+                <ArrangementPlayhead pxPerBeat={pxPerBeat} />
               </div>
             </div>
           ))}
