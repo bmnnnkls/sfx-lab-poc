@@ -164,3 +164,43 @@ test('a slot passing over a tab without resting there leaves the view as it was'
   await expect(session).toBeVisible()
   await expect(viewRoot(page, 'Arrangement')).toBeHidden()
 })
+
+test('a sample row drags onto an empty audio slot, an audio lane and an instrument canvas', async ({ page }) => {
+  await page.goto('/?starter')
+  const samples = await openView(page, 'Samples')
+  await samples.getByRole('button', { name: 'Add demo samples', exact: true }).click()
+  await expect(page.locator('[data-status="ready"]')).toHaveCount(5)
+  const row = samples.getByRole('listitem').first()
+  const name = (await row.locator('strong').textContent())!
+  const session = viewRoot(page, 'Session')
+  await session.getByRole('button', { name: 'Add track', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Audio track', exact: true }).click()
+
+  // A clip of it in the slot, opened in Clip, as the slot's Add audio clip does.
+  const audio = slotOf(session, 4, 3, 0)
+  await dragTo(page, row, audio)
+  await expect(audio).toContainText(name)
+  await expect(viewRoot(page, 'Clip')).toBeVisible()
+  await expect(slotOf(session, 4, 0, 2).getByRole('button', { name: 'Create clip', exact: true })).toBeVisible()
+  await dragTo(page, row, slotOf(session, 4, 0, 2), { whileOver: () => expect(slotOf(session, 4, 0, 2)).toHaveAttribute('data-drop', 'refuse') })
+
+  const arrangement = viewRoot(page, 'Arrangement')
+  const lane = arrangement.locator('[data-lane]').nth(3)
+  await dragTo(page, row, lane, { hold: page.getByRole('tab', { name: 'Arrangement', exact: true }), position: { x: 4 * BEAT_PX + 1, y: 20 } })
+  await expect(lane.locator('xpath=..').getByTestId('arrangement-region')).toContainText(name)
+
+  // A sampler playing it, on the selected track's instrument where it was dropped.
+  // The audio clip selected its track; Bass has an instrument.
+  await (await openView(page, 'Session')).getByRole('button', { name: 'Bass', exact: true }).click()
+  const instrument = await openView(page, 'Instrument')
+  const samplers = instrument.locator('[data-node]', { hasText: 'Sampler' })
+  await expect(samplers).toHaveCount(0)
+  const viewport = instrument.getByTestId('graph-viewport')
+  const box = (await viewport.boundingBox())!
+  await dragTo(page, row, viewport, { position: { x: box.width - 120, y: box.height - 80 } })
+  await expect(samplers).toHaveCount(1)
+  await samplers.locator('[data-header]').dblclick()
+  await expect(instrument.getByLabel('Sample', { exact: true }).locator('option:checked')).toHaveText(name)
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(samplers).toHaveCount(0)
+})

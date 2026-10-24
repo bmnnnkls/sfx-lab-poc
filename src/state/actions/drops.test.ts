@@ -5,6 +5,7 @@ import { useLibraryStore } from '../library-store'
 import { usePersistenceStore } from '../persistence-store'
 import { useProjectStore } from '../project-store'
 import { useSelectionStore } from '../selection-store'
+import { describeActions, runAction } from '.'
 import { type DragPayload, type DropTarget, dropFor, runDrop } from './drops'
 import { fakeContext, kick, loadDemo } from './test-support'
 
@@ -102,6 +103,32 @@ describe('samples', () => {
     expect(clipOf('Kick', 2)).toMatchObject({ sampleId: kick.id })
     expect(useSelectionStore.getState().clipId).toBe(clipOf('Kick', 2)!.id)
     expect(undoSteps()).toBe(1)
+  })
+
+  it("add an audio clip to an audio lane at the beat, as the lane's Add audio clip does", () => {
+    const entry = describeActions(lane('Kick', 0), fakeContext()).find((item) => item.id === 'lane.add-audio-clip')
+    expect(entry?.choices).toEqual([{ id: kick.id, title: 'Kick' }])
+    expect(describeActions(lane('Bass', 0), fakeContext()).some((item) => item.id === 'lane.add-audio-clip')).toBe(false)
+    runAction('lane.add-audio-clip', lane('Kick', 2), fakeContext(), { choice: kick.id })
+    runDrop(sample, lane('Kick', 6), fakeContext(), NONE)
+    expect(project().arrangement?.map((region) => [region.startBeat, 'sampleId' in region.content && region.content.sampleId])).toEqual([[2, kick.id], [6, kick.id]])
+    expect(project().arrangement?.[1]?.content).toMatchObject({ name: 'Kick', loop: true, warp: 'repitch' })
+    expect(undoSteps()).toBe(2)
+    expect(accepted(sample, lane('Bass', 0))).toBeUndefined()
+  })
+
+  it("add a sampler playing it to an instrument's canvas at the point, as the canvas's Add sampler does", () => {
+    const sampler = () => {
+      const bass = track('Bass')
+      return bass.kind === 'instrument' ? bass.patch.nodes.filter((node) => node.type === 'sampler') : []
+    }
+    runAction('canvas.add-sampler', canvas('Bass'), fakeContext(), { choice: kick.id })
+    runDrop(sample, { kind: 'canvas', target: { trackId: track('Bass').id }, path: [], at: { x: 120, y: 80 } }, fakeContext(), NONE)
+    expect(sampler().map((node) => [node.x, node.y, node.sampleId])).toEqual([[0, 0, kick.id], [120, 80, kick.id]])
+    expect(undoSteps()).toBe(2)
+    expect(accepted(sample, canvas('Bass', 'fx'))).toBeUndefined()
+    expect(accepted(sample, canvas('Bass', 'notes'))).toBeUndefined()
+    expect(describeActions(canvas('Bass', 'fx'), fakeContext()).some((item) => item.id === 'canvas.add-sampler')).toBe(false)
   })
 
   it('refuse an instrument slot, an occupied slot, tracks and a sample that is gone', () => {

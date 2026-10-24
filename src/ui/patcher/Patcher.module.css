@@ -53,6 +53,9 @@
 }
 
 .scroller[data-hand-tool='true'] { cursor: grab; }
+/* A canvas a drag of ours is over: it would land there, or it can't. */
+.scroller[data-drop='accept'] { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.scroller[data-drop='refuse'] { outline: 1px dashed var(--text-dim); outline-offset: -1px; }
 .scroller[data-panning='true'],
 .scroller[data-panning='true'] * { cursor: grabbing !important; }
 

@@ -14,6 +14,7 @@ import {
 import { type Subject, useGraphViewStore, useProjectStore } from '@state'
 import { type PointerEvent, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
+import { useDropTarget } from '../shared/drag'
 import { ActionMenu, type MenuEntry } from '../shared/menu'
 import type { ParamChange } from '../panel/ControlWidget'
 import { NodeView } from './NodeView'
@@ -255,6 +256,13 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
     onSelectionChange(new Set([...(finished.additive ? selected : []), ...hit.map((node) => node.id)]))
   }
 
+  // What is dropped on the canvas lands at the canvas point under the pointer, as the menu's entries do.
+  const drop = useDropTarget((event) => {
+    const bounds = scroller.current?.getBoundingClientRect()
+    const point = canvasPoint({ x: event.clientX - (bounds?.left ?? 0), y: event.clientY - (bounds?.top ?? 0) }, viewRef.current)
+    return { kind: 'canvas', target: graph.target, path: graph.path, at: { x: Math.round(point.x), y: Math.round(point.y) } }
+  })
+
   const isBackground = (target: EventTarget | null) => target instanceof HTMLElement &&
     (target === scroller.current || target.dataset.testid === 'patch-surface')
 
@@ -266,6 +274,7 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
         className={styles.scroller}
         style={{ backgroundPosition: `${view.x}px ${view.y}px`, backgroundSize: `${20 * view.zoom}px ${20 * view.zoom}px` }}
         data-testid="graph-viewport"
+        {...drop}
         data-panning={panning}
         data-hand-tool={handTool}
         onContextMenu={(event) => {

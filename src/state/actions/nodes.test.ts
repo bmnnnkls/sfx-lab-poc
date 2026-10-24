@@ -109,7 +109,8 @@ describe('nodes', () => {
 
 describe('canvas', () => {
   it('asks the graph editor for the node picker at the point', () => {
-    expect(titles(canvas('Bass'))).toEqual(['Add node…', 'Paste'])
+    // The demo has a sample (Kick), so an instrument's canvas offers a sampler.
+    expect(titles(canvas('Bass'))).toEqual(['Add node…', 'Add sampler', 'Paste'])
     runAction('canvas.add-node', canvas('Bass', 'fx'), fakeContext())
     expect(useGraphViewStore.getState().addRequest).toEqual({ graph: `${track('Bass').id}:fx`, at: { x: 400, y: 300 } })
   })

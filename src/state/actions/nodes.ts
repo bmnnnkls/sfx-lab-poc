@@ -1,4 +1,4 @@
-import { type PatchNode, type PatchTarget, type TrackGraph, containsModule, controlKindFor, copyNodes, describeNode, MAX_PATCH_NODES, MODULE_NODE_TYPE, patchAt, pasteNodes, removeNode, setNodeBypassed } from '@core'
+import { type PatchNode, type PatchTarget, type TrackGraph, addNode, containsModule, controlKindFor, copyNodes, createNode, describeNode, MAX_PATCH_NODES, MODULE_NODE_TYPE, patchAt, pasteNodes, removeNode, setNodeBypassed, setNodeSample } from '@core'
 import { graphKey, useGraphViewStore } from '../graph-view-store'
 import { useProjectStore } from '../project-store'
 import { nodeClipboard } from './clipboards'
@@ -138,6 +138,20 @@ export const canvasActions: readonly Action<CanvasSubject>[] = [
     group: 'open',
     takesFocus: true,
     run: (subject) => useGraphViewStore.getState().requestAdd({ graph: graphKeyOf(subject), at: subject.at }),
+  },
+  {
+    id: 'canvas.add-sampler',
+    title: 'Add sampler',
+    group: 'edit',
+    // In an instrument, at the top level or inside a module opened from it.
+    applies: (subject) => graphOf(subject) === 'patch' && project().samples.length > 0,
+    enabled: (subject) => (patchOf(subject)?.nodes.length ?? MAX_PATCH_NODES) < MAX_PATCH_NODES,
+    choices: () => project().samples.map((sample) => ({ id: sample.id, title: sample.name })),
+    run: (subject, _context, sampleId) => {
+      if (!sampleId || !project().samples.some((sample) => sample.id === sampleId)) return
+      const node = createNode('sampler', subject.at.x, subject.at.y)
+      edit(subject, (patch) => setNodeSample(addNode(patch, node), node.id, sampleId))
+    },
   },
   {
     id: 'canvas.paste',

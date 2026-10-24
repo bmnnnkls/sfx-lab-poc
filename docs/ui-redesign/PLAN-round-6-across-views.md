@@ -448,3 +448,8 @@ What turned out different from the design above, step by step.
   Chromium the dragged slot is still there, and `dragend` reaches it. The smoke spec checks that Session is hidden
   while the pointer is over the lane and that the region lands; a spec also checks that passing over a tab without
   resting there shows nothing.
+* **Step 5: the two submenus show only when the project has samples,** as they would otherwise be empty; the slot's
+  *Add audio clip* offers *Import samples…* instead, since an empty slot has nothing else to offer. *Add sampler* is
+  in the canvas menu's *edit* group, between *Add node…* and *Paste*, and is disabled at `MAX_PATCH_NODES`.
+* **Step 5: a sampler's card doesn't show its sample,** so the smoke spec opens the new card's properties and finds
+  the sample chosen there.

@@ -92,6 +92,22 @@ export const drops: readonly Drop[] = [
     effect: copies,
     run: (sample, slot, context) => runAction('slot.add-audio-clip', slot, context, { choice: sample.sampleId }),
   }),
+  define<'sample', 'lane'>({
+    id: 'drop.sample-on-lane',
+    payload: 'sample',
+    target: 'lane',
+    accepts: (sample, lane, context) => canRunAction('lane.add-audio-clip', lane, context, sample.sampleId),
+    effect: copies,
+    run: (sample, lane, context) => runAction('lane.add-audio-clip', lane, context, { choice: sample.sampleId }),
+  }),
+  define<'sample', 'canvas'>({
+    id: 'drop.sample-on-canvas',
+    payload: 'sample',
+    target: 'canvas',
+    accepts: (sample, canvas, context) => canRunAction('canvas.add-sampler', canvas, context, sample.sampleId),
+    effect: copies,
+    run: (sample, canvas, context) => runAction('canvas.add-sampler', canvas, context, { choice: sample.sampleId }),
+  }),
   define<'sound', 'track'>({
     id: 'drop.sound-on-track',
     payload: 'sound',

@@ -168,6 +168,24 @@ test('an empty audio slot offers its samples from the menu, and automation slots
   expect(await menuEntries(page)).toEqual(['Create', '—', 'Paste'])
   await page.getByRole('menuitem', { name: 'Paste', exact: true }).click()
   await expect(session.getByRole('button', { name: 'Launch Master automation scene 2', exact: true })).toBeVisible()
+
+  // An audio lane adds a clip of a sample, and an instrument's canvas a sampler, from the same kind of submenu.
+  const arrangement = await openView(page, 'Arrangement')
+  const audioLane = arrangement.locator('[data-lane]').nth(3)
+  await audioLane.click({ button: 'right', position: { x: 120, y: 20 } })
+  await page.getByRole('menuitem', { name: 'Add audio clip', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Demo Drum Loop 120 BPM', exact: true }).click()
+  await expect(audioLane.locator('xpath=..').getByTestId('arrangement-region')).toHaveCount(1)
+  // The new audio track is selected; Bass has an instrument.
+  await (await openView(page, 'Session')).getByRole('button', { name: 'Bass', exact: true }).click()
+  const instrument = await openView(page, 'Instrument')
+  const viewport = instrument.getByTestId('graph-viewport')
+  const box = (await viewport.boundingBox())!
+  await viewport.click({ button: 'right', position: { x: box.width - 120, y: box.height - 80 } })
+  expect(await menuEntries(page)).toEqual(['Add node…', '—', 'Add sampler▸', '—', 'Paste'])
+  await page.getByRole('menuitem', { name: 'Add sampler', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Demo Drum Loop 120 BPM', exact: true }).click()
+  await expect(instrument.locator('[data-node]', { hasText: 'Sampler' })).toHaveCount(1)
 })
 
 test('a library item trashes and restores from its menu, and a folder makes one inside', async ({ page }) => {

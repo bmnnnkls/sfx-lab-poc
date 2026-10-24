@@ -1,4 +1,4 @@
-import { type AudioClip, type Clip, arrangementOnTrack, clipCopyFor, clipFitsTrack } from '@core'
+import { type AudioClip, type Clip, arrangementOnTrack, clipCopyFor, clipFitsTrack, createAudioClip } from '@core'
 import { useProjectStore } from '../project-store'
 import { clipClipboard } from './clipboards'
 import { project, trackOf } from './lookup'
@@ -30,6 +30,18 @@ export const laneActions: readonly Action<LaneSubject>[] = [
     run: ({ trackId, beat }, _context, clipId) => {
       const clip = sessionClips(trackId).find((candidate) => candidate.id === clipId)
       if (clip) useProjectStore.getState().addArrangementClip(trackId, beat, clip)
+    },
+  },
+  {
+    id: 'lane.add-audio-clip',
+    title: 'Add audio clip',
+    group: 'edit',
+    applies: ({ trackId }) => trackOf(trackId)?.kind === 'audio' && project().samples.length > 0,
+    choices: () => project().samples.map((sample) => ({ id: sample.id, title: sample.name })),
+    // The same clip as the slot's *Add audio clip* makes.
+    run: ({ trackId, beat }, _context, sampleId) => {
+      const sample = project().samples.find((candidate) => candidate.id === sampleId)
+      if (sample) useProjectStore.getState().addArrangementClip(trackId, beat, createAudioClip(sample, project().tempo))
     },
   },
   {
