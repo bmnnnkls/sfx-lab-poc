@@ -170,10 +170,18 @@ export const parseStoredLayout = (raw: string | null): ParsedLayout | undefined 
   if (raw === null) return undefined
   try {
     const parsed: unknown = JSON.parse(raw)
-    if (!isRecord(parsed)) return undefined
-    if (parsed.version === 1) return { model: checkModel(migrateV1(parsed.model)), migrated: true }
-    if (parsed.version !== LAYOUT_VERSION) return undefined
-    return { model: checkModel(parsed.model), migrated: false }
+    return isRecord(parsed) ? parseLayoutModel(parsed.version, parsed.model) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** A model saved by the given layout version, checked and migrated as `parseStoredLayout` does (named layouts). */
+export const parseLayoutModel = (version: unknown, model: unknown): ParsedLayout | undefined => {
+  try {
+    if (version === 1) return { model: checkModel(migrateV1(model)), migrated: true }
+    if (version !== LAYOUT_VERSION) return undefined
+    return { model: checkModel(model), migrated: false }
   } catch {
     return undefined
   }

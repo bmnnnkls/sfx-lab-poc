@@ -22,7 +22,7 @@ export const Workspace = () => {
         <ActivityBar />
         <Workbench persistence={layout} />
       </div>
-      <StatusBar />
+      <StatusBar persistence={layout} />
       <ToastStack />
       <TooltipLayer />
     </div>

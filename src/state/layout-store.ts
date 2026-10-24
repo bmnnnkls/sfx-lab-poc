@@ -31,6 +31,10 @@ export interface LayoutDriver {
   setRegionVisible(region: RegionId, visible: boolean): void
   /** Replace the layout with the default one. */
   reset(): void
+  /** Replace the layout with the one saved under this name. */
+  load(name: string): void
+  /** Save the layout under this name, replacing one of the same name. */
+  saveAs(name: string): void
 }
 
 interface LayoutState extends LayoutSnapshot {
@@ -41,6 +45,10 @@ interface LayoutState extends LayoutSnapshot {
   /** Hide or show the panel or a sidebar. The editor area is always shown. */
   toggleRegion(region: RegionId): void
   resetLayout(): void
+  /** Replace the layout with one saved under a name (per browser, with `saveLayoutAs`). */
+  loadLayout(name: string): void
+  /** Save the layout under a name, replacing one of the same name. */
+  saveLayoutAs(name: string): void
   /** Shell only. Returns the detach function. */
   attachDriver(driver: LayoutDriver): () => void
   /** Shell only: mirror the layout after each change to it. */
@@ -115,6 +123,9 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (driver) return driver.reset()
     set(DEFAULT_LAYOUT)
   },
+  // Named layouts live with the shell's model; without a driver there is nothing to save or load.
+  loadLayout: (name) => driver?.load(name),
+  saveLayoutAs: (name) => driver?.saveAs(name),
   attachDriver: (next) => {
     driver = next
     return () => {

@@ -320,3 +320,47 @@ test('the activity bar shows Session, Arrangement, the Wave editor and Library w
   await button('Library').click()
   await expect(viewRoot(page, 'Library')).toBeVisible()
 })
+
+test('a layout saved under a name loads again after changes and a reload, and can be deleted', async ({ page }) => {
+  await page.goto('/?starter')
+  await openView(page, 'Mixer')
+  await dragView(page, 'Mixer', 'Session', 'right')
+  await expectMixerBesideSession(page)
+
+  await layoutMenu(page, 'Save layout as…')
+  const dialog = page.getByRole('dialog', { name: 'Save layout' })
+  await dialog.getByLabel('Layout name', { exact: true }).fill('Mixing')
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+
+  await layoutMenu(page, 'Reset layout')
+  await openView(page, 'Mixer')
+  expect((await viewRoot(page, 'Mixer').boundingBox())!.y).toBeGreaterThan((await viewRoot(page, 'Session').boundingBox())!.y + 100)
+  await page.reload()
+  await layoutMenu(page, 'Mixing')
+  await expectMixerBesideSession(page)
+
+  // The same name asks before replacing.
+  await layoutMenu(page, 'Reset layout')
+  await layoutMenu(page, 'Save layout as…')
+  await dialog.getByLabel('Layout name', { exact: true }).fill('Mixing')
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toContainText('Replace it?')
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await layoutMenu(page, 'Mixing')
+  await expectMixerBesideSession(page)
+
+  // Into the Delete… submenu with the keyboard (a jump of the mouse closes a submenu).
+  await page.getByRole('contentinfo').getByRole('button', { name: 'Layout', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Delete…', exact: true }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByRole('menu').last().getByRole('menuitem', { name: 'Mixing', exact: true })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await page.getByRole('contentinfo').getByRole('button', { name: 'Layout', exact: true }).click()
+  await expect(page.getByRole('menuitem', { name: 'Save layout as…', exact: true })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Mixing', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('menuitem', { name: 'Delete…', exact: true })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await page.reload()
+  await expect.poll(() => page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('sfxlab:layouts')!).layouts))).toEqual([])
+})

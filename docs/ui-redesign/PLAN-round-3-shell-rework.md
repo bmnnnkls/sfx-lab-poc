@@ -268,6 +268,17 @@ What turned out different from the design above, step by step.
   (it counts as hidden), so `defaultLayout` starts a hidden sidebar that has views collapsed to its strip, and an
   empty one off. `DEFAULT_LAYOUT` holds Sounds in a `secondary` group with the border's id, as the driver mirrors it.
 * **Step 6: the state-keeping spec hides Sounds by collapsing its sidebar**, since opening Mixer no longer hides it.
+* **Step 7: saving and loading go through the layout store**, since they need the shell's model: `saveLayoutAs` and
+  `loadLayout` reach the driver, which leaves both to the shell (`LayoutShell`, beside `reset`). The status bar
+  lists and deletes names straight from `LayoutPersistence`, which now also holds the named layouts' storage
+  (`named-layouts.ts`, pure functions with unit tests). Saving rewrites every saved layout at today's version, so
+  the container's one version stays true; one that can't be read any more is dropped then.
+* **Step 7: the menu gained submenus** (`MenuSubmenu` in `ui/shared/menu`), for *Delete…*; round 5's context menus
+  can use them too.
+* **Step 7: the name is asked for in a small dialog**, not `window.prompt`, and the overwrite confirm is a second
+  step in it (*Replace*). Tab inside a dialog now moves the focus rather than switching Session and Arrangement.
+* **Step 7: the smoke spec picks from the submenu with the keyboard.** Playwright's single-step mouse moves close a
+  Radix submenu before the pointer arrives; moving in steps or using the arrow keys works, as it does for people.
 
 ## Behavior changes
 

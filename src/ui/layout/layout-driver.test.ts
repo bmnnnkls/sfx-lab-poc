@@ -8,9 +8,9 @@ const PANEL_VIEWS = ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples
 
 const driverFor = (json: IJsonModel = defaultLayout()) => {
   const published: LayoutSnapshot[] = []
-  const reset = vi.fn()
-  const driver = new FlexLayoutDriver(Model.fromJson(json), (snapshot) => published.push(snapshot), reset)
-  return { driver, model: driver.model, published, reset, last: () => published[published.length - 1]! }
+  const shell = { reset: vi.fn(), load: vi.fn(), saveAs: vi.fn() }
+  const driver = new FlexLayoutDriver(Model.fromJson(json), (snapshot) => published.push(snapshot), shell)
+  return { driver, model: driver.model, published, shell, last: () => published[published.length - 1]! }
 }
 /** The panel's tab group in a default layout's JSON. */
 const panelJson = (json: IJsonModel) => json.layout.children![0]!.children![1] as IJsonTabSetNode
@@ -247,9 +247,13 @@ describe('FlexLayoutDriver', () => {
     expect(driver.intercept(select)).toBe(select)
   })
 
-  it('leaves reset to the shell', () => {
-    const { driver, reset } = driverFor()
+  it('leaves reset and named layouts to the shell', () => {
+    const { driver, shell } = driverFor()
     driver.reset()
-    expect(reset).toHaveBeenCalledOnce()
+    driver.saveAs('Mix')
+    driver.load('Mix')
+    expect(shell.reset).toHaveBeenCalledOnce()
+    expect(shell.saveAs).toHaveBeenCalledWith('Mix')
+    expect(shell.load).toHaveBeenCalledWith('Mix')
   })
 })

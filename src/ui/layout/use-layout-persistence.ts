@@ -1,7 +1,8 @@
-import { Model } from 'flexlayout-react'
+import { type IJsonModel, Model } from 'flexlayout-react'
 import { useEffect, useState } from 'react'
 import { defaultLayout } from './default-layout'
 import { LAYOUT_KEY, LEGACY_MAIN_VIEW_KEY, LEGACY_PANEL_SIZE_KEY, migratedLayout, parseStoredLayout, serializeLayout } from './layout-storage'
+import { NAMED_LAYOUTS_KEY, namedLayout, namedLayoutNames, withNamedLayout, withoutNamedLayout } from './named-layouts'
 
 /** Saves this long after the last change, so a splitter drag is written once. */
 const SAVE_DELAY_MS = 250
@@ -14,13 +15,14 @@ const read = (key: string): string | null => {
     return null
   }
 }
-const write = (model: Model) => {
+const store = (key: string, value: string) => {
   try {
-    localStorage.setItem(LAYOUT_KEY, serializeLayout(model.toJson()))
+    localStorage.setItem(key, value)
   } catch {
     // Not persisted; the layout still works for this visit.
   }
 }
+const write = (model: Model) => store(LAYOUT_KEY, serializeLayout(model.toJson()))
 
 /**
  * The layout to start from: the saved one (migrated if an older version saved it); else, in a browser that has never
@@ -44,12 +46,20 @@ export interface LayoutPersistence {
   readonly initial: Model
   /** After each change: saved once changes stop for a moment. */
   changed(model: Model): void
-  /** Save at once (after *Reset layout*). */
+  /** Save at once (after *Reset layout*, or loading a named layout). */
   replaced(model: Model): void
+  /** The layout saved under a name, ready to load. */
+  named(name: string): IJsonModel | undefined
+  /** Save a layout under a name, replacing one of the same name. */
+  saveNamed(name: string, model: IJsonModel): void
+  /** The names layouts are saved under, sorted. */
+  names(): string[]
+  deleteNamed(name: string): void
 }
 
 /**
- * Saves the layout per browser under `sfxlab:layout`. Mount once, above the layout. A browser without a saved
+ * Saves the layout per browser under `sfxlab:layout`, and named layouts under `sfxlab:layouts`. Mount once, above
+ * the layout. A browser without a saved
  * layout gets one built from `sfxlab:main-view` and `sfxlab:editor-height`, saved at once, so the old keys are
  * read only that first time; a layout saved by an older version is saved again at once, migrated.
  */
@@ -76,6 +86,10 @@ export const useLayoutPersistence = (): LayoutPersistence => {
           pending = null
           write(next)
         },
+        named: (name: string) => namedLayout(read(NAMED_LAYOUTS_KEY), name),
+        saveNamed: (name: string, json: IJsonModel) => store(NAMED_LAYOUTS_KEY, withNamedLayout(read(NAMED_LAYOUTS_KEY), name, json)),
+        names: () => namedLayoutNames(read(NAMED_LAYOUTS_KEY)),
+        deleteNamed: (name: string) => store(NAMED_LAYOUTS_KEY, withoutNamedLayout(read(NAMED_LAYOUTS_KEY), name)),
       } satisfies LayoutPersistence,
     }
   })

@@ -16,7 +16,7 @@ afterEach(() => {
 
 /** A driver that records its calls, as the shell would receive them. */
 const recordingDriver = () => {
-  const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), reset: vi.fn() }
+  const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), reset: vi.fn(), load: vi.fn(), saveAs: vi.fn() }
   detach = layout().attachDriver(driver)
   return driver
 }
@@ -101,7 +101,7 @@ describe('toggleMainView', () => {
 })
 
 describe('layout store with a driver', () => {
-  it('forwards revealView, toggleRegion and resetLayout to the driver and leaves the mirror to sync', () => {
+  it('forwards revealView, toggleRegion, resetLayout and named layouts to the driver and leaves the mirror to sync', () => {
     const driver = recordingDriver()
     layout().revealView('mixer')
     expect(driver.reveal).toHaveBeenCalledWith('mixer')
@@ -112,6 +112,10 @@ describe('layout store with a driver', () => {
     expect(driver.setRegionVisible).toHaveBeenCalledWith('primary', true)
     layout().resetLayout()
     expect(driver.reset).toHaveBeenCalledOnce()
+    layout().saveLayoutAs('Mix')
+    expect(driver.saveAs).toHaveBeenCalledWith('Mix')
+    layout().loadLayout('Mix')
+    expect(driver.load).toHaveBeenCalledWith('Mix')
   })
 
   it('toggles the main view from the mirror the driver syncs', () => {

@@ -16,9 +16,19 @@ const viewIds = (tabs: readonly TabNode[]): ViewId[] => tabs.map((tab) => tab.ge
 const tabSetsIn = (node: Node): TabSetNode[] =>
   node instanceof TabSetNode ? [node] : node.getChildren().flatMap(tabSetsIn)
 
+/** What the driver leaves to the shell, which owns the model's lifetime and storage. */
+export interface LayoutShell {
+  /** Replace the model with the default layout. */
+  reset(): void
+  /** Replace the model with the layout saved under this name. */
+  load(name: string): void
+  /** Save the current model under this name. */
+  saveAs(name: string): void
+}
+
 /**
  * The shell's side of the layout store's façade: it carries out the store's actions on flexlayout's model and
- * mirrors the model back as a `LayoutSnapshot`. One per model; *Reset layout* makes a new model.
+ * mirrors the model back as a `LayoutSnapshot`. One per model; *Reset layout* and loading a named layout make a new model.
  *
  * The panel is the tab group with id `panel`. It collapses to its tab strip with `maxHeight: 0` (flexlayout adds the
  * strip to a group's maximum), and keeps its weight while collapsed, so expanding brings back its height.
@@ -30,7 +40,7 @@ export class FlexLayoutDriver implements LayoutDriver {
   constructor(
     readonly model: Model,
     private readonly publish: (snapshot: LayoutSnapshot) => void,
-    private readonly onReset: () => void,
+    private readonly shell: LayoutShell,
   ) {}
 
   /** What the store mirrors. Computed from the model, not from flexlayout's visibility events, so it is current. */
@@ -156,7 +166,15 @@ export class FlexLayoutDriver implements LayoutDriver {
   }
 
   reset(): void {
-    this.onReset()
+    this.shell.reset()
+  }
+
+  load(name: string): void {
+    this.shell.load(name)
+  }
+
+  saveAs(name: string): void {
+    this.shell.saveAs(name)
   }
 
   private panel(): TabSetNode | undefined {

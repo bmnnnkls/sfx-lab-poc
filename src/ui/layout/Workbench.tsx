@@ -1,5 +1,5 @@
 import { useLayoutStore } from '@state'
-import { type BorderNode, type ITabSetRenderValues, Layout, Model, type TabNode, type TabSetNode } from 'flexlayout-react'
+import { type BorderNode, type IJsonModel, type ITabSetRenderValues, Layout, Model, type TabNode, type TabSetNode } from 'flexlayout-react'
 import 'flexlayout-react/style/dark.css'
 import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { defaultLayout, PANEL_GROUP } from './default-layout'
@@ -27,7 +27,8 @@ const translate = (key: string): string => LABELS[key] ?? key
 
 /**
  * The docking layout. flexlayout owns the layout tree; the layout store is a façade over it, through the driver
- * this registers. *Reset layout* replaces the model, and the `generation` key remounts the layout with it.
+ * this registers. *Reset layout* and loading a named layout replace the model, and the `generation` key remounts
+ * the layout with it.
  */
 export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) => {
   const [{ model, generation }, setLayout] = useState(() => ({ model: persistence.initial, generation: 0 }))
@@ -36,12 +37,19 @@ export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) =
   // A layout Effect, so the driver is attached before the views' Effects can reveal anything.
   useLayoutEffect(() => {
     const store = useLayoutStore.getState()
-    const reset = () => {
-      const fresh = Model.fromJson(defaultLayout())
+    const replace = (json: IJsonModel) => {
+      const fresh = Model.fromJson(json)
       persistence.replaced(fresh)
       setLayout((current) => ({ model: fresh, generation: current.generation + 1 }))
     }
-    const next = new FlexLayoutDriver(model, store.sync, reset)
+    const next = new FlexLayoutDriver(model, store.sync, {
+      reset: () => replace(defaultLayout()),
+      load: (name) => {
+        const json = persistence.named(name)
+        if (json) replace(json)
+      },
+      saveAs: (name) => persistence.saveNamed(name, model.toJson()),
+    })
     driver.current = next
     next.sync()
     const detach = store.attachDriver(next)
