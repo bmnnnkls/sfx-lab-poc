@@ -29,7 +29,7 @@ import {
   findExampleModule,
   randomizeParams,
 } from '@core'
-import { useProjectStore } from '@state'
+import { canvasKey, graphKey, livePath, useGraphViewStore, useProjectStore } from '@state'
 import { type ReactNode, useId, useRef, useState } from 'react'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { PanelView } from '../panel/PanelView'
@@ -108,7 +108,9 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const store = useProjectStore.getState
   const setTrackVoices = useProjectStore((state) => state.setTrackVoices)
 
-  const [path, setPath] = useState<readonly string[]>([])
+  // The sub-patch open here, kept per graph for the session, so switching tracks and back finds it open again.
+  const graphId = graphKey(track?.id ?? 'master', graph)
+  const [path, setPath] = useState<readonly string[]>(() => useGraphViewStore.getState().paths[graphId] ?? [])
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [interfaceOpen, setInterfaceOpen] = useState(true)
   // In a narrow editor the property editor and the module's interface are a drawer over the canvas.
@@ -124,8 +126,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const [showSockets, setShowSockets] = useStoredState<boolean>('sfxlab.sockets', false, isFlag)
 
   // A module that disappeared (undo, delete) ends the path there.
-  const missing = path.findIndex((id) => !modules.some((module) => module.id === id))
-  const known = missing === -1 ? path : path.slice(0, missing)
+  const known = livePath(path, (id) => modules.some((module) => module.id === id))
   const definition = modules.find((module) => module.id === known.at(-1))
   const target: PatchTarget = definition ? { moduleId: definition.id } : track ? { trackId: track.id, graph } : { master: true }
   const patch = definition ? definition.patch : track ? graphOf(track, graph) : masterFx
@@ -135,6 +136,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
 
   const enter = (next: readonly string[]) => {
     setPath(next)
+    useGraphViewStore.getState().setPath(graphId, next)
     setSelected(new Set())
   }
   const edit = (change: PatchEdit, mergeKey?: string) => {
@@ -353,6 +355,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
           <PatchCanvas
             key={scope}
             ref={canvas}
+            viewKey={canvasKey(graphId, known)}
             patch={patch}
             modules={modules}
             selected={selected}

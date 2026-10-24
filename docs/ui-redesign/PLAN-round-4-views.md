@@ -389,6 +389,12 @@ What turned out different from the design above, step by step.
   presets* runs the toolbar's action, so specs that click the toolbar's take the first of the two.
 * **Step 9: the min-size spec checks the empty states** of Instrument and Effects without tracks, Notes on the
   master (its action reveals Effects) and the empty Library, besides the empty Clip.
+* **Step 10: each level of a graph keeps its own view.** The store keeps a path per graph (`graphKey`, as planned)
+  and a viewport per canvas (`canvasKey`: the graph's key and the open path), since `PatchCanvas` remounts for each
+  sub-patch; one viewport per graph would have carried the top level's zoom into every module.
+* **Step 10: the canvas writes its view when it unmounts or hides** (an Effect cleanup), not when a gesture ends:
+  nothing reads it before then, and wheel zooming has no end to catch. The stale-path rule moved into the store as
+  `livePath`, which `GraphEditor` already applied inline.
 
 ## Behavior changes
 

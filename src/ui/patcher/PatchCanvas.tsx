@@ -10,7 +10,7 @@ import {
   flattenPatch,
   resolveParams,
 } from '@core'
-import { useProjectStore } from '@state'
+import { useGraphViewStore, useProjectStore } from '@state'
 import { type PointerEvent, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
 import type { MenuEntry } from '../shared/menu'
@@ -24,6 +24,8 @@ import { WireLayer } from './WireLayer'
 import { canvasPoint, MAX_ZOOM, MIN_ZOOM, zoomAt, type Viewport } from './viewport'
 
 interface PatchCanvasProps {
+  /** Where the canvas's pan and zoom are kept for the session (`canvasKey`): it starts there and leaves them there. */
+  viewKey: string
   patch: Patch
   modules: ModuleLibrary
   selected: ReadonlySet<string>
@@ -79,6 +81,7 @@ const boxOf = ({ from, to }: Box) => ({
 
 /** Pannable, zoomable node canvas: nodes as HTML, wires as SVG, wiring by dragging output -> input. */
 export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(function PatchCanvas({
+  viewKey,
   patch,
   modules,
   selected,
@@ -96,8 +99,11 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
   onUnlinkModule,
   onRequestAdd,
 }, handle) {
-  const [view, setView] = useState<Viewport>({ x: 0, y: 0, zoom: 1 })
+  const [view, setView] = useState<Viewport>(() => useGraphViewStore.getState().viewports[viewKey] ?? { x: 0, y: 0, zoom: 1 })
   const viewRef = useRef(view)
+  // Leaves the pan and zoom for the next canvas of this graph: switching tracks remounts the canvas, and hiding the
+  // view cleans this Effect up too. Not on every gesture: nothing reads it until then.
+  useEffect(() => () => useGraphViewStore.getState().setViewport(viewKey, viewRef.current), [viewKey])
   const [handTool, setHandTool] = useState(false)
   const [panning, setPanning] = useState(false)
   const pan = useRef<{ pointer: Point; view: Viewport } | null>(null)
