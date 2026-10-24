@@ -1,5 +1,7 @@
 .editor {
   display: grid;
+  /* The toolbar's hint would otherwise hold the column at its full length. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
 }
@@ -44,7 +46,7 @@
   margin-bottom: 8px;
 }
 
-/* Shortcut hint: takes the leftover width and truncates, so the toolbar stays on one line. */
+/* Shortcut hint: takes the leftover width and truncates, so the toolbar stays on one line; its tooltip has it all. */
 .help {
   flex: 1 1 0;
   min-width: 0;
@@ -52,6 +54,25 @@
   color: var(--text-dim);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.helpShort {
+  display: none;
+}
+
+/* Below 720 px the hint is only a label for its tooltip. */
+@container view (width < 720px) {
+  .help {
+    flex: 0 0 auto;
+  }
+
+  .helpFull {
+    display: none;
+  }
+
+  .helpShort {
+    display: inline;
+  }
 }
 
 .groove {

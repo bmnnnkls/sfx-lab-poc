@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { test, expect, dockAtSize, openView, type ViewTitle } from './fixtures'
+import { test, expect, dockAtSize, openView, viewRoot, type ViewTitle } from './fixtures'
 
 /** The views' minimum sizes. Specs import no `src/`, so keep these in sync by hand with `viewMinSizes`. */
 const TOOL_VIEW = { width: 280, height: 200 }
@@ -41,6 +41,12 @@ const graphEditorCases = (title: ViewTitle): Case[] => [
   },
 ]
 
+/** Opens the starter's first MIDI clip from Session, which shows in the editor group beside the docked view. */
+const openFirstClip = async (page: Page, root: Locator) => {
+  await viewRoot(page, 'Session').locator('button[aria-label^="Edit "]:not([aria-label*="automation"])').first().click()
+  await expect(root.getByLabel('Clip length in beats', { exact: true })).toBeVisible()
+}
+
 /** ✎ on each sample in Samples. */
 const editButtons = (root: Locator) => root.locator('button[title^="Open in the wave editor"]')
 
@@ -60,6 +66,28 @@ const CASES: readonly Case[] = [
     title: 'Sounds',
     min: TOOL_VIEW,
     controls: (root) => [root.getByLabel('Sound name', { exact: true }), root.getByRole('button', { name: 'Save snapshot' })],
+  },
+  {
+    title: 'Clip',
+    state: 'notes',
+    min: EDITOR,
+    prepare: openFirstClip,
+    controls: (root) => [root.getByLabel('Clip length in beats', { exact: true }), root.getByTestId('note-surface').locator('xpath=ancestor::*[@data-scroll][1]')],
+    // The roll keeps more height than its velocity lane.
+    check: async (root) => {
+      const lane = (await root.getByTestId('velocity-lane').boundingBox())!
+      expect(lane.height).toBeLessThanOrEqual(72)
+    },
+  },
+  {
+    title: 'Clip',
+    state: 'automation',
+    min: EDITOR,
+    prepare: async (page, root) => {
+      await openFirstClip(page, root)
+      await root.getByRole('group', { name: 'Clip view' }).getByRole('button', { name: 'Automation', exact: true }).click()
+    },
+    controls: (root) => [root.getByLabel('Search automation targets', { exact: true }), root.getByLabel('Add automation lane', { exact: true })],
   },
   {
     title: 'Clip',

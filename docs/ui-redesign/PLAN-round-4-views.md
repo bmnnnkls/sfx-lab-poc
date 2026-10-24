@@ -374,6 +374,14 @@ What turned out different from the design above, step by step.
   480 px minimum; there the zoom controls fit.
 * **Step 7: Panel mode at 480 × 240** shows its toolbar and *Edit panel*; the empty panel's explanation scrolls
   vertically.
+* **Step 8: the toolbar's hint held the editor's grid column**, not the toolbar: the column was `auto`, so the
+  nowrap hint's full length set it. The column is `minmax(0, 1fr)`; the hint shows *Shortcuts* below 720 px.
+* **Step 8: the velocity lane's height is CSS's.** The lane's geometry took a fixed 72 px, so the bars are placed with
+  `calc()` on the lane's height and a drag reads the height from the lane's box (`velocityAtY`, `barTop` and
+  `pickNoteAt` take it, 72 px by default). At 480 × 240 the toolbar still takes three lines; the roll shows about
+  one row above a 60 px lane, and hiding the lane (*Velocity*) gives it the rest.
+* **Step 8: the narrow automation editor keeps the open lane's row** (enable, delete) beside the lane `<select>`,
+  the search and *Add target…*, by CSS (`:has(button[aria-pressed='true'])`), so nothing measures.
 
 ## Behavior changes
 
