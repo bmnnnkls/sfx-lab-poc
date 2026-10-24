@@ -1,5 +1,5 @@
 import { type AudioHost, decodeAudio } from '@audio'
-import { type SampleData, type SampleInfo, computePeaks, createDemoSamples } from '@core'
+import { type SampleData, type SampleInfo, computePeaks, createDemoSamples, encodeWav } from '@core'
 import { type SampleLibrary, usePersistenceStore, useProjectStore, useSampleStore } from '@state'
 import { type SampleStorage, sha256Hex } from '@storage'
 
@@ -109,6 +109,43 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
     return { name, known }
   }
 
+  /** Adds a derived copy of a sample: decoded, transformed, re-encoded as WAV and hashed like any import. */
+  const derive = async (sampleId: string, suffix: string, transform: (mono: Float32Array) => Float32Array) => {
+    const info = useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
+    if (!info) return
+    const bytes = await storage.get(sampleId)
+    if (!bytes) {
+      notify('error', `The audio of "${info.name}" is missing; import the file again to edit it.`)
+      return
+    }
+    const decoded = await decodeAudio(bytes)
+    const mono = transform(decoded.mono)
+    if (mono.length === 0) {
+      notify('error', 'Nothing left after the edit')
+      return
+    }
+    const wav = encodeWav(mono, decoded.sampleRate)
+    const id = await sha256Hex(wav)
+    const name = `${info.name} (${suffix})`.slice(0, 60)
+    if (useProjectStore.getState().project.samples.some((sample) => sample.id === id)) {
+      notify('info', `"${name}" is already in the library`)
+      return
+    }
+    if (!(await storage.has(id))) await storage.put(id, wav)
+    useProjectStore.getState().addSamples([
+      {
+        id,
+        name,
+        extension: 'wav',
+        durationSeconds: mono.length / decoded.sampleRate,
+        sampleRate: decoded.sampleRate,
+        channels: 1,
+        bytes: wav.length,
+      },
+    ])
+    notify('info', `Added "${name}" to the library`)
+  }
+
   /** Adds several files, then tells the user once (not once per file). */
   const ingestAll = async (items: ReadonlyArray<{ bytes: () => Promise<Uint8Array>; fileName: string }>) => {
     const added: string[] = []
@@ -152,6 +189,8 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
       host.send({ type: 'sample/preview', sampleId })
     },
     stopPreview: () => host.send({ type: 'sample/stopPreview' }),
+
+    deriveSample: (sampleId, suffix, transform) => derive(sampleId, suffix, transform),
 
     connect: () => {
       syncWithProject()

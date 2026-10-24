@@ -12,6 +12,19 @@ export type {
   WarpMode,
 } from './types'
 export { isAudioTrack, isInstrumentTrack, isReturnTrack } from './track-kind'
+export {
+  addArrangementClip,
+  arrangementEnd,
+  arrangementLoopEnd,
+  arrangementOnTrack,
+  arrangementOverlaps,
+  createArrangementClip,
+  isAudioContent,
+  removeArrangementClip,
+  updateArrangementClip,
+  type ArrangementChanges,
+  type ArrangementClip,
+} from './arrangement-clip'
 export { usedSampleIds, projectSampleDependencies } from './sample-use'
 export {
   DEFAULT_FADE_SECONDS,

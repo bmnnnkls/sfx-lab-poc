@@ -1,4 +1,5 @@
 import type { Project } from '../project'
+import { arrangementEnd } from '../project'
 import { type SampleData, type WavBitDepth, encodeWavChannels } from '../sample'
 import { diffProject } from '../sync'
 import { Engine } from './engine'
@@ -12,6 +13,10 @@ import { Engine } from './engine'
  * for a quarter of a second, but at most `maxTail` seconds, so envelopes, reverbs and delays are not cut. The file ends at the last
  * sample above -80 dB, and is never shorter than the body. A patch that never goes quiet (a clock or noise wired to the output)
  * runs the tail to `maxTail`; set it to 0 to get the body only.
+ *
+ * The `arrangement` scope renders the timeline from beat 0 to the end of the last region: the engine gets `arrangement/set` (with the
+ * project) and `arrangement/play`, and no clip or scene is ever launched, so the launch state machines stay idle and only the timeline
+ * plays — looping regions included, each cut by the next region on its track.
  */
 
 /** The project is in 4/4 everywhere (the launch grid, the piano roll's ruler), so a bar is four beats. */
@@ -20,10 +25,11 @@ export const BEATS_PER_BAR = 4
 export const BOUNCE_SAMPLE_RATES = [44100, 48000] as const
 export type BounceSampleRate = (typeof BOUNCE_SAMPLE_RATES)[number]
 
-/** What to play: one track's clip, or a whole scene (the clip of every track in that row of the session grid). */
+/** What to play: one track's clip, a whole scene (the clip of every track in that row of the session grid), or the arrangement timeline. */
 export type BounceScope =
   | { readonly kind: 'clip'; readonly trackId: string; readonly clipId: string }
   | { readonly kind: 'scene'; readonly scene: number }
+  | { readonly kind: 'arrangement' }
 
 export interface BounceOptions {
   readonly scope: BounceScope
@@ -77,8 +83,13 @@ export interface ResolvedBounceOptions {
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
 const finiteOr = (value: number | undefined, fallback: number) => (value !== undefined && Number.isFinite(value) ? value : fallback)
 
-/** The length in beats of the clips a scope plays; throws when the scope names a clip or scene that is not in the project. */
+/** The length in beats of what a scope plays; throws when the scope names a clip or scene that is not in the project, or an empty arrangement. */
 const scopeBeats = (project: Project, scope: BounceScope): number[] => {
+  if (scope.kind === 'arrangement') {
+    const regions = project.arrangement ?? []
+    if (regions.length === 0) throw new Error('There is nothing on the arrangement timeline to bounce.')
+    return [Math.max(0, ...regions.map(arrangementEnd))]
+  }
   if (scope.kind === 'scene') {
     if (!Number.isInteger(scope.scene) || scope.scene < 0 || scope.scene >= project.sceneCount) {
       throw new Error(`There is no scene ${scope.scene + 1} to bounce.`)
@@ -94,7 +105,7 @@ const scopeBeats = (project: Project, scope: BounceScope): number[] => {
   return [clip.lengthBeats]
 }
 
-/** How many bars the scope plays once through: its longest clip. A scene with no clips is one bar of silence. */
+/** How many bars the scope plays once through: its longest clip, or the arrangement to the last region's end. A scene with no clips is one bar of silence. */
 export const defaultBounceBars = (project: Project, scope: BounceScope): number => {
   const longest = Math.max(0, ...scopeBeats(project, scope))
   return longest > 0 ? longest / BEATS_PER_BAR : 1
@@ -138,12 +149,15 @@ export class Bounce {
     const { sampleRate, bars, maxTail, scope } = this.options
     this.engine = new Engine(sampleRate)
     // The same commands that build the live engine from an empty one: tempo, master graph, every track.
+    // `diffProject` carries `arrangement/set`, so the timeline is already in place for that scope.
     for (const command of diffProject(null, project)) this.engine.apply(command)
     for (const sample of samples) this.engine.apply({ type: 'sample/add', sample })
     this.engine.apply(
       scope.kind === 'scene'
         ? { type: 'scene/launch', scene: scope.scene }
-        : { type: 'clip/launch', trackId: scope.trackId, clipId: scope.clipId },
+        : scope.kind === 'clip'
+          ? { type: 'clip/launch', trackId: scope.trackId, clipId: scope.clipId }
+          : { type: 'arrangement/play', fromBeat: 0 },
     )
     // Launches take effect at the next bar line and the transport starts at beat 0, so the first note is at the first sample.
     this.bodyFrames = Math.round(((bars * BEATS_PER_BAR * 60) / project.tempo) * sampleRate)

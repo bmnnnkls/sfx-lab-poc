@@ -11,7 +11,7 @@ import { AudioBoard } from './audio-board'
 import { AudioTaps } from './audio-taps'
 import { AudioTrackRuntime } from './audio-track-runtime'
 import type { EngineCommand } from './commands'
-import type { MixContext, PlayableTrack, ScheduledAction } from './playable-track'
+import type { MixContext, PlayableTrack, ScheduledAction, PlaybackMode } from './playable-track'
 import { ReturnTrackRuntime } from './return-track-runtime'
 import { SamplePreview } from './sample-preview'
 import type { EngineStatus } from './status'
@@ -71,6 +71,8 @@ export class Engine {
   /** The master bus's insert graph, on the mix of all tracks (a pass-through until the project sets one). */
   private master: FxGraph
   private readonly masterInput = new Float32Array(STEREO_FRAMES)
+  /** Which event source the tracks follow: the session launchers or the arrangement timeline. */
+  private playbackMode: PlaybackMode = 'session'
 
   constructor(private readonly sampleRate: number) {
     this.transport = new Transport(sampleRate)
@@ -117,7 +119,7 @@ export class Engine {
         this.cancelNotes()
         break
       case 'transport/play':
-        this.transport.play()
+        this.playSession()
         break
       case 'transport/stop':
         this.stopTransport()
@@ -128,10 +130,24 @@ export class Engine {
         for (const track of this.tracks.values()) track.setTempo(command.bpm)
         this.master.setTempo(command.bpm)
         break
+      case 'arrangement/set':
+        for (const track of this.tracks.values()) track.setArrangement(command.clips)
+        break
+      case 'arrangement/play':
+        this.playbackMode = 'arrangement'
+        this.transport.seek(command.fromBeat ?? 0)
+        this.transport.play()
+        for (const track of this.tracks.values()) track.setMode('arrangement')
+        break
+      case 'arrangement/stop':
+        this.stopTransport()
+        break
       case 'track/add':
         if (this.tracks.has(command.trackId)) this.cancelTrackNotes(command.trackId)
         this.invalidateOrder()
         this.tracks.set(command.trackId, this.createTrack(command))
+        // A track added mid-arrangement follows the timeline like the rest.
+        if (this.playbackMode === 'arrangement') this.tracks.get(command.trackId)?.setMode('arrangement')
         break
       case 'track/remove':
         // A removed track may have generated notes in downstream readers. Cancel those graphs too.
@@ -231,12 +247,12 @@ export class Engine {
       case 'clip/launch':
         this.automation.launch(command.trackId, command.clipId)
         this.tracks.get(command.trackId)?.launchClip(command.clipId)
-        this.transport.play()
+        this.playSession()
         break
       case 'scene/launch':
         this.automation.scene(command.scene)
         for (const track of this.tracks.values()) track.launchScene(command.scene)
-        this.transport.play()
+        this.playSession()
         break
     }
   }
@@ -305,6 +321,15 @@ export class Engine {
     this.automation.reset()
     this.transport.stop()
     for (const track of this.tracks.values()) track.reset()
+  }
+
+  /** Plays with the session launchers as the event source (switching back from the arrangement if needed). */
+  private playSession(): void {
+    if (this.playbackMode !== 'session') {
+      this.playbackMode = 'session'
+      for (const track of this.tracks.values()) track.setMode('session')
+    }
+    this.transport.play()
   }
 
   /** Runs the mix of the block through the master graph and the master fader, in place. */

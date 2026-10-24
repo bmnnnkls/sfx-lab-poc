@@ -973,8 +973,9 @@ plain cards; the property editor, the panel built from control nodes and the nod
 The **Track audio** node is the audio mirror of *Track notes*: a stereo source in an insert graph that plays another track's
 sound, `Take` before or after that track's own effects (both before its fader, so a track turned all the way down can still
 be used). It makes parallel chains possible (process a copy of a drum loop differently on another track) and modulation
-(through *Mono sum* into a Gain's CV the other track scales this one). An envelope follower for sidechain-style ducking is
-not built yet; it would be one more node reading the same source.
+(through *Mono sum* into a Gain's CV the other track scales this one). The **Envelope follower** node turns a signal's
+level into a control, and the **Compressor** node ducks one sound under another (its `Sidechain` input, with a gain-reduction
+out for metering).
 
 * **Engine** (`engine/audio-taps.ts`). Each track writes its sound before and after its insert graph to `AudioTaps`, one stereo
   buffer each, only for tracks someone reads; Track audio nodes read it through `ProcessContext.taps`. Like the sends board
@@ -1049,9 +1050,14 @@ not built yet; it would be one more node reading the same source.
   "Paste" stayed greyed out after copying until something else re-rendered. It is now a subscribable store read with
   `useSyncExternalStore` (`useNoteClipboard`). The same actions back both the keyboard shortcuts and the menu items
   (`commands` from `usePianoRollInteraction`), so they can't drift apart.
-* Used by the piano roll (copy / cut / paste / duplicate / delete / select all / quantize / humanize) and by session
-  clip slots (launch / edit / delete, and "create clip" on empty slots). Double-click still deletes a note; right-click
+* Used by the piano roll (copy / cut / paste / duplicate / delete / select all / quantize / humanize), by session
+  clip slots (launch / edit / duplicate / place on arrangement / delete, and "create clip" on empty slots) and by
+  arrangement regions (duplicate / loop / delete). Double-click still deletes a note; right-click
   opens the menu instead of deleting.
+* **A component child must forward the trigger's props.** The wrapped element is Radix's `asChild` child, so a
+  custom component (unlike a plain `<div>`) has to spread the props it does not use itself — the menu's handlers,
+  `data-state` and `ref` — onto its root element. The arrangement region dropped them, and its right-click menu
+  never opened (the `contextmenu` event arrived; nothing listened).
 
 ## Groove: quantize, swing, humanize
 
@@ -1118,15 +1124,18 @@ File > Export audio (WAV)… renders the project to a stereo WAV without playing
 browser and no Web Audio); the UI is a dialog and `app/` fetches the sample audio and saves the file.
 
 * **What is run.** `renderProject(project, samples, options)` builds an `Engine` at `options.sampleRate` (44100 or 48000, default 48000), applies
-  `diffProject(null, project)` (the commands that build the live engine from nothing: tempo, master graph and volume, every track), a `sample/add`
-  for each decoded sample it is given, and one launch: `clip/launch` for a **clip** scope (one track's clip; the other tracks idle, but the returns it
-  sends to and the master still work) or `scene/launch` for a **scene** (the clip of every track in that row). It then pulls `Engine.render` in chunks
+  `diffProject(null, project)` (the commands that build the live engine from nothing: tempo, master graph and volume, every track, and `arrangement/set`),
+  a `sample/add` for each decoded sample it is given, and one launch: `clip/launch` for a **clip** scope (one track's clip; the other tracks idle, but the
+  returns it sends to and the master still work), `scene/launch` for a **scene** (the clip of every track in that row), or `arrangement/play` for an
+  **arrangement** scope (the timeline from beat 0; no clip or scene is ever launched, so the launch state machines stay idle and only the timeline plays,
+  looping regions included). It then pulls `Engine.render` in chunks
   of 4096 frames (`BOUNCE_CHUNK_FRAMES`, 32 engine blocks) and returns `{ left, right, sampleRate, bitDepth, bodyFrames }`. The transport starts at beat 0
   and a launch takes effect at the next bar line, so the first note is at the first sample. It is the engine the worklet runs, so the file is what you
   hear, master volume, soft clip and all; a muted or soloed track is muted or soloed in the file.
 * **Where it ends** (clips loop for ever, so the bounce decides). The *body* is `bars` bars (a bar is four beats, the project is 4/4 everywhere) at the
   project tempo, to the frame (`round(bars * 4 * 60 / tempo * sampleRate)`; `bars` may be fractional, so a 2-beat clip is 0.5 and is 1 s at 120 BPM
-  and 2 s at 60). Its default is the longest clip of the scope played once through (`defaultBounceBars`), limited to 1/4 to 64 bars. At the end of the
+  and 2 s at 60). Its default is the longest clip of the scope played once through (`defaultBounceBars`; an arrangement scope runs to the end of its last
+  region), limited to 1/4 to 64 bars. At the end of the
   body the bounce does what the Stop button does (`transport/stop`: launchers reset, held notes released, an audio clip faded in 5 ms), and keeps rendering
   the *tail* until the output (both channels, after master and soft clip) has stayed under -80 dB for 0.25 s, or `maxTail` seconds (default 10, at most
   30; 0 for none) have gone by. The file ends at the last sample above -80 dB and is never shorter than the body, so reverbs, delays and envelope
@@ -1148,13 +1157,14 @@ browser and no Web Audio); the UI is a dialog and `app/` fetches the sample audi
   with the 18-byte form and a `fact` chunk the format asks for), `data`, padded when odd. The old mono `encodeWav` is untouched: the demo samples'
   ids are hashes of its bytes. `encodeBounce(result)` is the stereo file.
 * **UI** (`ui/file-menu/ExportAudioDialog.tsx`, a native `<dialog>` opened with `showModal`; the model is pure, `export-model.ts`). Scope: the open clip
-  (disabled when none is open) or a scene (empty ones are marked and cannot be exported), then bars (untouched, it follows the scope), tail, sample rate,
+  (disabled when none is open), a scene (empty ones are marked and cannot be exported) or the arrangement (offered when the timeline has anything on it),
+  then bars (untouched, it follows the scope), tail, sample rate,
   bit depth and normalize; Export, and Cancel / Stop. The file is `<project name>.wav` (`fileStem`); a toast says what was saved. `ProjectFiles.exportAudio`
   is the one call from the UI.
 * **Limits.** One file, the whole mix: no stems per track, no batch export of variations, no MP3 or OGG, no dither, no loop-point export (the file is the
   bars, not a seamless loop of them). The length is by bars, so a clip that sounds longer than its length (a long release) is in the tail, not wrapped.
-* **Tests.** `engine/bounce.test.ts` (length, pitch and peak of a known tone, a note starting on its beat, looping, the tempo, stereo with pan, clip and
-  scene scopes, a sampler of a known buffer and an audio clip, the tail's stop, `maxTail` and a reverb, normalize and silence, determinism, a chord's
+* **Tests.** `engine/bounce.test.ts` (length, pitch and peak of a known tone, a note starting on its beat, looping, the tempo, stereo with pan, clip, scene
+  and arrangement scopes, a sampler of a known buffer and an audio clip, the tail's stop, `maxTail` and a reverb, normalize and silence, determinism, a chord's
   voices being different noise), `sample.test.ts` (headers and a round trip), `ui/file-menu/export-model.test.ts`. Browser check
   `docs/browser-checks/export.mjs` (the dialog, the download, the bytes, twice identical, 32-bit float, a clip and a sample).
 
@@ -1240,6 +1250,71 @@ through a patch, as before) or an **audio track**.
   explains it has no instrument. A 120 BPM demo drum loop ships in **Add demo samples**.
 * **Menus.** `ui/shared/menu` now holds `ContextMenu` (right-click) and `PopupMenu` (click on a trigger), both over
   Radix with one shared entry renderer and stylesheet, so they look and behave identically.
+
+## The arrangement (clips on a timeline)
+
+A second main view beside the session grid: copies of session clips placed on a timeline, one lane per track —
+the Ableton **Arrangement** view as a prototype. The transport bar toggles (Session | Arrangement), and Tab
+switches views like in Ableton.
+
+* **Model.** An `ArrangementClip` (`core/project/arrangement-clip.ts`) is `{ id, trackId, startBeat, content, loop? }`
+  where `content` is a *copy* of a session clip (a MIDI clip or an audio clip), independent of the session grid
+  afterwards. Regions may overlap on one track (both play; the newest start wins for audio). `Project.arrangement`
+  is optional, so files from before this load unchanged (no format-version bump).
+* **Playback.** Which regions sound is *derived from the transport position*, not queued: `ArrangementPlayer`
+  (`core/engine/arrangement-player.ts`) has one `ArrangementNotes` / `ArrangementAudio` per track that emits the
+  events of the regions overlapping each beat range. A MIDI region plays **once** (notes are cut at its end, and
+  released on the range that crosses it); an audio region is phase-locked to its timeline start exactly like
+  session clips (`AudioEvent.origin` is the loop base the player derives its read position from) and stops at its
+  end. A seek plays what is under the playhead: audio joins in phase, notes that start after the seek position fire.
+* **Looping regions.** A region with `loop: true` repeats its clip on the timeline: the pass math of
+  `ClipLauncher.clipEvents` (one pass per clip length, notes cut at the pass end, the pass index part of the note
+  identity) applied per region, until `arrangementLoopEnd` — the start of the **next region on that track** (any
+  region, looping or not, cuts the loop; a pass the loop end falls into is cut short there). A looping region with
+  no next region stops at its own end. An audio region loops via the start event carrying a looping clip
+  (`{ ...clip, loop: true }`), so the read position wraps each pass; its stop event moves from the region end to
+  the loop end.
+* **Each region plays on its own track.** `arrangement/set` carries every track's regions; each track runtime
+  filters to its own (`setArrangement`), so a region never leaks onto another track's player.
+* **Two playback modes.** The engine holds `playbackMode: 'session' | 'arrangement'`; every track runtime follows
+  one source at a time and releases the other's notes (with a 5 ms tail for audio) on `setMode`. `arrangement/play`
+  (with an optional `fromBeat`) switches to the arrangement; `transport/play`, `clip/launch` and `scene/launch`
+  switch back to the session. A track added mid-arrangement follows the timeline like the rest. `arrangement/set`
+  pushes the whole region list (it is small, and edits create new arrays).
+* **UI.** `ui/arrangement/`: a ruler in bars, one lane per non-return track, regions drawn as a note preview (MIDI)
+  or a waveform thumbnail (audio). Right-click an empty lane to place one of the track's session clips at the
+  clicked beat; a session slot's context menu has **Place on arrangement**, which appends a copy at the end of its
+  track's timeline (the two main views are exclusive, so a slot cannot be dragged onto a lane). Drag a region to
+  move it (quarter-beat snap) — vertical dragging onto another lane moves it across tracks (the drop resolves the
+  target from the lane element's `data-lane`); drag its edge to resize (MIDI clips trim their notes); right-click a
+  region to duplicate, loop (until the next region: a repeat badge and a hatched span up to the loop end) or
+  delete. The region is the menu's `asChild` child, so it forwards the trigger's handlers, `data-state` and `ref`
+  onto its root element — a component that drops them silently never opens the menu. Regions render live while
+  the transport runs. Every edit is an undoable project step (`addArrangementClip` / `updateArrangementClip` /
+  `removeArrangementClip`), a drag merging into one step.
+* **Bouncing.** File > Export audio offers an **Arrangement** scope (see "Exporting audio"): the timeline renders
+  from beat 0 to the last region's end, then the usual tail.
+* **Not in the prototype.** Automation lanes on the timeline and recording into the arrangement.
+
+## The sample editor
+
+An editor for one library sample in the **Samples** tab (✎ on a row): a zoomable waveform with a draggable
+selection and one-click edits. `core/sample/edit.ts` holds the pure transforms (tested); the result of an edit is
+always a **new** library sample, so the original stays untouched.
+
+* **Transforms.** `normalizeSample` (peak to just under full scale, silence left silent), `reverseSample`,
+  `keepSampleRegion` / `deleteSampleRegion` (the selection as fractions), `fadeIn` / `fadeOut` (sample-rate aware,
+  capped at half the length).
+* **Derivation.** `SampleLibrary.deriveSample(id, suffix, transform)` (`app/sample-library.ts`): the stored bytes
+  are decoded, transformed, re-encoded as mono 16-bit WAV and hashed like any import — so a derived copy is a
+  normal library sample keyed by the SHA-256 of its bytes. Importing the same edit twice is a no-op; the copy
+  travels with project packages; undoing the project edit removes the copy but never the original (bytes stay in
+  IndexedDB, as with any removed sample).
+* **UI.** The waveform is drawn from the sample's peak thumbnails (one value per bucket), zoomed by pixels per
+  bucket; drag to select a part. Normalize, Reverse, Keep selection, Delete selection and 10 ms fades run the
+  transform and add the result to the library; ▶ auditions.
+* **Not in the prototype.** Destructive in-place editing of a sample, stereo samples, and the granular stage
+  (a granular sampler over the loaded buffer is the planned next step).
 
 ## Example projects (`core/examples`)
 

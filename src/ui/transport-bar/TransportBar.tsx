@@ -7,7 +7,7 @@ import { LevelMeter } from './LevelMeter'
 import { formatPosition } from './format-position'
 import styles from './TransportBar.module.css'
 
-export const TransportBar = () => {
+export const TransportBar = ({ view, onView }: { view: 'session' | 'arrangement'; onView(view: 'session' | 'arrangement'): void }) => {
   const touch = useTouchStore()
   const controls = useEngineControls()
   const tempo = useProjectStore((state) => state.project.tempo)
@@ -38,6 +38,24 @@ export const TransportBar = () => {
       </label>
       <span className={styles.position}>{formatPosition(beat)}</span>
       <LevelMeter />
+      <div className={styles.views}>
+        <button
+          className={view === 'session' ? styles.active : undefined}
+          onClick={() => onView('session')}
+          aria-label="Session view"
+          title="Session view (Tab)"
+        >
+          Session
+        </button>
+        <button
+          className={view === 'arrangement' ? styles.active : undefined}
+          onClick={() => onView('arrangement')}
+          aria-label="Arrangement view"
+          title="Arrangement view (Tab)"
+        >
+          Arrangement
+        </button>
+      </div>
       <HistoryButtons />
       <FileMenu />
       <MidiSettings />

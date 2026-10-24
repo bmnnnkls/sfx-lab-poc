@@ -3,6 +3,7 @@ import { type Patch, createSamplerPatch, noteGraphFrom } from '../patch'
 import {
   type Project,
   addTrack,
+  createArrangementClip,
   createAudioClip,
   createAudioTrack,
   createClip,
@@ -148,6 +149,43 @@ describe('renderProject', () => {
     const project = setClipAt(setClipAt(addTrack(addTrack(blank(), a), b), a.id, 0, short), b.id, 0, long)
     expect(defaultBounceBars(project, { kind: 'scene', scene: 0 })).toBe(2)
     expect(defaultBounceBars(project, { kind: 'scene', scene: 3 })).toBe(1)
+  })
+
+  it('the arrangement plays the timeline, not the session clips, to the last region\u2019s end', () => {
+    // The session grid has an A4 clip; the timeline has a lower note on the same track.
+    const { project, trackId } = withTone([createNote(69, 0, 2, 1)])
+    const region = createArrangementClip(trackId, 0, createClip('arr', 4, [createNote(57, 0, 2, 1)]))
+    const withArrangement = { ...project, arrangement: [region] }
+    expect(defaultBounceBars(withArrangement, { kind: 'arrangement' })).toBe(1)
+    const result = renderProject(withArrangement, [], { scope: { kind: 'arrangement' }, maxTail: 0 })
+    expect(result.left).toHaveLength(2 * RATE)
+    // Only the timeline's note (220 Hz) sounds: the session clip was never launched.
+    expect(frequencyOf(result.left, 4800, RATE)).toBeCloseTo(220, -1)
+    expect(peakOf(result.left)).toBeGreaterThan(0.3)
+  })
+
+  it('the arrangement loops a looping region until the next region on the track', () => {
+    const { project, trackId } = withTone()
+    const looping = { ...createArrangementClip(trackId, 0, createClip('loop', 4, [createNote(69, 0, 1, 1)])), loop: true as const }
+    const next = createArrangementClip(trackId, 8, createClip('next', 4, [createNote(57, 0, 1, 1)]))
+    const withArrangement = { ...project, arrangement: [looping, next] }
+    expect(defaultBounceBars(withArrangement, { kind: 'arrangement' })).toBe(3)
+    const result = renderProject(withArrangement, [], { scope: { kind: 'arrangement' }, maxTail: 0 })
+    expect(result.left).toHaveLength(6 * RATE)
+    // The looping region repeats past its own end (beat 4): a second pass at beat 4, at the same pitch.
+    const beat = RATE / 2
+    expect(frequencyOf(result.left, 4 * beat + 4800, 5 * beat)).toBeCloseTo(440, -1)
+    // The next region (beat 8) plays its own note.
+    expect(frequencyOf(result.left, 8 * beat + 4800, 9 * beat)).toBeCloseTo(220, -1)
+  })
+
+  it('the arrangement throws when the timeline is empty, and its samples are decoded', () => {
+    expect(() => renderProject(blank(), [], { scope: { kind: 'arrangement' }, maxTail: 0 })).toThrow(/arrangement/)
+    const info: SampleInfo = { id: 'a'.repeat(64), name: 'tone', extension: 'wav', durationSeconds: 1, sampleRate: RATE, channels: 1, bytes: 0 }
+    const audio = createAudioTrack('Loop', 4)
+    const region = createArrangementClip(audio.id, 0, createAudioClip(info, 120))
+    const project = { ...addTrack(blank(), audio), arrangement: [region] }
+    expect(usedSampleIds(project)).toEqual([info.id])
   })
 
   it('renders a sampler of a known buffer, and an audio clip, from the samples it is given', () => {

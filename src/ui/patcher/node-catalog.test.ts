@@ -63,7 +63,7 @@ describe('searchCatalog', () => {
 
   it('then the category, the keywords and the description', () => {
     const effects = labels('effects')
-    expect(effects.slice(0, 3)).toEqual(expect.arrayContaining(['Gain', 'Delay', 'Reverb']))
+    expect(effects).toEqual(expect.arrayContaining(['Gain', 'Delay', 'Reverb', 'Compressor', 'EQ']))
     expect(labels('vibrato')).toEqual(['LFO']) // a keyword
     expect(labels('lowpass')[0]).toBe('Filter') // a keyword
     expect(labels('echoes')).toContain('Delay') // the description

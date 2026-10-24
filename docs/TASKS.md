@@ -4,6 +4,20 @@ Reconciled against the implementation on `codex/performance-and-library`, 2026-1
 This file lists remaining work. Shipped behavior belongs in [ARCHITECTURE.md](../ARCHITECTURE.md);
 older handoffs and exploration notes retain historical scope, not current delivery status.
 
+## Prototype follow-ups: arrangement and sample editor (2026-10-17)
+
+The arrangement timeline, its follow-ups (looping regions, moving a region across tracks, placing from the session
+grid, bouncing the arrangement) and the sample editor (stage 1) are shipped; see `ARCHITECTURE.md` for what exists.
+Follow-ups, in rough order of value:
+
+1. **Sample editor stage 2 (granular, G6-lite)**: a granular sampler node reading the loaded buffer (position,
+   density, grain size, pitch spread, spray), edited with the same controls in the sample editor. Nodes already
+   read whole sample buffers, so this is feasible without new engine plumbing.
+2. **Arrangement automation lanes** and **recording into the arrangement** (touch recording, slice 3c, could land
+   on the timeline too).
+3. **Sample editor polish**: destructive in-place editing (a way to replace a sample's bytes), stereo samples, a
+   spectrum view (needs the FFT utility first, H1), slicing a selection to pads.
+
 ## Current iteration: demo release candidate
 
 The user accepted a bounded demo-release scope on 2026-10-23. The automation curve-prefix regression and
@@ -121,11 +135,12 @@ findings in [REVIEW-performance-and-library.md](REVIEW-performance-and-library.m
 
 ## Effects and audio editing
 
-- Add chorus/flanger or other stereo modulation effects and a limiter/compressor beyond the existing master soft clip.
+- Add chorus/flanger or other stereo modulation effects, a gate, a true brickwall limiter and a phaser.
+  The compressor with sidechain, knee, make-up, dry/wet mix and gain-reduction output is shipped; see [SPEC-effects-round-2.md](SPEC-effects-round-2.md).
 - Improve mixer meter peak-hold/numeric readouts and consider stereo support for the plain mono Reverb. Stereo reverb
   and Mono sum already provide the supported stereo-routing alternatives.
 - Add audio-region loop points, loop crossfades, bounce stems and batch export as separately
-  scoped work. Recording, time-stretch and arrangement editing are outside the completed sequence.
+  scoped work. Arrangement editing and bounce are shipped; recording and time-stretch remain follow-ups.
 - Choose further nodes from [IDEAS-nodes-and-controls.md](IDEAS-nodes-and-controls.md), checking the current registry
   before scheduling an item. The envelope follower/sidechain building blocks, Comb and tempo-synced delays are shipped.
 

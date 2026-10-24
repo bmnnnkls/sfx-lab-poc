@@ -3,9 +3,11 @@ import { DEFAULT_TEMPO } from '../dsp'
 import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
 import { type Patch, audioSources, sendTargets, setNodeParam } from '../patch'
-import type { Clip, SendLevels } from '../project'
+import type { ArrangementClip, Clip, SendLevels } from '../project'
 import type { SampleLookup } from '../sample'
 import { ClipLauncher, type LauncherStatus, type NoteEvent, type NoteScope } from '../session'
+import { ArrangementNotes } from './arrangement-player'
+import type { PlaybackMode } from './playable-track'
 import { LiveNotes, clipSource, type LiveNoteAddress } from './live-notes'
 import { ChannelStrip } from './channel-strip'
 import type { MixContext, PlayableTrack, ScheduledAction } from './playable-track'
@@ -17,6 +19,8 @@ const EMPTY_EVENTS: NoteEvent[] = []
 /** Live, audio-thread counterpart of a project Track: voice + clip player + level. */
 export class TrackRuntime implements PlayableTrack {
   private readonly launcher: ClipLauncher
+  private readonly arrangement: ArrangementNotes
+  private mode: PlaybackMode = 'session'
   private readonly live = new LiveNotes()
   private cancellations: (NoteScope | undefined)[] = []
   private readonly graph = new NoteGraph()
@@ -47,6 +51,7 @@ export class TrackRuntime implements PlayableTrack {
     private readonly samples: SampleLookup,
   ) {
     this.launcher = new ClipLauncher(4, clipSource(trackId))
+    this.arrangement = new ArrangementNotes(clipSource(trackId))
     this.instrument = new Instrument(patch, sampleRate, voices, samples)
     this.fx = new FxGraph(fx, sampleRate, samples)
     this.targets = sendTargets(fx)
@@ -170,12 +175,31 @@ export class TrackRuntime implements PlayableTrack {
     return this.launcher.status()
   }
 
+  setArrangement(clips: readonly ArrangementClip[]): void {
+    // The command carries every track's regions; this runtime plays only its own.
+    this.arrangement.setRegions(clips.filter((clip) => clip.trackId === this.trackId))
+  }
+
+  /** Switches the event source; notes of the other one are released, so nothing is left sounding. */
+  setMode(mode: PlaybackMode): void {
+    if (mode === this.mode) return
+    this.mode = mode
+    this.cancelNotes()
+    if (mode === 'arrangement') this.launcher.reset()
+    else this.arrangement.reset()
+  }
+
   schedule(from: number, to: number, board: TapBoard, transportFrom?: number, transportTo?: number): ScheduledAction[] {
     this.noteControls?.process((nodeId, paramId, value) => this.graph.setParam(nodeId, paramId, value))
     // Clips follow transport; the graph follows a continuous render clock even while stopped.
     if (transportFrom !== undefined) this.beatOrigin = from - transportFrom
-    const clipEvents = transportFrom === undefined ? EMPTY_EVENTS : this.launcher.collectEvents(transportFrom, transportTo ?? transportFrom + (to - from))
-      .map((event) => ({ ...event, beat: from + event.beat - transportFrom }))
+    const rangeTo = transportTo ?? (transportFrom ?? from) + (to - from)
+    const sourceEvents = transportFrom === undefined
+      ? EMPTY_EVENTS
+      : this.mode === 'arrangement'
+        ? this.arrangement.collectEvents(transportFrom, rangeTo)
+        : this.launcher.collectEvents(transportFrom, rangeTo)
+    const clipEvents = sourceEvents.map((event) => ({ ...event, beat: from + event.beat - transportFrom! }))
     const live = this.live.take(from)
     const input = live.length ? [...clipEvents, ...live].sort((a, b) => a.beat - b.beat) : clipEvents
     let events = this.graph.process(input, from, to, board, this.beatOrigin)
@@ -196,6 +220,7 @@ export class TrackRuntime implements PlayableTrack {
   /** Returns to silence and an idle launcher (transport stopped). */
   reset(): void {
     this.launcher.reset()
+    this.arrangement.reset()
     this.live.clear()
     this.cancellations = []
     this.graph.reset()

@@ -33,6 +33,11 @@ describe('export dialog model', () => {
     expect(scopeOf({ ...initialForm(true), scope: 'clip' }, project, null)).toBeNull()
     expect(scopeOf({ ...initialForm(false), scene: 1 }, project, null)).toEqual({ kind: 'scene', scene: 1 })
     expect(scopeOf({ ...initialForm(false), scene: 0 }, project, null)).toBeNull()
+    // The arrangement scope is only there when the timeline has anything on it.
+    expect(scopeOf({ ...initialForm(false), scope: 'arrangement' }, project, null)).toBeNull()
+    const withArrangement = { ...project, arrangement: [{ id: 'r', trackId: track.id, startBeat: 0, content: clip }] }
+    expect(scopeOf({ ...initialForm(false), scope: 'arrangement' }, withArrangement, null)).toEqual({ kind: 'arrangement' })
+    expect(barsText({ ...initialForm(false), scope: 'arrangement' }, withArrangement, { kind: 'arrangement' })).toBe('2')
   })
 
   it('bars follow the scope until typed, then stay within what a bounce accepts', () => {

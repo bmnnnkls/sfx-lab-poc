@@ -3,7 +3,9 @@ import { levelNode } from './nodes/analysis/level.node'
 import { pitchNode } from './nodes/analysis/pitch.node'
 import { barNode, displayNode, ledNode } from './nodes/indicator.nodes'
 import { combNode } from './nodes/comb.node'
+import { compressorNode } from './nodes/compressor.node'
 import { delayNode } from './nodes/delay.node'
+import { eqNode } from './nodes/eq.node'
 import { envelopeNode } from './nodes/envelope.node'
 import { filterNode } from './nodes/filter.node'
 import { gainNode } from './nodes/gain.node'
@@ -57,6 +59,8 @@ const plainDefinitions: readonly NodeDefinition[] = [
   randomNode,
   delayNode,
   reverbNode,
+  compressorNode,
+  eqNode,
   outputNode,
   trackInNode,
   trackOutNode,

@@ -22,6 +22,11 @@ export class Transport {
     this.tempo = bpm
   }
 
+  /** Jumps to `beats`, playing or stopped. */
+  seek(beats: number): void {
+    this.positionBeats = Math.max(0, beats)
+  }
+
   get beatsPerSample(): number {
     return this.tempo / 60 / this.sampleRate
   }

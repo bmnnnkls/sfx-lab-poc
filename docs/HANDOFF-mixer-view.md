@@ -135,8 +135,9 @@ npx vite preview --port 4173    # after a build, for browser checks
 
 ## Out of scope (do not add)
 
-A master limiter or compressor, chorus/flanger, an envelope follower for sidechains, automation, MIDI mapping. These are in
-`docs/TASKS.md` ("Effects follow-ups") for later.
+Chorus/flanger, automation, MIDI mapping. These are in `docs/TASKS.md` ("Effects follow-ups") for later; the master
+compressor and the envelope follower have since been built, and chorus/flanger build from a modulated delay
+(see `SPEC-effects-round-2.md`).
 
 ## Reference: what already exists and works (do not rebuild)
 

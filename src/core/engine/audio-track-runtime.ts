@@ -1,12 +1,13 @@
 import { DEFAULT_TEMPO } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
 import { type Patch, audioSources, sendTargets } from '../patch'
-import type { AudioClip, SendLevels } from '../project'
+import type { ArrangementClip, AudioClip, SendLevels } from '../project'
 import type { SampleLookup } from '../sample'
 import { AudioClipLauncher, type AudioEvent, type LauncherStatus } from '../session'
+import { ArrangementAudio } from './arrangement-player'
 import { fadeGain, readRegion, regionOf, repitchPosition } from './audio-clip-playback'
 import { ChannelStrip } from './channel-strip'
-import type { MixContext, MixTiming, PlayableTrack, ScheduledAction } from './playable-track'
+import type { MixContext, MixTiming, PlayableTrack, ScheduledAction, PlaybackMode } from './playable-track'
 
 /** A clip that stops (or is replaced) keeps sounding for this long, fading to silence, instead of cutting dead. */
 const TAIL_SECONDS = 0.005
@@ -33,6 +34,8 @@ export class AudioTrackRuntime implements PlayableTrack {
   readonly strip: ChannelStrip
   clips: readonly (AudioClip | null)[]
   private readonly launcher = new AudioClipLauncher()
+  private readonly arrangement = new ArrangementAudio()
+  private mode: PlaybackMode = 'session'
   private playing: Playing | null = null
   private tail: Tail | null = null
   private readonly tailFrames: number
@@ -109,6 +112,21 @@ export class AudioTrackRuntime implements PlayableTrack {
     }
   }
 
+  setArrangement(clips: readonly ArrangementClip[]): void {
+    // The command carries every track's regions; this runtime plays only its own.
+    this.arrangement.setRegions(clips.filter((clip) => clip.trackId === this.trackId))
+  }
+
+  /** Switches the event source; what the other one was playing fades out in a 5 ms tail. */
+  setMode(mode: PlaybackMode): void {
+    if (mode === this.mode) return
+    this.mode = mode
+    this.launcher.reset()
+    this.arrangement.reset()
+    this.fadeOutPlaying()
+    this.playing = null
+  }
+
   launchClip(clipId: string): void {
     const clip = this.clips.find((candidate) => candidate?.id === clipId)
     if (clip) this.launcher.launch(clip)
@@ -127,6 +145,7 @@ export class AudioTrackRuntime implements PlayableTrack {
   reset(): void {
     this.stoppedAt = undefined
     this.launcher.reset()
+    this.arrangement.reset()
     this.fadeOutPlaying()
     this.playing = null
   }
@@ -160,15 +179,14 @@ export class AudioTrackRuntime implements PlayableTrack {
   }
 
   schedule(from: number, to: number): ScheduledAction[] {
-    return this.launcher
-      .collectEvents(from, to)
-      .map((event) => ({ beat: event.beat, run: () => this.apply(event) }))
+    const events = this.mode === 'arrangement' ? this.arrangement.collectEvents(from, to) : this.launcher.collectEvents(from, to)
+    return events.map((event) => ({ beat: event.beat, run: () => this.apply(event) }))
   }
 
   private apply(event: AudioEvent): void {
     this.fadeOutPlaying()
     this.stoppedAt = event.kind === 'stop' ? event.beat : undefined
-    this.playing = event.kind === 'start' ? { clip: event.clip, startBeat: event.beat, position: -1 } : null
+    this.playing = event.kind === 'start' ? { clip: event.clip, startBeat: event.origin ?? event.beat, position: -1 } : null
   }
 
   /** Hands what is sounding over to a short fade-out, so whatever replaces it (or silence) starts without a click. */

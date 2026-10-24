@@ -1,6 +1,6 @@
 import type { TapBoard } from '../notefx'
 import type { Patch } from '../patch'
-import type { SendLevels } from '../project'
+import type { ArrangementClip, SendLevels } from '../project'
 import type { LauncherStatus } from '../session'
 import type { AudioBoard } from './audio-board'
 import type { AudioTaps } from './audio-taps'
@@ -28,6 +28,8 @@ export interface MixContext {
   readonly taps: AudioTaps
 }
 
+export type PlaybackMode = 'session' | 'arrangement'
+
 /**
  * What the engine needs from any kind of track (instrument or audio): launching clips, scheduling their
  * events against the beat clock, and adding its audio to the mix. Each kind keeps its own clip type and
@@ -44,6 +46,10 @@ export interface PlayableTrack {
   /** Back to silence and an idle launcher (transport stopped). */
   reset(): void
   status(): LauncherStatus
+  /** Replaces the track's arrangement regions (copies of session clips on the timeline). */
+  setArrangement(clips: readonly ArrangementClip[]): void
+  /** Which event source `schedule` follows: the session launchers or the arrangement timeline. */
+  setMode(mode: PlaybackMode): void
   /**
    * Events falling in the beat range [from, to), each to be run at its beat's sample. `board` is where tracks
    * share the notes they produced in this range: a track writes its own and reads those of the tracks it takes

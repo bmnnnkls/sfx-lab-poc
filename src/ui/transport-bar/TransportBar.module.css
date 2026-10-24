@@ -38,6 +38,16 @@
   border-radius: var(--radius);
 }
 
+.views {
+  display: flex;
+  gap: 4px;
+}
+
+.views button {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
 .bar button:disabled {
   opacity: 0.35;
   cursor: default;

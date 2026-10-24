@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { createNode, createModuleUse, type ModuleDefinition, type Patch } from '../patch'
-import { createEmptyProject, editPatchAt, groupNodesAsModule, unlinkModuleNode, usedSampleIds, projectSampleDependencies, type InstrumentTrack, type Project } from '../project'
+import { createAudioClip, createArrangementClip, createEmptyProject, editPatchAt, groupNodesAsModule, unlinkModuleNode, usedSampleIds, projectSampleDependencies, type InstrumentTrack, type Project } from '../project'
 import { editControlBase, resolveControlTarget, projectWithControlValues, type ControlTarget } from '../control'
 import { parseProject, serializeProject } from '../persistence'
 import { diffProject } from '../sync'
@@ -138,6 +138,10 @@ describe('snapshots and immutable embedded presets', () => {
     project = { ...project, sampleBindings: [] }
     expect(usedSampleIds(project)).toEqual([sample('a').id])
     expect(projectSampleDependencies(project)).toEqual([sample('a').id, sample('b').id])
+    // A timeline-only sample must travel with the project alongside saved preset dependencies.
+    project = { ...project, arrangement: [createArrangementClip(scope.owner.trackId, 0, createAudioClip(sample('c'), project.tempo))] }
+    expect(usedSampleIds(project)).toEqual([sample('a').id, sample('c').id])
+    expect(projectSampleDependencies(project)).toEqual([sample('a').id, sample('c').id, sample('b').id])
   })
   it('round trips v6, explicitly migrates older unknown fields and bounds hostile saved state', () => {
     const { p, scope } = setup()
