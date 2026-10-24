@@ -86,8 +86,8 @@ export const dragViewToSidebar = async (page: Page, title: ViewTitle, sidebar: '
  * An HTML5 drag from one element onto another: Chromium's Playwright drives native drag and drop from mouse events, so
  * the mouse moves in steps. `hold` rests on an element for 600 ms on the way (a tab, to spring-load it), `alt` holds
  * Alt over the target, `position` is where on the target to drop, from its top left (its centre by default), and
- * `whileOver` runs over the target before the button is released. The target is found after the hold, since it may
- * only show then.
+ * `whileOver` runs over the target before the button is released. The target is found, and scrolled into view, after
+ * the hold, since it may only show then.
  */
 export const dragTo = async (page: Page, source: Locator, target: Locator, { hold, alt, position, whileOver }: { hold?: Locator; alt?: boolean; position?: { x: number; y: number }; whileOver?: () => Promise<void> } = {}) => {
   const centre = (box: { x: number; y: number; width: number; height: number }) => ({ x: box.x + box.width / 2, y: box.y + box.height / 2 })
@@ -104,6 +104,7 @@ export const dragTo = async (page: Page, source: Locator, target: Locator, { hol
     await page.mouse.move(centre(over).x + 1, centre(over).y, { steps: 2 })
     await page.waitForTimeout(600)
   }
+  await target.scrollIntoViewIfNeeded()
   const to = await target.boundingBox()
   if (!to) throw new Error('the drop target isn\'t showing')
   const end = position ? { x: to.x + position.x, y: to.y + position.y } : centre(to)

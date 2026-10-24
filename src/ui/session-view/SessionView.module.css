@@ -196,3 +196,15 @@
   order: 6;
   font-size: 11px;
 }
+
+/* A slot a drag of ours is over: it would land there, or it can't. */
+.slot[data-drop='accept'] {
+  opacity: 1;
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.slot[data-drop='refuse'] {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
+}

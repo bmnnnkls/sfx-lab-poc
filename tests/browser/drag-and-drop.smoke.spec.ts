@@ -1,4 +1,5 @@
-import { test, expect, dragView, openView, viewRoot } from './fixtures'
+import type { Locator, Page } from '@playwright/test'
+import { test, expect, dragTo, dragView, openView, viewRoot } from './fixtures'
 
 test('a view tab dragged across the session grid docks as before and changes no slot', async ({ page }) => {
   await page.goto('/?starter')
@@ -48,4 +49,80 @@ test('audio files dropped on Samples are still imported', async ({ page }) => {
     for (const type of ['dragenter', 'dragover', 'drop']) target.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: transfer }))
   })
   await expect(samples.getByText('Dropped', { exact: true })).toBeVisible()
+})
+
+/** Session above Arrangement: they share a tab group in the default layout. */
+const sideBySide = async (page: Page) => {
+  await page.goto('/?starter')
+  await openView(page, 'Arrangement')
+  await dragView(page, 'Session', 'Arrangement', 'top')
+  await expect(viewRoot(page, 'Session')).toBeVisible()
+  await expect(viewRoot(page, 'Arrangement')).toBeVisible()
+  return { session: viewRoot(page, 'Session'), arrangement: viewRoot(page, 'Arrangement') }
+}
+
+/** A cell of the session grid, by track and scene: a header row comes first, and every row has the tracks, the master's cell and one more. */
+const slotOf = (session: Locator, tracks: number, track: number, scene: number) =>
+  session.locator('[data-scroll="both"] > div > *').nth((tracks + 2) * (scene + 1) + track)
+
+const BEAT_PX = 24
+const undo = (page: Page) => page.getByRole('button', { name: 'Undo', exact: true }).click()
+
+test('a session slot dragged onto a lane makes a region at the beat under the pointer, on lanes of its kind', async ({ page }) => {
+  const { session, arrangement } = await sideBySide(page)
+  const root = session.getByRole('button', { name: '▶ Root', exact: true })
+  const lanes = arrangement.locator('[data-lane]')
+  const regions = arrangement.getByTestId('arrangement-region')
+  // Bar 3 is beat 8.
+  await dragTo(page, root, lanes.nth(0), { position: { x: 8 * BEAT_PX + 1, y: 20 }, whileOver: () => expect(lanes.nth(0).locator('xpath=..')).toHaveAttribute('data-drop', 'accept') })
+  await expect(regions).toHaveCount(1)
+  expect(await regions.first().evaluate((region) => (region as HTMLElement).style.left)).toBe(`${8 * BEAT_PX}px`)
+  // On its own track it keeps its source, so the region opens it.
+  await regions.first().click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Edit clip', exact: true })).not.toHaveAttribute('aria-disabled', 'true')
+  await page.keyboard.press('Escape')
+
+  await dragTo(page, root, lanes.nth(1), { position: { x: 4 * BEAT_PX + 1, y: 20 } })
+  await expect(lanes.nth(1).locator('xpath=..').getByTestId('arrangement-region')).toHaveCount(1)
+
+  await session.getByRole('button', { name: 'Add track', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Audio track', exact: true }).click()
+  await expect(lanes).toHaveCount(4)
+  await dragTo(page, root, lanes.nth(3), { position: { x: 40, y: 20 }, whileOver: () => expect(lanes.nth(3).locator('xpath=..')).toHaveAttribute('data-drop', 'refuse') })
+  await expect(regions).toHaveCount(2)
+  await expect(arrangement.locator('[data-drop]')).toHaveCount(0)
+})
+
+test('a session slot dragged onto an empty slot moves it, and copies it with Alt; occupied slots and other kinds refuse', async ({ page }) => {
+  const { session } = await sideBySide(page)
+  const slot = (track: number, scene: number) => slotOf(session, 3, track, scene)
+  const root = session.getByRole('button', { name: '▶ Root', exact: true })
+  await expect(slot(0, 0)).toContainText('Root')
+
+  await dragTo(page, root, slot(1, 1))
+  await expect(slot(1, 1)).toContainText('Root')
+  await expect(slot(0, 0).getByRole('button', { name: 'Create clip', exact: true })).toBeVisible()
+  await undo(page)
+  await expect(slot(0, 0)).toContainText('Root')
+  await expect(slot(1, 1).getByRole('button', { name: 'Create clip', exact: true })).toBeVisible()
+
+  await dragTo(page, root, slot(1, 1), { alt: true })
+  await expect(slot(1, 1)).toContainText('Root')
+  await expect(slot(0, 0)).toContainText('Root')
+  await undo(page)
+  await expect(slot(1, 1).getByRole('button', { name: 'Create clip', exact: true })).toBeVisible()
+
+  // Lead's first slot holds Arp.
+  await dragTo(page, root, slot(1, 0), { whileOver: () => expect(slot(1, 0)).toHaveAttribute('data-drop', 'refuse') })
+  await expect(slot(1, 0)).toContainText('Arp')
+  await expect(slot(0, 0)).toContainText('Root')
+
+  await session.getByRole('button', { name: 'Add track', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Audio track', exact: true }).click()
+  const audio = slotOf(session, 4, 3, 1)
+  await expect(audio.getByRole('button', { name: 'Add audio clip', exact: true })).toBeVisible()
+  await dragTo(page, root, audio, { whileOver: () => expect(audio).toHaveAttribute('data-drop', 'refuse') })
+  await expect(audio.getByRole('button', { name: 'Add audio clip', exact: true })).toBeVisible()
+  await expect(slotOf(session, 4, 0, 0)).toContainText('Root')
+  await expect(session.locator('[data-drop]')).toHaveCount(0)
 })

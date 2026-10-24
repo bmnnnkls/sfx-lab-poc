@@ -196,6 +196,28 @@
   pointer-events: none;
 }
 
+/* A lane a drag of ours is over, with a marker at the beat it would land on. */
+.row[data-drop='accept'] {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.row[data-drop='accept']::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--drop-at, 0);
+  width: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.row[data-drop='refuse'] {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
+}
+
 /* The lane a dragged region is over. */
 .row[data-drag-over] {
   outline: 2px dashed var(--accent);

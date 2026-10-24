@@ -4,8 +4,9 @@ import {
   arrangementOnTrack,
 } from '@core'
 import { useEngineControls, useLayoutStore, useProjectStore, useStatusStore } from '@state'
-import { Fragment, useState } from 'react'
+import { Fragment, type ReactNode, useState } from 'react'
 import { viewTitles } from '../layout/view-titles'
+import { useDropTarget } from '../shared/drag'
 import { ActionMenu } from '../shared/menu'
 import { useStoredState } from '../shared/use-stored-state'
 import { ArrangementPlayhead } from './ArrangementPlayhead'
@@ -28,12 +29,26 @@ const snap = (beats: number): number => Math.round(beats * 4) / 4
 
 /** How to fill the timeline. Shown in the toolbar while it fits, and always its tooltip. */
 const HINT =
-  'Right-click an empty lane to add a session clip; right-click a session slot to place it here; drag regions to move (across lanes too), the edge to resize.'
+  'Drag a session slot onto a lane, or right-click an empty lane to add a session clip; drag regions to move (across lanes too), the edge to resize.'
+
+/** A lane's row: what is dropped on it lands at the snapped beat under the pointer, marked while it is over. */
+const LaneRow = ({ trackId, pxPerBeat, width, children }: { trackId: string; pxPerBeat: number; width: number; children: ReactNode }) => {
+  const drop = useDropTarget(
+    (event) => ({ kind: 'lane', trackId, beat: snap(Math.max(0, (event.clientX - event.currentTarget.getBoundingClientRect().left) / pxPerBeat)) }),
+    (event, target) => event.currentTarget.style.setProperty('--drop-at', `${(target.kind === 'lane' ? target.beat : 0) * pxPerBeat}px`),
+  )
+  return (
+    <div className={styles.row} style={{ width }} {...drop}>
+      {children}
+    </div>
+  )
+}
 
 /**
  * The "Arrangement" view: copies of session clips on a timeline, one lane per track. Playback follows
  * the transport; ▶ starts it from the beginning (or resumes from where it was stopped). Session slots
- * drag onto a lane, regions drag across lanes, and a region can loop until the next one on its track.
+ * drag onto a lane (*Place on arrangement* is the keyboard's way), regions drag across lanes, and a region
+ * can loop until the next one on its track.
  */
 export const ArrangementView = () => {
   const controls = useEngineControls()
@@ -97,7 +112,7 @@ export const ArrangementView = () => {
                   {track.name}
                 </div>
               </ActionMenu>
-              <div className={styles.row} style={{ width }}>
+              <LaneRow trackId={track.id} pxPerBeat={pxPerBeat} width={width}>
                 <ActionMenu subject={{ kind: 'lane', trackId: track.id, beat: placedAt }}>
                   <div
                     className={styles.laneBody}
@@ -135,7 +150,7 @@ export const ArrangementView = () => {
                   )
                 })}
                 <ArrangementPlayhead pxPerBeat={pxPerBeat} />
-              </div>
+              </LaneRow>
             </div>
           ))}
         {tracks.every((track) => track.kind === 'return') && (

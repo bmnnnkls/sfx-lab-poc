@@ -437,3 +437,6 @@ What turned out different from the design above, step by step.
   `drop`, since a target stops the `drop` it handles. A source hidden mid-drag sends `dragend` to nothing, so the
   current drag stays until the next one starts; it is only read while a drag carries our type.
 * **Step 2: the rule ignores comments,** since two components describe a "draggable" selection or handle in theirs.
+* **Step 3: the lane's whole row is the target,** not just the lane body under the regions, so a slot dropped over a
+  region lands too. The beat comes from the row, which starts where the body does.
+* **Step 3: a filled slot is a target too,** of its slot subject, so it shows `refuse` when a clip is dragged over it.
