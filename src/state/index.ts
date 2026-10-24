@@ -6,6 +6,8 @@ export {
   type ProjectState,
 } from './project-store'
 export { useSelectionStore, type EditorTab } from './selection-store'
+export { useLayoutStore, DEFAULT_REGIONS, type ViewId, type RegionId, type RegionState } from './layout-store'
+export * from './navigation'
 export { useStatusStore } from './status-store'
 export {
   usePersistenceStore,
