@@ -4,8 +4,9 @@ import {
   arrangementLoopEnd,
   arrangementOnTrack,
 } from '@core'
-import { useEngineControls, useProjectStore, useStatusStore } from '@state'
+import { useEngineControls, useLayoutStore, useProjectStore, useStatusStore } from '@state'
 import { Fragment, useState } from 'react'
+import { viewTitles } from '../layout/view-titles'
 import { ContextMenu } from '../shared/menu'
 import { useStoredState } from '../shared/use-stored-state'
 import { ArrangementPlayhead } from './ArrangementPlayhead'
@@ -171,7 +172,10 @@ export const ArrangementView = () => {
             </div>
           ))}
         {tracks.every((track) => track.kind === 'return') && (
-          <p className={styles.empty}>Add a track in the session view first; its clips can then be placed on the timeline.</p>
+          <div className={styles.empty}>
+            <p>No tracks yet. Add a track and give it clips, then place them on the timeline.</p>
+            <button onClick={() => useLayoutStore.getState().revealView('session')}>Show {viewTitles.session.toLowerCase()}</button>
+          </div>
         )}
       </div>
     </div>
