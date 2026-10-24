@@ -1,14 +1,14 @@
-import { test, expect, expectSound } from './fixtures'
+import { test, expect, expectSound, openView } from './fixtures'
 import { installAudioTap, listen } from './audio-tap'
 
 test('real output follows pan, master mute and undo', async ({ page }) => {
   await installAudioTap(page)
   await page.goto('/?starter')
-  await page.getByRole('button', { name: 'Samples', exact: true }).click()
+  await openView(page, 'Samples')
   await page.getByRole('button', { name: 'Add demo samples', exact: true }).click()
   await expect(page.locator('[data-status="ready"]')).toHaveCount(5)
   await page.getByRole('listitem').filter({ hasText: 'Demo Drum Loop' }).getByRole('button', { name: 'New audio track', exact: true }).click()
-  await page.getByRole('button', { name: 'Mixer', exact: true }).click()
+  await openView(page, 'Mixer')
   for (const name of ['Bass', 'Lead', 'Pad']) {
     await page.getByRole('button', { name: `${name} mute`, exact: true }).click()
   }

@@ -15,6 +15,20 @@ export const test = base.extend<{ browserErrors: string[] }>({
 
 export { expect }
 
+/** The views' titles. Specs import no `src/`, so keep this in sync by hand with `src/ui/layout/views.ts`. */
+export type ViewTitle =
+  | 'Session' | 'Arrangement'
+  | 'Instrument' | 'Effects' | 'Notes' | 'Clip' | 'Mixer' | 'Samples' | 'Sounds' | 'Library'
+
+/** The main views are switched from the transport bar, whose buttons say which view they show. */
+const MAIN_VIEWS: ReadonlySet<ViewTitle> = new Set(['Session', 'Arrangement'])
+
+/** Show a view wherever it is docked. The only place specs know how views are opened. */
+export const openView = async (page: Page, title: ViewTitle) => {
+  const name = MAIN_VIEWS.has(title) ? `${title} view` : title
+  await page.getByRole('button', { name, exact: true }).click()
+}
+
 export const openExample = async (page: Page, name: string) => {
   await page.getByText('File', { exact: true }).click()
   await page.getByRole('button', { name: new RegExp(`^${name}`) }).click()

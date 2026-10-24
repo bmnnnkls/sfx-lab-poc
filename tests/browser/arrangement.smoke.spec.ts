@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures'
+import { test, expect, openView } from './fixtures'
 
 /** The regions of one lane: the lane body is a sibling of the regions, both children of the lane row. */
 const regionsInLane = (page: import('@playwright/test').Page, index: number) =>
@@ -7,7 +7,7 @@ const regionsInLane = (page: import('@playwright/test').Page, index: number) =>
 test('the arrangement view places clips on the timeline and plays them', async ({ page }) => {
   await page.goto('/?starter')
   // The starter's Bass track has clips in the session grid; place one on the timeline.
-  await page.getByRole('button', { name: 'Arrangement view', exact: true }).click()
+  await openView(page, 'Arrangement')
   await expect(page.getByTestId('arrangement-view')).toBeVisible()
 
   const lane = page.locator('[data-lane]').first()
@@ -34,14 +34,14 @@ test('the arrangement view places clips on the timeline and plays them', async (
   expect(Math.round(restored!.x)).toBe(Math.round(before.x))
 
   // The arrangement is part of the project: switching views and back keeps it.
-  await page.getByRole('button', { name: 'Session view', exact: true }).click()
-  await page.getByRole('button', { name: 'Arrangement view', exact: true }).click()
+  await openView(page, 'Session')
+  await openView(page, 'Arrangement')
   await expect(page.getByTestId('arrangement-region')).toHaveCount(1)
 })
 
 test('looping regions repeat until the next region, and regions move across tracks', async ({ page }) => {
   await page.goto('/?starter')
-  await page.getByRole('button', { name: 'Arrangement view', exact: true }).click()
+  await openView(page, 'Arrangement')
   await expect(page.getByTestId('arrangement-view')).toBeVisible()
 
   // Two regions on the first track, 16 beats apart.
@@ -84,7 +84,7 @@ test('a session slot places its clip on the arrangement', async ({ page }) => {
   await page.goto('/?starter')
   await page.getByRole('button', { name: '▶ Root', exact: true }).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Place on arrangement' }).click()
-  await page.getByRole('button', { name: 'Arrangement view', exact: true }).click()
+  await openView(page, 'Arrangement')
   // The copy landed on the Bass track's lane at the start of its timeline.
   await expect(regionsInLane(page, 0)).toHaveCount(1)
   // Undo removes it again.
@@ -94,7 +94,7 @@ test('a session slot places its clip on the arrangement', async ({ page }) => {
 
 test('the arrangement bounces to a WAV', async ({ page }) => {
   await page.goto('/?starter')
-  await page.getByRole('button', { name: 'Arrangement view', exact: true }).click()
+  await openView(page, 'Arrangement')
   const lane = page.locator('[data-lane]').first()
   await lane.click({ button: 'right', position: { x: 120, y: 20 } })
   await page.getByRole('menuitem', { name: 'Add Root', exact: true }).click()
@@ -117,7 +117,7 @@ test('the arrangement bounces to a WAV', async ({ page }) => {
 
 test('the sample editor derives a reversed copy without touching the original', async ({ page }) => {
   await page.goto('/?starter')
-  await page.getByRole('button', { name: 'Samples', exact: true }).click()
+  await openView(page, 'Samples')
   await page.getByRole('button', { name: 'Add demo samples', exact: true }).click()
   await expect(page.locator('[data-status="ready"]')).toHaveCount(5)
   await expect(page.getByRole('listitem')).toHaveCount(5)

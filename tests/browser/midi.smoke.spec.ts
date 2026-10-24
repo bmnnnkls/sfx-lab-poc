@@ -1,4 +1,4 @@
-import { test, expect, expectSaved } from './fixtures'
+import { test, expect, expectSaved, openView } from './fixtures'
 import { installMidiPorts, sendMidi } from './midi-ports'
 
 for (const mode of ['denied', 'unsupported'] as const) test(`MIDI ${mode} remains usable and only requests from Enable`, async ({ page }) => {
@@ -23,7 +23,7 @@ test('Low Light filter learn, pickup, undo, reload, reassignment, rebind and rem
   await page.getByRole('button', { name: 'Close MIDI settings' }).click()
   const showFilter = async () => {
     await page.getByText('Master', { exact: true }).first().click()
-    await page.getByRole('button', { name: 'Effects', exact: true }).click()
+    await openView(page, 'Effects')
     await page.getByRole('group', { name: 'View', exact: true }).getByRole('button', { name: 'Panel', exact: true }).click()
     return page.getByRole('slider', { name: 'DJ filter', exact: true })
   }
@@ -57,7 +57,7 @@ test('Low Light filter learn, pickup, undo, reload, reassignment, rebind and rem
   await page.getByRole('button', { name: 'Learn again', exact: true }).click(); await sendMidi(page, [0xb0, 22, 0], 'other')
   await expect(page.getByTestId('midi-mapping')).toContainText('CC 22')
   await page.getByRole('button', { name: 'Close MIDI settings' }).click()
-  await page.getByRole('button', { name: 'Mixer', exact: true }).click()
+  await openView(page, 'Mixer')
   const fader = page.getByRole('slider', { name: 'Master fader', exact: true })
   await fader.click({ button: 'right' }); await page.getByRole('menuitem', { name: 'MIDI learn', exact: true }).click()
   await sendMidi(page, [0xb0, 22, 0], 'other')

@@ -1,5 +1,5 @@
 import { serializeProject } from '../../src/core'
-import { test, expect, expectSaved, expectSound } from './fixtures'
+import { test, expect, expectSaved, expectSound, openView } from './fixtures'
 import { sweepProject } from './automation-project'
 
 test('draws, edits, undoes and reloads a looping filter sweep', async ({ page }, info) => {
@@ -32,7 +32,7 @@ test('draws, edits, undoes and reloads a looping filter sweep', async ({ page },
   await page.getByRole('button', { name: 'Edit Sweep clip', exact: true }).click()
   await page.getByRole('button', { name: 'Automation', exact: true }).click()
   await expect(page.locator('[data-point-id]')).toHaveCount(2)
-  await page.getByRole('button', { name: 'Instrument', exact: true }).click()
+  await openView(page, 'Instrument')
   await page.getByRole('button', { name: 'Sweep', exact: true }).click()
 })
 
@@ -88,7 +88,7 @@ for (const surface of ['mixer', 'session']) test(`Touch records a held ${surface
   await expectSound(page)
   await expectSaved(page)
   const before = await page.evaluate(() => localStorage.getItem('sfxlab:project'))
-  if (surface === 'mixer') await page.getByRole('button', { name: 'Mixer', exact: true }).click()
+  if (surface === 'mixer') await openView(page, 'Mixer')
   const volume = page.getByLabel(surface === 'mixer' ? 'Sweep fader' : 'Sweep volume', { exact: true })
   const box = await volume.boundingBox(); if (!box) throw new Error('No volume slider')
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)

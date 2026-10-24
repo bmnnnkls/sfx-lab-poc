@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs'
-import { test, expect, expectSaved } from './fixtures'
+import { test, expect, expectSaved, openView } from './fixtures'
 
 test('delay divisions report limits at project tempo and survive undo/reload', async ({ page }, testInfo) => {
   const fixture = readFileSync(new URL('../../src/core/persistence/fixtures/v8-delay-timing.sfxlab.json', import.meta.url), 'utf8')
   await page.addInitScript(saved => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, fixture)
   await page.goto('/')
   const selectEcho = async () => {
-    await page.getByRole('button', { name: 'Effects', exact: true }).click()
+    await openView(page, 'Effects')
     await page.getByRole('group', { name: 'View', exact: true }).getByRole('button', { name: 'Graph', exact: true }).click()
     await page.getByTestId('node-echo').locator('[data-header]').click()
   }

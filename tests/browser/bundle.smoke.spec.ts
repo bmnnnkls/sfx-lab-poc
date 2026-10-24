@@ -2,14 +2,14 @@ import { readFile } from 'node:fs/promises'
 import { captureLibraryAsset, emptyLibrary, saveLibraryFolder, parseProject } from '../../src/core'
 import { stageLibraryBundle, exportLibraryBundle, importProject } from '../../src/storage'
 import { samplePresetProject } from './preset-project'
-import { test, expect, expectSaved } from './fixtures'
+import { test, expect, expectSaved, openView } from './fixtures'
 
 test('bundle review/cancel/export/import into fresh and conflicting libraries survives reload and independent project package export', async ({ page, browser }, testInfo) => {
   const fixture = samplePresetProject(), scope = { owner: { kind: 'track' as const, trackId: 'sweep' }, domain: 'patch' as const }
   const catalog = captureLibraryAsset(saveLibraryFolder(emptyLibrary(), 'Nested', null, 'nested'), fixture.project, scope, 'Exchange instrument', 'nested')
   const file = await exportLibraryBundle(catalog, { folderIds: ['nested'] }, 'Exchange', async id => fixture.samples.find(s => s.info.id === id)?.bytes)
   await page.goto('/?starter')
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' }), items = panel.getByLabel('Library items', { exact: true })
   const upload = async () => panel.getByLabel('Import library bundle', { exact: true }).setInputFiles({ name: file.fileName, mimeType: file.mimeType, buffer: Buffer.from(file.bytes) })
   await upload()
@@ -27,7 +27,7 @@ test('bundle review/cancel/export/import into fresh and conflicting libraries su
   }
   // Fresh IDs make both imported roots coexist with no name-based overwrite.
   await page.reload()
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await openView(page, 'Library')
   await panel.getByRole('button', { name: 'Exchange', exact: true }).first().click()
   await panel.getByRole('button', { name: 'Nested', exact: true }).first().click()
   await expect(items.getByRole('button')).toHaveCount(3)
@@ -60,13 +60,13 @@ test('bundle review/cancel/export/import into fresh and conflicting libraries su
     target.on('pageerror', error => errors.push(error.message))
     target.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
     await target.goto(new URL('/?starter', page.url()).href)
-    await target.getByRole('button', { name: 'Library', exact: true }).click()
+    await openView(target, 'Library')
     const targetPanel = target.getByRole('region', { name: 'Personal library' })
     await targetPanel.getByLabel('Import library bundle', { exact: true }).setInputFiles(bundlePath)
     await targetPanel.getByRole('button', { name: 'Import into new folder', exact: true }).click()
     await expect(targetPanel.getByRole('status')).toContainText('Library saved')
     await target.reload()
-    await target.getByRole('button', { name: 'Library', exact: true }).click()
+    await openView(target, 'Library')
     await targetPanel.getByRole('button', { name: 'Nested', exact: true }).last().click()
     await expect(targetPanel.getByLabel('Library items', { exact: true }).getByRole('button')).toHaveCount(3)
     expect(errors).toEqual([])
@@ -78,7 +78,7 @@ test('records production Chromium review latency for a legal near-limit folder c
   const catalog = { ...emptyLibrary(), folders: Array.from({ length: 1023 }, (_, i) => ({ id: `f${i}`, name: `Folder ${i}`, parentId: i ? `f${i - 1}` : null })) }
   const file = await exportLibraryBundle(catalog, { folderIds: ['f0'] }, 'Folder chain', async () => undefined)
   await page.goto('/?starter')
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   const start = performance.now()
   await panel.getByLabel('Import library bundle', { exact: true }).setInputFiles({ name: file.fileName, mimeType: file.mimeType, buffer: Buffer.from(file.bytes) })

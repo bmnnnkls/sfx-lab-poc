@@ -1,20 +1,20 @@
 import { parseProject, resolveControlTarget, serializeProject } from '../../src/core'
 import { sweepProject } from './automation-project'
-import { test, expect, expectSaved } from './fixtures'
+import { test, expect, expectSaved, openView } from './fixtures'
 
 test('two named sounds recall atomically, undo, morph and survive reload', async ({ page }, testInfo) => {
   const project = sweepProject()
   await page.addInitScript(saved => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(project))
   await page.goto('/')
   await page.getByText('Master', { exact: true }).first().click()
-  await page.getByRole('button', { name: 'Sounds', exact: true }).click()
+  await openView(page, 'Sounds')
   await page.getByLabel('Sound scope').selectOption('track')
   await page.getByLabel('Sound name').fill('Loud')
   await page.getByRole('button', { name: 'Save snapshot', exact: true }).click()
-  await page.getByRole('button', { name: 'Mixer', exact: true }).click()
+  await openView(page, 'Mixer')
   const fader = page.getByLabel('Master fader', { exact: true })
   await fader.focus(); await fader.press('Home')
-  await page.getByRole('button', { name: 'Sounds', exact: true }).click()
+  await openView(page, 'Sounds')
   await page.getByLabel('Sound scope').selectOption('track')
   await page.getByLabel('Sound name').fill('Silent')
   await page.getByRole('button', { name: 'Save snapshot', exact: true }).click()
@@ -32,7 +32,7 @@ test('two named sounds recall atomically, undo, morph and survive reload', async
   await page.getByRole('button', { name: 'Recall Silent', exact: true }).click()
   expect(await savedVolume()).toBe(0)
   await page.reload()
-  await page.getByRole('button', { name: 'Sounds', exact: true }).click()
+  await openView(page, 'Sounds')
   await page.getByRole('button', { name: 'Recall Loud', exact: true }).click()
   expect(await savedVolume()).toBe(1)
   await page.getByRole('button', { name: 'Recall Silent', exact: true }).click()

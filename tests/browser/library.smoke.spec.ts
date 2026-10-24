@@ -1,16 +1,16 @@
 import { serializeProject, parseProject } from '../../src/core'
 import { samplePresetProject } from './preset-project'
-import { test, expect, expectSaved } from './fixtures'
+import { test, expect, expectSaved, openView } from './fixtures'
 
 test('library folders, associated presets, independent insert/undo/reload and trash survive production storage', async ({ page }, testInfo) => {
   const fixture = samplePresetProject()
   await page.addInitScript(saved => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(fixture.project))
   await page.goto('/')
-  await page.getByRole('button', { name: 'Samples', exact: true }).click()
+  await openView(page, 'Samples')
   await page.getByTestId('sample-input').setInputFiles(fixture.samples.map(s => ({ name: `${s.info.name}.wav`, mimeType: 'audio/wav', buffer: Buffer.from(s.bytes) })))
   for (const sample of fixture.samples) await expect(page.getByRole('button', { name: `Preview ${sample.info.name}`, exact: true })).toBeEnabled()
   await page.getByText('Sweep', { exact: true }).first().click()
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Collection')
   await panel.getByRole('button', { name: 'New folder', exact: true }).click()
@@ -41,7 +41,7 @@ test('library folders, associated presets, independent insert/undo/reload and tr
   await expect(items.getByRole('button')).toHaveCount(0)
   await expectSaved(page); expect((await read()).tracks).toHaveLength(3)
   await page.reload()
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await openView(page, 'Library')
   await panel.getByRole('button', { name: 'Trash', exact: true }).click()
   await expect(items.getByRole('button')).toHaveCount(3)
   expect((await read()).presets).toHaveLength(5)
@@ -71,7 +71,7 @@ test('isolated previews close their audio context on navigation, including cance
   await page.goto('/')
   await page.getByText('File', { exact: true }).click()
   await page.getByRole('button', { name: /^Starter/ }).click()
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Preview synth')
   await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
@@ -80,9 +80,9 @@ test('isolated previews close their audio context on navigation, including cance
   const saved = await page.evaluate(() => localStorage.getItem('sfxlab:project'))
   await panel.getByRole('button', { name: 'Preview', exact: true }).click()
   await expect.poll(() => page.evaluate(() => (window as unknown as { __libraryStarted: boolean }).__libraryStarted)).toBe(true)
-  await page.getByRole('button', { name: 'Sounds', exact: true }).click()
+  await openView(page, 'Sounds')
   await expect.poll(() => page.evaluate(before => { const contexts = (window as unknown as { __libraryContexts: AudioContext[] }).__libraryContexts.slice(before); return contexts.length > 0 && contexts.every(c => c.state === 'closed') }, baseline)).toBe(true)
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await openView(page, 'Library')
   await panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Preview synth/ }).click()
   await panel.getByRole('button', { name: 'Preview', exact: true }).click()
   await page.getByText('Master', { exact: true }).first().click()
@@ -106,7 +106,7 @@ test('an older open database connection blocks upgrade visibly, then preserves i
     })
   })
   await page.goto('/')
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   await expect(panel.getByRole('status')).toContainText('Close older SFX Lab tabs')
   await legacyPage.close()
@@ -122,7 +122,7 @@ test('an older open database connection blocks upgrade visibly, then preserves i
 
 test('canceled preview completions cannot clear a newer busy state or overwrite its status', async ({ page }) => {
   await page.goto('/?starter')
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Owned preview')
   await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).click()
@@ -158,7 +158,7 @@ test('library selection survives filtering and clears on trash; invalid scene in
   await page.addInitScript(saved => localStorage.setItem('sfxlab:project', saved), serializeProject(sweepProject(true)))
   await page.goto('/')
   await page.getByRole('button', { name: 'Edit Sweep clip', exact: true }).click()
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Portable clip')
   await panel.getByRole('button', { name: 'Save selected clip', exact: true }).click()

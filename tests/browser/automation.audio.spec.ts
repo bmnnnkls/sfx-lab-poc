@@ -1,7 +1,7 @@
 import { samplePresetProject } from './preset-project'
 import { exportLibraryBundle } from '../../src/storage'
 import { captureLibraryAsset, emptyLibrary, renderProject, serializeProject, parseProject, saveProjectPreset, editControlBase, type Project } from '../../src/core'
-import { test, expect, expectSaved } from './fixtures'
+import { test, expect, expectSaved, openView } from './fixtures'
 import { noteSweepProject, slotSweepProject, sweepProject, sweepTarget } from './automation-project'
 
 declare global { interface Window { __sweepSamples: number[] } }
@@ -54,15 +54,15 @@ test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after tras
   })
   await page.goto('/')
   if (sampleFixture) {
-    await page.getByRole('button', { name: 'Samples', exact: true }).click()
+    await openView(page, 'Samples')
     await page.getByTestId('sample-input').setInputFiles(sampleFixture.samples.map(s => ({ name: `${s.info.name}.wav`, mimeType: 'audio/wav', buffer: Buffer.from(s.bytes) })))
     for (const s of sampleFixture.samples) await expect(page.getByRole('button', { name: `Preview ${s.info.name}`, exact: true })).toBeEnabled()
     await page.getByText('Sweep', { exact: true }).first().click()
-    await page.getByRole('button', { name: 'Sounds', exact: true }).click()
+    await openView(page, 'Sounds')
     await page.getByRole('button', { name: 'Recall preset Different sample', exact: true }).click()
     await expectSaved(page)
     if (libraryPreset) {
-      await page.getByRole('button', { name: 'Library', exact: true }).click()
+      await openView(page, 'Library')
       const panel = page.getByRole('region', { name: 'Personal library' })
       if (bundlePreset) {
         const catalog = captureLibraryAsset(emptyLibrary(), sampleFixture.recalled, { owner: { kind: 'track', trackId: 'sweep' }, domain: 'patch' }, 'Reusable sampled voice', null)
@@ -87,12 +87,12 @@ test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after tras
     }
     // A fresh engine proves both persisted uses, without any previous sample tail.
     await page.reload()
-    await page.getByRole('button', { name: 'Samples', exact: true }).click()
+    await openView(page, 'Samples')
     for (const s of sampleFixture.samples) await expect(page.getByRole('button', { name: `Preview ${s.info.name}`, exact: true })).toBeEnabled()
   }
   if (preset) {
     await page.getByText('Sweep', { exact: true }).first().click()
-    await page.getByRole('button', { name: 'Sounds', exact: true }).click()
+    await openView(page, 'Sounds')
     await page.getByRole('button', { name: 'Recall preset Warm', exact: true }).click()
     await page.getByRole('button', { name: 'Recall preset Bright', exact: true }).click()
     await expect(page.getByRole('status').filter({ hasText: 'controls recalled' })).toBeVisible()
@@ -111,7 +111,7 @@ test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after tras
   if (touch) {
     await page.getByRole('button', { name: 'Arm Touch automation', exact: true }).click()
     await page.getByRole('button', { name: 'Launch scene 1', exact: true }).click()
-    await page.getByRole('button', { name: 'Mixer', exact: true }).click()
+    await openView(page, 'Mixer')
     const fader = page.getByLabel('Sweep fader', { exact: true })
     const box = await fader.boundingBox(); if (!box) throw new Error('No fader')
     await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.25); await page.mouse.down()
