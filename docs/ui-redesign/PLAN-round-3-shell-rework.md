@@ -1,6 +1,6 @@
 # Round 3: shell rework
 
-Status: **plan**, 2026-10-24, decisions open except the first row, which the user made. Part of the
+Status: **plan**, 2026-10-24, decisions signed off: the first row by the user's own decision, the rest as proposed. Part of the
 [UI redesign](README.md). Carries out [roadmap § Round 3](DRAFT-roadmap.md#round-3-shell-rework), which the review
 of round 2's shell added on 2026-10-24. It comes before the views round, now
 [round 4](PLAN-round-4-views.md), and overrides one round-2 decision: the panel stops being a flexlayout border.
@@ -246,7 +246,9 @@ Anything else a reviewer notices is a bug in this round.
 
 ## Decisions to sign off
 
-| Question | Proposed | Notes |
+Signed off 2026-10-24: every row as proposed. The panel row is the user's own decision, made before the plan was written.
+
+| Question | Decided | Notes |
 |---|---|---|
 | The panel: a bottom border, or a tab group in the layout | **Decided by the user on 2026-10-24: a tab group.** Overrides the round-2 row. | Needed for full-height sidebars (above). It also makes the panel splittable. |
 | Hiding the panel | **Collapse to its tab strip**, never remove it | The toggles live in that strip, so it must stay. VS Code removes the panel entirely; our strip costs 25 px. |
