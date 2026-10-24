@@ -192,6 +192,7 @@ test("clicking the panel's open tab collapses it to its strip, and clicking agai
   await tab.click()
   await expect(viewRoot(page, 'Instrument')).toBeHidden()
   await expect(tab).toBeVisible()
+  // All the way to the strip, although the panel's views have minimum heights.
   await expect.poll(async () => (await session.boundingBox())!.height).toBeGreaterThan(before + 300)
   await tab.click()
   await expect(viewRoot(page, 'Instrument')).toBeVisible()
@@ -375,4 +376,50 @@ test('the transport bar wraps at 1024 px instead of making the page scroll sidew
     expect(box.x + box.width).toBeLessThanOrEqual(1024)
   }
   expect((await page.getByLabel('Project name').boundingBox())!.width).toBeGreaterThanOrEqual(120)
+})
+
+test("a splitter stops at the views' minimum sizes, from the keyboard too", async ({ page }) => {
+  await page.goto('/?starter')
+  const splitter = page.getByRole('separator')
+  await expect(splitter).toHaveCount(1)
+  await splitter.focus()
+  for (let i = 0; i < 60; i++) await page.keyboard.press('ArrowUp')
+  await expect.poll(async () => Math.round((await viewRoot(page, 'Session').boundingBox())!.height)).toBeGreaterThanOrEqual(240)
+  for (let i = 0; i < 120; i++) await page.keyboard.press('ArrowDown')
+  await expect.poll(async () => Math.round((await viewRoot(page, 'Instrument').boundingBox())!.height)).toBeGreaterThanOrEqual(240)
+  expect(Math.round((await viewRoot(page, 'Session').boundingBox())!.height)).toBeGreaterThan(400)
+})
+
+test('in a window smaller than the minimums, the groups shrink beside open sidebars instead of sliding under them', async ({ page }) => {
+  const tab = (id: string) => ({ type: 'tab', id, component: 'view' })
+  await page.addInitScript((value) => localStorage.setItem('sfxlab:layout', value), JSON.stringify({ version: 2, model: {
+    global: {},
+    borders: [
+      { type: 'border', location: 'left', show: true, selected: 0, size: 280, children: ['samples', 'library'].map(tab) },
+      { type: 'border', location: 'right', show: true, selected: 0, size: 280, children: ['sounds'].map(tab) },
+    ],
+    layout: { type: 'row', children: [{ type: 'row', children: [
+      { type: 'row', weight: 50, children: [
+        { type: 'tabset', id: 'editor', weight: 50, children: ['session', 'wave'].map(tab) },
+        { type: 'tabset', id: 'right', weight: 50, children: ['arrangement'].map(tab) },
+      ] },
+      { type: 'tabset', id: 'panel', weight: 50, children: ['instrument', 'effects', 'notes', 'clip', 'mixer'].map(tab) },
+    ] }] },
+  } }))
+  await page.setViewportSize({ width: 1024, height: 700 })
+  await page.goto('/?starter')
+  const box = async (title: Parameters<typeof viewRoot>[1]) => (await viewRoot(page, title).boundingBox())!
+  await expect(viewRoot(page, 'Arrangement')).toBeVisible()
+  const samples = await box('Samples')
+  const sounds = await box('Sounds')
+  expect(Math.round(samples.width)).toBe(280)
+  expect(Math.round(sounds.width)).toBe(280)
+  for (const title of ['Session', 'Arrangement', 'Instrument'] as const) {
+    const view = await box(title)
+    expect(view.x, title).toBeGreaterThanOrEqual(samples.x + samples.width)
+    expect(view.x + view.width, title).toBeLessThanOrEqual(sounds.x)
+  }
+  // Below its minimum a view scrolls inside its own root.
+  const session = viewRoot(page, 'Session')
+  expect(await session.evaluate((root) => root.scrollWidth > root.clientWidth)).toBe(true)
 })

@@ -91,6 +91,30 @@ describe('FlexLayoutDriver', () => {
     expect(collapsed(model)).toBe(false)
   })
 
+  it("clears the minimum height of the tabs a collapsed panel squeezes, and puts it back on expanding", () => {
+    const { driver, model } = driverFor()
+    const minHeight = (id: string) => (model.getNodeById(id) as TabNode).getMinHeight()
+    model.doAction(Actions.moveNode('mixer', 'panel', DockLocation.RIGHT, -1))
+    driver.setRegionVisible('panel', false)
+    // The panel's tabs, and those of the group beside it that collapses with it.
+    expect(PANEL_VIEWS.map(minHeight)).toEqual(PANEL_VIEWS.map(() => 0))
+    expect(minHeight('session')).toBe(240)
+    driver.setRegionVisible('panel', true)
+    expect(PANEL_VIEWS.map(minHeight)).toEqual([240, 240, 240, 240, 200, 200, 200])
+  })
+
+  it('gives a tab dragged out of a collapsed panel its minimum height, and a saved collapsed panel none', () => {
+    const json = defaultLayout()
+    panelJson(json).maxHeight = 0
+    const { driver, model } = driverFor(json)
+    driver.sync()
+    expect((model.getNodeById('clip') as TabNode).getMinHeight()).toBe(0)
+    model.doAction(Actions.moveNode('clip', 'editor', DockLocation.CENTER, -1))
+    driver.sync()
+    expect((model.getNodeById('clip') as TabNode).getMinHeight()).toBe(240)
+    expect((model.getNodeById('notes') as TabNode).getMinHeight()).toBe(0)
+  })
+
   it('expands a collapsed panel when a tab is dropped into it', () => {
     const { driver, model } = driverFor()
     driver.setRegionVisible('panel', false)

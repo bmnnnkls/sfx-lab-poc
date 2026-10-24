@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Actions, DockLocation, type IJsonModel, type IJsonRowNode, type IJsonTabSetNode, Model, TabSetNode } from 'flexlayout-react'
+import { Actions, DockLocation, type IJsonModel, type IJsonRowNode, type IJsonTabSetNode, Model, TabNode, TabSetNode } from 'flexlayout-react'
 import { defaultLayout, GLOBAL_ATTRIBUTES } from './default-layout'
 import { migratedLayout, parseStoredLayout, serializeLayout } from './layout-storage'
 
@@ -24,6 +24,20 @@ describe('parseStoredLayout', () => {
     expect(reloaded.getNodeById('mixer')?.getParent()?.getParent()).toBe(reloaded.getNodeById('editor')?.getParent())
     expect((reloaded.getNodeById('panel') as TabSetNode).getAttrMaxHeight()).toBe(0)
     expect(reloaded.toJson().layout).toEqual(model.toJson().layout)
+  })
+
+  it('gives the tabs of a layout saved without minimum sizes their views\' minimums', () => {
+    const json = defaultLayout()
+    const strip = (node: unknown): unknown => {
+      if (Array.isArray(node)) return node.map(strip)
+      if (typeof node !== 'object' || node === null) return node
+      const { minWidth: _width, minHeight: _height, ...rest } = node as Record<string, unknown>
+      return Object.fromEntries(Object.entries(rest).map(([key, value]) => [key, strip(value)]))
+    }
+    expect(JSON.stringify(strip(json))).not.toContain('minWidth')
+    const reloaded = Model.fromJson(parse(stored(strip(json)))!)
+    expect([(reloaded.getNodeById('clip') as TabNode).getMinWidth(), (reloaded.getNodeById('clip') as TabNode).getMinHeight()]).toEqual([480, 240])
+    expect((reloaded.getNodeById('sounds') as TabNode).getMinWidth()).toBe(280)
   })
 
   it('uses the default when nothing is saved', () => {

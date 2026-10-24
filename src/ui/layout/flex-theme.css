@@ -39,3 +39,14 @@
 .flexlayout__tab_toolbar_button[aria-pressed='true'] {
   --flexlayout-color-icon: var(--accent);
 }
+
+/*
+ * flexlayout sets each tab group's and row's minimum inline, from its tabs. When the window is smaller than the sum,
+ * the groups would slide under a sidebar instead of shrinking; here they shrink, and their views scroll. Sashes and
+ * keyboard steps still stop at the minimums, which flexlayout takes from the model. The sidebars keep theirs.
+ */
+.flexlayout__layout_main .flexlayout__row,
+.flexlayout__layout_main .flexlayout__tabset_container {
+  min-width: 0 !important;
+  min-height: 0 !important;
+}

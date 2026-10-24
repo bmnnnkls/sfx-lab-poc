@@ -39,6 +39,15 @@ describe('default layout', () => {
     expect((model.getNodeById('clip') as TabNode).getHelpText()).toBeUndefined()
   })
 
+  it("gives each tab its view's minimum size: 480 × 240 for editors, 280 × 200 for tool views", () => {
+    const model = Model.fromJson(defaultLayout())
+    const tab = (id: string) => model.getNodeById(id) as TabNode
+    for (const id of ['session', 'arrangement', 'wave', 'instrument', 'effects', 'notes', 'clip']) {
+      expect([tab(id).getMinWidth(), tab(id).getMinHeight()]).toEqual([480, 240])
+    }
+    for (const id of ['mixer', 'samples', 'sounds', 'library']) expect([tab(id).getMinWidth(), tab(id).getMinHeight()]).toEqual([280, 200])
+  })
+
   it('takes the editor view and the panel weight it is given', () => {
     const json = defaultLayout({ editorView: 'arrangement', panelWeight: 30 })
     expect(json.layout.children![0]!.children).toEqual([
