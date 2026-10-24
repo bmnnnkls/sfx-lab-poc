@@ -120,6 +120,11 @@ store (round 6) and a view open twice (round 9's pinned panels).
 
 Right-click works throughout the app. Set up the structure now; the details of each menu come with it.
 
+**Planned** 2026-10-24, see the [plan](PLAN-round-5-actions.md), signed off as proposed. Its inventory changed the outline
+below: tracks, clips, scenes and samples can't be renamed today, so the plan adds the setters; scenes get insert,
+duplicate and delete; tracks get *Duplicate*, and copying tracks waits for round 7's tree; controls and sounds join
+the kinds; *Save to library* from menus is a follow-up.
+
 * **Actions per kind of thing**: track, return, master, clip, automation slot, scene, sample, library item and
   folder, node, module, arrangement region. Each kind has one list of actions (id, title, whether it applies,
   run), in `state` or `app`, not in the views.
