@@ -1,3 +1,5 @@
+/* Each view scrolls itself, so views shown side by side, or one after another, keep separate offsets. */
 .view {
   height: 100%;
+  overflow: auto;
 }
