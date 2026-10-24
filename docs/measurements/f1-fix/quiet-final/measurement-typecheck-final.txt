@@ -1,0 +1,11 @@
+scripts/review-benchmark/worklet-capacity.ts(34,27): error TS2322: Type '(AudioTrack | InstrumentTrack | ReturnTrack | { id: string; name: string; volume: number; pan?: number | undefined; muted?: boolean | undefined; ... 7 more ...; clips: ({ ...; } | null)[]; })[]' is not assignable to type 'readonly Track[]'.
+  Type 'AudioTrack | InstrumentTrack | ReturnTrack | { id: string; name: string; volume: number; pan?: number | undefined; muted?: boolean | undefined; ... 7 more ...; clips: ({ ...; } | null)[]; }' is not assignable to type 'Track'.
+    Type '{ id: string; name: string; volume: number; pan?: number; muted?: boolean; soloed?: boolean; fx: Patch; kind: 'instrument'; sends: SendLevels; voices: number; patch: Patch; noteGraph: Patch | { ...; }; clips: ({ ...; } | null)[]; }' is not assignable to type 'Track'.
+      Type '{ id: string; name: string; volume: number; pan?: number; muted?: boolean; soloed?: boolean; fx: Patch; kind: 'instrument'; sends: SendLevels; voices: number; patch: Patch; noteGraph: Patch | { ...; }; clips: ({ ...; } | null)[]; }' is not assignable to type 'InstrumentTrack'.
+        Types of property 'noteGraph' are incompatible.
+          Type 'Patch | { nodes: PatchNode[]; connections: (PatchConnection | { from: { node: string; port: string; }; to: { node: string; port: string; }; })[]; }' is not assignable to type 'Patch'.
+            Type '{ nodes: PatchNode[]; connections: (PatchConnection | { from: { node: string; port: string; }; to: { node: string; port: string; }; })[]; }' is not assignable to type 'Patch'.
+              Types of property 'connections' are incompatible.
+                Type '(PatchConnection | { from: { node: string; port: string; }; to: { node: string; port: string; }; })[]' is not assignable to type 'readonly PatchConnection[]'.
+                  Type 'PatchConnection | { from: { node: string; port: string; }; to: { node: string; port: string; }; }' is not assignable to type 'PatchConnection'.
+                    Property 'id' is missing in type '{ from: { node: string; port: string; }; to: { node: string; port: string; }; }' but required in type 'PatchConnection'.

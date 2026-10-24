@@ -103,3 +103,13 @@
   display: flex;
   justify-content: space-between;
 }
+
+.view { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.view > :last-child { flex: 1; min-height: 0; height: auto; }
+
+.slotSettings {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+}

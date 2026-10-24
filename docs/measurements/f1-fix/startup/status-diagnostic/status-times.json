@@ -1,0 +1,554 @@
+[
+  {
+    "wallMs": 0.072,
+    "threadMs": 0.062
+  },
+  {
+    "wallMs": 0.048,
+    "threadMs": 0.043
+  },
+  {
+    "wallMs": 0.037,
+    "threadMs": 0.037
+  },
+  {
+    "wallMs": 0.036,
+    "threadMs": 0.036
+  },
+  {
+    "wallMs": 0.036,
+    "threadMs": 0.035
+  },
+  {
+    "wallMs": 0.041,
+    "threadMs": 0.04
+  },
+  {
+    "wallMs": 0.053,
+    "threadMs": 0.052
+  },
+  {
+    "wallMs": 0.065,
+    "threadMs": 0.064
+  },
+  {
+    "wallMs": 0.485,
+    "threadMs": 0.321
+  },
+  {
+    "wallMs": 0.072,
+    "threadMs": 0.067
+  },
+  {
+    "wallMs": 0.06,
+    "threadMs": 0.06
+  },
+  {
+    "wallMs": 0.051,
+    "threadMs": 0.05
+  },
+  {
+    "wallMs": 0.069,
+    "threadMs": 0.069
+  },
+  {
+    "wallMs": 0.064,
+    "threadMs": 0.063
+  },
+  {
+    "wallMs": 0.053,
+    "threadMs": 0.053
+  },
+  {
+    "wallMs": 0.108,
+    "threadMs": 0.105
+  },
+  {
+    "wallMs": 0.073,
+    "threadMs": 0.072
+  },
+  {
+    "wallMs": 0.099,
+    "threadMs": 0.098
+  },
+  {
+    "wallMs": 0.068,
+    "threadMs": 0.068
+  },
+  {
+    "wallMs": 0.086,
+    "threadMs": 0.085
+  },
+  {
+    "wallMs": 0.049,
+    "threadMs": 0.049
+  },
+  {
+    "wallMs": 0.067,
+    "threadMs": 0.066
+  },
+  {
+    "wallMs": 0.064,
+    "threadMs": 0.063
+  },
+  {
+    "wallMs": 0.056,
+    "threadMs": 0.055
+  },
+  {
+    "wallMs": 0.052,
+    "threadMs": 0.052
+  },
+  {
+    "wallMs": 0.044,
+    "threadMs": 0.044
+  },
+  {
+    "wallMs": 0.047,
+    "threadMs": 0.047
+  },
+  {
+    "wallMs": 0.075,
+    "threadMs": 0.07
+  },
+  {
+    "wallMs": 0.041,
+    "threadMs": 0.041
+  },
+  {
+    "wallMs": 0.066,
+    "threadMs": 0.064
+  },
+  {
+    "wallMs": 0.047,
+    "threadMs": 0.046
+  },
+  {
+    "wallMs": 0.059,
+    "threadMs": 0.059
+  },
+  {
+    "wallMs": 0.083,
+    "threadMs": 0.083
+  },
+  {
+    "wallMs": 0.071,
+    "threadMs": 0.07
+  },
+  {
+    "wallMs": 0.063,
+    "threadMs": 0.063
+  },
+  {
+    "wallMs": 0.079,
+    "threadMs": 0.08
+  },
+  {
+    "wallMs": 0.095,
+    "threadMs": 0.093
+  },
+  {
+    "wallMs": 0.078,
+    "threadMs": 0.077
+  },
+  {
+    "wallMs": 0.071,
+    "threadMs": 0.071
+  },
+  {
+    "wallMs": 0.112,
+    "threadMs": 0.108
+  },
+  {
+    "wallMs": 0.118,
+    "threadMs": 0.116
+  },
+  {
+    "wallMs": 0.074,
+    "threadMs": 0.074
+  },
+  {
+    "wallMs": 0.057,
+    "threadMs": 0.056
+  },
+  {
+    "wallMs": 0.071,
+    "threadMs": 0.07
+  },
+  {
+    "wallMs": 0.069,
+    "threadMs": 0.068
+  },
+  {
+    "wallMs": 0.082,
+    "threadMs": 0.082
+  },
+  {
+    "wallMs": 0.061,
+    "threadMs": 0.06
+  },
+  {
+    "wallMs": 0.055,
+    "threadMs": 0.055
+  },
+  {
+    "wallMs": 0.061,
+    "threadMs": 0.06
+  },
+  {
+    "wallMs": 0.066,
+    "threadMs": 0.066
+  },
+  {
+    "wallMs": 0.055,
+    "threadMs": 0.054
+  },
+  {
+    "wallMs": 0.071,
+    "threadMs": 0.071
+  },
+  {
+    "wallMs": 0.054,
+    "threadMs": 0.054
+  },
+  {
+    "wallMs": 0.061,
+    "threadMs": 0.06
+  },
+  {
+    "wallMs": 0.07,
+    "threadMs": 0.071
+  },
+  {
+    "wallMs": 0.069,
+    "threadMs": 0.069
+  },
+  {
+    "wallMs": 0.069,
+    "threadMs": 0.069
+  },
+  {
+    "wallMs": 0.124,
+    "threadMs": 0.12
+  },
+  {
+    "wallMs": 0.066,
+    "threadMs": 0.066
+  },
+  {
+    "wallMs": 0.062,
+    "threadMs": 0.06
+  },
+  {
+    "wallMs": 0.079,
+    "threadMs": 0.078
+  },
+  {
+    "wallMs": 0.065,
+    "threadMs": 0.064
+  },
+  {
+    "wallMs": 0.063,
+    "threadMs": 0.062
+  },
+  {
+    "wallMs": 0.058,
+    "threadMs": 0.058
+  },
+  {
+    "wallMs": 0.051,
+    "threadMs": 0.051
+  },
+  {
+    "wallMs": 0.044,
+    "threadMs": 0.045
+  },
+  {
+    "wallMs": 0.067,
+    "threadMs": 0.066
+  },
+  {
+    "wallMs": 0.039,
+    "threadMs": 0.039
+  },
+  {
+    "wallMs": 0.043,
+    "threadMs": 0.043
+  },
+  {
+    "wallMs": 0.072,
+    "threadMs": 0.072
+  },
+  {
+    "wallMs": 0.033,
+    "threadMs": 0.032
+  },
+  {
+    "wallMs": 0.054,
+    "threadMs": 0.053
+  },
+  {
+    "wallMs": 0.043,
+    "threadMs": 0.042
+  },
+  {
+    "wallMs": 0.034,
+    "threadMs": 0.033
+  },
+  {
+    "wallMs": 0.027,
+    "threadMs": 0.026
+  },
+  {
+    "wallMs": 0.031,
+    "threadMs": 0.031
+  },
+  {
+    "wallMs": 0.038,
+    "threadMs": 0.038
+  },
+  {
+    "wallMs": 0.045,
+    "threadMs": 0.045
+  },
+  {
+    "wallMs": 0.033,
+    "threadMs": 0.033
+  },
+  {
+    "wallMs": 0.034,
+    "threadMs": 0.034
+  },
+  {
+    "wallMs": 0.044,
+    "threadMs": 0.044
+  },
+  {
+    "wallMs": 0.041,
+    "threadMs": 0.04
+  },
+  {
+    "wallMs": 0.063,
+    "threadMs": 0.063
+  },
+  {
+    "wallMs": 0.052,
+    "threadMs": 0.052
+  },
+  {
+    "wallMs": 0.062,
+    "threadMs": 0.062
+  },
+  {
+    "wallMs": 0.052,
+    "threadMs": 0.051
+  },
+  {
+    "wallMs": 0.045,
+    "threadMs": 0.044
+  },
+  {
+    "wallMs": 0.049,
+    "threadMs": 0.048
+  },
+  {
+    "wallMs": 0.055,
+    "threadMs": 0.054
+  },
+  {
+    "wallMs": 0.041,
+    "threadMs": 0.041
+  },
+  {
+    "wallMs": 0.048,
+    "threadMs": 0.048
+  },
+  {
+    "wallMs": 0.056,
+    "threadMs": 0.056
+  },
+  {
+    "wallMs": 0.051,
+    "threadMs": 0.051
+  },
+  {
+    "wallMs": 0.065,
+    "threadMs": 0.065
+  },
+  {
+    "wallMs": 0.118,
+    "threadMs": 0.118
+  },
+  {
+    "wallMs": 0.073,
+    "threadMs": 0.073
+  },
+  {
+    "wallMs": 0.074,
+    "threadMs": 0.073
+  },
+  {
+    "wallMs": 0.053,
+    "threadMs": 0.053
+  },
+  {
+    "wallMs": 0.048,
+    "threadMs": 0.048
+  },
+  {
+    "wallMs": 0.045,
+    "threadMs": 0.045
+  },
+  {
+    "wallMs": 0.047,
+    "threadMs": 0.048
+  },
+  {
+    "wallMs": 0.046,
+    "threadMs": 0.046
+  },
+  {
+    "wallMs": 0.037,
+    "threadMs": 0.036
+  },
+  {
+    "wallMs": 0.064,
+    "threadMs": 0.064
+  },
+  {
+    "wallMs": 0.05,
+    "threadMs": 0.05
+  },
+  {
+    "wallMs": 0.06,
+    "threadMs": 0.06
+  },
+  {
+    "wallMs": 0.053,
+    "threadMs": 0.053
+  },
+  {
+    "wallMs": 0.06,
+    "threadMs": 0.059
+  },
+  {
+    "wallMs": 0.051,
+    "threadMs": 0.051
+  },
+  {
+    "wallMs": 0.054,
+    "threadMs": 0.054
+  },
+  {
+    "wallMs": 0.05,
+    "threadMs": 0.049
+  },
+  {
+    "wallMs": 0.059,
+    "threadMs": 0.058
+  },
+  {
+    "wallMs": 0.068,
+    "threadMs": 0.067
+  },
+  {
+    "wallMs": 0.055,
+    "threadMs": 0.054
+  },
+  {
+    "wallMs": 0.046,
+    "threadMs": 0.046
+  },
+  {
+    "wallMs": 0.044,
+    "threadMs": 0.044
+  },
+  {
+    "wallMs": 0.036,
+    "threadMs": 0.035
+  },
+  {
+    "wallMs": 0.043,
+    "threadMs": 0.043
+  },
+  {
+    "wallMs": 0.045,
+    "threadMs": 0.044
+  },
+  {
+    "wallMs": 0.038,
+    "threadMs": 0.037
+  },
+  {
+    "wallMs": 0.044,
+    "threadMs": 0.044
+  },
+  {
+    "wallMs": 0.046,
+    "threadMs": 0.046
+  },
+  {
+    "wallMs": 0.048,
+    "threadMs": 0.048
+  },
+  {
+    "wallMs": 0.052,
+    "threadMs": 0.051
+  },
+  {
+    "wallMs": 0.044,
+    "threadMs": 0.045
+  },
+  {
+    "wallMs": 0.048,
+    "threadMs": 0.048
+  },
+  {
+    "wallMs": 0.04,
+    "threadMs": 0.039
+  },
+  {
+    "wallMs": 0.04,
+    "threadMs": 0.04
+  },
+  {
+    "wallMs": 0.034,
+    "threadMs": 0.034
+  },
+  {
+    "wallMs": 0.033,
+    "threadMs": 0.032
+  },
+  {
+    "wallMs": 0.031,
+    "threadMs": 0.03
+  },
+  {
+    "wallMs": 0.049,
+    "threadMs": 0.047
+  },
+  {
+    "wallMs": 0.031,
+    "threadMs": 0.03
+  },
+  {
+    "wallMs": 0.059,
+    "threadMs": 0.059
+  },
+  {
+    "wallMs": 0.03,
+    "threadMs": 0.03
+  },
+  {
+    "wallMs": 0.031,
+    "threadMs": 0.03
+  },
+  {
+    "wallMs": 0.063,
+    "threadMs": 0.063
+  },
+  {
+    "wallMs": 0.032,
+    "threadMs": 0.031
+  }
+]

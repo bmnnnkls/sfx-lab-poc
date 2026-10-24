@@ -1,0 +1,157 @@
+{
+  "format": "sfx-lab-project",
+  "version": 7,
+  "project": {
+    "name": "Fixture v7 delay timing",
+    "tempo": 100,
+    "sceneCount": 2,
+    "tracks": [
+      {
+        "id": "track_fixture",
+        "name": "Beep",
+        "volume": 0.5,
+        "patch": {
+          "nodes": [
+            {
+              "id": "n1",
+              "type": "note",
+              "x": 10,
+              "y": 20,
+              "params": {}
+            },
+            {
+              "id": "n2",
+              "type": "oscillator",
+              "x": 200,
+              "y": 20,
+              "params": {
+                "waveform": 2,
+                "frequency": 220,
+                "detune": 0
+              }
+            },
+            {
+              "id": "delay",
+              "type": "delay",
+              "x": 300,
+              "y": 20,
+              "params": {
+                "time": 1.8,
+                "feedback": 0.4,
+                "mix": 0.35,
+                "sync": 0
+              }
+            },
+            {
+              "id": "n3",
+              "type": "output",
+              "x": 400,
+              "y": 20,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "w1",
+              "from": {
+                "node": "n1",
+                "port": "frequency"
+              },
+              "to": {
+                "node": "n2",
+                "port": "freq"
+              }
+            },
+            {
+              "id": "w2",
+              "from": {
+                "node": "n2",
+                "port": "out"
+              },
+              "to": {
+                "node": "n3",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "clips": [
+          {
+            "id": "clip_fixture",
+            "name": "Two notes",
+            "lengthBeats": 4,
+            "notes": [
+              {
+                "pitch": 60,
+                "start": 0,
+                "duration": 1,
+                "velocity": 0.8
+              },
+              {
+                "pitch": 64,
+                "start": 2,
+                "duration": 1,
+                "velocity": 0.8
+              }
+            ]
+          },
+          null
+        ],
+        "fx": {
+          "nodes": [
+            {
+              "id": "in",
+              "type": "trackIn",
+              "x": 0,
+              "y": 0,
+              "params": {}
+            },
+            {
+              "id": "echo",
+              "type": "pingPong",
+              "x": 200,
+              "y": 0,
+              "params": {
+                "time": 0.75,
+                "feedback": 0.5,
+                "mix": 0.35,
+                "sync": 1
+              }
+            },
+            {
+              "id": "out",
+              "type": "trackOut",
+              "x": 400,
+              "y": 0,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "fx1",
+              "from": {
+                "node": "in",
+                "port": "out"
+              },
+              "to": {
+                "node": "echo",
+                "port": "in"
+              }
+            },
+            {
+              "id": "fx2",
+              "from": {
+                "node": "echo",
+                "port": "out"
+              },
+              "to": {
+                "node": "out",
+                "port": "in"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

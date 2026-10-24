@@ -1,3 +1,8 @@
+import { sanitizeLibraryOrigins } from './sanitize-library-origins'
+import { sanitizePresetFields } from './sanitize-presets'
+import { sanitizeAutomationSlots } from './sanitize-automation-slots'
+import { sanitizeMidiMappings } from './sanitize-midi-mappings'
+import { sanitizeControlValues } from './sanitize-control-values'
 import {
   DEFAULT_SCENE_COUNT,
   DEFAULT_VOICES,
@@ -38,6 +43,7 @@ const sanitizeTrack = (
   const where = `Track "${name}"`
 
   const id = typeof raw.id === 'string' && !usedTrackIds.has(raw.id) ? raw.id : createId('track')
+  if (typeof raw.id === 'string' && usedTrackIds.has(raw.id)) warn(`${where}: duplicate owner ID "${raw.id}" repaired; references to that ID are ambiguous and were not rebound. Recover intent from the original file or backup.`)
   usedTrackIds.add(id)
 
   const rawClips = asList(raw.clips)
@@ -58,7 +64,10 @@ const sanitizeTrack = (
       ? createDefaultReturnGraph()
       : createDefaultFxGraph()
 
-  if (isReturn) return { kind: 'return', id, name, volume, ...mix, fx }
+  if (isReturn) {
+    const automationSlots = sanitizeAutomationSlots(raw.automationSlots, sceneCount, { kind: 'track', trackId: id }, warn)
+    return { kind: 'return', id, name, volume, ...mix, fx, ...(automationSlots && { automationSlots }) }
+  }
 
   // Files from before audio tracks existed have no `kind`: they are instrument tracks.
   if (raw.kind === 'audio') {
@@ -71,13 +80,13 @@ const sanitizeTrack = (
       fx,
       sends: readSends(raw.sends),
       clips: Array.from({ length: sceneCount }, (_, scene) =>
-        sanitizeAudioClip(rawClips[scene], where, sampleIds, usedClipIds, warn),
+        sanitizeAudioClip(rawClips[scene], where, sampleIds, usedClipIds, warn, { kind: 'track', trackId: id }),
       ),
     }
   }
 
   const clips = Array.from({ length: sceneCount }, (_, scene) =>
-    sanitizeClip(rawClips[scene], where, usedClipIds, warn),
+    sanitizeClip(rawClips[scene], where, usedClipIds, warn, { kind: 'track', trackId: id }),
   )
 
   return {
@@ -133,7 +142,14 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, sampleIds, modules, warn))
     .filter((track): track is Track => track !== null)
 
+  const libraryOrigins = sanitizeLibraryOrigins(raw.libraryOrigins, warn)
+  const controlValues = sanitizeControlValues(raw.controlValues, warn)
+  const midiMappings = sanitizeMidiMappings(raw.midiMappings, warn)
   return {
+    ...sanitizePresetFields(raw, sampleIds, warn),
+    ...(libraryOrigins && { libraryOrigins }),
+    ...(controlValues && { controlValues }),
+    ...(midiMappings && { midiMappings }),
     name: nonEmptyText(raw.name, 'Untitled', MAX_NAME_LENGTH),
     tempo: clamp(finiteNumber(raw.tempo, 120), MIN_TEMPO, MAX_TEMPO),
     sceneCount,
@@ -142,6 +158,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     modules,
     // Files from before the master bus existed have none: the mix passes through untouched.
     master: {
+      ...(isRecord(raw.master) && raw.master.automationSlots !== undefined && { automationSlots: sanitizeAutomationSlots(raw.master.automationSlots, sceneCount, { kind: 'master' }, warn) }),
       fx:
         isRecord(raw.master) && isRecord(raw.master.fx)
           ? sanitizePatch(raw.master.fx, 'Master effects', sampleIds, modules, warn)

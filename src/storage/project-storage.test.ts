@@ -4,6 +4,32 @@ import { type KeyValueStore, createMemoryStore } from './key-value-store'
 import { ProjectStorage } from './project-storage'
 
 describe('ProjectStorage', () => {
+  it('preserves the exact old envelope once before a v9 rewrite', () => {
+    const store = createMemoryStore()
+    const old = JSON.stringify({ ...JSON.parse(serializeProject(createDemoProject())), version: 8 }, null, 2)
+    store.setItem('sfxlab:project', old)
+    const storage = new ProjectStorage(store)
+    expect(storage.loadCurrent().status).toBe('loaded')
+    expect(storage.saveCurrent(createEmptyProject())).toEqual({ ok: true })
+    expect(store.getItem('sfxlab:pre-signature-v9')).toBe(old)
+    expect(JSON.parse(store.getItem('sfxlab:project')!).version).toBe(9)
+    storage.saveCurrent(createDemoProject())
+    storage.saveBackup(createEmptyProject())
+    expect(store.getItem('sfxlab:pre-signature-v9')).toBe(old)
+  })
+
+  it('leaves the old current project untouched if its migration backup cannot be saved', () => {
+    const store = createMemoryStore()
+    const old = JSON.stringify({ ...JSON.parse(serializeProject(createDemoProject())), version: 8 })
+    store.setItem('sfxlab:project', old)
+    const storage = new ProjectStorage({ ...store, setItem: (key, value) => {
+      if (key === 'sfxlab:pre-signature-v9') throw new Error('QuotaExceededError')
+      store.setItem(key, value)
+    } })
+    expect(storage.saveCurrent(createEmptyProject())).toEqual({ ok: false, error: 'QuotaExceededError' })
+    expect(store.getItem('sfxlab:project')).toBe(old)
+  })
+
   it('reports empty storage', () => {
     expect(new ProjectStorage(createMemoryStore()).loadCurrent()).toEqual({ status: 'empty' })
   })

@@ -1,10 +1,31 @@
 # Browser checks
 
-Reference scripts that drive the real app in Chromium with Playwright, including real audio through the AudioWorklet.
-They are **not** part of `npm test` (see "Browser (end-to-end) tests in the repo" in `docs/TASKS.md`; these are the seed
-for that). Every feature so far shipped with one, and each prints `PASS` / `FAIL` per check.
+The portable runner in `tests/browser/` drives the production app with Playwright's installed Chromium, including
+real audio through the AudioWorklet. It is separate from `npm test` (the unit and architecture suite).
 
-## Running one
+```bash
+npm ci
+npx playwright install chromium        # Linux CI: add --with-deps
+npm run test:smoke                     # fast PR gate
+npm run test:audio                     # longer real-output checks
+npm run test:browser                   # both
+```
+
+Each command builds, starts a dedicated preview server on `127.0.0.1:4173`, runs tests and stops the server. Leave port
+4173 free; an existing server is deliberately not reused so stale builds cannot pass. Browser contexts isolate storage
+per test. Any assertion, uncaught page exception or console error fails the run. Failed tests retain a trace/screenshot
+under `test-results/` and an HTML report under `playwright-report/`; inspect with `npx playwright show-report`.
+
+The smoke suite covers both shipped examples playing, a panel drag as one undo step, redo and autosave/reload, and
+export/import of a sample-containing project into an independent browser context, including restored sample decoding
+and playback. The audio suite adapts `audio-tap.mjs` to compare both channels in the same sample window and verifies
+mono centring, hard pan, master silence and undo. A tap receiving no frames fails rather than passing a silence check.
+
+The `.mjs` files below remain **legacy reference scripts**, not the portable CI suite. Every feature shipped with one;
+they print `PASS` / `FAIL` but generally do not set a failing process exit code. Migrate additional scenarios into
+`tests/browser/` as their features change rather than treating these scripts as a green CI gate.
+
+## Running a legacy reference script
 
 ```
 npm run build

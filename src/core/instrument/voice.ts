@@ -1,7 +1,7 @@
 import { DEFAULT_TEMPO, type NoteState } from '../dsp'
 import type { SampleLookup } from '../sample'
 import { midiToFrequency } from '../shared'
-import { type CompiledStage, processStage, setStageParam, setStageSample, stageReadouts } from './compile'
+import { type CompiledStage, processStage, setStageAutomation, setStageParam, setStageSample, stageReadouts } from './compile'
 
 /** Below this peak level (about -80 dB) a released voice counts as silent. */
 const SILENCE_LEVEL = 1e-4
@@ -68,6 +68,9 @@ export class Voice {
     this.released = true
     this.note.gate = false
   }
+
+  clearAutomation(): void { this.stage.automation.clear() }
+  setAutomationCurve(nodeId: string, paramId: string, values: Float64Array): void { setStageAutomation(this.stage, nodeId, paramId, values) }
 
   setParam(nodeId: string, paramId: string, value: number): void {
     setStageParam(this.stage, nodeId, paramId, value)

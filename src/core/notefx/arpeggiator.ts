@@ -1,6 +1,6 @@
 import { Params, type ParamSpec } from '../dsp'
-import type { NoteEvent } from '../session'
-import { EventQueue, compareEvents } from './events'
+import { noteKey, inNoteScope, childIdentity, type NoteIdentity, type NoteEvent } from '../session'
+import { EventQueue, NOTE_BEAT_EPSILON, compareEvents } from './events'
 import { NOTE_IN, NOTE_OUT, type NoteNodeDefinition, type NoteProcessor } from './types'
 
 const RATES = ['1/4', '1/8', '1/16', '1/32'] as const
@@ -16,6 +16,7 @@ const PARAMS: readonly ParamSpec[] = [
 ]
 
 interface HeldNote {
+  readonly identity?: NoteIdentity
   readonly pitch: number
   readonly velocity: number
 }
@@ -54,7 +55,7 @@ class Arpeggiator implements NoteProcessor {
     this.params.set(id, value)
   }
 
-  process(input: readonly NoteEvent[], from: number, to: number): NoteEvent[] {
+  process(input: readonly NoteEvent[], from: number, to: number, beatOrigin = 0): NoteEvent[] {
     const step = RATE_BEATS[Math.round(this.params.get('rate'))] ?? 0.5
     const pattern = PATTERNS[Math.round(this.params.get('pattern'))] ?? 'up'
     const octaves = Math.round(this.params.get('octaves'))
@@ -62,15 +63,15 @@ class Arpeggiator implements NoteProcessor {
 
     // The grid point at or after `from` (after a pause or a rate change the old one may be stale).
     let stepBeat = this.nextStep
-    if (stepBeat === null || stepBeat < from - 1e-9 || stepBeat % step > 1e-9) {
-      stepBeat = Math.ceil(from / step - 1e-9) * step || 0
+    if (stepBeat === null || stepBeat < from - 1e-9 || Math.abs((stepBeat - beatOrigin) / step - Math.round((stepBeat - beatOrigin) / step)) > 1e-9) {
+      stepBeat = beatOrigin + Math.ceil((from - beatOrigin) / step - 1e-9) * step
     }
 
     const out: NoteEvent[] = []
     let index = 0
     while (true) {
       const inputBeat = input[index]?.beat ?? Infinity
-      if (inputBeat >= to && stepBeat >= to) break
+      if (inputBeat >= to - NOTE_BEAT_EPSILON && stepBeat >= to - NOTE_BEAT_EPSILON) break
 
       // Input at or before a step is handled first, so a chord that starts on a step is heard on that step.
       if (inputBeat <= stepBeat) {
@@ -90,13 +91,14 @@ class Arpeggiator implements NoteProcessor {
   private handle(event: NoteEvent, out: NoteEvent[]): void {
     if (event.kind === 'noteOn') {
       if (this.held.length === 0) this.stepIndex = 0
-      this.held = [...this.held.filter((note) => note.pitch !== event.pitch), { pitch: event.pitch, velocity: event.velocity }]
+      this.held = [...this.held.filter((note) => noteKey(note) !== noteKey(event)), { pitch: event.pitch, velocity: event.velocity, ...(event.identity ? { identity: event.identity } : {}) }]
     } else if (event.kind === 'noteOff') {
-      this.held = this.held.filter((note) => note.pitch !== event.pitch)
+      this.held = this.held.filter((note) => noteKey(note) !== noteKey(event))
     } else {
       // Everything off: silence the notes of the arpeggio too, right now.
-      this.held = []
-      this.pending.clear()
+      this.held = this.held.filter((note) => !inNoteScope(note.identity, event.scope))
+      out.push(...this.pending.takeBefore(event.beat))
+      this.pending.cancel(event.scope)
       out.push(event)
     }
   }
@@ -112,8 +114,8 @@ class Arpeggiator implements NoteProcessor {
     }
     const note = sequence[position % sequence.length] as HeldNote
     this.stepIndex++
-    out.push({ beat, kind: 'noteOn', pitch: note.pitch, velocity: note.velocity })
-    this.pending.add({ beat: beat + step * gate, kind: 'noteOff', pitch: note.pitch })
+    out.push({ ...childIdentity(note.identity, `arp:${beat}`), beat, kind: 'noteOn', pitch: note.pitch, velocity: note.velocity })
+    this.pending.add({ ...childIdentity(note.identity, `arp:${beat}`), beat: beat + step * gate, kind: 'noteOff', pitch: note.pitch })
   }
 
   reset(): void {

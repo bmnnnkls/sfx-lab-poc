@@ -1,10 +1,17 @@
+import type { LiveNoteAddress } from '@core'
 import { createContext, useContext } from 'react'
 
 /** Everything the UI may ask of the audio engine. Implemented in `app/`, consumed by `ui/`. */
 export interface EngineControls {
+  noteOn(trackId: string, note: LiveNoteAddress, pitch: number, velocity: number): void
+  noteOff(trackId: string, note: LiveNoteAddress): void
+  sustain(sourceId: string, channel: number, down: boolean): void
+  releaseSource(sourceId: string, channel?: number): void
+  panic(): void
   play(): void
   stop(): void
   launchClip(trackId: string, clipId: string): void
+  launchAutomation(owner: import('@core').ControlOwner, slotId: string | null): void
   launchScene(scene: number): void
   stopTrack(trackId: string): void
   /** Plays one short note through a track's instrument, to hear what is being edited. */

@@ -1,4 +1,4 @@
-import type { NoteEvent } from '../session'
+import { childIdentity, type NoteScope, type NoteEvent } from '../session'
 import { compareEvents } from './events'
 import { Merger } from './merge'
 import { CLIP_NOTES_TYPE, TAP_AFTER_GRAPH, TRACK_NOTES_TYPE } from './nodes'
@@ -29,17 +29,22 @@ interface RunningNode {
   readonly processor: NoteProcessor
   /** One merger per input port that has several sources. */
   readonly mergers: Map<string, Merger>
+  readonly params: Map<string, number>
+  inputKeys: string[]
+  outputKeys: string[]
   trackId: string | undefined
   tap: number
   bypassed: boolean
 }
+
+const EMPTY: NoteEvent[] = []
 
 const key = (node: string, port: string): string => `${node}:${port}`
 
 /** Identity of the wiring, ignoring parameters and canvas positions. */
 const structureOf = (spec: NoteGraphSpec): string =>
   JSON.stringify([
-    spec.nodes.map((node) => [node.id, node.type]),
+    spec.nodes.map((node) => [node.id, node.type, node.trackId, node.bypassed === true, node.type === TRACK_NOTES_TYPE ? node.params.tap : undefined]),
     spec.connections.map(({ from, to }) => [from.node, from.port, to.node, to.port]),
   ])
 
@@ -79,14 +84,24 @@ const dependencyOrder = (spec: NoteGraphSpec, known: ReadonlySet<string>): strin
  */
 export class NoteGraph {
   private nodes = new Map<string, RunningNode>()
-  private connections: NoteGraphSpec['connections'] = []
+  private readonly outputs = new Map<string, NoteEvent[]>()
+  private readonly sinks: NoteEvent[][] = []
   private order: string[] = []
   private signature: string | null = null
   private restarted = false
+  private cancellations: (NoteScope | undefined)[] = []
   private readonly final = new Merger()
 
-  sync(spec: NoteGraphSpec): void {
+  setParam(nodeId: string, paramId: string, value: number): void {
+    const node = this.nodes.get(nodeId)
+    if (!node || node.params.get(paramId) === value) return
+    node.params.set(paramId, value)
+    node.processor.setParam(paramId, value)
+  }
+
+  sync(spec: NoteGraphSpec): boolean {
     const signature = structureOf(spec)
+    const changed = this.signature !== null && signature !== this.signature
     if (signature !== this.signature) {
       if (this.signature !== null) this.restarted = true
       this.signature = signature
@@ -99,24 +114,30 @@ export class NoteGraph {
           definition,
           processor: definition.create(),
           mergers: new Map(),
+          params: new Map(),
+          inputKeys: spec.connections.filter(c => c.to.node === node.id && c.to.port === definition.inputs[0]?.id).map(c => key(c.from.node, c.from.port)),
+          outputKeys: definition.outputs.map(p => key(node.id, p.id)),
           trackId: undefined,
           tap: 0,
           bypassed: false,
         })
       }
-      this.connections = spec.connections
+      this.outputs.clear()
       this.order = dependencyOrder(spec, new Set(this.nodes.keys()))
       this.final.reset()
     }
     for (const node of spec.nodes) {
       const running = this.nodes.get(node.id)
       if (!running) continue
-      for (const [id, value] of Object.entries(node.params)) running.processor.setParam(id, value)
+      for (const [id, value] of Object.entries(node.params)) this.setParam(node.id, id, value)
       running.trackId = node.trackId
       running.tap = node.params.tap ?? 0
       running.bypassed = node.bypassed === true
     }
+    return changed
   }
+
+  cancel(scope?: NoteScope): void { this.cancellations.push(scope) }
 
   /** Ids of the tracks this graph reads from, so the engine can run them first. */
   tapSources(): string[] {
@@ -124,9 +145,11 @@ export class NoteGraph {
   }
 
   /** The events leaving the graph for the beat range [from, to). */
-  process(clipEvents: NoteEvent[], from: number, to: number, board: TapBoard): NoteEvent[] {
-    const outputs = new Map<string, NoteEvent[]>()
-    const sinks: NoteEvent[][] = []
+  process(clipEvents: NoteEvent[], from: number, to: number, board: TapBoard, beatOrigin = 0): NoteEvent[] {
+    const outputs = this.outputs
+    outputs.clear()
+    const sinks = this.sinks
+    sinks.length = 0
 
     for (const id of this.order) {
       const node = this.nodes.get(id) as RunningNode
@@ -136,37 +159,41 @@ export class NoteGraph {
       if (definition.type === CLIP_NOTES_TYPE) feed = clipEvents
       else if (definition.role === 'source') {
         const tapped = node.trackId ? board.get(node.trackId) : undefined
-        feed = (node.tap === TAP_AFTER_GRAPH ? tapped?.out : tapped?.clip) ?? []
+        feed = (node.tap === TAP_AFTER_GRAPH ? tapped?.out : tapped?.clip) ?? EMPTY
       } else feed = this.gather(node, outputs)
+
+      if (this.cancellations.length) feed = [...this.cancellations.map((scope): NoteEvent => ({ beat: from, kind: 'allOff', ...(scope ? { scope } : {}) })), ...feed]
 
       let results: NoteEvent[][]
       if (node.bypassed && definition.role === 'effect' && definition.inputs.length === 1 && definition.outputs.length === 1) {
         processor.reset()
         results = [feed]
       } else {
-        results = processor.processAll ? processor.processAll(feed, from, to) : [processor.process(feed, from, to)]
+        results = processor.processAll ? processor.processAll(feed, from, to, beatOrigin) : [processor.process(feed, from, to, beatOrigin)]
       }
-      definition.outputs.forEach((port, index) => outputs.set(key(id, port.id), results[index] ?? []))
+      // Qualify effect output identities by graph route; identical passthrough routes still merge.
+      if (definition.role === 'effect' && !node.bypassed && results.some(list => list.length)) results = results.map((list, index) => list.map((event) =>
+        event.kind === 'allOff' || !event.identity ? event : { ...event, ...childIdentity(event.identity, JSON.stringify([id, index])) }))
+      definition.outputs.forEach((_port, index) => outputs.set(node.outputKeys[index]!, results[index] ?? EMPTY))
       if (definition.role === 'sink') sinks.push(results[0] ?? feed)
     }
 
-    let events: NoteEvent[] = sinks.length === 1 ? (sinks[0] as NoteEvent[]) : this.final.process(sinks.flat().sort(compareEvents))
+    let events: NoteEvent[] = sinks.length === 1 ? (sinks[0] as NoteEvent[]) : sinks.some(list => list.length) ? this.final.process(sinks.flat().sort(compareEvents)) : EMPTY
     if (this.restarted) {
       this.restarted = false
       events = [{ beat: from, kind: 'allOff' }, ...events]
     }
+    this.cancellations.length = 0
     return events
   }
 
   /** What arrives at a node's input: its one source as is, or several merged. */
   private gather(node: RunningNode, outputs: Map<string, NoteEvent[]>): NoteEvent[] {
     const port = node.definition.inputs[0]
-    if (!port) return []
-    const sources = this.connections
-      .filter((c) => c.to.node === node.id && c.to.port === port.id)
-      .map((c) => outputs.get(key(c.from.node, c.from.port)) ?? [])
-    if (sources.length === 0) return []
-    if (sources.length === 1) return sources[0] as NoteEvent[]
+    if (!port || node.inputKeys.length === 0) return EMPTY
+    if (node.inputKeys.length === 1) return outputs.get(node.inputKeys[0]!) ?? EMPTY
+    const sources = node.inputKeys.map(k => outputs.get(k) ?? EMPTY)
+    if (!sources.some(list => list.length)) return EMPTY
     let merger = node.mergers.get(port.id)
     if (!merger) node.mergers.set(port.id, (merger = new Merger()))
     return merger.process(sources.flat())
@@ -174,6 +201,7 @@ export class NoteGraph {
 
   /** Back to the start (transport stopped). */
   reset(): void {
+    this.cancellations = []
     for (const node of this.nodes.values()) {
       node.processor.reset()
       for (const merger of node.mergers.values()) merger.reset()

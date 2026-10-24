@@ -200,6 +200,8 @@ describe('delay and reverb', () => {
     expect(bars(delayPreview({ time: 1, feedback: 0.5, mix: 1 })).length).toBeLessThan(bars(delayPreview({ time: 0.1, feedback: 0.5, mix: 1 })).length)
     expect(bars(delayPreview({ time: 0.1, feedback: 0.9, mix: 1 })).length).toBeGreaterThan(bars(delayPreview({ time: 0.1, feedback: 0.2, mix: 1 })).length)
     expect(bars(delayPreview({ time: 0.3, feedback: 0.5, mix: 0 }))).toHaveLength(0) // only the dim dry bar is left
+    // Synced, Time is in beats: one beat is drawn as half a second (120 BPM).
+    expect(bars(delayPreview({ time: 0.6, feedback: 0.5, mix: 1, sync: 1 }))).toEqual(bars(delayPreview({ time: 0.3, feedback: 0.5, mix: 1 })))
   })
 
   it('the reverb tail is longer for a bigger room, taller for more mix, and starts later with predelay', () => {
@@ -241,4 +243,10 @@ describe('the set of pictures', () => {
     expect(points[0]![0]).toBe(0)
     expect(points.at(-1)![0]).toBe(PREVIEW_WIDTH)
   })
+})
+
+it('delay preview follows actual tempo and dotted/triplet divisions, without drawing long delays early', () => {
+  expect(delayPreview({ sync: 1, division: 8, previewTempo: 90 })).toEqual(delayPreview({ time: 0.5 }))
+  expect(delayPreview({ sync: 1, division: 12, previewTempo: 120 })).toEqual(delayPreview({ time: 1 / 3 }))
+  expect(delayPreview({ sync: 1, division: 24, previewTempo: 40 }).shapes).toHaveLength(1)
 })

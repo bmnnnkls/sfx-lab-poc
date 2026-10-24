@@ -1,0 +1,432 @@
+{
+  "scenario": "low-moving-notes",
+  "seconds": 3,
+  "activity": "interactive",
+  "diagnostics": true,
+  "scenes": [
+    {
+      "scene": 6,
+      "requestedBeat": 0,
+      "minimumPatternBeats": 16
+    }
+  ],
+  "harnessSHA256": "f27f3ae0359f764c88cf3d927a9f5dbef1e4e7a31af4296cb03b4820ca15bb21",
+  "renderedAudioSeconds": 2.96,
+  "initialLoad": [
+    7.80517578125,
+    6.17431640625,
+    6.98779296875
+  ],
+  "finalLoad": [
+    7.5,
+    6.13818359375,
+    6.97021484375
+  ],
+  "dataLossOccurred": false,
+  "cpu": "Apple M3 Pro",
+  "elapsed": 3.388,
+  "browser": "156.0.8078.4",
+  "commit": "36f71d1dea37367d4f1a0f4a18f1d4c17a19e9ec",
+  "bundles": {
+    "dist/assets/engine-processor-y2VK-snW.js": "fbd2aeea3efcc71799f228c0c02ce9bcfb3de1ae28bdf19116c862d04fcae240"
+  },
+  "traffic": {
+    "statuses": 89,
+    "probes": [
+      {
+        "kind": "capacity-probe",
+        "rate": 48000,
+        "performance": "undefined"
+      }
+    ],
+    "report": {
+      "kind": "capacity-report",
+      "firstState": {
+        "tracks": 16,
+        "playing": true,
+        "automation": true
+      },
+      "frames": 142080,
+      "quanta": [
+        128
+      ],
+      "nonfinite": 0,
+      "peak": 0.7020619511604309,
+      "jump": 0.7271727621555328,
+      "rate": 48000
+    },
+    "latestStatus": {
+      "tempo": 120,
+      "automationOverrides": [],
+      "automationOverrideRevision": 0,
+      "automation": [
+        {
+          "target": {
+            "kind": "graph",
+            "owner": {
+              "kind": "track",
+              "trackId": "stab"
+            },
+            "domain": "notes",
+            "nodeId": "ng_key",
+            "nodeType": "scaleLock",
+            "paramId": "root",
+            "path": []
+          },
+          "value": 0
+        }
+      ],
+      "playing": true,
+      "beat": 6.160888888888869,
+      "peak": 0.10675634443759918,
+      "peaks": {
+        "kick": 0.19335246011614798,
+        "clap": 0,
+        "hat": 0,
+        "open": 0,
+        "shaker": 0,
+        "tok": 0,
+        "bass": 0,
+        "stab": 0,
+        "arp": 0.05877305141746972,
+        "drone": 0,
+        "riser": 0,
+        "crash": 0,
+        "dust": 0.00790055125951767,
+        "room": 0.019492777064442635,
+        "echo": 0.004146101344376802,
+        "hall": 0.00006606859678868204
+      },
+      "readouts": {
+        "kick": {
+          "n_beat": 1
+        },
+        "bass": {
+          "fx_duck/pump": 0.7799999713897705
+        },
+        "stab": {
+          "fx_duck/pump": 0.44999998807907104
+        },
+        "arp": {
+          "fx_duck/pump": 0.5
+        },
+        "drone": {
+          "fx_duck/pump": 0.8500000238418579
+        },
+        "dust": {
+          "n_tick": 1
+        },
+        "echo": {
+          "fx_duck/pump": 0.44999998807907104
+        },
+        "master": {
+          "master_dB": -9.12331485748291,
+          "master_bars": -9.12331485748291
+        }
+      },
+      "tracks": {
+        "kick": {
+          "playingClipId": "kick-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "clap": {
+          "playingClipId": "clap-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "hat": {
+          "playingClipId": "hat-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "open": {
+          "playingClipId": "open-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "shaker": {
+          "playingClipId": "shaker-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "tok": {
+          "playingClipId": "tok-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "bass": {
+          "playingClipId": "bass-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "stab": {
+          "playingClipId": "stab-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "arp": {
+          "playingClipId": "arp-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "drone": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "riser": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "crash": {
+          "playingClipId": "crash-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "dust": {
+          "playingClipId": "dust-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "room": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "echo": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "hall": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        }
+      }
+    }
+  },
+  "edits": 1,
+  "engine": {
+    "count": 1114,
+    "p50": 0.44,
+    "p95": 0.981,
+    "p99": 1.248,
+    "max": 7.523,
+    "overQuantum": 1,
+    "first": 7.523,
+    "afterFirstTwoSeconds": {
+      "count": 364,
+      "p50": 0.383,
+      "p95": 0.868,
+      "p99": 1.176,
+      "max": 1.689,
+      "overQuantum": 0
+    },
+    "overruns": [
+      {
+        "relativeSeconds": 0,
+        "ms": 7.523,
+        "overlappingGC": [
+          {
+            "name": "MinorGC",
+            "ms": 0.322
+          }
+        ]
+      }
+    ]
+  },
+  "callback": {
+    "count": 1114,
+    "p50": 0.455,
+    "p95": 1.013,
+    "p99": 1.256,
+    "max": 8.334,
+    "overQuantum": 1,
+    "first": 8.334,
+    "afterFirstTwoSeconds": {
+      "count": 364,
+      "p50": 0.396,
+      "p95": 0.881,
+      "p99": 1.189,
+      "max": 1.71,
+      "overQuantum": 0
+    },
+    "overruns": [
+      {
+        "relativeSeconds": 0,
+        "ms": 8.334,
+        "overlappingGC": [
+          {
+            "name": "MinorGC",
+            "ms": 0.322
+          }
+        ]
+      }
+    ]
+  },
+  "overhead": {
+    "count": 1000,
+    "p50": 0,
+    "p95": 0.001,
+    "p99": 0.001,
+    "max": 0.017,
+    "overQuantum": 0,
+    "first": 0.017,
+    "afterFirstTwoSeconds": {
+      "count": 0,
+      "overQuantum": 0
+    },
+    "overruns": []
+  },
+  "eventNames": [
+    "thread_name",
+    "process_name",
+    "process_uptime_seconds",
+    "ResourceWillSendRequest",
+    "MetaCharsetCheck",
+    "ParseHTML",
+    "EventDispatch",
+    "UpdateLayoutTree",
+    "PrePaint",
+    "Paint",
+    "Layerize",
+    "FrameStartedLoading",
+    "ResourceSendRequest",
+    "ResourceReceiveResponse",
+    "CommitLoad",
+    "ResourceReceivedData",
+    "HTMLDocumentParser::MaybeFetchQueuedPreloads",
+    "LocalWindowProxy::Initialize",
+    "LocalWindowProxy::CreateContext",
+    "V8.DeserializeContext",
+    "LocalWindowProxy::SetupWindowPrototypeChain",
+    "LocalWindowProxy::UpdateDocumentProperty",
+    "ContextCreatedNotification",
+    "InstallConditionalFeatures",
+    "V8.CompileCode",
+    "V8.ParseProgram",
+    "V8.Compile",
+    "V8.CompileIgnition",
+    "V8.CompileIgnitionFinalization",
+    "V8.PreParse",
+    "v8.newInstance",
+    "BackgroundProcessor::MaybeStartProcessingResponse",
+    "BackgroundJSStreamManager::TryStartStreamingTask",
+    "BackgroundJSStreamManager::RunScriptStreamingTask",
+    "v8.parseOnBackground",
+    "v8.parseOnBackgroundParsing",
+    "BackgroundCompileTask::Run",
+    "V8.CompileCodeBackground",
+    "BackgroundJSStreamManager::OnDataPipeReadable",
+    "BackgroundJSStreamManager::OnFinishStreaming",
+    "PreloadRenderBlockingStatusChange",
+    "ParseAuthorStyleSheet",
+    "ResourceFinish",
+    "v8.parseOnBackgroundWaiting",
+    "DocumentModuleScriptFetcher::NotifyFinished",
+    "v8.compileModule",
+    "V8.CompileStreamedModule",
+    "V8.StreamingFinalization.CheckCache",
+    "V8.OffThreadFinalization.Publish",
+    "V8.StreamingFinalization.AddToCache",
+    "V8.StreamingFinalization.Release",
+    "Layout",
+    "firstMeaningfulPaintCandidate",
+    "firstPaint",
+    "v8.evaluateModule",
+    "V8.ParseFunction",
+    "FlushInstructionCache",
+    "V8.FinalizeBaselineConcurrentCompilation",
+    "V8.MarkCandidatesForOptimization",
+    "V8.MaglevConcurrentPrepare",
+    "V8.MaglevTask",
+    "V8.MaglevBackground",
+    "V8.Maglev.GraphBuilding",
+    "V8.Maglev.Truncation",
+    "V8.Maglev.PhiUntagging",
+    "V8.Maglev.DeadCodeMarking",
+    "V8.Maglev.NodeProcessing",
+    "V8.Maglev.RegisterAllocation",
+    "V8.Maglev.CodeAssembly",
+    "V8.FinalizeMaglevConcurrentCompilation",
+    "V8.MaglevConcurrentFinalize",
+    "V8.Maglev.CodeGeneration",
+    "V8.Maglev.CommittingDependencies",
+    "V8.MaglevDestructBackground",
+    "V8.CollectSourcePositions",
+    "V8.OptimizeCode",
+    "V8.OptimizeConcurrentPrepare",
+    "V8.TurbofanTask",
+    "V8.OptimizeBackground",
+    "V8.DeoptimizeCode",
+    "V8.GC_HEAP_EXTERNAL_PROLOGUE",
+    "MinorGC",
+    "V8.GC_HEAP_PROLOGUE",
+    "V8.GCScavenger",
+    "V8.GC_TIME_TO_SAFEPOINT",
+    "V8.GC_BACKGROUND_SAFEPOINT",
+    "V8.GC_SCAVENGER",
+    "V8.GC_HEAP_PROLOGUE_SAFEPOINT",
+    "V8.GC_SCAVENGER_SCAVENGE",
+    "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_IDENTIFY",
+    "ComputeWeaknessProcessor start",
+    "V8.GC_SCAVENGER_TRACED_HANDLES_COMPUTE_WEAKNESS_PARALLEL",
+    "V8.GC_SCAVENGER_SCAVENGE_COLLECT_OLD_TO_NEW_PAGES",
+    "V8.GC_SCAVENGER_SCAVENGE_PARALLEL_PHASE",
+    "Parallel scavenge started",
+    "V8.GC_SCAVENGER_SCAVENGE_ROOTS",
+    "V8.GC_SCAVENGER_BACKGROUND_SCAVENGE_PARALLEL",
+    "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_PROCESS",
+    "ClearWeaknessProcessor start",
+    "V8.GC_SCAVENGER_TRACED_HANDLES_RESET_PARALLEL",
+    "V8.GC_SCAVENGER_SCAVENGE_FINALIZE",
+    "V8.GC_SCAVENGER_SCAVENGE_RESTORE_AND_QUARANTINE_PINNED",
+    "V8.GC_SCAVENGER_FREE_REMEMBERED_SET",
+    "V8.GC_SCAVENGER_SWEEP_ARRAY_BUFFERS",
+    "V8.GC_SCAVENGER_RESIZE_NEW_SPACE",
+    "V8.GC_HEAP_EPILOGUE_SAFEPOINT",
+    "V8.GC_HEAP_EPILOGUE",
+    "V8.GC_HEAP_EXTERNAL_EPILOGUE",
+    "V8.GC_MINOR_MS_BACKGROUND_SWEEPING",
+    "V8.GC_BACKGROUND_YOUNG_ARRAY_BUFFER_SWEEP",
+    "ArrayBufferSweeper Finished",
+    "V8.GC_SCAVENGER_COMPLETE_SWEEP_ARRAY_BUFFERS",
+    "v8.callFunction",
+    "FunctionCall",
+    "V8.InstallOptimizedFunctions",
+    "V8.OptimizeConcurrentFinalize",
+    "MarkDOMContent",
+    "MarkLoad",
+    "v8.produceModuleCache",
+    "V8.GC_BACKGROUND_UNPARK",
+    "V8.GC_SCAVENGER_SCAVENGE_PARALLEL",
+    "V8.CompileScript",
+    "V8.CompileEval",
+    "firstContentfulPaint",
+    "largestContentfulPaint::Candidate",
+    "firstMeaningfulPaint",
+    "RequestAnimationFrame",
+    "FireAnimationFrame",
+    "HitTest",
+    "TimerRemove",
+    "V8PerIsolateData::Initialize",
+    "V8.DeserializeIsolate",
+    "Responsiveness.Renderer.UserInteraction",
+    "v8.callAsConstructor",
+    "TimeStamp",
+    "V8.GC_SCAVENGER_BACKGROUND_TRACED_HANDLES_COMPUTE_WEAKNESS_PARALLEL",
+    "V8.GC_SCAVENGER_BACKGROUND_TRACED_HANDLES_RESET_PARALLEL",
+    "AnimationFrame",
+    "AnimationFrame::FirstUIEvent",
+    "AnimationFrame::Render",
+    "AnimationFrame::StyleAndLayout",
+    "AnimationFrame::Presentation",
+    "AnimationFrame::Script::Compile",
+    "AnimationFrame::Script::Execute",
+    "EventTiming",
+    "Animation"
+  ]
+}

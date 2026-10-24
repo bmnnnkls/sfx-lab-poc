@@ -1,0 +1,35 @@
+{
+  "budgetMs": 2.6666666666666665,
+  "threadDistributions": [
+    {
+      "label": "engine",
+      "threadMs": {
+        "count": 24280,
+        "p50": 0.475,
+        "p95": 0.901,
+        "p99": 1.209,
+        "max": 1.996
+      }
+    },
+    {
+      "label": "callback",
+      "threadMs": {
+        "count": 24280,
+        "p50": 0.485,
+        "p95": 0.923,
+        "p99": 1.246,
+        "max": 2.2
+      }
+    }
+  ],
+  "rows": [
+    {
+      "label": "callback",
+      "relativeSeconds": 0,
+      "wallMs": 2.804,
+      "threadMs": 2.2,
+      "nonThreadMs": 0.6039999999999996,
+      "note": "Thread clock excludes time not executing on this thread; it does not identify the external cause. Wall deadline still failed."
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { delayTiming } from '@core'
 import { type Point, type Preview, type Values, MARGIN, PREVIEW_HEIGHT, PREVIEW_WIDTH, clamp, round } from './types'
 
 const SIDE = 4
@@ -17,10 +18,12 @@ const bar = (x: number, level: number, tone: 'main' | 'dim') => ({
 
 /**
  * The echoes of a delay: the dry sound at the start, then a bar for each repeat `time` apart, `feedback` times as loud as
- * the one before, the first at the `mix` level. Repeats that no longer fit, or are inaudible, are left out.
+ * the one before, the first at the `mix` level. Repeats that no longer fit, or are inaudible, are left out. With Sync on beat,
+ * spacing follows the project tempo and selected division (120 BPM for standalone callers).
  */
 export const delayPreview = (values: Values): Preview => {
-  const time = clamp(values.time ?? 0.3, 0.001, SPAN_SECONDS)
+  const seconds = delayTiming(values, { tempo: values.previewTempo ?? 120 }).seconds
+  const time = Math.max(0.001, seconds)
   const feedback = clamp(values.feedback ?? 0.4, 0, 0.95)
   const mix = clamp(values.mix ?? 0.35, 0, 1)
   const shapes = [bar(SIDE, 1, 'dim')]

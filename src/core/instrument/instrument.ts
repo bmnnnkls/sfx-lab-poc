@@ -1,7 +1,8 @@
+import type { NoteIdentity, NoteScope } from '../session'
 import { DEFAULT_TEMPO, type NoteState } from '../dsp'
 import type { Patch } from '../patch'
 import type { SampleLookup } from '../sample'
-import { MAX_BLOCK_FRAMES, compileStage, processStage, setStageParam, setStageSample, stageReadouts } from './compile'
+import { MAX_BLOCK_FRAMES, compileStage, processStage, setStageAutomation, setStageParam, setStageSample, stageReadouts } from './compile'
 import { planStages } from './stages'
 import { Voice } from './voice'
 import { VoicePool } from './voice-pool'
@@ -69,17 +70,23 @@ export class Instrument {
     return this.pool.activeCount
   }
 
-  noteOn(pitch: number, velocity = 1): void {
-    this.pool.noteOn(pitch, velocity)
+  noteOn(pitch: number, velocity = 1, identity?: NoteIdentity): void {
+    this.pool.noteOn(pitch, velocity, identity)
   }
 
-  noteOff(pitch: number): void {
-    this.pool.noteOff(pitch)
+  noteOff(pitch: number, identity?: NoteIdentity): void {
+    this.pool.noteOff(pitch, identity)
   }
 
   /** Releases every held note (their envelopes still fade out naturally). */
-  allNotesOff(): void {
-    this.pool.releaseAll()
+  allNotesOff(scope?: NoteScope): void {
+    this.pool.releaseAll(scope)
+  }
+
+  clearAutomation(): void { this.global.automation.clear(); this.shared.automation.clear(); for (const voice of this.pool.voices) voice.clearAutomation() }
+  setAutomationCurve(nodeId: string, paramId: string, values: Float64Array): void {
+    setStageAutomation(this.global, nodeId, paramId, values); setStageAutomation(this.shared, nodeId, paramId, values)
+    for (const voice of this.pool.voices) voice.setAutomationCurve(nodeId, paramId, values)
   }
 
   setParam(nodeId: string, paramId: string, value: number): void {

@@ -1,0 +1,4 @@
+constant complete
+continuous complete
+low-arrangement complete
+glass-arrangement complete

@@ -1,0 +1,13 @@
+
+> sfx-lab-poc@0.0.0 test
+> vitest run src/core/engine/automation-timeline.test.ts src/audio/worklet/engine-processor.test.ts
+
+
+ RUN  v5.0.3 /Users/niklaus.baumann/git/local/sfx-lab-poc
+
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  17:11:15
+   Duration  2.39s (tests 84%, transform 13%, import 3%)
+

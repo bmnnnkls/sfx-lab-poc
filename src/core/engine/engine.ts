@@ -1,9 +1,11 @@
+import { controlTargetKey, flatControlNodeId, type ControlTarget } from '../control'
+import { EngineAutomation } from './automation'
 import { RIGHT, STEREO_FRAMES } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
 import type { TapBoard } from '../notefx'
 import { createDefaultMasterGraph } from '../patch'
 import { SampleBank } from '../sample'
-import type { LauncherStatus } from '../session'
+import type { LauncherStatus, NoteScope } from '../session'
 import { Transport } from '../transport'
 import { AudioBoard } from './audio-board'
 import { AudioTaps } from './audio-taps'
@@ -13,10 +15,12 @@ import type { MixContext, PlayableTrack, ScheduledAction } from './playable-trac
 import { ReturnTrackRuntime } from './return-track-runtime'
 import { SamplePreview } from './sample-preview'
 import type { EngineStatus } from './status'
+import { liveSource } from './live-notes'
 import { TrackRuntime } from './track-runtime'
 
 interface ScheduledEvent {
   readonly frame: number
+  readonly order: number
   readonly action: ScheduledAction
 }
 
@@ -26,13 +30,23 @@ interface ScheduledEvent {
  * same in an AudioWorklet, in Node tests, or in an offline bounce.
  */
 export class Engine {
+  private readonly automation = new EngineAutomation((target, value, baseValue) => this.writeAutomation(target, value, baseValue))
+  private collecting: { frame: number; frames: number } | null = null
+  /** Curves live until every audio subrun of their planning horizon has consumed them. */
+  private targetMetadata = new WeakMap<ControlTarget, { key: string; nodeId: string }>()
+  private readonly curves = new Map<string, { target: ControlTarget; values: Float64Array; baseValue: number; used: boolean }>()
+  /** Reused per horizon; a queued launch may clear overrides before its earlier samples are mixed. */
+  private readonly horizonEntryOverrides = new Map<string, number>()
+  private readonly automationSends = new Map<string, Record<string, number>>()
   private readonly transport: Transport
   private readonly tracks = new Map<string, PlayableTrack>()
   private readonly samples = new SampleBank()
   private readonly preview: SamplePreview
   private peak = 0
+  private noteBeat = 0
   /** The master fader, applied after the master graph and before the soft clip. */
   private masterVolume = 1
+  private masterVolumeCurve: Float64Array | null = null
   /** Mute, solo and sends need working out again (a mute or solo changed, or the tracks did). */
   private mixStateStale = false
   /**
@@ -42,6 +56,12 @@ export class Engine {
    */
   private scheduleOrder: PlayableTrack[] | null = null
   private mixOrder: PlayableTrack[] | null = null
+  private instrumentOrder: readonly TrackRuntime[] | null = null
+  private noteComponents: readonly { tracks: readonly TrackRuntime[]; ids: readonly string[] }[] | null = null
+  private readonly noteOwners = new Set<string>()
+  private readonly sampleTracks: TrackRuntime[] = []
+  private readonly intervalTracks: TrackRuntime[] = []
+  private readonly scheduleRanks = new Map<PlayableTrack, number>()
   /** What each track's note graph produced in the current block, for other tracks to read. */
   private readonly noteTaps: TapBoard = new Map()
   /** What the tracks sent to each return track in the stretch being mixed. */
@@ -58,8 +78,44 @@ export class Engine {
     this.master = new FxGraph(createDefaultMasterGraph(), sampleRate, this.samples)
   }
 
+  /** Compile topology and empty routing boards without rendering, scheduling or advancing a clock.
+   * The host can do this while suspended; subsequent topology edits retain normal invalidation.
+   */
+  prepareTopology(): void {
+    this.noteTracks()
+    this.components()
+    this.mixTracks()
+    if (this.mixStateStale) this.updateMixState()
+  }
+
   apply(command: EngineCommand): void {
     switch (command.type) {
+      case 'automation/launch':
+        this.automation.launchSlot(command.owner, command.slotId)
+        this.transport.play()
+        break
+      case 'automation/configure':
+        this.curves.clear()
+        this.targetMetadata = new WeakMap()
+        this.automation.configure(command.tracks, new Map([...this.tracks].map(([id, track]) => [id, track.status()])))
+        for (const [id, track] of this.tracks) if (track instanceof TrackRuntime) track.setAutomationNoteGraph(command.tracks.find((t) => t.trackId === id)?.noteGraph)
+        break
+      case 'automation/overrides': this.automation.setOverrides(command.values, command.revision); break
+      case 'track/noteOn':
+        this.instrument(command.trackId)?.noteOn(command.note, command.pitch, command.velocity)
+        break
+      case 'track/noteOff':
+        this.instrument(command.trackId)?.noteOff(command.note)
+        break
+      case 'notes/sustain':
+        for (const track of this.tracks.values()) if (track instanceof TrackRuntime) track.sustain(command.sourceId, command.channel, command.down)
+        break
+      case 'notes/releaseSource':
+        this.cancelNotes({ source: liveSource(command.sourceId), ...(command.channel === undefined ? {} : { channel: command.channel }) })
+        break
+      case 'notes/panic':
+        this.cancelNotes()
+        break
       case 'transport/play':
         this.transport.play()
         break
@@ -73,14 +129,18 @@ export class Engine {
         this.master.setTempo(command.bpm)
         break
       case 'track/add':
+        if (this.tracks.has(command.trackId)) this.cancelTrackNotes(command.trackId)
         this.invalidateOrder()
         this.tracks.set(command.trackId, this.createTrack(command))
         break
       case 'track/remove':
+        // A removed track may have generated notes in downstream readers. Cancel those graphs too.
+        this.cancelTrackNotes(command.trackId)
         this.invalidateOrder()
         this.tracks.delete(command.trackId)
         break
       case 'track/setPatch':
+        this.cancelTrackNotes(command.trackId)
         this.instrument(command.trackId)?.setPatch(command.patch)
         break
       case 'master/setFx':
@@ -97,10 +157,13 @@ export class Engine {
         this.invalidateOrder() // which returns it sends to may have changed
         break
       case 'track/setNoteGraph':
-        this.instrument(command.trackId)?.setNoteGraph(command.graph)
-        this.invalidateOrder()
+        if (this.instrument(command.trackId)?.setNoteGraph(command.graph)) {
+          this.cancelTrackNotes(command.trackId)
+          this.invalidateOrder()
+        }
         break
       case 'track/setVoices':
+        this.cancelTrackNotes(command.trackId)
         this.instrument(command.trackId)?.setVoices(command.voices)
         break
       case 'track/setClips':
@@ -135,11 +198,11 @@ export class Engine {
         this.masterVolume = command.volume
         break
       case 'track/setSends':
-        this.tracks.get(command.trackId)?.setSends(command.sends)
-        this.invalidateOrder() // which returns it sends to may have changed
+        this.automationSends.set(command.trackId, { ...command.sends })
+        this.setSendLevels(command.trackId, command.sends)
         break
       case 'track/setParam':
-        this.tracks.get(command.trackId)?.setParam(command.nodeId, command.paramId, command.value)
+        this.tracks.get(command.trackId)?.setParam(command.nodeId, command.paramId, command.value, command.graph)
         break
       case 'track/setSample':
         this.tracks.get(command.trackId)?.setSample(command.nodeId, command.sampleId)
@@ -162,13 +225,16 @@ export class Engine {
         this.instrument(command.trackId)?.auditionNote(command.pitch, command.velocity)
         break
       case 'track/stop':
+        this.automation.stopTrack(command.trackId)
         this.tracks.get(command.trackId)?.stopClip()
         break
       case 'clip/launch':
+        this.automation.launch(command.trackId, command.clipId)
         this.tracks.get(command.trackId)?.launchClip(command.clipId)
         this.transport.play()
         break
       case 'scene/launch':
+        this.automation.scene(command.scene)
         for (const track of this.tracks.values()) track.launchScene(command.scene)
         this.transport.play()
         break
@@ -179,10 +245,11 @@ export class Engine {
   render(left: Float32Array, right: Float32Array): void {
     left.fill(0)
     right.fill(0)
-    for (let offset = 0; offset < left.length; offset += MAX_BLOCK_FRAMES) {
+    for (let offset = 0; offset < left.length;) {
+      // Note-graph automation schedules at sample boundaries; audio and mixer curves keep block processing.
       const frames = Math.min(MAX_BLOCK_FRAMES, left.length - offset)
       this.renderBlock(left, right, offset, frames)
-      this.processMaster(left, right, offset, frames)
+      offset += frames
     }
     // A sample being auditioned is not part of the mix, so it skips the master graph.
     this.preview.mixInto(left, right)
@@ -191,10 +258,15 @@ export class Engine {
     this.peak = Math.max(this.peak, peakOf(left), peakOf(right))
   }
 
+  /** Clock-only snapshot: no readout traversal, peak reset or audio-state mutation. */
+  clock(): Pick<EngineStatus, 'tempo' | 'playing' | 'beat'> {
+    return { tempo: this.transport.tempo, playing: this.transport.playing, beat: this.transport.positionBeats }
+  }
+
   /** Snapshot for display. Reading it also resets the output-level peak. */
   status(): EngineStatus {
     const tracks: Record<string, LauncherStatus> = {}
-    for (const [id, track] of this.tracks) tracks[id] = track.status()
+    for (const [id, track] of this.tracks) tracks[id] = this.automation.slotStatus({ kind: 'track', trackId: id }) ?? track.status()
     const peaks: Record<string, number> = {}
     for (const [id, track] of this.tracks) peaks[id] = track.strip.takePeak()
     const peak = this.peak
@@ -206,10 +278,31 @@ export class Engine {
     }
     const masterReadouts = this.master.readouts()
     if (Object.keys(masterReadouts).length > 0) readouts.master = masterReadouts
-    return { playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, readouts, tracks }
+    return { tempo: this.transport.tempo, masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, readouts, tracks }
+  }
+
+  /** Structural edits cancel the affected track and every transitive note reader, without touching unrelated tracks. */
+  private cancelTrackNotes(trackId: string): void {
+    const affected = new Set([trackId])
+    let grew = true
+    while (grew) {
+      grew = false
+      for (const [id, track] of this.tracks) {
+        if (!affected.has(id) && track.tapSources().some((source) => affected.has(source))) {
+          affected.add(id)
+          grew = true
+        }
+      }
+    }
+    for (const id of affected) this.instrument(id)?.cancelNotes()
+  }
+
+  private cancelNotes(scope?: NoteScope): void {
+    for (const track of this.tracks.values()) if (track instanceof TrackRuntime) track.cancelNotes(scope)
   }
 
   private stopTransport(): void {
+    this.automation.reset()
     this.transport.stop()
     for (const track of this.tracks.values()) track.reset()
   }
@@ -223,36 +316,105 @@ export class Engine {
     }
     const output = this.master.process(input, frames)
     for (let i = 0; i < frames; i++) {
-      left[offset + i] = (output[i] ?? 0) * this.masterVolume
-      right[offset + i] = (output[RIGHT + i] ?? 0) * this.masterVolume
+      left[offset + i] = (output[i] ?? 0) * (this.masterVolumeCurve?.[i] ?? this.masterVolume)
+      right[offset + i] = (output[RIGHT + i] ?? 0) * (this.masterVolumeCurve?.[i] ?? this.masterVolume)
     }
   }
 
   private renderBlock(left: Float32Array, right: Float32Array, offset: number, frames: number): void {
-    const events = this.transport.playing ? this.collectEvents(frames) : []
-
-    let cursor = 0
-    for (const { frame, action } of events) {
-      this.mixSegment(left, right, offset, cursor, frame - cursor)
-      cursor = frame
-      action.run()
-    }
-    this.mixSegment(left, right, offset, cursor, frames - cursor)
-    this.transport.advance(frames)
-  }
-
-  private collectEvents(frames: number): ScheduledEvent[] {
-    const from = this.transport.positionBeats
-    const to = this.transport.beatAfter(frames)
-    const scheduled: ScheduledEvent[] = []
-    this.noteTaps.clear()
-    for (const track of this.scheduleTracks()) {
-      for (const action of track.schedule(from, to, this.noteTaps)) {
-        scheduled.push({ frame: this.transport.frameOf(action.beat, frames), action })
+    const audioEvents: ScheduledEvent[] = []
+    if (this.transport.playing) for (const track of this.scheduleTracks()) if (!(track instanceof TrackRuntime)) {
+      for (const action of track.schedule(this.transport.positionBeats, this.transport.beatAfter(frames), this.noteTaps)) {
+        audioEvents.push({ frame: this.eventFrame(action.beat, this.transport.positionBeats, frames), order: this.scheduleRanks.get(track)!, action })
       }
     }
-    // Array#sort is stable, so same-frame events keep each launcher's own order (offs before ons).
-    return scheduled.sort((a, b) => a.frame - b.frame)
+    audioEvents.sort((a, b) => a.frame - b.frame)
+    const instruments = this.noteTracks()
+    if (!this.automation.configured && !instruments.some(track => track.hasNoteControls)) {
+      // No ownership/curves/helper clock needs a planning horizon. Retain the established interval path,
+      // including audio clip actions and generators, without paying automation's bookkeeping per block.
+      const events = audioEvents
+      this.collectEvents(0, frames, events, instruments)
+      events.sort((a, b) => a.frame - b.frame || a.order - b.order)
+      let cursor = 0
+      for (const { frame, action } of events) {
+        this.mixSegment(left, right, offset, cursor, frame - cursor)
+        cursor = frame
+        action.run()
+      }
+      this.mixSegment(left, right, offset, cursor, frames - cursor)
+      this.transport.advance(frames)
+      this.noteBeat += frames * this.transport.beatsPerSample
+      return
+    }
+    let cursor = 0, audioIndex = 0
+    while (cursor < frames) {
+      // Apply starts/stops before discovering the new state's one-shot horizon.
+      while (audioIndex < audioEvents.length && audioEvents[audioIndex]!.frame === cursor) audioEvents[audioIndex++]!.action.run()
+      let end = audioEvents[audioIndex]?.frame ?? frames
+      for (const [id, track] of this.tracks) if (track instanceof AudioTrackRuntime) {
+        const remaining = track.framesUntilEnd({ beat: this.transport.beatAfter(cursor), beatsPerSample: this.transport.beatsPerSample })
+        if (remaining === 0) { track.finishClip(this.transport.beatAfter(cursor)); this.automation.finish(id) }
+        else end = Math.min(end, cursor + remaining)
+      }
+      // A zero-length lifecycle was committed above; every planned horizon must now advance.
+      if (end <= cursor) throw new Error('Non-progressing audio planning horizon')
+      for (const curve of this.curves.values()) curve.used = false
+      this.automation.copyOverrides(this.horizonEntryOverrides)
+      const collecting = { frame: 0, frames: end - cursor }
+      this.collecting = collecting
+      const events: ScheduledEvent[] = []
+      // Commit first-sample ownership and note values before any interval scheduling. A constant-range
+      // proof may then retain the established processor without observing a later sample's parameters.
+      if (this.transport.playing && this.automation.configured) this.automation.tick(this.transport.beatAfter(cursor), this.transport.beatAfter(cursor + 1))
+      this.planNoteComponents(this.transport.beatAfter(cursor), this.transport.beatAfter(end))
+      // Disconnected components cannot read each other's taps. Fixed-parameter components retain their
+      // established interval processors (including autonomous generators); affected components keep sample cadence.
+      this.collectEvents(cursor, end - cursor, events, this.intervalTracks)
+      if (this.sampleTracks.length) {
+        for (let frame = cursor; frame < end; frame++) {
+          collecting.frame = frame - cursor
+          if (frame > cursor && this.transport.playing && this.automation.configured) this.automation.tick(this.transport.beatAfter(frame), this.transport.beatAfter(frame + 1))
+          this.collectEvents(frame, 1, events, this.sampleTracks)
+        }
+      } else if (this.transport.playing && this.automation.configured) {
+        for (let frame = cursor + 1; frame < end; frame++) {
+          collecting.frame = frame - cursor
+          this.automation.tick(this.transport.beatAfter(frame), this.transport.beatAfter(frame + 1))
+        }
+      }
+      this.collecting = null
+      this.horizonEntryOverrides.clear()
+      for (const curve of this.curves.values()) if (curve.used) {
+        let last = curve.baseValue
+        for (let i = 0; i < collecting.frames; i++) { if (Number.isNaN(curve.values[i]!)) curve.values[i] = last; else last = curve.values[i]! }
+      }
+      events.sort((a, b) => a.frame - b.frame || a.order - b.order)
+      let mixed = cursor
+      for (const { frame, action } of events) {
+        this.mixSegment(left, right, offset, mixed, frame - mixed, mixed - cursor)
+        mixed = frame
+        action.run()
+      }
+      this.mixSegment(left, right, offset, mixed, end - mixed, mixed - cursor)
+      cursor = end
+    }
+    this.transport.advance(frames)
+    this.noteBeat += frames * this.transport.beatsPerSample
+  }
+
+  private eventFrame(beat: number, from: number, frames: number): number {
+    return Math.max(0, Math.min(frames - 1, Math.round((beat - from) / this.transport.beatsPerSample)))
+  }
+
+  private collectEvents(cursor: number, frames: number, scheduled: ScheduledEvent[], tracks: readonly TrackRuntime[]): void {
+    const from = this.noteBeat + cursor * this.transport.beatsPerSample
+    const to = from + frames * this.transport.beatsPerSample
+    this.noteTaps.clear()
+    for (const track of tracks) {
+      const actions = track.schedule(from, to, this.noteTaps, this.transport.playing ? this.transport.beatAfter(cursor) : undefined, this.transport.beatAfter(cursor + frames))
+      for (const action of actions) scheduled.push({ frame: cursor + this.eventFrame(action.beat, from, frames), order: this.scheduleRanks.get(track)!, action })
+    }
   }
 
   /**
@@ -265,8 +427,33 @@ export class Engine {
     blockOffset: number,
     cursor: number,
     frames: number,
+    curveOffset = 0,
   ): void {
     if (frames <= 0) return
+    this.master.clearAutomation()
+    this.masterVolumeCurve = null
+    for (const track of this.tracks.values()) { track.clearAutomation(); track.strip.clearAutomation() }
+    for (const curve of this.curves.values()) if (curve.used) {
+      const { target } = curve
+      const values = curve.values.subarray(curveOffset, curveOffset + frames)
+      if (target.owner.kind === 'master') {
+        if (target.kind === 'graph') this.master.setAutomationCurve(flatControlNodeId(target), target.paramId, values)
+        else { this.masterVolumeCurve = values; this.masterVolume = values[frames - 1]! }
+        continue
+      }
+      const track = this.tracks.get(target.owner.trackId)
+      if (!track) continue
+      if (target.kind === 'graph') track.setAutomationCurve(flatControlNodeId(target), target.paramId, values, target.domain)
+      else if (target.control === 'volume') { track.strip.volumeCurve = values; track.strip.volume = values[frames - 1]! }
+      else if (target.control === 'pan') { track.strip.panCurve = values; track.strip.pan = values[frames - 1]! }
+      else {
+        track.strip.sendCurves.set(target.returnId, values)
+        const sends = this.automationSends.get(target.owner.trackId) ?? {}
+        sends[target.returnId] = values[frames - 1]!
+        this.automationSends.set(target.owner.trackId, sends)
+        this.setSendLevels(target.owner.trackId, sends)
+      }
+    }
     const mix: MixContext = {
       timing: { beat: this.transport.beatAfter(cursor), beatsPerSample: this.transport.beatsPerSample },
       sends: this.sends,
@@ -277,10 +464,24 @@ export class Engine {
     this.sends.clear(frames)
     this.audioTaps.clear(frames)
     for (const track of this.mixTracks()) track.mixInto(left, right, blockOffset + cursor, frames, mix)
+    this.processMaster(left, right, blockOffset + cursor, frames)
+    for (const [id, track] of this.tracks) if (track instanceof AudioTrackRuntime && !track.status().playingClipId) this.automation.finish(id)
+  }
+
+  /** Zero-valued destinations remain members: a curve may cross zero inside the next block. */
+  private setSendLevels(trackId: string, sends: Readonly<Record<string, number>>): void {
+    const track = this.tracks.get(trackId)
+    if (!track) return
+    const previous = track.sendTargets()
+    track.setSends(sends)
+    const next = track.sendTargets()
+    if (previous.length !== next.length || previous.some(id => !next.includes(id))) this.invalidateOrder()
   }
 
   private invalidateOrder(): void {
     this.scheduleOrder = null
+    this.noteComponents = null
+    this.instrumentOrder = null
     this.mixOrder = null
     this.mixStateStale = true // which tracks feed which returns may have changed
   }
@@ -323,9 +524,58 @@ export class Engine {
     }
   }
 
+  private noteTracks(): readonly TrackRuntime[] {
+    return this.instrumentOrder ??= this.scheduleTracks().filter((track): track is TrackRuntime => track instanceof TrackRuntime)
+  }
+
+  /** Topology-only compilation: an undirected closure includes every upstream source and transitive reader. */
+  private components(): readonly { tracks: readonly TrackRuntime[]; ids: readonly string[] }[] {
+    if (this.noteComponents) return this.noteComponents
+    const ordered = this.noteTracks()
+    const ids = new Map([...this.tracks].map(([id, track]) => [track, id]))
+    const neighbors = new Map(ordered.map(track => [track, new Set<TrackRuntime>()]))
+    for (const track of ordered) for (const id of track.tapSources()) {
+      const source = this.tracks.get(id)
+      if (!(source instanceof TrackRuntime)) continue
+      neighbors.get(track)!.add(source)
+      neighbors.get(source)!.add(track)
+    }
+    const seen = new Set<TrackRuntime>()
+    const components: { tracks: TrackRuntime[]; ids: string[] }[] = []
+    for (const root of ordered) {
+      if (seen.has(root)) continue
+      const members = new Set<TrackRuntime>(), pending = [root]
+      while (pending.length) {
+        const track = pending.pop()!
+        if (members.has(track)) continue
+        members.add(track); seen.add(track)
+        for (const neighbor of neighbors.get(track)!) pending.push(neighbor)
+      }
+      const tracks = ordered.filter(track => members.has(track))
+      components.push({ tracks, ids: tracks.map(track => ids.get(track)!) })
+    }
+    return this.noteComponents = components
+  }
+
+  private planNoteComponents(from: number, to: number): void {
+    this.noteOwners.clear()
+    if (this.transport.playing) this.automation.noteOwners(this.noteOwners, from, to)
+    this.sampleTracks.length = 0
+    this.intervalTracks.length = 0
+    for (const component of this.components()) {
+      const sample = component.ids.some(id => this.noteOwners.has(id)) || component.tracks.some(track => track.hasNoteControls)
+      const into = sample ? this.sampleTracks : this.intervalTracks
+      into.push(...component.tracks)
+    }
+  }
+
   /** The tracks in the order their events are scheduled in: each after the tracks it takes notes from. */
   private scheduleTracks(): readonly PlayableTrack[] {
-    this.scheduleOrder ??= this.sorted(new Map([...this.tracks].map(([id, track]) => [id, track.tapSources()])))
+    if (!this.scheduleOrder) {
+      this.scheduleOrder = this.sorted(new Map([...this.tracks].map(([id, track]) => [id, track.tapSources()])))
+      this.scheduleRanks.clear()
+      this.scheduleOrder.forEach((track, index) => this.scheduleRanks.set(track, index))
+    }
     return this.scheduleOrder
   }
 
@@ -368,6 +618,7 @@ export class Engine {
 
   private createTrack(command: Extract<EngineCommand, { type: 'track/add' }>): PlayableTrack {
     const track = this.buildTrack(command)
+    if (command.kind !== 'return') this.automationSends.set(command.trackId, { ...command.sends })
     track.strip.pan = command.pan ?? 0
     track.strip.muted = command.muted ?? false
     track.strip.soloed = command.soloed ?? false
@@ -400,6 +651,48 @@ export class Engine {
         track.setSends(command.sends ?? {})
         return track
       }
+    }
+  }
+
+  private writeAutomation(target: ControlTarget, value: number, baseValue = value): void {
+    let metadata = this.targetMetadata.get(target)
+    if (!metadata) {
+      metadata = { key: controlTargetKey(target), nodeId: target.kind === 'graph' ? flatControlNodeId(target) : '' }
+      this.targetMetadata.set(target, metadata)
+    }
+    if (this.collecting && !(target.kind === 'graph' && target.domain === 'notes')) {
+      const key = metadata.key
+      let curve = this.curves.get(key)
+      if (!curve) {
+        curve = { target, values: new Float64Array(MAX_BLOCK_FRAMES), baseValue, used: false }
+        this.curves.set(key, curve)
+      }
+      if (!curve.used) {
+        curve.values.fill(NaN)
+        curve.baseValue = this.horizonEntryOverrides.get(key) ?? baseValue
+        curve.used = true
+      }
+      curve.values[this.collecting.frame] = value
+      return
+    }
+    if (target.owner.kind === 'master') {
+      if (target.kind === 'graph') this.master.setParam(metadata.nodeId, target.paramId, value)
+      else this.masterVolume = value
+      return
+    }
+    const track = this.tracks.get(target.owner.trackId)
+    if (!track) return
+    if (target.kind === 'graph') {
+      const nodeId = metadata.nodeId
+      if (track.setAutomationParam) track.setAutomationParam(nodeId, target.paramId, value, target.domain)
+      else track.setParam(nodeId, target.paramId, value, target.domain)
+    } else if (target.control === 'volume') track.strip.volume = value
+    else if (target.control === 'pan') track.strip.pan = value
+    else {
+      const sends = this.automationSends.get(target.owner.trackId) ?? {}
+      sends[target.returnId] = value
+      this.automationSends.set(target.owner.trackId, sends)
+      this.setSendLevels(target.owner.trackId, sends)
     }
   }
 

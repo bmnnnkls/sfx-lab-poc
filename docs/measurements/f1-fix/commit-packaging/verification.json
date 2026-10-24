@@ -1,0 +1,68 @@
+{
+  "date": "2026-10-19",
+  "measurementBaseline": "36f71d1dea37367d4f1a0f4a18f1d4c17a19e9ec",
+  "verification": "Independent staged-tree exports; code byte content preserved from the verified wrap-up candidate. EOF blank-line normalization affected only staged test snapshots.",
+  "checks": [
+    {
+      "group": "storage",
+      "commit": "a3f8065",
+      "applicationTypecheck": "passed",
+      "focusedTestsPassed": 50,
+      "strictMeasurementTypecheck": "not applicable"
+    },
+    {
+      "group": "helper",
+      "commit": "e141fc6",
+      "applicationTypecheck": "passed",
+      "focusedTestsPassed": 43,
+      "strictMeasurementTypecheck": "not applicable"
+    },
+    {
+      "group": "timeline",
+      "commit": "672f640",
+      "applicationTypecheck": "passed",
+      "focusedTestsPassed": 232,
+      "strictMeasurementTypecheck": "not applicable"
+    },
+    {
+      "group": "clock",
+      "commit": "a820cd7",
+      "applicationTypecheck": "passed",
+      "focusedTestsPassed": 2,
+      "strictMeasurementTypecheck": "not applicable"
+    },
+    {
+      "group": "capacity-tools",
+      "commit": "b2cce3c",
+      "applicationTypecheck": "passed",
+      "focusedTestsPassed": null,
+      "strictMeasurementTypecheck": "passed"
+    },
+    {
+      "group": "startup",
+      "commit": "d84a40e",
+      "applicationTypecheck": "passed",
+      "focusedTestsPassed": 1742,
+      "strictMeasurementTypecheck": "not applicable"
+    },
+    {
+      "group": "startup-tools",
+      "commit": "e1c5dce",
+      "applicationTypecheck": "passed",
+      "focusedTestsPassed": null,
+      "strictMeasurementTypecheck": "passed"
+    },
+    {
+      "group": "experimental-hook",
+      "commit": "52b370d",
+      "applicationTypecheck": "passed",
+      "focusedTestsPassed": null,
+      "strictMeasurementTypecheck": "passed"
+    }
+  ],
+  "preexistingWorktreeFilesChangedByPackagingBeforeDocumentationUpdate": [],
+  "filesFingerprinted": 1032,
+  "newPerformanceMeasurements": false,
+  "capacityAcceptance": "open; first callback and repeated no-lane regression unresolved",
+  "C6AcceptanceMethodologyApproved": false
+}

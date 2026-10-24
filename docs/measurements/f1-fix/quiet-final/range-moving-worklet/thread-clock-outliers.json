@@ -1,0 +1,107 @@
+{
+  "budgetMs": 2.6666666666666665,
+  "threadDistributions": [
+    {
+      "label": "engine",
+      "threadMs": {
+        "count": 24360,
+        "p50": 0.381,
+        "p95": 0.815,
+        "p99": 1.104,
+        "max": 5.774
+      }
+    },
+    {
+      "label": "callback",
+      "threadMs": {
+        "count": 24360,
+        "p50": 0.392,
+        "p95": 0.841,
+        "p99": 1.137,
+        "max": 6.347
+      }
+    }
+  ],
+  "rows": [
+    {
+      "label": "engine",
+      "relativeSeconds": 0,
+      "wallMs": 5.937,
+      "threadMs": 5.774,
+      "nonThreadMs": 0.16300000000000026,
+      "note": "Thread clock excludes time not executing on this thread; it does not identify the external cause. Wall deadline still failed."
+    },
+    {
+      "label": "engine",
+      "relativeSeconds": 1.453114,
+      "wallMs": 2.682,
+      "threadMs": 0.6,
+      "nonThreadMs": 2.082,
+      "note": "Thread clock excludes time not executing on this thread; it does not identify the external cause. Wall deadline still failed."
+    },
+    {
+      "label": "engine",
+      "relativeSeconds": 11.250605,
+      "wallMs": 5.05,
+      "threadMs": 2.484,
+      "nonThreadMs": 2.566,
+      "note": "Thread clock excludes time not executing on this thread; it does not identify the external cause. Wall deadline still failed."
+    },
+    {
+      "label": "engine",
+      "relativeSeconds": 11.255773,
+      "wallMs": 4.224,
+      "threadMs": 1.704,
+      "nonThreadMs": 2.5200000000000005,
+      "note": "Thread clock excludes time not executing on this thread; it does not identify the external cause. Wall deadline still failed."
+    },
+    {
+      "label": "engine",
+      "relativeSeconds": 11.260939,
+      "wallMs": 3.027,
+      "threadMs": 2.829,
+      "nonThreadMs": 0.19799999999999995,
+      "note": "Thread clock excludes time not executing on this thread; it does not identify the external cause. Wall deadline still failed."
+    },
+    {
+      "label": "callback",
+      "relativeSeconds": 0,
+      "wallMs": 6.511,
+      "threadMs": 6.347,
+      "nonThreadMs": 0.1639999999999997,
+      "note": "Thread clock excludes time not executing on this thread; it does not identify the external cause. Wall deadline still failed."
+    },
+    {
+      "label": "callback",
+      "relativeSeconds": 1.453497,
+      "wallMs": 2.688,
+      "threadMs": 0.604,
+      "nonThreadMs": 2.084,
+      "note": "Thread clock excludes time not executing on this thread; it does not identify the external cause. Wall deadline still failed."
+    },
+    {
+      "label": "callback",
+      "relativeSeconds": 11.250985,
+      "wallMs": 5.087,
+      "threadMs": 2.516,
+      "nonThreadMs": 2.5709999999999997,
+      "note": "Thread clock excludes time not executing on this thread; it does not identify the external cause. Wall deadline still failed."
+    },
+    {
+      "label": "callback",
+      "relativeSeconds": 11.256154,
+      "wallMs": 4.251,
+      "threadMs": 1.727,
+      "nonThreadMs": 2.524,
+      "note": "Thread clock excludes time not executing on this thread; it does not identify the external cause. Wall deadline still failed."
+    },
+    {
+      "label": "callback",
+      "relativeSeconds": 11.261321,
+      "wallMs": 3.056,
+      "threadMs": 2.839,
+      "nonThreadMs": 0.21700000000000008,
+      "note": "Thread clock excludes time not executing on this thread; it does not identify the external cause. Wall deadline still failed."
+    }
+  ]
+}

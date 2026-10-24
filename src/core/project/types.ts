@@ -1,3 +1,7 @@
+import type { Snapshot, SampleBinding, AssetRevision, ProjectPreset } from '../preset'
+import type { AutomationLane } from '../automation'
+import type { MidiMapping } from '../midi'
+import type { ControlValue } from '../control'
 import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
 
@@ -14,6 +18,7 @@ export interface Note {
 }
 
 export interface Clip {
+  readonly automation?: readonly AutomationLane[]
   readonly id: string
   readonly name: string
   readonly lengthBeats: number
@@ -30,6 +35,7 @@ export type WarpMode = 'repitch' | 'off'
 
 /** A library sample placed in a slot of an audio track. */
 export interface AudioClip {
+  readonly automation?: readonly AutomationLane[]
   readonly id: string
   readonly name: string
   /** Which library sample to play. */
@@ -100,12 +106,21 @@ export interface AudioTrack extends TrackBase {
   readonly clips: readonly (AudioClip | null)[]
 }
 
+/** Dedicated return/master automation-only session cell; null in the owner array means stop. */
+export interface AutomationSlot {
+  readonly id: string
+  readonly name: string
+  readonly lengthBeats: number
+  readonly automation?: readonly AutomationLane[]
+}
+
 /**
- * A return (send/aux) track: no clips. Its insert graph starts at `Return in`, the sum of what other tracks send to it
+ * A return (send/aux) track: automation-only slots, no note/audio clips. Its insert graph starts at `Return in`, the sum of what other tracks send to it
  * (with Send nodes), so one reverb or delay can serve several tracks. It is mixed like any track, after the tracks that
  * send to it.
  */
 export interface ReturnTrack extends TrackBase {
+  readonly automationSlots?: readonly (AutomationSlot | null)[]
   readonly kind: 'return'
 }
 
@@ -116,6 +131,7 @@ export type Track = InstrumentTrack | AudioTrack | ReturnTrack
  * `Master in` -> effects -> `Track out`, in stereo. Nothing sends to it; it just processes the mix.
  */
 export interface MasterBus {
+  readonly automationSlots?: readonly (AutomationSlot | null)[]
   readonly fx: Patch
   /** 0..1 gain on the whole mix, after the master graph and before the output soft clip; absent = 1. */
   readonly volume?: number
@@ -123,6 +139,14 @@ export interface MasterBus {
 
 /** The saveable document. Everything the user authors lives here. */
 export interface Project {
+  readonly libraryOrigins?: readonly import('../library').LibraryOrigin[]
+  readonly snapshots?: readonly Snapshot[]
+  readonly sampleBindings?: readonly SampleBinding[]
+  readonly assetRevisions?: readonly AssetRevision[]
+  readonly presets?: readonly ProjectPreset[]
+  readonly midiMappings?: readonly MidiMapping[]
+  /** Values of controls inside a particular nested module use; shared definitions stay unchanged. */
+  readonly controlValues?: readonly ControlValue[]
   readonly name: string
   readonly tempo: number
   readonly sceneCount: number

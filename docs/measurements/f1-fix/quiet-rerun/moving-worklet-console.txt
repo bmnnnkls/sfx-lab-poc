@@ -1,0 +1,16 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4173/
+Call log:
+[2m  - navigating to "http://127.0.0.1:4173/", waiting until "load"[22m
+
+    at <anonymous> (/Users/niklaus.baumann/git/local/sfx-lab-poc/scripts/review-benchmark/worklet-capacity.ts:71:14) {
+  log: [
+    '  - navigating to "http://127.0.0.1:4173/", waiting until "load"'
+  ],
+  name: 'Error'
+}
+
+Node.js v24.21.0

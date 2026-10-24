@@ -1,0 +1,16 @@
+
+> sfx-lab-poc@0.0.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /Users/niklaus.baumann/git/local/sfx-lab-poc
+
+
+ Test Files  132 passed (132)
+      Tests  1677 passed (1677)
+   Start at  17:14:02
+   Duration  34.82s (tests 58%, import 28%, transform 14%, worker 1%)
+
+    Isolate  132 workers spawned · ~162ms startup each (spawn + environment, per file)
+             at least ~1.78s faster with isolate: false — reuses workers across files instead of one per file
+

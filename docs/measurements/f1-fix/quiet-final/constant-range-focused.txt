@@ -1,0 +1,30 @@
+
+ RUN  v5.0.3 /Users/niklaus.baumann/git/local/sfx-lab-poc
+
+ ❯ src/core/engine/note-components.test.ts (3 tests | 1 failed) 102ms
+   × closes sample cadence over upstream sources and transitive readers, retaining interval cadence elsewhere 17ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/core/engine/note-components.test.ts > closes sample cadence over upstream sources and transitive readers, retaining interval cadence elsewhere
+AssertionError: expected "schedule" to be called 128 times, but got 1 times
+ ❯ src/core/engine/note-components.test.ts:27:74
+     25|   const calls = new Map([...internals(e).tracks].map(([id, t]) => [id,…
+     26|   quantum(e)
+     27|   for (const id of ['source', 'middle', 'reader']) expect(calls.get(id…
+       |                                                                          ^
+     28|   expect(calls.get('unrelated')).toHaveBeenCalledTimes(1)
+     29|   // A rewire changes both the upstream and downstream component closu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  1 failed | 106 passed (107)
+   Start at  22:53:09
+   Duration  2.72s (tests 51%, transform 40%, import 8%)
+
+  Transform  transforming modules took 2.53s · 40% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

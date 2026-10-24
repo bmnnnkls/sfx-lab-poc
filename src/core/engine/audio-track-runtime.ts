@@ -88,6 +88,9 @@ export class AudioTrackRuntime implements PlayableTrack {
     return [...new Set([...this.targets, ...this.sendList.map(([id]) => id)])]
   }
 
+  clearAutomation(): void { this.fx.clearAutomation() }
+  setAutomationCurve(nodeId: string, paramId: string, values: Float64Array): void { this.fx.setAutomationCurve(nodeId, paramId, values) }
+
   setParam(nodeId: string, paramId: string, value: number): void {
     this.fx.setParam(nodeId, paramId, value)
   }
@@ -122,14 +125,30 @@ export class AudioTrackRuntime implements PlayableTrack {
   }
 
   reset(): void {
+    this.stoppedAt = undefined
     this.launcher.reset()
     this.fadeOutPlaying()
     this.playing = null
   }
 
+  /** Exact next one-shot boundary, so automation also releases before any effect tail is mixed. */
+  framesUntilEnd(timing: MixTiming): number {
+    if (!this.playing || this.playing.clip.loop) return Infinity
+    const { clip, startBeat, position } = this.playing
+    const sample = this.samples.get(clip.sampleId)
+    if (!sample) return Infinity
+    if (clip.warp === 'repitch') return Math.max(0, Math.ceil((clip.lengthBeats - (timing.beat - startBeat)) / timing.beatsPerSample - 1e-8))
+    const region = regionOf(clip.start, clip.end, sample.data.length)
+    const left = region.endPos - (position < 0 ? region.startPos : position)
+    return Math.max(0, Math.ceil(left / (sample.sampleRate / this.sampleRate) - 1e-8))
+  }
+  private stoppedAt: number | undefined
+  finishClip(beat: number): void { this.playing = null; this.stoppedAt = beat }
+
   /** What is sounding (not just queued, and not a fading tail), so a finished one-shot stops showing as playing. */
   status(): LauncherStatus {
     return {
+      ...(this.stoppedAt !== undefined && { stopBeat: this.stoppedAt }),
       playingClipId: this.playing?.clip.id ?? null,
       startBeat: this.playing?.startBeat ?? null,
       queued: this.launcher.queuedStatus(),
@@ -148,6 +167,7 @@ export class AudioTrackRuntime implements PlayableTrack {
 
   private apply(event: AudioEvent): void {
     this.fadeOutPlaying()
+    this.stoppedAt = event.kind === 'stop' ? event.beat : undefined
     this.playing = event.kind === 'start' ? { clip: event.clip, startBeat: event.beat, position: -1 } : null
   }
 
@@ -164,14 +184,15 @@ export class AudioTrackRuntime implements PlayableTrack {
       this.tail.framesLeft -= frames
       if (!alive || this.tail.framesLeft <= 0) this.tail = null
     }
-    if (this.playing && !this.mixVoice(this.playing, frames, timing)) this.playing = null
+    const remaining = this.framesUntilEnd(timing)
+    if (this.playing && !this.mixVoice(this.playing, frames, timing)) this.finishClip(timing.beat + Math.min(frames, remaining) * timing.beatsPerSample)
 
     taps.write(this.trackId, 0, this.scratch, frames)
     const gate = this.strip.sendsTo(sends)
     const signal = this.fx.process(this.scratch, frames, { sends: gate, taps })
     taps.write(this.trackId, 1, signal, frames)
     this.strip.mixInto(left, right, offset, frames, signal)
-    for (const [returnId, level] of this.sendList) gate.add(returnId, signal, level * this.strip.volume, frames)
+    for (const [returnId, level] of this.sendList) this.strip.send(gate, returnId, signal, level, frames)
   }
 
   /** Adds `frames` of `voice` to the scratch buffer. Returns false once the clip has finished (a non-looping pass ended). */

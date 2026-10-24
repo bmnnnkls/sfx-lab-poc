@@ -1,0 +1,42 @@
+
+> sfx-lab-poc@0.0.0 test:browser
+> npm run build && playwright test
+
+
+> sfx-lab-poc@0.0.0 build
+> tsc --noEmit && vite build
+
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 503 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                             0.74 kB │ gzip:  0.36 kB
+dist/assets/engine-processor-BCoFZwKw.js  150.26 kB
+dist/assets/LibraryPanel-DwJ39g1i.css       1.24 kB │ gzip:  0.51 kB
+dist/assets/index-_uL0wRDn.css             40.20 kB │ gzip:  8.59 kB
+dist/assets/rolldown-runtime-CbXtAM7H.js    0.58 kB │ gzip:  0.36 kB
+dist/assets/library-D7OEZ7ry.js             3.56 kB │ gzip:  1.62 kB
+dist/assets/LibraryPanel-BUdV8ka1.js       13.42 kB │ gzip:  4.14 kB
+dist/assets/ui-vendor-2eX_cCFm.js          85.79 kB │ gzip: 29.11 kB
+dist/assets/index-Bq6SSyix.js             209.75 kB │ gzip: 70.72 kB
+dist/assets/react-BPWasKn7.js             218.76 kB │ gzip: 68.27 kB
+dist/assets/state-BNE93lLV.js             336.14 kB │ gzip: 98.59 kB
+
+✓ built in 292ms
+[WebServer] (node:30803) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] error when starting preview server:
+[WebServer] Error: listen EPERM: operation not permitted 127.0.0.1:4173
+[WebServer]     at Server.setupListenHandle [as _listen2] (node:net:2306:21)
+[WebServer]     at listenInCluster (node:net:2437:12)
+[WebServer]     at node:net:2666:7
+[WebServer]     at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+[WebServer]   code: 'EPERM',
+[WebServer]   errno: -1,
+[WebServer]   syscall: 'listen',
+[WebServer]   address: '127.0.0.1',
+[WebServer]   port: 4173
+[WebServer] }
+Error: Process from config.webServer was not able to start. Exit code: 1
+

@@ -1,0 +1,112 @@
+import { beforeEach, describe, expect, it } from 'vitest'
+import { createEmptyProject, createHistory, createAudioTrack, createClip, createNote, saveProjectPreset, saveLibraryFolder, trashLibraryEntry, parseProject, serializeProject, type InstrumentTrack } from '@core'
+import { useProjectStore } from '@state'
+import { createMemoryLibraryStorage, createMemorySampleStorage, exportProject, importProject, sha256Hex } from '@storage'
+import { createPersonalLibrary } from './library'
+const setup = () => {
+  const p = createEmptyProject(), track = p.tracks[0] as InstrumentTrack
+  const scope = { owner: { kind: 'track' as const, trackId: track.id }, domain: 'patch' as const }
+  const project = saveProjectPreset(saveProjectPreset(p, scope, 'One'), scope, 'Two')
+  useProjectStore.getState().resetProject(project)
+  return { project, scope }
+}
+beforeEach(() => useProjectStore.getState().resetProject(createEmptyProject()))
+describe('personal library service', () => {
+  it('organizes an asset with two presets, effect/presets, MIDI/audio clips and a sample, then loads independent project copies with one undo step each and exports after trashing originals', async () => {
+    const { scope } = setup(), storage = createMemoryLibraryStorage(), samples = createMemorySampleStorage(), library = createPersonalLibrary(storage, samples)
+    await library.update(c => saveLibraryFolder(c, 'My collection', null, 'folder'))
+    await library.saveAsset(scope, 'Instrument', 'folder')
+    const fxScope = { ...scope, domain: 'fx' as const }
+    const original = useProjectStore.getState().project
+    useProjectStore.getState().resetProject(saveProjectPreset(saveProjectPreset(original, fxScope, 'Effect A'), fxScope, 'Effect B'))
+    await library.saveAsset(fxScope, 'Effect', 'folder')
+    const sampleId = await sha256Hex(Uint8Array.of(1, 2, 3, 4)), sample = { id: sampleId, name: 'Sample', extension: 'wav', durationSeconds: 1, sampleRate: 8000, channels: 1, bytes: 4 }
+    await samples.put(sampleId, Uint8Array.of(1, 2, 3, 4))
+    const midi = createClip('Notes', 4, [createNote(60, 0, 1)])
+    const audio = { id: 'audio', name: 'Audio', sampleId, lengthBeats: 4, start: 0.1, end: 0.9, loop: true, warp: 'repitch' as const, gain: 0.8, fadeIn: 0.01, fadeOut: 0.02 }
+    const source = useProjectStore.getState().project, audioTrack = { ...createAudioTrack('Audio', source.sceneCount), clips: [audio, ...Array.from({ length: source.sceneCount - 1 }, () => null)] }
+    const withClips = { ...source, samples: [sample], tracks: [{ ...source.tracks[0] as InstrumentTrack, clips: [midi, ...Array.from({ length: source.sceneCount - 1 }, () => null)] }, audioTrack] }
+    useProjectStore.getState().resetProject(withClips)
+    await library.saveClip(scope.owner.trackId, midi.id, 'MIDI', 'folder')
+    await library.saveClip(audioTrack.id, audio.id, 'Audio', 'folder')
+    await library.saveSample(sampleId, 'Sample', 'folder')
+    const catalog = await library.read()
+    expect(catalog.items.map(i => i.content.kind).sort()).toEqual(['audio-clip', 'audio-effect', 'instrument', 'midi-clip', 'preset', 'preset', 'preset', 'preset', 'sample'].sort())
+    expect(useProjectStore.getState().history.past).toHaveLength(0)
+    useProjectStore.getState().resetProject(createEmptyProject())
+    const instrument = catalog.items.find(i => i.content.kind === 'instrument')!, effect = catalog.items.find(i => i.content.kind === 'audio-effect')!
+    await library.insert(instrument, { mode: 'new-track' })
+    const inserted = useProjectStore.getState().project, destId = inserted.tracks.at(-1)!.id
+    expect(useProjectStore.getState().history.past).toHaveLength(1)
+    useProjectStore.getState().undo(); expect(useProjectStore.getState().project.tracks).toHaveLength(inserted.tracks.length - 1)
+    useProjectStore.getState().redo(); expect(useProjectStore.getState().project).toEqual(inserted)
+    await library.insert(effect, { mode: 'replace', scope: { owner: { kind: 'track', trackId: destId }, domain: 'fx' } })
+    await library.insert(catalog.items.find(i => i.content.kind === 'midi-clip')!, { mode: 'replace', scope: { owner: { kind: 'track', trackId: destId }, domain: 'patch' } }, 0)
+    await library.insert(catalog.items.find(i => i.content.kind === 'sample')!, { mode: 'replace' })
+    const current = useProjectStore.getState().project
+    useProjectStore.getState().resetProject({ ...current, tracks: [...current.tracks, { ...audioTrack, clips: audioTrack.clips.map(() => null) }] })
+    await library.insert(catalog.items.find(i => i.content.kind === 'audio-clip')!, { mode: 'replace', scope: { owner: { kind: 'track', trackId: audioTrack.id }, domain: 'fx' } }, 0)
+    const final = useProjectStore.getState().project
+    await library.update(c => trashLibraryEntry(c, 'folder'))
+    const reloaded = parseProject(serializeProject(final))
+    expect(reloaded.ok && reloaded.project).toEqual(final)
+    const file = await exportProject(final, samples.get), imported = await importProject(file.bytes)
+    expect(file.missing).toEqual([])
+    expect(imported.ok && imported.project).toEqual(final)
+    expect(imported.ok && imported.samples.get(sampleId)).toEqual(Uint8Array.of(1, 2, 3, 4))
+    expect(await samples.get(sampleId)).toEqual(Uint8Array.of(1, 2, 3, 4))
+  })
+  it('rejects missing bytes and stale deleted items without changing project or catalog history', async () => {
+    const { scope } = setup(), storage = createMemoryLibraryStorage(), samples = createMemorySampleStorage(), library = createPersonalLibrary(storage, samples)
+    await library.saveAsset(scope, 'Safe', null)
+    const item = (await library.read()).items[0]!
+    await library.update(c => trashLibraryEntry(c, item.id))
+    const before = useProjectStore.getState()
+    await expect(library.insert(item, { mode: 'new-track' })).rejects.toThrow(/removed/)
+    expect(useProjectStore.getState()).toBe(before)
+    const p = before.project, id = 'a'.repeat(64)
+    useProjectStore.setState({ project: { ...p, samples: [{ id, name: 'Missing', extension: 'wav', sampleRate: 8000, bytes: 10, durationSeconds: 1, channels: 1 }] }, history: createHistory(p) })
+    const catalog = await library.read()
+    await expect(library.saveSample(id, 'Missing', null)).rejects.toThrow(/bytes missing/)
+    expect(await library.read()).toEqual(catalog)
+  })
+})
+
+it('returns explicit cancellation for stale preview success/errors and keeps the newer audio context alive', async () => {
+  const { scope } = setup(), storage = createMemoryLibraryStorage(), samples = createMemorySampleStorage()
+  const saved = createPersonalLibrary(storage, samples)
+  await saved.saveAsset(scope, 'Preview', null)
+  const catalog = await storage.read(), item = catalog.items[0]!
+  const contexts: FakeContext[] = []
+  class FakeContext {
+    state = 'running'
+    destination = {}
+    source = { buffer: undefined as unknown, disconnect: () => {}, stop: () => {}, connect: () => {}, start: () => { this.started = true }, onended: undefined as unknown }
+    started = false
+    constructor() { contexts.push(this) }
+    async resume() {}
+    async close() { this.state = 'closed' }
+    createBufferSource() { return this.source }
+    createBuffer() { return { copyToChannel: () => {} } }
+  }
+  const previous = globalThis.AudioContext
+  Object.assign(globalThis, { AudioContext: FakeContext })
+  try {
+    for (const fail of [false, true]) {
+      let resolve!: (c: typeof catalog) => void, reject!: (error: Error) => void, reads = 0
+      const library = createPersonalLibrary({ ...storage, read: () => ++reads === 1 ? new Promise((yes, no) => { resolve = yes; reject = no }) : storage.read() }, samples)
+      const a = library.preview(item)
+      await Promise.resolve(); library.stopPreview()
+      const b = library.preview(item)
+      expect(await b).toBe('started')
+      const current = contexts.at(-1)!
+      if (fail) reject(new Error('Old read failed')); else resolve(catalog)
+      expect(await a).toBe('cancelled')
+      expect(current.started).toBe(true); expect(current.state).toBe('running')
+      library.stopPreview(); expect(current.state).toBe('closed')
+    }
+    const broken = createPersonalLibrary({ ...storage, read: async () => { throw new Error('Current read failed') } }, samples)
+    await expect(broken.preview(item)).rejects.toThrow('Current read failed')
+    expect(contexts.every(c => c.state === 'closed')).toBe(true)
+  } finally { Object.assign(globalThis, { AudioContext: previous }) }
+})

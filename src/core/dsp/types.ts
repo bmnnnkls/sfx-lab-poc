@@ -71,7 +71,7 @@ export interface NoteState {
 /** Where a Send node puts its signal: the engine adds it, scaled, to the input of the return track `trackId`. */
 export interface SendSink {
   /** `source` is a mono or a stereo buffer; a mono one is added to both channels. */
-  add(trackId: string, source: Float32Array, amount: number, frames: number): void
+  add(trackId: string, source: Float32Array, amount: number, frames: number, offset?: number): void
 }
 
 /** Where a Track audio node reads another track's sound: what the track produced in the stretch being mixed. */

@@ -1,0 +1,890 @@
+{
+  "scenario": "low-notes",
+  "seconds": 10,
+  "activity": "steady",
+  "diagnostics": false,
+  "scenes": [
+    {
+      "scene": 6,
+      "requestedBeat": 0,
+      "minimumPatternBeats": 16
+    }
+  ],
+  "harnessSHA256": "655c4d3b192252cce8f3f55ac8f8213f215330a3437ead1f167776edeb56618b",
+  "renderedAudioSeconds": 9.733333333333333,
+  "initialLoad": [
+    4.99169921875,
+    5.1181640625,
+    5.583984375
+  ],
+  "finalLoad": [
+    6.4521484375,
+    5.46337890625,
+    5.7001953125
+  ],
+  "dataLossOccurred": false,
+  "cpu": "Apple M3 Pro",
+  "elapsed": 10.451,
+  "browser": "156.0.8078.4",
+  "commit": "36f71d1dea37367d4f1a0f4a18f1d4c17a19e9ec",
+  "bundles": {
+    "dist/assets/engine-processor-BHg-_MUk.js": "cd36aca9feeaae727e7094ff9d70c9ec5133ae49d5bda1165127f981b318fcb2"
+  },
+  "traffic": {
+    "statuses": 282,
+    "probes": [
+      {
+        "kind": "capacity-probe",
+        "rate": 48000,
+        "performance": "undefined",
+        "preparation": true
+      }
+    ],
+    "report": {
+      "kind": "capacity-report",
+      "firstState": {
+        "tracks": 16,
+        "playing": true,
+        "automation": true
+      },
+      "frames": 467200,
+      "quanta": [
+        128
+      ],
+      "nonfinite": 0,
+      "peak": 0.7755621671676636,
+      "jump": 0.7271727621555328,
+      "rate": 48000
+    },
+    "latestStatus": {
+      "tempo": 125,
+      "automationOverrides": [],
+      "automationOverrideRevision": 0,
+      "automation": [
+        {
+          "target": {
+            "kind": "graph",
+            "owner": {
+              "kind": "track",
+              "trackId": "stab"
+            },
+            "domain": "notes",
+            "nodeId": "ng_key",
+            "nodeType": "scaleLock",
+            "paramId": "root",
+            "path": []
+          },
+          "value": 9
+        }
+      ],
+      "playing": true,
+      "beat": 20.22777777777966,
+      "peak": 0.15898174047470093,
+      "peaks": {
+        "kick": 0.20341906994581221,
+        "clap": 0,
+        "hat": 0,
+        "open": 0,
+        "shaker": 0,
+        "tok": 0,
+        "bass": 0,
+        "stab": 0,
+        "arp": 0.06250882398741658,
+        "drone": 0,
+        "riser": 0,
+        "crash": 0,
+        "dust": 0.03448640733957291,
+        "room": 0.021822572126984595,
+        "echo": 0.009687139112502336,
+        "hall": 0.000737931439653039
+      },
+      "readouts": {
+        "kick": {
+          "n_beat": 1
+        },
+        "bass": {
+          "fx_duck/pump": 0.7799999713897705
+        },
+        "stab": {
+          "fx_duck/pump": 0.44999998807907104
+        },
+        "arp": {
+          "fx_duck/pump": 0.5
+        },
+        "drone": {
+          "fx_duck/pump": 0.8500000238418579
+        },
+        "dust": {
+          "n_tick": 1
+        },
+        "echo": {
+          "fx_duck/pump": 0.44999998807907104
+        },
+        "master": {
+          "master_dB": -9.413146018981934,
+          "master_bars": -9.413146018981934
+        }
+      },
+      "tracks": {
+        "kick": {
+          "playingClipId": "kick-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "clap": {
+          "playingClipId": "clap-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "hat": {
+          "playingClipId": "hat-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "open": {
+          "playingClipId": "open-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "shaker": {
+          "playingClipId": "shaker-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "tok": {
+          "playingClipId": "tok-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "bass": {
+          "playingClipId": "bass-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "stab": {
+          "playingClipId": "stab-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "arp": {
+          "playingClipId": "arp-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "drone": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "riser": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "crash": {
+          "playingClipId": "crash-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "dust": {
+          "playingClipId": "dust-s6",
+          "startBeat": 0,
+          "queued": null
+        },
+        "room": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "echo": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "hall": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        }
+      }
+    },
+    "preparation": [
+      {
+        "kind": "capacity-prepared",
+        "before": {
+          "audioTime": 0,
+          "noteBeat": 0,
+          "transportBeat": 0,
+          "renderedFrames": 0
+        },
+        "after": {
+          "audioTime": 0,
+          "noteBeat": 0,
+          "transportBeat": 0,
+          "renderedFrames": 0
+        },
+        "prepared": true
+      }
+    ],
+    "readyAfterNodeMs": 254.89999997615814,
+    "firstStatusAfterNodeMs": 257
+  },
+  "edits": 0,
+  "preparation": {
+    "count": 1,
+    "p50": 243.497,
+    "p95": 243.497,
+    "p99": 243.497,
+    "max": 243.497,
+    "overQuantum": 1,
+    "first": 243.497,
+    "afterFirstTwoSeconds": {
+      "count": 0,
+      "overQuantum": 0
+    },
+    "overruns": [
+      {
+        "relativeSeconds": 0,
+        "ms": 243.497,
+        "overlappingGC": [
+          {
+            "name": "MinorGC",
+            "ms": 0.376
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.339
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.446
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.558
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.106
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.091
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.077
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.089
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.156
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.048
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.069
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.086
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.068
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.066
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.085
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.392
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.064
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.065
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.055
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.052
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.061
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.052
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.043
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.046
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.069
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.06
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.098
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.039
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.055
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.043
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.081
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.075
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.061
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.056
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.059
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.086
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.046
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.058
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.046
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.044
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.063
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.051
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.067
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.056
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.079
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.058
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.044
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.043
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.049
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.051
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.048
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.067
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.067
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.096
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.047
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.052
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.051
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.07
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.06
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.061
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.041
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.063
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.048
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.042
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.037
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.054
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.064
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.044
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.05
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.047
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.063
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.056
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.043
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.056
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.045
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.044
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.055
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.042
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.04
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.063
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.051
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.059
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.047
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.064
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.056
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.067
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.07
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.075
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.047
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.041
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.048
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.059
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.043
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.047
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.048
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.054
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.052
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.043
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.073
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.046
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.051
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.036
+          },
+          {
+            "name": "MinorGC",
+            "ms": 0.073
+          }
+        ]
+      }
+    ]
+  },
+  "engine": {
+    "count": 3652,
+    "p50": 0.495,
+    "p95": 0.897,
+    "p99": 1.146,
+    "max": 2.457,
+    "overQuantum": 0,
+    "first": 1.544,
+    "afterFirstTwoSeconds": {
+      "count": 2910,
+      "p50": 0.5,
+      "p95": 0.906,
+      "p99": 1.16,
+      "max": 2.457,
+      "overQuantum": 0
+    },
+    "overruns": []
+  },
+  "callback": {
+    "count": 3652,
+    "p50": 0.507,
+    "p95": 0.921,
+    "p99": 1.21,
+    "max": 2.949,
+    "overQuantum": 1,
+    "first": 2.128,
+    "afterFirstTwoSeconds": {
+      "count": 2910,
+      "p50": 0.514,
+      "p95": 0.93,
+      "p99": 1.219,
+      "max": 2.949,
+      "overQuantum": 1
+    },
+    "overruns": [
+      {
+        "relativeSeconds": 4.773231,
+        "ms": 2.949,
+        "overlappingGC": []
+      }
+    ]
+  },
+  "overhead": {
+    "count": 1000,
+    "p50": 0,
+    "p95": 0.001,
+    "p99": 0.001,
+    "max": 0.152,
+    "overQuantum": 0,
+    "first": 0.152,
+    "afterFirstTwoSeconds": {
+      "count": 0,
+      "overQuantum": 0
+    },
+    "overruns": []
+  },
+  "eventNames": [
+    "thread_name",
+    "process_name",
+    "process_uptime_seconds",
+    "ResourceWillSendRequest",
+    "MetaCharsetCheck",
+    "ParseHTML",
+    "EventDispatch",
+    "FrameStartedLoading",
+    "ResourceSendRequest",
+    "ResourceReceiveResponse",
+    "UpdateLayoutTree",
+    "CommitLoad",
+    "ResourceReceivedData",
+    "HTMLDocumentParser::MaybeFetchQueuedPreloads",
+    "BackgroundProcessor::MaybeStartProcessingResponse",
+    "BackgroundJSStreamManager::TryStartStreamingTask",
+    "BackgroundJSStreamManager::RunScriptStreamingTask",
+    "v8.parseOnBackground",
+    "v8.parseOnBackgroundParsing",
+    "BackgroundJSStreamManager::OnDataPipeReadable",
+    "BackgroundJSStreamManager::OnFinishStreaming",
+    "v8.parseOnBackgroundWaiting",
+    "PreloadRenderBlockingStatusChange",
+    "ParseAuthorStyleSheet",
+    "ResourceFinish",
+    "v8.compileModule",
+    "Layout",
+    "PrePaint",
+    "Paint",
+    "Layerize",
+    "firstMeaningfulPaintCandidate",
+    "firstPaint",
+    "v8.evaluateModule",
+    "V8.GC_HEAP_EXTERNAL_PROLOGUE",
+    "MinorGC",
+    "V8.GC_HEAP_PROLOGUE",
+    "V8.GC_TIME_TO_SAFEPOINT",
+    "V8.GC_SCAVENGER",
+    "V8.GC_HEAP_PROLOGUE_SAFEPOINT",
+    "V8.GC_SCAVENGER_SCAVENGE",
+    "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_IDENTIFY",
+    "ComputeWeaknessProcessor start",
+    "V8.GC_SCAVENGER_TRACED_HANDLES_COMPUTE_WEAKNESS_PARALLEL",
+    "V8.GC_SCAVENGER_SCAVENGE_COLLECT_OLD_TO_NEW_PAGES",
+    "V8.GC_SCAVENGER_SCAVENGE_PARALLEL_PHASE",
+    "Parallel scavenge started",
+    "V8.GC_SCAVENGER_SCAVENGE_ROOTS",
+    "V8.GC_SCAVENGER_BACKGROUND_SCAVENGE_PARALLEL",
+    "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_PROCESS",
+    "ClearWeaknessProcessor start",
+    "V8.GC_SCAVENGER_TRACED_HANDLES_RESET_PARALLEL",
+    "V8.GC_SCAVENGER_SCAVENGE_FINALIZE",
+    "V8.GC_SCAVENGER_SCAVENGE_RESTORE_AND_QUARANTINE_PINNED",
+    "V8.GC_SCAVENGER_FREE_REMEMBERED_SET",
+    "V8.GC_SCAVENGER_SWEEP_ARRAY_BUFFERS",
+    "V8.GC_SCAVENGER_RESIZE_NEW_SPACE",
+    "V8.GC_HEAP_EPILOGUE_SAFEPOINT",
+    "V8.GC_HEAP_EPILOGUE",
+    "V8.GC_HEAP_EXTERNAL_EPILOGUE",
+    "V8.GC_MINOR_MS_BACKGROUND_SWEEPING",
+    "V8.GC_BACKGROUND_YOUNG_ARRAY_BUFFER_SWEEP",
+    "ArrayBufferSweeper Finished",
+    "V8.GC_SCAVENGER_COMPLETE_SWEEP_ARRAY_BUFFERS",
+    "V8.GC_BACKGROUND_SAFEPOINT",
+    "FunctionCall",
+    "MarkDOMContent",
+    "MarkLoad",
+    "V8.GC_BACKGROUND_UNPARK",
+    "V8.GC_SCAVENGER_SCAVENGE_PARALLEL",
+    "firstContentfulPaint",
+    "largestContentfulPaint::Candidate",
+    "firstMeaningfulPaint",
+    "RequestAnimationFrame",
+    "FireAnimationFrame",
+    "HitTest",
+    "TimerRemove",
+    "Responsiveness.Renderer.UserInteraction",
+    "TimeStamp",
+    "V8.GC_SCAVENGER_BACKGROUND_TRACED_HANDLES_COMPUTE_WEAKNESS_PARALLEL",
+    "V8.GC_SCAVENGER_BACKGROUND_TRACED_HANDLES_RESET_PARALLEL",
+    "V8.GC_HEAP_ENSURE_SWEEPING_COMPLETED",
+    "V8.GC_MC_INCREMENTAL_START",
+    "V8.GC_MC_INCREMENTAL_EXTERNAL_PROLOGUE",
+    "V8.GC_MC_MARK_EMBEDDER_PROLOGUE",
+    "V8.GC_MC_MARK_ROOTS",
+    "Major concurrent marking started",
+    "V8.GC_MC_BACKGROUND_MARKING",
+    "V8.GC_MC_INCREMENTAL_EXTERNAL_EPILOGUE",
+    "V8.GC_MC_INCREMENTAL",
+    "V8.GC_MC_INCREMENTAL_EMBEDDER_TRACING",
+    "ConcurrentMarking::RunMajor Finished",
+    "Major concurrent marking rescheduled",
+    "MajorGC",
+    "V8.GC_MARK_COMPACTOR",
+    "V8.GC_MC_PROLOGUE",
+    "V8.GC_MC_MARK",
+    "V8.GC_MC_MARK_FINISH_INCREMENTAL",
+    "V8.GC_MC_MARK_CLIENT_HEAPS",
+    "V8.GC_MC_MARK_RETAIN_MAPS",
+    "V8.GC_MC_MARK_FULL_CLOSURE_PARALLEL",
+    "V8.GC_MC_MARK_WEAK_CLOSURE_EPHEMERON_MARKING",
+    "V8.GC_MC_MARK_EMBEDDER_TRACING",
+    "ConcurrentMarking::RunMajor Preempted",
+    "V8.GC_CONSERVATIVE_STACK_SCANNING",
+    "V8.GC_MC_MARK_FULL_CLOSURE_SERIAL",
+    "V8.GC_MC_CLEAR",
+    "ClearStringTableJob started",
+    "ClearTrivialWeakRefJob started",
+    "ClearTrustedWeakRefJob started",
+    "ClearNonTrivialWeakRefs started",
+    "V8.GC_MC_CLEAR_JOIN_JOB",
+    "V8.GC_MC_CLEAR_WEAK_COLLECTIONS",
+    "V8.GC_MC_CLEAR_SWEEP_WASM_CODE_POINTER_TABLE",
+    "V8.GC_MC_CLEAR_MAPS",
+    "V8.GC_MC_CLEAR_WEAK_LISTS",
+    "V8.GC_MC_CLEAR_FLUSHED_JS_FUNCTIONS",
+    "V8.GC_MC_CLEAR_JS_WEAK_REFERENCES",
+    "V8.GC_MC_CLEAR_EXTERNAL_STRING_TABLE",
+    "V8.GC_MC_CLEAR_SWEEP_JS_DISPATCH_TABLE",
+    "V8.GC_MC_CLEAR_WEAK_GLOBAL_HANDLES",
+    "V8.GC_MC_CLEAR_SWEEP_EXTERNAL_POINTER_TABLE",
+    "V8.GC_MC_CLEAR_FLUSHABLE_BYTECODE",
+    "V8.GC_MC_CLEAR_SWEEP_TRUSTED_POINTER_TABLE",
+    "V8.GC_MC_CLEAR_WEAK_REFERENCES_NON_TRIVIAL",
+    "V8.GC_MC_CLEAR_WEAK_REFERENCES_TRUSTED",
+    "V8.GC_MC_CLEAR_WEAK_REFERENCES_TRIVIAL",
+    "V8.GC_MC_CLEAR_STRING_TABLE",
+    "V8.GC_MC_SWEEP",
+    "V8.GC_MC_EVACUATE",
+    "V8.GC_MC_EVACUATE_PROLOGUE",
+    "V8.GC_MC_EVACUATE_COPY",
+    "PageEvacuationJob started",
+    "V8.GC_MC_EVACUATE_COPY_PARALLEL",
+    "V8.GC_MC_BACKGROUND_EVACUATE_COPY",
+    "V8.GC_MC_BACKGROUND_SWEEPING",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_TO_NEW_ROOTS",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_CLIENT_HEAPS",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_SLOTS_MAIN",
+    "PointersUpdatingJob started",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_PARALLEL",
+    "V8.GC_MC_BACKGROUND_EVACUATE_UPDATE_POINTERS",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_WEAK",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_POINTER_TABLES",
+    "V8.GC_MC_EVACUATE_CLEAN_UP",
+    "V8.GC_MC_EVACUATE_EPILOGUE",
+    "V8.GC_MC_SWEEP_NEW_LO",
+    "V8.GC_MC_EVACUATE_REBALANCE",
+    "V8.GC_MC_FINISH",
+    "V8.GC_MC_FINISH_SWEEP_ARRAY_BUFFERS",
+    "V8.GC_MC_SWEEP_START_JOBS",
+    "V8.GC_BACKGROUND_FULL_ARRAY_BUFFER_SWEEP",
+    "V8.GC_MC_EPILOGUE",
+    "V8.GC_HEAP_EMBEDDER_TRACING_EPILOGUE",
+    "Sweeper::ConcurrentMajorSweeper Finished",
+    "V8.GC_MC_COMPLETE_SWEEP_ARRAY_BUFFERS",
+    "V8.GC_MC_COMPLETE_SWEEPING",
+    "AnimationFrame",
+    "AnimationFrame::FirstUIEvent",
+    "AnimationFrame::Render",
+    "AnimationFrame::StyleAndLayout",
+    "AnimationFrame::Presentation",
+    "AnimationFrame::Script::Compile",
+    "AnimationFrame::Script::Execute",
+    "EventTiming",
+    "Animation"
+  ]
+}

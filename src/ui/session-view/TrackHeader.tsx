@@ -1,10 +1,13 @@
-import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode } from '@core'
+import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type ControlTarget, type Track, describeNode } from '@core'
 import { useEngineControls, useProjectStore, useSelectionStore } from '@state'
+import { useControlGesture } from '../controls/use-control-gesture'
+import { EffectiveValue } from '../controls/EffectiveValue'
 import styles from './SessionView.module.css'
 
 export const TrackHeader = ({ track }: { track: Track }) => {
   const controls = useEngineControls()
-  const setVolume = useProjectStore((state) => state.setTrackVolume)
+  const gesture = useControlGesture()
+  const target: ControlTarget = { kind: 'mixer', owner: { kind: 'track', trackId: track.id }, control: 'volume' }
   const removeTrack = useProjectStore((state) => state.removeTrack)
   const selected = useSelectionStore((state) => state.trackId === track.id)
   const selectTrack = useSelectionStore((state) => state.selectTrack)
@@ -19,7 +22,7 @@ export const TrackHeader = ({ track }: { track: Track }) => {
       : []
 
   return (
-    <div className={`${styles.header} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnHeader : ''} ${track.muted ? styles.mutedHeader : ''}`}>
+    <div {...gesture.events} className={`${styles.header} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnHeader : ''} ${track.muted ? styles.mutedHeader : ''}`}>
       <button className={styles.trackName} onClick={() => selectTrack(track.id)}>
         {track.name}
         {track.kind === 'audio' && <span className={styles.audioTag}> audio</span>}
@@ -58,8 +61,9 @@ export const TrackHeader = ({ track }: { track: Track }) => {
         step={0.01}
         value={track.volume}
         aria-label={`${track.name} volume`}
-        onChange={(event) => setVolume(track.id, Number(event.target.value))}
+        onChange={(event) => gesture.change([{ target, value: Number(event.target.value) }])}
       />
+      <EffectiveValue target={target} />
       {track.kind !== 'return' && (
         <button onClick={() => controls.stopTrack(track.id)} aria-label={`Stop ${track.name}`}>
           ■

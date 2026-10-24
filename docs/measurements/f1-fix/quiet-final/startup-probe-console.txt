@@ -1,0 +1,69 @@
+{
+  "browser": "156.0.8078.4",
+  "rate": 48000,
+  "observations": [
+    {
+      "step": "suspended",
+      "state": "suspended",
+      "currentTime": 0,
+      "messages": [
+        {
+          "constructed": true,
+          "time": 0
+        },
+        {
+          "reply": "suspended",
+          "calls": 0,
+          "time": 0
+        }
+      ]
+    },
+    {
+      "step": "running-unconnected",
+      "state": "running",
+      "currentTime": 0.48,
+      "messages": [
+        {
+          "constructed": true,
+          "time": 0
+        },
+        {
+          "reply": "suspended",
+          "calls": 0,
+          "time": 0
+        },
+        {
+          "reply": "running-unconnected",
+          "calls": 2,
+          "time": 0.005333333333333333
+        }
+      ]
+    },
+    {
+      "step": "running-connected",
+      "state": "running",
+      "currentTime": 0.9813333333333333,
+      "messages": [
+        {
+          "constructed": true,
+          "time": 0
+        },
+        {
+          "reply": "suspended",
+          "calls": 0,
+          "time": 0
+        },
+        {
+          "reply": "running-unconnected",
+          "calls": 2,
+          "time": 0.005333333333333333
+        },
+        {
+          "reply": "running-connected",
+          "calls": 180,
+          "time": 0.48
+        }
+      ]
+    }
+  ]
+}

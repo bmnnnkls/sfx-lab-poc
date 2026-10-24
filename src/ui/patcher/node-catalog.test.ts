@@ -37,7 +37,7 @@ describe('searchCatalog', () => {
   it('an empty query gives everything, in catalog order, or one category', () => {
     expect(searchCatalog(catalog, '').map((entry) => entry.ref)).toEqual(catalog.entries.map((entry) => entry.ref))
     expect(searchCatalog(catalog, '  ')).toHaveLength(catalog.entries.length)
-    expect(searchCatalog(catalog, '', 'Filters').map((entry) => entry.label)).toEqual(['Filter'])
+    expect(searchCatalog(catalog, '', 'Filters').map((entry) => entry.label)).toEqual(['Filter', 'Comb'])
     expect(searchCatalog(catalog, '', 'Controls').map((entry) => entry.label)).toEqual(['Control', 'XY pad', 'Switch', 'Selector'])
   })
 

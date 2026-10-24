@@ -1,0 +1,13 @@
+
+> sfx-lab-poc@0.0.0 test
+> vitest run src/core/engine/automation-mixed-timeline.test.ts
+
+
+ RUN  v5.0.3 /Users/niklaus.baumann/git/local/sfx-lab-poc
+
+
+ Test Files  1 passed (1)
+      Tests  45 passed (45)
+   Start at  17:16:46
+   Duration  1.25s (tests 48%, transform 43%, import 9%)
+

@@ -1,0 +1,9 @@
+
+ RUN  v5.0.3 /private/tmp/sfx-commit-check.09m3nxi1
+
+
+ Test Files  2 passed (2)
+      Tests  2 passed (2)
+   Start at  09:43:51
+   Duration  633ms (tests 92%, transform 6%, import 2%, worker 1%)
+

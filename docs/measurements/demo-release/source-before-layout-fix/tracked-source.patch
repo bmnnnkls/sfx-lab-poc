@@ -1,0 +1,986 @@
+diff --git a/src/app/automation-runtime.test.ts b/src/app/automation-runtime.test.ts
+index 9c53fb0..46661da 100644
+--- a/src/app/automation-runtime.test.ts
++++ b/src/app/automation-runtime.test.ts
+@@ -18,7 +18,7 @@ const setup = (laneTarget: ControlTarget = target) => {
+   useControlStore.setState({ overrides: [], playback: [] })
+   const engine = new Engine(8000)
+   let listener = (_: EngineStatus) => {}
+-  const host = { send: (c: EngineCommand) => engine.apply(c), onStatus: (fn: typeof listener) => { listener = fn; return () => {} }, start: async () => {} } as unknown as AudioHost
++  const host = { send: (c: EngineCommand) => engine.apply(c), onStatus: (fn: typeof listener) => { listener = fn; return () => {} }, onFailure: () => () => {}, start: async () => {} } as unknown as AudioHost
+   const disconnect = connectEngine(host)
+   const step = (frames = 128) => { engine.render(new Float32Array(frames), new Float32Array(frames)); listener(engine.status()) }
+   engine.apply({ type: 'scene/launch', scene: 0 }); step()
+diff --git a/src/app/control-runtime.test.ts b/src/app/control-runtime.test.ts
+index d92de1b..6c81778 100644
+--- a/src/app/control-runtime.test.ts
++++ b/src/app/control-runtime.test.ts
+@@ -9,7 +9,7 @@ import { createEngineControls } from './engine-controls'
+ 
+ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); useControlStore.getState().clear() })
+ const master: ControlTarget = { kind: 'mixer', owner: { kind: 'master' }, control: 'volume' }
+-const hostFor = (engine: Engine) => ({ send: (command: EngineCommand) => engine.apply(command), onStatus: () => () => {}, start: async () => {} }) as unknown as AudioHost
++const hostFor = (engine: Engine) => ({ send: (command: EngineCommand) => engine.apply(command), onStatus: () => () => {}, onFailure: () => () => {}, start: async () => {} }) as unknown as AudioHost
+ const peak = (engine: Engine) => {
+   const left = new Float32Array(128), right = new Float32Array(128)
+   engine.render(left, right)
+@@ -60,7 +60,7 @@ describe('runtime control ownership', () => {
+     const project = createDemoProject()
+     useProjectStore.getState().resetProject(project)
+     const sent: EngineCommand[] = []
+-    const host = { send: (command: EngineCommand) => sent.push(command), onStatus: () => () => {} } as unknown as AudioHost
++    const host = { send: (command: EngineCommand) => sent.push(command), onStatus: () => () => {}, onFailure: () => () => {} } as unknown as AudioHost
+     const disconnect = connectEngine(host)
+     try {
+       useControlStore.getState().setOverride(master, 0.2)
+@@ -120,7 +120,7 @@ it('routes held-note controls without document/history writes and panics on repl
+   useProjectStore.getState().resetProject(project)
+   const engine = new Engine(48000)
+   const sent: EngineCommand[] = []
+-  const host = { send: (command: EngineCommand) => { sent.push(command); engine.apply(command) }, onStatus: () => () => {}, start: async () => {} } as unknown as AudioHost
++    const host = { send: (command: EngineCommand) => { sent.push(command); engine.apply(command) }, onStatus: () => () => {}, onFailure: () => () => {}, start: async () => {} } as unknown as AudioHost
+   const disconnect = connectEngine(host)
+   const controls = createEngineControls(host)
+   const track = project.tracks.find((track) => track.kind === 'instrument')!
+diff --git a/src/app/project-sync.ts b/src/app/project-sync.ts
+index 9757fa5..51f8ebf 100644
+--- a/src/app/project-sync.ts
++++ b/src/app/project-sync.ts
+@@ -54,6 +54,9 @@ export const connectEngine = (host: AudioHost): (() => void) => {
+       if (retained.length !== useControlStore.getState().overrides.length) useControlStore.setState({ overrides: retained })
+     }
+   })
++  const stopFailure = host.onFailure(() => {
++    useStatusStore.getState().setAudioFailure('Audio failed to start—reload to retry')
++  })
+ 
+   return () => {
+     cancelTouches(); setTouchClock()
+@@ -61,6 +64,7 @@ export const connectEngine = (host: AudioHost): (() => void) => {
+     stopProject()
+     stopControls()
+     stopStatus()
++    stopFailure()
+     useControlStore.setState({ playback: [] })
+   }
+ }
+diff --git a/src/app/touch-runtime.test.ts b/src/app/touch-runtime.test.ts
+index f84c8f8..83de918 100644
+--- a/src/app/touch-runtime.test.ts
++++ b/src/app/touch-runtime.test.ts
+@@ -18,7 +18,7 @@ const setup = (control = target, audio = false) => {
+   useProjectStore.getState().resetProject(project); useControlStore.getState().clear()
+   const engine = new Engine(8000)
+   let listener = (_: EngineStatus) => {}, beat = 0
+-  const host = { recordingBeat: () => beat, send: (c: EngineCommand) => engine.apply(c), onStatus: (fn: typeof listener) => { listener = fn; return () => {} } } as unknown as AudioHost
++  const host = { recordingBeat: () => beat, send: (c: EngineCommand) => engine.apply(c), onStatus: (fn: typeof listener) => { listener = fn; return () => {} }, onFailure: () => () => {} } as unknown as AudioHost
+   const disconnect = connectEngine(host)
+   if (audio) engine.apply({ type: 'sample/add', sample: { id: sample.id, sampleRate: 8000, data: new Float32Array(16000).fill(0.2) } })
+   const step = (frames = 128) => { engine.render(new Float32Array(frames), new Float32Array(frames)); const status = engine.status(); beat = status.beat; listener(status) }
+@@ -31,7 +31,7 @@ const setup = (control = target, audio = false) => {
+   return { engine, project, step, disconnect, lanes, at: (n: number) => { beat = n } }
+ }
+ const cleanup: (() => void)[] = []
+-afterEach(() => { for (const stop of cleanup.splice(0)) stop(); cancelTouches(); setTouchClock(); useControlStore.getState().clear(); useStatusStore.setState({ status: null }); vi.useRealTimers(); vi.unstubAllGlobals() })
++afterEach(() => { for (const stop of cleanup.splice(0)) stop(); cancelTouches(); setTouchClock(); useControlStore.getState().clear(); useStatusStore.setState({ status: null, audioFailure: null }); vi.useRealTimers(); vi.unstubAllGlobals() })
+ describe('Touch takes through common gestures', () => {
+   it.each([target, master, ret])('records one transaction into the playing owner and returns to Read (%j)', (control) => {
+     const s = setup(control); cleanup.push(s.disconnect)
+diff --git a/src/audio/audio-host.test.ts b/src/audio/audio-host.test.ts
+index 0b678f0..3763601 100644
+--- a/src/audio/audio-host.test.ts
++++ b/src/audio/audio-host.test.ts
+@@ -3,21 +3,23 @@ import type { HostMessage, WorkletMessage } from './protocol'
+ import { AudioHost } from './audio-host'
+ 
+ afterEach(() => vi.unstubAllGlobals())
+-const fixture = () => {
++const fixture = ({ failResume = false }: { failResume?: boolean } = {}) => {
+   const order: string[] = []
+   const sent: HostMessage[] = []
++  let contexts = 0
+   class Context {
++    constructor() { contexts++ }
+     state = 'running'
+     currentTime = 0
+     destination = {}
+     audioWorklet = { addModule: async () => { order.push('module') } }
+     async suspend() { order.push('suspend'); this.state = 'suspended' }
+-    async resume() { order.push('resume'); this.state = 'running' }
++    async resume() { order.push('resume'); if (failResume) throw new Error('resume failed'); this.state = 'running' }
+     async close() { order.push('close'); this.state = 'closed' }
+   }
+   let node!: Node
+   class Node {
+-    onprocessorerror?: () => void
++    onprocessorerror?: (event: Event) => void
+     port = {
+       onmessage: (_event: { data: WorkletMessage }) => {},
+       postMessage: (message: HostMessage, transfer: Transferable[] = []) => {
+@@ -29,7 +31,7 @@ const fixture = () => {
+     connect() { order.push('connect') }
+   }
+   vi.stubGlobal('AudioContext', Context); vi.stubGlobal('AudioWorkletNode', Node)
+-  return { order, sent, get node() { return node } }
++  return { order, sent, get contexts() { return contexts }, get node() { return node } }
+ }
+ 
+ it('keeps the context suspended and later commands queued until ready; transfers initial samples once', async () => {
+@@ -51,14 +53,57 @@ it('keeps the context suspended and later commands queued until ready; transfers
+   expect(f.sent.filter(m=>m.kind === 'command' && m.command.type === 'sample/add')).toHaveLength(1)
+ })
+ 
+-it('surfaces preparation failure and closes the suspended context without connecting or resuming', async () => {
+-  const f = fixture(), host = new AudioHost()
+-  const starting = host.start(), rejected = expect(starting).rejects.toThrow('fixture failed')
++it('makes preparation failure terminal after sample transfer and safely ignores later actions', async () => {
++  const f = fixture(), host = new AudioHost(), failure = vi.fn(), bytes = new Float32Array([.25, .5])
++  host.send({ type: 'sample/add', sample: { id: 'asset', sampleRate: 48000, data: bytes } }, [bytes.buffer])
++  host.onFailure(failure)
++  const starting = host.start()
+   await vi.waitFor(() => expect(f.order).toContain('prepare'))
++  expect(bytes.byteLength).toBe(0)
+   f.node.port.onmessage({ data: { kind: 'preparation-error', message: 'fixture failed' } })
+-  await rejected
+-  expect(f.order).toEqual(['suspend','module','prepare','close'])
++  await starting
++  expect(f.order).toEqual(['suspend','module','sample/add','prepare','close'])
+   expect(host.isRunning).toBe(false)
++  expect(failure).toHaveBeenCalledExactlyOnceWith(new Error('fixture failed'))
++
++  host.send({ type: 'transport/play' })
++  await host.start()
++  expect(f.contexts).toBe(1)
++  expect(f.sent.filter((message) => message.kind === 'command')).toHaveLength(1)
++  expect(f.sent.filter((message) => message.kind === 'command').map((message) => message.kind === 'command' ? message.command.type : '')).toEqual(['sample/add'])
++  expect(f.order).toEqual(['suspend','module','sample/add','prepare','close'])
++  expect(failure).toHaveBeenCalledTimes(1)
++})
++
++it('handles a rejected context resume as a terminal failure without rejecting start', async () => {
++  const f = fixture({ failResume: true }), host = new AudioHost(), failure = vi.fn()
++  host.onFailure(failure)
++  const starting = host.start()
++  await vi.waitFor(() => expect(f.order).toContain('prepare'))
++  f.node.port.onmessage({ data: { kind: 'ready' } })
++  await expect(starting).resolves.toBeUndefined()
++  expect(f.order).toEqual(['suspend','module','prepare','connect','resume','close'])
++  expect(host.isRunning).toBe(false)
++  expect(failure).toHaveBeenCalledExactlyOnceWith(new Error('resume failed'))
++  host.send({ type: 'transport/play' })
++  await host.start()
++  expect(f.contexts).toBe(1)
++  expect(failure).toHaveBeenCalledTimes(1)
++})
++
++it('surfaces a processor error that arrives after the host became ready', async () => {
++  const f = fixture(), host = new AudioHost(), failure = vi.fn()
++  host.onFailure(failure)
++  const starting = host.start()
++  await vi.waitFor(() => expect(f.order).toContain('prepare'))
++  f.node.port.onmessage({ data: { kind: 'ready' } })
++  await starting
++  f.node.onprocessorerror?.(new Event('processorerror'))
++  await vi.waitFor(() => expect(f.order).toContain('close'))
++  expect(host.isRunning).toBe(false)
++  expect(failure).toHaveBeenCalledExactlyOnceWith(new Error('Audio engine stopped unexpectedly'))
++  host.send({ type: 'transport/play' })
++  expect(f.sent.filter((message) => message.kind === 'command')).toHaveLength(0)
+ })
+ 
+ it('ignores measurement/extension packets without publishing an undefined engine status', async () => {
+diff --git a/src/audio/audio-host.ts b/src/audio/audio-host.ts
+index 5860daa..4080345 100644
+--- a/src/audio/audio-host.ts
++++ b/src/audio/audio-host.ts
+@@ -4,6 +4,7 @@ import { RecordingClock } from './recording-clock'
+ import workletUrl from './worklet/engine-processor.ts?worker&url'
+ 
+ type StatusListener = (status: EngineStatus) => void
++type FailureListener = (error: Error) => void
+ 
+ /**
+  * Owns the AudioContext and the engine worklet. Commands sent before `start()` are
+@@ -13,8 +14,10 @@ export class AudioHost {
+   private context: AudioContext | null = null
+   private node: AudioWorkletNode | null = null
+   private starting: Promise<void> | null = null
++  private startupFailure: Error | null = null
+   private readonly queue: Array<{ command: EngineCommand; transfer: Transferable[] }> = []
+   private readonly listeners = new Set<StatusListener>()
++  private readonly failureListeners = new Set<FailureListener>()
+ 
+   private readonly clock = new RecordingClock()
+ 
+@@ -28,14 +31,30 @@ export class AudioHost {
+     return this.context?.state === 'running'
+   }
+ 
+-  /** Must be called from a user gesture the first time (browser autoplay policy). */
++  /**
++   * Must be called from a user gesture the first time (browser autoplay policy).
++   * Resolves when the startup attempt settles; callers must use `onFailure` to detect
++   * a terminal failure because this promise deliberately never rejects.
++   */
+   start(): Promise<void> {
+-    this.starting ??= this.boot()
+-    return this.starting.then(() => this.context?.resume()).then(() => undefined)
++    if (this.startupFailure) return Promise.resolve()
++    this.starting ??= this.boot().catch((error: unknown) => { this.fail(error) })
++    return this.starting.then(async () => {
++      if (this.startupFailure || !this.context) return
++      try {
++        await this.context.resume()
++      } catch (error) {
++        this.fail(error)
++        await this.closeAfterFailure()
++      }
++    })
+   }
+ 
+   /** `transfer` lists buffers to hand over to the audio thread without copying (they become unusable here). */
+   send(command: EngineCommand, transfer: Transferable[] = []): void {
++    // A failed preparation may already have detached sample buffers from the main thread.
++    // The engine mirror cannot be rebuilt safely without reloading/resynchronizing the project.
++    if (this.startupFailure) return
+     if (!this.node) {
+       this.queue.push({ command, transfer })
+       return
+@@ -49,6 +68,14 @@ export class AudioHost {
+     return () => this.listeners.delete(listener)
+   }
+ 
++  onFailure(listener: FailureListener): () => void {
++    this.failureListeners.add(listener)
++    if (this.startupFailure) {
++      try { listener(this.startupFailure) } catch (error) { console.error('Audio failure listener failed', error) }
++    }
++    return () => this.failureListeners.delete(listener)
++  }
++
+   private async boot(): Promise<void> {
+     const context = new AudioContext({ latencyHint: 'interactive' })
+     try {
+@@ -69,7 +96,12 @@ export class AudioHost {
+       }
+       node.onprocessorerror = (event) => {
+         console.error('Audio engine stopped unexpectedly', event)
+-        rejectReady(new Error('Audio engine preparation failed'))
++        const error = new Error('Audio engine stopped unexpectedly')
++        rejectReady(error)
++        if (this.context) {
++          this.fail(error)
++          void this.closeAfterFailure()
++        }
+       }
+       // Keep send() queued until ready, including commands arriving while the temporary engine runs.
+       for (const { command, transfer } of this.queue.splice(0)) node.port.postMessage({ kind: 'command', command } satisfies HostMessage, transfer)
+@@ -80,8 +112,28 @@ export class AudioHost {
+       for (const { command, transfer } of this.queue.splice(0)) this.send(command, transfer)
+       node.connect(context.destination)
+     } catch (error) {
+-      await context.close()
++      this.fail(error)
++      try { await context.close() } catch { /* Preserve the preparation error shown to the user. */ }
+       throw error
+     }
+   }
++
++  private async closeAfterFailure(): Promise<void> {
++    const context = this.context
++    this.context = null
++    this.node = null
++    if (context) {
++      try { await context.close() } catch { /* The original startup error is more useful. */ }
++    }
++  }
++
++  private fail(reason: unknown): void {
++    if (this.startupFailure) return
++    const error = reason instanceof Error ? reason : new Error(String(reason))
++    this.startupFailure = error
++    this.queue.length = 0
++    for (const listener of this.failureListeners) {
++      try { listener(error) } catch (listenerError) { console.error('Audio failure listener failed', listenerError) }
++    }
++  }
+ }
+diff --git a/src/core/engine/automation.ts b/src/core/engine/automation.ts
+index b25c7c8..abf224d 100644
+--- a/src/core/engine/automation.ts
++++ b/src/core/engine/automation.ts
+@@ -138,6 +138,11 @@ export class EngineAutomation {
+   }
+   get configured(): boolean { return this.tracks.size > 0 }
+   overrideValues(): readonly ControlValue[] { return [...this.overrides.values()] }
++  /** Copy ownership that must survive planning a later queued transition in this horizon. */
++  copyOverrides(into: Map<string, number>): void {
++    into.clear()
++    for (const [key, entry] of this.overrides) into.set(key, entry.value)
++  }
+   readouts(): readonly ControlValue[] { return [...this.active.values()].map(({ lane, value }) => ({ target: lane.target, value })) }
+ }
+ 
+diff --git a/src/core/engine/engine.ts b/src/core/engine/engine.ts
+index aab5293..d3f5b1e 100644
+--- a/src/core/engine/engine.ts
++++ b/src/core/engine/engine.ts
+@@ -35,6 +35,8 @@ export class Engine {
+   /** Curves live until every audio subrun of their planning horizon has consumed them. */
+   private targetMetadata = new WeakMap<ControlTarget, { key: string; nodeId: string }>()
+   private readonly curves = new Map<string, { target: ControlTarget; values: Float64Array; baseValue: number; used: boolean }>()
++  /** Reused per horizon; a queued launch may clear overrides before its earlier samples are mixed. */
++  private readonly horizonEntryOverrides = new Map<string, number>()
+   private readonly automationSends = new Map<string, Record<string, number>>()
+   private readonly transport: Transport
+   private readonly tracks = new Map<string, PlayableTrack>()
+@@ -358,6 +360,7 @@ export class Engine {
+       // A zero-length lifecycle was committed above; every planned horizon must now advance.
+       if (end <= cursor) throw new Error('Non-progressing audio planning horizon')
+       for (const curve of this.curves.values()) curve.used = false
++      this.automation.copyOverrides(this.horizonEntryOverrides)
+       const collecting = { frame: 0, frames: end - cursor }
+       this.collecting = collecting
+       const events: ScheduledEvent[] = []
+@@ -381,6 +384,7 @@ export class Engine {
+         }
+       }
+       this.collecting = null
++      this.horizonEntryOverrides.clear()
+       for (const curve of this.curves.values()) if (curve.used) {
+         let last = curve.baseValue
+         for (let i = 0; i < collecting.frames; i++) { if (Number.isNaN(curve.values[i]!)) curve.values[i] = last; else last = curve.values[i]! }
+@@ -663,7 +667,11 @@ export class Engine {
+         curve = { target, values: new Float64Array(MAX_BLOCK_FRAMES), baseValue, used: false }
+         this.curves.set(key, curve)
+       }
+-      if (!curve.used) { curve.values.fill(NaN); curve.baseValue = baseValue; curve.used = true }
++      if (!curve.used) {
++        curve.values.fill(NaN)
++        curve.baseValue = this.horizonEntryOverrides.get(key) ?? baseValue
++        curve.used = true
++      }
+       curve.values[this.collecting.frame] = value
+       return
+     }
+diff --git a/src/core/library/bundle.ts b/src/core/library/bundle.ts
+index 879cf7d..5d55f7e 100644
+--- a/src/core/library/bundle.ts
++++ b/src/core/library/bundle.ts
+@@ -1,15 +1,15 @@
+ import { createId } from '../shared'
+ import { resolveControlTarget } from '../control'
+-import { canonicalRecord, validateLibraryPayloads } from '../persistence'
++import { canonicalPortableSignature, canonicalRecord, validateLibraryPayloads } from '../persistence'
+ import { createEmptyProject } from '../project'
+ import { insertLibraryAsset } from './assets'
+ import { libraryName } from './catalog'
+-import type { LibraryCatalog, LibraryItem } from './types'
++import { LIBRARY_CATALOG_VERSION, type LibraryCatalog, type LibraryItem } from './types'
+ 
+-export const LIBRARY_BUNDLE_VERSION = 1
++export const LIBRARY_BUNDLE_VERSION = 2
+ export interface LibraryBundleManifest {
+   readonly format: 'sfx-lab-library'
+-  readonly version: 1
++  readonly version: 2
+   readonly name: string
+   readonly partial: boolean
+   readonly missing: readonly string[]
+@@ -48,7 +48,7 @@ export const validateBundleObjectBudget = (root: unknown): void => {
+ /** Validate closure references before the project record validators. No silent sanitizing or dropped records. */
+ export const validateLibraryCatalog = (input: unknown): LibraryCatalog => {
+   validateBundleObjectBudget(input)
+-  if (!record(input) || input.version !== 1) return fail('unsupported catalog version')
++  if (!record(input) || input.version !== LIBRARY_CATALOG_VERSION) return fail('unsupported catalog version')
+   keys(input, ['version', 'folders', 'items', 'revisions', 'samples'])
+   const folders = list(input.folders, 1024), items = list(input.items, 4096), revisions = list(input.revisions, 4096), samples = list(input.samples, 4096)
+   if ([...folders, ...items, ...revisions, ...samples].some(v => !record(v) || !id(v.id))) return fail('malformed records')
+@@ -129,6 +129,11 @@ export const validateLibraryCatalog = (input: unknown): LibraryCatalog => {
+         if (!record(lane) || !record(lane.target)) fail('lane fields')
+         keys(lane, ['id', 'target', 'points', 'enabled', 'graphSignature', 'nodeIndex'])
+         if ('owner' in lane.target || lane.target.kind === 'mixer' && lane.target.control === 'send' || lane.target.kind === 'graph' && (['send', 'trackAudio', 'trackNotes'].includes(lane.target.nodeType) || typeof lane.graphSignature !== 'string' || !Number.isInteger(lane.nodeIndex) || lane.nodeIndex! < 0 || lane.nodeIndex! >= 10000)) fail('unsafe portable lane')
++        if (lane.target.kind === 'graph') {
++          const signature = canonicalPortableSignature(lane.graphSignature)
++          const nodes = JSON.parse(signature)[0] as unknown[][]
++          if (signature !== lane.graphSignature || nodes[lane.nodeIndex!]?.[0] !== lane.target.nodeType) fail('noncanonical or mismatched portable signature')
++        }
+       }
+     } else fail('unknown item kind')
+   }
+@@ -197,7 +202,7 @@ export const selectLibraryBundle = (catalog: LibraryCatalog, selection: LibraryB
+   if (revisions.length !== revisionIds.size) fail('missing immutable revision')
+   const sampleIds = new Set([...revisions.flatMap(r => r.payload.sampleIds), ...items.flatMap(i => i.content.kind === 'sample' ? [i.content.sampleId] : i.content.kind === 'audio-clip' ? [i.content.clip.sampleId] : [])])
+   const clean = <T extends { readonly trashed?: boolean }>(v: T): Omit<T, 'trashed'> => { const { trashed: _trash, ...rest } = v; return rest }
+-  return validateLibraryCatalog({ version: 1, folders: byId(catalog.folders.filter(f => folders.has(f.id)).map(clean)), items: byId(items.map(clean)), revisions: byId(revisions), samples: byId(catalog.samples.filter(s => sampleIds.has(s.id))) })
++  return validateLibraryCatalog({ version: LIBRARY_CATALOG_VERSION, folders: byId(catalog.folders.filter(f => folders.has(f.id)).map(clean)), items: byId(items.map(clean)), revisions: byId(revisions), samples: byId(catalog.samples.filter(s => sampleIds.has(s.id))) })
+ }
+ 
+ export const libraryBundleConflicts = (current: LibraryCatalog, incoming: LibraryCatalog): number =>
+@@ -213,7 +218,7 @@ export const mergeLibraryBundle = (current: LibraryCatalog, incoming: LibraryCat
+   }
+   const root = createId('folder'), folders = new Map(incoming.folders.map(f => [f.id, createId('folder')])), items = new Map(incoming.items.map(i => [i.id, createId('item')])), revisions = new Map(incoming.revisions.map(r => [r.id, createId('revision')]))
+   const state = (s: Extract<LibraryItem['content'], { state: unknown }>['state']) => ({ ...s, id: createId('preset'), revisionId: revisions.get(s.revisionId)! })
+-  return { version: 1,
++  return { version: LIBRARY_CATALOG_VERSION,
+     folders: [...current.folders, { id: root, name: libraryName(name), parentId: null }, ...incoming.folders.map(f => ({ ...f, id: folders.get(f.id)!, parentId: f.parentId === null ? root : folders.get(f.parentId)! }))],
+     items: [...current.items, ...incoming.items.map(i => ({ ...i, id: items.get(i.id)!, folderId: i.folderId === null ? root : folders.get(i.folderId)!, content: 'revisionId' in i.content ? { ...i.content, revisionId: revisions.get(i.content.revisionId)!, state: state(i.content.state), ...(i.content.kind === 'preset' && { assetId: items.get(i.content.assetId)! }) } : i.content }))],
+     revisions: [...current.revisions, ...incoming.revisions.map(r => ({ ...r, id: revisions.get(r.id)! }))],
+diff --git a/src/core/library/clips.ts b/src/core/library/clips.ts
+index 733d040..27868ec 100644
+--- a/src/core/library/clips.ts
++++ b/src/core/library/clips.ts
+@@ -1,7 +1,7 @@
+ import { controlGraph, enumerateControlTargets, resolveControlTarget, type ControlOwner, type ControlTarget } from '../control'
+ import { flattenPatch } from '../patch'
+ import type { Project, Track } from '../project'
+-import { createId } from '../shared'
++import { compareCodeUnits, createId } from '../shared'
+ import { saveLibraryItem } from './catalog'
+ import type { LibraryCatalog, LibraryItem, PortableLane } from './types'
+ 
+@@ -10,7 +10,7 @@ const graphShape = (project: Project, owner: ControlOwner, domain: 'patch' | 'fx
+   const graph = controlGraph(project, owner, domain)
+   if (!graph) return undefined
+   const flat = flattenPatch(graph, project.modules), index = (id: string) => flat.nodes.findIndex(n => n.id === id)
+-  return { flat, signature: JSON.stringify([flat.nodes.map(n => [n.type, n.stereo ?? false, n.bypassed ?? false, ['control', 'xy', 'switch', 'selector'].includes(n.type) ? Object.entries(n.params).filter(([key]) => !['value', 'x', 'y', 'on', 'index'].includes(key)).sort() : null]), flat.connections.map(c => [index(c.from.node), c.from.port, index(c.to.node), c.to.port]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))]) }
++  return { flat, signature: JSON.stringify([flat.nodes.map(n => [n.type, n.stereo ?? false, n.bypassed ?? false, ['control', 'xy', 'switch', 'selector'].includes(n.type) ? Object.entries(n.params).filter(([key]) => !['value', 'x', 'y', 'on', 'index'].includes(key)).sort() : null]), flat.connections.map(c => [index(c.from.node), c.from.port, index(c.to.node), c.to.port]).sort((a, b) => compareCodeUnits(JSON.stringify(a), JSON.stringify(b)))]) }
+ }
+ export const captureLibraryClip = (catalog: LibraryCatalog, project: Project, trackId: string, clipId: string, name: string, folderId: string | null): LibraryCatalog => {
+   const track = project.tracks.find(t => t.id === trackId)
+diff --git a/src/core/library/types.ts b/src/core/library/types.ts
+index 03bc4ea..6453d38 100644
+--- a/src/core/library/types.ts
++++ b/src/core/library/types.ts
+@@ -17,13 +17,14 @@ export type LibraryContent =
+   | { readonly kind: 'audio-clip'; readonly clip: Omit<AudioClip, 'automation'>; readonly lanes: readonly PortableLane[] }
+   | { readonly kind: 'sample'; readonly sampleId: string }
+ export type LibraryItem = { readonly id: string; readonly name: string; readonly folderId: string | null; readonly trashed?: boolean; readonly content: LibraryContent }
++export const LIBRARY_CATALOG_VERSION = 2
+ export interface LibraryCatalog {
+-  readonly version: 1
++  readonly version: 2
+   readonly folders: readonly LibraryFolder[]
+   readonly items: readonly LibraryItem[]
+   readonly revisions: readonly AssetRevision[]
+   readonly samples: readonly SampleInfo[]
+ }
+-export const emptyLibrary = (): LibraryCatalog => ({ version: 1, folders: [], items: [], revisions: [], samples: [] })
++export const emptyLibrary = (): LibraryCatalog => ({ version: LIBRARY_CATALOG_VERSION, folders: [], items: [], revisions: [], samples: [] })
+ /** Informational origin only. The project never consults the library to play or reload. */
+ export interface LibraryOrigin { readonly itemId: string; readonly revisionId?: string; readonly trackId?: string; readonly domain?: 'patch' | 'notes' | 'fx'; readonly clipId?: string }
+diff --git a/src/core/persistence/automation-slots.test.ts b/src/core/persistence/automation-slots.test.ts
+index c6a8142..c3b9a67 100644
+--- a/src/core/persistence/automation-slots.test.ts
++++ b/src/core/persistence/automation-slots.test.ts
+@@ -10,7 +10,7 @@ describe('v5 return/master slots', () => {
+     expect(r.project.master.automationSlots?.[0]?.lengthBeats).toBe(3)
+     const ret = r.project.tracks.find((t) => t.kind === 'return')!
+     expect(ret.kind === 'return' && ret.automationSlots?.[0]?.lengthBeats).toBe(2)
+-    expect(JSON.parse(serializeProject(r.project)).version).toBe(8)
++    expect(JSON.parse(serializeProject(r.project)).version).toBe(9)
+     expect(read(serializeProject(r.project)).project).toEqual(r.project)
+   })
+   it('migrates all older versions without reinterpreting formerly unknown slot data', () => {
+diff --git a/src/core/persistence/automation.test.ts b/src/core/persistence/automation.test.ts
+index ff846f0..85fae0b 100644
+--- a/src/core/persistence/automation.test.ts
++++ b/src/core/persistence/automation.test.ts
+@@ -9,7 +9,7 @@ describe('v4 saved automation', () => {
+     expect(result.warnings).toEqual([])
+     const track = result.project.tracks[0]!
+     expect(track.kind !== 'return' && track.clips[0]?.automation).toHaveLength(2)
+-    expect(JSON.parse(serializeProject(result.project)).version).toBe(8)
++    expect(JSON.parse(serializeProject(result.project)).version).toBe(9)
+     expect(read(serializeProject(result.project)).project).toEqual(result.project)
+   })
+   it('explicitly drops unknown automation fields in v1/v2/v3 files', () => {
+diff --git a/src/core/persistence/control-values.test.ts b/src/core/persistence/control-values.test.ts
+index 519f8aa..367a748 100644
+--- a/src/core/persistence/control-values.test.ts
++++ b/src/core/persistence/control-values.test.ts
+@@ -15,7 +15,7 @@ describe('v2 control value persistence', () => {
+     expect(loaded.warnings).toEqual([])
+     expect(loaded.project.controlValues).toHaveLength(1)
+     expect(read(serializeProject(loaded.project)).project).toEqual(loaded.project)
+-    expect(JSON.parse(serializeProject(loaded.project)).version).toBe(8)
++    expect(JSON.parse(serializeProject(loaded.project)).version).toBe(9)
+   })
+   it('drops malformed/nonfinite entries with warnings and bounds the collection', () => {
+     const raw = JSON.parse(fixture)
+diff --git a/src/core/persistence/delay-timing.test.ts b/src/core/persistence/delay-timing.test.ts
+index 866e2d4..f5879a6 100644
+--- a/src/core/persistence/delay-timing.test.ts
++++ b/src/core/persistence/delay-timing.test.ts
+@@ -16,7 +16,7 @@ describe('v8 delay divisions', () => {
+     expect(track.fx.nodes.find(n => n.id === 'echo')?.params).toMatchObject({ time: 0.75, sync: 1 })
+     expect(track.fx.nodes.find(n => n.id === 'echo')?.params.division).toBe(version === 8 ? 8 : undefined)
+     const saved = serializeProject(loaded.project)
+-    expect(JSON.parse(saved).version).toBe(8)
++    expect(JSON.parse(saved).version).toBe(9)
+     expect(parseProject(saved)).toEqual(loaded)
+   })
+   it('v7 discards formerly unknown divisions and references in nested graphs, revisions and automation', () => {
+diff --git a/src/core/persistence/format.ts b/src/core/persistence/format.ts
+index 8f0b369..778f86f 100644
+--- a/src/core/persistence/format.ts
++++ b/src/core/persistence/format.ts
+@@ -2,7 +2,7 @@
+ export const FORMAT = 'sfx-lab-project'
+ 
+ /** Bump when the saved shape changes, and add a step to `migrations.ts`. */
+-export const CURRENT_VERSION = 8
++export const CURRENT_VERSION = 9
+ 
+ /** Hard caps so a malformed or hostile file cannot make the app allocate without bound. */
+ export const LIMITS = {
+diff --git a/src/core/persistence/index.ts b/src/core/persistence/index.ts
+index f9aca44..456d440 100644
+--- a/src/core/persistence/index.ts
++++ b/src/core/persistence/index.ts
+@@ -1,2 +1,3 @@
+ export { parseProject, serializeProject, type ParseResult } from './project-file'
+ export { canonicalRecord, validateLibraryPayloads } from './validate-library'
++export { upgradeLibraryCatalog, canonicalPortableSignature } from './signature-migration'
+diff --git a/src/core/persistence/midi-mappings.test.ts b/src/core/persistence/midi-mappings.test.ts
+index f257c18..9707796 100644
+--- a/src/core/persistence/midi-mappings.test.ts
++++ b/src/core/persistence/midi-mappings.test.ts
+@@ -13,7 +13,7 @@ describe('v3 portable MIDI mappings', () => {
+     expect(result.warnings).toEqual([])
+     expect(result.project.midiMappings).toHaveLength(2)
+     expect(read(serializeProject(result.project)).project).toEqual(result.project)
+-    expect(JSON.parse(serializeProject(result.project)).version).toBe(8)
++    expect(JSON.parse(serializeProject(result.project)).version).toBe(9)
+   })
+   it('migrates v1/v2 and drops unknown old mapping fields', () => {
+     for (const version of [1, 2]) {
+diff --git a/src/core/persistence/migrations.ts b/src/core/persistence/migrations.ts
+index 9c90c48..7e43768 100644
+--- a/src/core/persistence/migrations.ts
++++ b/src/core/persistence/migrations.ts
+@@ -5,6 +5,9 @@ type Migration = (project: unknown) => unknown
+ 
+ /** `MIGRATIONS[n]` upgrades the `project` payload from format version n to n + 1. */
+ const MIGRATIONS: Readonly<Record<number, Migration>> = {
++  // v9 uses deterministic signatures; sanitation reconstructs them from preserved revision payloads.
++  // Opaque revision IDs and preset references are unchanged.
++  8: (project) => project,
+   // v7 did not interpret division. Walk graphs inside tracks, modules and saved revisions too.
+   7: (project) => {
+     if (!isRecord(project)) return project
+diff --git a/src/core/preset/assets.ts b/src/core/preset/assets.ts
+index 8f024a9..59b0f71 100644
+--- a/src/core/preset/assets.ts
++++ b/src/core/preset/assets.ts
+@@ -1,7 +1,7 @@
+ import { controlGraph } from '../control'
+ import type { ModuleDefinition, Patch } from '../patch'
+ import type { Project } from '../project'
+-import { createId } from '../shared'
++import { compareCodeUnits, createId } from '../shared'
+ import { enumerateSampleTargets, editSampleBinding, resolveSampleTarget } from './samples'
+ import { captureSnapshot, inSnapshotScope, recallSnapshot } from './snapshots'
+ import type { AssetPayload, AssetRevision, ProjectPreset, RecallIssue, SnapshotScope } from './types'
+@@ -40,11 +40,11 @@ export const captureAsset = (project: Project, scope: SnapshotScope): AssetPaylo
+ }
+ /** A collision-free canonical structural identity, separate from the opaque revision ID. */
+ export const assetSignature = (payload: AssetPayload): string => {
+-  const shape = (graph: Patch) => ({ nodes: [...graph.nodes].sort((a,b) => a.id.localeCompare(b.id)).map(n => ({ id: n.id, type: n.type, moduleId: n.moduleId, stereo: n.stereo ?? false, bypassed: n.bypassed ?? false,
++  const shape = (graph: Patch) => ({ nodes: [...graph.nodes].sort((a,b) => compareCodeUnits(a.id, b.id)).map(n => ({ id: n.id, type: n.type, moduleId: n.moduleId, stereo: n.stereo ?? false, bypassed: n.bypassed ?? false,
+     // Control ranges/modes change interpretation; ordinary sound values are preset state.
+-    config: ['control', 'xy', 'switch', 'selector'].includes(n.type) ? Object.fromEntries(Object.entries(n.params).filter(([key]) => !['value', 'x', 'y', 'on', 'index'].includes(key)).sort(([a], [b]) => a.localeCompare(b))) : undefined })),
+-    connections: graph.connections.map(c => [c.from.node, c.from.port, c.to.node, c.to.port]).sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b))) })
+-  return JSON.stringify([payload.kind, payload.kind === 'instrument' ? [shape(payload.patch), shape(payload.noteGraph), payload.voices] : shape(payload.graph), [...payload.modules].sort((a,b) => a.id.localeCompare(b.id)).map(m => [m.id, m.inputs.map(p => [p.id, p.inner.node, p.inner.port]).sort(), m.outputs.map(p => [p.id, p.inner.node, p.inner.port]).sort(), m.knobs.map(k => [k.id, k.node, k.param]).sort(), shape(m.patch)])])
++    config: ['control', 'xy', 'switch', 'selector'].includes(n.type) ? Object.fromEntries(Object.entries(n.params).filter(([key]) => !['value', 'x', 'y', 'on', 'index'].includes(key)).sort(([a], [b]) => compareCodeUnits(a, b))) : undefined })),
++    connections: graph.connections.map(c => [c.from.node, c.from.port, c.to.node, c.to.port]).sort((a,b) => compareCodeUnits(JSON.stringify(a), JSON.stringify(b))) })
++  return JSON.stringify([payload.kind, payload.kind === 'instrument' ? [shape(payload.patch), shape(payload.noteGraph), payload.voices] : shape(payload.graph), [...payload.modules].sort((a,b) => compareCodeUnits(a.id, b.id)).map(m => [m.id, m.inputs.map(p => [p.id, p.inner.node, p.inner.port]).sort(), m.outputs.map(p => [p.id, p.inner.node, p.inner.port]).sort(), m.knobs.map(k => [k.id, k.node, k.param]).sort(), shape(m.patch)])])
+ }
+ export const saveProjectPreset = (project: Project, scope: SnapshotScope, name: string, id = createId('preset')): Project => {
+   if (!project.presets?.some(p => p.id === id) && (project.presets?.length ?? 0) >= 128) throw new Error('Project preset limit reached (128)')
+diff --git a/src/core/shared/index.ts b/src/core/shared/index.ts
+index fda4f8e..2b16789 100644
+--- a/src/core/shared/index.ts
++++ b/src/core/shared/index.ts
+@@ -1,3 +1,4 @@
+ export { clamp, midiToFrequency, centsToRatio } from './math'
+ export { createId } from './ids'
+ export { pitchName } from './music'
++export { compareCodeUnits } from './order'
+diff --git a/src/state/preset-actions.test.ts b/src/state/preset-actions.test.ts
+index f235fb1..f741d6e 100644
+--- a/src/state/preset-actions.test.ts
++++ b/src/state/preset-actions.test.ts
+@@ -21,7 +21,7 @@ const setup = () => {
+   const sound: Snapshot = { id: 'sound', name: 'Sound', scope: { owner: volume.owner, domain: 'track' }, values: [{ target: volume, value: 0.9 }, { target: pan, value: -0.5 }] }
+   return { project, sound }
+ }
+-afterEach(() => { cancelTouches(); setTouchClock(); useControlStore.getState().clear(); useStatusStore.setState({ status: null }) })
++afterEach(() => { cancelTouches(); setTouchClock(); useControlStore.getState().clear(); useStatusStore.setState({ status: null, audioFailure: null }) })
+ describe('sound recall history and Read/Touch', () => {
+   it('recalls bases under Read without rewriting lanes, undoes once, and reloads either saved sound', () => {
+     const { project, sound } = setup()
+diff --git a/src/state/status-store.ts b/src/state/status-store.ts
+index 3bcae9c..0698d7d 100644
+--- a/src/state/status-store.ts
++++ b/src/state/status-store.ts
+@@ -3,11 +3,15 @@ import { create } from 'zustand'
+ 
+ interface StatusState {
+   readonly status: EngineStatus | null
++  readonly audioFailure: string | null
+   setStatus(status: EngineStatus): void
++  setAudioFailure(message: string): void
+ }
+ 
+ /** Latest snapshot reported by the audio engine (playhead, launch states). Updates ~30x/s. */
+ export const useStatusStore = create<StatusState>((set) => ({
+   status: null,
++  audioFailure: null,
+   setStatus: (status) => set({ status }),
++  setAudioFailure: (audioFailure) => set({ audioFailure }),
+ }))
+diff --git a/src/storage/library-storage.test.ts b/src/storage/library-storage.test.ts
+index d9a0be4..2cf0763 100644
+--- a/src/storage/library-storage.test.ts
++++ b/src/storage/library-storage.test.ts
+@@ -1,6 +1,6 @@
+ import 'fake-indexeddb/auto'
+ import { describe, expect, it, vi } from 'vitest'
+-import { emptyLibrary, saveLibraryFolder, trashLibraryEntry } from '@core'
++import { captureLibraryAsset, createEmptyProject, emptyLibrary, saveLibraryFolder, trashLibraryEntry } from '@core'
+ import { createLibraryStorage, createMemoryLibraryStorage } from './library-storage'
+ import { createIndexedDbSampleStorage } from './sample-storage'
+ const name = () => `library-${crypto.randomUUID()}`
+@@ -66,6 +66,77 @@ describe('atomic catalog and sample storage', () => {
+     await library.update(c => trashLibraryEntry(c, 'folder', false))
+     expect((await library.read()).folders[0]!.trashed).toBe(false)
+   })
++  it('backs up and upgrades a legacy catalog atomically on read while leaving shared sample bytes intact', async () => {
++    const dbName = name(), bytes = Uint8Array.of(6, 7, 8), id = 'a'.repeat(64)
++    const project = createEmptyProject(), track = project.tracks[0]!
++    const captured = captureLibraryAsset(emptyLibrary(), project, { owner: { kind: 'track', trackId: track.id }, domain: 'patch' }, 'Unreferenced asset', null)
++    const legacy = {
++      ...captured, version: 1,
++      folders: [{ id: 'old-folder', name: 'Old', parentId: null, trashed: true }],
++      items: [{ id: 'old-item', name: 'Old sample', folderId: 'old-folder', trashed: true, content: { kind: 'sample', sampleId: id } }],
++      samples: [{ id, name: 'Orphan', extension: 'wav', durationSeconds: 1, sampleRate: 48000, channels: 1, bytes: bytes.length }],
++    }
++    const db = await opened(dbName, 2, d => { d.createObjectStore('catalog'); d.createObjectStore('samples') })
++    await new Promise<void>((resolve, reject) => {
++      const tx = db.transaction(['catalog', 'samples'], 'readwrite')
++      tx.objectStore('catalog').put(legacy, 'current')
++      tx.objectStore('samples').put(bytes, id)
++      tx.oncomplete = () => resolve(); tx.onabort = () => reject(tx.error)
++    })
++    db.close()
++    const storage = createLibraryStorage(dbName), upgraded = await storage.read()
++    expect(upgraded.version).toBe(2)
++    const check = await opened(dbName, 2)
++    expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('pre-signature-v2'); r.onsuccess = () => resolve(r.result) })).toEqual(legacy)
++    expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('current'); r.onsuccess = () => resolve(r.result) })).toEqual(upgraded)
++    expect(upgraded.folders).toEqual(legacy.folders)
++    expect(upgraded.items).toEqual(legacy.items)
++    expect(upgraded.revisions).toHaveLength(captured.revisions.length)
++    expect(upgraded.samples).toEqual(legacy.samples)
++    expect(await new Promise(resolve => { const r = check.transaction('samples').objectStore('samples').get(id); r.onsuccess = () => resolve(r.result) })).toEqual(bytes)
++    check.close()
++  })
++  it('rolls back a catalog backup when the v1 upgrade hits quota and rejects unknown catalog versions', async () => {
++    const dbName = name(), legacy = { ...emptyLibrary(), version: 1 }
++    const db = await opened(dbName, 2, d => { d.createObjectStore('catalog'); d.createObjectStore('samples') })
++    await new Promise<void>((resolve, reject) => { const tx = db.transaction('catalog', 'readwrite'); tx.objectStore('catalog').put(legacy, 'current'); tx.oncomplete = () => resolve(); tx.onabort = () => reject(tx.error) })
++    db.close()
++    const put = IDBObjectStore.prototype.put
++    const spy = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (this: IDBObjectStore, value, key) {
++      if (this.name === 'catalog' && key === 'pre-signature-v2') throw new DOMException('quota', 'QuotaExceededError')
++      return put.call(this, value, key)
++    })
++    try { await expect(createLibraryStorage(dbName).read()).rejects.toThrow(/quota/) } finally { spy.mockRestore() }
++    const check = await opened(dbName, 2)
++    expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('current'); r.onsuccess = () => resolve(r.result) })).toEqual(legacy)
++    expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('pre-signature-v2'); r.onsuccess = () => resolve(r.result) })).toBeUndefined()
++    check.close()
++
++    const futureName = name(), future = await opened(futureName, 2, d => { d.createObjectStore('catalog'); d.createObjectStore('samples') })
++    await new Promise<void>((resolve, reject) => { const tx = future.transaction('catalog', 'readwrite'); tx.objectStore('catalog').put({ ...emptyLibrary(), version: 3 }, 'current'); tx.oncomplete = () => resolve(); tx.onabort = () => reject(tx.error) })
++    future.close()
++    await expect(createLibraryStorage(futureName).read()).rejects.toThrow(/unsupported catalog version|Unsupported library version/i)
++  })
++  it('rolls catalog conversion, backup, edits and new blobs back together when a migration edit aborts', async () => {
++    const dbName = name(), legacy = { ...emptyLibrary(), version: 1 }, db = await opened(dbName, 2, d => { d.createObjectStore('catalog'); d.createObjectStore('samples') })
++    await new Promise<void>((resolve, reject) => { const tx = db.transaction('catalog', 'readwrite'); tx.objectStore('catalog').put(legacy, 'current'); tx.oncomplete = () => resolve(); tx.onabort = () => reject(tx.error) })
++    db.close()
++    const put = IDBObjectStore.prototype.put
++    const spy = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (this: IDBObjectStore, value, key) {
++      const req = put.call(this, value, key)
++      if (this.name === 'samples' && key === 'interrupted') req.addEventListener('success', () => this.transaction.abort())
++      return req
++    })
++    try {
++      const pending = createLibraryStorage(dbName).update(c => saveLibraryFolder(c, 'After', null, 'after'), new Map([['interrupted', Uint8Array.of(9)]]))
++      await expect(pending).rejects.toThrow(/interrupted/)
++    } finally { spy.mockRestore() }
++    const check = await opened(dbName, 2)
++    expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('current'); r.onsuccess = () => resolve(r.result) })).toEqual(legacy)
++    expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('pre-signature-v2'); r.onsuccess = () => resolve(r.result) })).toBeUndefined()
++    expect(await new Promise(resolve => { const r = check.transaction('samples').objectStore('samples').get('interrupted'); r.onsuccess = () => resolve(r.result) })).toBeUndefined()
++    check.close()
++  })
+   it('closes catalog and sample connections when another tab upgrades', async () => {
+     const dbName = name(), library = createLibraryStorage(dbName), samples = createIndexedDbSampleStorage(dbName)
+     await library.read(); await samples.put('keep', Uint8Array.of(9))
+@@ -82,7 +153,7 @@ it('rejects future-version edits before publishing catalog or blobs in both adap
+   const files = new Map<string, Uint8Array>(), dbName = name()
+   for (const [storage, get] of [[createMemoryLibraryStorage(files), async (id: string) => files.get(id)], [createLibraryStorage(dbName), createIndexedDbSampleStorage(dbName).get]] as const) {
+     const before = await storage.update(c => saveLibraryFolder(c, 'Keep', null, 'keep'), new Map([['old', Uint8Array.of(1)]]))
+-    await expect(storage.update(c => ({ ...c, version: 2 as 1 }), new Map([['new', Uint8Array.of(2)]]))).rejects.toThrow('Invalid library version')
++    await expect(storage.update(c => ({ ...c, version: 3 as 2 }), new Map([['new', Uint8Array.of(2)]]))).rejects.toThrow('Invalid library version')
+     expect(await storage.read()).toEqual(before)
+     expect(await get('old')).toEqual(Uint8Array.of(1)); expect(await get('new')).toBeUndefined()
+   }
+diff --git a/src/storage/library-storage.ts b/src/storage/library-storage.ts
+index 304ada1..91bf4f5 100644
+--- a/src/storage/library-storage.ts
++++ b/src/storage/library-storage.ts
+@@ -1,4 +1,4 @@
+-import { emptyLibrary, type LibraryCatalog } from '@core'
++import { emptyLibrary, LIBRARY_CATALOG_VERSION, upgradeLibraryCatalog, type LibraryCatalog } from '@core'
+ import { openLibraryDatabase, transactionDone } from './library-database'
+ export interface LibraryStorage {
+   read(): Promise<LibraryCatalog>
+@@ -10,7 +10,7 @@ export const createMemoryLibraryStorage = (files = new Map<string, Uint8Array>()
+   let catalog = emptyLibrary()
+   return { read: async () => structuredClone(catalog), update: async (edit, blobs) => {
+     const next = structuredClone(edit(structuredClone(catalog)))
+-    if (next.version !== 1) throw new Error('Invalid library version')
++    if (next.version !== LIBRARY_CATALOG_VERSION) throw new Error('Invalid library version')
+     for (const [id, bytes] of blobs ?? []) { const known = files.get(id); if (known && !sameBytes(known, bytes)) throw new Error('Existing sample bytes conflict with bundle; previous catalog retained') }
+     const copies = [...(blobs ?? [])].map(([id, bytes]) => [id, bytes.slice()] as const)
+     for (const [id, bytes] of copies) if (!files.has(id)) files.set(id, bytes)
+@@ -20,18 +20,31 @@ export const createMemoryLibraryStorage = (files = new Map<string, Uint8Array>()
+ export const createLibraryStorage = (databaseName = 'sfxlab'): LibraryStorage => {
+   const open = openLibraryDatabase(databaseName)
+   const run = async (edit?: (catalog: LibraryCatalog) => LibraryCatalog, blobs?: ReadonlyMap<string, Uint8Array>): Promise<LibraryCatalog> => {
+-    const db = await open(), tx = db.transaction(edit ? ['catalog', 'samples'] : ['catalog'], edit ? 'readwrite' : 'readonly')
++    // Reads can discover a legacy catalog. Keeping the migration in a single
++    // readwrite transaction makes the original backup and replacement atomic.
++    const db = await open(), tx = db.transaction(edit ? ['catalog', 'samples'] : ['catalog'], 'readwrite')
+     const done = transactionDone(tx)
+     let result = emptyLibrary(), failure: unknown
+     const request = tx.objectStore('catalog').get('current')
+     request.onsuccess = () => {
+       try {
+-        const saved = request.result as LibraryCatalog | undefined
+-        if (saved && saved.version !== 1) throw new Error('Unsupported library version; update SFX Lab')
+-        result = saved ?? emptyLibrary()
++        const saved = request.result as unknown
++        if (saved === undefined) result = emptyLibrary()
++        else {
++          const legacy = !!saved && typeof saved === 'object' && 'version' in saved && saved.version === 1
++          if (legacy) {
++            const upgraded = upgradeLibraryCatalog(saved)
++            tx.objectStore('catalog').put(saved, 'pre-signature-v2')
++            tx.objectStore('catalog').put(upgraded, 'current')
++            result = upgraded
++          } else {
++            if (!saved || typeof saved !== 'object' || !('version' in saved) || saved.version !== LIBRARY_CATALOG_VERSION) throw new Error('Unsupported library version; update SFX Lab')
++            result = saved as LibraryCatalog
++          }
++        }
+         if (edit) {
+           result = edit(result)
+-          if (result.version !== 1) throw new Error('Invalid library version')
++          if (result.version !== LIBRARY_CATALOG_VERSION) throw new Error('Invalid library version')
+           tx.objectStore('catalog').put(result, 'current')
+           for (const [id, bytes] of blobs ?? []) {
+             const store = tx.objectStore('samples'), existing = store.get(id)
+diff --git a/src/storage/library-transfer.test.ts b/src/storage/library-transfer.test.ts
+index 1ba2807..d725d7a 100644
+--- a/src/storage/library-transfer.test.ts
++++ b/src/storage/library-transfer.test.ts
+@@ -42,7 +42,7 @@ describe('library bundle exchange', () => {
+     const scope = { owner: { kind: 'track' as const, trackId: loaded.project.tracks[0]!.id }, domain: 'fx' as const }
+     const old = captureLibraryAsset(emptyLibrary(), loaded.project, scope, 'Legacy echo', null)
+     const file = await exportLibraryBundle(old, { itemIds: [old.items[0]!.id] }, 'Legacy', async () => undefined)
+-    expect(file.manifest.version).toBe(1)
++    expect(file.manifest.version).toBe(2)
+     const stage = await stageLibraryBundle(file.bytes)
+     expect(stage.manifest.catalog.revisions).toEqual(old.revisions)
+     const graph = noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 'delay', type: 'pingPong', params: { sync: 1, time: 0.75, division: 12 } }, { id: 'out', type: 'trackOut' }], ['in.out>delay.in', 'delay.out>out.in'])
+@@ -89,6 +89,19 @@ describe('library bundle exchange', () => {
+     const packageFile = await exportProject(project, samples.get), roundtrip = await importProject(packageFile.bytes)
+     expect(packageFile.missing).toEqual([]); expect(roundtrip.ok && roundtrip.project).toEqual(project)
+   })
++  it('upgrades a legacy v1 bundle catalog while preserving strict manifest and normalized signatures', async () => {
++    const { c, read } = await fixture()
++    const files = Object.fromEntries(await Promise.all(c.samples.map(async sample => [`samples/${sample.id}`, (await read(sample.id))!] as const)))
++    const catalog = { ...structuredClone(c), version: 1, revisions: structuredClone(c.revisions).map(revision => {
++      const shape = JSON.parse(revision.signature)
++      if (shape[0] === 'instrument') shape[1][0].nodes.reverse()
++      return { ...revision, signature: JSON.stringify(shape) }
++    }) }
++    const stage = await stageLibraryBundle(archive({ format: 'sfx-lab-library', version: 1, name: 'Legacy', partial: false, missing: [], catalog }, files))
++    expect(stage.manifest.version).toBe(2)
++    expect(stage.manifest.catalog).toEqual(c)
++    await expect(stageLibraryBundle(archive({ format: 'sfx-lab-library', version: 1, name: 'Legacy', partial: false, missing: [], catalog: emptyLibrary() }))).rejects.toThrow(/versions do not match/)
++  })
+   it('exchanges two-level sampled modules and per-use preset overrides through project reload', async () => {
+     const { c: samples, read } = await fixture(), original = createEmptyProject()
+     const inner: ModuleDefinition = { id: 'inner', name: 'Inner sampler', patch: createSamplerPatch(samples.samples[0]!.id), inputs: [], outputs: [], knobs: [] }
+@@ -168,7 +181,7 @@ describe('library bundle exchange', () => {
+     const { c, read } = await fixture(), file = await exportLibraryBundle(c, { folderIds: ['collection'] }, 'Bundle', read)
+     const files = Object.fromEntries([...(await stageLibraryBundle(file.bytes)).blobs.entries()].map(([id, b]) => [`samples/${id}`, b]))
+     const bad: LibraryBundleManifest = structuredClone(file.manifest)
+-    await expect(stageLibraryBundle(archive({ ...bad, version: 2 }, files))).rejects.toThrow(/version/)
++    await expect(stageLibraryBundle(archive({ ...bad, version: 3 }, files))).rejects.toThrow(/version/)
+     await expect(stageLibraryBundle(archive({ ...bad, format: 'sfx-lab-project' }, files))).rejects.toThrow(/format/)
+     await expect(stageLibraryBundle(archive(bad, { ...files, [Object.keys(files)[0]!]: Uint8Array.of(8, 9, 8, 9) }))).rejects.toThrow(/hash/)
+     await expect(stageLibraryBundle(archive(bad))).rejects.toThrow(/missing/)
+diff --git a/src/storage/library-transfer.ts b/src/storage/library-transfer.ts
+index 779e1a7..f8960d6 100644
+--- a/src/storage/library-transfer.ts
++++ b/src/storage/library-transfer.ts
+@@ -1,4 +1,4 @@
+-import { LIBRARY_BUNDLE_VERSION, canonicalRecord, selectLibraryBundle, validateLibraryCatalog, validateBundleObjectBudget, libraryName, mergeLibraryBundle, type LibraryBundleManifest, type LibraryBundleSelection, type LibraryBundleStage, type LibraryCatalog } from '@core'
++import { LIBRARY_BUNDLE_VERSION, LIBRARY_CATALOG_VERSION, canonicalRecord, selectLibraryBundle, validateLibraryCatalog, upgradeLibraryCatalog, validateBundleObjectBudget, libraryName, mergeLibraryBundle, type LibraryBundleManifest, type LibraryBundleSelection, type LibraryBundleStage, type LibraryCatalog } from '@core'
+ import { strFromU8, strToU8, zipSync } from 'fflate'
+ import { sha256Hex } from './hash'
+ import { fileStem } from './project-transfer'
+@@ -8,10 +8,14 @@ import type { LibraryStorage } from './library-storage'
+ /** Independent from project migrations. Add explicit vN→vN+1 steps here when the bundle format changes. */
+ const migrateLibraryManifest = (raw: unknown): LibraryBundleManifest => {
+   validateBundleObjectBudget(raw)
+-  if (!raw || typeof raw !== 'object' || !('format' in raw) || raw.format !== 'sfx-lab-library' || !('version' in raw) || raw.version !== LIBRARY_BUNDLE_VERSION) throw new Error('Unsupported library bundle format/version. Update SFX Lab to import this bundle.')
++  if (!raw || typeof raw !== 'object' || !('format' in raw) || raw.format !== 'sfx-lab-library' || !('version' in raw) || (raw.version !== LIBRARY_BUNDLE_VERSION && raw.version !== 1)) throw new Error('Unsupported library bundle format/version. Update SFX Lab to import this bundle.')
+   const m = raw as LibraryBundleManifest
++  const rawManifest = raw as Record<string, unknown>, manifestVersion = rawManifest.version, rawCatalog = rawManifest.catalog
+   if (Object.keys(m).some(k => !['format', 'version', 'name', 'partial', 'missing', 'catalog'].includes(k)) || typeof m.name !== 'string' || libraryName(m.name) !== m.name || typeof m.partial !== 'boolean' || !Array.isArray(m.missing) || m.missing.length > 4096 || m.missing.some(id => typeof id !== 'string' || !/^[a-f0-9]{64}$/.test(id)) || new Set(m.missing).size !== m.missing.length || m.partial !== (m.missing.length > 0)) throw new Error('Invalid library bundle manifest/completeness marker')
+-  return { ...m, catalog: validateLibraryCatalog(m.catalog) }
++  const catalogVersion = rawCatalog && typeof rawCatalog === 'object' && 'version' in rawCatalog ? rawCatalog.version : undefined
++  if (manifestVersion === 1 && catalogVersion !== 1 || manifestVersion === LIBRARY_BUNDLE_VERSION && catalogVersion !== LIBRARY_CATALOG_VERSION) throw new Error('Library bundle and catalog versions do not match')
++  const catalog = manifestVersion === 1 ? validateLibraryCatalog(upgradeLibraryCatalog(rawCatalog)) : validateLibraryCatalog(rawCatalog)
++  return { ...m, version: LIBRARY_BUNDLE_VERSION, catalog }
+ }
+ 
+ export const exportLibraryBundle = async (catalog: LibraryCatalog, selection: LibraryBundleSelection, name: string, readSample: (id: string) => Promise<Uint8Array | undefined>, allowPartial = false) => {
+diff --git a/src/storage/project-storage.test.ts b/src/storage/project-storage.test.ts
+index a077d46..bba3078 100644
+--- a/src/storage/project-storage.test.ts
++++ b/src/storage/project-storage.test.ts
+@@ -4,6 +4,32 @@ import { type KeyValueStore, createMemoryStore } from './key-value-store'
+ import { ProjectStorage } from './project-storage'
+ 
+ describe('ProjectStorage', () => {
++  it('preserves the exact old envelope once before a v9 rewrite', () => {
++    const store = createMemoryStore()
++    const old = JSON.stringify({ ...JSON.parse(serializeProject(createDemoProject())), version: 8 }, null, 2)
++    store.setItem('sfxlab:project', old)
++    const storage = new ProjectStorage(store)
++    expect(storage.loadCurrent().status).toBe('loaded')
++    expect(storage.saveCurrent(createEmptyProject())).toEqual({ ok: true })
++    expect(store.getItem('sfxlab:pre-signature-v9')).toBe(old)
++    expect(JSON.parse(store.getItem('sfxlab:project')!).version).toBe(9)
++    storage.saveCurrent(createDemoProject())
++    storage.saveBackup(createEmptyProject())
++    expect(store.getItem('sfxlab:pre-signature-v9')).toBe(old)
++  })
++
++  it('leaves the old current project untouched if its migration backup cannot be saved', () => {
++    const store = createMemoryStore()
++    const old = JSON.stringify({ ...JSON.parse(serializeProject(createDemoProject())), version: 8 })
++    store.setItem('sfxlab:project', old)
++    const storage = new ProjectStorage({ ...store, setItem: (key, value) => {
++      if (key === 'sfxlab:pre-signature-v9') throw new Error('QuotaExceededError')
++      store.setItem(key, value)
++    } })
++    expect(storage.saveCurrent(createEmptyProject())).toEqual({ ok: false, error: 'QuotaExceededError' })
++    expect(store.getItem('sfxlab:project')).toBe(old)
++  })
++
+   it('reports empty storage', () => {
+     expect(new ProjectStorage(createMemoryStore()).loadCurrent()).toEqual({ status: 'empty' })
+   })
+diff --git a/src/storage/project-storage.ts b/src/storage/project-storage.ts
+index 27bd2c6..d1cdfca 100644
+--- a/src/storage/project-storage.ts
++++ b/src/storage/project-storage.ts
+@@ -6,6 +6,7 @@ const KEYS = {
+   backup: 'sfxlab:backup',
+   corrupt: 'sfxlab:corrupt',
+   welcomed: 'sfxlab:welcomed',
++  preSignatureV9: 'sfxlab:pre-signature-v9',
+ } as const
+ 
+ export type LoadOutcome =
+@@ -84,6 +85,19 @@ export class ProjectStorage {
+ 
+   private write(key: string, project: Project): SaveResult {
+     try {
++      // Keep the exact old envelope before the first signature-format rewrite. A failed
++      // backup must prevent the overwrite; ordinary import backups remain independent.
++      if (key === KEYS.current && this.store.getItem(KEYS.preSignatureV9) === null) {
++        const previous = this.store.getItem(key)
++        if (previous !== null) {
++          let envelope: { format?: unknown; version?: unknown } | null = null
++          try { envelope = JSON.parse(previous) } catch { /* loadCurrent quarantines corrupt data. */ }
++          if (envelope?.format === 'sfx-lab-project' && Number.isInteger(envelope.version)
++            && (envelope.version as number) >= 1 && (envelope.version as number) < 9) {
++            this.store.setItem(KEYS.preSignatureV9, previous)
++          }
++        }
++      }
+       this.store.setItem(key, serializeProject(project))
+       return { ok: true }
+     } catch (error) {
+diff --git a/src/ui/Workspace.module.css b/src/ui/Workspace.module.css
+index d011c4a..946c75b 100644
+--- a/src/ui/Workspace.module.css
++++ b/src/ui/Workspace.module.css
+@@ -1,9 +1,17 @@
+ .workspace {
+   display: grid;
+-  grid-template-rows: auto minmax(0, 1fr) auto auto;
++  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+   height: 100%;
+ }
+ 
++.audioFailure {
++  padding: 9px 14px;
++  color: var(--text);
++  background: color-mix(in srgb, #ff6b6b 18%, var(--panel-raised));
++  border-bottom: 1px solid #ff6b6b;
++  font-weight: 600;
++}
++
+ .session {
+   overflow: auto;
+ }
+diff --git a/src/ui/Workspace.tsx b/src/ui/Workspace.tsx
+index 135df19..0d8cac8 100644
+--- a/src/ui/Workspace.tsx
++++ b/src/ui/Workspace.tsx
+@@ -5,6 +5,7 @@ import { Splitter } from './shared/Splitter'
+ import { TooltipLayer } from './shared/tooltip/TooltipLayer'
+ import { useStoredState } from './shared/use-stored-state'
+ import { useUndoShortcuts } from './shortcuts/use-undo-shortcuts'
++import { useStatusStore } from '@state'
+ import { ToastStack } from './toasts/ToastStack'
+ import { TransportBar } from './transport-bar/TransportBar'
+ import styles from './Workspace.module.css'
+@@ -18,6 +19,7 @@ const isNumber = (value: unknown): value is number => typeof value === 'number'
+ 
+ export const Workspace = () => {
+   useUndoShortcuts()
++  const audioFailure = useStatusStore((state) => state.audioFailure)
+   const [stored, setEditorHeight] = useStoredState('sfxlab:editor-height', DEFAULT_EDITOR_HEIGHT, isNumber)
+   const [windowHeight, setWindowHeight] = useState(window.innerHeight)
+ 
+@@ -33,6 +35,7 @@ export const Workspace = () => {
+ 
+   return (
+     <div className={styles.workspace}>
++      {audioFailure && <div className={styles.audioFailure} role="alert">{audioFailure}. Your project remains available; save or export your work before reloading.</div>}
+       <TransportBar />
+       <main className={styles.session}>
+         <SessionView />

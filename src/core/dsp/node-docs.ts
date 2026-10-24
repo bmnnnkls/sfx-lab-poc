@@ -245,6 +245,22 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       cutoff: 'The frequency where the filter starts to cut.',
       resonance: 'Emphasis around the cutoff: above 1 it rings, high values whistle.',
       cvAmount: 'How many octaves one unit at the Cutoff input moves the cutoff.',
+      keyTrack: 'How far the cutoff follows the note: 0 not at all, 1 fully (an octave up, an octave brighter; Cutoff is where it sits at middle C). Only in a voice, where there is a note.',
+    },
+  },
+  comb: {
+    category: 'Filters',
+    description: 'Rings at the pitch of the note: a tuned resonator. A short noise burst through it is a plucked string, a drum a metallic ring.',
+    keywords: ['resonator', 'karplus', 'string', 'pluck', 'tuned', 'metallic', 'physical', 'delay'],
+    inputs: { in: 'The sound that excites it: a click, a burst of noise, a drum.' },
+    outputs: { out: 'The sound ringing at the pitch (it can get loud with high feedback: a Gain after it helps).' },
+    params: {
+      follow: 'Note: rings at the note being played (in a voice), shifted by Pitch. Fixed: rings at Freq.',
+      pitch: 'Semitones above or below the note it rings at (12 is an octave up).',
+      frequency: 'The pitch it rings at when tuned to fixed, or where there is no note (a shared or insert stage).',
+      feedback: 'How long it rings: near 1 for long, singing tones; negative rings an octave lower and hollow (odd harmonics only).',
+      damping: 'How quickly the highs die away in each round trip: more is darker, like a softer string.',
+      mix: 'How much of the ringing is heard against the dry sound.',
     },
   },
 
@@ -263,13 +279,15 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
   delay: {
     category: 'Effects',
     description: 'Repeats the sound after a short time, as echoes. Runs once on the mix of all voices.',
-    keywords: ['echo', 'repeat', 'feedback'],
+    keywords: ['echo', 'repeat', 'feedback', 'tempo', 'sync'],
     inputs: { in: 'The sound to echo.' },
     outputs: { out: 'The sound mixed with its echoes.' },
     params: {
-      time: 'The gap between echoes.',
+      time: 'Free time in seconds (0.001–2), or numeric beats when Beat division is Time in beats; named divisions ignore Time.',
+      division: 'With Sync on beat, choose 1/32 through four bars, straight, dotted (×1.5) or triplet (×2/3); times beyond eight seconds are capped and reported in properties.',
       feedback: 'How much of each echo is fed back to make more echoes (never quite 1, so they die away).',
       mix: 'How much echo is heard against the dry sound.',
+      sync: 'Off: Time is in seconds. Beat: use the selected division or numeric beats at engine tempo; changes crossfade taps over 20 ms, retaining the tail without a pitch glide.',
     },
   },
   reverb: {
@@ -317,13 +335,15 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
   pingPong: {
     category: 'Effects',
     description: 'An echo that bounces from the left speaker to the right and back.',
-    keywords: ['echo', 'stereo', 'bounce', 'repeat'],
+    keywords: ['echo', 'stereo', 'bounce', 'repeat', 'tempo', 'sync'],
     inputs: { in: 'The sound to echo (a mono sound is heard on both sides).' },
     outputs: { out: 'The sound mixed with its bouncing echoes, in stereo.' },
     params: {
-      time: 'The gap between echoes.',
+      time: 'Free time in seconds (0.001–2), or numeric beats when Beat division is Time in beats; named divisions ignore Time.',
+      division: 'With Sync on beat, choose 1/32 through four bars, straight, dotted (×1.5) or triplet (×2/3); times beyond eight seconds are capped and reported in properties.',
       feedback: 'How much of each echo is fed back to make more echoes (never quite 1, so they die away).',
       mix: 'How much echo is heard against the dry sound.',
+      sync: 'Off: Time is in seconds. Beat: use the selected division or numeric beats at engine tempo; changes crossfade taps over 20 ms, retaining the tail without a pitch glide.',
     },
   },
 

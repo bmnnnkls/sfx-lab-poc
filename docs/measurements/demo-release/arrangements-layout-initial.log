@@ -1,0 +1,7 @@
+{"example":"Low Light","scene":1,"patternBeats":16,"requestedBeat":0,"throughBeat":20,"observedBeat":20,"peak":0.681,"elapsedMs":10013}
+{"example":"Low Light","scene":2,"patternBeats":16,"requestedBeat":20,"throughBeat":40,"observedBeat":40,"peak":0.673,"elapsedMs":9721}
+{"example":"Low Light","scene":3,"patternBeats":16,"requestedBeat":40,"throughBeat":60,"observedBeat":60,"peak":0.705,"elapsedMs":9497}
+{"example":"Low Light","scene":4,"patternBeats":16,"requestedBeat":60,"throughBeat":80,"observedBeat":80,"peak":0.746,"elapsedMs":9488}
+{"example":"Low Light","scene":5,"patternBeats":16,"requestedBeat":80,"throughBeat":100,"observedBeat":100,"peak":0.703,"elapsedMs":9493}
+{"example":"Low Light","scene":6,"patternBeats":16,"requestedBeat":100,"throughBeat":120,"observedBeat":120,"peak":0.689,"elapsedMs":9734}
+{"example":"Low Light","scene":7,"patternBeats":16,"requestedBeat":120,"throughBeat":140,"observedBeat":140,"peak":0.699,"elapsedMs":9483}

@@ -28,13 +28,13 @@ export class AudioBoard implements SendSink {
     return this.slots.get(trackId)
   }
 
-  add(trackId: string, source: Float32Array, amount: number, frames: number): void {
+  add(trackId: string, source: Float32Array, amount: number, frames: number, offset = 0): void {
     const slot = this.slots.get(trackId)
     if (!slot || amount === 0) return
     const stereo = isStereoBuffer(source)
     for (let i = 0; i < frames; i++) {
-      slot[i] = (slot[i] ?? 0) + (source[i] ?? 0) * amount
-      slot[RIGHT + i] = (slot[RIGHT + i] ?? 0) + (source[stereo ? RIGHT + i : i] ?? 0) * amount
+      slot[offset + i] = (slot[offset + i] ?? 0) + (source[i] ?? 0) * amount
+      slot[RIGHT + offset + i] = (slot[RIGHT + offset + i] ?? 0) + (source[stereo ? RIGHT + i : i] ?? 0) * amount
     }
   }
 }

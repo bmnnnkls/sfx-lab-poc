@@ -60,8 +60,11 @@ export interface PlayableTrack {
   setTempo(bpm: number): void
   /** Replaces the insert graph. Structural changes restart it (its tails are lost); knob changes go through `setParam`. */
   setFx(fx: Patch): void
-  /** Changes a parameter of a node in the track's patch or insert graph (node ids are unique across both). */
-  setParam(nodeId: string, paramId: string, value: number): void
+  /** Changes a parameter in the named graph. Legacy commands without a graph visit both. */
+  setParam(nodeId: string, paramId: string, value: number, graph?: 'patch' | 'fx' | 'notes'): void
+  clearAutomation(): void
+  setAutomationCurve(nodeId: string, paramId: string, values: Float64Array, graph: 'patch' | 'fx' | 'notes'): void
+  setAutomationParam?(nodeId: string, paramId: string, value: number, graph: 'patch' | 'fx' | 'notes'): void
   setSample(nodeId: string, sampleId: string | null): void
   /** What the indicators in the track's patch and insert graph show right now, by node id (empty when there are none). */
   readouts(): Readonly<Record<string, number>>

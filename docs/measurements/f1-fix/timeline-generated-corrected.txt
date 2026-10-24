@@ -1,0 +1,13 @@
+
+> sfx-lab-poc@0.0.0 test
+> vitest run src/core/engine/automation-timeline.test.ts src/core/notefx/notefx.test.ts src/core/engine/tempo.test.ts
+
+
+ RUN  v5.0.3 /Users/niklaus.baumann/git/local/sfx-lab-poc
+
+
+ Test Files  3 passed (3)
+      Tests  62 passed (62)
+   Start at  17:13:00
+   Duration  4.17s (tests 62%, transform 31%, import 6%)
+

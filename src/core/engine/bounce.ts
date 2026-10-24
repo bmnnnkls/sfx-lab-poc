@@ -83,10 +83,10 @@ const scopeBeats = (project: Project, scope: BounceScope): number[] => {
     if (!Number.isInteger(scope.scene) || scope.scene < 0 || scope.scene >= project.sceneCount) {
       throw new Error(`There is no scene ${scope.scene + 1} to bounce.`)
     }
-    return project.tracks.flatMap((track) => {
-      const clip = track.kind === 'return' ? null : track.clips[scope.scene]
+    return [...(project.master.automationSlots?.[scope.scene] ? [project.master.automationSlots[scope.scene]!.lengthBeats] : []), ...project.tracks.flatMap((track) => {
+      const clip = track.kind === 'return' ? track.automationSlots?.[scope.scene] : track.clips[scope.scene]
       return clip ? [clip.lengthBeats] : []
-    })
+    })]
   }
   const track = project.tracks.find((candidate) => candidate.id === scope.trackId)
   const clip = track && track.kind !== 'return' ? track.clips.find((candidate) => candidate?.id === scope.clipId) : undefined
@@ -122,6 +122,7 @@ export class Bounce {
   private readonly bodyFrames: number
   private readonly tailLimit: number
   private readonly silenceFrames: number
+  private readonly hasDelay: boolean
   private readonly left: Float32Array[] = []
   private readonly right: Float32Array[] = []
   private frames = 0
@@ -130,6 +131,9 @@ export class Bounce {
   private phase: Phase = 'body'
 
   constructor(project: Project, samples: readonly SampleData[], options: BounceOptions) {
+    // Delay lines can be silent for seconds while an echo is still pending, including in serial graphs.
+    // Render their explicit tail budget, then trim; a short silence window cannot prove they are empty.
+    this.hasDelay = [project.master.fx, ...project.modules.map(m => m.patch), ...project.tracks.flatMap(t => t.kind === 'instrument' ? [t.patch, t.fx] : [t.fx])].some(graph => graph.nodes.some(n => n.type === 'delay' || n.type === 'pingPong'))
     this.options = resolveBounceOptions(project, options)
     const { sampleRate, bars, maxTail, scope } = this.options
     this.engine = new Engine(sampleRate)
@@ -168,7 +172,7 @@ export class Bounce {
       this.engine.apply({ type: 'transport/stop' })
       this.phase = 'tail'
     }
-    if (this.phase === 'tail' && (this.frames >= this.tailLimit || this.frames - this.audibleEnd >= this.silenceFrames)) {
+    if (this.phase === 'tail' && (this.frames >= this.tailLimit || (!this.hasDelay && this.frames - this.audibleEnd >= this.silenceFrames))) {
       this.phase = 'done'
     }
   }

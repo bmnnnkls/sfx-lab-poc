@@ -1,0 +1,958 @@
+{
+  "format": "sfx-lab-project",
+  "version": 7,
+  "project": {
+    "snapshots": [
+      {
+        "id": "snapshot_yfa3g8ul",
+        "name": "A",
+        "scope": {
+          "owner": {
+            "kind": "track",
+            "trackId": "track_st2cq3ax"
+          },
+          "domain": "patch"
+        },
+        "values": [
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "mode",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "root",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 60
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "start",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "tune",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "knob",
+              "nodeType": "control",
+              "paramId": "value",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 100
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "toggle",
+              "nodeType": "switch",
+              "paramId": "on",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "mode",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "root",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 60
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "start",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "tune",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "knob",
+              "nodeType": "control",
+              "paramId": "value",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 100
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "toggle",
+              "nodeType": "switch",
+              "paramId": "on",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          }
+        ]
+      }
+    ],
+    "sampleBindings": [
+      {
+        "target": {
+          "kind": "graph",
+          "owner": {
+            "kind": "track",
+            "trackId": "track_st2cq3ax"
+          },
+          "domain": "patch",
+          "nodeId": "sample",
+          "nodeType": "sampler",
+          "path": [
+            {
+              "nodeId": "left",
+              "moduleId": "m"
+            }
+          ]
+        },
+        "sampleId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "assetRevisions": [
+      {
+        "id": "revision_zxm4xary",
+        "signature": "[\"instrument\",[{\"nodes\":[{\"id\":\"left\",\"type\":\"module\",\"moduleId\":\"m\",\"stereo\":false,\"bypassed\":false},{\"id\":\"right\",\"type\":\"module\",\"moduleId\":\"m\",\"stereo\":false,\"bypassed\":false}],\"connections\":[]},{\"nodes\":[{\"id\":\"node_480f2w8e\",\"type\":\"clipNotes\",\"stereo\":false,\"bypassed\":false},{\"id\":\"node_b3fn3vus\",\"type\":\"noteOut\",\"stereo\":false,\"bypassed\":false}],\"connections\":[[\"node_480f2w8e\",\"out\",\"node_b3fn3vus\",\"in\"]]},8],[[\"m\",[],[[\"sample:out\",\"sample\",\"out\"]],[],{\"nodes\":[{\"id\":\"button\",\"type\":\"switch\",\"stereo\":false,\"bypassed\":false,\"config\":{\"mode\":1,\"offValue\":0,\"onValue\":1,\"pulse\":0.05}},{\"id\":\"knob\",\"type\":\"control\",\"stereo\":false,\"bypassed\":false,\"config\":{\"curve\":1,\"default\":0.5,\"max\":20000,\"min\":20,\"step\":0}},{\"id\":\"sample\",\"type\":\"sampler\",\"stereo\":false,\"bypassed\":false},{\"id\":\"toggle\",\"type\":\"switch\",\"stereo\":false,\"bypassed\":false,\"config\":{\"mode\":0,\"offValue\":0,\"onValue\":1,\"pulse\":0.05}}],\"connections\":[]}]]]",
+        "payload": {
+          "kind": "instrument",
+          "patch": {
+            "nodes": [
+              {
+                "id": "left",
+                "type": "module",
+                "moduleId": "m",
+                "x": 0,
+                "y": 0,
+                "params": {}
+              },
+              {
+                "id": "right",
+                "type": "module",
+                "moduleId": "m",
+                "x": 0,
+                "y": 0,
+                "params": {}
+              }
+            ],
+            "connections": []
+          },
+          "noteGraph": {
+            "nodes": [
+              {
+                "id": "node_480f2w8e",
+                "type": "clipNotes",
+                "x": 20,
+                "y": 40,
+                "params": {}
+              },
+              {
+                "id": "node_b3fn3vus",
+                "type": "noteOut",
+                "x": 620,
+                "y": 40,
+                "params": {}
+              }
+            ],
+            "connections": [
+              {
+                "id": "wire_ihmzlcgm",
+                "from": {
+                  "node": "node_480f2w8e",
+                  "port": "out"
+                },
+                "to": {
+                  "node": "node_b3fn3vus",
+                  "port": "in"
+                }
+              }
+            ]
+          },
+          "voices": 8,
+          "modules": [
+            {
+              "id": "m",
+              "name": "Sample voice",
+              "patch": {
+                "nodes": [
+                  {
+                    "id": "sample",
+                    "type": "sampler",
+                    "x": 0,
+                    "y": 0,
+                    "params": {
+                      "mode": 0,
+                      "root": 60,
+                      "start": 0,
+                      "tune": 0
+                    },
+                    "sampleId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  {
+                    "id": "knob",
+                    "type": "control",
+                    "x": 0,
+                    "y": 0,
+                    "params": {
+                      "value": 100,
+                      "min": 20,
+                      "max": 20000,
+                      "curve": 1,
+                      "step": 0,
+                      "default": 0.5
+                    }
+                  },
+                  {
+                    "id": "toggle",
+                    "type": "switch",
+                    "x": 0,
+                    "y": 0,
+                    "params": {
+                      "on": 0,
+                      "mode": 0,
+                      "offValue": 0,
+                      "onValue": 1,
+                      "pulse": 0.05
+                    }
+                  },
+                  {
+                    "id": "button",
+                    "type": "switch",
+                    "x": 0,
+                    "y": 0,
+                    "params": {
+                      "on": 0,
+                      "mode": 1,
+                      "offValue": 0,
+                      "onValue": 1,
+                      "pulse": 0.05
+                    }
+                  }
+                ],
+                "connections": []
+              },
+              "inputs": [],
+              "outputs": [
+                {
+                  "id": "sample:out",
+                  "label": "Out",
+                  "inner": {
+                    "node": "sample",
+                    "port": "out"
+                  }
+                }
+              ],
+              "knobs": []
+            }
+          ],
+          "sampleIds": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        }
+      }
+    ],
+    "presets": [
+      {
+        "id": "preset_fyxn457z",
+        "name": "Preset A",
+        "scope": {
+          "owner": {
+            "kind": "track",
+            "trackId": "track_st2cq3ax"
+          },
+          "domain": "patch"
+        },
+        "values": [
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "mode",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "root",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 60
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "start",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "tune",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "knob",
+              "nodeType": "control",
+              "paramId": "value",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 100
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "toggle",
+              "nodeType": "switch",
+              "paramId": "on",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "mode",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "root",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 60
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "start",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "paramId": "tune",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "knob",
+              "nodeType": "control",
+              "paramId": "value",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 100
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "toggle",
+              "nodeType": "switch",
+              "paramId": "on",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "value": 0
+          }
+        ],
+        "revisionId": "revision_zxm4xary",
+        "samples": [
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "path": [
+                {
+                  "nodeId": "left",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "sampleId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_st2cq3ax"
+              },
+              "domain": "patch",
+              "nodeId": "sample",
+              "nodeType": "sampler",
+              "path": [
+                {
+                  "nodeId": "right",
+                  "moduleId": "m"
+                }
+              ]
+            },
+            "sampleId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    ],
+    "name": "Untitled",
+    "tempo": 120,
+    "sceneCount": 4,
+    "samples": [
+      {
+        "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "name": "a",
+        "extension": "wav",
+        "durationSeconds": 1,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bytes": 16000
+      },
+      {
+        "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "name": "b",
+        "extension": "wav",
+        "durationSeconds": 1,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bytes": 16000
+      }
+    ],
+    "modules": [
+      {
+        "id": "m",
+        "name": "Sample voice",
+        "patch": {
+          "nodes": [
+            {
+              "id": "sample",
+              "type": "sampler",
+              "x": 0,
+              "y": 0,
+              "params": {
+                "mode": 0,
+                "root": 60,
+                "start": 0,
+                "tune": 0
+              },
+              "sampleId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            {
+              "id": "knob",
+              "type": "control",
+              "x": 0,
+              "y": 0,
+              "params": {
+                "value": 100,
+                "min": 20,
+                "max": 20000,
+                "curve": 1,
+                "step": 0,
+                "default": 0.5
+              }
+            },
+            {
+              "id": "toggle",
+              "type": "switch",
+              "x": 0,
+              "y": 0,
+              "params": {
+                "on": 0,
+                "mode": 0,
+                "offValue": 0,
+                "onValue": 1,
+                "pulse": 0.05
+              }
+            },
+            {
+              "id": "button",
+              "type": "switch",
+              "x": 0,
+              "y": 0,
+              "params": {
+                "on": 0,
+                "mode": 1,
+                "offValue": 0,
+                "onValue": 1,
+                "pulse": 0.05
+              }
+            }
+          ],
+          "connections": []
+        },
+        "inputs": [],
+        "outputs": [
+          {
+            "id": "sample:out",
+            "label": "Out",
+            "inner": {
+              "node": "sample",
+              "port": "out"
+            }
+          }
+        ],
+        "knobs": []
+      }
+    ],
+    "master": {
+      "fx": {
+        "nodes": [
+          {
+            "id": "node_w9ixhfsc",
+            "type": "masterIn",
+            "x": 20,
+            "y": 40,
+            "params": {}
+          },
+          {
+            "id": "node_9qxupg19",
+            "type": "trackOut",
+            "x": 620,
+            "y": 40,
+            "params": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "wire_p5g5nbde",
+            "from": {
+              "node": "node_w9ixhfsc",
+              "port": "out"
+            },
+            "to": {
+              "node": "node_9qxupg19",
+              "port": "in"
+            }
+          }
+        ]
+      }
+    },
+    "tracks": [
+      {
+        "kind": "instrument",
+        "id": "track_st2cq3ax",
+        "name": "Track 1",
+        "volume": 0.8,
+        "fx": {
+          "nodes": [
+            {
+              "id": "node_y9thq0vt",
+              "type": "trackIn",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_l31uqsp3",
+              "type": "trackOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_zskokcfq",
+              "from": {
+                "node": "node_y9thq0vt",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_l31uqsp3",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "sends": {},
+        "voices": 8,
+        "patch": {
+          "nodes": [
+            {
+              "id": "left",
+              "type": "module",
+              "moduleId": "m",
+              "x": 0,
+              "y": 0,
+              "params": {}
+            },
+            {
+              "id": "right",
+              "type": "module",
+              "moduleId": "m",
+              "x": 0,
+              "y": 0,
+              "params": {}
+            }
+          ],
+          "connections": []
+        },
+        "noteGraph": {
+          "nodes": [
+            {
+              "id": "node_480f2w8e",
+              "type": "clipNotes",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_b3fn3vus",
+              "type": "noteOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_ihmzlcgm",
+              "from": {
+                "node": "node_480f2w8e",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_b3fn3vus",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "clips": [
+          null,
+          null,
+          null,
+          null
+        ]
+      }
+    ],
+    "libraryOrigins": [
+      {
+        "itemId": "library-instrument",
+        "revisionId": "library-revision",
+        "trackId": "track_st2cq3ax",
+        "domain": "patch"
+      }
+    ]
+  }
+}

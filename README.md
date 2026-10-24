@@ -4,16 +4,46 @@ A browser-based music/sound-design sandbox: an Ableton-style **session view** (c
 on top of a Max-style **patcher** (node graph) for building instruments. Everything runs client-side on
 the Web Audio API with a custom DSP engine inside an `AudioWorklet`.
 
+## Demo release scope
+
+This is an experimental music/sound-design demo. The current candidate fixes queued automation transitions,
+shows persistent recovery guidance if audio initialization fails, and makes saved-asset compatibility independent
+of browser locale. Older projects and supported library bundles migrate with browser recovery backups.
+New exports use project v9 / library bundle v2 and require this version of the app.
+
+Dense projects can still exceed the audio callback budget, including the first callback. Muting tracks does not
+suspend their DSP. Physical MIDI hardware and broad device performance are not release-qualified.
+See the [release verification record](docs/measurements/demo-release/README.md) for checked behavior and remaining limits.
+
 ## Run it
 
 ```bash
-npm install
+npm ci             # install the locked dependencies (Node 22.12+)
 npm run dev        # http://localhost:5173 — click a clip or scene to start audio (it opens on the Low Light example)
 npm test           # unit tests + architecture (layering) test
 npm run build      # typecheck + production build
 ```
 
+Browser verification uses the production build and starts/stops its own preview server on port 4173:
+
+```bash
+npx playwright install chromium  # once after install / Playwright upgrades
+npm run test:smoke               # examples, panel edit/undo/reload, sample package round-trip
+npm run test:audio               # longer real-output stereo/pan/master checks
+npm run test:browser             # both suites
+```
+
+On Linux, install browser system dependencies with `npx playwright install --with-deps chromium`.
+Failures retain screenshots and traces in `test-results/` and an HTML report in `playwright-report/`.
+See [browser checks](docs/browser-checks/README.md) for coverage and the older feature-specific reference scripts.
+If a native CSS binary fails to load, run `npm ci` to restore the locked platform packages; do not copy `node_modules`
+between operating systems. On 2026-10-17 the local macOS build failure was a truncated Lightning CSS binary;
+a clean install repaired it without changing Vite or the lockfile's platform dependency records.
+
 ## Live demo (GitHub Pages)
+
+Pull requests and pushes to `main` run unit/architecture tests, typechecking, a production build and the fast Chromium
+smoke suite. PRs have read-only repository permissions and do not deploy. Main deploys only after those checks pass.
 
 Pushes to `main` deploy automatically via `.github/workflows/deploy-pages.yml`. One-time setup: repo **Settings → Pages → Source: GitHub Actions**, and `main` must be an allowed branch under **Settings → Environments → github-pages → Deployment branches** (otherwise the deploy job fails with "not allowed to deploy ... due to environment protection rules"). The site is then at `https://<user>.github.io/sfx-lab-poc/`.
 

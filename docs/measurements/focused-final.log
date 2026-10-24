@@ -1,0 +1,13 @@
+
+ RUN  v5.0.3 /Users/niklaus.baumann/git/local/sfx-lab-poc
+
+
+ Test Files  3 passed (3)
+      Tests  28 passed (28)
+   Start at  13:06:41
+   Duration  1.78s (transform 75%, import 16%, tests 9%)
+
+  Transform  transforming modules took 3.28s · 75% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

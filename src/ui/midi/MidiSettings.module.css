@@ -1,0 +1,6 @@
+.overlay { position: fixed; inset: 64px 16px auto auto; z-index: 80; width: min(680px, calc(100vw - 32px)); max-height: calc(100vh - 90px); overflow: auto; background: #20232a; color: #eee; border: 1px solid #596173; border-radius: 8px; padding: 18px; box-shadow: 0 12px 40px #0009; }
+.overlay h2 { margin: 0 0 12px; }
+.overlay label { display: inline-flex; gap: 7px; align-items: center; margin: 6px 12px 6px 0; }
+.overlay select { max-width: 210px; }
+.mapping { border-top: 1px solid #596173; padding: 10px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.notice { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 90; padding: 12px; background: #28394b; color: #fff; border: 1px solid #7ba4d1; border-radius: 6px; }

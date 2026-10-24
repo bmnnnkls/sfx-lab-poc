@@ -1,0 +1,12 @@
+
+ RUN  v5.0.3 /private/tmp/sfx-commit-check.21tylyvv
+
+
+ Test Files  135 passed (135)
+      Tests  1742 passed (1742)
+   Start at  09:45:08
+   Duration  16.07s (tests 65%, import 19%, transform 15%, worker 1%)
+
+    Isolate  135 workers spawned · ~106ms startup each (spawn + environment, per file)
+             at least ~1.19s faster with isolate: false — reuses workers across files instead of one per file
+

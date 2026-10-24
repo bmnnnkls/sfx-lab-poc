@@ -1,7 +1,13 @@
+import type { ControlValue } from '../control'
 import type { LauncherStatus } from '../session'
 
 /** Snapshot of engine state for display; produced by the engine, consumed by the UI. */
 export interface EngineStatus {
+  readonly tempo?: number
+  readonly masterAutomation?: LauncherStatus
+  readonly automationOverrides?: readonly ControlValue[]
+  readonly automationOverrideRevision?: number
+  readonly automation?: readonly ControlValue[]
   readonly playing: boolean
   readonly beat: number
   /** Loudest output sample (0..1) since the previous status snapshot. */

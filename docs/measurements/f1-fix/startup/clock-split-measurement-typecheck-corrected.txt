@@ -1,0 +1,79 @@
+scripts/review-benchmark/worklet-capacity.ts(24,37): error TS7006: Parameter 't' implicitly has an 'any' type.
+scripts/review-benchmark/worklet-capacity.ts(27,49): error TS7006: Parameter 'node' implicitly has an 'any' type.
+scripts/review-benchmark/worklet-capacity.ts(30,40): error TS7006: Parameter 'wire' implicitly has an 'any' type.
+scripts/review-benchmark/worklet-capacity.ts(34,54): error TS7006: Parameter 't' implicitly has an 'any' type.
+scripts/review-benchmark/worklet-capacity.ts(34,123): error TS7006: Parameter 'c' implicitly has an 'any' type.
+scripts/review-benchmark/worklet-capacity.ts(94,43): error TS7006: Parameter 't' implicitly has an 'any' type.
+scripts/review-benchmark/worklet-capacity.ts(98,45): error TS7006: Parameter 'n' implicitly has an 'any' type.
+scripts/review-benchmark/worklet-capacity.ts(98,47): error TS7006: Parameter 't' implicitly has an 'any' type.
+scripts/review-benchmark/worklet-capacity.ts(99,105): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/core/engine/engine.ts(1,73): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+src/core/engine/engine.ts(2,34): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './automation.js'?
+src/core/engine/engine.ts(3,38): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+src/core/engine/engine.ts(4,43): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+src/core/engine/engine.ts(5,31): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+src/core/engine/engine.ts(6,42): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+src/core/engine/engine.ts(7,28): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+src/core/engine/engine.ts(8,48): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+src/core/engine/engine.ts(9,27): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+src/core/engine/engine.ts(10,28): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './audio-board.js'?
+src/core/engine/engine.ts(11,27): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './audio-taps.js'?
+src/core/engine/engine.ts(12,35): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './audio-track-runtime.js'?
+src/core/engine/engine.ts(13,36): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './commands.js'?
+src/core/engine/engine.ts(14,65): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './playable-track.js'?
+src/core/engine/engine.ts(15,36): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './return-track-runtime.js'?
+src/core/engine/engine.ts(16,31): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './sample-preview.js'?
+src/core/engine/engine.ts(17,35): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './status.js'?
+src/core/engine/engine.ts(18,28): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './live-notes.js'?
+src/core/engine/engine.ts(19,30): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './track-runtime.js'?
+src/core/engine/engine.ts(33,55): error TS7006: Parameter 'target' implicitly has an 'any' type.
+src/core/engine/engine.ts(33,63): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/core/engine/engine.ts(33,70): error TS7006: Parameter 'baseValue' implicitly has an 'any' type.
+src/core/engine/engine.ts(99,133): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/core/engine/engine.ts(289,59): error TS7006: Parameter 'source' implicitly has an 'any' type.
+src/core/engine/engine.ts(474,58): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/core/examples/index.ts(1,30): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+src/core/examples/index.ts(2,51): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+src/core/examples/index.ts(3,49): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+src/core/patch/index.ts(11,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './types.js'?
+src/core/patch/index.ts(12,91): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './control-for.js'?
+src/core/patch/index.ts(13,28): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './titles.js'?
+src/core/patch/index.ts(14,31): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './resolve.js'?
+src/core/patch/index.ts(15,69): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './module-controls.js'?
+src/core/patch/index.ts(24,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './module-types.js'?
+src/core/patch/index.ts(25,116): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './node-shape.js'?
+src/core/patch/index.ts(26,40): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './default-note-graph.js'?
+src/core/patch/index.ts(27,38): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './default-fx-graph.js'?
+src/core/patch/index.ts(28,42): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './default-return-graph.js'?
+src/core/patch/index.ts(29,42): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './default-master-graph.js'?
+src/core/patch/index.ts(30,29): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './send-targets.js'?
+src/core/patch/index.ts(31,30): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './audio-sources.js'?
+src/core/patch/index.ts(32,55): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './note-graph-builder.js'?
+src/core/patch/index.ts(33,33): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './bake.js'?
+src/core/patch/index.ts(34,56): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './randomize.js'?
+src/core/patch/index.ts(35,110): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './example-modules.js'?
+src/core/patch/index.ts(36,95): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './flatten.js'?
+src/core/patch/index.ts(43,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './group-module.js'?
+src/core/patch/index.ts(53,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './module-edit.js'?
+src/core/patch/index.ts(76,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './edit.js'?
+src/core/patch/index.ts(77,48): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './graph.js'?
+src/core/patch/index.ts(89,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './panel.js'?
+src/core/patch/index.ts(90,36): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './default-patch.js'?
+src/core/patch/index.ts(91,36): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './sampler-patch.js'?
+src/core/persistence/index.ts(1,66): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './project-file.js'?
+src/core/persistence/index.ts(2,58): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './validate-library.js'?
+src/core/project/index.ts(13,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './types.js'?
+src/core/project/index.ts(14,64): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './track-kind.js'?
+src/core/project/index.ts(15,58): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './sample-use.js'?
+src/core/project/index.ts(30,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './audio-clip.js'?
+src/core/project/index.ts(72,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './edit.js'?
+src/core/project/index.ts(86,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './module-edit.js'?
+src/core/project/index.ts(87,62): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './note-taps.js'?
+src/core/project/index.ts(96,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './mix-order.js'?
+src/core/project/index.ts(97,35): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './demo-project.js'?
+src/core/project/index.ts(115,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './note-edit.js'?
+src/core/project/index.ts(116,33): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './note-edit.js'?
+src/core/project/index.ts(123,8): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './groove.js'?
+src/core/project/index.ts(124,33): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './clip-copy.js'?
+src/core/project/index.ts(126,37): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './types.js'?
+src/core/sync/index.ts(1,29): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './diff-project.js'?

@@ -8,13 +8,14 @@ const SLIDER_RESOLUTION = 1000
 
 interface ParamRowProps {
   row: PropertyRow
+  canUnwire?: boolean
   onChange(value: number): void
   onCreateControl(display: 'knob' | 'slider'): void
   onUnwire(): void
 }
 
 /** One parameter in the property editor: its label, a field and a slider (or a choice), reset, and what drives it. */
-export const ParamRow = ({ row, onChange, onCreateControl, onUnwire }: ParamRowProps) => {
+export const ParamRow = ({ row, onChange, onCreateControl, onUnwire, canUnwire = true }: ParamRowProps) => {
   const { spec, value, drivenBy } = row
   const driven = drivenBy !== undefined
   return (
@@ -51,9 +52,9 @@ export const ParamRow = ({ row, onChange, onCreateControl, onUnwire }: ParamRowP
         {driven ? (
           <>
             <span className={styles.drivenBy}>Driven by {drivenBy}</span>
-            <button type="button" onClick={onUnwire} aria-label={`Unwire ${spec.label}`} data-tooltip="Remove the wire; the parameter uses its own value again.">
+            {canUnwire && <button type="button" onClick={onUnwire} aria-label={`Unwire ${spec.label}`} data-tooltip="Remove the wire; the parameter uses its own value again.">
               Unwire
-            </button>
+            </button>}
           </>
         ) : (
           <>

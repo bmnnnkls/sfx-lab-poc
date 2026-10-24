@@ -1,3 +1,4 @@
+import { MAX_AUTOMATION_POINTS, resizeAutomation, doubleAutomation } from '../automation'
 import {
   clearSampleReferences,
   clearTrackReferences,
@@ -109,6 +110,8 @@ export const addTrack = (project: Project, track: Track): Project => ({
  */
 export const removeTrack = (project: Project, trackId: string): Project => ({
   ...project,
+  ...(project.controlValues && { controlValues: project.controlValues.filter((entry) => !removedControlReference(entry.target, trackId)) }),
+  ...(project.midiMappings && { midiMappings: project.midiMappings.filter((entry) => !removedControlReference(entry.target, trackId)) }),
   master: mapMasterFx(project.master, (fx) => clearTrackReferences(fx, trackId)),
   modules: mapModules(project.modules, (module) => {
     const patch = clearTrackReferences(module.patch, trackId)
@@ -117,6 +120,7 @@ export const removeTrack = (project: Project, trackId: string): Project => ({
   tracks: project.tracks
     .filter((track) => track.id !== trackId)
     .map((track): Track => {
+      if (track.kind !== 'return') track = { ...track, clips: track.clips.map((clip) => !clip?.automation ? clip : { ...clip, automation: clip.automation.filter((lane) => !removedControlReference(lane.target, trackId)) }) } as Track
       const fx = clearTrackReferences(track.fx, trackId)
       const cleared = fx === track.fx ? track : { ...track, fx }
       const base = cleared.kind !== 'return' && trackId in cleared.sends ? { ...cleared, sends: withoutKey(cleared.sends, trackId) } : cleared
@@ -232,18 +236,19 @@ export const setClipLength = (
   updateClip(project, trackId, clipId, (clip) => {
     const length = clamp(lengthBeats, MIN_CLIP_BEATS, MAX_CLIP_BEATS)
     if (length === clip.lengthBeats) return clip
-    return { ...clip, lengthBeats: length, notes: trimNotesToLength(clip.notes, length) }
+    return { ...resizeAutomation(clip, length), lengthBeats: length, notes: trimNotesToLength(clip.notes, length) }
   })
 
 /** Doubles a clip's length and repeats its notes into the new half ("double loop"). */
 export const doubleClip = (project: Project, trackId: string, clipId: string): Project =>
   updateClip(project, trackId, clipId, (clip) => {
     const length = clip.lengthBeats * 2
-    if (length > MAX_CLIP_BEATS) return clip
+    if (length > MAX_CLIP_BEATS || clip.automation?.some((lane) => lane.points.length * 2 + 2 > MAX_AUTOMATION_POINTS)) return clip
     return {
       ...clip,
       lengthBeats: length,
       notes: [...clip.notes, ...shiftedCopies(clip.notes, clip.lengthBeats)],
+      ...(clip.automation && { automation: doubleAutomation(clip.automation, clip.lengthBeats) }),
     }
   })
 
@@ -288,6 +293,7 @@ export const removeSample = (project: Project, sampleId: string): Project => ({
   ...project,
   master: mapMasterFx(project.master, (fx) => clearSampleReferences(fx, sampleId)),
   samples: project.samples.filter((sample) => sample.id !== sampleId),
+  ...(project.sampleBindings && { sampleBindings: project.sampleBindings.map(b => b.sampleId === sampleId ? { ...b, sampleId: null } : b) }),
   modules: mapModules(project.modules, (module) => {
     const patch = clearSampleReferences(module.patch, sampleId)
     return patch === module.patch ? module : { ...module, patch }
@@ -337,7 +343,7 @@ export const updateAudioClip = (
   changes: AudioClipChanges,
 ): Project =>
   updateAudio(project, trackId, (track) => {
-    const clips = track.clips.map((clip) => (clip?.id === clipId ? clampAudioClip({ ...clip, ...changes }) : clip))
+    const clips = track.clips.map((clip) => (clip?.id === clipId ? clampAudioClip({ ...resizeAutomation(clip, changes.lengthBeats ?? clip.lengthBeats), ...changes }) : clip))
     const unchanged = clips.every((clip, index) => {
       const before = track.clips[index]
       return clip === before || (clip && before && JSON.stringify(clip) === JSON.stringify(before))
@@ -355,3 +361,5 @@ export const addAudioTrackWithClip = (project: Project, sample: SampleInfo): Pro
   const clip = createAudioClip(sample, project.tempo)
   return addTrack(project, { ...track, clips: track.clips.map((slot, scene) => (scene === 0 ? clip : slot)) })
 }
+
+const removedControlReference = (target: import('../control').ControlTarget, id: string) => (target.owner.kind === 'track' && target.owner.trackId === id) || (target.kind === 'mixer' && target.control === 'send' && target.returnId === id)

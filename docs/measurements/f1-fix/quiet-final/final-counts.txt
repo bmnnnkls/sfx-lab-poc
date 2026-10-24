@@ -1,0 +1,70 @@
+{"commit":"36f71d1dea37367d4f1a0f4a18f1d4c17a19e9ec","dirty":"M ARCHITECTURE.md\n M docs/PLAN-review-remediation.md\n M docs/TASKS.md\n M scripts/review-benchmark/README.md\n M src/core/engine/automation-audio.test.ts\n M src/core/engine/automation-perf.test.ts\n M src/core/engine/automation.ts\n M src/core/engine/engine.ts\n M src/core/engine/live-notes.ts\n M src/core/engine/track-runtime.ts\n M src/core/instrument/note-control-graph.ts\n M src/core/notefx/arpeggiator.ts\n M src/core/notefx/events.ts\n M src/core/notefx/graph.ts\n M src/core/notefx/stateless.ts\n M src/core/session/clip-launcher.ts\n M tests/browser/automation-project.ts\n M tests/browser/automation.audio.spec.ts\n?? docs/ASSESSMENT-review-critical-F1-second-opinion.md\n?? docs/PLAN-fix-F1.md\n?? docs/PLAN-review-critical-F1-second-opinion.md\n?? docs/REPORT-browser-audio-capacity-and-rust-engine.md\n?? docs/measurements/browser-capacity/\n?? docs/measurements/f1-fix/\n?? docs/measurements/f1-second-opinion/\n?? scripts/review-benchmark/f1-scaling.ts\n?? scripts/review-benchmark/plain-overhead.ts\n?? scripts/review-benchmark/source-identity.ts\n?? scripts/review-benchmark/trace-outliers.ts\n?? scripts/review-benchmark/worklet-capacity.ts\n?? src/core/engine/automation-mixed-timeline.test.ts\n?? src/core/engine/automation-timeline.test.ts\n?? src/core/engine/helper-clock.test.ts\n?? src/core/engine/note-components.test.ts\n?? src/core/instrument/note-control-graph.test.ts","node":"v24.21.0","cpu":"Apple M3 Pro","platform":"darwin","arch":"arm64","rate":48000,"quantum":128,"warmSeconds":1,"trials":5}
+{
+  "node": "v24.21.0",
+  "cpu": "Apple M3 Pro",
+  "baseline": {
+    "renderBlock": 1,
+    "collectEvents": 1,
+    "schedule": 4,
+    "clearAutomation": 4,
+    "mixInto": 4,
+    "processMaster": 1
+  },
+  "mixer": {
+    "renderBlock": 1,
+    "tick": 128,
+    "collectEvents": 1,
+    "schedule": 4,
+    "clearAutomation": 4,
+    "mixInto": 4,
+    "processMaster": 1
+  },
+  "notes": {
+    "renderBlock": 1,
+    "tick": 128,
+    "collectEvents": 1,
+    "schedule": 4,
+    "clearAutomation": 4,
+    "mixInto": 4,
+    "processMaster": 1
+  },
+  "disabled": {
+    "renderBlock": 1,
+    "tick": 128,
+    "collectEvents": 1,
+    "schedule": 4,
+    "clearAutomation": 4,
+    "mixInto": 4,
+    "processMaster": 1
+  },
+  "empty": {
+    "renderBlock": 1,
+    "tick": 128,
+    "collectEvents": 1,
+    "schedule": 4,
+    "clearAutomation": 4,
+    "mixInto": 4,
+    "processMaster": 1
+  },
+  "send": {
+    "renderBlock": 1,
+    "schedule": 5,
+    "tick": 128,
+    "collectEvents": 1,
+    "clearAutomation": 5,
+    "mixInto": 5,
+    "processMaster": 1
+  },
+  "notes-send": {
+    "renderBlock": 1,
+    "schedule": 5,
+    "tick": 128,
+    "collectEvents": 1,
+    "clearAutomation": 5,
+    "mixInto": 5,
+    "processMaster": 1
+  }
+}
+configured idle noteLanes false
+queued prelaunch true { playingClipId: null, startBeat: null, queued: 'c0' }
+queued remains { playingClipId: null, startBeat: null, queued: 'c0' }

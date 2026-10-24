@@ -10,6 +10,7 @@ import {
   flattenPatch,
   resolveParams,
 } from '@core'
+import { useProjectStore } from '@state'
 import { type PointerEvent, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
 import type { MenuEntry } from '../shared/menu'
@@ -20,6 +21,7 @@ import { hasPreview, nodePreview } from './previews'
 import { drivenParams, visibleShape } from './visible-shape'
 import styles from './Patcher.module.css'
 import { WireLayer } from './WireLayer'
+import { canvasPoint, MAX_ZOOM, MIN_ZOOM, zoomAt, type Viewport } from './viewport'
 
 interface PatchCanvasProps {
   patch: Patch
@@ -75,7 +77,7 @@ const boxOf = ({ from, to }: Box) => ({
   bottom: Math.max(from.y, to.y),
 })
 
-/** Scrollable node canvas: nodes as HTML, wires as SVG, wiring by dragging output -> input. */
+/** Pannable, zoomable node canvas: nodes as HTML, wires as SVG, wiring by dragging output -> input. */
 export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(function PatchCanvas({
   patch,
   modules,
@@ -94,7 +96,20 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
   onUnlinkModule,
   onRequestAdd,
 }, handle) {
-  const surface = useRef<HTMLDivElement>(null)
+  const [view, setView] = useState<Viewport>({ x: 0, y: 0, zoom: 1 })
+  const viewRef = useRef(view)
+  const [handTool, setHandTool] = useState(false)
+  const [panning, setPanning] = useState(false)
+  const pan = useRef<{ pointer: Point; view: Viewport } | null>(null)
+  const updateView = (next: Viewport) => {
+    viewRef.current = next
+    setView(next)
+    const bounds = scroller.current?.getBoundingClientRect()
+    if (bounds) pointer.current.canvas = canvasPoint({
+      x: pointer.current.client.x - bounds.left, y: pointer.current.client.y - bounds.top,
+    }, next)
+  }
+  const tempo = useProjectStore(s => s.project.tempo)
   const scroller = useRef<HTMLDivElement>(null)
   /** The last empty-canvas press and the selection it was about to clear, to tell a double-click and to keep the selection through it. */
   const lastPress = useRef<{ time: number; at: Point; selection: ReadonlySet<string> } | null>(null)
@@ -105,9 +120,38 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
   useImperativeHandle(handle, () => ({
     visibleCenter: () => {
       const view = scroller.current
-      return view ? { x: view.scrollLeft + view.clientWidth / 2, y: view.scrollTop + view.clientHeight / 2 } : { x: 300, y: 200 }
+      return view ? canvasPoint({ x: view.clientWidth / 2, y: view.clientHeight / 2 }, viewRef.current) : { x: 300, y: 200 }
     },
   }))
+
+  // A non-passive listener prevents browser/page zoom during trackpad pinch and Ctrl+wheel.
+  useEffect(() => {
+    const element = scroller.current
+    if (!element) return
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const current = viewRef.current
+      const bounds = element.getBoundingClientRect()
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1
+      if (event.ctrlKey || event.metaKey) {
+        updateView(zoomAt(current, current.zoom * Math.exp(-event.deltaY * unit * 0.01), {
+          x: event.clientX - bounds.left, y: event.clientY - bounds.top,
+        }))
+      } else {
+        updateView({ ...current, x: current.x - (event.shiftKey ? event.deltaY : event.deltaX) * unit,
+          y: current.y - (event.shiftKey ? 0 : event.deltaY) * unit })
+      }
+    }
+    element.addEventListener('wheel', onWheel, { passive: false })
+    return () => element.removeEventListener('wheel', onWheel)
+  }, [])
+
+  const zoom = (factor: number) => {
+    const element = scroller.current
+    if (element) updateView(zoomAt(viewRef.current, viewRef.current.zoom * factor, {
+      x: element.clientWidth / 2, y: element.clientHeight / 2,
+    }))
+  }
 
   // Shift+A over the canvas opens the picker at the pointer (not while typing in a field).
   useEffect(() => {
@@ -144,11 +188,11 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
     for (const node of patch.nodes) {
       if (!hasPreview(node.type)) continue
       const { values, moving } = resolveParams(patch, node.id)
-      const preview = nodePreview(node.type, values)
+      const preview = nodePreview(node.type, { ...values, previewTempo: tempo })
       if (preview) map.set(node.id, { preview, moving: moving.size > 0 })
     }
     return map
-  }, [patch])
+  }, [patch, tempo])
   const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
   const visible = patch.nodes.filter((node) => shapes.has(node.id))
 
@@ -160,8 +204,8 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
     ) + PADDING
 
   const pointerIn = (event: PointerEvent): Point => {
-    const bounds = surface.current?.getBoundingClientRect()
-    return { x: event.clientX - (bounds?.left ?? 0), y: event.clientY - (bounds?.top ?? 0) }
+    const bounds = scroller.current?.getBoundingClientRect()
+    return canvasPoint({ x: event.clientX - (bounds?.left ?? 0), y: event.clientY - (bounds?.top ?? 0) }, viewRef.current)
   }
 
   const select = (nodeId: string, additive: boolean) => {
@@ -187,20 +231,31 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
     onSelectionChange(new Set([...(finished.additive ? selected : []), ...hit.map((node) => node.id)]))
   }
 
+  const isBackground = (target: EventTarget | null) => target instanceof HTMLElement &&
+    (target === scroller.current || target.dataset.testid === 'patch-surface')
+
   return (
-    <div
-      ref={scroller}
-      className={styles.scroller}
-      onPointerEnter={() => (pointer.current.over = true)}
-      onPointerLeave={() => (pointer.current.over = false)}
-    >
+    <div className={styles.canvasHost}>
       <div
-        ref={surface}
-        className={styles.surface}
-        style={{ width, height }}
-        data-testid="patch-surface"
+        ref={scroller}
+        className={styles.scroller}
+        style={{ backgroundPosition: `${view.x}px ${view.y}px`, backgroundSize: `${20 * view.zoom}px ${20 * view.zoom}px` }}
+        data-testid="graph-viewport"
+        data-panning={panning}
+        data-hand-tool={handTool}
+        onPointerEnter={() => (pointer.current.over = true)}
+        onPointerLeave={() => (pointer.current.over = false)}
+        onPointerDownCapture={(event) => {
+          if (event.button !== 1 && !(handTool && event.button === 0)) return
+          event.preventDefault()
+          event.stopPropagation()
+          event.currentTarget.setPointerCapture(event.pointerId)
+          pan.current = { pointer: { x: event.clientX, y: event.clientY }, view: viewRef.current }
+          lastPress.current = null
+          setPanning(true)
+        }}
         onPointerDown={(event) => {
-          if (event.target !== event.currentTarget || event.button !== 0) return
+          if (!isBackground(event.target) || event.button !== 0 || pan.current) return
           const point = pointerIn(event)
           const last = lastPress.current
           if (last && event.timeStamp - last.time < DOUBLE_MS && Math.hypot(point.x - last.at.x, point.y - last.at.y) < DOUBLE_PX) {
@@ -217,58 +272,87 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
         onPointerMove={(event) => {
           pointer.current.client = { x: event.clientX, y: event.clientY }
           pointer.current.canvas = pointerIn(event)
+          if (pan.current) {
+            const start = pan.current
+            updateView({ ...start.view, x: start.view.x + event.clientX - start.pointer.x,
+              y: start.view.y + event.clientY - start.pointer.y })
+            pointer.current.canvas = pointerIn(event)
+            return
+          }
           if (box) setBox({ ...box, to: pointerIn(event) })
           else if (pending) setPending({ ...pending, pointer: pointerIn(event) })
         }}
         onPointerUp={(event) => {
+          if (pan.current) {
+            pan.current = null
+            setPanning(false)
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+            return
+          }
           if (box) finishBox(box)
           // A wire let go of on empty canvas asks where it should go: the picker, offering what can take it.
-          if (pending && event.target === event.currentTarget) {
+          if (pending && isBackground(event.target)) {
             onRequestAdd({ anchor: { x: event.clientX, y: event.clientY }, at: pointerIn(event), from: pending.from })
           }
           setBox(null)
           setPending(null)
         }}
-        onPointerLeave={() => setPending(null)}
+        onPointerCancel={() => { pan.current = null; setPanning(false); setBox(null); setPending(null) }}
+        onLostPointerCapture={() => { pan.current = null; setPanning(false); setBox(null) }}
       >
-        <WireLayer patch={patch} shapes={shapes} pending={pending} onDisconnect={onDisconnect} />
-        {visible.map((node) => (
-          <NodeView
-            key={node.id}
-            node={node}
-            shape={shapes.get(node.id)!}
-            title={titles.get(node.id) ?? node.type}
-            picture={pictures.get(node.id)}
-            readoutTrack={readoutTrack}
-            onSetParams={(changes) => onSetNodeParams(node.id, changes)}
-            driven={drivenParams(node.id, shapes.get(node.id)!, patch, (id) => titles.get(id) ?? '')}
-            inputMenu={(portId) => inputMenu(node.id, portId)}
-            shared={isShared(node)}
-            selected={selected.has(node.id)}
-            moduleActions={
-              node.type === MODULE_NODE_TYPE && node.moduleId
-                ? { onOpen: () => onOpenModule(node.moduleId!), onUnlink: () => onUnlinkModule(node.id) }
-                : undefined
-            }
-            onSelect={(additive) => select(node.id, additive)}
-            onMove={(x, y) => onMoveNode(node.id, x, y)}
-            onRemove={() => onRemoveNode(node.id)}
-            onWireStart={(from) => setPending({ from, pointer: { x: node.x, y: node.y } })}
-            onWireEnd={(to) => pending && onConnect(pending.from, to)}
-          />
-        ))}
-        {box && (
-          <div
-            className={styles.marquee}
-            style={{
-              left: boxOf(box).left,
-              top: boxOf(box).top,
-              width: boxOf(box).right - boxOf(box).left,
-              height: boxOf(box).bottom - boxOf(box).top,
-            }}
-          />
-        )}
+        <div
+          className={styles.surface}
+          style={{ width, height, minWidth: `${100 / view.zoom}%`, minHeight: `${100 / view.zoom}%`,
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}
+          data-testid="patch-surface"
+        >
+          <WireLayer patch={patch} shapes={shapes} pending={pending} onDisconnect={onDisconnect} />
+          {visible.map((node) => (
+            <NodeView
+              key={node.id}
+              node={node}
+              zoom={view.zoom}
+              shape={shapes.get(node.id)!}
+              title={titles.get(node.id) ?? node.type}
+              picture={pictures.get(node.id)}
+              readoutTrack={readoutTrack}
+              onSetParams={(changes) => onSetNodeParams(node.id, changes)}
+              driven={drivenParams(node.id, shapes.get(node.id)!, patch, (id) => titles.get(id) ?? '')}
+              inputMenu={(portId) => inputMenu(node.id, portId)}
+              shared={isShared(node)}
+              selected={selected.has(node.id)}
+              moduleActions={
+                node.type === MODULE_NODE_TYPE && node.moduleId
+                  ? { onOpen: () => onOpenModule(node.moduleId!), onUnlink: () => onUnlinkModule(node.id) }
+                  : undefined
+              }
+              onSelect={(additive) => select(node.id, additive)}
+              onMove={(x, y) => onMoveNode(node.id, x, y)}
+              onRemove={() => onRemoveNode(node.id)}
+              onWireStart={(from) => setPending({ from, pointer: { x: node.x, y: node.y } })}
+              onWireEnd={(to) => pending && onConnect(pending.from, to)}
+            />
+          ))}
+          {box && (
+            <div
+              className={styles.marquee}
+              style={{
+                left: boxOf(box).left,
+                top: boxOf(box).top,
+                width: boxOf(box).right - boxOf(box).left,
+                height: boxOf(box).bottom - boxOf(box).top,
+              }}
+            />
+          )}
+        </div>
       </div>
+      <div className={styles.navigation} role="group" aria-label="Graph navigation">
+        <button aria-label="Pan graph" aria-pressed={handTool} onClick={() => setHandTool(!handTool)} title="Drag to pan. Middle-drag also pans with the selection tool.">Hand</button>
+        <button aria-label="Zoom out" disabled={view.zoom <= MIN_ZOOM} onClick={() => zoom(1 / 1.2)}>−</button>
+        <button aria-label="Reset graph view" onClick={() => updateView({ x: 0, y: 0, zoom: 1 })} title="Reset zoom and position">{Math.round(view.zoom * 100)}%</button>
+        <button aria-label="Zoom in" disabled={view.zoom >= MAX_ZOOM} onClick={() => zoom(1.2)}>+</button>
+      </div>
+      <div className={styles.navigationHint}>Scroll to pan · Ctrl/⌘ + scroll to zoom</div>
     </div>
   )
 })

@@ -1,5 +1,30 @@
 # Architecture
 
+## Verification
+
+`npm test` runs unit tests and `tests/architecture.test.ts`; `npm run build` typechecks application and browser-test
+code and bundles production assets. Use `npm ci` to reproduce the lockfile on Node 22.12+ (including platform-specific
+optional native packages). The 2026-10-17 macOS Lightning CSS failure was a truncated installed binary, repaired by
+a clean install; the platform records were already present in the lockfile.
+
+`playwright.config.ts` defines separate Chromium smoke and audio projects under `tests/browser/`. `npm run test:smoke`,
+`npm run test:audio` and `npm run test:browser` build and serve the production app on a dedicated port 4173. They use
+Playwright's managed browser, fresh per-test storage, no retries, assertions with bounded waits, page/console error
+checks and retained failure screenshots/traces. Smoke covers example playback, panel gesture undo/redo and persistence,
+and a sample package round-trip into a fresh context. The audio project uses a sample-window tap derived from the
+legacy checks to test pan/master behavior and stopped held-note commands through the real worklet; it rejects an inactive tap. Additional legacy scenarios remain documented
+in `docs/browser-checks/README.md` for incremental migration.
+
+The Pages workflow runs unit/architecture, build/typecheck and smoke checks on PRs and main. PRs get read-only
+permissions. Only main builds the deployment with its repository base path and publishes, after checks succeed.
+
+Production bundling uses Vite 8's `build.rolldownOptions.output.codeSplitting.groups`: React, React DOM and Scheduler
+form a `react` chunk; Radix and Floating UI form `ui-vendor`. Package-boundary patterns support both path separators.
+These eagerly loaded dependencies have independent content hashes and Vite emits module-preload links. After slice 1,
+this reduced the main chunk from 705.5 kB to 400.1 kB, with React at 218.8 kB and menu dependencies at 85.8 kB; the
+117.8 kB audio worklet remains separate. Total JavaScript transfer is essentially unchanged: the benefit is independent
+dependency caching and smaller individual chunks, not lazy loading. The default chunk-size warning limit is unchanged.
+
 ## Layers
 
 ```
@@ -47,6 +72,9 @@ Each folder exposes one `index.ts`; everything else in it is private.
 | `transport` | sample-accurate beat clock | `Transport` |
 | `session` | clip launching: a shared quantized `LaunchQueue`, the MIDI `ClipLauncher` (note events) and `AudioClipLauncher` (start/stop events) | `ClipLauncher`, `AudioClipLauncher` |
 | `engine` | **the facade**: `apply(command)` + `render(left, right)` + `status()` (also the channel strips: fader, pan, mute/solo, meters), and the offline bounce built on it | `Engine`, `EngineCommand`, `EngineStatus`, `renderProject`, `Bounce` |
+| `automation` | clip lane edits, bounds, normalized evaluation and runtime compilation | `AutomationLane`, `setClipAutomation`, `compileAutomation`, … |
+| `library` | storage-independent catalog/folders, dependency closure, asset/clip insertion, portable lanes and isolated preview documents | `captureLibraryAsset`, `insertLibraryAsset`, `captureLibraryClip`, `insertLibraryClip`, … |
+| `preset` | scoped snapshots, immutable asset revisions, project presets, sample-instance bindings and recall/morph | `captureSnapshot`, `recallSnapshot`, `saveProjectPreset`, `recallProjectPreset`, … |
 | `sync` | diffs two `Project`s into `EngineCommand`s | `diffProject` |
 | `sample` | sample metadata/data types, engine-side `SampleBank`, mono mixdown, peaks, WAV encoder (mono, stereo, 16-bit or 32-bit float), demo samples | `SampleInfo`, `SampleData`, `SampleBank`, `createDemoSamples`, … |
 | `examples` | the shipped example projects (*Low Light*, *Glass Rain*), written as code with a small DSL for patches and scores; what a first visit opens on | `exampleProjects`, `findExampleProject`, `FLAGSHIP_EXAMPLE` |
@@ -75,6 +103,204 @@ Each folder exposes one `index.ts`; everything else in it is private.
   come from beat ranges `[from, to)` that are contiguous across blocks, so each fires exactly once.
 * **The `Engine` has no browser dependency**, so the same code is unit-tested in Node and renders offline: File > Export audio is
   `renderProject`, the same engine pulled faster than real time (see "Exporting audio").
+
+## Shared control targets and effective values
+
+`core/control` is the common framework-free control model. A `ControlTarget` names a track or master owner and either
+an instrument (`patch`), note (`notes`) or insert (`fx`) graph, or a mixer control (volume, pan, send with return ID).
+Returns use their track IDs. Graph targets carry an ordered path of `{ nodeId, moduleId }` uses, the leaf node ID,
+expected node type and parameter ID. Names, panel order and canvas positions never enter identity. Canonical keys
+serialize these fields in a fixed order. Resolution checks every use before flattening and refuses ambiguous flat IDs;
+a replaced module or node type is incompatible, while absent nodes, parameters, returns and owners are missing.
+
+`enumerateControlTargets` walks graphs and nested definitions, including independent XY axes. Resolution provides the
+live `ParamSpec`, authored base, availability for performance and linear/hold interpolation. Scale conversion reuses
+`dsp/param-scale` (linear, logarithmic and exponential), clamps and snaps, and selectors use their configured count.
+Control configuration parameters can be inspected but are unavailable for performance. A wired parameter remains
+wire-driven: base edits still work, but runtime override is refused with “target the upstream control.” Detection uses
+the flattened graph, so wires crossing module boundaries retain the same rule.
+
+`editControlBase` is a pure edit with an explicit result. Root/mixer edits use existing document fields. Values inside a
+module use go in optional `Project.controlValues`, a list of target/value records; they never edit the shared definition.
+Old exposed knob/control values on module uses remain defaults until an explicit target value supersedes them.
+Format **v2** adds this field; v1 migrates without changing authored values. The parser bounds the list (4096), path
+length (32) and ID lengths, rejects malformed values with warnings, deduplicates by canonical key and retains well-formed
+unavailable references. Committed v1 and v2 fixtures round-trip. Group/unlink rewrite saved routes, including all uses
+when editing a shared definition. `remapControlTarget`/`remapControlValues` accept explicit routes and owner/node/module/
+return ID maps for duplication and future asset insertion, validate the destination and report failures without guessing.
+Deleting/replacing a graph leaves references explicitly unavailable rather than matching nodes by labels or position.
+
+`projectWithControlValues` builds an ephemeral engine projection, applying saved instance values and then active
+runtime overrides. `diffProject` applies saved instance values for both live and offline rendering. `state/control-store`
+holds only transient overrides; `app/project-sync` subscribes separately and diffs successive effective projections.
+It never writes the project, history or autosave. Release restores the latest base, transport stop releases all overrides,
+document replacement/reset releases ownership, and edits that remove/invalidate/wire a target drop its live override.
+The project store's `documentEpoch` is unsaved lifecycle metadata for this purpose. Offline exports use authored bases.
+Instrument/insert `track/setParam` commands carry graph scope so equal IDs across domains cannot affect each other;
+legacy unscoped commands retain their behavior. Runtime instrument parameters are kept across voice-count rebuilds.
+
+`createControlGesture` gives panel instance, graph/property and mixer controls one shared transaction path, committing an XY
+change atomically. Explicit begin/end boundaries use a unique merge key with no duration cutoff: long drags undo once,
+and consecutive gestures do not merge accidentally. Wheel bursts use an 800 ms inactivity boundary. Pointer cancellation ends the gesture and keeps its latest value;
+undo restores its starting value. Shared-definition panels keep the graph editor's authoring path. Panel, property and mixer
+`EffectiveValue` outputs show active Read/override values, show the base in a tooltip and provide re-enable/release. The pure
+`effectiveControlReadouts` helper returns only active compatible overrides rather than every parameter on every frame.
+
+This control foundation is reused by MIDI and clip automation below. Snapshots and project presets ship in slice 4 below; library insertion ships in slice 5 below. Touch recording is described below. Manual overrides reach the engine through main-thread commands; lane evaluation follows its beat clock.
+The existing panel shows directly nested controls; deeper paths are supported by the control API and saved values,
+while opening a module definition still edits the shared definition deliberately.
+
+## Clip and return/master automation (slices 3a–3b)
+
+`core/automation` owns serializable lanes/points, bounded canonicalization, pure resize/double/copy/remap edits,
+normalized evaluation and compilation against current control specs. Clip lanes address only their own track's
+instrument, note graph, insert effects or mixer. Missing/wired targets stay in the document with feedback and do
+not acquire runtime ownership. Group/unlink remap lane paths together with instance values and MIDI mappings.
+Return/master slots arrived in format **v5** (clip lanes in v4; v6 adds saved sounds; v7 adds library origins below; v8 adds optional delay divisions; current format v9 versions deterministic signatures): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
+2048 points per lane, bounded IDs/paths and finite numbers. The explicit v3→v4 migration drops formerly unknown
+lane data; v4→v5 drops formerly unknown return/master slot fields. Committed v1–v8 fixtures cover compatibility. Saved bases remain authored values.
+
+Each point holds a normalized value and linear/hold interpolation to the next point. Points are sorted, equal
+times collapse with last input winning, and the valid time interval is [0, clip length]. Before/after the point
+range, hold its first/last value. The endpoint is approached before wrap; there is no implicit last-to-first ramp.
+Shortening trims, doubling repeats with explicit join boundaries (a 1e-9 beat left-limit point), and undo restores
+trimmed material. Doubling refuses point-limit overflow. Session copies use fresh clip/note/lane/point IDs; moves
+preserve identities and rewrite the owner. Incompatible destination nodes remain visibly unavailable.
+
+`EngineAutomation` owns launch queues, beat-phase evaluation and temporary overrides. Configuration is compiled
+from authored data, separately from the main thread's effective-value projection. The engine evaluates automation once per required sample in a bounded planning horizon, routing note writes
+immediately to the note runtime and retaining audio/mixer writes in reusable block curves. Instrument stages apply curves only to addressed DSP processors; varying helper
+buffers propagate to parameter-socket consumers without taking ownership away from the wire. Mono/stereo scratch
+buffers preserve port shape. Send sinks accept an optional segment offset so automated Send nodes write at the
+correct frame. Mixer volume/pan/post-fader sends read curves inside their sample loops. Unrelated processors keep
+normal block processing. An outer block is at most 128 frames; actual note actions split audio runs, while changing a
+note parameter alone does not split the mix. Curves survive every subrun and are sliced at its horizon-relative offset.
+Planning stops at audio start/stop/replacement or the current one-shot end; newly started clips supply their new end
+before further planning. This keeps base restoration ahead of the first effect-tail sample.
+
+Before first audible playback, `AudioHost` suspends its context, sends queued commands and requests preparation.
+The worklet primes a separate temporary Engine, sharing decoded assets for read access, and precompiles only topology/
+routing caches on the actual Engine. It does not render, schedule notes, tick automation or advance actual helper/
+transport clocks during preparation. A processor guard emits zeros before ready. The host queues later commands,
+waits for readiness, flushes them, then connects/resumes; preparation failure closes the suspended context. Initial
+sample buffers transfer once. This reviewed C4 phase adds first-use startup latency and temporary memory, measured
+in `docs/measurements/f1-fix/startup/README.md`. The entire actual callback window still includes the first render.
+The [implementation status and decision review](docs/REPORT-fix-F1-implementation-status.md) records approved
+tradeoffs, passing correctness checks and the remaining F1 capacity failures; startup preparation is not gate signoff.
+
+Note lanes use sample-sized scheduling and `NoteControlGraph` for control/math helpers that ordinary note graphs bake
+once. Installed helper nodes advance chronologically once per rendered sample at the engine rate, including while
+transport is stopped or their lane is inactive/queued/disabled/overridden. Installation scope is unchanged. Compatible
+parameter/configuration edits preserve helper state without processing an extra sample; a node/type/wiring change
+rebuilds the helper runtime. Helper-fed parameters are applied before that sample's input and generated notes.
+This deliberately corrects the previous fixed-48-kHz, once-per-scheduling-call helper speed and restores normal
+block sampling of unrelated DSP sockets (C1 reviewed on 2026-10-18); no saved format or compatibility mode changed.
+Clip and generated-event half-open boundaries share automation's 1e-10 beat tolerance so floating-point block ends
+cannot apply the pre-boundary parameter to the next sample's note. Transport and existing event rounding remain in use.
+
+Note graphs compile input adjacency and reuse their output maps; effective lane metadata and alternating ownership
+maps are retained. Empty live/mapping outputs and per-track tap entries are reused only after downstream consumption.
+Deferred actions retain immutable event objects; legitimate bursts have no event cap. Clip ownership identities are
+constructed only for emitted events. The reviewed C3 scheduler compiles full undirected note-tap components,
+including upstream sources and transitive readers. Components containing playing/queued notes automation or
+installed clocked helpers retain sample cadence; other components keep their existing interval processors, including
+autonomous generators. Topology edits rebuild the component/order caches; compatible note-graph scalar edits keep them. Deferred actions retain the original
+global track order at equal frames. The separately reviewed constant-range proof allows interval scheduling only after first-sample ownership/values
+commit and when endpoints plus intermediate points prove the normalized controls constant. Nonuniform wraps and
+queued ownership transitions conservatively retain sample cadence; uniform loops and constant overrides remain
+constant. Clocked helpers always retain sample cadence. Capacity acceptance remains open; see `docs/measurements/f1-fix/README.md`.
+
+Clip launch/retrigger/stop/empty-scene behavior follows the shared quantized launch queue. Audio one-shot boundaries
+split mix segments so automation releases when playback ends, including unwarped clips and tempo changes. Stop
+clears lane/override ownership and restores bases while existing effect/release tails continue. `Bounce` configures
+its own `Engine` with `diffProject`, so clip and scene exports use exactly the live evaluator and no UI clock.
+
+`useControlStore.playback` contains sparse engine readouts, separate from saved data. Common pointer/MIDI gestures
+intercept an active lane and write temporary overrides; unautomated gestures still author base values. MIDI pickup
+uses the current Read/override value. Re-enable or an actual quantized clip launch restores Read; revision-acknowledged
+engine snapshots discard released overrides without racing newer edits. Neither readouts nor override traffic enters
+history or autosave. `ui/automation` provides a lane picker/list and beat/value editor; each point drag has a unique
+history key. The internal clipboard, numeric fields, snapping, zoom, segment choice and multi-selection follow piano
+roll conventions. Context menus expose Show automation, with missing/wired feedback. The built-in React pointer
+capture API was checked through Context7 `/reactjs/react.dev` on 2026-10-17.
+
+Production tests draw/undo/reload a looping filter sweep and compare captured worklet output across two loops with
+offline clip/scene samples. Unit tests cover normalized/scaled/stepped evaluation, uneven blocks, loop boundaries,
+BPM changes, wire-owned upstream controls, note helpers, one-shots, missing/disabled/empty lanes, edits, migrations,
+MIDI/manual pickup/override/re-enable, relaunch and zero playback history/autosave writes. Note-graph lane scheduling
+can cost more CPU than audio/mixer lanes. Touch recording is described below.
+
+`ReturnTrack.automationSlots` and `MasterBus.automationSlots` are optional scene-indexed arrays of automation-only
+`AutomationSlot` documents (ID, name, independent 0.25–256 beat loop, lanes). Missing/null cells stop the prior slot
+at the next bar and restore authored bases. Scene launches launch/retrigger every present slot; individual slot
+launch/stop uses the typed `automation/launch` owner command. Owner keys distinguish master from every possible
+track ID. Return launch status joins `EngineStatus.tracks`; master has `masterAutomation`. Configuration edits
+preserve launch phase; deletion drops ownership. Queued empty slots also cancel pending launches before first playback.
+Clip and slot parsing retains well-formed cross-owner lanes with explicit unsupported-owner warnings; the editor marks
+them unavailable and runtime compilation excludes them. Valid same-owner missing targets also remain recoverable.
+Slots reuse the editor/evaluator and bounds, and remap nested routes through group/unlink.
+Removing a return removes its slots plus saved control/MIDI/send-lane references without changing other owners' slots.
+
+The session grid creates/edits/deletes/launches these cells. The Clip tab shows their loop-length setting and the same
+lane editor; shortening is undoable and trims points. Show automation on a return/master control opens its slot in the
+selected automation scene (scene 1 initially), creating it when empty. Editor keys reset point selection on slot changes,
+following React's state-reset contract checked through Context7 `/reactjs/react.dev` on 2026-10-17.
+
+Master effects and fader curves run per mix segment, including boundaries split by note events and audio endings.
+Scene WAV exports launch the row's return/master slots and use the longest selected clip/slot for default duration.
+Clip WAV exports launch only that clip's lanes, keeping the return/master authored bases and normal effect routing.
+Production tests cover slot editing/trim/undo/reload, live status, no playback saves and real-worklet master-filter /
+return-volume output against offline scene samples across wraps. A render-thread capture worklet copies every quantum
+through its MessagePort after a silent readiness check; the tests require the complete comparison window and finite
+samples. This avoids legacy ScriptProcessor startup/underflow capture loss. The AudioWorklet contract was checked
+through Context7 against the current Web Audio specification. Simulated MIDI/manual tests cover all owner kinds;
+no physical MIDI hardware check has been performed.
+
+## Browser MIDI input and learn (slice 2b)
+
+`app/midi-input` owns `MIDIAccess`, port callbacks and physical key queues. `state/midi-store` exposes serializable UI
+status/settings, learning/conflict state and mapping feedback; `MidiService` is injected at the composition root.
+Opening settings does not request access. Enable requests `navigator.requestMIDIAccess({ sysex: false })` and starts audio
+from the user action; denial/unsupported access leaves the app usable. A generation guard discards permission results
+arriving after disable/disposal. The adapter attaches connected/enabled inputs, detaches and closes lost/disabled ports,
+and refreshes on access state changes. Runtime feature detection handles Web MIDI's limited browser availability.
+API contracts were checked with Context7 `/mdn/content` and [MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API)
+on 2026-10-17; secure context and browser permission are required. No output ports or SysEx are used.
+
+The adapter reuses `parseMidiMessage` and converts its musician channels (1–16) once at the engine boundary (0–15).
+Each note-on allocates a per-press ID. Physical note-offs consume FIFO queues per input/channel/pitch; zero velocity is
+already an off from the parser. Default routing follows the selected instrument, or one pinned instrument. Selection of
+an audio/return/master destination routes no notes. Pinning keeps input stable while navigating elsewhere. Destination,
+filter and input lifecycle changes release affected sources. CC64 drives source/channel sustain; reserved CC120–127
+release that source/channel. Project document-epoch changes discard adapter queues and panic, even with identical IDs.
+Visible Panic clears queues/pedals/generated events without stopping transport; Stop also forgets physical ownership.
+Fresh presses are required after cleanup. The held-note engine retains release/effect tails. Notes never edit a project.
+
+`app/midi-controls` learns eligible absolute CC0–119 except sustain. Confirmation consumes the first CC without editing
+the sound. An occupied source opens an explicit reassign/cancel decision; one source maps to one target, while separate
+inputs can bind the same target. Settings list mappings, availability, pickup, relearn, remove and explicit input rebinding;
+missing IDs never bind by a guessed device name. Right-click panel controls and mixer values to learn; XY axes are separate.
+Escape cancels. Shared-definition controls do not offer project-instance learning. Wired/missing targets explain their
+unavailability and remain inert rather than overriding graph-owned parameters.
+
+Continuous CC uses current effective-value pickup (crossing or half a 7-bit step), including controls with numeric
+snapping. External/manual edits and reconnect rearm pickup. Scales and snapping use `core/control`; switch/selector states
+are immediate and momentary switches follow a CC64 threshold. Common control gestures coalesce bursts within 800 ms
+inactivity; long momentary presses have explicit boundaries. Disconnection/disable/removal release owned momentary
+controls. Normal CC edits author base values; an existing transient override receives effective edits instead. Feedback
+is a separate main-thread store, shown with current resolved values, not copied through engine audio-rate status.
+
+Format **v3** adds optional `Project.midiMappings`: stable ID, device ID/name selector, zero-based channel, CC, pickup and
+structured `ControlTarget`. No browser object or permission/route setting is saved. The parser caps mappings at 1024,
+IDs/names at 256 and target paths at 32; it rejects invalid selectors, reserved CCs and duplicate IDs/sources with warnings,
+and keeps well-formed unavailable references visible. Explicit v2→v3 migration removes formerly unknown mapping fields;
+v1/v2/v3 fixtures verify compatibility. Group/unlink remap learned targets with saved control values. Project packages and
+autosave use the same format; mapping CRUD is undoable. No note recording or later library slice is included in MIDI slice 2b; clip automation is described above.
+
+Fake-port unit and production browser tests cover permissions/late grants, learn/cancel/conflicts, device lifecycle,
+routing, channel conversion, source ownership, effective pickup, scale/snapping, momentary/nested/wired controls, history
+and Low Light DJ-filter reload. The real-output audio test replaces only browser ports, exercising the parser, adapter,
+commands and actual worklet. **No manual physical keyboard/controller check was performed.**
 
 ## Polyphony
 
@@ -110,6 +336,18 @@ output you wire into another node's input.
   time when the tempo changes (see "Tempo in the DSP"); the card's picture, which only knows hertz, shows a rough number of cycles then.
 * **Filter `cutoff` input** moves the cutoff exponentially: CV +1 raises it by *CV amt* octaves (param, default 2).
   While modulated, coefficients are redesigned every 16 samples. Unconnected, the filter is exactly as before.
+* **Filter key tracking** (*Key track*, 0 to 1, default 0): the cutoff follows the voice's note, `cutoff × (note / middle C) ^ keyTrack`, so at 1 an
+  octave up is an octave brighter and *Cutoff* is where it sits at middle C. It reads `ProcessContext.note.frequency`, so it works in a voice; in
+  a shared, global or insert stage there is no note (frequency 0) and nothing moves. Coefficients are redesigned only when the ratio changes.
+* **Comb** (`dsp/nodes/comb.node.ts`, Filters, per voice): a feedback comb whose delay is one period of a pitch, so it rings at that pitch and its
+  harmonics: a short noise burst through it is a plucked string (Karplus-Strong), a drum a metallic ring. *Tune to* `note` rings at the voice's
+  note shifted by *Pitch* semitones; `fixed`, or where there is no note, at *Freq* (20 Hz–8 kHz). *Feedback* −0.995..0.995 (negative rings an
+  octave lower with odd harmonics only), *Damp* is a one-pole lowpass inside the loop, *Mix*. Fractional delay by linear interpolation; the
+  line is long enough for 20 Hz. Unnormalised: high feedback can get loud.
+* **Delays in beats** (`dsp/nodes/time-sync.ts`): *Delay* and *Ping-pong* have *Sync* (`off` / `beat`). On `beat`, *Time* is in beats of the
+  tempo the block is played at (0.75 is a dotted eighth), turned into seconds every block and capped at the 2 s line, so the echoes follow a
+  change of tempo; the card's picture draws it at 120 BPM. *Time* shows no fixed unit for that reason (like the LFO's *Rate*). Both examples'
+  echo returns use it (0.75 beats, and a *Time* knob from an eighth of a beat to two beats in steps of an eighth of a beat).
 * **Oscillator `pitch` input** bends pitch by *Pitch CV* semitones per unit (default 2), exponentially.
 * **Gain** already took a `cv` input (that is how the envelope drives the VCA); an LFO into it is tremolo.
 * **Reverb** (`dsp/nodes/reverb.node.ts`, **shared**): Freeverb: eight damped feedback combs in parallel, four allpasses
@@ -155,8 +393,8 @@ copy (**Unlink**). Modules nest.
   patcher (breadcrumb to go back out, nesting works), with a name field, where it is used, and **Ports & knobs**:
   tick any inner port or parameter to show it on the module, and name it. The node picker lists the project's modules under *Modules*.
   Changes go through the same undo history; slider drags merge into one step.
-* **Limits.** Selected nodes are not dragged together. There is no module library outside the project yet, so
-  sharing between projects means copying the file (see `docs/TASKS.md`). Cycle detection on the outer patch treats a
+* **Limits.** Selected nodes are not dragged together. The personal library now copies full instrument/effect module
+  closures between local projects (slice 5 below); standalone module-only catalog items are not exposed. Cycle detection on the outer patch treats a
   module as one node (any input may reach any output), which can refuse a wiring that would in fact be fine.
 
 ## The note graph (MIDI effects)
@@ -166,7 +404,7 @@ can be transformed, split, merged, and mixed with the notes of other tracks. It 
 splitting a stream, treating the branches differently and joining them again is exactly what people want to do.
 
 ```
-clip notes ─┬─ transpose ─┐
+clip + live notes ─┬─ transpose ─┐
             └─ arpeggiator ┴─ to instrument          (notes from another track can join anywhere)
 ```
 
@@ -179,7 +417,7 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
   Selecting, wiring, grouping into modules, editing modules in place and persistence are shared; one `GraphEditor`
   component edits either (the Instrument tab shows the sound patch, the **Notes** tab the note graph).
 * **Nodes** (`core/notefx`, one registry, `NoteNodeDefinition { role, inputs, outputs, params, create() }`):
-  *Clip notes* (this track's clip player, the only source of its own notes), *Track notes* (another track: take its clip
+  *Clip notes* (this track's merged clip/live input, retaining its saved node type and label), *Track notes* (another track: take its clip
   notes, or what leaves its own graph), *To instrument* (the sink), *Scale lock*, *Transpose*, *Chord*, *Velocity*,
   *Arpeggiator*, *Echo*, and *Range split* (notes inside / outside a pitch and velocity range go to two outputs; a
   note-off follows its note-on even if the range is edited while it sounds). A graph with no *To instrument* is silent.
@@ -188,13 +426,17 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
   and may emit events for a later range. Everything is in beats, so it follows tempo and stays sample-accurate. The result
   is the same however time is cut into ranges (tested). An output may feed several inputs (a split, nothing special needed)
   and an input may have several sources (a merge).
-* **Merging** (`Merger`). The instrument matches note-offs by pitch, so two overlapping notes of one pitch would cut each
-  other short. A merge counts overlapping notes per pitch: a note-on for a pitch already sounding re-triggers it unless it
-  starts at the very same beat (then it is the same note arriving twice, e.g. a branch that changes nothing), and a
-  note-off is passed on only when the last overlapping note of that pitch ends.
-* **No hanging notes.** Knob changes keep running state (turning Gate never restarts an arpeggio). Adding, removing or
-  rewiring nodes restarts the graph and emits an all-notes-off first. An all-notes-off from the clip player cancels pending
-  arpeggio and echo notes. Stopping the transport resets the graph. A node on a cycle never runs.
+* **Merging** (`Merger`). Engine notes carry runtime identities independent of pitch: a namespaced source, channel,
+  root per-press/clip-occurrence ID and flat descendant-path tokens. Merges count duplicate routes of one identity;
+  different owners, including equal-pitch/equal-beat notes, remain separate voices. Effect outputs qualify the route,
+  mappings remember each identity's original output pitches, and arpeggio/echo children get deterministic identities.
+  The voice pool replaces a slot's ownership when stealing, so a delayed old release cannot release its replacement.
+  Pure legacy callers without identities retain pitch-counting behavior; engine and heard-note preview always use IDs.
+* **No hanging notes.** Knob changes keep running state. Topology, bypass and tap changes restart the graph; the engine
+  clears held/sustained/generated notes on that track and every transitive note reader. Instrument/voice rebuilds and
+  track removal/replacement use the same cleanup. Unrelated tracks keep their notes. Clip all-off is scoped to its clip
+  source, preserving live owners. Source release/disconnect cancels only that source/channel everywhere, including
+  scheduled children. Stop resets graphs and keys while release/effect tails keep rendering. A node on a cycle never runs.
 * **Between tracks.** Each block, every track writes what its clip player produced and what left its graph on a shared
   `TapBoard`; *Track notes* nodes read it. The engine runs a track after the tracks it reads from (`runOrder`, rebuilt
   when tracks or graphs change; a loop between tracks degrades to reading nothing). The editor only offers tracks that
@@ -203,8 +445,8 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
 * **Modules of notes.** The same modules as for sound: grouping nodes gives a module whose ports inherit their kind
   (`notes`), and `moduleDomain` says which kind of patch it belongs to, so the Notes tab only offers note modules and the
   Instrument tab only sound ones. A module cannot mix the two (persistence enforces it).
-* **Engine** (`TrackRuntime`). `schedule(from, to, board)` runs the launcher's events through the `NoteGraph`; with just
-  clip notes wired to the instrument the graph hands back the same array. `track/setNoteGraph` carries the flattened graph;
+* **Engine** (`TrackRuntime`). `schedule` merges live input with launcher events before the `NoteGraph`; with just
+  clip notes wired to the instrument the graph passes events through. `track/setNoteGraph` carries the flattened graph;
   `diffProject` sends it only when behaviour changed (moving nodes or renaming a module sends nothing).
 * **Preview** (`engine/heard-notes.ts`). `heardNotes(clip, graph, modules)` runs the real clip player and graph over two
   loops and returns the second, so the Notes tab's piano roll cannot disagree with what plays. It shows this track's own
@@ -216,6 +458,42 @@ voice's frequency and gate, while an arpeggiator or chord needs all the notes to
   exactly on a 128-sample block edge can land one sample early or late depending on where blocks start (float rounding in
   the transport clock); in the worklet blocks are always aligned, so only odd render sizes in tests show it. Files from the
   short-lived linear chain version (`noteEffects`) are not migrated; they load with the default graph.
+
+## Held-note engine input (slice 2a)
+
+`EngineCommand` adds `track/noteOn { trackId, note: { sourceId, channel, noteId }, pitch, velocity }` and
+`track/noteOff { trackId, note }`. Channels are zero-based 0..15, pitch is an integer 0..127 and velocity is in
+(0, 1]. Invalid note-ons and missing/non-instrument destinations are ignored. Adapters must allocate a unique `noteId`
+for each press and match the physical key-up to that ID; repeated equal pitches are separate notes. Duplicate active
+IDs and unmatched/duplicate offs are ignored. `notes/sustain { sourceId, channel, down }` holds released keys of only
+that source/channel. `notes/releaseSource { sourceId, channel? }` is the adapter's cleanup primitive for disconnect,
+disable or destination change: it clears keys, pedals, voices and queued/generated events of that owner in every graph.
+`notes/panic` clears all note owners/pedals/queues; it does not stop transport or clip launchers, so future clip note-ons
+continue. Both release envelopes naturally and preserve insert/return/master tails. Ordinary key-up preserves echo
+repeats and lets the current arpeggio gate finish; source release and panic cancel those children immediately.
+
+`LiveNotes` owns only transient input state, never the project. The engine namespaces clip and live source IDs so a
+live caller cannot collide with a clip source. Clip IDs incorporate clip, launch, loop and authored-note identity;
+clip-edit releases retain the identity assigned at note-on. Mapping/range processors, delayed queues, merges, preview
+and voices all retain ownership. Instrument audition still bypasses note processing and auto-releases after 0.3 s;
+its unidentified voices cannot release engine-owned clip/live voices.
+
+The engine advances a continuous musical render clock even while transport is stopped. Only instrument note graphs
+schedule against that clock while stopped; audio clips and launch queues remain on transport. Clip event times are
+translated to the render clock before processing, and grid generators receive the transport's beat-zero origin so
+starting playback after an arbitrary stopped interval remains aligned. Stop rewinds transport and clears note input
+and generators, but leaves the render clock and audio processing running for tails and subsequent live input. Incoming
+commands apply at the next render boundary; a complete press released before rendering is treated as zero-duration.
+There are no UI timers or wall-clock reads. Odd block-size boundary rounding retains the existing one-sample tolerance.
+Offline bounces create a fresh engine, use only authored data and remain repeatable.
+
+The existing `HostMessage` carries these commands unchanged across the worklet boundary. `EngineControls` and
+`createEngineControls` expose note-on/off, sustain, release-source and panic for the browser adapter described above.
+`connectEngine` sends panic on document-epoch changes and disposal, including replacements with identical IDs/graphs.
+Structural cleanup intentionally requires a fresh physical press rather than replaying keys into a different graph.
+Slice 2a alone adds no saved fields or migrations; browser access, port management, settings, visible Panic and CC
+learn/mapping UI ship in slice 2b. Tests simulate sources in core and inject commands through the production
+worklet port for real-output stopped-note/sustain/effect/panic checks.
 
 ## Effects on tracks (the insert graph)
 
@@ -277,7 +555,7 @@ sit on any track. It reuses the typed-port machinery the note graph introduced.
 
 ## Return tracks and sends
 
-A **return track** (`ReturnTrack`, `kind: 'return'`) has no clips: it is a volume and an insert graph that starts at
+A **return track** (`ReturnTrack`, `kind: 'return'`) has automation-only session slots and no note/audio clips: it is a volume and an insert graph that starts at
 **Return in**, the sum of what other tracks have sent to it, and ends at Track out. One reverb or delay can serve many
 tracks; a return track *is* the bus, so there are no bus names.
 
@@ -414,11 +692,11 @@ remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`):
   with the parameter's range, curve, unit, default and current value, wired in one undo step; a pad takes two parameters and wires
   both axes); without one it is a blank control (`createBlankControl`) to wire in the graph. Only parameters with a socket and no wire
   yet are offered. New nodes go in a row under the others (`spotBelow`).
-* **Writing a value.** A knob or slider writes the node's `value` with `setNodeParam` through the editor's own `edit`, with the **same merge
+* **Writing a value (shared-definition editor).** A knob or slider writes the node's `value` with `setNodeParam` through the editor's own `edit`, with the **same merge
   key as the property editor's slider** (`param:<scope>:<node>:value`), so one drag is one undo step and a drag in either place merges
   alike; a pad sets `x` and `y` in **one** edit (`xy:<scope>:<node>`); a switch writes `on` (a *momentary* switch is 1 only while held).
   What the control does is then whatever is wired from the node: a control's value is **real** (in its own range), and the sound follows
-  through the parameter sockets (`ARCHITECTURE`, "Control nodes"). A panel edit alone makes **no engine command** (tested through
+  through the parameter sockets (`ARCHITECTURE`, "Control nodes"). Track/master instance panels now use the shared control transactions described above. A panel layout edit alone makes **no engine command** (tested through
   `diffProject`); a value change is the ordinary `track/setParam` on the control node.
 * **Persistence.** `PatchNode.panel` is read by the sanitizer for control nodes only (`show` can only be `false`, a size is one of S / M / L,
   an `order` a small non-negative integer; malformed parts are dropped and an empty field is not stored). The old `Patch.panel` list
@@ -440,7 +718,7 @@ remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`):
   toggle and the add form.
 * **Limits.** Layout is an ordered flow with sizes, not free positioning; a panel belongs to one graph (no combined instrument +
   effects panel, and the controls inside a module are not yet shown on the panel of the graph that uses it: step 7); no selector for
-  enum parameters yet; no automation, MIDI mapping, meters or per-control ranges beyond a control's own (see `docs/TASKS.md`).
+  enum parameters yet; no automation, meters or per-control ranges beyond a control's own (see `docs/TASKS.md`).
 
 ## Control nodes, parameter sockets and the global stage
 
@@ -485,6 +763,11 @@ plain cards; the property editor, the panel built from control nodes and the nod
   wired into its port, or, unwired, the parameter of the same id (which has its own socket); the result is never NaN or
   infinite (rounded to float32 first, so a product that overflows the buffer is 0, not Infinity). *Hz to MIDI* gives 0, the
   lowest note, for 0 or less; fractional notes work. Math nodes are global-capable.
+  **Parameters are read once per block**, not per sample: a rule with settings returns a `MathRule` (`block` reads the parameters, and
+  anything worked out from them such as a smoothing coefficient or a clock's step, into its closure; `sample` does no lookups), so a
+  change lands at the next block, which is when `setParam` and the sockets deliver it anyway. A rule marked `pure` (no state: arithmetic,
+  conversions, Map range, Quantize, Mix, MIDI to Hz) with nothing wired into it runs once per block and fills the buffer. Together about
+  2.4 times cheaper per audio-rate math node (2.7 % to 1.1 % of real time each in the test container), with output identical to the bit.
 * **Sources of sound and chance** (`dsp/random.ts`, `dsp/nodes/{noise,perlin,geiger,random}.node.ts`). Everything random is **seeded**
   (`createRng`, mulberry32; `hashSigned` for lattice points), never `Math.random` or the clock, so a render comes out the same every
   time (exports, tests, a sound you want back); each has a `seed` parameter (no socket: `socket: false`). **A seed per voice:** a voice
@@ -1008,8 +1291,8 @@ scenes) and *Glass Rain* (a self-composing ambient piece, 92 BPM, six scenes). A
   `docs/browser-checks/showcase.mjs`.
 * **Cost.** These are the heaviest projects in the repo: about 40 to 50 % of one core in the slow container the tests run in for the busiest
   scene of Low Light, 40 % for Glass Rain. Most of it is a floor, not the instruments: every track runs its insert graph every block and sends
-  mix per track (about 1.7 % per empty track), the returns' reverbs a few percent, and audio-rate math nodes cost a `Params.get` per sample, so
-  a chain of them is much dearer than its look. The instruments themselves are a few percent each. If a scene stutters on a slower machine,
+  mix per track (about 1.7 % per empty track), the returns' reverbs a few percent, and audio-rate math nodes about 1 % each (they read their
+  parameters once per block; it was 2.7 % when they read them per sample), so a long chain of them still adds up. The instruments themselves are a few percent each. If a scene stutters on a slower machine,
   mute a few tracks or reduce voices.
 
 ## Conventions
@@ -1039,7 +1322,7 @@ launcher queue need no changes (the return track was added this way; TypeScript 
 `EditorPanel`.
 
 **Add a field to the project** — add it to `project/types.ts`, give it a safe default in
-`persistence/sanitize-*.ts`, and add a migration only if old files would otherwise load wrongly.
+`persistence/sanitize-*.ts`, bump the format version, add an explicit migration and commit a fixture for the new shape.
 
 **Add an example project** — a folder under `core/examples/` with an `index.ts` that builds the project with `patchOf`, `moduleOf`, `drumNotes` /
 `lineNotes` and `projectOf` (see "Example projects"), then an entry in `examples/index.ts` (`exampleProjects`; the title, a tagline with the BPM
@@ -1061,9 +1344,9 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 * Sample hashing needs a secure context (https or localhost).
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
 * Oscillators are naive (alias at high pitches); no band-limiting or oversampling. The plain Reverb is mono (use *Stereo reverb* in an insert graph). Filter cutoff has a linear slider over 20 Hz–20 kHz.
-* Launch quantisation is fixed at one bar; no recording or plugin hosting.
-* Delay times are in seconds, not beats, so the echoes in the examples are set for their own tempo (the Echo return of *Low Light* is a dotted eighth
-  at 125 BPM) and do not follow a changed BPM; the *LFO* and the *Clock* are the nodes that do. Scene names have no editor yet.
+* Launch quantisation is fixed at one bar; no audio/note recording or plugin hosting.
+* Note sync reaches nodes that run per voice (the filter's key tracking, the Comb); the shared Delay and Ping-pong only know the tempo, not
+  which note is playing. Scene names have no editor yet.
 * History is per session (not saved) and does not cover selection or transport.
 * One autosaved project per browser. Two tabs on the same site overwrite each other (last write wins).
   `localStorage` holds ~5 MB, plenty for projects, not for samples (see above).
@@ -1072,5 +1355,295 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 ## Natural next steps
 
 1. Unused-sample cleanup, loop points inside a clip, 2. stems and batch export for the bounce,
-3. MIDI input via Web MIDI (now worth having: playing chords), 4. more nodes (band-limited oscillators, chorus / stereo modulation effects, tempo sync for delays),
+3. MIDI hardware verification and later performance features, 4. more nodes (band-limited oscillators, chorus / stereo modulation effects),
 5. WASM DSP nodes (Faust/RNBO).
+
+## Touch automation recording (slice 3c)
+
+`state/touch-store` owns explicit transient arm, per-gesture/source takes, target ownership and feedback. The common
+control gesture (including the session header volume slider) intercepts armed edits only when that owner's instrument/audio clip or return/master slot is actually
+playing. Selection cannot redirect capture. Learned MIDI enters after effective-value pickup; competing sources are
+refused on a touched target. Native UI/MIDI event timestamps pass through the gesture path. Pointer/key release,
+cancellation, unmount, disarm and re-enable finish; wheel/CC inactivity finishes after 800 ms. Disconnect finishes
+valid takes. Document-epoch replacement cancels and disarms; incompatible, removed or resized destinations discard
+that take atomically. Stop finishes before dispatch, and runtime status closes takes at actual launch/stop/retrigger
+or one-shot boundaries. `LauncherStatus.stopBeat` carries owner stops even when a queued status was never delivered.
+
+The worklet sends a compact tempo/playing/beat/audio-time clock anchor at the next quantum's start after tempo,
+transport or launch commands. It builds the full track/readout/peak status once at that quantum's end, then at the
+existing 30 Hz cadence. Clock snapshots do not traverse readouts or reset peaks. `AudioHost` updates recording from
+both packet types but publishes only full status to UI listeners; readouts may arrive one quantum after the anchor
+(2.667 ms at 48 kHz/128 frames). `audio/recording-clock` retains sparse audio-time
+segments across tempo and transport changes; `AudioHost.recordingBeat` bridges AudioContext.currentTime and native
+performance event timestamps into beats. Delayed events and MIDI release callbacks use their original timestamps;
+render frames, animation callbacks and status message arrival times never advance recording. Suspended contexts
+return no recording clock. Timing precision follows the render quantum and browser timestamp precision. Web Audio
+and native Event timestamps were checked via Context7 official Web Audio and MDN docs on 2026-10-17.
+
+`core/automation/record` splits absolute capture beats at loop wraps and applies spans in chronological order. Later
+passes replace only their own touched regions. Original values/interpolation outside the span are retained with 1e-7
+beat boundary guards; a new lane uses the normalized saved base around its span. Iterative linear simplification has
+a tested 0.002 vertical normalized error bound and preserves endpoints/hold transitions. Takes stop after 256 beats,
+64 targets or a bounded 16,384-sample raw buffer; saved limits remain 64 lanes and 2048 points per lane. Point overflow
+rejects the whole take, preserving the project. Captured lanes become enabled. Source buffers never enter the
+project/history/autosave; release commits all gesture targets and loop passes once, then releases overrides to Read.
+Format v5 already stores the resulting lanes, so this slice needs no migration. Playback/offline rendering keep the
+same evaluator, including the known extra CPU cost of sample-sized note-graph automation scheduling.
+
+## MIDI parsing foundation
+
+`core/midi` parses note-on/off and 7-bit CC messages without browser or device dependencies. Velocity-zero
+note-on becomes note-off; malformed bytes and unsupported messages are ignored. CCs remain raw messages here:
+the browser adapter interprets sustain/channel-mode cleanup and converts parser channels (1–16) to engine channels
+(0–15). The source-aware held-note path ships in slice 2a; browser input and learned mappings ship in slice 2b.
+
+## Delay timing and tempo transitions (slice 7)
+
+`dsp/nodes/delay-timing` owns a shared pure resolver and fixed division table. Existing `time` (0.001–2) and `sync`
+(off/beat, 0/1) retain their bounds/defaults and normalized automation meanings. Optional `division=0` means legacy
+numeric beats; 1–24 enumerate 1/32 through four bars, each straight/dotted/triplet (quarter note = one beat, 4/4).
+Dotted multiplies by 3/2, triplet by 2/3. Sync off ignores division and preserves stored seconds. Example echoes select
+index 8 (dotted eighth), keeping their original `time=0.75` bases and original-tempo sound.
+
+Delay/Ping-pong allocate eight seconds/channel once (at 48 kHz, 1,536,008 bytes mono, 3,072,016 bytes stereo/Ping-pong;
+at 44.1 kHz, 1,411,208 and 2,822,416). Live audio follows the browser/device native context rate;
+per-channel bytes are `4 * (ceil(8 * sampleRate) + 2)`, so at 192 kHz stereo costs 12,288,016 bytes.
+No BPM-driven line allocations or resizes occur.
+Project tempo is 40–240 BPM: four dotted bars request 36–6 seconds. The resolver explicitly returns requested/applied
+seconds and a cap flag. Requests above eight seconds use eight; node properties visibly report the limit. Four-bar
+straight/dotted/triplet times fit at ≥120/180/80 BPM respectively. No global delay-count/memory cap is introduced.
+
+`DelayTap` crossfades two stationary, linearly interpolated read heads over 20 ms, applying initial timing immediately.
+The same blended signal enters feedback; Ping-pong advances its shared crossfade once per stereo sample. Tempo comes
+from `ProcessContext`, so the normal tempo command never replaces graphs or lines. Changes during a fade coalesce
+until its end, then take the newest target (≤40 ms settling). Old samples remain in the rings. Transitions can overlap,
+attenuate or repeat historical echoes while the taps mix, without a pitch glide or abrupt tap jump. Off/seconds mode
+is tempo-independent. Transport Stop preserves effect tails through the existing engine lifecycle.
+
+Properties resolve wired/per-use/Read/override values and display current BPM and applied timing; moving wires retain
+a labelled static approximation. Delay pictures share the resolver and follow project BPM, omitting echoes beyond the
+existing two-second picture instead of drawing a false earlier tap. Offline `Bounce` detects delay nodes in graphs and
+modules and renders its explicit maxTail budget before trimming: 250 ms silence cannot establish an empty long delay,
+particularly a serial chain. Existing default/max tail budgets remain 10/30 seconds; delay projects may cost more offline
+CPU than the earlier silence shortcut. Other documents retain that shortcut.
+
+Project **v8** adds optional numeric node `division`. The explicit v7→v8 migration strips formerly unknown divisions
+and corresponding guarded target records across tracks/modules/saved revisions/automation/presets before sanitizing.
+Committed v7/v8 delay fixtures supplement v1–v7 compatibility fixtures. `sanitizeParams` retains an absent division
+instead of inserting zero into older graphs: strict `.sfxlib` v1 records still validate field-for-field, while newly
+created nodes carry the default. At slice 7, bundle manifest and catalog remained independently v1, with regression coverage
+for legacy and new division assets through staging/insertion/project reload. Existing control ranges and lane values
+need no remapping. Browser tests cover timing/limit/undo/reload and full stereo worklet output versus offline at the
+actual stamped tempo-edit boundaries; existing finite capture checks and 0.00002 amplitude tolerance remain.
+
+## Snapshots, asset revisions and project presets (slice 4)
+
+`core/preset` owns storage-independent `SnapshotScope`, `Snapshot`, `SampleTarget`/`SampleBinding`, discriminated
+`AssetPayload`, immutable `AssetRevision` and `ProjectPreset` records. Capture walks the shared control target model,
+keeps authored per-use bases and excludes momentary/trigger, wire-owned and configuration controls. Snapshot recall
+uses guarded resolution and returns applied values plus missing/incompatible diagnostics; it never replaces graphs.
+A/B morph validates matching scopes/target sets, interpolates via shared normalized scale helpers and snaps real values;
+selectors/toggles switch at 0.5. The UI's common gesture records morphs through existing Touch buffers.
+
+Asset payloads contain instrument+note graphs and voices, or an audio/note effect graph, their transitive modules and
+sample IDs. Graph nodes embed panel presentation. Opaque revision IDs are distinct from canonical structural signatures;
+compatibility ignores sound values, samples, labels and positions, while graph topology, module interfaces, control
+configuration, stereo/bypass and voice settings participate. A preset stores control/sample state referencing a compatible
+revision and can recall into another owner with identical graph identities. External track-routing nodes are refused;
+clips, mixer routing and hardware mappings never enter assets/presets. Catalog insertion/remapping ships in slice 5 below; bundle exchange ships in slice 6 below. `projectSampleDependencies` includes saved presets/revisions separately from playback `usedSampleIds`.
+
+`Project.sampleBindings` guards owner/domain/nested use identities and sampler type. Missing bindings inherit node
+`sampleId` defaults, null explicitly silences a use. `projectWithSampleBindings` flattens affected graphs in the transient
+engine projection before numeric control values; live sync and offline bounce share it. Group/unlink rewrite binding
+routes, including uses of edited shared definitions. Removing samples clears active bindings; saved presets retain
+missing dependency references for diagnostics. The Sounds tab lists per-use bindings with reset-to-default, and root
+property sample pickers resolve/edit the same active binding. Shared-definition editors still edit shared defaults.
+
+`state/preset-actions` commits one recall to history. Normal Read recall edits authored bases, releases affected temporary
+overrides, leaves lane points alone and reports Read-controlled values. Armed recall finishes pending Touch gestures,
+preflights every active owner/destination against the audio recording clock, and builds all base/sample changes plus
+hold lane events before committing once. `stepRecallLane` guards the previous curve just before the recall beat and holds
+the new value to the next authored point/loop end. Missing/unacknowledged destinations or point/lane overflow reject
+that recall atomically. Sample choices are discrete saved state, outside numeric automation. Morph uses common gesture
+transactions, including explicit pointer/key/blur/unmount cleanup (React documentation checked via Context7).
+
+Format **v6** adds optional snapshots, presets, asset revisions and instance sample bindings. The explicit v5→v6 migration
+drops formerly unknown fields. `sanitize-presets` reconstructs only known fields, bounds records (128 snapshots/presets,
+64 revisions, 4096 values/bindings, 32 path steps, 256-character IDs), deduplicates targets/IDs, sanitizes graph payloads
+through existing graph/module validators and recomputes compatibility signatures. Well-formed unavailable references
+survive for recall diagnostics. Committed v1–v6 fixtures cover migration and round trips. Deleting presets prunes
+unreferenced revisions. No browser, storage adapter or library catalog code is needed by these types or pure edits.
+
+Verification includes partial recall, revision mismatch, shared defaults and independent overrides, explicit silence,
+group/unlink, Read/Touch atomic steps and lane-limit rejection, scope/scale/discrete/momentary morph rules, and hostile
+parsing/migrations. Production smoke saves/recalls/undoes/reloads two sounds and inspects morph UI. Real-output tests
+recall numeric and sampled presets; two shared sample-instrument uses with different samples survive fresh reload and
+match offline output within 0.00002 amplitude. Physical MIDI hardware remains untested.
+
+
+## Personal library catalog, independent copies and preview (slice 5)
+
+`core/library` owns `LibraryCatalog` (schema v2), folders, mixed item contents and pure edits. Item IDs survive names
+and folder moves. Instruments/audio effects/note effects reference immutable `AssetRevision` payloads plus a saved
+`ProjectPreset` current state. Associated preset items are first-class catalog entries referencing the same revision.
+Capture includes compatible presets for the selected owner, transitive modules, node defaults, per-use sample bindings
+and every associated preset's sample choices. Missing modules/samples and external send/track taps are errors; cycles
+are refused. Catalog folders/items cap at 1024/4096. Deletion is recursive recoverable trash. Restore makes the parent
+path visible. Revisions and hash blobs are never automatically collected, preserving project references and undo.
+
+`insertLibraryAsset` creates a new instrument track or replaces an explicit compatible graph. It remaps nodes, wires,
+module definitions, nested interfaces, derived exposed port/knob IDs and all their references, automatic module-control
+keys, guarded target paths, per-instance overrides, preset states and fresh revision signatures. Interfaces must be
+remapped because the project parser reconstructs their IDs from inner identities. Audio effects require the correct
+track/return/master input boundary. Instruments replace patch+noteGraph+voices; effects replace only their domain.
+Existing clips/mixer/MIDI mappings retain their authored state and unavailable old targets remain diagnosable. No
+external project routing is imported. Immutable copies never resolve through library IDs at playback.
+
+`captureLibraryClip` stores MIDI notes or full audio state and owner-relative lanes. Graph lanes carry a flattened
+node-order/topology/control-configuration signature and flattened node index; compatible destinations enumerate a fresh
+guarded target, while mixer volume/pan remain owner-relative. Sends, taps and cross-owner targets are refused.
+Insertion refreshes note/clip/lane/point IDs, preserves audio trim/warp/fades/gain, and reports omitted incompatible
+lanes. Different flattened node order is deliberately considered incompatible. Occupied slots require explicit replace.
+Sample catalog items reference the same hash metadata/blob; no duplicate audio bytes are written for a folder copy.
+
+`storage/library-database` opens **sfxlab v2** for both catalog and sample adapters. Upgrade adds `catalog` without
+recreating `samples`. Connections close/reset on `versionchange`; blocked legacy tabs produce a close-and-retry error.
+`storage/library-storage` stores the catalog snapshot at `current`. Each read/write transaction reads the latest
+catalog and invokes a synchronous edit before queuing catalog and optional sample writes; concurrent connections
+serialize rather than overwrite stale snapshots. Promises resolve only on `transaction.complete`, and reject on
+abort/quota, including after successful requests. The sample adapter now has the same completion guarantee. There is
+an in-memory adapter for storage-less environments. Both adapters reject unsupported next catalog versions before
+publishing metadata or bytes. Bundle exchange now validates/stages before this transaction (slice 6 below).
+
+`app/library` bridges storage to the document via `state/PersonalLibrary`; successful insertion commits once to project
+history. Saves and catalog edits do not change that history. Missing bytes are preflighted before save/load. Project
+format **v7** adds optional bounded `libraryOrigins` (4096 records, ID fields 256 characters), known-field rebuilding,
+an explicit v6→v7 migration dropping formerly unknown origin fields and a committed v7 fixture. Origins are informational
+and never linked updates. Loaded project revisions/presets/sample metadata are self-contained for reload/package export.
+
+`libraryPreviewProject` creates a temporary project with a test note/tone and the appropriate effect input. `app/library`
+renders it through a fresh `Bounce`/`Engine`, decodes its own samples and plays the bounded result on a separate
+AudioContext/source. Generation tokens cancel asynchronous decoding/rendering; navigation stops/disconnects sources
+and closes contexts, including before source start. Preview resolves explicitly as started/canceled; stale failures
+resolve as canceled while current failures remain errors. The panel gates busy/status/catalog updates by operation
+ownership, invalidating pending preview UI work on stop/navigation/unmount. Preview does not use the project engine, transport, history or
+autosave. `app/library-service` and `ui/library/LibraryPanel` load on demand to keep production chunks below the existing
+warning limit. The Library panel provides folder navigation, mixed lists, search/type filters, dependency/sample detail,
+explicit save/insert/replace, preview and recoverable trash controls. Bundle selection is reconciled against current
+nontrashed items, with hidden-selection counts and a clear action. Invalid scene inputs disable insertion; the core
+still enforces integer/range checks and occupied-slot replacement.
+
+Verification covers full nested interface/control/sample remapping and preset recalls after reload, independent project
+package export after catalog changes/deletion, one-step insertion undo, duplicate names/cycles, conservative retention,
+quota and interrupted-request rollback, cross-connection serialization, legacy tab blocking and version-change closure.
+Production browser checks exercise folders/presets/trash/reload, blocked upgrade recovery and preview cancellation/resource
+release. Real worklet output for an inserted sampled asset after trash/reload matches offline within 0.00002 amplitude;
+existing capture readiness and finite-window checks remain. No physical MIDI hardware was tested. Tempo polish, orphan cleanup, drag/drop and automatic linked updates remain outside this slice.
+
+
+## Library bundle exchange (slice 6)
+
+`core/library/bundle` owns versioned manifest/stage/selection contracts, deterministic transitive selection,
+strict catalog closure validation, conflict summaries and independent-copy merging. `core/persistence/validate-library`
+reuses record sanitizers in strict comparison mode: repaired/dropped/unknown fields reject the entire bundle.
+References, folder/module/preset cycles, signatures, external routing, target resolution and expanded module fan-out
+are checked before publication. Module/node/interface IDs remain private within each immutable revision; catalog
+folder/item/revision/state identities are refreshed on every import and project insertion remaps the full payload.
+
+`storage/library-transfer` owns independent bundle migration dispatch, canonical `.sfxlib` export, hash checking,
+read-only staging and commit. `.sfxlab` project transfer remains separate; slice 6 retained project v7 and slice 7 adds project v8 independently.
+`storage/library-archive` preflights every ZIP local/central header and path before expanded allocation, then
+uses bounded incremental fflate inflation and actual-output/CRC checks. Limits cover compressed/aggregate expanded
+bytes, each entry, entry count, JSON size/objects/values/depth and module expansion. The complete format, strict ZIP
+subset and budgets are in [docs/LIBRARY-BUNDLE.md](docs/LIBRARY-BUNDLE.md).
+
+Library review displays items/folders/dependencies/bytes/conflicts/missing files before export or import. Partial
+export requires an explicit checkbox and manifest/filename markers. Partial imports can be reviewed but cannot commit.
+Cancel/staging never write storage. Confirmed import always creates a fresh named root; repeated imports add independent
+copies. `library-storage` compares existing hash bytes inside the same serialized read/write transaction, retains equal
+bytes and aborts on conflicts. Metadata plus new blobs succeed only at transaction completion. Memory adapters share
+one blob map. Validation, capacity, byte conflict, quota and abort failures preserve previous metadata and bytes.
+
+Production browser coverage exercises review/cancel, duplicate import, folder export, fresh-context import/reload,
+independent project insertion and package export after library trash. Unit coverage includes nested sample/module and
+preset closures, empty/conflicting catalogs, future versions, missing bytes, hashes, dependency cycles, hostile paths,
+resource limits, forged expanded sizes, and transactional rollback/deduplication. Existing project/package and real-output
+audio gates remain required. Slice 7 tempo polish, snapshot XY corners and automatic linked updates stay deferred.
+
+Slice 6 verification: 1,562 unit/architecture tests across 124 files, typecheck, warning-free production build,
+16 smoke checks and ten real-output audio checks passed. An imported sampled bundle asset remains independent
+after trash/reload and matches offline within 0.00002 amplitude. Bundle review/panel screenshots were inspected.
+Browser verification used isolated port 4175 with a temporary config removed before commit; default config stays 4173.
+No physical MIDI hardware was tested.
+
+
+Slice 7 verification (2026-10-18): 1,591 unit/architecture tests across 126 files, typecheck, warning-free production
+build, 17 smoke checks and 12 real-output audio checks passed. The cap/selector screenshot was inspected. Live stereo
+Delay and Ping-pong tails match offline through stamped 120→60→240 BPM changes within 0.00002 amplitude. Browser
+checks used isolated port 4175; the temporary configuration was removed before commit. Snapshot XY corners remain
+deferred. No physical MIDI hardware was tested.
+
+
+### Bounded review remedies (2026-10-18)
+
+Send level writes compare destination membership, including zero-valued destinations, before invalidating order and
+mute/solo caches. Constant/ramping gains on existing sends do not rebuild those caches. New/deleted destinations
+still invalidate before mixing. Focused F2 integration also covers notes-plus-send automation in the R1 candidate; final R1 capacity acceptance remains open.
+Identity-preserving group/unlink applies the existing guarded route rewrite to snapshot values, including shared module
+uses, while keeping immutable preset/revision payloads unchanged. Unavailable old routes are retained without guessing.
+Duplicate track-owner ID repairs now warn that references are ambiguous and were not rebound.
+A pending MIDI learn conflict suppresses its own device/channel/CC tuple; other mappings and held momentary releases
+continue. Confirming messages retain their existing no-sound-change rule. Empty automation Copy/Cut does nothing.
+
+Bundle validation indexes record/module/sample IDs and memoizes validated folder ancestry within each call. Selection
+closure indexes folder children and shares completed ancestor walks. Identical revision/scope/value/sample sounds share
+the graph-instantiation check, after every record has passed strict field sanitation. No persisted signatures or format
+versions changed, and stage/commit validation, expansion/object budgets and transactional publication remain enforced.
+Strict portable clips carry automation only in owner-relative `lanes`; embedded project-owner clip automation is refused.
+Different sound states still receive independent graph/value checks. See `docs/measurements/README.md` for bounded
+validation evidence and the outstanding core acceptance gates; this does not establish overall merge readiness.
+
+
+## Demo stabilization and signature transition (2026-10-23)
+
+Automation planning snapshots entry overrides into reused storage before ticking a horizon. When a target first
+acquires a curve later in that horizon, its prefix uses the value effective at entry. A queued launch can therefore
+clear an override at its actual boundary without changing earlier samples. Curves remain alive across all audio
+subruns. Regression tests cover mixer, graph, send, return/master and partitioned rendering.
+
+AudioHost treats startup/preparation/resume or processor failure as terminal for that page. `start()` settles without
+an unhandled rejection and `onFailure` publishes the error. Failed hosts stop queuing commands and close their context.
+A persistent workspace alert instructs the user to save/export and reload; editing and persistence remain available.
+There is no automatic reload or partial engine reconstruction after transferred sample buffers may have detached.
+
+Structural signatures use explicit UTF-16 code-unit comparison rather than locale collation. Sample choices remain
+outside structural identity. The enclosing versions identify this canonicalization: project envelope **v9**, local
+library catalog **v2**, and `.sfxlib` manifest **v2**. `.sfxlab` packages contain the same v9 project envelope; IndexedDB
+schema stays v2. Previous application readers reject these newer enclosing versions.
+
+Project v8→v9 retains the existing repair/sanitize contract and recomputes revision signatures from validated payloads.
+The first overwrite of an older browser project stores its original serialized envelope at localStorage key
+`sfxlab:pre-signature-v9`; if that write fails, current data is not overwritten. This backup is independent of the
+ordinary import/new-project backup and is not replaced by subsequent saves.
+
+Local library v1→v2 conversion preserves opaque IDs, payloads, preset state, samples, unreferenced records and trash.
+Only understood ordering differences in parsed legacy signatures are accepted; signatures must still match the
+reconstructed payload. Portable clip guards have no source graph, so their bounded tuple structure and lane indexes
+are validated while retaining node order. Unknown or ambiguous legacy forms fail with recovery/re-export guidance.
+The original catalog is stored under `catalog/pre-signature-v2` and `catalog/current` replaced in the same readwrite
+transaction. Failure aborts both writes; sample bytes are untouched. The strict bundle validator is deliberately not
+applied to local catalogs, because local trash and retained dependencies are legal.
+
+Bundle v1/catalog v1 imports convert in staging and then pass strict current validation and sample hash checks.
+Bundle v2 requires catalog v2; mixed or future versions reject. Current portable guards must already be canonical
+and match the lane's indexed node type. Import never modifies the source file. Revision IDs are not deduplicated
+merely because canonical signatures converge. Existing project/package, nested preset recall, library insertion,
+legacy/strict bundle and transaction rollback checks cover the transition.
+
+Recovery requires an original compatible project/catalog, not just reverting the application. Before intentionally
+rolling back, export current work, close other app tabs, preserve the raw backup keys and sample store, and use the
+previous app with the old project export or restored catalog backup. Do not clear site storage: that deletes sample
+bytes as well. Neither backup is a substitute for an external export, and browser eviction can remove both.
+
+The demo accepts the historical first-callback and no-lane overhead limitations recorded in
+`docs/measurements/f1-fix`. No new capacity claim or C6 experiment is included in this stabilization.

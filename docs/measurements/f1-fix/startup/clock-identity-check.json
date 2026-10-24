@@ -1,0 +1,38 @@
+{
+  "changedSinceCapture": [
+    "scripts/review-benchmark/worklet-capacity.ts",
+    "tests/browser/audio-tap.ts"
+  ],
+  "productionSourceMatches": true,
+  "currentBundleMismatches": [],
+  "reports": [
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-final/constant/report.json",
+      "harnessMatchesArchivedSource": true,
+      "bundlesMatch": true,
+      "noTraceLoss": true,
+      "finite": true
+    },
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-final/glass-arrangement/report.json",
+      "harnessMatchesArchivedSource": true,
+      "bundlesMatch": true,
+      "noTraceLoss": true,
+      "finite": true
+    },
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-final/continuous/report.json",
+      "harnessMatchesArchivedSource": true,
+      "bundlesMatch": true,
+      "noTraceLoss": true,
+      "finite": true
+    },
+    {
+      "path": "docs/measurements/f1-fix/startup/clock-final/low-arrangement/report.json",
+      "harnessMatchesArchivedSource": true,
+      "bundlesMatch": true,
+      "noTraceLoss": true,
+      "finite": true
+    }
+  ]
+}

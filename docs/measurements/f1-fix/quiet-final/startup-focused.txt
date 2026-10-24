@@ -1,0 +1,9 @@
+
+ RUN  v5.0.3 /Users/niklaus.baumann/git/local/sfx-lab-poc
+
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  23:16:47
+   Duration  992ms (tests 93%, transform 5%, import 1%)
+

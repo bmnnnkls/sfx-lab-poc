@@ -1,0 +1,455 @@
+{
+  "scenario": "glass",
+  "seconds": 310,
+  "activity": "arrangement",
+  "diagnostics": false,
+  "scenes": [
+    {
+      "scene": 0,
+      "requestedBeat": 0,
+      "minimumPatternBeats": 64
+    },
+    {
+      "scene": 1,
+      "requestedBeat": 69.16764444442366,
+      "minimumPatternBeats": 64
+    },
+    {
+      "scene": 2,
+      "requestedBeat": 141.45102222221928,
+      "minimumPatternBeats": 64
+    },
+    {
+      "scene": 3,
+      "requestedBeat": 212.20106666688133,
+      "minimumPatternBeats": 64
+    },
+    {
+      "scene": 4,
+      "requestedBeat": 284.4640000002391,
+      "minimumPatternBeats": 64
+    },
+    {
+      "scene": 5,
+      "requestedBeat": 356.7228444444035,
+      "minimumPatternBeats": 64
+    },
+    {
+      "scene": 0,
+      "requestedBeat": 428.9980444441234,
+      "minimumPatternBeats": 64
+    },
+    {
+      "scene": 6,
+      "requestedBeat": 461.2675555551095,
+      "minimumPatternBeats": 0
+    }
+  ],
+  "harnessSHA256": "9039da9ddca3c97d06ca1de6943aebb62b9eab4aad0a8154b4ccd3b136a37f41",
+  "renderedAudioSeconds": 309.984,
+  "initialLoad": [
+    4.060546875,
+    5.83935546875,
+    6.666015625
+  ],
+  "finalLoad": [
+    4.1591796875,
+    4.97216796875,
+    6.00537109375
+  ],
+  "dataLossOccurred": false,
+  "cpu": "Apple M3 Pro",
+  "elapsed": 321.452,
+  "browser": "156.0.8078.4",
+  "commit": "36f71d1dea37367d4f1a0f4a18f1d4c17a19e9ec",
+  "bundles": {
+    "dist/assets/engine-processor-y2VK-snW.js": "fbd2aeea3efcc71799f228c0c02ce9bcfb3de1ae28bdf19116c862d04fcae240"
+  },
+  "traffic": {
+    "statuses": 8955,
+    "probes": [
+      {
+        "kind": "capacity-probe",
+        "rate": 48000,
+        "performance": "undefined"
+      }
+    ],
+    "report": {
+      "kind": "capacity-report",
+      "firstState": {
+        "tracks": 11,
+        "playing": true,
+        "automation": false
+      },
+      "frames": 14879232,
+      "quanta": [
+        128
+      ],
+      "nonfinite": 0,
+      "peak": 0.9676176905632019,
+      "jump": 0.8855485320091248,
+      "rate": 48000
+    },
+    "latestStatus": {
+      "tempo": 92,
+      "automationOverrides": [],
+      "automationOverrideRevision": 0,
+      "automation": [],
+      "playing": true,
+      "beat": 475.2679111106108,
+      "peak": 0.00004556550629786216,
+      "peaks": {
+        "pad": 0,
+        "sub": 0,
+        "heart": 0,
+        "bells": 0,
+        "drops": 0,
+        "rain": 0,
+        "wind": 0,
+        "ticks": 0,
+        "arp": 0,
+        "hall": 0.000052238019998185335,
+        "echo": 0.0000012972323838766898
+      },
+      "readouts": {
+        "master": {
+          "master_dB": -92.82361602783203,
+          "master_bars": -92.82361602783203
+        }
+      },
+      "tracks": {
+        "pad": {
+          "stopBeat": 464,
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "sub": {
+          "stopBeat": 432,
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "heart": {
+          "stopBeat": 360,
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "bells": {
+          "stopBeat": 432,
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "drops": {
+          "stopBeat": 464,
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "rain": {
+          "stopBeat": 360,
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "wind": {
+          "stopBeat": 464,
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "ticks": {
+          "stopBeat": 360,
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "arp": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "hall": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        },
+        "echo": {
+          "playingClipId": null,
+          "startBeat": null,
+          "queued": null
+        }
+      }
+    }
+  },
+  "edits": 61,
+  "engine": {
+    "count": 116246,
+    "p50": 0.411,
+    "p95": 0.823,
+    "p99": 1.054,
+    "max": 5.895,
+    "overQuantum": 2,
+    "first": 3.852,
+    "afterFirstTwoSeconds": {
+      "count": 115502,
+      "p50": 0.411,
+      "p95": 0.824,
+      "p99": 1.055,
+      "max": 5.895,
+      "overQuantum": 1
+    },
+    "overruns": [
+      {
+        "relativeSeconds": 0,
+        "ms": 3.852,
+        "overlappingGC": [
+          {
+            "name": "MinorGC",
+            "ms": 0.326
+          }
+        ]
+      },
+      {
+        "relativeSeconds": 2.625116,
+        "ms": 5.895,
+        "overlappingGC": [
+          {
+            "name": "MinorGC",
+            "ms": 0.231
+          }
+        ]
+      }
+    ]
+  },
+  "callback": {
+    "count": 116246,
+    "p50": 0.422,
+    "p95": 0.852,
+    "p99": 1.098,
+    "max": 5.999,
+    "overQuantum": 3,
+    "first": 4.259,
+    "afterFirstTwoSeconds": {
+      "count": 115502,
+      "p50": 0.423,
+      "p95": 0.853,
+      "p99": 1.099,
+      "max": 5.999,
+      "overQuantum": 2
+    },
+    "overruns": [
+      {
+        "relativeSeconds": 0,
+        "ms": 4.259,
+        "overlappingGC": [
+          {
+            "name": "MinorGC",
+            "ms": 0.326
+          }
+        ]
+      },
+      {
+        "relativeSeconds": 2.625359,
+        "ms": 5.999,
+        "overlappingGC": [
+          {
+            "name": "MinorGC",
+            "ms": 0.231
+          }
+        ]
+      },
+      {
+        "relativeSeconds": 262.220195,
+        "ms": 2.707,
+        "overlappingGC": []
+      }
+    ]
+  },
+  "overhead": {
+    "count": 1000,
+    "p50": 0,
+    "p95": 0.001,
+    "p99": 0.001,
+    "max": 0.004,
+    "overQuantum": 0,
+    "first": 0.004,
+    "afterFirstTwoSeconds": {
+      "count": 0,
+      "overQuantum": 0
+    },
+    "overruns": []
+  },
+  "eventNames": [
+    "thread_name",
+    "process_name",
+    "process_uptime_seconds",
+    "ResourceWillSendRequest",
+    "MetaCharsetCheck",
+    "ParseHTML",
+    "EventDispatch",
+    "UpdateLayoutTree",
+    "PrePaint",
+    "Paint",
+    "Layerize",
+    "FrameStartedLoading",
+    "ResourceSendRequest",
+    "ResourceReceiveResponse",
+    "CommitLoad",
+    "ResourceReceivedData",
+    "HTMLDocumentParser::MaybeFetchQueuedPreloads",
+    "PreloadRenderBlockingStatusChange",
+    "ResourceFinish",
+    "BackgroundProcessor::MaybeStartProcessingResponse",
+    "BackgroundJSStreamManager::TryStartStreamingTask",
+    "BackgroundJSStreamManager::RunScriptStreamingTask",
+    "v8.parseOnBackground",
+    "v8.parseOnBackgroundParsing",
+    "BackgroundJSStreamManager::OnFinishStreaming",
+    "v8.compileModule",
+    "BackgroundJSStreamManager::OnDataPipeReadable",
+    "v8.parseOnBackgroundWaiting",
+    "ParseAuthorStyleSheet",
+    "Layout",
+    "firstMeaningfulPaintCandidate",
+    "firstPaint",
+    "v8.evaluateModule",
+    "V8.GC_HEAP_EXTERNAL_PROLOGUE",
+    "MinorGC",
+    "V8.GC_HEAP_PROLOGUE",
+    "V8.GC_TIME_TO_SAFEPOINT",
+    "V8.GC_SCAVENGER",
+    "V8.GC_HEAP_PROLOGUE_SAFEPOINT",
+    "V8.GC_SCAVENGER_SCAVENGE",
+    "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_IDENTIFY",
+    "ComputeWeaknessProcessor start",
+    "V8.GC_SCAVENGER_TRACED_HANDLES_COMPUTE_WEAKNESS_PARALLEL",
+    "V8.GC_SCAVENGER_SCAVENGE_COLLECT_OLD_TO_NEW_PAGES",
+    "V8.GC_SCAVENGER_SCAVENGE_PARALLEL_PHASE",
+    "Parallel scavenge started",
+    "V8.GC_SCAVENGER_SCAVENGE_ROOTS",
+    "V8.GC_SCAVENGER_BACKGROUND_SCAVENGE_PARALLEL",
+    "V8.GC_SCAVENGER_SCAVENGE_PARALLEL",
+    "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_PROCESS",
+    "ClearWeaknessProcessor start",
+    "V8.GC_SCAVENGER_TRACED_HANDLES_RESET_PARALLEL",
+    "V8.GC_SCAVENGER_SCAVENGE_FINALIZE",
+    "V8.GC_SCAVENGER_SCAVENGE_RESTORE_AND_QUARANTINE_PINNED",
+    "V8.GC_SCAVENGER_FREE_REMEMBERED_SET",
+    "V8.GC_SCAVENGER_SWEEP_ARRAY_BUFFERS",
+    "V8.GC_SCAVENGER_RESIZE_NEW_SPACE",
+    "V8.GC_MINOR_MS_BACKGROUND_SWEEPING",
+    "V8.GC_HEAP_EPILOGUE_SAFEPOINT",
+    "V8.GC_BACKGROUND_YOUNG_ARRAY_BUFFER_SWEEP",
+    "ArrayBufferSweeper Finished",
+    "V8.GC_HEAP_EPILOGUE",
+    "V8.GC_HEAP_EXTERNAL_EPILOGUE",
+    "V8.GC_SCAVENGER_COMPLETE_SWEEP_ARRAY_BUFFERS",
+    "V8.GC_BACKGROUND_SAFEPOINT",
+    "FunctionCall",
+    "MarkDOMContent",
+    "MarkLoad",
+    "firstContentfulPaint",
+    "largestContentfulPaint::Candidate",
+    "firstMeaningfulPaint",
+    "RequestAnimationFrame",
+    "FireAnimationFrame",
+    "HitTest",
+    "TimerRemove",
+    "Responsiveness.Renderer.UserInteraction",
+    "TimeStamp",
+    "V8.GC_BACKGROUND_UNPARK",
+    "V8.GC_SCAVENGER_BACKGROUND_TRACED_HANDLES_COMPUTE_WEAKNESS_PARALLEL",
+    "V8.GC_SCAVENGER_BACKGROUND_TRACED_HANDLES_RESET_PARALLEL",
+    "V8.GC_HEAP_ENSURE_SWEEPING_COMPLETED",
+    "V8.GC_MC_INCREMENTAL_START",
+    "V8.GC_MC_INCREMENTAL_EXTERNAL_PROLOGUE",
+    "V8.GC_MC_MARK_EMBEDDER_PROLOGUE",
+    "V8.GC_MC_MARK_ROOTS",
+    "Major concurrent marking started",
+    "V8.GC_MC_BACKGROUND_MARKING",
+    "V8.GC_MC_INCREMENTAL_EXTERNAL_EPILOGUE",
+    "V8.GC_MC_INCREMENTAL",
+    "V8.GC_MC_INCREMENTAL_EMBEDDER_TRACING",
+    "Major concurrent marking rescheduled",
+    "ConcurrentMarking::RunMajor Preempted",
+    "ConcurrentMarking::RunMajor Finished",
+    "MajorGC",
+    "V8.GC_MARK_COMPACTOR",
+    "V8.GC_MC_PROLOGUE",
+    "V8.GC_MC_MARK",
+    "V8.GC_MC_MARK_FINISH_INCREMENTAL",
+    "V8.GC_MC_MARK_CLIENT_HEAPS",
+    "V8.GC_MC_MARK_RETAIN_MAPS",
+    "V8.GC_MC_MARK_FULL_CLOSURE_PARALLEL",
+    "V8.GC_MC_MARK_WEAK_CLOSURE_EPHEMERON_MARKING",
+    "V8.GC_MC_MARK_EMBEDDER_TRACING",
+    "V8.GC_CONSERVATIVE_STACK_SCANNING",
+    "V8.GC_MC_MARK_FULL_CLOSURE_SERIAL",
+    "V8.GC_MC_CLEAR",
+    "ClearStringTableJob started",
+    "ClearTrivialWeakRefJob started",
+    "ClearTrustedWeakRefJob started",
+    "ClearNonTrivialWeakRefs started",
+    "V8.GC_MC_CLEAR_JOIN_JOB",
+    "V8.GC_MC_CLEAR_WEAK_COLLECTIONS",
+    "V8.GC_MC_CLEAR_SWEEP_WASM_CODE_POINTER_TABLE",
+    "V8.GC_MC_CLEAR_MAPS",
+    "V8.GC_MC_CLEAR_WEAK_LISTS",
+    "V8.GC_MC_CLEAR_FLUSHED_JS_FUNCTIONS",
+    "V8.GC_MC_CLEAR_STRING_TABLE",
+    "V8.GC_MC_CLEAR_EXTERNAL_STRING_TABLE",
+    "V8.GC_MC_CLEAR_SWEEP_JS_DISPATCH_TABLE",
+    "V8.GC_MC_CLEAR_JS_WEAK_REFERENCES",
+    "V8.GC_MC_CLEAR_WEAK_GLOBAL_HANDLES",
+    "V8.GC_MC_CLEAR_FLUSHABLE_BYTECODE",
+    "V8.GC_MC_CLEAR_SWEEP_EXTERNAL_POINTER_TABLE",
+    "V8.GC_MC_CLEAR_SWEEP_TRUSTED_POINTER_TABLE",
+    "V8.GC_MC_CLEAR_WEAK_REFERENCES_NON_TRIVIAL",
+    "V8.GC_MC_CLEAR_WEAK_REFERENCES_TRUSTED",
+    "V8.GC_MC_CLEAR_WEAK_REFERENCES_TRIVIAL",
+    "V8.GC_MC_SWEEP",
+    "V8.GC_MC_EVACUATE",
+    "V8.GC_MC_EVACUATE_PROLOGUE",
+    "V8.GC_MC_EVACUATE_COPY",
+    "PageEvacuationJob started",
+    "V8.GC_MC_EVACUATE_COPY_PARALLEL",
+    "V8.GC_MC_BACKGROUND_EVACUATE_COPY",
+    "V8.GC_MC_BACKGROUND_SWEEPING",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_TO_NEW_ROOTS",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_CLIENT_HEAPS",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_SLOTS_MAIN",
+    "PointersUpdatingJob started",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_PARALLEL",
+    "V8.GC_MC_BACKGROUND_EVACUATE_UPDATE_POINTERS",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_WEAK",
+    "V8.GC_MC_EVACUATE_UPDATE_POINTERS_POINTER_TABLES",
+    "V8.GC_MC_EVACUATE_CLEAN_UP",
+    "V8.GC_MC_EVACUATE_EPILOGUE",
+    "V8.GC_MC_SWEEP_NEW_LO",
+    "V8.GC_MC_EVACUATE_REBALANCE",
+    "V8.GC_MC_FINISH",
+    "V8.GC_MC_FINISH_SWEEP_ARRAY_BUFFERS",
+    "V8.GC_MC_SWEEP_START_JOBS",
+    "V8.GC_BACKGROUND_FULL_ARRAY_BUFFER_SWEEP",
+    "V8.GC_MC_EPILOGUE",
+    "Sweeper::ConcurrentMajorSweeper Finished",
+    "V8.GC_HEAP_EXTERNAL_WEAK_GLOBAL_HANDLES",
+    "V8.GC_HEAP_EMBEDDER_TRACING_EPILOGUE",
+    "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS",
+    "V8.GC_MC_COMPLETE_SWEEP_ARRAY_BUFFERS",
+    "V8.GC_MC_COMPLETE_SWEEPING",
+    "AnimationFrame",
+    "AnimationFrame::FirstUIEvent",
+    "AnimationFrame::Render",
+    "AnimationFrame::StyleAndLayout",
+    "AnimationFrame::Presentation",
+    "AnimationFrame::Script::Compile",
+    "AnimationFrame::Script::Execute",
+    "EventTiming",
+    "Animation"
+  ]
+}

@@ -12,7 +12,7 @@ export type {
   WarpMode,
 } from './types'
 export { isAudioTrack, isInstrumentTrack, isReturnTrack } from './track-kind'
-export { usedSampleIds } from './sample-use'
+export { usedSampleIds, projectSampleDependencies } from './sample-use'
 export {
   DEFAULT_FADE_SECONDS,
   MAX_FADE_SECONDS,
@@ -121,3 +121,6 @@ export {
   type HumanizeOptions,
   type QuantizeOptions,
 } from './groove'
+export { copySessionClip } from './clip-copy'
+
+export type { AutomationSlot } from './types'

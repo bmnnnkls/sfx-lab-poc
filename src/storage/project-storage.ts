@@ -6,6 +6,7 @@ const KEYS = {
   backup: 'sfxlab:backup',
   corrupt: 'sfxlab:corrupt',
   welcomed: 'sfxlab:welcomed',
+  preSignatureV9: 'sfxlab:pre-signature-v9',
 } as const
 
 export type LoadOutcome =
@@ -84,6 +85,19 @@ export class ProjectStorage {
 
   private write(key: string, project: Project): SaveResult {
     try {
+      // Keep the exact old envelope before the first signature-format rewrite. A failed
+      // backup must prevent the overwrite; ordinary import backups remain independent.
+      if (key === KEYS.current && this.store.getItem(KEYS.preSignatureV9) === null) {
+        const previous = this.store.getItem(key)
+        if (previous !== null) {
+          let envelope: { format?: unknown; version?: unknown } | null = null
+          try { envelope = JSON.parse(previous) } catch { /* loadCurrent quarantines corrupt data. */ }
+          if (envelope?.format === 'sfx-lab-project' && Number.isInteger(envelope.version)
+            && (envelope.version as number) >= 1 && (envelope.version as number) < 9) {
+            this.store.setItem(KEYS.preSignatureV9, previous)
+          }
+        }
+      }
       this.store.setItem(key, serializeProject(project))
       return { ok: true }
     } catch (error) {

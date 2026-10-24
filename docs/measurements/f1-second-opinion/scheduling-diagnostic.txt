@@ -1,0 +1,2 @@
+{"commit":"36f71d1dea37367d4f1a0f4a18f1d4c17a19e9ec","dirty":"","node":"v24.21.0","cpu":"Apple M3 Pro","platform":"darwin","arch":"arm64","rate":48000,"quantum":128,"warmSeconds":1,"trials":5}
+{"diagnostic":"Low Light notes with mixSegment suppressed","ms":[1543.2973339999999,1504.278625,1574.1130830000002,1586.9029999999984,1569.9973339999997],"median":1569.9973339999997}

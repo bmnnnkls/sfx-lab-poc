@@ -20,13 +20,14 @@ import { type Raw, type Warn, asList, finiteNumber, isRecord } from './raw'
 
 /**
  * A node's parameters, each read as a number inside its spec's range. A node has all of them (the default for what the file
- * lacks); a use of a module only has the ones the file gives, since a use keeps nothing but the values somebody turned and the
+ * lacks, except the additive optional delay division); a use of a module only has the ones the file gives, since a use keeps nothing but the values somebody turned and the
  * rest follow the module's definition.
  */
 const sanitizeParams = (specs: readonly ParamSpec[], raw: unknown, onlyGiven = false): Record<string, number> => {
   const source = isRecord(raw) ? raw : {}
   return Object.fromEntries(
-    specs.filter((spec) => !onlyGiven || source[spec.id] !== undefined).map((spec) => [
+    // Division is additive and optional: retain its absence in old strict library v1 records.
+    specs.filter((spec) => (!onlyGiven && spec.id !== 'division') || source[spec.id] !== undefined).map((spec) => [
       spec.id,
       clamp(finiteNumber(source[spec.id], spec.default), spec.min, spec.max),
     ]),

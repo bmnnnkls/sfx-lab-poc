@@ -1,20 +1,29 @@
-import type { NoteEvent } from '../session'
+import { noteKey, inNoteScope, type NoteIdentity, type NoteEvent } from '../session'
 import { compareEvents } from './events'
 
 /**
- * Joins several note streams into one. The instrument matches note-offs by pitch, so two overlapping notes of
- * the same pitch (one from each stream) would cut each other short: the first note-off would end both. The
- * merger counts overlapping notes per pitch instead. A note-on for a pitch that is already sounding re-triggers it,
- * (unless it starts at the very same beat, when it is the same note), and a note-off is passed on only when the last
- * overlapping note of that pitch ends.
+ * Joins streams, counting duplicate routes of the same identity. Different identities remain independent even
+ * at the same pitch. Unidentified legacy callers retain the original pitch-counting/retrigger behavior.
  */
 export class Merger {
+  private readonly identified = new Map<string, { count: number; identity: NoteIdentity }>()
   private readonly sounding = new Map<number, { count: number; start: number }>()
 
   /** `events` may be the concatenation of several streams; they are put in time order here. */
   process(events: readonly NoteEvent[]): NoteEvent[] {
     const out: NoteEvent[] = []
     for (const event of [...events].sort(compareEvents)) {
+      if (event.kind !== 'allOff' && event.identity) {
+        const key = noteKey(event)
+        const current = this.identified.get(key)
+        if (event.kind === 'noteOn') {
+          if (current) current.count++
+          else { this.identified.set(key, { count: 1, identity: event.identity }); out.push(event) }
+        } else if (current) {
+          if (--current.count === 0) { this.identified.delete(key); out.push(event) }
+        }
+        continue
+      }
       if (event.kind === 'noteOn') {
         const current = this.sounding.get(event.pitch)
         if (current && current.start === event.beat) {
@@ -34,7 +43,8 @@ export class Merger {
           current.count--
         }
       } else {
-        this.sounding.clear()
+        if (!event.scope) this.sounding.clear()
+        for (const [key, note] of this.identified) if (inNoteScope(note.identity, event.scope)) this.identified.delete(key)
         out.push(event)
       }
     }
@@ -42,6 +52,7 @@ export class Merger {
   }
 
   reset(): void {
+    this.identified.clear()
     this.sounding.clear()
   }
 }

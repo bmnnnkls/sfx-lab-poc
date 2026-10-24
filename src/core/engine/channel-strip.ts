@@ -1,4 +1,4 @@
-import { RIGHT, type SendSink } from '../dsp'
+import { RIGHT, STEREO_FRAMES, type SendSink } from '../dsp'
 
 const NO_SENDS_BLOCKED: ReadonlySet<string> = new Set()
 
@@ -16,8 +16,8 @@ class SendGate implements SendSink {
     return this
   }
 
-  add(trackId: string, source: Float32Array, amount: number, frames: number): void {
-    if (!this.blocked.has(trackId)) this.board?.add(trackId, source, amount, frames)
+  add(trackId: string, source: Float32Array, amount: number, frames: number, offset = 0): void {
+    if (!this.blocked.has(trackId)) this.board?.add(trackId, source, amount, frames, offset)
   }
 }
 
@@ -27,6 +27,10 @@ class SendGate implements SendSink {
  */
 export class ChannelStrip {
   /** 0..1 */
+  volumeCurve?: Float64Array
+  panCurve?: Float64Array
+  readonly sendCurves = new Map<string, Float64Array>()
+  private readonly sendScratch = new Float32Array(STEREO_FRAMES)
   volume: number
   /** -1..1 */
   pan = 0
@@ -64,13 +68,27 @@ export class ChannelStrip {
     const rightGain = this.volume * (this.pan === 0 ? 1 : Math.SQRT2 * Math.sin(angle))
     let peak = this.peak
     for (let i = 0; i < frames; i++) {
-      const l = (signal[i] ?? 0) * leftGain
-      const r = (signal[RIGHT + i] ?? 0) * rightGain
+      const pan = this.panCurve?.[i] ?? this.pan, volume = this.volumeCurve?.[i] ?? this.volume
+      const theta = ((pan + 1) * Math.PI) / 4
+      const l = (signal[i] ?? 0) * (this.panCurve || this.volumeCurve ? volume * (pan === 0 ? 1 : Math.SQRT2 * Math.cos(theta)) : leftGain)
+      const r = (signal[RIGHT + i] ?? 0) * (this.panCurve || this.volumeCurve ? volume * (pan === 0 ? 1 : Math.SQRT2 * Math.sin(theta)) : rightGain)
       left[offset + i] = (left[offset + i] ?? 0) + l
       right[offset + i] = (right[offset + i] ?? 0) + r
       peak = Math.max(peak, Math.abs(l), Math.abs(r))
     }
     this.peak = peak
+  }
+
+  clearAutomation(): void { this.volumeCurve = undefined; this.panCurve = undefined; this.sendCurves.clear() }
+  send(sends: SendSink, id: string, signal: Float32Array, level: number, frames: number): void {
+    const curve = this.sendCurves.get(id)
+    if (!curve && !this.volumeCurve) { sends.add(id, signal, level * this.volume, frames); return }
+    for (let i = 0; i < frames; i++) {
+      const gain = (curve?.[i] ?? level) * (this.volumeCurve?.[i] ?? this.volume)
+      this.sendScratch[i] = (signal[i] ?? 0) * gain
+      this.sendScratch[RIGHT + i] = (signal[RIGHT + i] ?? 0) * gain
+    }
+    sends.add(id, this.sendScratch, 1, frames)
   }
 
   /** The loudest sample this track added to the output since the previous call. */

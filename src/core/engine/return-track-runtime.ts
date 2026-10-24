@@ -46,6 +46,9 @@ export class ReturnTrackRuntime implements PlayableTrack {
     this.sources = audioSources(fx)
   }
 
+  clearAutomation(): void { this.fx.clearAutomation() }
+  setAutomationCurve(nodeId: string, paramId: string, values: Float64Array): void { this.fx.setAutomationCurve(nodeId, paramId, values) }
+
   setParam(nodeId: string, paramId: string, value: number): void {
     this.fx.setParam(nodeId, paramId, value)
   }

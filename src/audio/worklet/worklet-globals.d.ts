@@ -1,4 +1,5 @@
 // The AudioWorkletGlobalScope is not part of TypeScript's DOM lib; declare what we use.
+declare const currentTime: number
 declare const sampleRate: number
 
 declare class AudioWorkletProcessor {

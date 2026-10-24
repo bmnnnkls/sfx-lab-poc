@@ -1,6 +1,6 @@
 import type { Clip } from '../project'
 import { LaunchQueue } from './launch-queue'
-import type { LauncherStatus, NoteEvent } from './types'
+import type { LauncherStatus, NoteEvent, NoteIdentity } from './types'
 
 /** A note that has started sounding and not yet ended, as it was when it started. */
 interface HeldNote {
@@ -8,6 +8,7 @@ interface HeldNote {
   readonly start: number
   /** Absolute beat at which the loop pass that triggered it began. */
   readonly loopBase: number
+  readonly identity?: NoteIdentity
 }
 
 const KIND_PRIORITY: Record<NoteEvent['kind'], number> = { allOff: 0, noteOff: 1, noteOn: 2 }
@@ -22,12 +23,12 @@ const byTime = (a: NoteEvent, b: NoteEvent): number =>
 export class ClipLauncher {
   private readonly queue: LaunchQueue<Clip>
   private readonly held = new Map<string, HeldNote>()
-  /** Pitches to release at the start of the next range (their notes were edited away mid-sound). */
-  private pendingReleases: number[] = []
+  /** Notes to release at the start of the next range (their notes were edited away mid-sound). */
+  private pendingReleases: HeldNote[] = []
   /** End of the last range handed out: the current play position. */
   private cursorBeat = 0
 
-  constructor(quantizeBeats = 4) {
+  constructor(quantizeBeats = 4, private readonly source?: string) {
     this.queue = new LaunchQueue<Clip>(quantizeBeats)
   }
 
@@ -70,18 +71,19 @@ export class ClipLauncher {
    * contiguous across calls so every event is emitted exactly once.
    */
   collectEvents(from: number, to: number): NoteEvent[] {
-    const events: NoteEvent[] = this.pendingReleases.map((pitch) => ({
+    const events: NoteEvent[] = this.pendingReleases.map((note) => ({
       beat: from,
       kind: 'noteOff',
-      pitch,
+      pitch: note.pitch,
+      ...(note.identity ? { identity: note.identity } : {}),
     }))
     this.pendingReleases = []
     let cursor = from
 
-    const boundary = this.queue.pendingBoundary(from, to)
+    const boundary = this.queue.pendingBoundary(from - 1e-10, to - 1e-10)
     if (boundary !== null) {
       events.push(...this.clipEvents(cursor, boundary))
-      events.push({ beat: boundary, kind: 'allOff' })
+      events.push({ beat: boundary, kind: 'allOff', ...(this.source ? { scope: { source: this.source } } : {}) })
       this.held.clear()
       this.queue.commit(boundary)
       cursor = boundary
@@ -103,7 +105,7 @@ export class ClipLauncher {
         note.start === held.start &&
         held.loopBase + Math.min(note.start + note.duration, clip.lengthBeats) >= this.cursorBeat
       if (!stillValid) {
-        this.pendingReleases.push(held.pitch)
+        this.pendingReleases.push(held)
         this.held.delete(id)
       }
     }
@@ -126,12 +128,18 @@ export class ClipLauncher {
         if (note.start >= length) continue
         const on = loopStart + note.start
         const off = loopStart + Math.min(note.start + note.duration, length)
-        if (on >= localFrom && on < localTo) {
-          events.push({ beat: startBeat + on, kind: 'noteOn', pitch: note.pitch, velocity: note.velocity })
-          this.held.set(note.id, { pitch: note.pitch, start: note.start, loopBase: startBeat + loopStart })
+        const starts = on >= localFrom - 1e-10 && on < localTo - 1e-10
+        const ends = off >= localFrom - 1e-10 && off < localTo - 1e-10
+        // Identity belongs to an emitted event, not every idle scan of every stored note.
+        if (!starts && !ends) continue
+        const identity = this.source ? { source: this.source, channel: 0, id: JSON.stringify([clip.id, startBeat, loop, note.id]) } : undefined
+        const owner = identity ? { identity } : {}
+        if (starts) {
+          events.push({ beat: startBeat + on, kind: 'noteOn', pitch: note.pitch, velocity: note.velocity, ...owner })
+          this.held.set(note.id, { pitch: note.pitch, start: note.start, loopBase: startBeat + loopStart, ...owner })
         }
-        if (off >= localFrom && off < localTo) {
-          events.push({ beat: startBeat + off, kind: 'noteOff', pitch: note.pitch })
+        if (ends) {
+          events.push({ beat: startBeat + off, kind: 'noteOff', pitch: note.pitch, ...owner })
           this.held.delete(note.id)
         }
       }

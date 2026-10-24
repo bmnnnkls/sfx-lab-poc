@@ -1,4 +1,14 @@
 import {
+  delayTiming,
+  controlTargetKey,
+  resolveParams,
+  type ControlOwner,
+  type ControlDomain,
+  controlTargetForGraphParam,
+  resolveControlTarget,
+  resolveSampleTarget,
+  editSampleBinding,
+  type SampleTarget,
   CONTROL_DISPLAYS,
   CONTROL_SIZES,
   type ControlSize,
@@ -24,6 +34,9 @@ import {
   setNodeTrack,
   setNodeUnit,
 } from '@core'
+import { useProjectStore, useControlStore, editPresetProject } from '@state'
+import { useControlGesture } from '../controls/use-control-gesture'
+import { EffectiveValue } from '../controls/EffectiveValue'
 import { useMemo } from 'react'
 import { ParamRow } from './ParamRow'
 import { SamplePicker } from './SamplePicker'
@@ -36,6 +49,8 @@ import styles from './PropertyEditor.module.css'
 type Edit = (change: (patch: Patch, modules: ModuleLibrary) => Patch, mergeKey?: string) => void
 
 interface PropertyEditorProps {
+  controlOwner?: ControlOwner
+  controlDomain?: ControlDomain
   patch: Patch
   modules: ModuleLibrary
   selected: ReadonlySet<string>
@@ -54,7 +69,7 @@ const DISPLAY_LABELS: Record<ControlDisplay, string> = { knob: 'Knob', slider: '
  * The settings of the selected node: its name, its switches and pickers, and one row per parameter. The cards carry
  * none of this, so the editor is where a value is set; a parameter with a wire into its socket shows by what it is driven.
  */
-export const PropertyEditor = ({ patch, modules, selected, scope, ownerTrackId, edit, onCreateControl, onUnwire }: PropertyEditorProps) => {
+export const PropertyEditor = ({ patch, modules, selected, scope, ownerTrackId, edit, onCreateControl, onUnwire, controlOwner, controlDomain }: PropertyEditorProps) => {
   const chosen = patch.nodes.filter((node) => selected.has(node.id))
   return (
     <aside className={styles.properties} aria-label="Properties" data-testid="properties">
@@ -66,6 +81,8 @@ export const PropertyEditor = ({ patch, modules, selected, scope, ownerTrackId, 
         <NodeProperties
           key={chosen[0]!.id}
           node={chosen[0]!}
+          controlOwner={controlOwner}
+          controlDomain={controlDomain}
           patch={patch}
           modules={modules}
           scope={scope}
@@ -83,7 +100,14 @@ interface NodePropertiesProps extends Omit<PropertyEditorProps, 'selected'> {
   node: PatchNode
 }
 
-const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCreateControl, onUnwire }: NodePropertiesProps) => {
+const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCreateControl, onUnwire, controlOwner, controlDomain }: NodePropertiesProps) => {
+  const project = useProjectStore((state) => state.project)
+  const overrides = useControlStore(s => s.overrides)
+  const playback = useControlStore(s => s.playback)
+  const gesture = useControlGesture()
+  const targetFor = (param: string) => controlOwner && controlDomain ? controlTargetForGraphParam(project, controlOwner, controlDomain, node.id, param) : undefined
+  const sampleTarget: SampleTarget | undefined = controlOwner && controlDomain ? { kind: 'graph', owner: controlOwner, domain: controlDomain, path: [], nodeId: node.id, nodeType: node.type } : undefined
+  const sampleChoice = sampleTarget && resolveSampleTarget(project, sampleTarget)
   const shape = describeNode(node, modules)
   const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
   // What the node would be called without a name of its own: the hint in an empty name field.
@@ -95,10 +119,23 @@ const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCre
 
   const driven = drivenParams(node.id, shape, patch, (id) => titles.get(id) ?? '')
   const rows = rowsOf(node, shape, driven)
-  const set = (paramId: string, value: number) => edit((current) => setNodeParam(current, node.id, paramId, value), `param:${scope}:${node.id}:${paramId}`)
+  const timingValues = { ...resolveParams(patch, node.id).values }
+  for (const paramId of ['time', 'sync', 'division']) {
+    const target = targetFor(paramId)
+    if (!target) continue
+    const resolved = resolveControlTarget(project, target)
+    const entry = [...overrides, ...playback].find(e => controlTargetKey(e.target) === controlTargetKey(target))
+    if (resolved.status === 'available') timingValues[paramId] = resolved.reason?.startsWith('Driven') ? timingValues[paramId]! : entry?.value ?? resolved.baseValue
+  }
+  const timing = ['delay', 'pingPong'].includes(node.type) ? delayTiming(timingValues, project) : undefined
+  const set = (paramId: string, value: number) => {
+    const target = targetFor(paramId)
+    if (target) gesture.change([{ target, value }])
+    else edit((current) => setNodeParam(current, node.id, paramId, value), `param:${scope}:${node.id}:${paramId}`)
+  }
 
   return (
-    <div className={styles.node}>
+    <div {...gesture.events} className={styles.node}>
       <div className={styles.heading}>
         <span className={styles.kind}>{shape.label}</span>
         <label className={styles.field}>
@@ -136,7 +173,7 @@ const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCre
         </label>
       </div>
 
-      {shape.usesSample && <SamplePicker sampleId={node.sampleId} onChange={(sampleId) => edit((current) => setNodeSample(current, node.id, sampleId))} />}
+      {shape.usesSample && <SamplePicker sampleId={sampleChoice?.status === 'available' ? sampleChoice.sampleId ?? undefined : node.sampleId} onChange={(sampleId) => sampleTarget ? editPresetProject(p => editSampleBinding(p, { target: sampleTarget, sampleId })) : edit((current) => setNodeSample(current, node.id, sampleId))} />}
       {shape.usesTrack && (
         <TrackPicker pick={shape.usesTrack} ownerTrackId={ownerTrackId} trackId={node.trackId} onChange={(trackId) => edit((current) => setNodeTrack(current, node.id, trackId))} />
       )}
@@ -182,17 +219,33 @@ const NodeProperties = ({ node, patch, modules, scope, ownerTrackId, edit, onCre
 
       {shape.panelKind !== undefined && <PanelSettings node={node} modules={modules} edit={edit} />}
 
+      {timing && <output aria-label="Delay timing" className={styles.hint}>
+        {timing.label} · {timing.seconds.toFixed(3)} s at {project.tempo} BPM
+        {timing.capped && ` — Requested ${timing.requested.toFixed(3)} s exceeds capacity; capped at 8 s`}
+        {driven.has('time') && ' · Time wire: preview uses its current static value'}
+      </output>}
       <div className={styles.params}>
         {rows.length === 0 && <p className={styles.hint}>Nothing to set on this node.</p>}
-        {rows.map((row) => (
-          <ParamRow
-            key={row.spec.id}
-            row={row}
-            onChange={(value) => set(row.spec.id, value)}
-            onCreateControl={(display) => onCreateControl(node.id, row.spec.id, display)}
-            onUnwire={() => onUnwire(node.id, row.spec.id)}
-          />
-        ))}
+        {rows.map((row) => {
+          const target = targetFor(row.spec.id)
+          const resolved = target && resolveControlTarget(project, target)
+          const display = resolved?.status === 'available' ? {
+            ...row,
+            spec: { ...resolved.spec, id: row.spec.id, label: row.spec.label },
+            value: resolved.baseValue,
+            ...(resolved.reason?.startsWith('Driven') ? { drivenBy: resolved.reason } : {}),
+          } : row
+          return <div key={row.spec.id}>
+            <ParamRow
+              row={display}
+              canUnwire={node.type !== 'module' || row.drivenBy !== undefined}
+              onChange={(value) => set(row.spec.id, value)}
+              onCreateControl={(display) => onCreateControl(node.id, row.spec.id, display)}
+              onUnwire={() => onUnwire(node.id, row.spec.id)}
+            />
+            {target && <EffectiveValue target={target} />}
+          </div>
+        })}
       </div>
     </div>
   )

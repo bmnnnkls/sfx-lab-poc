@@ -26,7 +26,7 @@ describe('control nodes and the engine commands', () => {
     const track2 = wired.tracks[0] as InstrumentTrack
     const turned = setTrackPatch(wired, track.id, setNodeParam(track2.patch, control.id, 'value', 0.9))
     expect(diffProject(wired, turned)).toEqual([
-      { type: 'track/setParam', trackId: track.id, nodeId: control.id, paramId: 'value', value: 0.9 },
+      { type: 'track/setParam', graph: 'patch', trackId: track.id, nodeId: control.id, paramId: 'value', value: 0.9 },
     ])
   })
 
@@ -35,7 +35,7 @@ describe('control nodes and the engine commands', () => {
     const track2 = wired.tracks[0] as InstrumentTrack
     const edited = setTrackPatch(wired, track.id, setNodeParam(track2.patch, filter.id, 'resonance', 5))
     expect(diffProject(wired, edited)).toEqual([
-      { type: 'track/setParam', trackId: track.id, nodeId: filter.id, paramId: 'resonance', value: 5 },
+      { type: 'track/setParam', graph: 'patch', trackId: track.id, nodeId: filter.id, paramId: 'resonance', value: 5 },
     ])
   })
 
@@ -63,7 +63,7 @@ describe('control nodes and the engine commands', () => {
     const onMaster = editPatchAt(project, { master: true }, (fx) => addNode(fx, fxNode))
     const turnFx = editPatchAt(inFx, { trackId: track.id, graph: 'fx' }, (fx) => setNodeParam(fx, 'k', 'value', 0.2))
     const turnMaster = editPatchAt(onMaster, { master: true }, (fx) => setNodeParam(fx, 'k', 'value', 0.2))
-    expect(diffProject(inFx, turnFx)).toEqual([{ type: 'track/setParam', trackId: track.id, nodeId: 'k', paramId: 'value', value: 0.2 }])
+    expect(diffProject(inFx, turnFx)).toEqual([{ type: 'track/setParam', graph: 'fx', trackId: track.id, nodeId: 'k', paramId: 'value', value: 0.2 }])
     expect(diffProject(onMaster, turnMaster)).toEqual([{ type: 'master/setParam', nodeId: 'k', paramId: 'value', value: 0.2 }])
   })
 })

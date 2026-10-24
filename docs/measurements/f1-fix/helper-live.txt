@@ -1,0 +1,13 @@
+
+> sfx-lab-poc@0.0.0 test
+> vitest run src/core/engine/helper-clock.test.ts
+
+
+ RUN  v5.0.3 /Users/niklaus.baumann/git/local/sfx-lab-poc
+
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  17:20:28
+   Duration  1.37s (transform 74%, import 16%, tests 10%)
+

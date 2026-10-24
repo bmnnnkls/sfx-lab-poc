@@ -1,0 +1,22 @@
+[
+  {
+    "capture": "range-moving-worklet",
+    "bundlesMatchManifest": true
+  },
+  {
+    "capture": "range-continuous-worklet",
+    "bundlesMatchManifest": true
+  },
+  {
+    "capture": "range-constant-worklet",
+    "bundlesMatchManifest": true
+  },
+  {
+    "capture": "range-low-arrangement",
+    "bundlesMatchManifest": true
+  },
+  {
+    "capture": "range-glass-arrangement",
+    "bundlesMatchManifest": true
+  }
+]

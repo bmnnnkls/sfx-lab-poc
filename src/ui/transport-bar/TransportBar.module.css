@@ -57,3 +57,12 @@
   background: linear-gradient(90deg, var(--play), var(--queued) 75%, #ff6b6b);
   transition: width 60ms linear;
 }
+
+.touchFeedback {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-dim);
+}

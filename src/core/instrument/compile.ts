@@ -1,3 +1,4 @@
+import { processAutomatedRun } from './automation-run'
 import {
   type DspNode,
   MAX_BLOCK_FRAMES,
@@ -22,6 +23,8 @@ export interface CompiledRun {
   /** Resolved input buffers, in definition order; null when unconnected. */
   readonly inputs: ReadonlyArray<Float32Array | null>
   readonly outputs: readonly Float32Array[]
+  readonly sampleInputs: ReadonlyArray<Float32Array | null>
+  readonly sampleOutputs: readonly Float32Array[]
 }
 
 /**
@@ -39,6 +42,7 @@ export interface ParamFeed {
 
 export interface CompiledNode {
   readonly id: string
+  readonly outputs: readonly Float32Array[]
   readonly runs: readonly CompiledRun[]
   readonly paramFeeds: readonly ParamFeed[]
   /** Source buffers that must be summed into a node's own input buffer before processing. */
@@ -47,6 +51,7 @@ export interface CompiledNode {
 
 /** One runnable slice of a patch (all voice nodes, or all shared nodes). */
 export interface CompiledStage {
+  readonly automation: Map<string, Map<string, Float64Array>>
   /** Nodes in execution order. */
   readonly nodes: readonly CompiledNode[]
   /** Every output buffer by `bufferKey`, including any seeded from another stage. */
@@ -149,15 +154,17 @@ export const compileStage = (
     })
 
     const runs: CompiledRun[] = copies.map((dsp, channel) => {
-      if (!lifted) return { dsp, inputs, outputs }
+      const scratch = (buffers: ReadonlyArray<Float32Array | null>) => buffers.map((buffer) => buffer && new Float32Array(buffer.length))
+      if (!lifted) return { dsp, inputs, outputs, sampleInputs: scratch(inputs), sampleOutputs: scratch(outputs) as Float32Array[] }
       // One processor per channel: stereo ports are narrowed to that channel's half, modulation ports are shared.
       const half = (buffer: Float32Array | null, port: PortSpec) =>
         buffer && port.kind === 'stereo' ? (channel === 0 ? leftOf(buffer) : rightOf(buffer)) : buffer
-      return {
+      const run = {
         dsp,
         inputs: inputs.map((buffer, index) => half(buffer, ports.inputs[index] as PortSpec)),
         outputs: outputs.map((buffer, index) => half(buffer, ports.outputs[index] as PortSpec) as Float32Array),
       }
+      return { ...run, sampleInputs: scratch(run.inputs), sampleOutputs: scratch(run.outputs) as Float32Array[] }
     })
 
     // Parameter sockets: each parameter with at least one wire into its socket is read from those wires every block.
@@ -176,10 +183,10 @@ export const compileStage = (
     if (definition.sink === true && inputs[0]) outputSources.push(inputs[0])
 
     byId.set(id, copies)
-    nodes.push({ id, runs, sums, paramFeeds })
+    nodes.push({ id, outputs, runs, sums, paramFeeds })
   }
 
-  return { nodes, outputBuffers, outputSources, byId, driven }
+  return { nodes, outputBuffers, outputSources, byId, driven, automation: new Map() }
 }
 
 /** Adds `source` into `target`; a mono source into a stereo target is heard in both channels. */
@@ -195,15 +202,27 @@ export const addInto = (target: Float32Array, source: Float32Array, frames: numb
   }
 }
 
+export const setStageAutomation = (stage: CompiledStage, nodeId: string, paramId: string, values: Float64Array): void => {
+  if (stage.driven.has(bufferKey(nodeId, paramId)) || !stage.byId.has(nodeId)) return
+  const curves = stage.automation.get(nodeId) ?? new Map<string, Float64Array>()
+  curves.set(paramId, values); stage.automation.set(nodeId, curves)
+}
+const varying = new WeakSet<Float32Array>()
 /** Runs every node of a stage for `context.frames` samples. */
 export const processStage = (stage: CompiledStage, context: ProcessContext): void => {
   const { frames } = context
   for (const node of stage.nodes) {
+    for (const output of node.outputs) varying.delete(output)
+    for (const run of node.runs) for (const output of run.outputs) varying.delete(output)
     for (const { target, sources } of node.sums) {
+      varying.delete(target)
+      if (sources.some((source) => varying.has(source))) varying.add(target)
       target.fill(0, 0, frames)
       if (isStereoBuffer(target)) target.fill(0, RIGHT, RIGHT + frames)
       for (const source of sources) addInto(target, source, frames)
     }
+    const curves = stage.automation.get(node.id)
+    const sampleFeeds = node.paramFeeds.some((feed) => feed.sources.some((source) => varying.has(source)))
     for (const feed of node.paramFeeds) {
       let value = 0
       for (const source of feed.sources) value += source[0] ?? 0
@@ -211,6 +230,18 @@ export const processStage = (stage: CompiledStage, context: ProcessContext): voi
       feed.last = value
       for (const dsp of feed.dsps) dsp.setParam(feed.paramId, value)
     }
-    for (const { dsp, inputs, outputs } of node.runs) dsp.process(context, inputs, outputs)
+    for (const run of node.runs) {
+      const { dsp, inputs, outputs } = run
+      if (curves?.size || sampleFeeds) {
+        processAutomatedRun(run, context, curves, node.paramFeeds.filter((feed) => feed.sources.some((source) => varying.has(source))))
+        for (const output of outputs) varying.add(output)
+      } else {
+        dsp.process(context, inputs, outputs)
+        if (inputs.some((input) => input && varying.has(input))) for (const output of outputs) varying.add(output)
+      }
+    }
+    if (curves?.size || sampleFeeds || node.runs.some((run) => run.inputs.some((input) => input && varying.has(input)))) {
+      for (const output of node.outputs) varying.add(output)
+    }
   }
 }

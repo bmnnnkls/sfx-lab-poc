@@ -1,3 +1,6 @@
+import { lazy, Suspense } from 'react'
+const LibraryPanel = lazy(() => import('../library/LibraryPanel').then(module => ({ default: module.LibraryPanel })))
+import { PresetsPanel } from '../presets/PresetsPanel'
 import { useSelectionStore } from '@state'
 import { ClipEditor } from '../clip-editor/ClipEditor'
 import { MixerPanel } from '../mixer/MixerPanel'
@@ -33,9 +36,11 @@ export const EditorPanel = () => {
         <button className={tab === 'samples' ? styles.active : ''} onClick={() => setTab('samples')}>
           Samples
         </button>
+        <button className={tab === 'presets' ? styles.active : ''} onClick={() => setTab('presets')}>Sounds</button>
+        <button className={tab === 'library' ? styles.active : ''} onClick={() => setTab('library')}>Library</button>
       </nav>
       <div className={styles.body}>
-        {tab === 'device' ? <Patcher /> : tab === 'fx' ? <FxPanel /> : tab === 'notes' ? <NoteEffectsPanel /> : tab === 'clip' ? <ClipEditor /> : tab === 'mixer' ? <MixerPanel /> : <SamplesPanel />}
+        {tab === 'library' ? <Suspense fallback={<p>Opening library…</p>}><LibraryPanel /></Suspense> : tab === 'presets' ? <PresetsPanel /> : tab === 'device' ? <Patcher /> : tab === 'fx' ? <FxPanel /> : tab === 'notes' ? <NoteEffectsPanel /> : tab === 'clip' ? <ClipEditor /> : tab === 'mixer' ? <MixerPanel /> : <SamplesPanel />}
       </div>
     </div>
   )
