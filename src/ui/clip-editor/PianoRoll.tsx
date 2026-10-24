@@ -34,6 +34,8 @@ interface PianoRollProps {
   pixelsPerBeat: number
   /** Scroll along with the playhead. */
   follow: boolean
+  /** Whether to show where the session launcher plays the clip; a region's copy has no playhead yet. */
+  playhead?: boolean
   /** Show the velocity lane under the roll. */
   showVelocity: boolean
   onZoom(pixelsPerBeat: number): void
@@ -63,6 +65,7 @@ export const PianoRoll = ({
   step,
   pixelsPerBeat,
   follow,
+  playhead = true,
   showVelocity,
   onZoom,
   onChange,
@@ -187,14 +190,14 @@ export const PianoRoll = ({
             />
           )}
 
-          <Playhead
+          {playhead && <Playhead
             trackId={trackId}
             clipId={clipId}
             lengthBeats={lengthBeats}
             pixelsPerBeat={pixelsPerBeat}
             follow={follow}
             scroller={scroller}
-          />
+          />}
           </div>
         </ContextMenu>
 

@@ -73,10 +73,10 @@ describe('clips', () => {
     const bass = track('Bass')
     useProjectStore.getState().addArrangementClip(bass.id, 0, clipOf('Bass', 0)!)
     const region: Subject = { kind: 'region', regionId: project().arrangement![0]!.id }
-    runAction('region.edit-clip', region, fakeContext())
+    runAction('region.edit-session-clip', region, fakeContext())
     expect(useSelectionStore.getState().clipId).toBe(clipOf('Bass', 0)!.id)
     useProjectStore.getState().deleteClip(bass.id, 0)
-    expect(enabled(region, 'region.edit-clip')).toBe(false)
+    expect(enabled(region, 'region.edit-session-clip')).toBe(false)
   })
 })
 

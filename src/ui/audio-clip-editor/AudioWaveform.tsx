@@ -10,6 +10,8 @@ interface AudioWaveformProps {
   clip: AudioClip
   /** Length of the whole sample, to draw fades at the right size. */
   sampleSeconds: number
+  /** Whether to show where the session launcher plays the clip; a region's copy has no playhead yet. */
+  playhead?: boolean
   /** Called continuously while a trim handle is dragged; one gesture merges into one undo step. */
   onTrim(changes: { start: number } | { end: number }): void
 }
@@ -24,7 +26,7 @@ const percent = (fraction: number): string => `${fraction * 100}%`
  * what spans the clip's length; seeing where the beats fall on the audio is how you tell whether
  * the length is right.
  */
-export const AudioWaveform = ({ trackId, clip, sampleSeconds, onTrim }: AudioWaveformProps) => {
+export const AudioWaveform = ({ trackId, clip, sampleSeconds, playhead: withPlayhead = true, onTrim }: AudioWaveformProps) => {
   const frame = useRef<HTMLDivElement>(null)
   const width = useElementWidth(frame)
   const locked = clip.warp === 'repitch'
@@ -33,7 +35,7 @@ export const AudioWaveform = ({ trackId, clip, sampleSeconds, onTrim }: AudioWav
 
   const playhead = useStatusStore((state) => {
     const launcher = state.status?.tracks[trackId]
-    if (!locked || !state.status || launcher?.playingClipId !== clip.id || launcher.startBeat === null) return null
+    if (!withPlayhead || !locked || !state.status || launcher?.playingClipId !== clip.id || launcher.startBeat === null) return null
     const phase = ((state.status.beat - launcher.startBeat) % clip.lengthBeats) / clip.lengthBeats
     return start + phase * region
   })

@@ -3,7 +3,7 @@ import {
   MIN_CLIP_BEATS,
   isAudioContent,
 } from '@core'
-import { useProjectStore } from '@state'
+import { openRegion, useProjectStore } from '@state'
 import { useRef } from 'react'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import styles from './arrangement.module.css'
@@ -34,8 +34,9 @@ interface DragState {
 
 /**
  * One clip on the timeline: drag the body to move it in time (and onto another lane to move it across
- * tracks), drag the right edge to resize. A drag merges into one undo step. A looping region shows a
- * repeat badge; the view draws the span it repeats over (up to the next region) beside it.
+ * tracks), drag the right edge to resize. A drag merges into one undo step. Pressing it selects it;
+ * double-click or Enter opens its own copy in Clip. A looping region shows a repeat badge; the view
+ * draws the span it repeats over (up to the next region) beside it.
  */
 export const ArrangementRegion = ({ region, pxPerBeat, selected, onSelect, ...domProps }: RegionProps) => {
   const update = useProjectStore((state) => state.updateArrangementClip)
@@ -103,6 +104,13 @@ export const ArrangementRegion = ({ region, pxPerBeat, selected, onSelect, ...do
       style={{ left: region.startBeat * pxPerBeat, width }}
       data-testid="arrangement-region"
       data-looping={looping ? 'true' : undefined}
+      tabIndex={0}
+      onDoubleClick={() => openRegion(region.id)}
+      onKeyDown={(event) => {
+        // The menu's Shift+F10 first.
+        domProps.onKeyDown?.(event)
+        if (!event.defaultPrevented && event.key === 'Enter') openRegion(region.id)
+      }}
       onPointerDown={(event) => startDrag(event, false)}
       onPointerMove={onMove}
       onPointerUp={endDrag}

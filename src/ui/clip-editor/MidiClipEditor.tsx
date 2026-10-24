@@ -1,5 +1,6 @@
 import {
   type Clip,
+  type ClipRef,
   type InstrumentTrack,
   MAX_CLIP_BEATS,
   type Note,
@@ -26,15 +27,15 @@ const isBoolean = (value: unknown): value is boolean => typeof value === 'boolea
 const HINT = 'Drag: draw · Ctrl-drag: select box · drag note / ends: move / resize · double-click or right-click · Q quantize'
 
 /**
- * The note editor for one MIDI clip. Mounted with `key={clip.id}`, so its selection resets when the clip
- * changes without any effect.
+ * The note editor for one MIDI clip: a session clip, or a region's own copy (`clipRef`, with `where` it is on the
+ * arrangement). Mounted with `key={clip.id}`, so its selection resets when the clip changes without any effect.
  */
-export const MidiClipEditor = ({ track, clip }: { track: InstrumentTrack; clip: Clip }) => {
+export const MidiClipEditor = ({ track, clip, clipRef, where }: { track: InstrumentTrack; clip: Clip; clipRef?: ClipRef; where?: string }) => {
   const controls = useEngineControls()
   const setClipNotes = useProjectStore((state) => state.setClipNotes)
   const setClipLength = useProjectStore((state) => state.setClipLength)
   const doubleClip = useProjectStore((state) => state.doubleClip)
-  const ref = sessionClipRef(track.id, clip.id)
+  const ref = clipRef ?? sessionClipRef(track.id, clip.id)
 
   // Editor preferences are remembered between sessions.
   const [step, setStep] = useStoredState('sfxlab:roll-grid', 0.5, isGridStep)
@@ -68,6 +69,7 @@ export const MidiClipEditor = ({ track, clip }: { track: InstrumentTrack; clip: 
       <div className={styles.toolbar}>
         <strong>
           {track.name} / {clip.name}
+          {where && ` · ${where}`}
         </strong>
         <label className={styles.field}>
           Grid
@@ -134,6 +136,7 @@ export const MidiClipEditor = ({ track, clip }: { track: InstrumentTrack; clip: 
         step={step}
         pixelsPerBeat={zoom}
         follow={follow}
+        playhead={ref.kind === 'session'}
         showVelocity={showVelocity}
         selected={selected}
         onSelect={setSelected}

@@ -163,11 +163,11 @@ describe('arrangement region and lane', () => {
   it('duplicates a region after itself, loops it and deletes it', () => {
     const region = placeRoot()
     const subject: Subject = { kind: 'region', regionId: region.id }
-    expect(titles(subject)).toEqual(['Edit clip', 'Duplicate', 'Loop until next region', 'Copy', 'Delete'])
+    expect(titles(subject)).toEqual(['Edit', 'Edit session clip', 'Duplicate', 'Loop until next region', 'Copy', 'Delete'])
     runAction('region.duplicate', subject, fakeContext())
     expect(project().arrangement?.map((placed) => placed.startBeat)).toEqual([4, 4 + region.content.lengthBeats])
     runAction('region.loop', subject, fakeContext())
-    expect(titles(subject)[2]).toBe('Stop looping')
+    expect(titles(subject)[3]).toBe('Stop looping')
     runAction('region.delete', subject, fakeContext())
     expect(project().arrangement).toHaveLength(1)
   })

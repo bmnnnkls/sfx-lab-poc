@@ -1,6 +1,7 @@
 import {
   type AudioClip,
   type AudioTrack,
+  type ClipRef,
   MAX_FADE_SECONDS,
   MAX_GAIN,
   WARP_MODES,
@@ -50,21 +51,24 @@ const FadeField = ({ label, seconds, onChange }: { label: string; seconds: numbe
 
 /**
  * Editor for one audio clip: which sample, how it follows the tempo, whether it loops, how long it is,
- * and how loud. Every change goes through `updateAudioClip`, so it is undoable and reaches the engine live.
+ * and how loud. Every change goes through `updateAudioClip`, so it is undoable and reaches the engine live. A region's
+ * own copy is edited through `clipRef`, with `where` it is on the arrangement.
  */
-export const AudioClipEditor = ({ track, clip }: { track: AudioTrack; clip: AudioClip }) => {
+export const AudioClipEditor = ({ track, clip, clipRef, where }: { track: AudioTrack; clip: AudioClip; clipRef?: ClipRef; where?: string }) => {
   const samples = useProjectStore((state) => state.project.samples)
   const tempo = useProjectStore((state) => state.project.tempo)
   const update = useProjectStore((state) => state.updateAudioClip)
 
   const sample = samples.find((candidate) => candidate.id === clip.sampleId)
-  const change = (changes: Parameters<typeof update>[1]) => update(sessionClipRef(track.id, clip.id), changes)
+  const ref = clipRef ?? sessionClipRef(track.id, clip.id)
+  const change = (changes: Parameters<typeof update>[1]) => update(ref, changes)
 
   return (
     <div className={toolbar.editor} data-clip-editor>
       <div className={toolbar.toolbar}>
         <strong>
           {track.name} / {clip.name}
+          {where && ` · ${where}`}
         </strong>
 
         <label className={toolbar.field}>
@@ -144,6 +148,7 @@ export const AudioClipEditor = ({ track, clip }: { track: AudioTrack; clip: Audi
             trackId={track.id}
             clip={clip}
             sampleSeconds={sample.durationSeconds}
+            playhead={ref.kind === 'session'}
             onTrim={change}
           />
         )}

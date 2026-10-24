@@ -118,6 +118,11 @@
   user-select: none;
 }
 
+.region:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .region.selected {
   border-width: 2px;
   box-shadow: 0 0 0 1px var(--accent);
@@ -216,6 +221,12 @@
 .row[data-drop='refuse'] {
   outline: 1px dashed var(--text-dim);
   outline-offset: -1px;
+}
+
+/* The selected track's name, as the session header and the mixer strip mark theirs. */
+.selectedName {
+  color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 /* A lane's name a drag of ours is over. */

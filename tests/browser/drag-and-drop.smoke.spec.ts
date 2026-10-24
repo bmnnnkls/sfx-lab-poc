@@ -79,7 +79,7 @@ test('a session slot dragged onto a lane makes a region at the beat under the po
   expect(await regions.first().evaluate((region) => (region as HTMLElement).style.left)).toBe(`${8 * BEAT_PX}px`)
   // On its own track it keeps its source, so the region opens it.
   await regions.first().click({ button: 'right' })
-  await expect(page.getByRole('menuitem', { name: 'Edit clip', exact: true })).not.toHaveAttribute('aria-disabled', 'true')
+  await expect(page.getByRole('menuitem', { name: 'Edit session clip', exact: true })).not.toHaveAttribute('aria-disabled', 'true')
   await page.keyboard.press('Escape')
 
   await dragTo(page, root, lanes.nth(1), { position: { x: 4 * BEAT_PX + 1, y: 20 } })

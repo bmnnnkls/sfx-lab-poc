@@ -464,3 +464,13 @@ What turned out different from the design above, step by step.
 * **Step 7: the project store keeps a moved region selected.** `updateArrangementClip` selects it again with its new
   track when a selected region changes lanes, as `moveClip` does for a moved session clip.
 * **Step 7: `npm run test:audio` passed** (14 tests) after the setters moved onto refs.
+* **Step 8: the region menu's actions are `region.edit` and `region.edit-session-clip`;** the old `region.edit-clip`
+  id went with its title. `arrangement.smoke.spec.ts` never clicked *Edit clip*, so the drag spec checks *Edit session
+  clip* and a new case in `context-menus.smoke.spec.ts` runs both entries.
+* **Step 8: the editors take an optional `clipRef` and `where`.** `MidiClipEditor` and `AudioClipEditor` edit a
+  session ref by default; `ClipEditor` passes a region ref and the title's "arrangement, bar 3". The piano roll and the
+  audio waveform take a `playhead` flag, off for a region, since a region's content keeps its source's id and the
+  session launcher's playhead would otherwise show on it.
+* **Step 8: the selected lane name carries `aria-current`** besides its mark, so the spec finds it without a class
+  name. A region has no accessible name or role yet; it takes the focus (`tabIndex={0}`) and passes Shift+F10 on to
+  its menu before handling Enter.

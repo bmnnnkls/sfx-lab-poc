@@ -1,5 +1,5 @@
 import { arrangementEnd, isAudioContent } from '@core'
-import { openClip } from '../navigation'
+import { openClip, openRegion } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { clipClipboard } from './clipboards'
 import { project, sessionClipOf } from './lookup'
@@ -12,8 +12,15 @@ const regionOf = ({ regionId }: RegionSubject) => (project().arrangement ?? []).
 /** A region on the arrangement timeline: a copy of a clip at a beat. */
 export const regionActions: readonly Action<RegionSubject>[] = [
   {
-    id: 'region.edit-clip',
-    title: 'Edit clip',
+    id: 'region.edit',
+    title: 'Edit',
+    group: 'open',
+    // Its own copy, in Clip.
+    run: ({ regionId }) => openRegion(regionId),
+  },
+  {
+    id: 'region.edit-session-clip',
+    title: 'Edit session clip',
     group: 'open',
     // A region's content is a copy; its session source may have been changed, moved or deleted since.
     enabled: (subject) => {

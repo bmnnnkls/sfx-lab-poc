@@ -3,7 +3,7 @@ import {
   arrangementLoopEnd,
   arrangementOnTrack,
 } from '@core'
-import { useEngineControls, useLayoutStore, useProjectStore, useStatusStore } from '@state'
+import { useEngineControls, useLayoutStore, useProjectStore, useSelectionStore, useStatusStore } from '@state'
 import { Fragment, type ReactNode, useState } from 'react'
 import { viewTitles } from '../layout/view-titles'
 import { useDropTarget } from '../shared/drag'
@@ -44,12 +44,22 @@ const LaneRow = ({ trackId, pxPerBeat, width, children }: { trackId: string; pxP
   )
 }
 
-/** A lane's track name: its menu is the track's, and a preset or a library graph dropped on it goes onto the track. */
+/**
+ * A lane's track name: clicking selects the track, as the session header and the mixer strip do, and the selected
+ * one is marked. Its menu is the track's, and a preset or a library graph dropped on it goes onto the track.
+ */
 const LaneName = ({ trackId, name }: { trackId: string; name: string }) => {
   const drop = useDropTarget({ kind: 'track', trackId })
+  const selected = useSelectionStore((state) => state.trackId === trackId)
   return (
     <ActionMenu subject={{ kind: 'track', trackId }}>
-      <div className={styles.name} tabIndex={0} {...drop}>
+      <div
+        className={`${styles.name} ${selected ? styles.selectedName : ''}`}
+        tabIndex={0}
+        aria-current={selected || undefined}
+        onClick={() => useSelectionStore.getState().selectTrack(trackId)}
+        {...drop}
+      >
         {name}
       </div>
     </ActionMenu>
@@ -69,9 +79,8 @@ export const ArrangementView = () => {
   const arrangement = placed ?? []
   // The zoom is remembered between sessions, as the piano roll's is.
   const [pxPerBeat, setPxPerBeat] = useStoredState('sfxlab:arrangement-zoom', DEFAULT_PX_PER_BEAT, isZoom)
-  const [picked, setPicked] = useState<string | null>(null)
-  // A region deleted from its menu (or by undo) drops out of the selection here.
-  const selected = arrangement.some((region) => region.id === picked) ? picked : null
+  // The selection store's: a region deleted from its menu (or by undo) is still named there, and shows as nothing.
+  const selected = useSelectionStore((state) => state.regionId)
   /** Where an empty lane was right-clicked, so "add" places the clip there. */
   const [placedAt, setPlacedAt] = useState(0)
 
@@ -151,7 +160,7 @@ export const ArrangementView = () => {
                           region={region}
                           pxPerBeat={pxPerBeat}
                           selected={selected === region.id}
-                          onSelect={() => setPicked(region.id)}
+                          onSelect={() => useSelectionStore.getState().selectRegion(region.id, region.trackId)}
                         />
                       </ActionMenu>
                     </Fragment>

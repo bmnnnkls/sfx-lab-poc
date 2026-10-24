@@ -1,4 +1,4 @@
-import { type AudioTrack, type InstrumentTrack, automationSlotsOf, resizeAutomation, type ControlOwner } from '@core'
+import { type AudioTrack, type InstrumentTrack, automationSlotsOf, isAudioContent, regionClipRef, resizeAutomation, type ControlOwner } from '@core'
 import { editAutomationSlot, openClip, useAutomationEditor, useLayoutStore, useProjectStore, useSelectionStore } from '@state'
 import { AutomationEditor } from '../automation/AutomationEditor'
 import { AudioClipEditor } from '../audio-clip-editor/AudioClipEditor'
@@ -6,16 +6,33 @@ import { viewTitles } from '../layout/view-titles'
 import styles from './ClipEditor.module.css'
 import { MidiClipEditor } from './MidiClipEditor'
 
-/** The "Clip" tab: opens whichever editor fits the selected clip (piano roll for MIDI, waveform for audio). */
+const BEATS_PER_BAR = 4
+
+/**
+ * The "Clip" tab: opens whichever editor fits the selected clip (piano roll for MIDI, waveform for audio). A selected
+ * region comes first: its own copy is edited, not its session source.
+ */
 export const ClipEditor = () => {
   const automation = useAutomationEditor((state) => state.visible)
   const trackId = useSelectionStore((state) => state.trackId)
   const clipId = useSelectionStore((state) => state.clipId)
+  const regionId = useSelectionStore((state) => state.regionId)
   const track = useProjectStore((state) => state.project.tracks.find((candidate) => candidate.id === trackId))
+  const region = useProjectStore((state) => state.project.arrangement?.find((candidate) => candidate.id === regionId))
+  const regionTrack = useProjectStore((state) => state.project.tracks.find((candidate) => candidate.id === region?.trackId))
 
   const master = useSelectionStore((s) => s.master)
   const scene = useSelectionStore((s) => s.automationScene)
   const project = useProjectStore((s) => s.project)
+
+  // No automation and no playhead for a region yet: the timeline plays neither (round 12).
+  if (region) {
+    const where = `arrangement, bar ${Math.floor(region.startBeat / BEATS_PER_BAR) + 1}`
+    const content = region.content
+    if (regionTrack?.kind === 'instrument' && !isAudioContent(content)) return <div className={styles.view}><MidiClipEditor key={region.id} track={regionTrack} clip={content} clipRef={regionClipRef(region.id)} where={where} /></div>
+    if (regionTrack?.kind === 'audio' && isAudioContent(content)) return <div className={styles.view}><AudioClipEditor key={region.id} track={regionTrack} clip={content} clipRef={regionClipRef(region.id)} where={where} /></div>
+  }
+
   if (master || track?.kind === 'return') {
     const owner: ControlOwner = master ? { kind: 'master' } : { kind: 'track', trackId: track!.id }
     const slot = automationSlotsOf(project, owner)?.[scene]
