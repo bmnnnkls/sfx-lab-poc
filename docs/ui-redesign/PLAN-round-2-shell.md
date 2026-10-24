@@ -441,6 +441,19 @@ What turned out different from the design above, step by step.
   specs that click a track or the master by its text now look in the Session view (`viewRoot(page, 'Session')`).
 * **Step 5: tooltips moved to `view-titles.ts`** (`viewTooltips`), so the default layout can give tabs their
   tooltips (`helpText`) without importing the views.
+* **Step 6: dragging the panel's open tab away keeps the panel open.** flexlayout collapses a border whose open
+  tab leaves it; today's panel always shows a view, so the driver turns that move into "move, then open the
+  neighbouring tab" (`FlexLayoutDriver.intercept`, flexlayout's `onAction`). Found while writing the persistence
+  spec.
+* **Step 6: what the parser repairs and rejects, beyond the list above.** It also adds a border the saved layout
+  lacks (empty and hidden), gives every tab the registry's current name and tooltip, and always applies today's
+  global attributes, so a saved layout can't turn closing tabs back on. It rejects saved popouts and
+  sub-layouts, which round 2 doesn't support.
+* **Step 6: a migrated layout is saved at once**, so the old keys are read only the first time. A save waiting for
+  its 250 ms is written on `pagehide`, so a reload right after a change keeps it.
+* **Step 6: *Reset layout* arrived with a first activity bar** holding only that button; step 7 adds the rest.
+  `useLayoutPersistence` now hands the saved model to `Workbench` instead of restoring the main view through
+  `revealView`.
 
 ## Behavior changes
 

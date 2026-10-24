@@ -84,6 +84,20 @@ describe('FlexLayoutDriver', () => {
     expect(last().visible).toContain('library')
   })
 
+  it('keeps the panel open on a neighbouring tab when its open tab is dragged away', () => {
+    const { driver, model } = driverFor()
+    driver.reveal('mixer')
+    model.doAction(driver.intercept(Actions.moveNode('mixer', 'editor', DockLocation.RIGHT, -1)))
+    expect(panel(model).getSelectedNode()?.getId()).toBe('samples')
+    expect(driver.snapshot().visible).toEqual(expect.arrayContaining(['session', 'mixer', 'samples']))
+    // The last tab falls back to the one before it; other moves pass through untouched.
+    driver.reveal('library')
+    model.doAction(driver.intercept(Actions.moveNode('library', 'editor', DockLocation.CENTER, -1)))
+    expect(panel(model).getSelectedNode()?.getId()).toBe('sounds')
+    const select = Actions.selectTab('notes')
+    expect(driver.intercept(select)).toBe(select)
+  })
+
   it('leaves reset to the shell', () => {
     const { driver, reset } = driverFor()
     driver.reset()

@@ -1,30 +1,32 @@
-import { groupIn, useLayoutStore } from '@state'
+import { useLayoutStore } from '@state'
 import { Layout, Model, type TabNode } from 'flexlayout-react'
 import 'flexlayout-react/style/dark.css'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { defaultLayout } from './default-layout'
 import './flex-theme.css'
 import { FlexLayoutDriver } from './layout-driver'
+import type { LayoutPersistence } from './use-layout-persistence'
 import { ViewTab } from './ViewHost'
 import styles from './Workbench.module.css'
 
 const factory = (node: TabNode) => <ViewTab node={node} />
 
-/** Starts from the default layout, on the editor view the store already shows (restored from storage). */
-const initialModel = () => Model.fromJson(defaultLayout({ editorView: groupIn(useLayoutStore.getState(), 'editor')?.active }))
-
 /**
  * The docking layout. flexlayout owns the layout tree; the layout store is a façade over it, through the driver
  * this registers. *Reset layout* replaces the model, and the `generation` key remounts the layout with it.
  */
-export const Workbench = () => {
-  const [{ model, generation }, setLayout] = useState(() => ({ model: initialModel(), generation: 0 }))
+export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) => {
+  const [{ model, generation }, setLayout] = useState(() => ({ model: persistence.initial, generation: 0 }))
   const driver = useRef<FlexLayoutDriver | null>(null)
 
   // A layout Effect, so the driver is attached before the views' Effects can reveal anything.
   useLayoutEffect(() => {
     const store = useLayoutStore.getState()
-    const reset = () => setLayout((current) => ({ model: Model.fromJson(defaultLayout()), generation: current.generation + 1 }))
+    const reset = () => {
+      const fresh = Model.fromJson(defaultLayout())
+      persistence.replaced(fresh)
+      setLayout((current) => ({ model: fresh, generation: current.generation + 1 }))
+    }
     const next = new FlexLayoutDriver(model, store.sync, reset)
     driver.current = next
     next.sync()
@@ -33,11 +35,23 @@ export const Workbench = () => {
       detach()
       if (driver.current === next) driver.current = null
     }
-  }, [model])
+  }, [model, persistence])
+
+  // Every change, the user's and the driver's: mirror it, and save the layout.
+  const onModelChange = () => {
+    driver.current?.sync()
+    persistence.changed(model)
+  }
 
   return (
     <div className={styles.workbench}>
-      <Layout key={generation} model={model} factory={factory} onModelChange={() => driver.current?.sync()} />
+      <Layout
+        key={generation}
+        model={model}
+        factory={factory}
+        onAction={(action) => driver.current?.intercept(action) ?? action}
+        onModelChange={onModelChange}
+      />
     </div>
   )
 }

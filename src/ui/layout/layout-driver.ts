@@ -1,5 +1,5 @@
 import type { GroupState, LayoutDriver, LayoutSnapshot, RegionId, ViewId } from '@state'
-import { Actions, BorderNode, DockLocation, Model, TabNode, TabSetNode } from 'flexlayout-react'
+import { type Action, Actions, BorderNode, DockLocation, Model, TabNode, TabSetNode } from 'flexlayout-react'
 import { BORDER_LOCATIONS, borderId, defaultRegionOf, viewTab } from './default-layout'
 
 const borderOf = (model: Model, region: RegionId): BorderNode | undefined => {
@@ -59,6 +59,22 @@ export class FlexLayoutDriver implements LayoutDriver {
   /** Mirror the model into the store. Called after each change, the user's included (`onModelChange`). */
   sync(): void {
     this.publish(this.snapshot())
+  }
+
+  /**
+   * Adjusts the user's actions before flexlayout applies them (its `onAction`). Dragging a border's open tab away
+   * would leave the border collapsed; the panel shows the neighbouring tab instead, as it always shows one.
+   */
+  intercept(action: Action): Action {
+    if (action.type !== Actions.MOVE_NODE) return action
+    const node = this.model.getNodeById(action.data.fromNode as string)
+    const border = node?.getParent()
+    if (!(node instanceof TabNode) || !(border instanceof BorderNode) || border.getSelectedNode() !== node) return action
+    if (action.data.toNode === border.getId()) return action
+    const tabs = border.getTabNodes()
+    const index = tabs.indexOf(node)
+    const neighbour = tabs[index + 1] ?? tabs[index - 1]
+    return neighbour ? Actions.group([action, Actions.selectTab(neighbour.getId())]) : action
   }
 
   reveal(id: ViewId): void {

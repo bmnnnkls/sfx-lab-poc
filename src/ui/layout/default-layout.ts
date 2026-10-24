@@ -3,13 +3,6 @@ import type { IBorderLocation, IGlobalAttributes, IJsonBorderNode, IJsonModel, I
 import { viewTitles, viewTooltips } from './view-titles'
 
 /** The edge regions are flexlayout borders; the editor area is its main row of tab groups. */
-export const BORDER_REGIONS: Readonly<Record<IBorderLocation, RegionId | undefined>> = {
-  bottom: 'panel',
-  left: 'primary',
-  right: 'secondary',
-  top: undefined,
-}
-
 export const BORDER_LOCATIONS: Readonly<Partial<Record<RegionId, IBorderLocation>>> = {
   panel: 'bottom',
   primary: 'left',

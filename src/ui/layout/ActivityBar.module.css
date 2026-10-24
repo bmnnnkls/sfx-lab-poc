@@ -1,0 +1,33 @@
+.bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 4px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+}
+
+.bar button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+}
+
+.bar button:hover,
+.bar button:focus-visible {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.bar button[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+/* Pushes itself and what follows to the bottom of the bar. */
+.end {
+  margin-top: auto;
+}

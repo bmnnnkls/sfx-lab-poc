@@ -50,6 +50,23 @@ export const openView = async (page: Page, title: ViewTitle): Promise<Locator> =
   return root
 }
 
+/**
+ * Drag a view's tab onto an edge of another view, to dock it there (`center` joins that view's tab group). flexlayout
+ * starts a drag only from real pointer movement, so the mouse moves in steps; `dragTo` doesn't start one.
+ */
+export const dragView = async (page: Page, title: ViewTitle, target: ViewTitle, side: 'left' | 'right' | 'top' | 'bottom' | 'center') => {
+  const from = await page.getByRole('tab', { name: title, exact: true }).boundingBox()
+  const to = await viewRoot(page, target).boundingBox()
+  if (!from || !to) throw new Error(`cannot drag ${title} onto ${target}: one of them isn't showing`)
+  const x = to.x + to.width * (side === 'left' ? 0.1 : side === 'right' ? 0.9 : 0.5)
+  const y = to.y + to.height * (side === 'top' ? 0.1 : side === 'bottom' ? 0.9 : 0.5)
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(from.x + from.width / 2 + 10, from.y + from.height / 2 + 10, { steps: 5 })
+  await page.mouse.move(x, y, { steps: 20 })
+  await page.mouse.up()
+}
+
 export const openExample = async (page: Page, name: string) => {
   await page.getByText('File', { exact: true }).click()
   await page.getByRole('button', { name: new RegExp(`^${name}`) }).click()
