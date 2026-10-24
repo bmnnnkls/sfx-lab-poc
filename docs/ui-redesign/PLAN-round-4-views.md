@@ -367,6 +367,13 @@ What turned out different from the design above, step by step.
   `max(100%, columns × (minimum + gap) + scene column + padding)` wide.
 * **Step 6: the arrangement's hint is the toolbar's tooltip at every width**, since CSS can't move a `title`; below
   720 px the visible hint goes. The timeline's scroller carries `data-scroll="both"`.
+* **Step 7: the drawer is a wrapper** (`display: contents` while wide), holding the property editor and, inside a
+  module, its interface, so the two stay beside the canvas as before when wide and become one drawer when narrow. A
+  double-click on a node's card (`data-node`) opens it; one on a port, button or field doesn't.
+* **Step 7: the zoom readout stays.** It was to go below 360 px, but a graph editor is never laid out below its
+  480 px minimum; there the zoom controls fit.
+* **Step 7: Panel mode at 480 × 240** shows its toolbar and *Edit panel*; the empty panel's explanation scrolls
+  vertically.
 
 ## Behavior changes
 

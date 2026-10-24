@@ -14,7 +14,32 @@ interface Case {
   readonly prepare?: (page: Page, root: Locator) => Promise<void>
   /** The controls that must show inside the view's box without scrolling, at a size the case is docked at. */
   readonly controls: (root: Locator, size: { width?: number; height?: number }) => Locator[]
+  /** Anything else the case checks once the view fits. */
+  readonly check?: (root: Locator) => Promise<void>
 }
+
+/** A graph editor's canvas: what scrolls its surface. */
+const canvas = (root: Locator) => root.getByTestId('patch-surface').locator('..')
+
+/** Instrument, Effects and Notes in Graph mode, with a canvas at least 200 px wide, and in Panel mode. */
+const graphEditorCases = (title: ViewTitle): Case[] => [
+  {
+    title,
+    state: 'graph',
+    min: EDITOR,
+    controls: (root) => [root.getByRole('button', { name: 'Add', exact: true }), canvas(root)],
+    check: async (root) => expect((await canvas(root).boundingBox())!.width).toBeGreaterThanOrEqual(200),
+  },
+  {
+    title,
+    state: 'panel',
+    min: EDITOR,
+    prepare: async (_page, root) => {
+      await root.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Panel', exact: true }).click()
+    },
+    controls: (root) => [root.getByRole('button', { name: 'Graph', exact: true }), root.getByRole('button', { name: 'Edit panel', exact: true })],
+  },
+]
 
 /** ✎ on each sample in Samples. */
 const editButtons = (root: Locator) => root.locator('button[title^="Open in the wave editor"]')
@@ -71,6 +96,9 @@ const CASES: readonly Case[] = [
     // The master strip stays at the right edge while the strips scroll.
     controls: (root) => [root.getByLabel('Master fader', { exact: true }), root.getByRole('button', { name: 'Bass', exact: true })],
   },
+  ...graphEditorCases('Instrument'),
+  ...graphEditorCases('Effects'),
+  ...graphEditorCases('Notes'),
   {
     title: 'Library',
     min: TOOL_VIEW,
@@ -115,7 +143,7 @@ const expectFits = async (root: Locator, controls: Locator[]) => {
   }
 }
 
-for (const { title, state, min, prepare, controls } of CASES) {
+for (const { title, state, min, prepare, controls, check } of CASES) {
   const sizes = [
     { name: `${min.width} px wide in a sidebar`, size: { width: min.width } },
     { name: `${min.height} px high in the panel`, size: { height: min.height } },
@@ -129,6 +157,32 @@ for (const { title, state, min, prepare, controls } of CASES) {
       if ('height' in size) expect(Math.abs(box.height - min.height)).toBeLessThanOrEqual(2)
       await prepare?.(page, root)
       await expectFits(root, controls(root, size))
+      await check?.(root)
     })
   }
 }
+
+test('a narrow graph editor shows the properties as a drawer over the canvas, from the toolbar or a double-click', async ({ page }) => {
+  const root = await dockAtSize(page, 'Instrument', { width: 480 })
+  const properties = root.getByRole('complementary', { name: 'Properties' })
+  const toggle = root.getByRole('button', { name: 'Properties', exact: true })
+  const width = (await canvas(root).boundingBox())!.width
+  await expect(properties).toBeHidden()
+  // Selecting a node doesn't open it; the canvas keeps the whole width.
+  await root.getByTestId(/^node-/).first().locator('[data-header]').click()
+  await expect(properties).toBeHidden()
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+  await expect(properties).toBeVisible()
+  expect((await canvas(root).boundingBox())!.width).toBe(width)
+  await toggle.click()
+  await expect(properties).toBeHidden()
+  await root.getByTestId(/^node-/).first().locator('[data-header]').dblclick()
+  await expect(properties).toBeVisible()
+})
+
+test('a wide graph editor keeps the properties beside the canvas, with no drawer to toggle', async ({ page }) => {
+  const root = await dockAtSize(page, 'Instrument', { height: 400 })
+  await expect(root.getByRole('complementary', { name: 'Properties' })).toBeVisible()
+  await expect(root.getByRole('button', { name: 'Properties', exact: true })).toBeHidden()
+})

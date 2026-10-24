@@ -272,8 +272,19 @@
 }
 
 .editorBody {
+  position: relative;
   display: flex;
   min-height: 0;
+}
+
+/* The property editor and a module's interface, beside the canvas; a drawer over it in a narrow editor (below). */
+.drawer {
+  display: contents;
+}
+
+/* Only a narrow editor has the drawer to toggle. */
+.drawerToggle {
+  display: none;
 }
 
 .editorBody > .canvasHost {
@@ -423,9 +434,10 @@
   box-sizing: border-box;
 }
 
-/* Randomize / Mutate and the seed, at the end of the toolbar. */
+/* Randomize / Mutate and the seed, at the end of the toolbar; on a line of its own, and wrapping, when narrow. */
 .randomize {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin-left: auto;
@@ -462,4 +474,44 @@
 .liveWidget > * {
   width: 100%;
   min-width: 0;
+}
+
+/*
+ * Below 720 px the canvas keeps the whole width: the property editor and a module's interface become a drawer over
+ * its right edge, opened from the toolbar's Properties button or by double-clicking a node.
+ */
+@container view (width < 720px) {
+  .drawerToggle {
+    display: inline-block;
+  }
+
+  .drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
+    display: none;
+    max-width: 100%;
+    background: var(--panel);
+    box-shadow: -6px 0 16px #0006;
+  }
+
+  .drawer[data-open='true'] {
+    display: flex;
+  }
+}
+
+/* Below 640 px an aside (Notes' heard notes) goes under the canvas. */
+@container view (width < 640px) {
+  .editorBody {
+    flex-direction: column;
+  }
+
+  .editorBody > .aside {
+    flex: 0 0 min(40cqh, 220px);
+    max-width: none;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
 }

@@ -30,7 +30,7 @@ import {
   randomizeParams,
 } from '@core'
 import { useProjectStore } from '@state'
-import { type ReactNode, useRef, useState } from 'react'
+import { type ReactNode, useId, useRef, useState } from 'react'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { PanelView } from '../panel/PanelView'
 import type { MenuEntry } from '../shared/menu'
@@ -111,9 +111,12 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const [path, setPath] = useState<readonly string[]>([])
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [interfaceOpen, setInterfaceOpen] = useState(true)
+  // In a narrow editor the property editor and the module's interface are a drawer over the canvas.
+  const [drawerOpen, setDrawerOpen] = useState(false)
   // The node picker: where it opens (window pixels) and where the node goes (canvas coordinates).
   const [picker, setPicker] = useState<{ anchor: Point; at: Point; fromButton: boolean; from?: PortRef } | null>(null)
   const canvas = useRef<PatchCanvasHandle>(null)
+  const drawerId = useId()
   const addButton = useRef<HTMLButtonElement>(null)
   // Remembered per kind of graph (instrument, effects, notes), not per track: it is a way of looking, not part of the project.
   const [view, setView] = useStoredState<View>(`sfxlab.view.${graph}`, 'graph', isView)
@@ -319,10 +322,29 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
               Group into module{selected.size > 0 ? ` (${selected.size})` : ''}
             </button>
           )}
+          {view === 'graph' && (
+            <button
+              className={styles.drawerToggle}
+              aria-pressed={drawerOpen}
+              aria-controls={drawerId}
+              title="Show the selected node's properties over the canvas (double-click a node)"
+              onClick={() => setDrawerOpen(!drawerOpen)}
+            >
+              Properties
+            </button>
+          )}
           <RandomizeBar onRoll={(seed, amount) => edit((current, library) => randomizeParams(current, library, { seed, amount }))} />
         </div>
       </div>
-      <div {...gesture.events} className={styles.editorBody} data-has-aside={Boolean(aside) || (Boolean(definition) && interfaceOpen && view === 'graph')}>
+      <div
+        {...gesture.events}
+        className={styles.editorBody}
+        data-has-aside={Boolean(aside) || (Boolean(definition) && interfaceOpen && view === 'graph')}
+        onDoubleClick={(event) => {
+          const target = event.target as Element
+          if (target.closest('[data-node]') && !target.closest('button, input, select, [data-port]')) setDrawerOpen(true)
+        }}
+      >
         {view === 'panel' ? (
           <div className={styles.panelHost}>
             <PanelView controlOwner={definition ? undefined : track ? { kind: 'track', trackId: track.id } : { kind: 'master' }} controlDomain={graph} patch={patch} modules={modules} scope={scope} readoutTrack={readoutTrack} edit={edit} />
@@ -362,20 +384,22 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
         )}
         {aside && <div className={styles.aside}>{aside}</div>}
         {view === 'graph' && (
-          <PropertyEditor
-            patch={patch}
-            modules={modules}
-            selected={selected}
-            scope={scope}
-            controlOwner={definition ? undefined : track ? { kind: 'track', trackId: track.id } : { kind: 'master' }}
-            controlDomain={graph}
-            ownerTrackId={track?.id ?? ''}
-            edit={edit}
-            onCreateControl={createControl}
-            onUnwire={(nodeId, paramId) => disconnectPort(nodeId, `param:${paramId}`)}
-          />
+          <div id={drawerId} className={styles.drawer} data-open={drawerOpen}>
+            <PropertyEditor
+              patch={patch}
+              modules={modules}
+              selected={selected}
+              scope={scope}
+              controlOwner={definition ? undefined : track ? { kind: 'track', trackId: track.id } : { kind: 'master' }}
+              controlDomain={graph}
+              ownerTrackId={track?.id ?? ''}
+              edit={edit}
+              onCreateControl={createControl}
+              onUnwire={(nodeId, paramId) => disconnectPort(nodeId, `param:${paramId}`)}
+            />
+            {definition && interfaceOpen && <ModuleInterface definition={definition} />}
+          </div>
         )}
-        {definition && interfaceOpen && view === 'graph' && <ModuleInterface definition={definition} />}
       </div>
       {picker && catalog && (
         <QuickAdd catalog={catalog} anchor={picker.anchor} heading={droppedLabel ? `Can take ${droppedLabel}` : undefined} onPick={addFromPicker} onClose={closePicker} />
