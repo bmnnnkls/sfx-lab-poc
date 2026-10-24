@@ -4,6 +4,8 @@ import { MenuEntries } from './MenuEntries'
 import type { MenuEntry } from './menu-types'
 import styles from './Menu.module.css'
 
+const PARTS = { Item: Menu.Item, Separator: Menu.Separator, Sub: Menu.Sub, SubTrigger: Menu.SubTrigger, SubContent: Menu.SubContent, Portal: Menu.Portal }
+
 interface PopupMenuProps {
   readonly entries: readonly MenuEntry[]
   /** The single element (usually a button) that opens the menu when clicked. */
@@ -19,7 +21,7 @@ export const PopupMenu = ({ entries, children }: PopupMenuProps) => (
     <Menu.Trigger asChild>{children}</Menu.Trigger>
     <Menu.Portal>
       <Menu.Content className={styles.menu} collisionPadding={8} align="start" sideOffset={4}>
-        <MenuEntries entries={entries} parts={{ Item: Menu.Item, Separator: Menu.Separator }} />
+        <MenuEntries entries={entries} parts={PARTS} />
       </Menu.Content>
     </Menu.Portal>
   </Menu.Root>

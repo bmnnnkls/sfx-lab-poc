@@ -1,20 +1,34 @@
 import { useLayoutStore } from '@state'
-import { Layout, Model, type TabNode } from 'flexlayout-react'
+import { type BorderNode, type IJsonModel, type ITabSetRenderValues, Layout, Model, type TabNode, type TabSetNode } from 'flexlayout-react'
 import 'flexlayout-react/style/dark.css'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { defaultLayout } from './default-layout'
+import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { defaultLayout, PANEL_GROUP } from './default-layout'
 import './flex-theme.css'
-import { groupToFocus, tabButtonId, viewOfElement } from './group-focus'
+import { groupToFocus, tabButtonId, viewOfElement, viewOfTab } from './group-focus'
 import { FlexLayoutDriver } from './layout-driver'
+import { RegionToggles } from './RegionToggles'
 import type { LayoutPersistence } from './use-layout-persistence'
 import { ViewTab } from './ViewHost'
 import styles from './Workbench.module.css'
 
 const factory = (node: TabNode) => <ViewTab node={node} />
 
+/** The panel's tab strip ends with the region toggles, before flexlayout's maximize button. */
+const renderTabSet = (node: TabSetNode | BorderNode, values: ITabSetRenderValues) => {
+  if (node.getId() === PANEL_GROUP) values.buttons.push(<RegionToggles key="region-toggles" />)
+}
+
+/** flexlayout's labels that differ from ours; every other text (tab names among them) passes through. */
+const LABELS: Readonly<Record<string, string>> = {
+  'flexlayout.ui.maximize.tabset': 'Maximize',
+  'flexlayout.ui.restore.tabset': 'Restore',
+}
+const translate = (key: string): string => LABELS[key] ?? key
+
 /**
  * The docking layout. flexlayout owns the layout tree; the layout store is a façade over it, through the driver
- * this registers. *Reset layout* replaces the model, and the `generation` key remounts the layout with it.
+ * this registers. *Reset layout* and loading a named layout replace the model, and the `generation` key remounts
+ * the layout with it.
  */
 export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) => {
   const [{ model, generation }, setLayout] = useState(() => ({ model: persistence.initial, generation: 0 }))
@@ -23,12 +37,19 @@ export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) =
   // A layout Effect, so the driver is attached before the views' Effects can reveal anything.
   useLayoutEffect(() => {
     const store = useLayoutStore.getState()
-    const reset = () => {
-      const fresh = Model.fromJson(defaultLayout())
+    const replace = (json: IJsonModel) => {
+      const fresh = Model.fromJson(json)
       persistence.replaced(fresh)
       setLayout((current) => ({ model: fresh, generation: current.generation + 1 }))
     }
-    const next = new FlexLayoutDriver(model, store.sync, reset)
+    const next = new FlexLayoutDriver(model, store.sync, {
+      reset: () => replace(defaultLayout()),
+      load: (name) => {
+        const json = persistence.named(name)
+        if (json) replace(json)
+      },
+      saveAs: (name) => persistence.saveNamed(name, model.toJson()),
+    })
     driver.current = next
     next.sync()
     const detach = store.attachDriver(next)
@@ -58,12 +79,20 @@ export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) =
     persistence.changed(model)
   }
 
+  // Before flexlayout sees it, which ignores clicks on a group's open tab: the panel's collapses or expands it.
+  const onClickCapture = (event: MouseEvent) => {
+    const id = viewOfTab(event.target as Element)
+    if (id) driver.current?.clickTab(id)
+  }
+
   return (
-    <div className={styles.workbench}>
+    <div className={styles.workbench} onClickCapture={onClickCapture}>
       <Layout
         key={generation}
         model={model}
         factory={factory}
+        i18nTranslator={translate}
+        onRenderTabSet={renderTabSet}
         onAction={(action) => driver.current?.intercept(action) ?? action}
         onModelChange={onModelChange}
       />

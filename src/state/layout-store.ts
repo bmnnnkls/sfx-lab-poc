@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 /** Every view the workbench can show. The ids are stable: layouts are saved by them. */
 export type ViewId =
-  | 'session' | 'arrangement'
+  | 'session' | 'arrangement' | 'wave'
   | 'instrument' | 'effects' | 'notes' | 'clip' | 'mixer' | 'samples' | 'sounds' | 'library'
 
 /** Where a view can sit: the editor area in the middle, the panel below it, and a sidebar on either side. */
@@ -31,6 +31,10 @@ export interface LayoutDriver {
   setRegionVisible(region: RegionId, visible: boolean): void
   /** Replace the layout with the default one. */
   reset(): void
+  /** Replace the layout with the one saved under this name. */
+  load(name: string): void
+  /** Save the layout under this name, replacing one of the same name. */
+  saveAs(name: string): void
 }
 
 interface LayoutState extends LayoutSnapshot {
@@ -41,6 +45,10 @@ interface LayoutState extends LayoutSnapshot {
   /** Hide or show the panel or a sidebar. The editor area is always shown. */
   toggleRegion(region: RegionId): void
   resetLayout(): void
+  /** Replace the layout with one saved under a name (per browser, with `saveLayoutAs`). */
+  loadLayout(name: string): void
+  /** Save the layout under a name, replacing one of the same name. */
+  saveLayoutAs(name: string): void
   /** Shell only. Returns the detach function. */
   attachDriver(driver: LayoutDriver): () => void
   /** Shell only: mirror the layout after each change to it. */
@@ -49,18 +57,22 @@ interface LayoutState extends LayoutSnapshot {
 
 /** The views the Tab key toggles between. */
 export const MAIN_VIEWS: readonly ViewId[] = ['session', 'arrangement']
-const PANEL_VIEWS: readonly ViewId[] = ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'sounds', 'library']
+const PANEL_VIEWS: readonly ViewId[] = ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'library']
 
 const visibleOf = (groups: readonly GroupState[], hiddenRegions: readonly RegionId[]): readonly ViewId[] =>
   groups.filter((group) => !hiddenRegions.includes(group.region)).map((group) => group.active)
 
 const DEFAULT_GROUPS: readonly GroupState[] = [
-  { id: 'editor', region: 'editor', views: MAIN_VIEWS, active: 'session' },
+  { id: 'editor', region: 'editor', views: [...MAIN_VIEWS, 'wave'], active: 'session' },
   { id: 'panel', region: 'panel', views: PANEL_VIEWS, active: 'instrument' },
+  { id: 'border_right', region: 'secondary', views: ['sounds'], active: 'sounds' },
 ]
 const DEFAULT_HIDDEN: readonly RegionId[] = ['primary', 'secondary']
 
-/** Today's layout: Session and Arrangement over the tool views in the panel; the sidebars are empty and hidden. */
+/**
+ * The default layout: Session, Arrangement and the wave editor over the tool views in the panel; Sounds in the
+ * secondary sidebar, collapsed to its strip; the primary sidebar empty and hidden.
+ */
 export const DEFAULT_LAYOUT: LayoutSnapshot = {
   groups: DEFAULT_GROUPS,
   visible: visibleOf(DEFAULT_GROUPS, DEFAULT_HIDDEN),
@@ -111,6 +123,9 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (driver) return driver.reset()
     set(DEFAULT_LAYOUT)
   },
+  // Named layouts live with the shell's model; without a driver there is nothing to save or load.
+  loadLayout: (name) => driver?.load(name),
+  saveLayoutAs: (name) => driver?.saveAs(name),
   attachDriver: (next) => {
     driver = next
     return () => {

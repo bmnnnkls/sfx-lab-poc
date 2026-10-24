@@ -1,11 +1,15 @@
 import type { RegionId, ViewId } from '@state'
 import type { IBorderLocation, IJsonBorderNode, IJsonModel, IJsonRowNode, IJsonTabNode, IJsonTabSetNode } from 'flexlayout-react'
-import { BORDER_LOCATIONS, defaultLayout, defaultRegionOf, GLOBAL_ATTRIBUTES, MIN_PANEL_SIZE, viewTab } from './default-layout'
+import {
+  BORDER_LOCATIONS, DEFAULT_PANEL_WEIGHT, defaultLayout, defaultRegionOf, GLOBAL_ATTRIBUTES, PANEL_ATTRIBUTES, PANEL_GROUP,
+  panelWeightOf, viewTab,
+} from './default-layout'
 import { viewTitles } from './view-titles'
 
 /** Where the layout is saved, per browser. */
 export const LAYOUT_KEY = 'sfxlab:layout'
-export const LAYOUT_VERSION = 1
+/** Version 2: the panel is a tab group in the main layout. Version 1 had it as the bottom border; it is migrated. */
+export const LAYOUT_VERSION = 2
 
 /** The keys the layout replaced. Read once, to build the first saved layout, and never written again. */
 export const LEGACY_MAIN_VIEW_KEY = 'sfxlab:main-view'
@@ -56,41 +60,71 @@ const checkRow = (value: unknown, seen: Set<string>): IJsonRowNode => {
     children: children(value).map((child): IJsonRowNode | IJsonTabSetNode => {
       if (isRecord(child) && child.type === 'tabset') {
         checkId(child, seen)
-        return { ...child, children: children(child).map((tab) => checkTab(tab, seen)) } as IJsonTabSetNode
+        const tabs = children(child).map((tab) => checkTab(tab, seen))
+        return { ...child, ...(child.id === PANEL_GROUP ? PANEL_ATTRIBUTES : {}), children: tabs } as IJsonTabSetNode
       }
       return checkRow(child, seen)
     }),
   } as IJsonRowNode
 }
 
-const BORDER_ORDER = Object.values(BORDER_LOCATIONS) as IBorderLocation[]
+const SIDEBAR_LOCATIONS = Object.values(BORDER_LOCATIONS) as IBorderLocation[]
 
+/** Checks the borders. Version 1 also had the panel as the bottom border; `migrateV1` takes it out first. */
 const checkBorders = (value: unknown, seen: Set<string>): IJsonBorderNode[] => {
   if (value === undefined) return []
   if (!Array.isArray(value)) return reject('borders are not a list')
   const locations = new Set<string>()
   return value.map((border): IJsonBorderNode => {
     if (!isRecord(border) || border.type !== 'border') return reject('unknown node type in borders')
-    if (!BORDER_ORDER.includes(border.location as IBorderLocation)) return reject(`unknown border location ${String(border.location)}`)
+    if (!SIDEBAR_LOCATIONS.includes(border.location as IBorderLocation)) return reject(`unknown border location ${String(border.location)}`)
     if (locations.has(border.location as string)) return reject(`duplicate border ${String(border.location)}`)
     locations.add(border.location as string)
     return { ...border, children: children(border).map((tab) => checkTab(tab, seen)) } as IJsonBorderNode
   })
 }
 
-/** The first tab set in a row, depth first: where a missing editor view goes. */
-const firstTabSet = (row: IJsonRowNode): IJsonTabSetNode | undefined => {
-  for (const child of row.children ?? []) {
-    const found = child.type === 'tabset' ? child as IJsonTabSetNode : firstTabSet(child as IJsonRowNode)
-    if (found) return found
+/** Every tab set in a row, depth first. */
+const tabSets = (row: IJsonRowNode): IJsonTabSetNode[] =>
+  (row.children ?? []).flatMap((child) => (child.type === 'tabset' ? [child as IJsonTabSetNode] : tabSets(child as IJsonRowNode)))
+
+/**
+ * A version-1 model as version 2: the bottom border's tabs become the panel's tab group under the editor area, in
+ * their order and with the open tab kept. The border's size becomes the panel's weight against 1000 px. A
+ * collapsed, hidden or empty border becomes a collapsed panel.
+ */
+const migrateV1 = (value: unknown): unknown => {
+  if (!isRecord(value) || !isRecord(value.layout) || (value.borders !== undefined && !Array.isArray(value.borders))) return value
+  const borders = (value.borders ?? []) as unknown[]
+  const bottom = borders.find((border) => isRecord(border) && border.location === 'bottom') as Record<string, unknown> | undefined
+  const tabs = bottom ? children(bottom) : []
+  const selected = typeof bottom?.selected === 'number' ? bottom.selected : -1
+  const shown = bottom !== undefined && bottom.show !== false && selected >= 0 && selected < tabs.length
+  const panelWeight = typeof bottom?.size === 'number' && Number.isFinite(bottom.size) && bottom.size > 0 ? panelWeightOf(bottom.size) : DEFAULT_PANEL_WEIGHT
+  const panel: IJsonTabSetNode = {
+    type: 'tabset',
+    id: PANEL_GROUP,
+    weight: panelWeight,
+    ...PANEL_ATTRIBUTES,
+    selected: tabs.length === 0 ? -1 : Math.max(0, Math.min(selected, tabs.length - 1)),
+    ...(shown ? {} : { maxHeight: 0 }),
+    children: tabs as IJsonTabNode[],
   }
-  return undefined
+  const rows = children(value.layout)
+  const editor = rows.length === 1 && isRecord(rows[0]) && rows[0].type === 'tabset'
+    ? { ...rows[0], weight: 100 - panelWeight }
+    : { type: 'row', weight: 100 - panelWeight, children: rows }
+  return {
+    ...value,
+    borders: borders.filter((border) => border !== bottom),
+    layout: { ...value.layout, children: [{ type: 'row', children: [editor, panel] }] },
+  }
 }
 
 /**
  * Validates a saved layout and repairs what a later round can make stale: a view the layout doesn't have goes to
- * its default region, and a missing border is added empty and hidden. Every tab gets the registry's name and
- * tooltip, and the global attributes are always today's.
+ * its default region, and a missing sidebar is added empty and hidden. Every tab gets the registry's name and
+ * tooltip, the panel its attributes, and the global attributes are always today's.
  */
 const checkModel = (value: unknown): IJsonModel => {
   if (!isRecord(value)) return reject('the model is not an object')
@@ -100,31 +134,54 @@ const checkModel = (value: unknown): IJsonModel => {
   const seen = new Set<string>()
   const layout = checkRow(value.layout, seen)
   const borders = checkBorders(value.borders, seen)
+  const groups = tabSets(layout)
+  const panels = groups.filter((group) => group.id === PANEL_GROUP)
+  if (panels.length !== 1) return reject(`${panels.length} panels`)
+  const panel = panels[0]!
 
-  for (const location of BORDER_ORDER) {
+  for (const location of SIDEBAR_LOCATIONS) {
     if (!borders.some((border) => border.location === location)) borders.push({ type: 'border', location, show: false, selected: -1, children: [] })
   }
   for (const id of Object.keys(viewTitles) as ViewId[]) {
     if (seen.has(id)) continue
     const region: RegionId = defaultRegionOf(id)
     const location = BORDER_LOCATIONS[region]
-    const target = location ? borders.find((border) => border.location === location) : firstTabSet(layout)
+    const target = location
+      ? borders.find((border) => border.location === location)
+      : region === 'panel' ? panel : groups.find((group) => group !== panel)
     if (!target) return reject(`nowhere to put ${id}`)
     target.children = [...(target.children ?? []), viewTab(id)]
   }
   return { global: GLOBAL_ATTRIBUTES, borders, layout }
 }
 
+export interface ParsedLayout {
+  readonly model: IJsonModel
+  /** Saved by an older version and migrated: save it again at once. */
+  readonly migrated: boolean
+}
+
 /**
- * Reads what `serializeLayout` wrote. Returns the model to load, or `undefined` for "use the default": anything
- * that isn't JSON, another version, an unknown view or node type, a tab that isn't a view, or duplicate ids.
+ * Reads what `serializeLayout` wrote, or a version-1 layout, migrated. Returns `undefined` for "use the default":
+ * anything that isn't JSON, an unknown version, an unknown view or node type, a tab that isn't a view, duplicate
+ * ids, a bottom or top border, or other than one panel.
  */
-export const parseStoredLayout = (raw: string | null): IJsonModel | undefined => {
+export const parseStoredLayout = (raw: string | null): ParsedLayout | undefined => {
   if (raw === null) return undefined
   try {
     const parsed: unknown = JSON.parse(raw)
-    if (!isRecord(parsed) || parsed.version !== LAYOUT_VERSION) return undefined
-    return checkModel(parsed.model)
+    return isRecord(parsed) ? parseLayoutModel(parsed.version, parsed.model) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** A model saved by the given layout version, checked and migrated as `parseStoredLayout` does (named layouts). */
+export const parseLayoutModel = (version: unknown, model: unknown): ParsedLayout | undefined => {
+  try {
+    if (version === 1) return { model: checkModel(migrateV1(model)), migrated: true }
+    if (version !== LAYOUT_VERSION) return undefined
+    return { model: checkModel(model), migrated: false }
   } catch {
     return undefined
   }
@@ -145,6 +202,6 @@ export const migratedLayout = (mainViewRaw: string | null, panelSizeRaw: string 
   const panelSize = parse(panelSizeRaw)
   return defaultLayout({
     ...(isViewId(mainView) ? { editorView: mainView } : {}),
-    ...(typeof panelSize === 'number' && Number.isFinite(panelSize) && panelSize > 0 ? { panelSize: Math.max(MIN_PANEL_SIZE, Math.round(panelSize)) } : {}),
+    ...(typeof panelSize === 'number' && Number.isFinite(panelSize) && panelSize > 0 ? { panelWeight: panelWeightOf(panelSize) } : {}),
   })
 }

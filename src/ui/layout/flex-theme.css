@@ -16,9 +16,26 @@
   --flexlayout-color-tab-selected: var(--accent);
   --flexlayout-color-border-tab-selected: var(--accent);
   --flexlayout-color-focus: var(--accent);
+  --flexlayout-color-icon: var(--text-dim);
+  --flexlayout-color-toolbar-button-hover: var(--panel-raised);
   --flexlayout-color-drag1: var(--accent);
   --flexlayout-color-drag1-background: var(--accent-soft);
   --flexlayout-font-size: 13px;
   --flexlayout-font-family: inherit;
   --flexlayout-splitter-size: 4px;
+}
+
+/* The maximize button at the end of each tab strip; accent while its group is maximized. */
+.flexlayout__tab_toolbar_button {
+  width: 22px;
+  height: 22px;
+  color: var(--text-dim);
+}
+
+.flexlayout__tab_toolbar_button:hover {
+  --flexlayout-color-icon: var(--text);
+}
+
+.flexlayout__tab_toolbar_button[aria-pressed='true'] {
+  --flexlayout-color-icon: var(--accent);
 }

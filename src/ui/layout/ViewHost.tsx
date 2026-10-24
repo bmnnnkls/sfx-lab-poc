@@ -1,4 +1,4 @@
-import type { ViewId } from '@state'
+import { type ViewId, useLayoutStore } from '@state'
 import type { TabNode } from 'flexlayout-react'
 import { Activity, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { VIEW_HIDE } from './view-events'
@@ -35,14 +35,17 @@ export const ViewHost = ({ id, visible }: { id: ViewId; visible: boolean }) => {
 
 /**
  * flexlayout's factory output for a tab. flexlayout renders a tab the first time it is shown and keeps it mounted;
- * its `visibility` event says when the view is shown or hidden.
+ * its `visibility` event says when the view is shown or hidden, and the layout store when a collapsed panel hides it.
  */
 export const ViewTab = ({ node }: { node: TabNode }) => {
+  const id = node.getId() as ViewId
   const [visible, setVisible] = useState(() => node.isVisible())
+  // A collapsed panel keeps its open tab selected, so flexlayout still calls it visible; the layout store knows better.
+  const collapsed = useLayoutStore((state) => !state.visible.includes(id) && state.groups.some((group) => group.active === id))
   useEffect(() => {
     node.setEventListener('visibility', ({ visible: now }: { visible: boolean }) => setVisible(now))
     setVisible(node.isVisible())
     return () => node.removeEventListener('visibility')
   }, [node])
-  return <ViewHost id={node.getId() as ViewId} visible={visible} />
+  return <ViewHost id={id} visible={visible && !collapsed} />
 }

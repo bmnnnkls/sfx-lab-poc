@@ -13,4 +13,11 @@ export interface MenuSeparator {
   readonly kind: 'separator'
 }
 
-export type MenuEntry = MenuAction | MenuSeparator
+/** A nested menu, opened from an item with this label. */
+export interface MenuSubmenu {
+  readonly kind: 'submenu'
+  readonly label: string
+  readonly entries: readonly MenuEntry[]
+}
+
+export type MenuEntry = MenuAction | MenuSeparator | MenuSubmenu

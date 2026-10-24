@@ -20,7 +20,8 @@
   user-select: none;
 }
 
-.item[data-highlighted] {
+.item[data-highlighted],
+.item[data-state='open'] {
   background: var(--accent-soft);
 }
 

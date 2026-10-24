@@ -41,7 +41,7 @@ export const SampleRow = ({ sample }: { sample: SampleInfo }) => {
       <button onClick={() => library.preview(sample.id)} disabled={!ready} title="Preview" aria-label={`Preview ${sample.name}`}>
         ▶
       </button>
-      <button onClick={() => openSampleEditor(sample.id)} title="Open the sample editor: normalize, reverse, trim and fades" disabled={!ready}>
+      <button onClick={() => openSampleEditor(sample.id)} title="Open in the wave editor: normalize, reverse, trim and fades" disabled={!ready}>
         ✎
       </button>
       <button onClick={makeTrack} title="Create an instrument track whose sampler plays this sample from MIDI notes">

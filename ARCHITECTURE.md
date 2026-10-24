@@ -1298,8 +1298,9 @@ switches views like in Ableton.
 
 ## The sample editor
 
-An editor for one library sample in the **Samples** tab (✎ on a row): a zoomable waveform with a draggable
-selection and one-click edits. `core/sample/edit.ts` holds the pure transforms (tested); the result of an edit is
+An editor for one library sample in the **Wave editor** view (`ui/wave-editor/`; ✎ on a row of Samples opens it):
+a zoomable waveform with a draggable selection and one-click edits. With no sample open the view offers the
+project's samples (up to eight, then *Show samples*) and *Import samples…*. `core/sample/edit.ts` holds the pure transforms (tested); the result of an edit is
 always a **new** library sample, so the original stays untouched.
 
 * **Transforms.** `normalizeSample` (peak to just under full scale, silence left silent), `reverseSample`,
@@ -1380,23 +1381,41 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
 * **The shell** (`ui/Workspace.tsx`): the transport bar on top, the activity bar beside the layout, the status bar
   below. The layout is [flexlayout-react](https://github.com/caplin/FlexLayout), pinned to an exact version and
   imported only from `ui/layout/` (the architecture test enforces both; upgrade on purpose, its 0.x minors break).
-  * **Regions.** The editor area is flexlayout's main row of tab groups, Session and Arrangement by default; it
-    splits freely. The panel is its bottom border, holding the eight tool views; the primary and secondary
-    sidebars are its left and right borders, empty and hidden by default. A border shows one tab at a time, and
-    clicking its open tab collapses it. Views can be dragged between all of them; tabs can't be closed, so every
-    view is always somewhere.
+  * **Regions.** The main layout is a column: the editor area's tab groups above, the panel's tab group below.
+    The editor area holds Session, Arrangement and the Wave editor by default and splits freely. The panel is the
+    tab group with id `panel`, wherever it has been moved; every other tab group is the editor area, including
+    one split off the panel. It holds the tool views and is never deleted, even when empty. The primary and
+    secondary sidebars are flexlayout's left and right borders and run the full height, from the transport bar to
+    the status bar (flexlayout spans top and bottom borders across the sidebars, which is why the panel isn't one).
+    Sounds starts in the secondary sidebar, collapsed to its strip; the primary sidebar starts empty and off;
+    sidebars open 300 px wide. A border shows one tab at a time. Views can be dragged between all of them; tabs
+    can't be closed, so every view is always somewhere.
+  * **Collapsing.** Clicking the open tab of a sidebar or the panel collapses it to its tab strip; clicking a tab
+    there opens it again. The panel collapses with `maxHeight: 0` (flexlayout adds the strip to a group's
+    maximum) and keeps its weight, so it expands to the height it had. A panel split sideways collapses with the
+    groups beside it (they share a row); one with nothing above or below it doesn't collapse. flexlayout ignores
+    clicks on a group's open tab, so `Workbench` catches them first and calls the driver's `clickTab`.
+  * **Maximize.** Every tab group has flexlayout's maximize button (*Maximize* / *Restore*), and double-clicking a
+    tab strip does the same: the group fills the main layout, the sidebars stay. The panel counts as hidden while
+    another group is maximized; showing a view elsewhere, or the panel, restores the layout. Not the browser's
+    Fullscreen API, which would hide every Radix menu and tooltip (they render into `document.body`).
   * **`Workbench`** renders the layout and registers a `FlexLayoutDriver` (`layout-driver.ts`) with the layout
-    store; `default-layout.ts` builds the default model from the store's `DEFAULT_LAYOUT`.
-  * **Activity bar** (`nav` "Views"): show Session or Arrangement, toggle the primary sidebar, panel and secondary
-    sidebar, *Reset layout*. **Status bar** (`contentinfo`): the audio-failure alert, `SaveIndicator`, and a
-    *Layout* menu with the same toggles and *Reset layout*.
+    store; `default-layout.ts` builds the default model from the store's `DEFAULT_LAYOUT`. The driver leaves
+    replacing the model and named layouts to the shell (`LayoutShell`).
+  * **Region toggles** (`RegionToggles`): primary sidebar ◧, panel ⬓ and secondary sidebar ◨, at the right end of
+    the panel's tab strip before its maximize button (`onRenderTabSet`). The panel's own toggle collapses it to
+    that strip. **Status bar** (`contentinfo`): the audio-failure alert, `SaveIndicator`, and a *Layout* menu with
+    the same toggles, the named layouts and *Reset layout*: the route when the panel's strip is off screen.
+  * **Activity bar** (`nav` "Views"): Session, Arrangement, Wave editor and Library, each marked while it shows. A
+    button shows its view wherever it is docked; on a sidebar's open view it hides that sidebar instead.
   * **Keyboard.** Tabs follow the tab pattern and splitters are focusable separators (flexlayout's). F6 and
-    Shift+F6 move the focus between tab groups, the panel and sidebars included (`group-focus.ts`; flexlayout's own
-    key skips borders). Tab toggles Session and Arrangement, except in form fields, on a tab, a splitter or the
-    activity bar.
+    Shift+F6 move the focus between the tab groups that show, the panel and sidebars included (`group-focus.ts`;
+    flexlayout's own key skips borders). Tab toggles Session and Arrangement, except in form fields and the chrome:
+    a tab, a splitter, the activity bar, the region toggles, a tab group's buttons and dialogs.
 * **Keep-alive** (`ui/layout/ViewHost.tsx`). flexlayout renders a tab the first time it is shown and keeps it;
   `ViewTab` follows the tab's `visibility` event into `ViewHost`, which wraps the view in
-  `<Activity mode={visible ? 'visible' : 'hidden'}>`. A hidden view keeps its state and scroll offsets, and its
+  `<Activity mode={visible ? 'visible' : 'hidden'}>`. A collapsed panel keeps its open tab selected, so `ViewTab`
+  also asks the layout store, which counts that view as hidden. A hidden view keeps its state and scroll offsets, and its
   Effects are cleaned up until it shows again, so subscriptions (playheads, meters) pause and window listeners
   (Shift+A) stop. Write a view's Effects to run again on every show: `PianoRoll` centres only when the clip changes.
   Just before hiding a view, `ViewHost` dispatches `view-hide` on its root; popups that should close with their
@@ -1405,23 +1424,34 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   container and a landmark (`region`) named after the view.
 * **Layout store** (`state/layout-store.ts`), a façade over the shell. The library owns the layout tree; the store
   keeps round 1's API and mirrors what shows: `groups` (each tab group with its region, views and active view),
-  `visible` and `hiddenRegions`. `revealView(id)` shows a view wherever it is docked (showing a hidden region
-  first), `toggleMainView()` shows whichever of Session and Arrangement isn't showing (nothing when both are),
-  `toggleRegion` and `resetLayout`. With a driver attached the actions go to it and the shell mirrors the model
+  `visible` and `hiddenRegions` (a collapsed sidebar or panel counts as hidden). `revealView(id)` shows a view
+  wherever it is docked (opening a collapsed region and restoring a maximized group first), `toggleMainView()`
+  shows whichever of Session and Arrangement isn't showing (nothing when both are), `toggleRegion`, `resetLayout`,
+  `saveLayoutAs(name)` and `loadLayout(name)`. With a driver attached the actions go to it and the shell mirrors the model
   back through `sync` after each change; without one (unit tests, before the shell mounts) they update the mirror
   directly. Read `visible` to know whether a view shows.
 * **Persistence** (`ui/layout/layout-storage.ts`, `use-layout-persistence.ts`). The whole layout, every group's
-  open tab included, is saved per browser under `sfxlab:layout` as `{ version: 1, model }`, 250 ms after the last
-  change, and read once before the first render. `parseStoredLayout` rejects anything that isn't JSON, another
-  version, unknown views or node types, non-view tabs and duplicate ids (falling back to the default), and repairs
-  what a later round can make stale: missing views go to their default region, missing borders are added, tabs
-  take the registry's names and tooltips. A browser without a saved layout gets one from the old
-  `sfxlab:main-view` and `sfxlab:editor-height`. *Reset layout* saves the default. Replacing the project doesn't
-  touch the layout.
+  open tab included, is saved per browser under `sfxlab:layout` as `{ version: 2, model }`, 250 ms after the last
+  change, and read once before the first render. `parseStoredLayout` rejects anything that isn't JSON, an unknown
+  version, unknown views or node types, non-view tabs, duplicate ids, a top or bottom border and other than one
+  panel (falling back to the default), and repairs what a later round can make stale: missing views go to their
+  default region, missing sidebars are added, tabs take the registry's names and tooltips, the panel its
+  attributes. A version-1 layout (round 2, the panel as the bottom border) is migrated and saved again at once:
+  the border's tabs become the panel under the editor area with their order and open tab, its size the panel's
+  weight against 1000 px, and a collapsed, hidden or empty border a collapsed panel. A browser without a saved
+  layout gets one from the old `sfxlab:main-view` and `sfxlab:editor-height`. *Reset layout* saves the default.
+  Replacing the project doesn't touch the layout.
+* **Named layouts** (`ui/layout/named-layouts.ts`). *Save layout as…* in the *Layout* menu asks for a name (a name
+  in use asks again before replacing) and saves the model under `sfxlab:layouts` as
+  `{ version: 2, layouts: { [name]: model } }`. The menu lists the names to load, the way *Reset layout* loads the
+  default, and deletes them from a *Delete…* submenu. Each goes through the same checks and migration as the
+  layout when loaded; saving rewrites them all at today's version.
 * **Selection store** (`state/selection-store.ts`): `trackId`, `master`, `clipId`, `automationScene`, `sampleId`.
   Selecting never changes the view.
 * **Navigation intents** (`state/navigation.ts`) select *and* reveal: `openClip`, `openTrackView(trackId, view)`
-  (the fx / notes badges, *New sampler track*), `openMasterEffects`, `openAutomationSlot`, `openSampleEditor`. Code
+  (the fx / notes badges, *New sampler track*), `openMasterEffects`, `openAutomationSlot`, `openSampleEditor` (✎ on
+  a sample: the Wave editor, `ui/wave-editor/`, whose *Close* clears the selection; the Samples view always shows
+  its list). Code
   that wants to show something calls an intent; code that only selects calls the `select*` action.
 * **View registry** (`ui/layout/views.ts`): `Record<ViewId, { title, tooltip?, component }>`. A view takes no props
   and reads its data from the stores. The titles and tooltips live apart in `ui/layout/view-titles.ts`, which
@@ -1433,8 +1463,9 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   title from `viewTitles`.
 * **Browser tests** open views only through `openView(page, title)` in `tests/browser/fixtures.ts`, which clicks
   the view's tab and returns its root once visible; look inside that root, since hidden views stay in the DOM
-  (`viewRoot(page, title)` finds a root without showing it). `dragView` and `dragViewToSidebar` dock a tab with
-  the stepped mouse moves flexlayout needs. `ViewTitle` and the ids are kept in sync with `viewTitles` by hand.
+  (`viewRoot(page, title)` finds a root without showing it); on a collapsed panel it clicks the open tab to expand
+  it. `dragView` and `dragViewToSidebar` dock a tab with the stepped mouse moves flexlayout needs; `tabStrip`
+  finds a group's strip and its buttons. `ViewTitle` and the ids are kept in sync with `viewTitles` by hand.
 * **Profiling** (`scripts/profile-status.cjs`): React renders and Chrome's main-thread counters while the
   transport plays; usage in its header.
 

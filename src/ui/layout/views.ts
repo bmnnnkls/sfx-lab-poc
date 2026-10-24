@@ -10,6 +10,7 @@ import { Patcher } from '../patcher/Patcher'
 import { PresetsPanel } from '../presets/PresetsPanel'
 import { SamplesPanel } from '../samples/SamplesPanel'
 import { SessionView } from '../session-view/SessionView'
+import { WaveEditorView } from '../wave-editor/WaveEditorView'
 import { viewTitles, viewTooltips } from './view-titles'
 
 export interface ViewDescriptor {
@@ -25,6 +26,7 @@ export interface ViewDescriptor {
 export const views: Readonly<Record<ViewId, ViewDescriptor>> = {
   session: { title: viewTitles.session, tooltip: viewTooltips.session, component: SessionView },
   arrangement: { title: viewTitles.arrangement, tooltip: viewTooltips.arrangement, component: ArrangementView },
+  wave: { title: viewTitles.wave, tooltip: viewTooltips.wave, component: WaveEditorView },
   instrument: { title: viewTitles.instrument, component: Patcher },
   effects: { title: viewTitles.effects, tooltip: viewTooltips.effects, component: FxPanel },
   notes: { title: viewTitles.notes, tooltip: viewTooltips.notes, component: NoteEffectsPanel },

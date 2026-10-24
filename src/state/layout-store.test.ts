@@ -16,7 +16,7 @@ afterEach(() => {
 
 /** A driver that records its calls, as the shell would receive them. */
 const recordingDriver = () => {
-  const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), reset: vi.fn() }
+  const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), reset: vi.fn(), load: vi.fn(), saveAs: vi.fn() }
   detach = layout().attachDriver(driver)
   return driver
 }
@@ -24,10 +24,11 @@ const recordingDriver = () => {
 const group = (id: string, region: RegionId, views: readonly ViewId[], current: ViewId): GroupState => ({ id, region, views, active: current })
 
 describe('layout store without a driver', () => {
-  it("starts on today's layout: session above, instrument below, the sidebars hidden", () => {
+  it('starts on the default layout: session above, instrument below, sounds in a hidden secondary sidebar', () => {
     expect(layout().groups).toEqual([
-      group('editor', 'editor', ['session', 'arrangement'], 'session'),
-      group('panel', 'panel', ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'sounds', 'library'], 'instrument'),
+      group('editor', 'editor', ['session', 'arrangement', 'wave'], 'session'),
+      group('panel', 'panel', ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'library'], 'instrument'),
+      group('border_right', 'secondary', ['sounds'], 'sounds'),
     ])
     expect(layout().visible).toEqual(['session', 'instrument'])
     expect(layout().hiddenRegions).toEqual(['primary', 'secondary'])
@@ -100,7 +101,7 @@ describe('toggleMainView', () => {
 })
 
 describe('layout store with a driver', () => {
-  it('forwards revealView, toggleRegion and resetLayout to the driver and leaves the mirror to sync', () => {
+  it('forwards revealView, toggleRegion, resetLayout and named layouts to the driver and leaves the mirror to sync', () => {
     const driver = recordingDriver()
     layout().revealView('mixer')
     expect(driver.reveal).toHaveBeenCalledWith('mixer')
@@ -111,6 +112,10 @@ describe('layout store with a driver', () => {
     expect(driver.setRegionVisible).toHaveBeenCalledWith('primary', true)
     layout().resetLayout()
     expect(driver.reset).toHaveBeenCalledOnce()
+    layout().saveLayoutAs('Mix')
+    expect(driver.saveAs).toHaveBeenCalledWith('Mix')
+    layout().loadLayout('Mix')
+    expect(driver.load).toHaveBeenCalledWith('Mix')
   })
 
   it('toggles the main view from the mirror the driver syncs', () => {
@@ -180,10 +185,10 @@ describe('navigation intents', () => {
     expect(useSelectionStore.getState()).toMatchObject({ trackId: null, master: true, automationScene: 1 })
   })
 
-  it('openSampleEditor selects the sample and shows Samples; switching views keeps it, reset clears it', () => {
+  it('openSampleEditor selects the sample and shows the wave editor; switching views keeps it, reset clears it', () => {
     openSampleEditor('s')
     expect(useSelectionStore.getState().sampleId).toBe('s')
-    expect(active('panel')).toBe('samples')
+    expect(active('editor')).toBe('wave')
     layout().revealView('mixer')
     expect(useSelectionStore.getState().sampleId).toBe('s')
     useSelectionStore.getState().selectSample(null)

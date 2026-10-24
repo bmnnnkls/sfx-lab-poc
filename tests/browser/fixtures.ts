@@ -17,13 +17,14 @@ export { expect }
 
 /** The views' titles. Specs import no `src/`, so keep this in sync by hand with `src/ui/layout/view-titles.ts`. */
 export type ViewTitle =
-  | 'Session' | 'Arrangement'
+  | 'Session' | 'Arrangement' | 'Wave editor'
   | 'Instrument' | 'Effects' | 'Notes' | 'Clip' | 'Mixer' | 'Samples' | 'Sounds' | 'Library'
 
 /** Each view's id, its `data-view` attribute. Kept in sync by hand with `ViewId` in `src/state/layout-store.ts`. */
 const VIEW_IDS: Readonly<Record<ViewTitle, string>> = {
   Session: 'session',
   Arrangement: 'arrangement',
+  'Wave editor': 'wave',
   Instrument: 'instrument',
   Effects: 'effects',
   Notes: 'notes',
@@ -43,12 +44,16 @@ export const viewRoot = (page: Page, title: ViewTitle): Locator => page.locator(
  */
 export const openView = async (page: Page, title: ViewTitle): Promise<Locator> => {
   const tab = page.getByRole('tab', { name: title, exact: true })
-  // Clicking the open tab of the panel would collapse the panel.
-  if (await tab.getAttribute('aria-selected') !== 'true') await tab.click()
   const root = viewRoot(page, title)
+  // Clicking the open tab of the panel or a sidebar would collapse it; on a collapsed panel it expands it.
+  if (await tab.getAttribute('aria-selected') !== 'true' || !await root.isVisible()) await tab.click()
   await expect(root).toBeVisible()
   return root
 }
+
+/** The tab strip of the group a view's tab is in, with the group's buttons (maximize; the panel's toggles). */
+export const tabStrip = (page: Page, title: ViewTitle): Locator =>
+  page.locator('[data-layout-path$="/tabstrip"]', { has: page.getByRole('tab', { name: title, exact: true }) })
 
 /** Drag a view's tab to a point. flexlayout starts a drag only from real pointer movement, so the mouse moves in steps. */
 const dragTab = async (page: Page, title: ViewTitle, x: number, y: number) => {

@@ -4,6 +4,8 @@ import { MenuEntries } from './MenuEntries'
 import type { MenuEntry } from './menu-types'
 import styles from './Menu.module.css'
 
+const PARTS = { Item: Menu.Item, Separator: Menu.Separator, Sub: Menu.Sub, SubTrigger: Menu.SubTrigger, SubContent: Menu.SubContent, Portal: Menu.Portal }
+
 interface ContextMenuProps {
   /** What the menu offers. Recomputed on every render, so it can reflect the current selection. */
   readonly entries: readonly MenuEntry[]
@@ -24,7 +26,7 @@ export const ContextMenu = ({ entries, children }: ContextMenuProps) => (
     <Menu.Trigger asChild>{children}</Menu.Trigger>
     <Menu.Portal>
       <Menu.Content className={styles.menu} collisionPadding={8}>
-        <MenuEntries entries={entries} parts={{ Item: Menu.Item, Separator: Menu.Separator }} />
+        <MenuEntries entries={entries} parts={PARTS} />
       </Menu.Content>
     </Menu.Portal>
   </Menu.Root>
