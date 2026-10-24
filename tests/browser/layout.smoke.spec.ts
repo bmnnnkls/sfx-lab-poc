@@ -277,3 +277,30 @@ test('the editor area and the panel maximize inside the window, and restore', as
   await strip.getByRole('button', { name: 'Restore', exact: true }).click()
   await expect(session).toBeVisible()
 })
+
+test('the activity bar shows Session, Arrangement, the Wave editor and Library wherever they are docked', async ({ page }) => {
+  await page.goto('/?starter')
+  const bar = page.getByRole('navigation', { name: 'Views' })
+  const button = (name: string) => bar.getByRole('button', { name, exact: true })
+  await expect(bar.getByRole('button')).toHaveText(['▦', '▤', '∿', '▥'])
+
+  for (const [name, title] of [['Wave editor', 'Wave editor'], ['Library', 'Library'], ['Arrangement', 'Arrangement']] as const) {
+    await button(name).click()
+    await expect(viewRoot(page, title)).toBeVisible()
+  }
+  // A view showing in the editor area or the panel stays on a second click.
+  await button('Library').click()
+  await expect(viewRoot(page, 'Library')).toBeVisible()
+  await button('Arrangement').click()
+  await expect(viewRoot(page, 'Arrangement')).toBeVisible()
+
+  // Docked in a sidebar, its button shows the sidebar, and hides it while the view shows.
+  await tabStrip(page, 'Instrument').getByRole('button', { name: 'Secondary sidebar', exact: true }).click()
+  await dragViewToSidebar(page, 'Library', 'secondary')
+  await expect(viewRoot(page, 'Library')).toBeVisible()
+  await button('Library').click()
+  await expect(viewRoot(page, 'Library')).toBeHidden()
+  await expect(tabStrip(page, 'Instrument').getByRole('button', { name: 'Secondary sidebar', exact: true })).toHaveAttribute('aria-pressed', 'false')
+  await button('Library').click()
+  await expect(viewRoot(page, 'Library')).toBeVisible()
+})

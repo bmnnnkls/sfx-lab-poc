@@ -262,6 +262,8 @@ What turned out different from the design above, step by step.
 * **Step 4: *Import samples…* opens the file picker** in the Wave editor itself and imports into the project, as the
   Samples view's *Import sample…* does; the empty state then offers the new samples. It doesn't reveal Samples,
   which *Show samples* does once there are more than eight.
+* **Step 5: a second click hides the sidebar** through `toggleRegion`, the same action as its toggle, so showing it
+  again brings back the view it showed.
 
 ## Behavior changes
 
