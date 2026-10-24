@@ -395,6 +395,14 @@ What turned out different from the design above, step by step.
 * **Step 10: the canvas writes its view when it unmounts or hides** (an Effect cleanup), not when a gesture ends:
   nothing reads it before then, and wheel zooming has no end to catch. The stale-path rule moved into the store as
   `livePath`, which `GraphEditor` already applied inline.
+* **Step 11: a narrow tree shows the folders in the open folder too.** In the 300 px sidebar Library is one column,
+  and a tree collapsed to the open folder's path showed only *All / root*: no folder could be reached without
+  *All folders*. It now shows the path and the folders directly in the open folder (`essential`), so it reads as a
+  path down to where the user is, and onwards.
+* **Step 11: the specs.** `layout.smoke.spec.ts` checks the new default (Samples and Library in the collapsed primary
+  sidebar, opening 300 px wide; the panel's five tabs), Mixer's neighbour in the panel is now Clip, and the
+  activity-bar check takes Library from the primary sidebar first, then from the panel. Saved layouts missing Samples
+  or Library now get them in the primary sidebar.
 
 ## Behavior changes
 

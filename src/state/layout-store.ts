@@ -57,7 +57,7 @@ interface LayoutState extends LayoutSnapshot {
 
 /** The views the Tab key toggles between. */
 export const MAIN_VIEWS: readonly ViewId[] = ['session', 'arrangement']
-const PANEL_VIEWS: readonly ViewId[] = ['instrument', 'effects', 'notes', 'clip', 'mixer', 'samples', 'library']
+const PANEL_VIEWS: readonly ViewId[] = ['instrument', 'effects', 'notes', 'clip', 'mixer']
 
 const visibleOf = (groups: readonly GroupState[], hiddenRegions: readonly RegionId[]): readonly ViewId[] =>
   groups.filter((group) => !hiddenRegions.includes(group.region)).map((group) => group.active)
@@ -65,13 +65,15 @@ const visibleOf = (groups: readonly GroupState[], hiddenRegions: readonly Region
 const DEFAULT_GROUPS: readonly GroupState[] = [
   { id: 'editor', region: 'editor', views: [...MAIN_VIEWS, 'wave'], active: 'session' },
   { id: 'panel', region: 'panel', views: PANEL_VIEWS, active: 'instrument' },
+  { id: 'border_left', region: 'primary', views: ['samples', 'library'], active: 'samples' },
   { id: 'border_right', region: 'secondary', views: ['sounds'], active: 'sounds' },
 ]
 const DEFAULT_HIDDEN: readonly RegionId[] = ['primary', 'secondary']
 
 /**
- * The default layout: Session, Arrangement and the wave editor over the tool views in the panel; Sounds in the
- * secondary sidebar, collapsed to its strip; the primary sidebar empty and hidden.
+ * The default layout, in the spirit of VS Code: Session, Arrangement and the wave editor over the editors and the
+ * Mixer in the panel; Samples and Library in the primary sidebar and Sounds in the secondary one, both collapsed to
+ * their strips.
  */
 export const DEFAULT_LAYOUT: LayoutSnapshot = {
   groups: DEFAULT_GROUPS,

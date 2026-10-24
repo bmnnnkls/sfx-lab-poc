@@ -17,8 +17,11 @@ export interface FolderRow {
   readonly count: number
   readonly hasChildren: boolean
   readonly expanded: boolean
-  /** The open folder, or one of its ancestors: what a narrow tree shows while collapsed. */
-  readonly onPath: boolean
+  /**
+   * The open folder, one of its ancestors or a folder in it: what a narrow tree shows while collapsed, so it reads as
+   * a path down to where the user is, and onwards.
+   */
+  readonly essential: boolean
 }
 
 const key = (id: string | null) => id ?? ROOT
@@ -49,7 +52,7 @@ export const folderRows = (catalog: Pick<LibraryCatalog, 'folders' | 'items'>, e
       count: id === null ? items.length : items.filter((item) => item.folderId === id).length,
       hasChildren: children.length > 0,
       expanded: isExpanded,
-      onPath: path.has(key(id)),
+      essential: path.has(key(id)) || (parentId !== undefined && parentId === open),
     })
     if (isExpanded) for (const child of children) visit(child.id, child.name, level + 1, id, new Set([...seen, child.id]))
   }

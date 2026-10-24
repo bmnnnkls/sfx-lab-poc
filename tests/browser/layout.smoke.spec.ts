@@ -47,7 +47,7 @@ test('a view moved next to Session stays there after a reload, and Reset layout 
   await dragView(page, 'Mixer', 'Session', 'right')
   await expectMixerBesideSession(page)
   // The panel stays open on Mixer's neighbour.
-  await expect(viewRoot(page, 'Samples')).toBeVisible()
+  await expect(viewRoot(page, 'Clip')).toBeVisible()
 
   await expect.poll(() => page.evaluate(() => localStorage.getItem('sfxlab:layout'))).toContain('"mixer"')
   await page.reload()
@@ -306,20 +306,42 @@ test('the activity bar shows Session, Arrangement, the Wave editor and Library w
     await expect(viewRoot(page, title)).toBeVisible()
   }
   // A view showing in the editor area or the panel stays on a second click.
-  await button('Library').click()
-  await expect(viewRoot(page, 'Library')).toBeVisible()
   await button('Arrangement').click()
   await expect(viewRoot(page, 'Arrangement')).toBeVisible()
 
-  // Docked in a sidebar, its button shows the sidebar, and hides it while the view shows.
-  await tabStrip(page, 'Instrument').getByRole('button', { name: 'Secondary sidebar', exact: true }).click()
-  await dragViewToSidebar(page, 'Library', 'secondary')
+  // Library starts in the primary sidebar: its button shows the sidebar, and hides it while the view shows.
+  const primary = tabStrip(page, 'Instrument').getByRole('button', { name: 'Primary sidebar', exact: true })
   await expect(viewRoot(page, 'Library')).toBeVisible()
   await button('Library').click()
   await expect(viewRoot(page, 'Library')).toBeHidden()
-  await expect(tabStrip(page, 'Instrument').getByRole('button', { name: 'Secondary sidebar', exact: true })).toHaveAttribute('aria-pressed', 'false')
+  await expect(primary).toHaveAttribute('aria-pressed', 'false')
   await button('Library').click()
   await expect(viewRoot(page, 'Library')).toBeVisible()
+  await expect(primary).toHaveAttribute('aria-pressed', 'true')
+
+  // Docked in the panel, it stays on a second click.
+  await dragView(page, 'Library', 'Instrument', 'center')
+  await button('Library').click()
+  await expect(viewRoot(page, 'Library')).toBeVisible()
+  await button('Library').click()
+  await expect(viewRoot(page, 'Library')).toBeVisible()
+})
+
+test('Samples and Library start in the primary sidebar, collapsed, and open 300 px wide', async ({ page }) => {
+  await page.goto('/?starter')
+  const primary = tabStrip(page, 'Instrument').getByRole('button', { name: 'Primary sidebar', exact: true })
+  await expect(page.getByRole('tab', { name: 'Samples', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Library', exact: true })).toBeVisible()
+  await expect(viewRoot(page, 'Samples')).toBeHidden()
+  await expect(primary).toHaveAttribute('aria-pressed', 'false')
+  const samples = (await (await openView(page, 'Samples')).boundingBox())!
+  const session = (await viewRoot(page, 'Session').boundingBox())!
+  expect(Math.round(samples.width)).toBe(300)
+  expect(samples.x + samples.width).toBeLessThanOrEqual(session.x)
+  await expect(primary).toHaveAttribute('aria-pressed', 'true')
+  // The panel holds the editors and the Mixer.
+  const panelTabs = tabStrip(page, 'Instrument').getByRole('tab')
+  await expect(panelTabs).toHaveText(['Instrument', 'Effects', 'Notes', 'Clip', 'Mixer'])
 })
 
 test('a layout saved under a name loads again after changes and a reload, and can be deleted', async ({ page }) => {

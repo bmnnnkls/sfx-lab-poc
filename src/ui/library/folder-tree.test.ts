@@ -11,13 +11,14 @@ const catalog = {
 const ids = (rows: ReturnType<typeof folderRows>) => rows.map((row) => row.id)
 
 describe('folder tree', () => {
-  it('shows the root, then the folders under each expanded row, with levels, counts and the open path', () => {
+  it('shows the root, then the folders under each expanded row, with levels, counts, and the open path and its folders', () => {
     expect(ids(folderRows(catalog, new Set([ROOT]), null))).toEqual([null, 'a'])
     const rows = folderRows(catalog, new Set([ROOT, 'a', 'b']), 'd')
     expect(ids(rows)).toEqual([null, 'a', 'b', 'd', 'c'])
     expect(rows.map((row) => row.level)).toEqual([1, 2, 3, 4, 3])
     expect(rows.map((row) => row.count)).toEqual([4, 2, 0, 1, 0])
-    expect(rows.map((row) => row.onPath)).toEqual([true, true, true, true, false])
+    expect(rows.map((row) => row.essential)).toEqual([true, true, true, true, false])
+    expect(folderRows(catalog, new Set([ROOT, 'a', 'b']), 'a').map((row) => row.essential)).toEqual([true, true, true, false, true])
     expect(rows.map((row) => row.hasChildren)).toEqual([true, true, true, false, false])
     expect(rows[3]).toMatchObject({ parentId: 'b', expanded: false })
   })

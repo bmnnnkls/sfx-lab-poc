@@ -41,14 +41,14 @@
 
 /*
  * One column below 440 px: the folders over the items, then the details. The tree shows only the open folder's path
- * until *All folders* opens it, so the items stay near the top. The search comes first, and toolbar inputs take the
+ * and the folders in it until *All folders* opens it, so the items stay near the top. The search comes first, and toolbar inputs take the
  * full width.
  */
 @container view (width < 440px) {
   .search { order: -1; }
   .columns { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'folders' 'items' 'details'; }
   .allFolders { display: block; }
-  .tree:not(.treeOpen) .folder:not([data-on-path]) { display: none; }
+  .tree:not(.treeOpen) .folder:not([data-essential]) { display: none; }
   .toolbar input, .toolbar select { flex: 1 1 100%; max-width: none; }
   /* The bundle import: its label over a file input that shrinks. */
   .toolbar label { display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; }
