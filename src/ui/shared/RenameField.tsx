@@ -60,6 +60,8 @@ export const RenameField = ({ name, label, placeholder, className, select = fals
         else commit()
       }}
       onClick={(event) => event.stopPropagation()}
+      // The browser's own menu (cut, copy, paste), not the menu of the thing being named.
+      onContextMenu={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         event.stopPropagation()
         if (event.key === 'Enter') {

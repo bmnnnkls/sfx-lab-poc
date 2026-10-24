@@ -1,4 +1,4 @@
-import { MAX_SCENES, MAX_TRACKS } from '../project'
+import { MAX_PATCH_NODES, MAX_SCENES, MAX_TRACKS } from '../project'
 
 /** Identifies our files so the importer can reject anything else with a clear message. */
 export const FORMAT = 'sfx-lab-project'
@@ -13,7 +13,7 @@ export const LIMITS = {
   samples: 256,
   modules: 128,
   portsPerModule: 64,
-  nodesPerPatch: 200,
+  nodesPerPatch: MAX_PATCH_NODES,
   notesPerClip: 5000,
   arrangementClips: 2000,
   clipBeats: { min: 0.25, max: 256 },

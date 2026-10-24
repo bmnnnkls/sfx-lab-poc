@@ -1,4 +1,4 @@
-import { type LibraryCatalog, renameModule, putSnapshot, saveLibraryFolder, saveLibraryItem } from '@core'
+import { type LibraryCatalog, renameModule, putSnapshot, saveLibraryFolder, saveLibraryItem, setNodeName } from '@core'
 import { useLayoutStore, type ViewId } from '../layout-store'
 import { useLibraryStore } from '../library-store'
 import { editPresetProject } from '../preset-actions'
@@ -16,6 +16,7 @@ const HOME: Partial<Record<SubjectKind, ViewId>> = {
   'library-folder': 'library',
   sound: 'sounds',
   module: 'instrument',
+  nodes: 'instrument',
 }
 
 /** Starts renaming `subject` in place, in the view the menu was opened in, which is shown if it is hidden. */
@@ -80,6 +81,12 @@ export const commitRename = (subject: Subject, typed: string, context: ActionCon
         if (!folder) throw new Error('That library folder is gone')
         return saveLibraryFolder(catalog, name, folder.parentId, folder.id)
       })
+    case 'nodes': {
+      const [nodeId] = subject.nodeIds
+      const moduleId = subject.path.at(-1)
+      if (nodeId) store.editPatch(moduleId ? { moduleId } : subject.target, (patch) => setNodeName(patch, nodeId, name))
+      return
+    }
     default:
       return
   }

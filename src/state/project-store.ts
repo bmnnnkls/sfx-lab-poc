@@ -153,6 +153,12 @@ interface ProjectActions {
     edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
     mergeKey?: string,
   ): void
+  /** Like `updatePatch`, for any patch: a track's graphs, the master's, or a module's inside. */
+  editPatch(
+    target: PatchTarget,
+    edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
+    mergeKey?: string,
+  ): void
   /** Replaces the selected nodes of a patch by one use of a new module. */
   groupNodes(target: PatchTarget, nodeIds: readonly string[]): void
   addModuleUse(target: PatchTarget, moduleId: string, x: number, y: number): void
@@ -279,6 +285,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       edit((project) => editPatchAt(project, { trackId, graph: 'notes' }, change), mergeKey),
     updateModulePatch: (moduleId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { moduleId }, change), mergeKey),
+    editPatch: (target, change, mergeKey) => edit((project) => editPatchAt(project, target, change), mergeKey),
     groupNodes: (target, nodeIds) => edit((project) => groupNodesAsModule(project, target, nodeIds)),
     addModuleUse: (target, moduleId, x, y) => edit((project) => addModuleUse(project, target, moduleId, x, y)),
     addExampleModule: (target, definition, x, y) => edit((project) => addExampleModuleUse(project, target, definition, x, y)),

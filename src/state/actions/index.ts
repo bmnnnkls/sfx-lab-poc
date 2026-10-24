@@ -5,8 +5,9 @@ import { controlActions } from './control'
 import { laneActions } from './lane'
 import { libraryFolderActions, libraryItemActions } from './library'
 import { masterActions } from './master'
+import { moduleActions } from './module'
+import { canvasActions, nodeActions } from './nodes'
 import { regionActions } from './region'
-import { renameAction } from './rename'
 import { sampleActions } from './sample'
 import { sceneActions } from './scene'
 import { slotActions } from './slot'
@@ -18,7 +19,8 @@ export type { Action, ActionChoice, ActionContext, Subject, SubjectKind, Subject
 export { duplicateSessionClip, placeOnArrangement } from './clip'
 export { commitRename, startRename } from './rename'
 export { insertionScope, isInstrumentItem } from './library'
-export { automationSlotClipboard, clipClipboard, type CopiedClip } from './clipboards'
+export { automationSlotClipboard, clipClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes } from './clipboards'
+export { editTargetOf, graphKeyOf } from './nodes'
 
 const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = {
   track: trackActions,
@@ -30,9 +32,9 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   sample: sampleActions,
   'library-item': libraryItemActions,
   'library-folder': libraryFolderActions,
-  nodes: [],
-  canvas: [],
-  module: [renameAction('module')],
+  nodes: nodeActions,
+  canvas: canvasActions,
+  module: moduleActions,
   region: regionActions,
   lane: laneActions,
   control: controlActions,

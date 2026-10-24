@@ -492,4 +492,25 @@ What turned out different from the design above, step by step.
   scope chosen at the top of Sounds. The menu's *Recall* and *Update* use the preset's own scope, since a menu has no
   scope to choose. A snapshot's buttons and every other button run the actions.
 * **Step 7: the open menu also follows the sample store**, so *Preview* enables once a sample's audio is ready.
+* **Step 8: a `nodes` or `canvas` subject names the graph, then the module open in it.** `target` is the track's (or
+  the master's) graph and `path` the module ids opened from there, as the graph-view store keeps them. The nodes are in
+  the last module of `path`, or in `target` at the top level (`editTargetOf`). The graph's kind (instrument, effects,
+  notes) comes from `target`, so a module's inside pastes like the graph it was opened from.
+* **Step 8: `copyNodes` and `pasteNodes` are in `core/project`**, which can reach the fixed ends' types in `dsp` and
+  `notefx`. `MAX_PATCH_NODES` (200) joined `MAX_TRACKS` and `MAX_SCENES` there, and `LIMITS` reads it. The pasted
+  group's top-left corner lands on the clicked point; *Duplicate* pastes 32 px down and right of the originals and
+  leaves the clipboard alone.
+* **Step 8: the open sub-patch and the module interface toggle are in the graph-view store.** `GraphEditor` reads the
+  path from the store (it used to keep a copy), so *Open module* works from a menu, and selection clears when the
+  level changes. Its selection drops nodes that are gone (a menu's *Delete*, *Group into module*). A deleted module's
+  inside closes because its path no longer leads anywhere; the module bar no longer steps out itself.
+* **Step 8: *Add node…* asks the graph editor through the store.** The action sets `addRequest` (the graph and the
+  canvas point); the editor showing that graph opens QuickAdd there, placed with the canvas's `clientPoint`.
+* **Step 8: a control's name is renamed on its card.** The field takes the place of the card's title; the panel's
+  edit-mode name field stays as it is.
+* **Step 8: the card's ×, *Edit* and *Unlink*** run *Delete*, *Open module* and *Unlink* on that card alone; the
+  toolbar's *Group into module* runs the action on the selection. The module bar's buttons run *Show / Hide
+  interface* and *Delete*, and its menu's *Rename* selects the name in its field.
+* **Step 8: a name field keeps the browser's own menu.** Right-clicking a `RenameField` opens the browser's cut, copy
+  and paste menu instead of the menu of the thing around it (the module bar's field sits inside its menu's trigger).
 

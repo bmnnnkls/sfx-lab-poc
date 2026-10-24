@@ -227,3 +227,39 @@ test('samples and sounds have menus', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'Duplicate', exact: true }).click()
   await expect(sounds.getByRole('button', { name: 'Recall Loud copy', exact: true })).toBeVisible()
 })
+
+test("nodes copy into another track's instrument, and the canvas adds nodes where it was clicked", async ({ page }) => {
+  await page.goto('/?starter')
+  const session = viewRoot(page, 'Session')
+  const instrument = await openView(page, 'Instrument')
+  await session.getByRole('button', { name: 'Bass', exact: true }).click()
+  const cards = instrument.locator('[data-node]')
+  const before = await cards.count()
+  const filter = instrument.locator('[data-node]', { hasText: 'Filter' }).first()
+  await filter.locator('[data-header]').click({ button: 'right' })
+  expect(await menuEntries(page)).toEqual(['Group into module', '—', 'Copy', 'Cut', 'Duplicate', '—', 'Delete'])
+  await page.getByRole('menuitem', { name: 'Copy', exact: true }).click()
+
+  const viewport = instrument.getByTestId('graph-viewport')
+  const box = await viewport.boundingBox()
+  if (!box) throw new Error('No graph viewport')
+  const empty = { x: box.width - 60, y: box.height - 60 }
+
+  await session.getByRole('button', { name: 'Lead', exact: true }).click()
+  await expect(instrument.getByText('Lead', { exact: true })).toBeVisible()
+  await viewport.click({ button: 'right', position: empty })
+  expect(await menuEntries(page)).toEqual(['Add node…', '—', 'Paste'])
+  await page.getByRole('menuitem', { name: 'Paste', exact: true }).click()
+  await expect(cards).toHaveCount(before + 1)
+
+  await viewport.click({ button: 'right', position: empty })
+  await page.getByRole('menuitem', { name: 'Add node…', exact: true }).click()
+  await expect(page.getByRole('listbox')).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  // Into effects it doesn't go.
+  const effects = await openView(page, 'Effects')
+  const fxViewport = effects.getByTestId('graph-viewport')
+  await fxViewport.click({ button: 'right', position: { x: 20, y: 200 } })
+  await expect(page.getByRole('menuitem', { name: 'Paste', exact: true })).toBeDisabled()
+})

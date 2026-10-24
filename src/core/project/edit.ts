@@ -26,6 +26,8 @@ export const DEFAULT_SCENE_COUNT = 4
 /** The most tracks and scenes a project has; files with more are cut to these. */
 export const MAX_TRACKS = 64
 export const MAX_SCENES = 64
+/** The most nodes one graph (or a module's inside) has. */
+export const MAX_PATCH_NODES = 200
 export const MAX_NAME_LENGTH = 80
 export const MIN_VOICES = 1
 export const MAX_VOICES = 16
