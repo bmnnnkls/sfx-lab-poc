@@ -1,6 +1,8 @@
 # Round 5: actions and context menus
 
-Status: **signed off** 2026-10-24, every decision as proposed. Part of the
+Status: **done** 2026-10-24, decisions signed off as proposed. What changed on the way is under
+[Changes made while implementing](#changes-made-while-implementing); shipped behavior is in
+[ARCHITECTURE.md § Actions and context menus](../../ARCHITECTURE.md#actions-and-context-menus). Part of the
 [UI redesign](README.md). Carries out [roadmap § Round 5](DRAFT-roadmap.md#round-5-actions-and-context-menus), from an
 inventory of every menu and per-item action in the app, taken on `feat/ui-redesign` at `13f5e81` (round 4 merged).
 
@@ -40,7 +42,7 @@ library service, checked kind by kind. "Model" means a function in `core` or a s
 
 ### Menus today
 
-`ui/shared/menu` (ARCHITECTURE.md still calls it `ui/shared/context-menu`) holds `ContextMenu` (right-click, Radix
+`ui/shared/menu` (ARCHITECTURE.md called it `ui/shared/context-menu` until this round) holds `ContextMenu` (right-click, Radix
 context menu) and `PopupMenu` (click, Radix dropdown), both drawing `MenuEntry[]`: actions with a label, display-only
 shortcut, `disabled` and `danger`; separators; submenus. Seven places use them:
 
@@ -513,4 +515,16 @@ What turned out different from the design above, step by step.
   interface* and *Delete*, and its menu's *Rename* selects the name in its field.
 * **Step 8: a name field keeps the browser's own menu.** Right-clicking a `RenameField` opens the browser's cut, copy
   and paste menu instead of the menu of the thing around it (the module bar's field sits inside its menu's trigger).
+* **Step 9: the profile.** `scripts/profile-status.cjs` now adds a lane's clip through the *Add clip* ▸ submenu. One
+  run each, 10 s after 2 s of warm-up, headless Chromium, 1500 × 1000:
+
+  | Per second | Round 4 `editor` | Round 5 `editor` | Round 4 `four` | Round 5 `four` |
+  |---|---|---|---|---|
+  | Component renders (dev) | 145 | 144 | 173 | 173 |
+
+  Menus aren't rendered while closed, so the renders stay as they were. Base and branch didn't run in one session
+  this time, so the timings (React render 12–13 ms, script 17–19 ms a second here) aren't compared with round 4's.
+* **Step 9: checks.** `npm run test:audio` passed (14 tests, the new duplicate-track test among them). The manual
+  pass on a dev build (touch long-press, Safari and Firefox) was not done; the smoke specs cover the mouse,
+  Shift+F10 in Chromium, Enter, Escape and empty names, undo and a menu following the clipboard.
 

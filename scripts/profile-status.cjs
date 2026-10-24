@@ -89,7 +89,9 @@ const setUp = async (page, url) => {
   const lanes = page.locator('[data-view="arrangement"] [data-lane], main [data-lane]')
   for (const [lane, x] of [[0, 40], [0, 240], [1, 40]]) {
     await lanes.nth(lane).click({ button: 'right', position: { x, y: 20 } })
-    await page.getByRole('menuitem', { name: /^Add / }).first().click()
+    // The lane's *Add clip* ▸ submenu: its first session clip.
+    await page.getByRole('menuitem', { name: 'Add clip', exact: true }).click()
+    await page.getByRole('menu').last().getByRole('menuitem').first().click()
   }
   if (SETUP === 'all') {
     for (const title of ['Instrument', 'Effects', 'Notes', 'Clip', 'Samples', 'Sounds', 'Library']) await show(page, title)

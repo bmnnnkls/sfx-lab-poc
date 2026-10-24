@@ -120,22 +120,28 @@ store (round 6) and a view open twice (round 9's pinned panels).
 
 Right-click works throughout the app. Set up the structure now; the details of each menu come with it.
 
-**Planned** 2026-10-24, see the [plan](PLAN-round-5-actions.md), signed off as proposed. Its inventory changed the outline
-below: tracks, clips, scenes and samples can't be renamed today, so the plan adds the setters; scenes get insert,
-duplicate and delete; tracks get *Duplicate*, and copying tracks waits for round 7's tree; controls and sounds join
+**Done** 2026-10-24; see the [plan](PLAN-round-5-actions.md), signed off as proposed. Its inventory changed the outline
+below: tracks, clips, scenes and samples couldn't be renamed, so the round added the setters; scenes got insert,
+duplicate and delete; tracks got *Duplicate*, and copying tracks waits for round 7's tree; controls and sounds joined
 the kinds; *Save to library* from menus is a follow-up.
 
 * **Actions per kind of thing**: track, return, master, clip, automation slot, scene, sample, library item and
   folder, node, module, arrangement region. Each kind has one list of actions (id, title, whether it applies,
   run), in `state` or `app`, not in the views.
-* **Context menus** are built from those lists through the existing `ui/shared/context-menu` (Radix). A view only says
-  what was right-clicked.
+* **Context menus** are built from those lists through `ui/shared/menu` (Radix). A view only says what was
+  right-clicked.
 * **First entries:** rename, delete and duplicate wherever the project already has the action; open in (the intents:
   *Edit clip*, *Open effects*, *Open in wave editor*).
 * **Copy and paste** per kind, one at a time, each with its own clipboard store like the note clipboard: clips and
   slots first, then tracks, then nodes. There is no generic clipboard.
 * Round 10's command registry reuses the same action lists, so the command palette and the context menus can't drift
   apart.
+
+What moved while it ran: the lists live in `state/actions/` (the services they need come in an `ActionContext`, so
+nothing went to `app`); actions that ask which one (a lane's clips, an XY pad's axes) have choices; the Library's
+catalog and the graph editor's open sub-patch moved into stores so menus can act on them; Shift+F10 is handled by
+`ContextMenu`, since Chromium on macOS fires no `contextmenu` for it. Firefox and Safari were not checked. Keyboard
+delete and duplicate for graph selections wait for round 10.
 
 ## Round 6: working across views
 
