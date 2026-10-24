@@ -4,6 +4,12 @@ Reconciled against the implementation on `codex/performance-and-library`, 2026-1
 This file lists remaining work. Shipped behavior belongs in [ARCHITECTURE.md](../ARCHITECTURE.md);
 older handoffs and exploration notes retain historical scope, not current delivery status.
 
+## UI redesign (2026-10-24)
+
+A dockable, VS Code-style workbench with a full arrangement editor and a wave editor, on `feat/ui-redesign`.
+Plans, the roadmap and open decisions are in [`ui-redesign/`](ui-redesign/README.md); round 1 (untangling
+navigation from selection, no visible change) is planned and next.
+
 ## Prototype follow-ups: arrangement and sample editor (2026-10-17)
 
 The arrangement timeline, its follow-ups (looping regions, moving a region across tracks, placing from the session
