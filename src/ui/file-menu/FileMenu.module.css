@@ -1,12 +1,17 @@
 .file {
   display: flex;
+  /* Takes the transport bar's spare width, holding its contents at the right end. */
+  flex: 1 1 auto;
+  justify-content: flex-end;
   align-items: center;
   gap: 10px;
-  margin-left: auto;
 }
 
+/* Gives way down to 120 px before the transport bar wraps. */
 .name {
-  width: 180px;
+  flex: 1 1 120px;
+  width: 120px;
+  max-width: 180px;
 }
 
 .indicator {

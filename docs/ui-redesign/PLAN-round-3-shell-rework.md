@@ -279,6 +279,11 @@ What turned out different from the design above, step by step.
   step in it (*Replace*). Tab inside a dialog now moves the focus rather than switching Session and Arrangement.
 * **Step 7: the smoke spec picks from the submenu with the keyboard.** Playwright's single-step mouse moves close a
   Radix submenu before the pointer arrives; moving in steps or using the arrow keys works, as it does for people.
+* **Step 8: the project name shrinks before the bar wraps.** With `flex-wrap` alone the bar wrapped as soon as the
+  name's 180 px didn't fit, so the name never shrank. The name's flex basis is now 120 px, growing to 180 px, and
+  the File group takes the bar's spare width with its contents at the right end, where `margin-left: auto` held it.
+  Measured: one row down to about 1,110 px (the name at 137 px at 1,124), two rows below; no sideways scroll at
+  900 px either.
 
 ## Behavior changes
 

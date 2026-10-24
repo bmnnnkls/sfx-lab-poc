@@ -364,3 +364,15 @@ test('a layout saved under a name loads again after changes and a reload, and ca
   await page.reload()
   await expect.poll(() => page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('sfxlab:layouts')!).layouts))).toEqual([])
 })
+
+test('the transport bar wraps at 1024 px instead of making the page scroll sideways', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 })
+  await page.goto('/?starter')
+  await expect(viewRoot(page, 'Session')).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1024)
+  for (const name of ['Play', 'Panic']) {
+    const box = (await page.getByRole('button', { name, exact: true }).first().boundingBox())!
+    expect(box.x + box.width).toBeLessThanOrEqual(1024)
+  }
+  expect((await page.getByLabel('Project name').boundingBox())!.width).toBeGreaterThanOrEqual(120)
+})
