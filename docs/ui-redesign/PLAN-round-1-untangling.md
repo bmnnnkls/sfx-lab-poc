@@ -1,6 +1,6 @@
 # Round 1: untangling navigation from selection
 
-Status: **plan**, 2026-10-24. Part of the [UI redesign](README.md).
+Status: **done**, 2026-10-24 (planned and implemented the same day). Part of the [UI redesign](README.md).
 
 ## Goal
 
@@ -217,3 +217,44 @@ Anything else a reviewer notices is a bug in this round.
   choice for round 1; round 2's full layout persistence decides for good.
 * **Layout per browser or per project?** Proposed per browser (like VS Code's workbench). This matters from
   round 2, but if any reviewer wants per-project, the persistence hook is where it would change.
+
+## Container audit (round 1 result)
+
+Collected while implementing round 1, as input for round 3. Nothing here was fixed in this round. "Lost on unmount"
+means lost when the view's tab is switched away today, and when its group is hidden or closed after round 2.
+
+### The shell
+
+* `Splitter` sizes the panel from `window.innerHeight - clientY`, so it assumes the panel is anchored to the bottom of
+  the window. `Workspace` clamps the saved panel height with `window.innerHeight` and `MIN_SESSION_HEIGHT` (140 px).
+  Both go away with the docking library's own sashes.
+* The main area is one `<main>` with `overflow: auto`. Session and Arrangement share that scroll container, so a
+  toggle keeps the previous view's scroll offset (clamped) instead of each view keeping its own.
+* Popups positioned against the window (`QuickAdd`, tooltips, `MidiSettings`) are fine wherever their anchor is docked.
+
+### Per view
+
+| View | Size assumptions | Lost on unmount | Shown-elsewhere assumptions | Per-frame work while mounted |
+|---|---|---|---|---|
+| Session | None of its own; cells have a 34 px minimum height and the grid scrolls in the main area. | Nothing (selection is in stores). Scroll offset is the main area's. | The empty audio-cell menu says "import some in the Samples tab". ✎ and badges reveal other views through intents. | Every cell subscribes to its own playing / queued flags; re-renders only when they change. |
+| Arrangement | 120 px track-name column, 56 px lanes, 24 px ruler; reads lane bounds on click (fine). | Zoom (`pxPerBeat`), the selected region, the placement beat. | Clips reach the timeline through *Place on arrangement* in the session grid, because the two views are exclusive today; dragging a slot onto a lane needs both visible. | Subscribes to `status.beat` at the top: the whole view re-renders on every status update (~30/s) while playing. |
+| Instrument (`Patcher`) | 260 px property editor beside the canvas; a 180 px module bar. Below ~320 px width the canvas has no room. | Canvas pan / zoom, selected nodes, the open sub-patch path, the picker, the interface toggle. Graph / panel view and sockets are kept in localStorage (`sfxlab.view.*`, `sfxlab.sockets`). | For the master and a return, its text points to "the Effects tab". | `EffectiveValue` and the property editor follow the control store (playback values), so they re-render while automation plays. |
+| Effects (`FxPanel`) | Same `GraphEditor` as Instrument. | Same as Instrument. | Edits the master's graph when the master is selected. | Same as Instrument. |
+| Notes | The preview aside is 30% (at most 440 px); fixed 214 px and 220 px columns. | The chosen heard-notes entry, plus the `GraphEditor` state above. | None. | Same as Instrument. |
+| Clip | 270 px side settings; the automation editor has a 240 px lane list, a fixed 180 px canvas and a 260 px minimum height. | Note selection and drafts; the piano roll's scroll (re-centred on the notes when it mounts); all automation-editor state (lane, selection, zoom, step, search, paste beat). Grid, zoom, follow, audition and velocity lane are in localStorage. Notes / Automation is in `useAutomationEditor` (kept). | Empty states say "Select a clip with ✎" and "Create a slot in the session grid", assuming the session grid is visible. | The piano-roll `Playhead` follows `status.beat` (and auto-scrolls with *Follow*); the audio waveform's playhead likewise; `AutomationEditor` subscribes to the whole status and re-renders on every update. |
+| Mixer | Fixed-width strips (28 px fader, 10 px meter) in a row; the fader row needs at least 80 px height, so below ~200 px height the strips scroll. | Nothing. | The fx badge reveals Effects through an intent. | Every `LevelBar` subscribes to the whole status: each strip's meter re-renders on every update. |
+| Samples | The sample editor's waveform is a fixed 150 px high. | Drag highlight; in the editor, zoom, the selection and the busy flag. The edited sample is in the selection store since this round. | None. | None. |
+| Sounds (`PresetsPanel`) | 140 px inputs, 160 px minimum row labels. | The whole form: domain, name, A / B picks, morph amount, the last message. | None. | None. |
+| Library | Three columns of 180 px + at least 180 px + at least 260 px: overflows below ~650 px width. | Everything: the catalog (re-read from IndexedDB on mount), folder, selection, search and filters, trash toggle, bundle progress, messages. | None. | None. Lazy-loaded on first show. |
+
+### What this suggests for round 3
+
+* **Keep views mounted when hidden** (or lift the state above): Library, Sounds, the automation editor and the
+  arrangement lose the most. A docking library's "render only when visible" mode must be weighed against this.
+* **Per-frame subscriptions** that re-render a whole view (Arrangement, `AutomationEditor`, every `LevelBar`) should
+  move to a small playhead / meter component, as the piano roll's `Playhead` already does. This matters once several
+  views are visible at once.
+* **Fixed side columns** (property editor, clip settings, library columns) need a narrow layout or a collapse for
+  sidebars.
+* **Texts that name a tab** ("the Samples tab", "the Effects tab") should name the view, or offer a button that reveals it.
+

@@ -629,7 +629,7 @@ sends to it; it just processes what the tracks and returns have summed.
 
 ## Mixer
 
-The **Mixer** tab (`ui/mixer/`, `EditorTab 'mixer'`) is a row of vertical channel strips: every track in `sessionOrder`
+The **Mixer** tab (`ui/mixer/`, view `mixer`) is a row of vertical channel strips: every track in `sessionOrder`
 (clip tracks, then returns), then the master. A strip has the track's name (select), an fx badge (opens the Effects tab),
 pan, one send knob per return, **M**ute, **S**olo, the fader and a level meter. The session grid keeps its header volume
 slider (the same `track.volume`) and gains no other control; its header only strikes through the name of a muted track.
@@ -1313,6 +1313,8 @@ always a **new** library sample, so the original stays untouched.
 * **UI.** The waveform is drawn from the sample's peak thumbnails (one value per bucket), zoomed by pixels per
   bucket; drag to select a part. Normalize, Reverse, Keep selection, Delete selection and 10 ms fades run the
   transform and add the result to the library; ▶ auditions.
+* **Target.** The sample being edited is `useSelectionStore.sampleId` (`openSampleEditor(id)` / `selectSample(null)`),
+  not component state, so the editor stays open across tab switches and closes on *Close* or a replaced project.
 * **Not in the prototype.** Destructive in-place editing of a sample, stereo samples, and the granular stage
   (a granular sampler over the loaded buffer is the planned next step).
 
@@ -1370,6 +1372,27 @@ scenes) and *Glass Rain* (a self-composing ambient piece, 92 BPM, six scenes). A
   parameters once per block; it was 2.7 % when they read them per sample), so a long chain of them still adds up. The instruments themselves are a few percent each. If a scene stutters on a slower machine,
   mute a few tracks or reduce voices.
 
+## Layout and navigation
+
+*Which view is showing* and *what is selected* are separate. Views are mounted from data, so they can move between
+regions without knowing where they are docked (the [UI redesign](docs/ui-redesign/README.md) builds on this).
+
+* **Layout store** (`state/layout-store.ts`). `regions` maps each region (`main`, `panel`) to an ordered list of
+  `ViewId`s and the active one, the shape of a tab group. `revealView(id)` activates a view in whichever region holds
+  it; `toggleMainView()` is the Tab key and the transport's Session | Arrangement buttons; `resetPanel()` puts the panel
+  back on Instrument when a project is replaced (`app/project-files.ts`). Only the main view is persisted, under
+  `sfxlab:main-view` (`ui/layout/use-layout-persistence.ts`); the panel always opens on Instrument.
+* **Selection store** (`state/selection-store.ts`): `trackId`, `master`, `clipId`, `automationScene`, `sampleId`.
+  Selecting never changes the view.
+* **Navigation intents** (`state/navigation.ts`) select *and* reveal: `openClip`, `openTrackView(trackId, view)`
+  (the fx / notes badges, *New sampler track*), `openMasterEffects`, `openAutomationSlot`, `openSampleEditor`. Code
+  that wants to show something calls an intent; code that only selects calls the `select*` action.
+* **View registry** (`ui/layout/views.ts`): `Record<ViewId, { title, tooltip?, component }>`. A view takes no props
+  and reads its data from the stores. `EditorPanel` renders its tabs and body from `regions.panel`, `Workspace` its
+  main area from `regions.main`. Adding a `ViewId` without a registry entry fails the typecheck.
+* **Browser tests** open views only through `openView(page, title)` in `tests/browser/fixtures.ts`; its `ViewTitle`
+  union is kept in sync with the registry's titles by hand.
+
 ## Conventions
 
 * Files are `kebab-case.ts`; React components are `PascalCase.tsx` with a `PascalCase.module.css` beside them.
@@ -1393,8 +1416,10 @@ from the document) produce it in `core/sync/diff-project.ts`. If it is a one-off
 variant and diff in `core/sync`, a sanitizer in `persistence`, and a slot variant in the session grid; `Engine` and the
 launcher queue need no changes (the return track was added this way; TypeScript finds every `switch` on `kind`).
 
-**Add a UI feature** — new folder under `ui/`, read state via `@state` hooks, mount it from `Workspace` or
-`EditorPanel`.
+**Add a UI feature** — new folder under `ui/`, read state via `@state` hooks. A new view gets an id in `ViewId`
+(`state/layout-store.ts`), a place in a region's default `views`, and an entry in `ui/layout/views.ts`; add its title to
+`ViewTitle` in `tests/browser/fixtures.ts`. Code that should show it calls `revealView` or an intent in
+`state/navigation.ts`, never a tab setter.
 
 **Add a field to the project** — add it to `project/types.ts`, give it a safe default in
 `persistence/sanitize-*.ts`, bump the format version, add an explicit migration and commit a fixture for the new shape.

@@ -8,7 +8,7 @@ older handoffs and exploration notes retain historical scope, not current delive
 
 A dockable, VS Code-style workbench with a full arrangement editor and a wave editor, on `feat/ui-redesign`.
 Plans, the roadmap and open decisions are in [`ui-redesign/`](ui-redesign/README.md); round 1 (untangling
-navigation from selection, no visible change) is planned and next.
+navigation from selection, no visible change) is done; round 2 (the shell) is next.
 
 ## Prototype follow-ups: arrangement and sample editor (2026-10-17)
 
