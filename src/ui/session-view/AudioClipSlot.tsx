@@ -1,5 +1,5 @@
 import type { AudioClip } from '@core'
-import { duplicateSessionClip, useAutomationEditor, useEngineControls, openClip, useProjectStore, useStatusStore } from '@state'
+import { duplicateSessionClip, useAutomationEditor, useEngineControls, openClip, useLayoutStore, useProjectStore, useStatusStore } from '@state'
 import { ContextMenu, type MenuEntry, PopupMenu } from '../shared/menu'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import { placeOnArrangement } from './place-on-arrangement'
@@ -23,7 +23,7 @@ export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
   if (!clip) {
     const choices: MenuEntry[] =
       samples.length === 0
-        ? [{ label: 'No samples yet: import some in the Samples tab', disabled: true, onSelect: () => {} }]
+        ? [{ label: 'Import samples…', onSelect: () => useLayoutStore.getState().revealView('samples') }]
         : samples.map((sample) => ({
             label: sample.name,
             onSelect: () => {

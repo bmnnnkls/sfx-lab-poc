@@ -1388,10 +1388,15 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   (the fx / notes badges, *New sampler track*), `openMasterEffects`, `openAutomationSlot`, `openSampleEditor`. Code
   that wants to show something calls an intent; code that only selects calls the `select*` action.
 * **View registry** (`ui/layout/views.ts`): `Record<ViewId, { title, tooltip?, component }>`. A view takes no props
-  and reads its data from the stores. `EditorPanel` renders its tabs and body from `regions.panel`, `Workspace` its
+  and reads its data from the stores. The titles live apart in `ui/layout/view-titles.ts`, which imports no
+  components, so a view can use another view's title without an import cycle. `EditorPanel` renders its tabs and body from `regions.panel`, `Workspace` its
   main area from `regions.main`. Adding a `ViewId` without a registry entry fails the typecheck.
+* **A view never names another view in its text.** An empty state or menu that would say "in the Samples tab"
+  offers an action instead (*Import samples…*, *Open effects*, *Show session*) that calls `revealView` or an intent,
+  because the other view may be docked anywhere, or already visible. Where a label must name a view, it takes the
+  title from `viewTitles`.
 * **Browser tests** open views only through `openView(page, title)` in `tests/browser/fixtures.ts`; its `ViewTitle`
-  union is kept in sync with the registry's titles by hand.
+  union is kept in sync with `viewTitles` by hand.
 
 ## Conventions
 
@@ -1417,8 +1422,8 @@ variant and diff in `core/sync`, a sanitizer in `persistence`, and a slot varian
 launcher queue need no changes (the return track was added this way; TypeScript finds every `switch` on `kind`).
 
 **Add a UI feature** — new folder under `ui/`, read state via `@state` hooks. A new view gets an id in `ViewId`
-(`state/layout-store.ts`), a place in a region's default `views`, and an entry in `ui/layout/views.ts`; add its title to
-`ViewTitle` in `tests/browser/fixtures.ts`. Code that should show it calls `revealView` or an intent in
+(`state/layout-store.ts`), a place in a region's default `views`, and an entry in `ui/layout/views.ts` with its title in
+`ui/layout/view-titles.ts`; add the title to `ViewTitle` in `tests/browser/fixtures.ts`. Code that should show it calls `revealView` or an intent in
 `state/navigation.ts`, never a tab setter.
 
 **Add a field to the project** — add it to `project/types.ts`, give it a safe default in

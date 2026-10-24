@@ -32,6 +32,18 @@
   color: var(--text-dim);
 }
 
+.empty > p {
+  margin: 0 0 8px;
+}
+
+/* What an empty editor offers instead: the track's clips and the ways to get one. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
 /* Shortcut hint: takes the leftover width and truncates, so the toolbar stays on one line. */
 .help {
   flex: 1 1 0;

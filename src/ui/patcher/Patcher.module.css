@@ -25,6 +25,10 @@
   color: var(--text-dim);
 }
 
+.empty > p {
+  margin: 0 0 8px;
+}
+
 .canvasHost {
   position: relative;
   height: 100%;

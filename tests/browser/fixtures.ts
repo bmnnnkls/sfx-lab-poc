@@ -15,7 +15,7 @@ export const test = base.extend<{ browserErrors: string[] }>({
 
 export { expect }
 
-/** The views' titles. Specs import no `src/`, so keep this in sync by hand with `src/ui/layout/views.ts`. */
+/** The views' titles. Specs import no `src/`, so keep this in sync by hand with `src/ui/layout/view-titles.ts`. */
 export type ViewTitle =
   | 'Session' | 'Arrangement'
   | 'Instrument' | 'Effects' | 'Notes' | 'Clip' | 'Mixer' | 'Samples' | 'Sounds' | 'Library'
