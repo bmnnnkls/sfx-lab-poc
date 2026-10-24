@@ -23,6 +23,7 @@ layer of navigation coupling, which round 1 removes.
 |---|---|
 | [PLAN-round-1-untangling.md](PLAN-round-1-untangling.md) | **Done** 2026-10-24. Layout store, navigation intents, view registry, `openView`; container audit appended. Shipped behavior is in [ARCHITECTURE.md § Layout and navigation](../../ARCHITECTURE.md#layout-and-navigation). |
 | [PROPOSAL-audit-remediation.md](PROPOSAL-audit-remediation.md) | Proposal. How to fix the round-1 container audit: keep-alive with `<Activity>`, narrow per-frame subscriptions, container queries and `minSize`, empty states with actions. **Round 1b done** 2026-10-24: the per-frame fixes with a guard test and profiling numbers (§2), empty states that offer actions (§4, rule in [ARCHITECTURE.md § Layout and navigation](../../ARCHITECTURE.md#layout-and-navigation)), and the arrangement zoom is persisted. Keep-alive, `minSize` and container queries remain for rounds 2 and 3. |
+| [PLAN-round-2-shell.md](PLAN-round-2-shell.md) | Plan, 2026-10-24, awaiting sign-off. The docking shell. A spike compared dockview and flexlayout-react; it recommends **flexlayout-react** (dockview fails keyboard splitters, charges for keyboard group navigation and costs twice the bundle). Hidden views stay mounted in `<Activity>`: no remounts, scroll kept. Covers the layout-store façade, persisted layouts, regions and the Effects check, in eight steps. |
 | [DRAFT-roadmap.md](DRAFT-roadmap.md) | Draft outline of rounds 2+ (shell, views, wave editor, …). To be refined round by round. |
 
 ## Ground rules for the whole redesign
