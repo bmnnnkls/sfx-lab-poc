@@ -1031,9 +1031,9 @@ out for metering).
   so you hear the real patch, even while stopped). Resize handles stay silent. Toggle in the toolbar.
 * **Follow playhead** scrolls a long clip along with playback. `Playhead` owns its status subscription so the roll
   itself does not re-render 30x a second; the static parts (keys, ruler, pitch rows, notes) are memoised.
-* **Remembered UI preferences:** grid, zoom, audition, follow, lane visibility and the editor panel height are kept in
-  `localStorage` via `useStoredState` (guarded, validated, falls back to defaults). The editor panel is resizable with a
-  draggable, keyboard-operable splitter (`ui/shared/Splitter.tsx`); its saved height is clamped to the window on use.
+* **Remembered UI preferences:** grid, zoom, audition, follow and lane visibility are kept in `localStorage` via
+  `useStoredState` (guarded, validated, falls back to defaults). The panel's height is part of the saved layout (see
+  [Layout and navigation](#layout-and-navigation)).
 
 ## Context menu (reusable)
 
@@ -1377,26 +1377,66 @@ scenes) and *Glass Rain* (a self-composing ambient piece, 92 BPM, six scenes). A
 *Which view is showing* and *what is selected* are separate. Views are mounted from data, so they can move between
 regions without knowing where they are docked (the [UI redesign](docs/ui-redesign/README.md) builds on this).
 
-* **Layout store** (`state/layout-store.ts`). `regions` maps each region (`main`, `panel`) to an ordered list of
-  `ViewId`s and the active one, the shape of a tab group. `revealView(id)` activates a view in whichever region holds
-  it; `toggleMainView()` is the Tab key and the transport's Session | Arrangement buttons; `resetPanel()` puts the panel
-  back on Instrument when a project is replaced (`app/project-files.ts`). Only the main view is persisted, under
-  `sfxlab:main-view` (`ui/layout/use-layout-persistence.ts`); the panel always opens on Instrument.
+* **The shell** (`ui/Workspace.tsx`): the transport bar on top, the activity bar beside the layout, the status bar
+  below. The layout is [flexlayout-react](https://github.com/caplin/FlexLayout), pinned to an exact version and
+  imported only from `ui/layout/` (the architecture test enforces both; upgrade on purpose, its 0.x minors break).
+  * **Regions.** The editor area is flexlayout's main row of tab groups, Session and Arrangement by default; it
+    splits freely. The panel is its bottom border, holding the eight tool views; the primary and secondary
+    sidebars are its left and right borders, empty and hidden by default. A border shows one tab at a time, and
+    clicking its open tab collapses it. Views can be dragged between all of them; tabs can't be closed, so every
+    view is always somewhere.
+  * **`Workbench`** renders the layout and registers a `FlexLayoutDriver` (`layout-driver.ts`) with the layout
+    store; `default-layout.ts` builds the default model from the store's `DEFAULT_LAYOUT`.
+  * **Activity bar** (`nav` "Views"): show Session or Arrangement, toggle the primary sidebar, panel and secondary
+    sidebar, *Reset layout*. **Status bar** (`contentinfo`): the audio-failure alert, `SaveIndicator`, and a
+    *Layout* menu with the same toggles and *Reset layout*.
+  * **Keyboard.** Tabs follow the tab pattern and splitters are focusable separators (flexlayout's). F6 and
+    Shift+F6 move the focus between tab groups, the panel and sidebars included (`group-focus.ts`; flexlayout's own
+    key skips borders). Tab toggles Session and Arrangement, except in form fields, on a tab, a splitter or the
+    activity bar.
+* **Keep-alive** (`ui/layout/ViewHost.tsx`). flexlayout renders a tab the first time it is shown and keeps it;
+  `ViewTab` follows the tab's `visibility` event into `ViewHost`, which wraps the view in
+  `<Activity mode={visible ? 'visible' : 'hidden'}>`. A hidden view keeps its state and scroll offsets, and its
+  Effects are cleaned up until it shows again, so subscriptions (playheads, meters) pause and window listeners
+  (Shift+A) stop. Write a view's Effects to run again on every show: `PianoRoll` centres only when the clip changes.
+  Just before hiding a view, `ViewHost` dispatches `view-hide` on its root; popups that should close with their
+  view (`QuickAdd`, `GroovePanel`) listen with `onViewHide` (`view-events.ts`) rather than closing in an Effect
+  cleanup, which StrictMode would trigger on open. Each view's root is `<div data-view={id}>`, its own scroll
+  container and a landmark (`region`) named after the view.
+* **Layout store** (`state/layout-store.ts`), a façade over the shell. The library owns the layout tree; the store
+  keeps round 1's API and mirrors what shows: `groups` (each tab group with its region, views and active view),
+  `visible` and `hiddenRegions`. `revealView(id)` shows a view wherever it is docked (showing a hidden region
+  first), `toggleMainView()` shows whichever of Session and Arrangement isn't showing (nothing when both are),
+  `toggleRegion` and `resetLayout`. With a driver attached the actions go to it and the shell mirrors the model
+  back through `sync` after each change; without one (unit tests, before the shell mounts) they update the mirror
+  directly. Read `visible` to know whether a view shows.
+* **Persistence** (`ui/layout/layout-storage.ts`, `use-layout-persistence.ts`). The whole layout, every group's
+  open tab included, is saved per browser under `sfxlab:layout` as `{ version: 1, model }`, 250 ms after the last
+  change, and read once before the first render. `parseStoredLayout` rejects anything that isn't JSON, another
+  version, unknown views or node types, non-view tabs and duplicate ids (falling back to the default), and repairs
+  what a later round can make stale: missing views go to their default region, missing borders are added, tabs
+  take the registry's names and tooltips. A browser without a saved layout gets one from the old
+  `sfxlab:main-view` and `sfxlab:editor-height`. *Reset layout* saves the default. Replacing the project doesn't
+  touch the layout.
 * **Selection store** (`state/selection-store.ts`): `trackId`, `master`, `clipId`, `automationScene`, `sampleId`.
   Selecting never changes the view.
 * **Navigation intents** (`state/navigation.ts`) select *and* reveal: `openClip`, `openTrackView(trackId, view)`
   (the fx / notes badges, *New sampler track*), `openMasterEffects`, `openAutomationSlot`, `openSampleEditor`. Code
   that wants to show something calls an intent; code that only selects calls the `select*` action.
 * **View registry** (`ui/layout/views.ts`): `Record<ViewId, { title, tooltip?, component }>`. A view takes no props
-  and reads its data from the stores. The titles live apart in `ui/layout/view-titles.ts`, which imports no
-  components, so a view can use another view's title without an import cycle. `EditorPanel` renders its tabs and body from `regions.panel`, `Workspace` its
-  main area from `regions.main`. Adding a `ViewId` without a registry entry fails the typecheck.
+  and reads its data from the stores. The titles and tooltips live apart in `ui/layout/view-titles.ts`, which
+  imports no components, so a view can use another view's title without an import cycle and the layout can name
+  its tabs without loading the views. Adding a `ViewId` without a registry entry fails the typecheck.
 * **A view never names another view in its text.** An empty state or menu that would say "in the Samples tab"
   offers an action instead (*Import samples…*, *Open effects*, *Show session*) that calls `revealView` or an intent,
   because the other view may be docked anywhere, or already visible. Where a label must name a view, it takes the
   title from `viewTitles`.
-* **Browser tests** open views only through `openView(page, title)` in `tests/browser/fixtures.ts`; its `ViewTitle`
-  union is kept in sync with `viewTitles` by hand.
+* **Browser tests** open views only through `openView(page, title)` in `tests/browser/fixtures.ts`, which clicks
+  the view's tab and returns its root once visible; look inside that root, since hidden views stay in the DOM
+  (`viewRoot(page, title)` finds a root without showing it). `dragView` and `dragViewToSidebar` dock a tab with
+  the stepped mouse moves flexlayout needs. `ViewTitle` and the ids are kept in sync with `viewTitles` by hand.
+* **Profiling** (`scripts/profile-status.cjs`): React renders and Chrome's main-thread counters while the
+  transport plays; usage in its header.
 
 ## Conventions
 
@@ -1422,8 +1462,9 @@ variant and diff in `core/sync`, a sanitizer in `persistence`, and a slot varian
 launcher queue need no changes (the return track was added this way; TypeScript finds every `switch` on `kind`).
 
 **Add a UI feature** — new folder under `ui/`, read state via `@state` hooks. A new view gets an id in `ViewId`
-(`state/layout-store.ts`), a place in a region's default `views`, and an entry in `ui/layout/views.ts` with its title in
-`ui/layout/view-titles.ts`; add the title to `ViewTitle` in `tests/browser/fixtures.ts`. Code that should show it calls `revealView` or an intent in
+(`state/layout-store.ts`), a place in a group of `DEFAULT_LAYOUT` there, and an entry in `ui/layout/views.ts` with its
+title (and tooltip) in `ui/layout/view-titles.ts`; add the title and id to `tests/browser/fixtures.ts`. Saved layouts
+get the new view in its default region on their next load. Code that should show it calls `revealView` or an intent in
 `state/navigation.ts`, never a tab setter.
 
 **Add a field to the project** — add it to `project/types.ts`, give it a safe default in

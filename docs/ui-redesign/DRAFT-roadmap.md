@@ -33,6 +33,10 @@ revised with what the previous round taught us.
 
 ## Round 2: the shell
 
+**Done** 2026-10-24, see the [plan](PLAN-round-2-shell.md). The spike chose **flexlayout-react**, pinned to 0.11.1,
+over dockview: dockview failed keyboard splitters, keeps keyboard group navigation in a paid package and cost twice
+the bundle. The outline below is what the round started from.
+
 Replace `Workspace` with a docking workbench that mounts the round-1 view registry.
 
 * **Library decision (spike first).** Candidate: [dockview](https://dockview.dev) (React, no dependencies,
@@ -65,11 +69,13 @@ Replace `Workspace` with a docking workbench that mounts the round-1 view regist
 
 Work through the round-1 container audit, view by view.
 
-* No view reads the window size. `Splitter` goes, or becomes a region-internal splitter measuring its container.
-* Narrow and short layouts for the session grid, mixer, patcher toolbar, clip editor toolbar and samples list.
-* State that should survive a hidden view moves to stores, e.g. arrangement zoom and scroll, clip editor zoom.
+* No view reads the window size to lay itself out. (`Splitter` and the window clamp went in round 2.)
+* Narrow and short layouts for the session grid, mixer, patcher toolbar, clip editor toolbar and samples list,
+  with the minimum sizes the round-2 plan proposes (280 × 200 for tool views, 480 × 240 for editors).
 * Proper empty states ("Select a clip with ✎" and similar) that offer the action that fills them.
-* Per-frame work (playheads, meters) pauses while a view is hidden.
+
+Round 2 settled two bullets this outline had here: a hidden view keeps its state, since it stays mounted inside
+`<Activity>`, and its per-frame work pauses, since its Effects are cleaned up while hidden.
 
 ## Round 4: working across views
 
@@ -138,7 +144,7 @@ Deliberately last, so it restyles a stable structure.
   * Regions are landmarks; tabs follow the tab pattern.
   * Splitters are keyboard-operable, as `Splitter` is today.
   * Focus moves sensibly when views are revealed.
-* **Popout windows** (second monitor). Possible with dockview because popouts share the JS realm, so the zustand
+* **Popout windows** (second monitor). flexlayout supports them, and popouts share the JS realm, so the zustand
   stores just work. Later, after round 3, since every view must already be size-agnostic.
 * **Tests.** Fresh browser contexts already give every spec the default layout; keep it that way, and add layout
   fixtures only where a spec needs a specific arrangement.
@@ -147,8 +153,8 @@ Deliberately last, so it restyles a stable structure.
 
 | Question | Proposed | Decide in |
 |---|---|---|
-| Docking library or own regions | dockview, subject to the spike | round 2 |
-| Layout saved per browser or per project | per browser | round 2 |
+| Docking library or own regions | **Settled in round 2:** flexlayout-react 0.11.1 (the spike reversed the dockview proposal) | round 2 |
+| Layout saved per browser or per project | **Settled in round 2:** per browser | round 2 |
 | Can a view be open twice (e.g. two patchers on different tracks)? | not yet: one instance of each view; pinned per-entity editor tabs later | round 3 |
 | Wave editor: destructive edits vs. derived samples | destructive with undo, original kept until project save | round 6 SPEC |
 | Stereo samples throughout the engine, or only in the editor | throughout (needed for the wave editor to be honest) | round 6 SPEC |

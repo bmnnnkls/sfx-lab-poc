@@ -1,6 +1,6 @@
 # Round 2: the docking shell
 
-Status: **plan, decisions signed off** 2026-10-24 (every row as proposed). Part of the [UI redesign](README.md). Carries out
+Status: **done** 2026-10-24, decisions signed off as proposed. What changed on the way is under [Changes made while implementing](#changes-made-while-implementing); shipped behavior is in [ARCHITECTURE.md § Layout and navigation](../../ARCHITECTURE.md#layout-and-navigation). Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 2](DRAFT-roadmap.md#round-2-the-shell) and the round-2 parts of the
 [audit remediation proposal](PROPOSAL-audit-remediation.md): §1 (keep-alive) and §3 (the shell).
 The [decisions](#decisions-to-sign-off) were accepted as proposed on 2026-10-24.
@@ -467,6 +467,26 @@ What turned out different from the design above, step by step.
   into a closed border opens there (`borderAutoSelectTabWhenClosed`). Toggling an empty sidebar shows or hides
   that strip.
 * **Step 7: the Tab-key rule** checks `closest('[role="tab"], [role="separator"], [data-activity-bar]')`.
+* **Step 8: the profile.** `scripts/profile-status.cjs` is the spike's script with three setups (`editor`, `all`,
+  `four`; see its header). Base (`feat/ui-redesign` with this plan) and this branch ran interleaved in one session,
+  10 s each after 2 s of warm-up, headless Chromium:
+
+  | Per second | Base, 2 runs | Round 2, 2 runs | Round 2, every panel view shown once | Round 2, four views (`four`) |
+  |---|---|---|---|---|
+  | Component renders (dev) | 145, 144 | 145, 145 | 145 | 173 |
+  | React render time (dev) | 8.0, 13.1 ms | 7.3, 9.3 ms | 10.3 ms | 10.3 ms |
+  | Script (production) | 12.2, 13.1 ms | 14.9, 14.0 ms | 13.6 ms | 17.4 ms |
+  | Main-thread tasks (production) | 79.3, 87.6 ms | 96.0, 88.9 ms | 89.7 ms | 121.6 ms |
+  | Layout + style (production) | 22.2, 23.3 ms | 27.0, 25.0 ms | 24.3 ms | 24.7 ms |
+
+  * With the same views showing (Arrangement and Mixer, the arrangement playing), component renders stay at the
+    baseline's 144–145 a second, and the hidden views add nothing: showing every panel view once and hiding it
+    again leaves 145. The production counters fall inside the spike's baseline range (tasks 65.9–94.3 ms, layout
+    and style 17.6–25.3 ms) except the first run's tasks, 96.0 ms; the second pair differs by 1.3 ms.
+  * `four` shows Session and Arrangement side by side over Clip, with Mixer in the panel and scene 1 playing, its
+    clip open in Clip. The extra 28 renders a second are Clip's `Playhead` (29 a second), the only per-frame
+    component that setup adds. Session's grid itself doesn't re-render.
+  * A third pair was cut short when the servers stopped, so it isn't in the table.
 
 ## Behavior changes
 
