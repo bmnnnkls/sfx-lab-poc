@@ -8,7 +8,7 @@ import { TransportPosition } from './TransportPosition'
 import styles from './TransportBar.module.css'
 
 export const TransportBar = () => {
-  const view = useLayoutStore((state) => state.regions.main.active)
+  const visible = useLayoutStore((state) => state.visible)
   const revealView = useLayoutStore((state) => state.revealView)
   const touch = useTouchStore()
   const controls = useEngineControls()
@@ -41,7 +41,7 @@ export const TransportBar = () => {
       <LevelMeter />
       <div className={styles.views}>
         <button
-          className={view === 'session' ? styles.active : undefined}
+          className={visible.includes('session') ? styles.active : undefined}
           onClick={() => revealView('session')}
           aria-label="Session view"
           title="Session view (Tab)"
@@ -49,7 +49,7 @@ export const TransportBar = () => {
           Session
         </button>
         <button
-          className={view === 'arrangement' ? styles.active : undefined}
+          className={visible.includes('arrangement') ? styles.active : undefined}
           onClick={() => revealView('arrangement')}
           aria-label="Arrangement view"
           title="Arrangement view (Tab)"

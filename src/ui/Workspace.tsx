@@ -7,7 +7,7 @@ import { TooltipLayer } from './shared/tooltip/TooltipLayer'
 import { useStoredState } from './shared/use-stored-state'
 import { useUndoShortcuts } from './shortcuts/use-undo-shortcuts'
 import { useViewShortcuts } from './shortcuts/use-view-shortcuts'
-import { useLayoutStore, useStatusStore } from '@state'
+import { groupIn, useLayoutStore, useStatusStore } from '@state'
 import { ToastStack } from './toasts/ToastStack'
 import { TransportBar } from './transport-bar/TransportBar'
 import styles from './Workspace.module.css'
@@ -25,7 +25,7 @@ export const Workspace = () => {
   useViewShortcuts()
   const audioFailure = useStatusStore((state) => state.audioFailure)
   const [stored, setEditorHeight] = useStoredState('sfxlab:editor-height', DEFAULT_EDITOR_HEIGHT, isNumber)
-  const main = useLayoutStore((state) => state.regions.main.active)
+  const main = useLayoutStore((state) => groupIn(state, 'editor')?.active ?? 'session')
   const [windowHeight, setWindowHeight] = useState(window.innerHeight)
 
   useEffect(() => {

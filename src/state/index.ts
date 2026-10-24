@@ -6,7 +6,17 @@ export {
   type ProjectState,
 } from './project-store'
 export { useSelectionStore } from './selection-store'
-export { useLayoutStore, DEFAULT_REGIONS, type ViewId, type RegionId, type RegionState } from './layout-store'
+export {
+  useLayoutStore,
+  groupIn,
+  DEFAULT_LAYOUT,
+  MAIN_VIEWS,
+  type ViewId,
+  type RegionId,
+  type GroupState,
+  type LayoutDriver,
+  type LayoutSnapshot,
+} from './layout-store'
 export * from './navigation'
 export { useStatusStore } from './status-store'
 export {

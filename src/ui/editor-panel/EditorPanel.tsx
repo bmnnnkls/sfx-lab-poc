@@ -1,12 +1,13 @@
-import { useLayoutStore } from '@state'
+import { groupIn, useLayoutStore } from '@state'
 import { KeptViews } from '../layout/KeptViews'
 import { views } from '../layout/views'
 import styles from './EditorPanel.module.css'
 
 /** Bottom panel: one tab per view in the panel region, showing the active one. */
 export const EditorPanel = () => {
-  const panel = useLayoutStore((state) => state.regions.panel)
+  const panel = useLayoutStore((state) => groupIn(state, 'panel'))
   const revealView = useLayoutStore((state) => state.revealView)
+  if (!panel) return null
 
   return (
     <div className={styles.panel}>

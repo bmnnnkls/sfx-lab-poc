@@ -3,7 +3,6 @@ import { type ProjectStorage, type SampleStorage, downloadFile, exportProject, i
 import {
   type EngineControls,
   type ProjectFiles,
-  useLayoutStore,
   usePersistenceStore,
   useProjectStore,
   useSelectionStore,
@@ -28,7 +27,6 @@ export const createProjectFiles = (
 
     engine.stop()
     useSelectionStore.getState().reset()
-    useLayoutStore.getState().resetPanel()
     useProjectStore.getState().replaceProject(next)
 
     persistence().setHasBackup(storage.hasBackup())

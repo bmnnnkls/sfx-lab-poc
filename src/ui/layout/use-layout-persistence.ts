@@ -1,14 +1,14 @@
-import { DEFAULT_REGIONS, type ViewId, useLayoutStore } from '@state'
+import { groupIn, type LayoutSnapshot, MAIN_VIEWS, type ViewId, useLayoutStore } from '@state'
 import { useEffect, useState } from 'react'
 
 /** The key and values predate the layout store, so a user's saved choice survives. */
 const MAIN_VIEW_KEY = 'sfxlab:main-view'
 
 const isMainView = (value: unknown): value is ViewId =>
-  typeof value === 'string' && DEFAULT_REGIONS.main.views.includes(value as ViewId)
+  typeof value === 'string' && MAIN_VIEWS.includes(value as ViewId)
 
 /**
- * Remembers the main region's view in localStorage. Storage can be missing or blocked (private mode), so every
+ * Remembers the editor area's view in localStorage. Storage can be missing or blocked (private mode), so every
  * access is guarded, and an unreadable or stale value falls back to the default, as in `useStoredState`.
  * Mount once, above the views, so the saved view is in place before they first render.
  */
@@ -32,9 +32,12 @@ export const useLayoutPersistence = (): void => {
         // Not persisted; the in-memory layout still works.
       }
     }
-    save(useLayoutStore.getState().regions.main.active)
+    const editorView = (state: LayoutSnapshot) => groupIn(state, 'editor')?.active
+    const initial = editorView(useLayoutStore.getState())
+    if (initial) save(initial)
     return useLayoutStore.subscribe((state, previous) => {
-      if (state.regions.main.active !== previous.regions.main.active) save(state.regions.main.active)
+      const view = editorView(state)
+      if (view && view !== editorView(previous)) save(view)
     })
   }, [])
 }
