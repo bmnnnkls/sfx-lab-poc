@@ -319,6 +319,24 @@ independent of each other once step 2 has landed.
       graph-view store and the default layout.
     * [README.md](README.md) marks round 4 done. The roadmap notes what moved.
 
+## Changes made while implementing
+
+What turned out different from the design above, step by step.
+
+* **Step 1: the override names flexlayout's classes.** The measured rule matched `[style*="min-width"]`, which would
+  also match the frame's `--min-width`; it selects `.flexlayout__row` and `.flexlayout__tabset_container` inside
+  `.flexlayout__layout_main` instead.
+* **Step 1: the collapsed panel's rule runs in `sync`.** The driver's `keepMinimumHeights` runs before each mirror,
+  so it covers the driver's own actions and the user's (`onModelChange`) alike, and a saved collapsed layout on its
+  first sync.
+* **Step 2: `dockAtSize` holds a size with a tab group's maximums, not weights.** flexlayout's weights didn't give
+  exact sizes (a box weighted to 480 px came out 544 px). A tab group's `maxWidth` and `maxHeight` (the strip not
+  counted) give the size exactly, without first loading the page to measure it.
+* **Step 2: the rule test also catches** `outerWidth`, `outerHeight` and the `dvh` / `svh` / `lvh` units, and checks
+  itself on a sample.
+* **Step 2: `QuickAdd` re-checked.** Opened from a 480 px Instrument in the right sidebar at 1440 × 900, the popup's
+  box equals its `left` / `top` in window coordinates (1092, 81) and fits inside the window.
+
 ## Behavior changes
 
 Intended:

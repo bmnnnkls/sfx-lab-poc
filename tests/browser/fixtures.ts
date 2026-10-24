@@ -82,6 +82,38 @@ export const dragViewToSidebar = async (page: Page, title: ViewTitle, sidebar: '
   await dragTab(page, title, strip.x + strip.width / 2, strip.y + strip.height / 2)
 }
 
+/**
+ * Load the page with a view docked alone at a size, and return its root once visible. Specs that need a specific
+ * arrangement use this; it writes the stored layout itself, so it imports no `src/`.
+ * * a width: the view alone in the primary sidebar at that width (a border's size is exact);
+ * * a height: the view alone in the panel, held at that height by the group's maximum;
+ * * both: the view alone in a group at the top left of the main layout, held at that size by its maximums.
+ * Every other view goes into one editor group.
+ */
+export const dockAtSize = async (page: Page, title: ViewTitle, size: { width?: number; height?: number }, url = '/?starter'): Promise<Locator> => {
+  const id = VIEW_IDS[title]
+  const tab = (view: string) => ({ type: 'tab', id: view, component: 'view' })
+  const editor = { type: 'tabset', id: 'editor', weight: 50, children: Object.values(VIEW_IDS).filter((view) => view !== id).map(tab) }
+  const panel = (children: unknown[], extra = {}) => ({ type: 'tabset', id: 'panel', weight: 50, ...extra, children })
+  const column = (children: unknown[]) => ({ type: 'row', weight: 50, children })
+  const { width, height } = size
+  const inSidebar = width !== undefined && height === undefined
+  const borders = inSidebar ? [{ type: 'border', location: 'left', show: true, selected: 0, size: width, children: [tab(id)] }] : []
+  // A tab group's maximum height doesn't count its tab strip.
+  const rows = inSidebar
+    ? [column([editor, panel([], { maxHeight: 0 })])]
+    : width === undefined
+      ? [column([editor, panel([tab(id)], { maxHeight: height })])]
+      : [column([{ type: 'tabset', id: 'box', weight: 50, maxWidth: width, maxHeight: height, children: [tab(id)] }, panel([])]), editor]
+  const layout = JSON.stringify({ version: 2, model: { global: {}, borders, layout: { type: 'row', children: rows } } })
+  // Written before the app reads it, on every load from now on: the page saves its own layout as it unloads.
+  await page.addInitScript((value) => localStorage.setItem('sfxlab:layout', value), layout)
+  await page.goto(url)
+  const root = viewRoot(page, title)
+  await expect(root).toBeVisible()
+  return root
+}
+
 export const openExample = async (page: Page, name: string) => {
   await page.getByText('File', { exact: true }).click()
   await page.getByRole('button', { name: new RegExp(`^${name}`) }).click()
