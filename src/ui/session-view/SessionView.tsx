@@ -1,6 +1,7 @@
-import { useEngineControls, useProjectStore } from '@state'
+import { type Subject, runAction, useProjectStore } from '@state'
 import { type CSSProperties, useMemo } from 'react'
-import { PopupMenu } from '../shared/menu'
+import { ActionMenu, PopupMenu, useActionContext } from '../shared/menu'
+import { InPlaceRename } from '../shared/RenameField'
 import { AutomationSlotCell } from './AutomationSlotCell'
 import { ClipSlot } from './ClipSlot'
 import { MasterHeader } from './MasterHeader'
@@ -13,7 +14,6 @@ import { sessionOrder } from './track-order'
  * stay at the top and a scene column that stays at the right, so tracks can be named and scenes launched anywhere.
  */
 export const SessionView = () => {
-  const controls = useEngineControls()
   const projectTracks = useProjectStore((state) => state.project.tracks)
   const tracks = useMemo(() => sessionOrder(projectTracks), [projectTracks])
   const sceneCount = useProjectStore((state) => state.project.sceneCount)
@@ -44,14 +44,16 @@ export const SessionView = () => {
         </PopupMenu>
 
         {Array.from({ length: sceneCount }, (_, scene) => (
-          <SceneRow key={scene} scene={scene} onLaunch={() => controls.launchScene(scene)} />
+          <SceneRow key={scene} scene={scene} />
         ))}
       </div>
     </div>
   )
 }
 
-const SceneRow = ({ scene, onLaunch }: { scene: number; onLaunch: () => void }) => {
+const SceneRow = ({ scene }: { scene: number }) => {
+  const context = useActionContext()
+  const subject: Subject = { kind: 'scene', scene }
   const projectTracks = useProjectStore((state) => state.project.tracks)
   const tracks = useMemo(() => sessionOrder(projectTracks), [projectTracks])
   const name = useProjectStore((state) => state.project.sceneNames?.[scene])
@@ -61,10 +63,14 @@ const SceneRow = ({ scene, onLaunch }: { scene: number; onLaunch: () => void }) 
         <ClipSlot key={track.id} track={track} scene={scene} />
       ))}
       <AutomationSlotCell owner={{ kind: 'master' }} scene={scene} />
-      <button className={styles.scene} onClick={onLaunch} aria-label={name ? `Launch scene ${scene + 1}, ${name}` : `Launch scene ${scene + 1}`} title={name || undefined}>
-        <span>▶ {scene + 1}</span>
-        {name && <small className={styles.sceneName}>{name}</small>}
-      </button>
+      <InPlaceRename subject={subject} name={name ?? ''} label={`Name of scene ${scene + 1}`} className={styles.scene}>
+        <ActionMenu subject={subject}>
+        <button className={styles.scene} onClick={() => runAction('scene.launch', subject, context)} aria-label={name ? `Launch scene ${scene + 1}, ${name}` : `Launch scene ${scene + 1}`} title={name || undefined}>
+          <span>▶ {scene + 1}</span>
+          {name && <small className={styles.sceneName}>{name}</small>}
+        </button>
+        </ActionMenu>
+      </InPlaceRename>
     </>
   )
 }

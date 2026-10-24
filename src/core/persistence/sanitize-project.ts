@@ -7,6 +7,7 @@ import {
   DEFAULT_SCENE_COUNT,
   DEFAULT_VOICES,
   MAX_NAME_LENGTH,
+  NAME_LIMITS,
   MAX_TEMPO,
   MAX_VOICES,
   MIN_TEMPO,
@@ -40,7 +41,7 @@ const sanitizeTrack = (
     warn(`Track ${index + 1}: skipped a malformed track`)
     return null
   }
-  const name = nonEmptyText(raw.name, `Track ${index + 1}`, 40)
+  const name = nonEmptyText(raw.name, `Track ${index + 1}`, NAME_LIMITS.track)
   const where = `Track "${name}"`
 
   const id = typeof raw.id === 'string' && !usedTrackIds.has(raw.id) ? raw.id : createId('track')
@@ -110,7 +111,7 @@ const sanitizeTrack = (
 const masterVolume = (raw: unknown): number => clamp(finiteNumber(raw, 1), 0, 1)
 
 /** A scene's name is a short label for a narrow button. */
-export const MAX_SCENE_NAME = 24
+export const MAX_SCENE_NAME = NAME_LIMITS.scene
 
 /** One text per scene (extra entries and anything that is not text are dropped, long names cut); nothing at all when no scene has a name. */
 const sceneNamesOf = (raw: unknown, sceneCount: number): string[] | undefined => {

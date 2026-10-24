@@ -49,3 +49,18 @@ test('two named sounds recall atomically, undo, morph and survive reload', async
   await page.screenshot({ path: testInfo.outputPath('sounds-panel.png') })
   expect(resolveControlTarget(saved.project, { kind: 'mixer', owner: { kind: 'master' }, control: 'volume' })).toMatchObject({ baseValue: 0 })
 })
+
+test('a sound renames in place', async ({ page }) => {
+  await page.addInitScript(saved => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(sweepProject()))
+  await page.goto('/')
+  await viewRoot(page, 'Session').getByText('Master', { exact: true }).first().click()
+  const sounds = await openView(page, 'Sounds')
+  await sounds.getByLabel('Sound scope').selectOption('track')
+  await sounds.getByLabel('Sound name').fill('Loud')
+  await sounds.getByRole('button', { name: 'Save snapshot', exact: true }).click()
+  await sounds.getByRole('button', { name: 'Rename', exact: true }).click()
+  await sounds.getByRole('textbox', { name: 'Name of Loud', exact: true }).fill('Louder')
+  await page.keyboard.press('Enter')
+  await expect(sounds.getByRole('button', { name: 'Recall Louder', exact: true })).toBeVisible()
+  await expect(sounds.getByLabel('Sound name')).toHaveValue('Loud')
+})

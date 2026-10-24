@@ -1,6 +1,7 @@
 import { type ViewId, useLayoutStore } from '@state'
 import type { TabNode } from 'flexlayout-react'
 import { Activity, type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ViewOriginProvider } from '../shared/menu'
 import { VIEW_HIDE } from './view-events'
 import { views } from './views'
 import styles from './ViewHost.module.css'
@@ -30,7 +31,9 @@ export const ViewHost = ({ id, visible }: { id: ViewId; visible: boolean }) => {
     <Activity mode={visible ? 'visible' : 'hidden'}>
       <div ref={attach} data-view={id} className={styles.view} role="region" aria-label={title} tabIndex={-1}>
         <div className={styles.frame} style={frame}>
-          <View />
+          <ViewOriginProvider value={id}>
+            <View />
+          </ViewOriginProvider>
         </div>
       </div>
     </Activity>

@@ -19,13 +19,25 @@ export const livePath = (path: readonly string[], exists: (moduleId: string) => 
   return missing === -1 ? path : path.slice(0, missing)
 }
 
+/** Where the node picker was asked for, in a graph's canvas coordinates. */
+export interface AddRequest {
+  readonly graph: string
+  readonly at: { readonly x: number; readonly y: number }
+}
+
 interface GraphViewState {
   /** The pan and zoom of each canvas shown so far, by `canvasKey`. */
   readonly viewports: Readonly<Record<string, GraphViewport>>
   /** The sub-patch open in each graph, by `graphKey`: module ids from the top level down. */
   readonly paths: Readonly<Record<string, readonly string[]>>
+  /** Whether a module's ports-and-knobs interface shows beside its inside. */
+  readonly moduleInterface: boolean
+  /** The node picker asked for from a menu, for the graph editor showing that graph to open. */
+  readonly addRequest: AddRequest | null
   setViewport(canvas: string, viewport: GraphViewport): void
   setPath(graph: string, path: readonly string[]): void
+  toggleModuleInterface(): void
+  requestAdd(request: AddRequest | null): void
 }
 
 /**
@@ -38,4 +50,8 @@ export const useGraphViewStore = create<GraphViewState>((set) => ({
   paths: {},
   setViewport: (canvas, viewport) => set((state) => ({ viewports: { ...state.viewports, [canvas]: viewport } })),
   setPath: (graph, path) => set((state) => ({ paths: { ...state.paths, [graph]: path } })),
+  moduleInterface: true,
+  addRequest: null,
+  toggleModuleInterface: () => set((state) => ({ moduleInterface: !state.moduleInterface })),
+  requestAdd: (addRequest) => set({ addRequest }),
 }))

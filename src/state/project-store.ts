@@ -28,6 +28,10 @@ import {
   createHistory,
   createTrack,
   doubleClip,
+  duplicateScene,
+  duplicateTrack,
+  insertScene,
+  removeScene,
   editPatchAt,
   groupNodesAsModule,
   removeModule,
@@ -37,9 +41,14 @@ import {
   removeArrangementClip,
   removeSample,
   removeTrack,
+  pasteSessionClip,
   setClipAt,
   setClipLength,
+  setClipName,
   setClipNotes,
+  setSampleName,
+  setSceneName,
+  setTrackName,
   setProjectName,
   setTempo,
   setMasterVolume,
@@ -74,6 +83,22 @@ interface ProjectActions {
   /** Adds a return track: a place for other tracks to send sound to, with its own effects. */
   addReturnTrack(): void
   removeTrack(trackId: string): void
+  /** Adds a copy of a track right after it (see `duplicateTrack`); returns its id, or null at the track limit. */
+  duplicateTrack(trackId: string): string | null
+  /** Renames a track; an empty name keeps the old one. */
+  setTrackName(trackId: string, name: string): void
+  /** Renames a session clip; an empty name keeps the old one. */
+  setClipName(trackId: string, clipId: string, name: string): void
+  /** Names a scene; an empty name clears it. */
+  setSceneName(scene: number, name: string): void
+  /** Inserts an empty scene before `at`, up to 64 scenes. */
+  insertScene(at: number): void
+  /** Inserts a copy of a scene's row after it, up to 64 scenes. */
+  duplicateScene(scene: number): void
+  /** Removes a scene's row; the last scene stays. */
+  removeScene(scene: number): void
+  /** Renames a sample; an empty name keeps the old one. */
+  setSampleName(sampleId: string, name: string): void
   setTrackVolume(trackId: string, volume: number): void
   /** Pans a track, -1 (left) .. 1 (right); dragging is one undo step. */
   setTrackPan(trackId: string, pan: number): void
@@ -128,6 +153,12 @@ interface ProjectActions {
     edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
     mergeKey?: string,
   ): void
+  /** Like `updatePatch`, for any patch: a track's graphs, the master's, or a module's inside. */
+  editPatch(
+    target: PatchTarget,
+    edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
+    mergeKey?: string,
+  ): void
   /** Replaces the selected nodes of a patch by one use of a new module. */
   groupNodes(target: PatchTarget, nodeIds: readonly string[]): void
   addModuleUse(target: PatchTarget, moduleId: string, x: number, y: number): void
@@ -140,6 +171,8 @@ interface ProjectActions {
   /** Deletes a module that nothing uses. */
   deleteModule(moduleId: string): void
   createClip(trackId: string, scene: number): Clip
+  /** Puts a copy of a clip value into an empty slot of a track of its kind (see `pasteSessionClip`). */
+  pasteClip(clip: Clip | AudioClip, trackId: string, scene: number): void
   deleteClip(trackId: string, scene: number): void
   setClipNotes(trackId: string, clipId: string, notes: readonly Note[]): void
   /** Resizes a clip; shortening trims notes that no longer fit. */
@@ -205,6 +238,18 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         return addTrack(project, createReturnTrack(`Return ${String.fromCharCode(65 + (count % 26))}`))
       }),
     removeTrack: (trackId) => edit((project) => removeTrack(project, trackId)),
+    duplicateTrack: (trackId) => {
+      const result = duplicateTrack(get().project, trackId)
+      if (result.trackId) edit(() => result.project)
+      return result.trackId
+    },
+    setTrackName: (trackId, name) => edit((project) => setTrackName(project, trackId, name)),
+    setClipName: (trackId, clipId, name) => edit((project) => setClipName(project, trackId, clipId, name)),
+    setSceneName: (scene, name) => edit((project) => setSceneName(project, scene, name)),
+    insertScene: (at) => edit((project) => insertScene(project, at)),
+    duplicateScene: (scene) => edit((project) => duplicateScene(project, scene)),
+    removeScene: (scene) => edit((project) => removeScene(project, scene)),
+    setSampleName: (sampleId, name) => edit((project) => setSampleName(project, sampleId, name)),
     setTrackVolume: (trackId, volume) =>
       edit((project) => setTrackVolume(project, trackId, volume), `volume:${trackId}`),
 
@@ -240,6 +285,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       edit((project) => editPatchAt(project, { trackId, graph: 'notes' }, change), mergeKey),
     updateModulePatch: (moduleId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { moduleId }, change), mergeKey),
+    editPatch: (target, change, mergeKey) => edit((project) => editPatchAt(project, target, change), mergeKey),
     groupNodes: (target, nodeIds) => edit((project) => groupNodesAsModule(project, target, nodeIds)),
     addModuleUse: (target, moduleId, x, y) => edit((project) => addModuleUse(project, target, moduleId, x, y)),
     addExampleModule: (target, definition, x, y) => edit((project) => addExampleModuleUse(project, target, definition, x, y)),
@@ -253,6 +299,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       return clip
     },
     deleteClip: (trackId, scene) => edit((project) => setClipAt(project, trackId, scene, null)),
+    pasteClip: (clip, trackId, scene) => edit((project) => pasteSessionClip(project, clip, trackId, scene)),
     setClipNotes: (trackId, clipId, notes) =>
       edit((project) => setClipNotes(project, trackId, clipId, notes)),
     setClipLength: (trackId, clipId, lengthBeats) =>

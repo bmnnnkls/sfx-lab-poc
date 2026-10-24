@@ -1,6 +1,6 @@
 import type { ControlOwner } from '../control'
 import { sanitizeAutomation } from './sanitize-automation'
-import type { Clip, Note } from '../project'
+import { type Clip, type Note, NAME_LIMITS } from '../project'
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
@@ -42,7 +42,7 @@ export const sanitizeClip = (
     LIMITS.clipBeats.min,
     LIMITS.clipBeats.max,
   )
-  const name = nonEmptyText(raw.name, 'Clip', 40)
+  const name = nonEmptyText(raw.name, 'Clip', NAME_LIMITS.clip)
 
   const rawNotes = asList(raw.notes)
   if (rawNotes.length > LIMITS.notesPerClip) {

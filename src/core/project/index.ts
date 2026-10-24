@@ -46,6 +46,9 @@ export {
   DEFAULT_VOICES,
   MAX_CLIP_BEATS,
   MAX_NAME_LENGTH,
+  MAX_PATCH_NODES,
+  MAX_SCENES,
+  MAX_TRACKS,
   MAX_VOICES,
   MIN_CLIP_BEATS,
   MIN_VOICES,
@@ -134,6 +137,10 @@ export {
   type HumanizeOptions,
   type QuantizeOptions,
 } from './groove'
-export { copySessionClip } from './clip-copy'
+export { canPasteSessionClip, clipCopyFor, clipFitsTrack, copySessionClip, pasteSessionClip } from './clip-copy'
+export { NAME_LIMITS, setClipName, setSampleName, setSceneName, setTrackName } from './rename'
+export { duplicateTrack } from './track-duplicate'
+export { copyNodes, pasteNodes, type CopiedNodes } from './node-copy'
+export { duplicateScene, insertScene, removeScene } from './scenes'
 
 export type { AutomationSlot } from './types'

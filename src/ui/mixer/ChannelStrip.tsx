@@ -1,6 +1,7 @@
-import { MidiTargetMenu } from '../midi/MidiTargetMenu'
+import { ActionMenu, useActionContext } from '../shared/menu'
+import { InPlaceRename } from '../shared/RenameField'
 import { type ControlTarget, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode, mixesAfter, panOf } from '@core'
-import { openTrackView, useProjectStore, useSelectionStore } from '@state'
+import { type Subject, openTrackView, runAction, useProjectStore, useSelectionStore } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
 import { LevelBar } from './LevelBar'
@@ -32,8 +33,8 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
   const target = (control: 'volume' | 'pan'): ControlTarget => ({ kind: 'mixer', owner: { kind: 'track', trackId: track.id }, control })
   const setVolume = (_id: string, value: number) => gesture.change([{ target: target('volume'), value }])
   const setPan = (_id: string, value: number) => gesture.change([{ target: target('pan'), value }])
-  const setMuted = useProjectStore((state) => state.setTrackMuted)
-  const setSoloed = useProjectStore((state) => state.setTrackSoloed)
+  const context = useActionContext()
+  const subject: Subject = { kind: 'track', trackId: track.id }
   const sendTarget = (returnId: string): ControlTarget => ({ kind: 'mixer', owner: { kind: 'track', trackId: track.id }, control: 'send', returnId })
   const setSend = (_id: string, returnId: string, value: number) => gesture.change([{ target: sendTarget(returnId), value }])
 
@@ -45,15 +46,18 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
   const pan = panOf(track)
 
   return (
+    <ActionMenu subject={subject}>
     <section
       {...gesture.events}
       className={`${styles.strip} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnStrip : ''} ${muted ? styles.mutedStrip : ''}`}
       aria-label={`${track.name} channel`}
     >
-      <button className={styles.name} onClick={() => selectTrack(track.id)} title={`Select ${track.name}`}>
-        {track.name}
-        {track.kind !== 'instrument' && <span className={styles.kind}> {track.kind}</span>}
-      </button>
+      <InPlaceRename subject={subject} name={track.name} label={`Name of ${track.name}`} className={styles.name}>
+        <button className={styles.name} onClick={() => selectTrack(track.id)} title={`Select ${track.name}`}>
+          {track.name}
+          {track.kind !== 'instrument' && <span className={styles.kind}> {track.kind}</span>}
+        </button>
+      </InPlaceRename>
       <div className={styles.badges}>
         <EffectsBadge
           name={track.name}
@@ -64,7 +68,7 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
 
       <label className={styles.pan} title="Pan (double-click to centre)">
         <span>{pan === 0 ? 'C' : pan < 0 ? `L${Math.round(-pan * 100)}` : `R${Math.round(pan * 100)}`}</span>
-        <MidiTargetMenu targets={[target('pan')]}><input
+        <ActionMenu subject={{ kind: 'control', targets: [target('pan')] }}><input
           type="range"
           min={-1}
           max={1}
@@ -73,7 +77,7 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
           aria-label={`${track.name} pan`}
           onChange={(event) => setPan(track.id, Number(event.target.value))}
           onDoubleClick={() => setPan(track.id, 0)}
-        /></MidiTargetMenu>
+        /></ActionMenu>
         <EffectiveValue target={target('pan')} />
       </label>
 
@@ -88,7 +92,7 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
             return (
               <label key={target.id} className={styles.send} title={title}>
                 <span>{target.name}</span>
-                <MidiTargetMenu targets={[sendTarget(target.id)]}><input
+                <ActionMenu subject={{ kind: 'control', targets: [sendTarget(target.id)] }}><input
                   type="range"
                   min={0}
                   max={1}
@@ -97,7 +101,7 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
                   aria-label={`${track.name} send to ${target.name}`}
                   disabled={loop}
                   onChange={(event) => setSend(track.id, target.id, Number(event.target.value))}
-                /></MidiTargetMenu>
+                /></ActionMenu>
                 <EffectiveValue target={sendTarget(target.id)} />
               </label>
             )
@@ -106,16 +110,16 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
       )}
 
       <div className={styles.buttons}>
-        <button className={muted ? styles.mute : ''} aria-pressed={muted} aria-label={`${track.name} mute`} title="Mute: silence the track, including its sends" onClick={() => setMuted(track.id, !muted)}>
+        <button className={muted ? styles.mute : ''} aria-pressed={muted} aria-label={`${track.name} mute`} title="Mute: silence the track, including its sends" onClick={() => runAction('track.mute', subject, context)}>
           M
         </button>
-        <button className={soloed ? styles.solo : ''} aria-pressed={soloed} aria-label={`${track.name} solo`} title="Solo: hear only soloed tracks (and the returns they feed)" onClick={() => setSoloed(track.id, !soloed)}>
+        <button className={soloed ? styles.solo : ''} aria-pressed={soloed} aria-label={`${track.name} solo`} title="Solo: hear only soloed tracks (and the returns they feed)" onClick={() => runAction('track.solo', subject, context)}>
           S
         </button>
       </div>
 
       <div className={styles.faderRow}>
-        <MidiTargetMenu targets={[target('volume')]}><input
+        <ActionMenu subject={{ kind: 'control', targets: [target('volume')] }}><input
           className={styles.fader}
           type="range"
           min={0}
@@ -125,11 +129,12 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
           aria-label={`${track.name} fader`}
           aria-orientation="vertical"
           onChange={(event) => setVolume(track.id, Number(event.target.value))}
-        /></MidiTargetMenu>
+        /></ActionMenu>
         <LevelBar label={`${track.name} level`} read={(status) => status.peaks[track.id] ?? 0} />
       </div>
       <EffectiveValue target={target('volume')} />
       <output className={styles.value}>{Math.round(track.volume * 100)}</output>
     </section>
+    </ActionMenu>
   )
 }

@@ -1,6 +1,8 @@
 # Round 5: actions and context menus
 
-Status: **signed off** 2026-10-24, every decision as proposed. Part of the
+Status: **done** 2026-10-24, decisions signed off as proposed. What changed on the way is under
+[Changes made while implementing](#changes-made-while-implementing); shipped behavior is in
+[ARCHITECTURE.md § Actions and context menus](../../ARCHITECTURE.md#actions-and-context-menus). Part of the
 [UI redesign](README.md). Carries out [roadmap § Round 5](DRAFT-roadmap.md#round-5-actions-and-context-menus), from an
 inventory of every menu and per-item action in the app, taken on `feat/ui-redesign` at `13f5e81` (round 4 merged).
 
@@ -40,7 +42,7 @@ library service, checked kind by kind. "Model" means a function in `core` or a s
 
 ### Menus today
 
-`ui/shared/menu` (ARCHITECTURE.md still calls it `ui/shared/context-menu`) holds `ContextMenu` (right-click, Radix
+`ui/shared/menu` (ARCHITECTURE.md called it `ui/shared/context-menu` until this round) holds `ContextMenu` (right-click, Radix
 context menu) and `PopupMenu` (click, Radix dropdown), both drawing `MenuEntry[]`: actions with a label, display-only
 shortcut, `disabled` and `danger`; separators; submenus. Seven places use them:
 
@@ -393,3 +395,136 @@ Signed off 2026-10-24: every row as proposed.
 | *Save to library* from menus | **Not in this round** | `PersonalLibrary.saveClip`, `saveSample` and `saveAsset` exist, but they need a name and a folder, which the Library view's toolbar supplies today. A follow-up once the lists exist. |
 | Where view-local menus go | **The piano roll and the input port keep their own entries** through `ContextMenu`, as allowed exceptions | They act on view state (the note selection and hover beat; `GraphEditor`'s `createControl`). Moving that state into stores only to fit the pattern isn't worth it. |
 | Shortcuts in menus | **Only the ones that exist** (the piano roll's) | Round 10 adds keys from the same action ids, and their labels then appear in the menus. |
+
+## Changes made while implementing
+
+What turned out different from the design above, step by step.
+
+* **Step 1: actions that ask which one.** The lane's *Add* entries and the control's per-axis entries are one action
+  each, with `choices` (an id and a title, each maybe disabled) and `run` getting the chosen id. They draw as a submenu
+  under the action's title, or with `inline` as one entry per choice. Step 1 draws both inline, so the lane still
+  shows *Add Root*, *Add Walk*; step 6 turns the lane's into the *Add clip* ▸ submenu. `ActionMenu` builds its entries
+  from `describeActions(subject, context)`, which unit tests call too.
+* **Step 1: groups add separators.** The clip menu gains one between its *open* and *edit* entries, and the region
+  menu one before *Delete*. Entries and labels are unchanged.
+* **Step 1: the menu subscribes through its entries.** `tests/status-subscriptions.test.ts` forbids selecting the whole
+  status in `ui`, so the open menu selects a signature of its entries from each store. It re-renders only when an
+  entry changes, not 30 times a second.
+* **Step 1: `runAction(id, subject, context, { choice, report })`.** It runs nothing that doesn't apply or isn't
+  enabled. `report` is where an asynchronous action's message goes, the toasts by default; step 7's view buttons pass
+  their status line.
+* **Step 1: the view origin** comes from a React context that `ViewHost` provides around each view
+  (`ViewOriginProvider`), read by `useActionContext()`.
+* **Step 1: Shift+F10 is handled by `ContextMenu`.** Chromium on macOS fires `contextmenu` only for the Menu key, not
+  for Shift+F10 (checked with Playwright: headless and headed). `ContextMenu` now prevents the browser's own handling
+  of Shift+F10 and sends a `contextmenu` from the focused trigger's bottom-left corner, so it works alike on every
+  platform and for the view-local menus too. The smoke spec checks it in Chromium. Firefox and Safari weren't checked:
+  the Playwright builds of both installed here don't match the Playwright version, and installing them is a download
+  left to the owner.
+* **Step 1: a region deleted from its menu** drops out of `ArrangementView`'s selection on the next render, as the
+  design says, instead of the menu clearing it.
+* **Step 1: `MidiTargetMenu` is gone.** The panel cell, the channel strip and the master strip wrap their controls in
+  `ActionMenu` with a `control` subject (none when a cell has no targets). They no longer subscribe to the project.
+* **Step 2: the automation editor's *Paste* is disabled while nothing is copied**, and enables as soon as points are
+  copied. Before, it was always enabled and pasted nothing when empty.
+* **Step 2: one subscription for all clipboards.** `subscribeToClipboards` tells a listener about every clipboard
+  `createClipboard` made, so an open `ActionMenu` follows all of them without knowing which ones its actions read.
+  `useClipboard(store)` replaces `useNoteClipboard`; the note clipboard's own test became the factory's.
+* **Step 3: one place for the name limits.** `NAME_LIMITS` in `core/project/rename.ts` (track 40, clip 40, scene 24,
+  sample 60) is what the setters cut to and what the sanitizer now reads. A setter trims the name and keeps the old one
+  for an empty name; `setSceneName` clears a scene's name for an empty one (the field refuses it anyway).
+* **Step 3: `commitRename(subject, name, context)`** in `state/actions/rename.ts` holds each kind's setter, and
+  `renameAction(kind)` makes the *Rename* entry, so each kind's list has the same one. The rename actions are in the
+  lists from this step on; the menus that show them for tracks, scenes and samples come with steps 4, 5 and 7.
+* **Step 3: the menu doesn't take the focus back.** Radix returns the focus to the trigger when a menu closes, and its
+  focus trap keeps the focus in the menu until then. An action can say it `takesFocus`; `ActionMenu` then prevents
+  the return, and the field focuses itself a task after it mounts, once the menu is gone.
+* **Step 3: `InPlaceRename`** wraps the name a view draws: while the rename store names this subject and this view,
+  it draws `RenameField` in its place, with the name's own class. A slot's whole launch button and the scene button
+  give way to the field, since a field can't sit inside a button.
+* **Step 3: the Library's renames report through its status line.** Its fields commit through the view's own `run`,
+  so the busy flag and *Library saved* work as before. A folder's field takes the place of its name above the folder
+  actions, where *Rename folder* is.
+* **Step 3: the module bar and panel controls keep a field that is always there.** Both use `RenameField` without
+  selecting on mount. The module bar commits through `commitRename` on Enter or blur instead of on every key (still
+  one undo step). A panel control may still be given an empty name, which falls back to its parameter's.
+* **Step 4: `duplicateTrack` also copies the track's sample choices** (`sampleBindings` for its owner) next to its
+  control values, since they decide which sample a sampler plays, so the copy sounds the same. Node ids stay the same
+  inside the copy's graphs, so its values and lanes only change owner. `MAX_TRACKS` and `MAX_SCENES` now live in
+  `core/project`, and `LIMITS` reads them, so `core/project` doesn't import the file format.
+* **Step 4: *Show automation* on a track** opens its volume lane, as the fader's menu does: in the selected (or first)
+  clip of a track, in a slot of a return (created when empty). It is disabled on a track without clips.
+* **Step 4: the innermost menu opens.** The mixer strip's menu holds the pan, send and fader menus, so `ContextMenu`
+  stops a `contextmenu` event at its trigger, and Shift+F10 is handled once. The session header, the mixer strip and
+  the master's header and strip are triggers as a whole; the arrangement lane's name is focusable now
+  (`tabIndex={0}`), so Shift+F10 reaches its menu.
+* **Step 4: M and S in the mixer** run *Mute* and *Solo*, and the session header's ■ runs *Stop*, next to × running
+  *Delete*.
+* **Step 4: the audio test** pans the original hard left and the copy hard right, launches the scene, and checks that
+  the two channels match (`tests/browser/duplicate-track.audio.spec.ts`); turning the copy's fader down makes it fail.
+* **Step 5: lists that end early stay short.** The master's and the returns' automation slots may be shorter than the
+  row count; an edit only pads one when it puts a slot past its end (a duplicated row). `sceneNames` drops trailing
+  empty names, and goes away when none is left.
+* **Step 5: the automation scene follows its row.** Inserting or deleting a row above the selection store's
+  `automationScene` moves it with its row; deleting its own row resets it to the first scene.
+* **Step 6: `clipCopyFor(project, clip, trackId)`** gives a clip value fresh ids and moves its lanes to a track; both
+  `pasteSessionClip` and a lane's *Paste* use it, so a pasted region gets fresh ids too. `canPasteSessionClip` says
+  whether a value fits a slot (an empty slot of a track of its kind, an audio clip's sample still there).
+  `copySessionClip` (*Duplicate to empty slot*) doesn't check the sample, as before.
+* **Step 6: a region's *Edit clip*** opens the session clip whose id its content carries, on the region's track; it is
+  disabled once that clip is gone. A pasted region has fresh ids, so it has no source to open.
+* **Step 6: the empty audio slot's *+* popup runs the same action** as its *Add audio clip* ▸ submenu, with the
+  sample as the choice; *Import samples…* is the choice when the project has none.
+* **Step 6: the automation cell's ✎, × and *+*** run *Edit*, *Delete* and *Create*. Its ▶ and ■ still launch and
+  stop directly; the menu's *Launch* / *Stop* follows the cell's playing state.
+* **Step 7: the Library's catalog and open folder are in a store** (`state/library-store.ts`), so the actions and the
+  view see the same catalog: an action that changes it puts the new one there. The view's own selection, filters and
+  busy flag stay in the view.
+* **Step 7: `runAction` returns a promise for an asynchronous action**, which settles after it has reported. The
+  Library's buttons run actions inside the view's `run`, so the busy flag works as before, and pass `report` so the
+  message goes to the status line; from a menu it goes to the toasts.
+* **Step 7: a folder's field is in the tree.** Renaming a folder from its row's menu would show nothing when the
+  folder isn't open, so the field takes the place of the folder's name in the tree, for *Rename folder* too. Step 3
+  had put it above the folder actions.
+* **Step 7: *New folder inside* makes a folder named "New folder"**, opens it and renames it in place. The toolbar's
+  name field stays for the toolbar's *New folder*.
+* **Step 7: *Replace selected graph* from the menu** puts the item where its kind belongs on the selected track or the
+  master (`insertionScope`), as the button did; a sample has no graph, so the view's scope choice didn't matter there.
+* **Step 7: a preset's *Recall* and *Update* buttons keep the view's scope.** They recall onto, and capture from, the
+  scope chosen at the top of Sounds. The menu's *Recall* and *Update* use the preset's own scope, since a menu has no
+  scope to choose. A snapshot's buttons and every other button run the actions.
+* **Step 7: the open menu also follows the sample store**, so *Preview* enables once a sample's audio is ready.
+* **Step 8: a `nodes` or `canvas` subject names the graph, then the module open in it.** `target` is the track's (or
+  the master's) graph and `path` the module ids opened from there, as the graph-view store keeps them. The nodes are in
+  the last module of `path`, or in `target` at the top level (`editTargetOf`). The graph's kind (instrument, effects,
+  notes) comes from `target`, so a module's inside pastes like the graph it was opened from.
+* **Step 8: `copyNodes` and `pasteNodes` are in `core/project`**, which can reach the fixed ends' types in `dsp` and
+  `notefx`. `MAX_PATCH_NODES` (200) joined `MAX_TRACKS` and `MAX_SCENES` there, and `LIMITS` reads it. The pasted
+  group's top-left corner lands on the clicked point; *Duplicate* pastes 32 px down and right of the originals and
+  leaves the clipboard alone.
+* **Step 8: the open sub-patch and the module interface toggle are in the graph-view store.** `GraphEditor` reads the
+  path from the store (it used to keep a copy), so *Open module* works from a menu, and selection clears when the
+  level changes. Its selection drops nodes that are gone (a menu's *Delete*, *Group into module*). A deleted module's
+  inside closes because its path no longer leads anywhere; the module bar no longer steps out itself.
+* **Step 8: *Add node…* asks the graph editor through the store.** The action sets `addRequest` (the graph and the
+  canvas point); the editor showing that graph opens QuickAdd there, placed with the canvas's `clientPoint`.
+* **Step 8: a control's name is renamed on its card.** The field takes the place of the card's title; the panel's
+  edit-mode name field stays as it is.
+* **Step 8: the card's ×, *Edit* and *Unlink*** run *Delete*, *Open module* and *Unlink* on that card alone; the
+  toolbar's *Group into module* runs the action on the selection. The module bar's buttons run *Show / Hide
+  interface* and *Delete*, and its menu's *Rename* selects the name in its field.
+* **Step 8: a name field keeps the browser's own menu.** Right-clicking a `RenameField` opens the browser's cut, copy
+  and paste menu instead of the menu of the thing around it (the module bar's field sits inside its menu's trigger).
+* **Step 9: the profile.** `scripts/profile-status.cjs` now adds a lane's clip through the *Add clip* ▸ submenu. One
+  run each, 10 s after 2 s of warm-up, headless Chromium, 1500 × 1000:
+
+  | Per second | Round 4 `editor` | Round 5 `editor` | Round 4 `four` | Round 5 `four` |
+  |---|---|---|---|---|
+  | Component renders (dev) | 145 | 144 | 173 | 173 |
+
+  Menus aren't rendered while closed, so the renders stay as they were. Base and branch didn't run in one session
+  this time, so the timings (React render 12–13 ms, script 17–19 ms a second here) aren't compared with round 4's.
+* **Step 9: checks.** `npm run test:audio` passed (14 tests, the new duplicate-track test among them). The manual
+  pass on a dev build (touch long-press, Safari and Firefox) was not done; the smoke specs cover the mouse,
+  Shift+F10 in Chromium, Enter, Escape and empty names, undo and a menu following the clipboard.
+

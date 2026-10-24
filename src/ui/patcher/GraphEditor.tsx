@@ -23,17 +23,16 @@ import {
   moveNode,
   noteNodeDefinitions,
   nodeDefinitions,
-  removeNode,
   setNodeParam,
   exampleModules,
   findExampleModule,
   randomizeParams,
 } from '@core'
-import { canvasKey, graphKey, livePath, useGraphViewStore, useProjectStore } from '@state'
-import { type ReactNode, useId, useRef, useState } from 'react'
+import { type Subject, canvasKey, graphKey, livePath, runAction, useGraphViewStore, useProjectStore } from '@state'
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { PanelView } from '../panel/PanelView'
-import type { MenuEntry } from '../shared/menu'
+import { type MenuEntry, useActionContext } from '../shared/menu'
 import { useStoredState } from '../shared/use-stored-state'
 import { ModuleBar } from './ModuleBar'
 import { ModuleInterface } from './ModuleInterface'
@@ -57,6 +56,8 @@ const graphOf = (track: Track, graph: TrackGraph): Patch =>
 const VOICE_OPTIONS = [1, 2, 3, 4, 6, 8, 12, 16]
 
 const isFlag = (value: unknown): value is boolean => typeof value === 'boolean'
+
+const TOP_LEVEL: readonly string[] = []
 
 type View = 'graph' | 'panel'
 const isView = (value: unknown): value is View => value === 'graph' || value === 'panel'
@@ -108,11 +109,13 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const store = useProjectStore.getState
   const setTrackVoices = useProjectStore((state) => state.setTrackVoices)
 
-  // The sub-patch open here, kept per graph for the session, so switching tracks and back finds it open again.
+  const context = useActionContext()
+  // The sub-patch open here, kept per graph for the session, so switching tracks and back finds it open again. A
+  // module use's *Open module* sets it too.
   const graphId = graphKey(track?.id ?? 'master', graph)
-  const [path, setPath] = useState<readonly string[]>(() => useGraphViewStore.getState().paths[graphId] ?? [])
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
-  const [interfaceOpen, setInterfaceOpen] = useState(true)
+  const path = useGraphViewStore((state) => state.paths[graphId]) ?? TOP_LEVEL
+  const [picked, setSelected] = useState<ReadonlySet<string>>(new Set())
+  const interfaceOpen = useGraphViewStore((state) => state.moduleInterface)
   // In a narrow editor the property editor and the module's interface are a drawer over the canvas.
   const [drawerOpen, setDrawerOpen] = useState(false)
   // The node picker: where it opens (window pixels) and where the node goes (canvas coordinates).
@@ -134,11 +137,24 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   // Indicators show live values reported per track (the master bus is `master`); a module's inside has no track of its own.
   const readoutTrack = definition ? undefined : (track?.id ?? 'master')
 
-  const enter = (next: readonly string[]) => {
-    setPath(next)
-    useGraphViewStore.getState().setPath(graphId, next)
-    setSelected(new Set())
-  }
+  const enter = (next: readonly string[]) => useGraphViewStore.getState().setPath(graphId, next)
+  // Another level shows nothing selected; nodes an action removed (a menu's Delete, Group) drop out of the selection.
+  const level = known.join('/')
+  useEffect(() => setSelected(new Set()), [level])
+  const selected: ReadonlySet<string> = [...picked].every((id) => patch.nodes.some((node) => node.id === id))
+    ? picked
+    : new Set([...picked].filter((id) => patch.nodes.some((node) => node.id === id)))
+  /** The graph as subjects name it: the track's (or the master's) graph and the module open in it. */
+  const place = { target: (track ? { trackId: track.id, graph } : { master: true }) as PatchTarget, path: known }
+  const selection: Subject = { kind: 'nodes', ...place, nodeIds: [...selected] }
+
+  // *Add node…* from the canvas's menu opens the picker where the canvas was clicked.
+  const addRequest = useGraphViewStore((state) => state.addRequest)
+  useEffect(() => {
+    if (!addRequest || addRequest.graph !== graphId) return
+    useGraphViewStore.getState().requestAdd(null)
+    setPicker({ anchor: canvas.current?.clientPoint(addRequest.at) ?? { x: 40, y: 40 }, at: addRequest.at, fromButton: false })
+  }, [addRequest, graphId])
   const edit = (change: PatchEdit, mergeKey?: string) => {
     if (definition) store().updateModulePatch(definition.id, change, mergeKey)
     else if (!track) store().updateMasterFx(change, mergeKey)
@@ -259,12 +275,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
           </nav>
         )}
         {definition && (
-          <ModuleBar
-            definition={definition}
-            interfaceOpen={interfaceOpen}
-            onToggleInterface={() => setInterfaceOpen((open) => !open)}
-            onDeleted={() => enter(known.slice(0, -1))}
-          />
+          <ModuleBar definition={definition} interfaceOpen={interfaceOpen} />
         )}
         <div className={styles.toolbar}>
           {!definition && <strong>{title}</strong>}
@@ -316,10 +327,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             <button
               disabled={selected.size === 0}
               title="Turn the selected nodes into a reusable module (Shift-click or drag a box to select)"
-              onClick={() => {
-                store().groupNodes(target, [...selected])
-                setSelected(new Set())
-              }}
+              onClick={() => runAction('nodes.group', selection, context)}
             >
               Group into module{selected.size > 0 ? ` (${selected.size})` : ''}
             </button>
@@ -355,6 +363,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
           <PatchCanvas
             key={scope}
             ref={canvas}
+            graph={place}
             viewKey={canvasKey(graphId, known)}
             patch={patch}
             modules={modules}
@@ -376,12 +385,9 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
               )
             }}
             onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
-            onRemoveNode={(id) => edit((current) => removeNode(current, id))}
             inputMenu={inputMenu}
             onConnect={(from, to) => edit((current, library) => connect(current, from, to, { modules: library }))}
             onDisconnect={(id) => edit((current) => disconnect(current, id))}
-            onOpenModule={(moduleId) => enter([...known, moduleId])}
-            onUnlinkModule={(nodeId) => store().unlinkModule(target, nodeId)}
             onRequestAdd={({ anchor, at, from }) => setPicker({ anchor, at, fromButton: false, from })}
           />
         )}

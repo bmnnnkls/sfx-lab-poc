@@ -7,8 +7,8 @@ older handoffs and exploration notes retain historical scope, not current delive
 ## UI redesign (2026-10-24)
 
 A dockable, VS Code-style workbench with a full arrangement editor and a wave editor, on `feat/ui-redesign`.
-Plans, the roadmap and open decisions are in [`ui-redesign/`](ui-redesign/README.md); round 1 (untangling
-navigation from selection, no visible change) is done; round 2 (the shell) is next.
+Plans, the roadmap and open decisions are in [`ui-redesign/`](ui-redesign/README.md); rounds 1 to 5 (up to actions
+and context menus) are done; round 6 (working across views) is next.
 
 ## Prototype follow-ups: arrangement and sample editor (2026-10-17)
 
@@ -116,7 +116,6 @@ findings in [REVIEW-performance-and-library.md](REVIEW-performance-and-library.m
 ## Controls, panels and session workflow
 
 - Add **per-parameter Randomize locks**; current locks apply to the entire node.
-- Add scene renaming in the session UI. `Project.sceneNames` is already persisted and displayed.
 - Add a combined instrument/effects panel, optional free control positioning, and controls from deeper nested modules
   on the outer panel. Controls directly inside a used module already appear there.
 - Reuse common control widgets in the Mixer, design a dB fader law, and expose pan/mute/solo in session track headers.
@@ -131,7 +130,8 @@ findings in [REVIEW-performance-and-library.md](REVIEW-performance-and-library.m
 
 ## Graph and note workflow
 
-- Move multiple selected patch nodes together and add keyboard delete/duplicate for graph selections. Piano-roll
+- Move multiple selected patch nodes together. Keyboard delete and duplicate for graph selections come with round 10's
+  keybindings; the node menu already deletes, duplicates, copies and pastes a selection, and piano-roll
   multi-selection and its keyboard operations already exist.
 - Add note effects such as humanize, note length, random pitch and strum; consider arpeggiator latch and bypass-all.
 - Audition piano-roll notes through the note chain, preview notes from other tracks, and consider a multi-track graph view.

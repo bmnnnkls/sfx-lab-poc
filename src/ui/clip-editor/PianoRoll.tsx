@@ -1,4 +1,5 @@
 import type { Note } from '@core'
+import { useClipboard } from '@state'
 import { useEffect, useRef } from 'react'
 import { ContextMenu, type MenuEntry } from '../shared/menu'
 import { shortcut } from '../shared/shortcut-labels'
@@ -19,7 +20,7 @@ import styles from './PianoRoll.module.css'
 import { Playhead } from './Playhead'
 import { RowBackground } from './RowBackground'
 import { Ruler } from './Ruler'
-import { useNoteClipboard } from './use-note-clipboard'
+import { noteClipboard } from './note-clipboard'
 import { usePianoRollInteraction } from './use-piano-roll-interaction'
 import { VelocityLane } from './VelocityLane'
 
@@ -115,7 +116,7 @@ export const PianoRoll = ({
     return () => element.removeEventListener('wheel', onWheel)
   }, [])
 
-  const clipboard = useNoteClipboard()
+  const clipboard = useClipboard(noteClipboard)
   const hasSelection = selected.size > 0
   const scope = hasSelection ? 'selection' : 'clip'
   const menu: MenuEntry[] = [

@@ -392,7 +392,9 @@ copy (**Unlink**). Modules nest.
   replaces the selection. A module node shows *Edit* and *Unlink*. *Edit* opens the module's inside in the same
   patcher (breadcrumb to go back out, nesting works), with a name field, where it is used, and **Ports & knobs**:
   tick any inner port or parameter to show it on the module, and name it. The node picker lists the project's modules under *Modules*.
-  Changes go through the same undo history; slider drags merge into one step.
+  Changes go through the same undo history; slider drags merge into one step. Nodes, the empty canvas and the module
+  bar have menus (see "Actions and context menus"): nodes copy, cut, duplicate and paste with their wires, within one
+  kind of graph. The open sub-patch is kept per graph in the graph-view store, so *Open module* works from a menu.
 * **Limits.** Selected nodes are not dragged together. The personal library now copies full instrument/effect module
   closures between local projects (slice 5 below); standalone module-only catalog items are not exposed. Cycle detection on the outer patch treats a
   module as one node (any input may reach any output), which can refuse a wiring that would in fact be fine.
@@ -1022,9 +1024,9 @@ out for metering).
   so the bar whose top is nearest the pointer wins. Same draft-then-commit pattern as the roll (one undo step).
 * **Marquee select:** Ctrl/Cmd-drag on empty space draws a box (Shift adds to the selection); plain drag still draws a
   note. `notesInRegion` / `marqueeRegion` are pure.
-* **Copy / cut / paste** (Ctrl+C/X/V, Ctrl+D duplicates): the clipboard (`note-clipboard.ts`) is in memory so notes can
-  move between clips. Paste lands under the **mouse pointer** (not the last click, since clicking empty space draws a
-  note), and repeated pastes with the mouse left alone follow on after each other. Pasted notes get fresh ids and
+* **Copy / cut / paste** (Ctrl+C/X/V, Ctrl+D duplicates): the clipboard (`note-clipboard.ts`, a `createClipboard`
+  store; see "Actions and context menus") is in memory so notes can move between clips. Paste lands under the
+  **mouse pointer** (not the last click, since clicking empty space draws a note), and repeated pastes with the mouse left alone follow on after each other. Pasted notes get fresh ids and
   anything past the clip end is dropped (`pasteNotes`).
 * **Audition:** placing a note, grabbing one, dragging it to a new pitch, or nudging with the arrows plays it through
   the track's own instrument (`track/audition` -> `TrackRuntime.auditionNote`: a 0.3 s note on the track's voice pool,
@@ -1035,29 +1037,164 @@ out for metering).
   `useStoredState` (guarded, validated, falls back to defaults). The panel's height is part of the saved layout (see
   [Layout and navigation](#layout-and-navigation)).
 
-## Context menu (reusable)
+## Actions and context menus
 
-* `ui/shared/context-menu` is a small, app-specific right-click menu. Callers pass `entries` (actions with a label,
-  optional shortcut text, `disabled`, `danger`, and separators) and the single element to wrap; they never touch the
-  library. It is a thin wrapper over **Radix UI's headless context menu** (the primitive shadcn/ui is built on), which
-  supplies keyboard navigation, typeahead, focus return and keeping the menu inside the window. (Spartan, which was
-  suggested, is Angular-only, so it can't be used in this React app.) Swapping the library means changing this one
-  folder.
-* **Entries reflect what was clicked.** The wrapped element's own `onContextMenu` runs *before* the menu opens, so it
-  can first select the right-clicked note or record where the click landed (used as the paste position); entries are
-  computed from state on every render.
-* **Anything an entry depends on must be reactive.** The note clipboard used to be a plain module variable, so
-  "Paste" stayed greyed out after copying until something else re-rendered. It is now a subscribable store read with
-  `useSyncExternalStore` (`useNoteClipboard`). The same actions back both the keyboard shortcuts and the menu items
-  (`commands` from `usePianoRollInteraction`), so they can't drift apart.
-* Used by the piano roll (copy / cut / paste / duplicate / delete / select all / quantize / humanize), by session
-  clip slots (launch / edit / duplicate / place on arrangement / delete, and "create clip" on empty slots) and by
-  arrangement regions (duplicate / loop / delete). Double-click still deletes a note; right-click
-  opens the menu instead of deleting.
-* **A component child must forward the trigger's props.** The wrapped element is Radix's `asChild` child, so a
-  custom component (unlike a plain `<div>`) has to spread the props it does not use itself — the menu's handlers,
-  `data-state` and `ref` — onto its root element. The arrangement region dropped them, and its right-click menu
-  never opened (the `contextmenu` event arrived; nothing listened).
+Right-click works throughout the app, from one list of actions per kind of thing. A view only says what was
+right-clicked; what can be done to it lives in `state/actions/`.
+
+* **Subjects.** What was right-clicked is a `Subject`: a small value with a `kind` and ids, never a component or a DOM
+  element. The kinds: `track` (instrument, audio and return tracks), `master`, `clip` (a session clip), `slot` (an
+  empty session cell), `automation-slot`, `scene`, `sample`, `library-item`, `library-folder`, `nodes`, `canvas`,
+  `module`, `region`, `lane`, `control` (a panel control or a mixer value) and `sound` (a snapshot or preset). `nodes`
+  is the selection when the right-clicked card is selected, otherwise that card alone. `nodes` and `canvas` name the
+  track's (or the master's) graph as `target` and the modules opened from there as `path`; the nodes are in the last
+  module of `path` (`editTargetOf`). `canvas` and `lane` carry where the click landed, which is where *Paste* and *Add*
+  put things; the view sets it from the trigger's own `onContextMenu`, which runs before the menu opens.
+* **Actions.** One file per kind exports its list of `Action`s: an `id` (`clip.duplicate`, round 10's command ids), a
+  `title` (text, or a function of the subject), a `group` (open, edit, clipboard, delete: a separator between groups),
+  `danger`, `applies` (hidden when false: *Stop* on a return), `enabled` (shown but disabled: *Paste* with an empty
+  clipboard) and `run`. An action that asks which one has `choices` (a lane's session clips, an empty audio slot's
+  samples, an XY pad's axes), drawn as a submenu or, with `inline`, one entry per choice. An action that moves the
+  focus to a field of its own says `takesFocus`. `actionsFor(subject)` returns the kind's list; nothing else picks
+  actions. `describeActions(subject, context)` is what a menu shows now, and unit tests call it too.
+* **`ActionContext`** carries what actions can't import: the services that are React contexts (`EngineControls`,
+  `SampleLibrary`, `PersonalLibrary`) and `origin`, the view the menu or button is in. `useActionContext()` in
+  `ui/shared/menu` builds it; each view's host provides its id (`ViewOriginProvider`). The project, selection, status,
+  clipboards and the Library's catalog are read from their stores when an action runs or the menu draws. `state` may
+  import only `@core`, so actions are plain functions that tests run on a project without React.
+* **Running.** `runAction(id, subject, context, { choice, report })` runs nothing that doesn't apply or isn't enabled.
+  Project edits go through the project store, one undo step per action; library and layout actions aren't in project
+  undo. An asynchronous action (the library's, the sounds') resolves with a message or throws; `runAction` reports it
+  to the toasts (`usePersistenceStore.notify`), or to `report` (the Library's and Sounds' status lines, from their own
+  buttons), and returns a promise that settles after.
+* **Buttons run actions too.** ×, ✎, ■, M and S, the sample row's buttons, the Library's details and folder buttons,
+  the Sounds rows, a card's *Edit* and *Unlink*, the toolbar's *Group into module* and the module bar's buttons call
+  `runAction` with the same subject, so a button and its menu entry share one implementation. Two exceptions keep the
+  view's choice: a preset's *Recall* and *Update* in Sounds act on the scope chosen at the top of the view (the menu's
+  on the preset's own), and the automation cell's ▶ and ■ launch directly.
+* **Selection in views.** When an action removes what a view had selected (a region, nodes), the view drops the stale
+  id on its next render; actions don't reach into view state. What a menu needs from a view lives in a store: the
+  graph editor's open sub-patch and module-interface toggle and its *Add node…* request (`graph-view-store`), and the
+  Library's catalog and open folder (`library-store`).
+
+### Menus
+
+* **`ui/shared/menu`** holds `ContextMenu` (right-click, Radix context menu), `PopupMenu` (click, Radix dropdown),
+  their shared entry renderer and stylesheet, and `ActionMenu`. Callers describe entries and never touch the library,
+  so swapping it means changing this one folder. Radix supplies keyboard navigation, typeahead, focus return and
+  keeping the menu inside the window. (Spartan, which was suggested once, is Angular-only.)
+* **`ActionMenu`**: `<ActionMenu subject={…}>{trigger}</ActionMenu>`. It wraps `ContextMenu`, builds the entries from
+  `describeActions` and runs the chosen one with `useActionContext()`. With a `null` subject it draws the trigger
+  without a menu.
+* **Entries are built only while the menu is open,** in a component inside the menu's content: `ContextMenu` takes a
+  function for `entries` and calls it there. It subscribes to the project, the status, the sample store and every
+  clipboard (`subscribeToClipboards`), each through a signature of the entries, so *Paste* and *Restart* are right
+  if something changes while the menu stays open, and the status's 30 updates a second re-render it only when an
+  entry changes. Nothing is computed for closed menus.
+* **The innermost menu opens.** A trigger stops the `contextmenu` event, so the fader inside a mixer strip opens its
+  own menu, not the strip's.
+* **Keyboard and touch.** Radix opens a menu on `contextmenu`, which browsers fire for the Menu key and, on Windows and
+  Linux, Shift+F10, and on a long press. Chromium on macOS fires nothing for Shift+F10, so `ContextMenu` handles that
+  key itself on the focused trigger (or inside it): it prevents the browser's handling and sends a `contextmenu` from
+  the trigger's bottom-left corner. Every trigger is or holds a focusable element; the arrangement lane's name is
+  focusable for that, and carries the track's menu. Checked in Chromium; Firefox and Safari were not checked.
+* **Focus after a rename.** Radix returns the focus to the trigger as a menu closes. `ActionMenu` prevents that after
+  an action that `takesFocus` (an in-place rename, *Add node…*).
+* **Popups stay.** The *+* add-track popup, the empty audio slot's *+* and the *Layout* menu are menus of a place, not
+  of a thing. The empty audio slot's *+* runs the same *Add audio clip* action as its right-click submenu.
+* **View-local menus stay local.** The piano roll's (it acts on the note selection and the hover beat) and an input
+  port's (*Create knob* needs `GraphEditor`'s `createControl`) build their entries through `ContextMenu`. The rule in
+  `tests/architecture.test.ts`: outside `ui/shared/menu`, only `PianoRoll`, `GraphEditor` and `NodeView` may import
+  `ContextMenu`; everything else uses `ActionMenu`.
+* **A component child must forward the trigger's props.** The trigger is Radix's `asChild` child, so a custom
+  component (unlike a plain `<div>`) has to spread the props it does not use itself (the menu's handlers,
+  `data-state`, `ref`) onto its root element. The arrangement region dropped them once, and its menu never opened.
+  `NodeView` wraps its own root in `ActionMenu` instead.
+
+| Kind | Open | Edit | Clipboard | Delete |
+|---|---|---|---|---|
+| Track | Stop (instrument, audio), Open instrument, Open effects, Open notes, Show automation | Rename, Duplicate, Mute / Unmute, Solo / Unsolo | | Delete |
+| Master | Open effects, Show automation | | | |
+| Session clip | Launch / Restart, Edit notes or Edit clip, Edit automation | Rename, Duplicate to empty slot, Place on arrangement | Copy, Cut | Delete |
+| Empty slot | | Create clip (MIDI), Add audio clip ▸ samples (audio) | Paste | |
+| Automation slot | Launch / Stop, Edit | Create (empty) | Copy, Paste (empty) | Delete |
+| Scene | Launch | Rename, Insert scene before, Duplicate | | Delete |
+| Sample | Preview, Open in wave editor | Rename, New sampler track, New audio track | | Remove from project |
+| Library item | Preview | Rename, Duplicate, Insert new instrument track, Replace selected graph / Add sample to project | | Trash; in the trash: Restore |
+| Library folder | Open | Rename, New folder inside | | Trash; in the trash: Restore |
+| Nodes | Open module (one use) | Rename (one control), Bypass / Unbypass (note effects), Group into module, Unlink (one use) | Copy, Cut, Duplicate | Delete |
+| Canvas | Add node… | | Paste | |
+| Module | | Rename, Show / Hide interface | | Delete (disabled while used, the reason in its title) |
+| Region | Edit clip (its session source, while it exists) | Duplicate, Loop until next region / Stop looping | Copy | Delete |
+| Lane | | Add clip ▸ the track's session clips | Paste | Clear this track |
+| Control | | MIDI learn (per axis), Show automation | | |
+| Sound | Recall | Update, Rename, Duplicate | | Delete |
+
+*Open* entries are the navigation intents (`openClip`, `openTrackView`, `openMasterEffects`, `openAutomationSlot`,
+`openSampleEditor`) and `useAutomationEditor.show`: they reveal the view wherever it is docked. *Show automation* on a
+track opens its volume lane, in the selected (or first) clip, or a return's slot (created when empty).
+
+### In-place rename
+
+* **`state/rename-store.ts`** holds what is being renamed: `{ subject, origin }` or nothing. Only *Rename* actions
+  start it (`startRename`, which also reveals `origin`, or the kind's own view outside a view); the field stops it.
+* **`ui/shared/RenameField`** is a text field for a name: it commits on Enter and on blur, cancels on Escape, refuses
+  an empty name (keeping the old one) unless `allowEmpty`, and keeps the browser's own menu on right-click. An
+  in-place field selects its text a task after it mounts, once the menu that started it is gone (its focus trap holds
+  the focus until then). **`InPlaceRename`** draws a view's name, or the field in its place while the store names
+  this subject in this view: a track renamed from the mixer edits in the mixer only. Where it shows: the session
+  header and mixer strip (track), the slot (clip), the scene button, the sample row, the Library's item row and
+  folder tree row, the sound row, a node card's title (controls). The module bar's and a panel control's (edit mode)
+  name fields are always there; *Rename* selects the module bar's.
+* **Committing** is `commitRename(subject, name, context)`: each kind's setter, one undo step. The new setters are in
+  `core/project/rename.ts`: `setTrackName`, `setClipName` (session clips; a region's content is a copy and keeps its
+  name), `setSceneName` (writes `sceneNames`, padding it; an empty name clears it) and `setSampleName`. Each trims the
+  name and cuts it to `NAME_LIMITS` (track 40, clip 40, scene 24, sample 60), which the file sanitizer reads too. A
+  library rename goes through `PersonalLibrary.update` and resolves with the catalog.
+
+### Clipboards
+
+* **`state/clipboard.ts`**: `createClipboard<T>(empty)` makes a subscribable store for one kind of copied thing, and
+  `useClipboard(store)` reads it with `useSyncExternalStore`. There is no clipboard that holds "anything". Each kind
+  of clipboard is per session, in memory: it survives switching tracks and loading another project, and isn't shared
+  with the operating system's clipboard. A plain module variable once kept the piano roll's *Paste* greyed out after
+  copying until something else re-rendered; a subscribable store doesn't.
+* **Notes** (`ui/clip-editor/note-clipboard.ts`) and **automation points** (in `AutomationEditor`) are view-local
+  clipboards made with the same factory; the automation editor's *Paste* enables as soon as points are copied.
+* **Clips** (`clipClipboard`): a copy of the clip's value and its source track's kind, never ids, so a clip whose track
+  is gone still pastes. Session clips and arrangement regions share it (a region's content is a clip). *Paste* goes
+  into an empty slot of a track of the same kind (`pasteSessionClip`, `canPasteSessionClip`) and onto a lane at the
+  clicked beat, as `clipCopyFor(project, clip, trackId)`: fresh clip, note, lane and point ids, the lanes moved to the
+  destination track (a lane whose node isn't on that track shows as unavailable). An audio clip whose sample was
+  removed doesn't paste. `copySessionClip` (*Duplicate to empty slot*) uses the same copy.
+* **Automation slots** (`automationSlotClipboard`): *Paste* into an empty cell of the master or any return, with fresh
+  ids and the lanes moved to that owner.
+* **Nodes** (`nodeClipboard`): the nodes and the wires between them (`copyNodes` in `core/project/node-copy.ts`), with
+  the kind of graph they came from. A graph's fixed ends (*Track in*, *Track out*, *Clip notes*, *Note out*, *Return
+  in*, *Master in*) are never copied, and wires to nodes outside the copy are dropped. `pasteNodes(patch, copied, at)`
+  gives fresh node and wire ids, keeps the nodes where they were relative to each other with the group's top-left at
+  the clicked point, and pastes nothing past `MAX_PATCH_NODES` (200). *Paste* is enabled only into the same kind of
+  graph (instrument, effects or notes; a module's inside counts as the graph it was opened from), and not when it
+  would put a module inside itself. The pasted controls start without automation or MIDI mappings, since nothing
+  points at their new ids. *Duplicate* pastes 32 px down and right and leaves the clipboard alone.
+
+### Edits behind the menus
+
+* **`duplicateTrack(project, trackId)`** (`core/project/track-duplicate.ts`) adds "*name* copy" right after the
+  original and the action selects it; disabled at `MAX_TRACKS` (64). It copies the graphs (node ids kept, so values
+  and lanes only change owner) and their module uses, the clips (fresh ids, lanes moved to the copy), the mixer
+  settings (volume, pan, mute, solo, sends, voices), a return's automation slots, and the track's `controlValues` and
+  `sampleBindings`, so it sounds the same (an audio test pans the two apart and compares the channels). It leaves out
+  what belongs to the original: MIDI mappings, snapshots and presets, arrangement regions, other tracks' sends to a
+  return and other note graphs' "notes from this track" inputs.
+* **Scenes** (`core/project/scenes.ts`): `insertScene(project, at)`, `duplicateScene(project, scene)` (inserted after,
+  every clip and slot in the row copied with fresh ids, and its name) and `removeScene(project, scene)`. Each shifts
+  every scene-indexed list together: each track's clips, the master's and the returns' automation slots (which may be
+  shorter than the row count, and are only padded to put a slot past their end) and `sceneNames` (trailing empty
+  names dropped). A project keeps 1 to `MAX_SCENES` (64) scenes. The selection store's `automationScene` follows its
+  row, and resets to the first scene when its row goes. Clips that are playing keep playing: the launcher knows them
+  by id.
+* `MAX_TRACKS`, `MAX_SCENES` and `MAX_PATCH_NODES` live in `core/project`; the file format's `LIMITS` reads them.
 
 ## Groove: quantize, swing, humanize
 
@@ -1243,13 +1380,14 @@ through a patch, as before) or an **audio track**.
   line to the sample (tested). `mixInto` receives a `MixTiming` (beat at the segment start, beats per sample), which
   is how audio stays on the grid. What *sounds* is reported by the player, not the queue, so a finished one-shot stops
   showing as playing. Commands: `track/add` has a `kind`; audio clips travel as `track/setAudioClips`.
-* **UI.** The session `+` is a menu (instrument or audio track); an empty audio slot's `+` lists the library samples;
-  audio slots show a mini waveform and share the context menu. `AudioClipEditor` shows the waveform across the clip's
+* **UI.** The session `+` is a menu (instrument or audio track); an empty audio slot's `+` lists the library samples,
+  as does its right-click *Add audio clip* ▸; audio slots show a mini waveform and share the clip menu. `AudioClipEditor` shows the waveform across the clip's
   length with the beat grid over it (kicks on beats 1 and 3 line up visibly), a playhead, and controls for sample,
   warp, loop, length, fit and gain. The Samples tab has *New audio track*. Instrument-tab content for an audio track
   explains it has no instrument. A 120 BPM demo drum loop ships in **Add demo samples**.
-* **Menus.** `ui/shared/menu` now holds `ContextMenu` (right-click) and `PopupMenu` (click on a trigger), both over
-  Radix with one shared entry renderer and stylesheet, so they look and behave identically.
+* **Menus.** `ui/shared/menu` holds `ContextMenu` (right-click) and `PopupMenu` (click on a trigger), both over Radix
+  with one shared entry renderer and stylesheet, so they look and behave identically (see "Actions and context
+  menus").
 
 ## The arrangement (clips on a timeline)
 
@@ -1283,12 +1421,13 @@ switches views like in Ableton.
   pushes the whole region list (it is small, and edits create new arrays).
 * **UI.** `ui/arrangement/`: a ruler in bars, one lane per non-return track, regions drawn as a note preview (MIDI)
   or a waveform thumbnail (audio). Right-click an empty lane to place one of the track's session clips at the
-  clicked beat; a session slot's context menu has **Place on arrangement**, which appends a copy at the end of its
+  clicked beat (*Add clip* ▸), paste a copied clip or region there, or clear the track; the lane's name carries the
+  track's menu. A session slot's context menu has **Place on arrangement**, which appends a copy at the end of its
   track's timeline (the two main views are exclusive, so a slot cannot be dragged onto a lane). Drag a region to
   move it (quarter-beat snap) — vertical dragging onto another lane moves it across tracks (the drop resolves the
   target from the lane element's `data-lane`); drag its edge to resize (MIDI clips trim their notes); right-click a
-  region to duplicate, loop (until the next region: a repeat badge and a hatched span up to the loop end) or
-  delete. The region is the menu's `asChild` child, so it forwards the trigger's handlers, `data-state` and `ref`
+  region to open its session source (*Edit clip*, while it exists), duplicate, loop (until the next region: a repeat
+  badge and a hatched span up to the loop end), copy or delete. The region is the menu's `asChild` child, so it forwards the trigger's handlers, `data-state` and `ref`
   onto its root element — a component that drops them silently never opens the menu. Regions render live while
   the transport runs. Every edit is an undoable project step (`addArrangementClip` / `updateArrangementClip` /
   `removeArrangementClip`), a drag merging into one step.
@@ -1669,6 +1808,8 @@ engine projection before numeric control values; live sync and offline bounce sh
 routes, including uses of edited shared definitions. Removing samples clears active bindings; saved presets retain
 missing dependency references for diagnostics. The Sounds tab lists per-use bindings with reset-to-default, and root
 property sample pickers resolve/edit the same active binding. Shared-definition editors still edit shared defaults.
+Each snapshot and preset row in Sounds has a menu (*Recall*, *Update*, *Rename*, *Duplicate*, *Delete*) and renames in
+place; the *Sound name* field is for saving.
 
 `state/preset-actions` commits one recall to history. Normal Read recall edits authored bases, releases affected temporary
 overrides, leaves lane points alone and reports Read-controlled values. Armed recall finishes pending Touch gestures,
@@ -1740,7 +1881,9 @@ resolve as canceled while current failures remain errors. The panel gates busy/s
 ownership, invalidating pending preview UI work on stop/navigation/unmount. Preview does not use the project engine, transport, history or
 autosave. `app/library-service` and `ui/library/LibraryPanel` load on demand to keep production chunks below the existing
 warning limit. The Library panel provides folder navigation, mixed lists, search/type filters, dependency/sample detail,
-explicit save/insert/replace, preview and recoverable trash controls. Bundle selection is reconciled against current
+explicit save/insert/replace, preview and recoverable trash controls. Items and folders have menus, and rename in
+place; the toolbar's name field is for saving. The catalog and the open folder are in `state/library-store.ts`, which
+the view and the library's actions keep current; the view's buttons run those actions and report on its status line. Bundle selection is reconciled against current
 nontrashed items, with hidden-selection counts and a clear action. Invalid scene inputs disable insertion; the core
 still enforces integer/range checks and occupied-slot replacement.
 
