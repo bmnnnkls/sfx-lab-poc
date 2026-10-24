@@ -1,11 +1,11 @@
 .workspace {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
 }
 
 .workspace:has(> .audioFailure) {
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .audioFailure {
@@ -14,13 +14,4 @@
   background: color-mix(in srgb, #ff6b6b 18%, var(--panel-raised));
   border-bottom: 1px solid #ff6b6b;
   font-weight: 600;
-}
-
-.session {
-  overflow: hidden;
-}
-
-.editor {
-  min-height: 0;
-  background: var(--panel);
 }

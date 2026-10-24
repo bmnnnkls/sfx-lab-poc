@@ -42,7 +42,7 @@ const EXTERNAL_ALLOWED: Record<string, readonly string[]> = {
   audio: [],
   storage: ['fflate'],
   state: ['react', 'zustand'],
-  ui: ['react', 'react-dom', '@radix-ui/react-context-menu', '@radix-ui/react-dropdown-menu'],
+  ui: ['react', 'react-dom', '@radix-ui/react-context-menu', '@radix-ui/react-dropdown-menu', 'flexlayout-react'],
   app: ['react', 'react-dom'],
 }
 
@@ -80,6 +80,20 @@ describe('architecture', () => {
       }
     }
     expect(violations).toEqual([])
+  })
+
+  it('imports the docking library only from ui/layout, so an upgrade touches one folder', () => {
+    const layoutRoot = join(SRC, 'ui', 'layout') + sep
+    const violations = sourceFiles
+      .filter((file) => !file.startsWith(layoutRoot))
+      .filter((file) => importsOf(file).some((specifier) => specifier === 'flexlayout-react' || specifier.startsWith('flexlayout-react/')))
+      .map((file) => relative(SRC, file))
+    expect(violations).toEqual([])
+  })
+
+  it('pins the docking library to an exact version', () => {
+    const manifest = JSON.parse(readFileSync(resolve(SRC, '../package.json'), 'utf8')) as { dependencies: Record<string, string> }
+    expect(manifest.dependencies['flexlayout-react']).toMatch(/^\d+\.\d+\.\d+$/)
   })
 
   it('reaches other core modules only through their index', () => {

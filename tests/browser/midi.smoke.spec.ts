@@ -1,4 +1,4 @@
-import { test, expect, expectSaved, openView } from './fixtures'
+import { test, expect, expectSaved, openView, viewRoot } from './fixtures'
 import { installMidiPorts, sendMidi } from './midi-ports'
 
 for (const mode of ['denied', 'unsupported'] as const) test(`MIDI ${mode} remains usable and only requests from Enable`, async ({ page }) => {
@@ -22,7 +22,7 @@ test('Low Light filter learn, pickup, undo, reload, reassignment, rebind and rem
   await expect(page.getByRole('region', { name: 'MIDI settings', exact: true })).toContainText('Test keyboard — connected')
   await page.getByRole('button', { name: 'Close MIDI settings' }).click()
   const showFilter = async () => {
-    await page.getByText('Master', { exact: true }).first().click()
+    await viewRoot(page, 'Session').getByText('Master', { exact: true }).first().click()
     await openView(page, 'Effects')
     await page.getByRole('group', { name: 'View', exact: true }).getByRole('button', { name: 'Panel', exact: true }).click()
     return page.getByRole('slider', { name: 'DJ filter', exact: true })

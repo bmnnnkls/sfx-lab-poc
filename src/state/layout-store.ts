@@ -67,6 +67,13 @@ export const DEFAULT_LAYOUT: LayoutSnapshot = {
   hiddenRegions: DEFAULT_HIDDEN,
 }
 
+const sameList = <T>(a: readonly T[], b: readonly T[]): boolean => a.length === b.length && a.every((item, index) => item === b[index])
+const sameGroups = (a: readonly GroupState[], b: readonly GroupState[]): boolean =>
+  a.length === b.length && a.every((group, index) => {
+    const other = b[index]!
+    return group.id === other.id && group.region === other.region && group.active === other.active && sameList(group.views, other.views)
+  })
+
 let driver: LayoutDriver | undefined
 
 /**
@@ -110,7 +117,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       if (driver === next) driver = undefined
     }
   },
-  sync: (snapshot) => set({ groups: snapshot.groups, visible: snapshot.visible, hiddenRegions: snapshot.hiddenRegions }),
+  // The shell syncs after every model change, splitter drags included; an unchanged mirror keeps its references so
+  // subscribers don't re-render.
+  sync: (snapshot) => set((state) => ({
+    groups: sameGroups(state.groups, snapshot.groups) ? state.groups : snapshot.groups,
+    visible: sameList(state.visible, snapshot.visible) ? state.visible : snapshot.visible,
+    hiddenRegions: sameList(state.hiddenRegions, snapshot.hiddenRegions) ? state.hiddenRegions : snapshot.hiddenRegions,
+  })),
 }))
 
 /** The first group in a region, for code that shows one group per region. */

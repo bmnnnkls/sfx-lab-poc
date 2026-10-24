@@ -122,6 +122,17 @@ describe('layout store with a driver', () => {
     expect(driver.reveal).toHaveBeenLastCalledWith('session')
   })
 
+  it('keeps the mirror\'s references when a sync changes nothing', () => {
+    const before = layout()
+    layout().sync({ groups: before.groups.map((g) => ({ ...g, views: [...g.views] })), visible: [...before.visible], hiddenRegions: [...before.hiddenRegions] })
+    expect(layout().groups).toBe(before.groups)
+    expect(layout().visible).toBe(before.visible)
+    expect(layout().hiddenRegions).toBe(before.hiddenRegions)
+    layout().sync({ ...DEFAULT_LAYOUT, visible: ['session'] })
+    expect(layout().visible).toEqual(['session'])
+    expect(layout().groups).toBe(before.groups)
+  })
+
   it('stops forwarding once detached, and a stale detach leaves a newer driver attached', () => {
     const first = recordingDriver()
     const detachFirst = detach!

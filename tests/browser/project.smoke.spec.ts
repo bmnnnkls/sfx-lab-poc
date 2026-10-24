@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { unzipSync, strFromU8 } from 'fflate'
-import { test, expect, openExample, expectSound, expectSaved, openView } from './fixtures'
+import { test, expect, openExample, expectSound, expectSaved, openView, viewRoot } from './fixtures'
 
 test('both examples play through the production AudioWorklet', async ({ page }) => {
   await page.goto('/')
@@ -16,7 +16,7 @@ test('both examples play through the production AudioWorklet', async ({ page }) 
 test('a panel gesture undoes once and persists after reload', async ({ page }) => {
   await page.goto('/')
   const showFilter = async () => {
-    await page.getByText('Master', { exact: true }).first().click()
+    await viewRoot(page, 'Session').getByText('Master', { exact: true }).first().click()
     await openView(page, 'Effects')
     await page.getByRole('group', { name: 'View', exact: true }).getByRole('button', { name: 'Panel', exact: true }).click()
     return page.getByRole('slider', { name: 'DJ filter', exact: true })

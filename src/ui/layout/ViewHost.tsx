@@ -1,5 +1,6 @@
 import type { ViewId } from '@state'
-import { Activity, useLayoutEffect, useRef } from 'react'
+import type { TabNode } from 'flexlayout-react'
+import { Activity, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { VIEW_HIDE } from './view-events'
 import { views } from './views'
 import styles from './ViewHost.module.css'
@@ -28,4 +29,18 @@ export const ViewHost = ({ id, visible }: { id: ViewId; visible: boolean }) => {
       </div>
     </Activity>
   )
+}
+
+/**
+ * flexlayout's factory output for a tab. flexlayout renders a tab the first time it is shown and keeps it mounted;
+ * its `visibility` event says when the view is shown or hidden.
+ */
+export const ViewTab = ({ node }: { node: TabNode }) => {
+  const [visible, setVisible] = useState(() => node.isVisible())
+  useEffect(() => {
+    node.setEventListener('visibility', ({ visible: now }: { visible: boolean }) => setVisible(now))
+    setVisible(node.isVisible())
+    return () => node.removeEventListener('visibility')
+  }, [node])
+  return <ViewHost id={node.getId() as ViewId} visible={visible} />
 }

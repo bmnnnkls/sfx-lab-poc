@@ -405,6 +405,43 @@ library, so they can land while the decisions are still open.
    * [README.md](README.md) marks round 2 done. The roadmap drops round 3's hidden-state and pause bullets and notes
      the library choice.
 
+## Changes made while implementing
+
+What turned out different from the design above, step by step.
+
+* **Before step 3: the `library` spec is not flaky on the base.** "Isolated previews close their audio context…"
+  passed 15 times in a row alone on `feat/ui-redesign` plus the plan, and in every full run since. The spike's one
+  failure was on the dockview branch.
+* **Step 3: `KeptViews`.** Today's shell mounted each region's views on first show with a small `KeptViews`
+  component; step 5 deleted it, since flexlayout renders tabs on demand. `ViewHost` keeps the root element from a
+  callback ref, because `<Activity>` detaches refs while hidden, and dispatches `view-hide` from a layout Effect,
+  which runs before the hidden view's own Effects are cleaned up.
+* **Step 3: `LibraryPanel`'s cleanup also clears `busy`.** An operation dropped by a hide never reached its
+  `finally`, so the panel came back busy.
+* **Step 4: `resetPanel` went with the façade**, as decided, so replacing the project stopped moving the panel
+  in step 4 already.
+* **Step 5: the driver is `ui/layout/layout-driver.ts`**, a class with unit tests that run flexlayout's `Model` in
+  Node. It computes the mirror from the model rather than from `visibility` events, so `sync` is current right
+  after each action. `sync` keeps the mirror's references when nothing changed, so splitter drags don't
+  re-render subscribers.
+* **Step 5: the panel is a border, as planned.** Border tabs render on demand and fire `visibility` like tab-group
+  tabs. One border behavior shapes the façade: clicking a border's open tab collapses the border
+  (`selected: -1`). The mirror counts a collapsed border as a hidden region, and showing it again opens the tab it
+  showed last. `revealView` never selects a border's open tab, and `openView` doesn't click a tab that is
+  already selected.
+* **Step 5: `graph-navigation`'s 0.05 px miss came from Chromium, not from flexlayout.** Wheel and mouse events
+  report whole pixels (the fraction of `clientX` is dropped); pointer events keep it. A canvas at a fractional
+  offset therefore zoomed about a point up to 1 px off the cursor, and the spec, which moves the cursor to
+  `node.x + 20`, caught it as soon as the node sat at a fraction. `PatchCanvas` now zooms at the last pointer
+  position when it is the same spot as the wheel event's. Measured with Instrument docked beside Session (the
+  canvas at x = 752.5): the anchor drifted 0.32 px before and 0 after. The assertion is unchanged. In the default
+  layout the panel's height is a whole number, so the canvas sits on whole pixels anyway.
+* **Step 5: page-wide text locators.** Hidden views stay in the DOM, and flexlayout puts the border's panels
+  before the editor's. `page.getByText('Sweep').first()` then found the hidden Instrument view's copy, so the
+  specs that click a track or the master by its text now look in the Session view (`viewRoot(page, 'Session')`).
+* **Step 5: tooltips moved to `view-titles.ts`** (`viewTooltips`), so the default layout can give tabs their
+  tooltips (`helpText`) without importing the views.
+
 ## Behavior changes
 
 Intended:

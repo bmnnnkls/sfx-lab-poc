@@ -134,8 +134,13 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
       const bounds = element.getBoundingClientRect()
       const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1
       if (event.ctrlKey || event.metaKey) {
+        // Wheel events report whole pixels (Chromium drops the fraction of mouse event coordinates); pointer events
+        // keep it. Zoom at the last pointer position when it is the same spot, so the point under the cursor stays
+        // put even when the canvas sits at a fractional offset, as docked panels do.
+        const seen = pointer.current.client
+        const cursor = Math.abs(seen.x - event.clientX) < 1 && Math.abs(seen.y - event.clientY) < 1 ? seen : { x: event.clientX, y: event.clientY }
         updateView(zoomAt(current, current.zoom * Math.exp(-event.deltaY * unit * 0.01), {
-          x: event.clientX - bounds.left, y: event.clientY - bounds.top,
+          x: cursor.x - bounds.left, y: cursor.y - bounds.top,
         }))
       } else {
         updateView({ ...current, x: current.x - (event.shiftKey ? event.deltaY : event.deltaX) * unit,

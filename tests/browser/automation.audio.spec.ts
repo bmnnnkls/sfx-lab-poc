@@ -1,7 +1,7 @@
 import { samplePresetProject } from './preset-project'
 import { exportLibraryBundle } from '../../src/storage'
 import { captureLibraryAsset, emptyLibrary, renderProject, serializeProject, parseProject, saveProjectPreset, editControlBase, type Project } from '../../src/core'
-import { test, expect, expectSaved, openView } from './fixtures'
+import { test, expect, expectSaved, openView, viewRoot } from './fixtures'
 import { noteSweepProject, slotSweepProject, sweepProject, sweepTarget } from './automation-project'
 
 declare global { interface Window { __sweepSamples: number[] } }
@@ -57,7 +57,7 @@ test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after tras
     await openView(page, 'Samples')
     await page.getByTestId('sample-input').setInputFiles(sampleFixture.samples.map(s => ({ name: `${s.info.name}.wav`, mimeType: 'audio/wav', buffer: Buffer.from(s.bytes) })))
     for (const s of sampleFixture.samples) await expect(page.getByRole('button', { name: `Preview ${s.info.name}`, exact: true })).toBeEnabled()
-    await page.getByText('Sweep', { exact: true }).first().click()
+    await viewRoot(page, 'Session').getByText('Sweep', { exact: true }).first().click()
     await openView(page, 'Sounds')
     await page.getByRole('button', { name: 'Recall preset Different sample', exact: true }).click()
     await expectSaved(page)
@@ -91,7 +91,7 @@ test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after tras
     for (const s of sampleFixture.samples) await expect(page.getByRole('button', { name: `Preview ${s.info.name}`, exact: true })).toBeEnabled()
   }
   if (preset) {
-    await page.getByText('Sweep', { exact: true }).first().click()
+    await viewRoot(page, 'Session').getByText('Sweep', { exact: true }).first().click()
     await openView(page, 'Sounds')
     await page.getByRole('button', { name: 'Recall preset Warm', exact: true }).click()
     await page.getByRole('button', { name: 'Recall preset Bright', exact: true }).click()

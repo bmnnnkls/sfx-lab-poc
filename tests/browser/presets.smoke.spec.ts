@@ -1,12 +1,12 @@
 import { parseProject, resolveControlTarget, serializeProject } from '../../src/core'
 import { sweepProject } from './automation-project'
-import { test, expect, expectSaved, openView } from './fixtures'
+import { test, expect, expectSaved, openView, viewRoot } from './fixtures'
 
 test('two named sounds recall atomically, undo, morph and survive reload', async ({ page }, testInfo) => {
   const project = sweepProject()
   await page.addInitScript(saved => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(project))
   await page.goto('/')
-  await page.getByText('Master', { exact: true }).first().click()
+  await viewRoot(page, 'Session').getByText('Master', { exact: true }).first().click()
   await openView(page, 'Sounds')
   await page.getByLabel('Sound scope').selectOption('track')
   await page.getByLabel('Sound name').fill('Loud')

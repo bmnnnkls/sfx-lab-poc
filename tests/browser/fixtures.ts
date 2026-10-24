@@ -34,19 +34,17 @@ const VIEW_IDS: Readonly<Record<ViewTitle, string>> = {
   Library: 'library',
 }
 
-/** The main views are switched from the transport bar, whose buttons say which view they show. */
-const MAIN_VIEWS: ReadonlySet<ViewTitle> = new Set(['Session', 'Arrangement'])
-
 /** A view's root, wherever it is docked and whether or not it is showing. */
 export const viewRoot = (page: Page, title: ViewTitle): Locator => page.locator(`[data-view="${VIEW_IDS[title]}"]`)
 
 /**
  * Show a view wherever it is docked and return its root, once it is visible. The only place specs know how views are
- * opened. Look inside the returned locator rather than the page: a hidden view can stay in the DOM.
+ * opened. Look inside the returned locator rather than the page: a hidden view stays in the DOM.
  */
 export const openView = async (page: Page, title: ViewTitle): Promise<Locator> => {
-  const name = MAIN_VIEWS.has(title) ? `${title} view` : title
-  await page.getByRole('button', { name, exact: true }).click()
+  const tab = page.getByRole('tab', { name: title, exact: true })
+  // Clicking the open tab of the panel would collapse the panel.
+  if (await tab.getAttribute('aria-selected') !== 'true') await tab.click()
   const root = viewRoot(page, title)
   await expect(root).toBeVisible()
   return root

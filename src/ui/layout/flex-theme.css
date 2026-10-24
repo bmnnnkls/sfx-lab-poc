@@ -1,0 +1,24 @@
+/* flexlayout themed from our own variables in theme.css. */
+:root {
+  --flexlayout-color-text: var(--text);
+  --flexlayout-color-background: var(--bg);
+  --flexlayout-color-base: var(--bg);
+  --flexlayout-color-1: var(--panel);
+  --flexlayout-color-2: var(--bg);
+  --flexlayout-color-3: var(--panel-raised);
+  --flexlayout-color-4: var(--border);
+  --flexlayout-color-5: var(--border);
+  --flexlayout-color-6: var(--text-dim);
+  --flexlayout-color-tab-content: var(--panel);
+  --flexlayout-color-border-tab-content: var(--panel);
+  --flexlayout-color-tab-unselected: var(--text-dim);
+  --flexlayout-color-border-tab-unselected: var(--text-dim);
+  --flexlayout-color-tab-selected: var(--accent);
+  --flexlayout-color-border-tab-selected: var(--accent);
+  --flexlayout-color-focus: var(--accent);
+  --flexlayout-color-drag1: var(--accent);
+  --flexlayout-color-drag1-background: var(--accent-soft);
+  --flexlayout-font-size: 13px;
+  --flexlayout-font-family: inherit;
+  --flexlayout-splitter-size: 4px;
+}
