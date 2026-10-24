@@ -21,6 +21,17 @@ const editButtons = (root: Locator) => root.locator('button[title^="Open in the 
 
 const CASES: readonly Case[] = [
   {
+    title: 'Session',
+    min: EDITOR,
+    // The scene column stays at the right and the track headers at the top while the grid scrolls.
+    controls: (root) => [root.getByRole('button', { name: 'Launch scene 1', exact: true }), root.getByRole('button', { name: 'Bass', exact: true })],
+  },
+  {
+    title: 'Arrangement',
+    min: EDITOR,
+    controls: (root) => [root.getByRole('button', { name: 'Play arrangement', exact: true }), root.getByText('Bass', { exact: true })],
+  },
+  {
     title: 'Sounds',
     min: TOOL_VIEW,
     controls: (root) => [root.getByLabel('Sound name', { exact: true }), root.getByRole('button', { name: 'Save snapshot' })],

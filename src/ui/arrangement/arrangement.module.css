@@ -1,4 +1,5 @@
 .view {
+  --name-width: 120px;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -7,6 +8,7 @@
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
@@ -33,7 +35,7 @@
 .lane {
   position: relative;
   display: grid;
-  grid-template-columns: 120px 1fr;
+  grid-template-columns: var(--name-width) 1fr;
   gap: 0;
 }
 
@@ -74,7 +76,7 @@
 /* The ruler shares the lane grid so bars line up with the rows. */
 .rulerRow {
   display: grid;
-  grid-template-columns: 120px 1fr;
+  grid-template-columns: var(--name-width) 1fr;
   height: 24px;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
@@ -227,4 +229,18 @@
 
 .empty > p {
   margin: 0 0 8px;
+}
+
+/* Below 720 px the hint leaves the toolbar; it stays the toolbar's tooltip. */
+@container view (width < 720px) {
+  .info {
+    display: none;
+  }
+}
+
+/* Below 560 px the track names take less of the width, cut with an ellipsis. */
+@container view (width < 560px) {
+  .view {
+    --name-width: 72px;
+  }
 }

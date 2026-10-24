@@ -361,6 +361,12 @@ What turned out different from the design above, step by step.
 * **Step 5: the short strip also drops the effects badges and lets the fader row shrink to 40 px.** Without that, a
   strip at 200 px still needed more height than the view has; it keeps its name, mute and solo, fader, meter and
   value, as planned.
+* **Step 6: the session grid's width is set from its column count.** The sticky scene column needs the grid box as
+  wide as its columns; `width: max-content` made every track as wide as the widest header's content (about 150 px),
+  so the narrower columns never showed. The grid gets `--columns` inline and is
+  `max(100%, columns × (minimum + gap) + scene column + padding)` wide.
+* **Step 6: the arrangement's hint is the toolbar's tooltip at every width**, since CSS can't move a `title`; below
+  720 px the visible hint goes. The timeline's scroller carries `data-scroll="both"`.
 
 ## Behavior changes
 
