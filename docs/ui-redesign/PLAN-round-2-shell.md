@@ -524,7 +524,7 @@ Anything else a reviewer notices is a bug in this round.
 
 ## Decisions to sign off
 
-Signed off 2026-10-24: every row as proposed.
+Signed off 2026-10-24: every row as proposed. One row was overridden later, on review of the shipped shell (the panel; see its notes).
 
 | Question | Decided | Notes |
 |---|---|---|
@@ -534,7 +534,7 @@ Signed off 2026-10-24: every row as proposed.
 | Persist the panel's tab | **Yes**, as part of the whole layout | Round-1 open question. |
 | On project replace (File → New, Examples), reveal Instrument as today (`resetPanel`) | **Drop it** | The layout belongs to the browser, not the project, so replacing the project shouldn't move the user's tabs. Keeping it is a one-line choice. |
 | Default layout | **Today's** (Session and Arrangement over the eight tool views in the panel); sidebars empty and hidden | A VS Code-style default with Samples, Sounds and Library in the primary sidebar waits for round 3's narrow layouts. |
-| The panel: a bottom border, or a tab group in the grid | **A bottom border**: one tab at a time, as today, and it hides natively | A tab group can be split, but hiding it would mean maximizing the editor's group, which also hides any other editor groups. Borders weren't in the spike; step 5 confirms them. |
+| The panel: a bottom border, or a tab group in the grid | **A bottom border**: one tab at a time, as today, and it hides natively | A tab group can be split, but hiding it would mean maximizing the editor's group, which also hides any other editor groups. Borders weren't in the spike; step 5 confirms them. **Overridden 2026-10-24** by the user: the panel becomes a tab group, because flexlayout always spans its bottom border under the sidebars, so they can't run the full height. See [round 3](PLAN-round-3-shell-rework.md). |
 | Can views be closed | **Not in round 2** | Every view is always somewhere, so `revealView` always succeeds. |
 | The Tab key | Keep toggling Session and Arrangement, but **not when the focus is on a tab, a splitter or the activity bar** | Today it swallows Tab everywhere except form fields, which makes keyboard navigation through the new chrome impossible. Found in the spike; this predates it. |
 | Keyboard shortcuts for toggling regions (VS Code's ⌘B, ⌘J) | **Wait for round 5's keybinding table** | Round 2 has buttons and F6 only. ⌘J and ⌘B collide with browser shortcuts in some browsers. |
