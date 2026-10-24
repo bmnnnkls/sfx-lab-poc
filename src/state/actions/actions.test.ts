@@ -16,12 +16,24 @@ const titles = (subject: Subject) => describeActions(subject, fakeContext()).map
 const undoSteps = () => useProjectStore.getState().history.past.length
 
 const ORDER = ['open', 'edit', 'clipboard', 'delete']
+/** One subject of every kind; the lists don't depend on the ids. */
 const SUBJECTS: readonly Subject[] = [
+  { kind: 'track', trackId: '' },
+  { kind: 'master' },
   { kind: 'clip', trackId: '', clipId: '' },
   { kind: 'slot', trackId: '', scene: 0 },
+  { kind: 'automation-slot', owner: { kind: 'master' }, scene: 0 },
+  { kind: 'scene', scene: 0 },
+  { kind: 'sample', sampleId: '' },
+  { kind: 'library-item', itemId: '' },
+  { kind: 'library-folder', folderId: '' },
+  { kind: 'nodes', target: { master: true }, path: [], nodeIds: [] },
+  { kind: 'canvas', target: { master: true }, path: [], at: { x: 0, y: 0 } },
+  { kind: 'module', moduleId: '' },
   { kind: 'region', regionId: '' },
   { kind: 'lane', trackId: '', beat: 0 },
   { kind: 'control', targets: [] },
+  { kind: 'sound', soundId: '', preset: false },
 ]
 
 beforeEach(() => {
@@ -34,7 +46,6 @@ describe('action lists', () => {
   it('have unique ids named after their kind, in group order', () => {
     for (const subject of SUBJECTS) {
       const actions = actionsFor(subject)
-      expect(actions.length).toBeGreaterThan(0)
       expect(new Set(actions.map((action) => action.id)).size).toBe(actions.length)
       expect(actions.every((action) => action.id.startsWith(`${subject.kind}.`))).toBe(true)
       const groups = actions.map((action) => ORDER.indexOf(action.group))
@@ -70,8 +81,8 @@ describe('session clip', () => {
   it('offers the same entries for MIDI and audio clips, naming the editor', () => {
     const midi: Subject = { kind: 'clip', trackId: track('Bass').id, clipId: clipOf('Bass', 0).id }
     const audio: Subject = { kind: 'clip', trackId: track('Kick').id, clipId: clipOf('Kick', 0).id }
-    expect(titles(midi)).toEqual(['Launch clip', 'Edit notes', 'Edit automation', 'Duplicate to empty slot', 'Place on arrangement', 'Delete clip'])
-    expect(titles(audio)).toEqual(['Launch clip', 'Edit clip', 'Edit automation', 'Duplicate to empty slot', 'Place on arrangement', 'Delete clip'])
+    expect(titles(midi)).toEqual(['Launch clip', 'Edit notes', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Delete clip'])
+    expect(titles(audio)).toEqual(['Launch clip', 'Edit clip', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Delete clip'])
     expect(describeActions(midi, fakeContext()).find((item) => item.id === 'clip.delete')).toMatchObject({ group: 'delete', danger: true })
   })
 

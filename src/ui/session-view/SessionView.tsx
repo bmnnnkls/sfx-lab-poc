@@ -1,6 +1,7 @@
 import { useEngineControls, useProjectStore } from '@state'
 import { type CSSProperties, useMemo } from 'react'
 import { PopupMenu } from '../shared/menu'
+import { InPlaceRename } from '../shared/RenameField'
 import { AutomationSlotCell } from './AutomationSlotCell'
 import { ClipSlot } from './ClipSlot'
 import { MasterHeader } from './MasterHeader'
@@ -61,10 +62,12 @@ const SceneRow = ({ scene, onLaunch }: { scene: number; onLaunch: () => void }) 
         <ClipSlot key={track.id} track={track} scene={scene} />
       ))}
       <AutomationSlotCell owner={{ kind: 'master' }} scene={scene} />
-      <button className={styles.scene} onClick={onLaunch} aria-label={name ? `Launch scene ${scene + 1}, ${name}` : `Launch scene ${scene + 1}`} title={name || undefined}>
-        <span>▶ {scene + 1}</span>
-        {name && <small className={styles.sceneName}>{name}</small>}
-      </button>
+      <InPlaceRename subject={{ kind: 'scene', scene }} name={name ?? ''} label={`Name of scene ${scene + 1}`} className={styles.scene}>
+        <button className={styles.scene} onClick={onLaunch} aria-label={name ? `Launch scene ${scene + 1}, ${name}` : `Launch scene ${scene + 1}`} title={name || undefined}>
+          <span>▶ {scene + 1}</span>
+          {name && <small className={styles.sceneName}>{name}</small>}
+        </button>
+      </InPlaceRename>
     </>
   )
 }

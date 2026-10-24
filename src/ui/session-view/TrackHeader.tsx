@@ -2,6 +2,7 @@ import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OU
 import { openTrackView, useEngineControls, useProjectStore, useSelectionStore } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
+import { InPlaceRename } from '../shared/RenameField'
 import styles from './SessionView.module.css'
 
 export const TrackHeader = ({ track }: { track: Track }) => {
@@ -22,11 +23,13 @@ export const TrackHeader = ({ track }: { track: Track }) => {
 
   return (
     <div {...gesture.events} className={`${styles.header} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnHeader : ''} ${track.muted ? styles.mutedHeader : ''}`}>
-      <button className={styles.trackName} onClick={() => selectTrack(track.id)}>
-        {track.name}
-        {track.kind === 'audio' && <span className={styles.audioTag}> audio</span>}
-        {track.kind === 'return' && <span className={styles.audioTag}> return</span>}
-      </button>
+      <InPlaceRename subject={{ kind: 'track', trackId: track.id }} name={track.name} label={`Name of ${track.name}`} className={styles.trackName}>
+        <button className={styles.trackName} onClick={() => selectTrack(track.id)}>
+          {track.name}
+          {track.kind === 'audio' && <span className={styles.audioTag}> audio</span>}
+          {track.kind === 'return' && <span className={styles.audioTag}> return</span>}
+        </button>
+      </InPlaceRename>
       {soundEffects.length > 0 && (
         <button
           className={styles.fxBadge}

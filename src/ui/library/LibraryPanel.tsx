@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { type LibraryBundleStage, type LibraryBundleSelection, libraryBundleConflicts, type LibraryCatalog, type LibraryItem, type SnapshotScope, emptyLibrary, browseLibrary, libraryDependencies, saveLibraryFolder, saveLibraryItem, trashLibraryEntry } from '@core'
-import { usePersonalLibrary, useProjectStore, useSelectionStore } from '@state'
+import { commitRename, runAction, usePersonalLibrary, useProjectStore, useSelectionStore } from '@state'
+import { useActionContext } from '../shared/menu'
+import { InPlaceRename } from '../shared/RenameField'
 import { FolderTree } from './FolderTree'
 import styles from './LibraryPanel.module.css'
 
 export const LibraryPanel = () => {
-  const library = usePersonalLibrary(), project = useProjectStore(s => s.project), selection = useSelectionStore()
+  const library = usePersonalLibrary(), context = useActionContext(), project = useProjectStore(s => s.project), selection = useSelectionStore()
   const [catalog, setCatalog] = useState<LibraryCatalog>(emptyLibrary), [folder, setFolder] = useState<string | null>(null), [selected, setSelected] = useState('')
   const [name, setName] = useState('My sound'), [query, setQuery] = useState(''), [kind, setKind] = useState(''), [trash, setTrash] = useState(false)
   const [domain, setDomain] = useState<'patch' | 'fx' | 'notes'>('patch'), [sampleId, setSampleId] = useState(''), [scene, setScene] = useState(0)
@@ -109,11 +111,11 @@ export const LibraryPanel = () => {
     </section>}
     <div className={styles.columns}>
       <aside aria-label="Library folder actions"><FolderTree catalog={catalog} open={folder} onOpen={navigate} />
-        {currentFolder && !trash && <><hr /><strong>{currentFolder.name}</strong><button disabled={busy} onClick={() => void run(() => library.update(c => saveLibraryFolder(c, name, currentFolder.parentId, currentFolder.id)))}>Rename folder</button><button disabled={busy} onClick={() => void run(async () => { const value = await library.update(c => trashLibraryEntry(c, currentFolder.id)); navigate(null); return value })}>Trash folder and contents</button><button disabled={busy} onClick={() => void run(() => library.update(c => saveLibraryFolder(c, currentFolder.name, moveTo || null, currentFolder.id)))}>Move folder</button></>}
+        {currentFolder && !trash && <><hr /><InPlaceRename subject={{ kind: 'library-folder', folderId: currentFolder.id }} name={currentFolder.name} label={`Name of ${currentFolder.name}`} onCommit={typed => void run(async () => (await commitRename({ kind: 'library-folder', folderId: currentFolder.id }, typed, context)) ?? false)}><strong>{currentFolder.name}</strong></InPlaceRename><button disabled={busy} onClick={() => runAction('library-folder.rename', { kind: 'library-folder', folderId: currentFolder.id }, context)}>Rename folder</button><button disabled={busy} onClick={() => void run(async () => { const value = await library.update(c => trashLibraryEntry(c, currentFolder.id)); navigate(null); return value })}>Trash folder and contents</button><button disabled={busy} onClick={() => void run(() => library.update(c => saveLibraryFolder(c, currentFolder.name, moveTo || null, currentFolder.id)))}>Move folder</button></>}
         <label>Move destination<select aria-label="Move destination" value={moveTo} onChange={e => setMoveTo(e.target.value)}><option value="">Root</option>{catalog.folders.filter(f => !f.trashed).map(f => <option key={f.id} value={f.id}>{f.name} · {f.id.slice(-6)}</option>)}</select></label>
         {trash && catalog.folders.filter(f => f.trashed).map(f => <button key={f.id} disabled={busy} onClick={() => void run(() => library.update(c => trashLibraryEntry(c, f.id, false)))}>Restore folder {f.name}</button>)}
       </aside>
-      <div className={styles.items} aria-label="Library items">{visibleItems.map(i => <div className={styles.itemRow} key={i.id}><input aria-label={`Include ${i.name} in bundle`} type="checkbox" checked={checked.includes(i.id)} onChange={e => setChecked(ids => e.target.checked ? [...ids, i.id] : ids.filter(id => id !== i.id))} /><button className={selected === i.id ? styles.active : ''} onClick={() => choose(i)}><strong>{i.name}</strong><small>{i.content.kind}{i.content.kind === 'preset' ? ` · ${catalog.items.find(a => i.content.kind === 'preset' && a.id === i.content.assetId)?.name ?? 'Unavailable asset'}` : ''}</small></button></div>)}</div>
+      <div className={styles.items} aria-label="Library items">{visibleItems.map(i => <div className={styles.itemRow} key={i.id}><input aria-label={`Include ${i.name} in bundle`} type="checkbox" checked={checked.includes(i.id)} onChange={e => setChecked(ids => e.target.checked ? [...ids, i.id] : ids.filter(id => id !== i.id))} /><InPlaceRename subject={{ kind: 'library-item', itemId: i.id }} name={i.name} label={`Name of ${i.name}`} onCommit={typed => void run(async () => (await commitRename({ kind: 'library-item', itemId: i.id }, typed, context)) ?? false)}><button className={selected === i.id ? styles.active : ''} onClick={() => choose(i)}><strong>{i.name}</strong><small>{i.content.kind}{i.content.kind === 'preset' ? ` · ${catalog.items.find(a => i.content.kind === 'preset' && a.id === i.content.assetId)?.name ?? 'Unavailable asset'}` : ''}</small></button></InPlaceRename></div>)}</div>
       <article aria-label="Library item details">{item && dependencies ? <>
         <h3>{item.name}</h3><p>{item.content.kind} · {dependencies.modules} modules · {dependencies.presets} presets · {dependencies.sampleIds.length} samples</p>
         <p>{dependencies.routing}</p>
@@ -125,7 +127,7 @@ export const LibraryPanel = () => {
           <button disabled={busy || !instrumentItem} onClick={() => void run(() => library.insert(item, { mode: 'new-track' }))}>Insert new instrument track</button>
           <button disabled={busy || ['audio-clip', 'midi-clip'].includes(item.content.kind)} onClick={() => void run(() => library.insert(item, { mode: 'replace', scope: insertionScope }))}>{item.content.kind === 'sample' ? 'Add sample to project' : 'Replace selected graph'}</button>
           {['audio-clip', 'midi-clip'].includes(item.content.kind) && <><label>Scene <input aria-label="Library destination scene" type="number" min={1} max={project.sceneCount} value={Number.isNaN(scene) ? '' : scene + 1} onChange={e => setScene(e.target.value === '' ? NaN : Number(e.target.value) - 1)} /></label><button disabled={busy || !validScene} onClick={() => void run(() => library.insert(item, { mode: 'replace', scope }, scene))}>Insert into empty slot</button><button disabled={busy || !validScene} onClick={() => void run(() => library.insert(item, { mode: 'replace', scope }, scene, true))}>Replace clip in slot</button></>}
-          <hr /><button disabled={busy} onClick={() => void run(() => library.update(c => saveLibraryItem(c, { ...c.items.find(i => i.id === item.id)!, name })))}>Rename item</button>
+          <hr /><button disabled={busy} onClick={() => runAction('library-item.rename', { kind: 'library-item', itemId: item.id }, context)}>Rename item</button>
           <button disabled={busy} onClick={() => void run(() => library.update(c => saveLibraryItem(c, { ...c.items.find(i => i.id === item.id)!, folderId: moveTo || null })))}>Move item</button>
           <button disabled={busy} onClick={() => void run(() => library.update(c => {
             const id = crypto.randomUUID(); let next = saveLibraryItem(c, { ...item, id, name: `${item.name} copy` })

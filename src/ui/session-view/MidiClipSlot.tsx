@@ -1,6 +1,7 @@
 import type { Clip } from '@core'
 import { type Subject, runAction, useStatusStore } from '@state'
 import { ActionMenu, useActionContext } from '../shared/menu'
+import { InPlaceRename } from '../shared/RenameField'
 import styles from './SessionView.module.css'
 
 interface ClipSlotProps {
@@ -36,9 +37,11 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
   return (
     <ActionMenu subject={subject}>
       <div className={`${styles.slot} ${state}`} >
-        <button className={styles.launch} onClick={() => runAction('clip.launch', subject, context)}>
-          {playing ? '■' : '▶'} {clip.name}
-        </button>
+        <InPlaceRename subject={subject} name={clip.name} label={`Name of ${clip.name}`} className={styles.launch}>
+          <button className={styles.launch} onClick={() => runAction('clip.launch', subject, context)}>
+            {playing ? '■' : '▶'} {clip.name}
+          </button>
+        </InPlaceRename>
         <button onClick={() => runAction('clip.edit', subject, context)} aria-label={`Edit ${clip.name}`}>
           ✎
         </button>

@@ -1,5 +1,7 @@
-import { type ModuleDefinition, moduleUsage, renameModule } from '@core'
-import { useProjectStore } from '@state'
+import { type ModuleDefinition, moduleUsage } from '@core'
+import { commitRename, useProjectStore } from '@state'
+import { useActionContext } from '../shared/menu'
+import { RenameField } from '../shared/RenameField'
 import styles from './Patcher.module.css'
 
 interface ModuleBarProps {
@@ -13,7 +15,7 @@ interface ModuleBarProps {
 /** Header shown while editing a module's inside: name, where it is used, and the interface toggle. */
 export const ModuleBar = ({ definition, interfaceOpen, onToggleInterface, onDeleted }: ModuleBarProps) => {
   const project = useProjectStore((state) => state.project)
-  const updateModule = useProjectStore((state) => state.updateModule)
+  const context = useActionContext()
   const deleteModule = useProjectStore((state) => state.deleteModule)
   const usage = moduleUsage(project, definition.id)
 
@@ -22,13 +24,11 @@ export const ModuleBar = ({ definition, interfaceOpen, onToggleInterface, onDele
     <div className={styles.moduleBar}>
       <label className={styles.voices}>
         Module name
-        <input
+        <RenameField
           className={styles.moduleName}
-          value={definition.name}
-          aria-label="Module name"
-          onChange={(event) =>
-            updateModule(definition.id, (module) => renameModule(module, event.target.value || module.name), `module-name:${definition.id}`)
-          }
+          name={definition.name}
+          label="Module name"
+          onCommit={(name) => commitRename({ kind: 'module', moduleId: definition.id }, name, context)}
         />
       </label>
       <span className={styles.usage} data-testid="module-usage">

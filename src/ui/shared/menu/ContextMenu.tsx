@@ -14,6 +14,8 @@ interface ContextMenuProps {
   readonly entries: readonly MenuEntry[] | (() => readonly MenuEntry[])
   /** The single element that opens the menu when right-clicked (or long-pressed on touch). */
   readonly children: ReactElement
+  /** Called as the menu closes, before the focus returns to the trigger; preventing the event keeps it where it is. */
+  onCloseAutoFocus?(event: Event): void
 }
 
 /** Builds the entries while the menu is open; `build` calls the same hooks on every render. */
@@ -41,13 +43,13 @@ const openFromKeyboard = (event: KeyboardEvent<HTMLElement>) => {
  * To make entries depend on what was clicked, set state from `children`'s own `onContextMenu`;
  * it runs before the menu opens.
  */
-export const ContextMenu = ({ entries, children }: ContextMenuProps) => (
+export const ContextMenu = ({ entries, children, onCloseAutoFocus }: ContextMenuProps) => (
   <Menu.Root>
     <Menu.Trigger asChild onKeyDown={openFromKeyboard}>
       {children}
     </Menu.Trigger>
     <Menu.Portal>
-      <Menu.Content className={styles.menu} collisionPadding={8}>
+      <Menu.Content className={styles.menu} collisionPadding={8} onCloseAutoFocus={onCloseAutoFocus}>
         {typeof entries === 'function' ? <OpenEntries build={entries} /> : <MenuEntries entries={entries} parts={PARTS} />}
       </Menu.Content>
     </Menu.Portal>

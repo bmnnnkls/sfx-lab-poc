@@ -1,6 +1,7 @@
 import type { AudioClip } from '@core'
 import { type Subject, openClip, runAction, useLayoutStore, useProjectStore, useStatusStore } from '@state'
 import { ActionMenu, type MenuEntry, PopupMenu, useActionContext } from '../shared/menu'
+import { InPlaceRename } from '../shared/RenameField'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import styles from './SessionView.module.css'
 
@@ -47,11 +48,13 @@ export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
   return (
     <ActionMenu subject={subject}>
       <div className={`${styles.slot} ${state}`}>
-        <button className={`${styles.launch} ${styles.audioLaunch}`} onClick={() => runAction('clip.launch', subject, context)}>
-          <span>{playing ? '■' : '▶'}</span>
-          <span className={styles.slotName}>{clip.name}</span>
-          <WaveformThumb sampleId={clip.sampleId} width={44} height={16} />
-        </button>
+        <InPlaceRename subject={subject} name={clip.name} label={`Name of ${clip.name}`} className={styles.launch}>
+          <button className={`${styles.launch} ${styles.audioLaunch}`} onClick={() => runAction('clip.launch', subject, context)}>
+            <span>{playing ? '■' : '▶'}</span>
+            <span className={styles.slotName}>{clip.name}</span>
+            <WaveformThumb sampleId={clip.sampleId} width={44} height={16} />
+          </button>
+        </InPlaceRename>
         <button onClick={() => runAction('clip.edit', subject, context)} aria-label={`Edit ${clip.name}`}>
           ✎
         </button>

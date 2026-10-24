@@ -182,3 +182,27 @@ test('library selection survives filtering and clears on trash; invalid scene in
   await expect(panel.getByText('0 selected · 0 hidden', { exact: true })).toBeVisible()
   await expect(panel.getByRole('button', { name: 'Review selected items export', exact: true })).toBeDisabled()
 })
+
+test('library items and folders rename in place', async ({ page }) => {
+  await page.goto('/?starter')
+  await openView(page, 'Library')
+  const panel = page.getByRole('region', { name: 'Personal library' })
+  await panel.getByLabel('Library name', { exact: true }).fill('Collection')
+  await panel.getByRole('button', { name: 'New folder', exact: true }).click()
+  await panel.getByRole('treeitem', { name: folderName('Collection') }).click()
+  await panel.getByRole('button', { name: 'Rename folder', exact: true }).click()
+  await panel.getByRole('textbox', { name: 'Name of Collection', exact: true }).fill('Leads')
+  await page.keyboard.press('Enter')
+  await expect(panel.getByRole('treeitem', { name: folderName('Leads') })).toBeVisible()
+
+  await panel.getByLabel('Library name', { exact: true }).fill('Synth')
+  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
+  const items = panel.getByLabel('Library items', { exact: true })
+  await items.getByRole('button', { name: /^Synth/ }).click()
+  await panel.getByRole('button', { name: 'Rename item', exact: true }).click()
+  // The toolbar's name field is for saving; the item's own name becomes the field.
+  await items.getByRole('textbox', { name: 'Name of Synth', exact: true }).fill('Bright synth')
+  await page.keyboard.press('Enter')
+  await expect(items.getByRole('button', { name: /^Bright synth/ })).toBeVisible()
+  await expect(panel.getByLabel('Library name', { exact: true })).toHaveValue('Synth')
+})

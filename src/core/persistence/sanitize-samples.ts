@@ -1,3 +1,4 @@
+import { NAME_LIMITS } from '../project'
 import type { SampleInfo } from '../sample'
 import { clamp } from '../shared'
 import { LIMITS } from './format'
@@ -24,7 +25,7 @@ export const sanitizeSamples = (raw: unknown, warn: Warn): SampleInfo[] => {
     const extension = typeof entry.extension === 'string' ? entry.extension.toLowerCase() : ''
     samples.push({
       id: entry.id,
-      name: nonEmptyText(entry.name, 'Sample', 60),
+      name: nonEmptyText(entry.name, 'Sample', NAME_LIMITS.sample),
       extension: EXTENSION.test(extension) ? extension : 'bin',
       durationSeconds: Math.max(0, finiteNumber(entry.durationSeconds, 0)),
       sampleRate: clamp(finiteNumber(entry.sampleRate, 44100), 8000, 192000),

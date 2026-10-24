@@ -1,7 +1,7 @@
 import { type ActionContext, type ViewId, useEngineControls, usePersonalLibrary, useSampleLibrary } from '@state'
 import { createContext, useContext, useMemo } from 'react'
 
-const ViewOrigin = createContext<ViewId | null>(null)
+export const ViewOrigin = createContext<ViewId | null>(null)
 
 /** Set by each view's host, so actions know which view a menu or button is in. */
 export const ViewOriginProvider = ViewOrigin.Provider

@@ -1,5 +1,6 @@
 import type { SampleInfo } from '@core'
 import { openClip, openSampleEditor, openTrackView, useProjectStore, useSampleLibrary, useSampleStore } from '@state'
+import { InPlaceRename } from '../shared/RenameField'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import styles from './SamplesPanel.module.css'
 
@@ -35,7 +36,9 @@ export const SampleRow = ({ sample }: { sample: SampleInfo }) => {
     <li className={styles.row}>
       <WaveformThumb sampleId={sample.id} />
       <div className={styles.meta}>
-        <strong>{sample.name}</strong>
+        <InPlaceRename subject={{ kind: 'sample', sampleId: sample.id }} name={sample.name} label={`Name of ${sample.name}`}>
+          <strong>{sample.name}</strong>
+        </InPlaceRename>
         <span>{describeSample(sample)}</span>
       </div>
       <button onClick={() => library.preview(sample.id)} disabled={!ready} title="Preview" aria-label={`Preview ${sample.name}`}>

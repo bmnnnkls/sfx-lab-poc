@@ -4,6 +4,7 @@ import { openClip } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { useStatusStore } from '../status-store'
 import { sessionClipOf, trackOf } from './lookup'
+import { renameAction } from './rename'
 import type { Action, SubjectOf } from './types'
 
 type ClipSubject = SubjectOf<'clip'>
@@ -55,6 +56,7 @@ export const clipActions: readonly Action<ClipSubject>[] = [
       useAutomationEditor.getState().show()
     },
   },
+  renameAction('clip'),
   {
     id: 'clip.duplicate',
     title: 'Duplicate to empty slot',

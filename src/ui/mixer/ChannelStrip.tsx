@@ -1,4 +1,5 @@
 import { ActionMenu } from '../shared/menu'
+import { InPlaceRename } from '../shared/RenameField'
 import { type ControlTarget, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode, mixesAfter, panOf } from '@core'
 import { openTrackView, useProjectStore, useSelectionStore } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
@@ -50,10 +51,12 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
       className={`${styles.strip} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnStrip : ''} ${muted ? styles.mutedStrip : ''}`}
       aria-label={`${track.name} channel`}
     >
-      <button className={styles.name} onClick={() => selectTrack(track.id)} title={`Select ${track.name}`}>
-        {track.name}
-        {track.kind !== 'instrument' && <span className={styles.kind}> {track.kind}</span>}
-      </button>
+      <InPlaceRename subject={{ kind: 'track', trackId: track.id }} name={track.name} label={`Name of ${track.name}`} className={styles.name}>
+        <button className={styles.name} onClick={() => selectTrack(track.id)} title={`Select ${track.name}`}>
+          {track.name}
+          {track.kind !== 'instrument' && <span className={styles.kind}> {track.kind}</span>}
+        </button>
+      </InPlaceRename>
       <div className={styles.badges}>
         <EffectsBadge
           name={track.name}

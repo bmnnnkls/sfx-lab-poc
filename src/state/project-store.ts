@@ -39,7 +39,11 @@ import {
   removeTrack,
   setClipAt,
   setClipLength,
+  setClipName,
   setClipNotes,
+  setSampleName,
+  setSceneName,
+  setTrackName,
   setProjectName,
   setTempo,
   setMasterVolume,
@@ -74,6 +78,14 @@ interface ProjectActions {
   /** Adds a return track: a place for other tracks to send sound to, with its own effects. */
   addReturnTrack(): void
   removeTrack(trackId: string): void
+  /** Renames a track; an empty name keeps the old one. */
+  setTrackName(trackId: string, name: string): void
+  /** Renames a session clip; an empty name keeps the old one. */
+  setClipName(trackId: string, clipId: string, name: string): void
+  /** Names a scene; an empty name clears it. */
+  setSceneName(scene: number, name: string): void
+  /** Renames a sample; an empty name keeps the old one. */
+  setSampleName(sampleId: string, name: string): void
   setTrackVolume(trackId: string, volume: number): void
   /** Pans a track, -1 (left) .. 1 (right); dragging is one undo step. */
   setTrackPan(trackId: string, pan: number): void
@@ -205,6 +217,10 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         return addTrack(project, createReturnTrack(`Return ${String.fromCharCode(65 + (count % 26))}`))
       }),
     removeTrack: (trackId) => edit((project) => removeTrack(project, trackId)),
+    setTrackName: (trackId, name) => edit((project) => setTrackName(project, trackId, name)),
+    setClipName: (trackId, clipId, name) => edit((project) => setClipName(project, trackId, clipId, name)),
+    setSceneName: (scene, name) => edit((project) => setSceneName(project, scene, name)),
+    setSampleName: (sampleId, name) => edit((project) => setSampleName(project, sampleId, name)),
     setTrackVolume: (trackId, volume) =>
       edit((project) => setTrackVolume(project, trackId, volume), `volume:${trackId}`),
 

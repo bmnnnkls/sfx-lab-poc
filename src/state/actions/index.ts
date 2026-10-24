@@ -3,29 +3,31 @@ import { clipActions } from './clip'
 import { controlActions } from './control'
 import { laneActions } from './lane'
 import { regionActions } from './region'
+import { renameAction } from './rename'
 import { slotActions } from './slot'
 import type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf } from './types'
 
 export type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf } from './types'
 export { duplicateSessionClip, placeOnArrangement } from './clip'
+export { commitRename, startRename } from './rename'
 
 const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = {
-  track: [],
+  track: [renameAction('track')],
   master: [],
   clip: clipActions,
   slot: slotActions,
   'automation-slot': [],
-  scene: [],
-  sample: [],
-  'library-item': [],
-  'library-folder': [],
+  scene: [renameAction('scene')],
+  sample: [renameAction('sample')],
+  'library-item': [renameAction('library-item')],
+  'library-folder': [renameAction('library-folder')],
   nodes: [],
   canvas: [],
-  module: [],
+  module: [renameAction('module')],
   region: regionActions,
   lane: laneActions,
   control: controlActions,
-  sound: [],
+  sound: [renameAction('sound')],
 }
 
 /** The actions of a subject's kind, in menu order. Nothing else picks actions. */
@@ -38,6 +40,7 @@ export interface ActionItem {
   readonly title: string
   readonly group: Action['group']
   readonly danger: boolean
+  readonly takesFocus: boolean
   readonly enabled: boolean
   /** For an action that asks which one; drawn as a submenu, or inline as one entry per choice. */
   readonly choices?: readonly ActionChoice[]
@@ -53,6 +56,7 @@ export const describeActions = (subject: Subject, context: ActionContext): reado
       title: typeof action.title === 'string' ? action.title : action.title(subject, context),
       group: action.group,
       danger: !!action.danger,
+      takesFocus: !!action.takesFocus,
       enabled: action.enabled?.(subject, context) ?? true,
       choices: action.choices?.(subject, context),
       inline: !!action.inline,

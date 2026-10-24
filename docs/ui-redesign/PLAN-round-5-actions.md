@@ -428,4 +428,22 @@ What turned out different from the design above, step by step.
 * **Step 2: one subscription for all clipboards.** `subscribeToClipboards` tells a listener about every clipboard
   `createClipboard` made, so an open `ActionMenu` follows all of them without knowing which ones its actions read.
   `useClipboard(store)` replaces `useNoteClipboard`; the note clipboard's own test became the factory's.
+* **Step 3: one place for the name limits.** `NAME_LIMITS` in `core/project/rename.ts` (track 40, clip 40, scene 24,
+  sample 60) is what the setters cut to and what the sanitizer now reads. A setter trims the name and keeps the old one
+  for an empty name; `setSceneName` clears a scene's name for an empty one (the field refuses it anyway).
+* **Step 3: `commitRename(subject, name, context)`** in `state/actions/rename.ts` holds each kind's setter, and
+  `renameAction(kind)` makes the *Rename* entry, so each kind's list has the same one. The rename actions are in the
+  lists from this step on; the menus that show them for tracks, scenes and samples come with steps 4, 5 and 7.
+* **Step 3: the menu doesn't take the focus back.** Radix returns the focus to the trigger when a menu closes, and its
+  focus trap keeps the focus in the menu until then. An action can say it `takesFocus`; `ActionMenu` then prevents
+  the return, and the field focuses itself a task after it mounts, once the menu is gone.
+* **Step 3: `InPlaceRename`** wraps the name a view draws: while the rename store names this subject and this view,
+  it draws `RenameField` in its place, with the name's own class. A slot's whole launch button and the scene button
+  give way to the field, since a field can't sit inside a button.
+* **Step 3: the Library's renames report through its status line.** Its fields commit through the view's own `run`,
+  so the busy flag and *Library saved* work as before. A folder's field takes the place of its name above the folder
+  actions, where *Rename folder* is.
+* **Step 3: the module bar and panel controls keep a field that is always there.** Both use `RenameField` without
+  selecting on mount. The module bar commits through `commitRename` on Enter or blur instead of on every key (still
+  one undo step). A panel control may still be given an empty name, which falls back to its parameter's.
 

@@ -135,5 +135,6 @@ export {
   type QuantizeOptions,
 } from './groove'
 export { copySessionClip } from './clip-copy'
+export { NAME_LIMITS, setClipName, setSampleName, setSceneName, setTrackName } from './rename'
 
 export type { AutomationSlot } from './types'

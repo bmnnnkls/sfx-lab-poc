@@ -1,4 +1,5 @@
 import { ActionMenu } from '../shared/menu'
+import { RenameField } from '../shared/RenameField'
 import type { ControlTarget } from '@core'
 import type { ReactNode } from 'react'
 import { type ControlSize, type ModuleLibrary, type PanelItem, describeNode } from '@core'
@@ -43,33 +44,6 @@ interface ControlCellProps {
 
 const NEXT_SIZE: Record<ControlSize, ControlSize> = { S: 'M', M: 'L', L: 'S' }
 
-/** The name field of edit mode: kept until Enter or leaving the field, since a name is trimmed as it is applied. */
-const RenameField = ({ name, placeholder, onCommit }: { name: string; placeholder: string; onCommit(name: string): void }) => {
-  const [draft, setDraft] = useState<string | undefined>(undefined)
-  const commit = () => {
-    if (draft !== undefined && draft !== name) onCommit(draft)
-    setDraft(undefined)
-  }
-  return (
-    <input
-      className={styles.rename}
-      value={draft ?? name}
-      placeholder={placeholder}
-      aria-label={`Name of ${placeholder}`}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur()
-        if (event.key === 'Escape') {
-          setDraft(undefined)
-          event.currentTarget.blur()
-        }
-      }}
-    />
-  )
-}
-
-/** A control node on the board: the widget for its kind, writing the node's own value, with the edit tools around it in edit mode. */
 export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions, feedback, midiTargets = [] }: ControlCellProps) => {
   const [over, setOver] = useState(false)
   const { node } = item
@@ -149,7 +123,7 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
           <button aria-label={`Remove ${title}`} title="Delete the control node, in the graph too" onClick={actions.remove}>
             ×
           </button>
-          <RenameField name={node.name ?? ''} placeholder={title} onCommit={actions.rename} />
+          <RenameField className={styles.rename} name={node.name ?? ''} placeholder={title} label={`Name of ${title}`} allowEmpty onCommit={actions.rename} />
         </div>
       )}
     </div></ActionMenu>

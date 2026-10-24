@@ -1,5 +1,5 @@
 import { type ActionContext, type Subject, describeActions, runAction, subscribeToClipboards, useProjectStore, useStatusStore } from '@state'
-import { type ReactElement, useSyncExternalStore } from 'react'
+import { type ReactElement, type RefObject, useRef, useSyncExternalStore } from 'react'
 import { useActionContext } from './action-context'
 import { ContextMenu } from './ContextMenu'
 import type { MenuEntry } from './menu-types'
@@ -9,7 +9,7 @@ import type { MenuEntry } from './menu-types'
  * right if something changes while the menu is open (*Launch* turns into *Restart*, *Paste* enables). Each is read through
  * the entries themselves, so the status's 30 updates a second re-render the menu only when an entry changes.
  */
-const useActionEntries = (subject: Subject, context: ActionContext): readonly MenuEntry[] => {
+const useActionEntries = (subject: Subject, context: ActionContext, focusTaken: RefObject<boolean>): readonly MenuEntry[] => {
   const signature = () => JSON.stringify(describeActions(subject, context))
   useProjectStore(signature)
   useStatusStore(signature)
@@ -19,7 +19,10 @@ const useActionEntries = (subject: Subject, context: ActionContext): readonly Me
   for (const item of describeActions(subject, context)) {
     if (group !== undefined && item.group !== group) entries.push({ kind: 'separator' })
     group = item.group
-    const run = (choice?: string) => runAction(item.id, subject, context, { choice })
+    const run = (choice?: string) => {
+      focusTaken.current = item.takesFocus
+      runAction(item.id, subject, context, { choice })
+    }
     if (!item.choices) {
       entries.push({ label: item.title, danger: item.danger, disabled: !item.enabled, onSelect: () => run() })
     } else {
@@ -43,6 +46,16 @@ const useActionEntries = (subject: Subject, context: ActionContext): readonly Me
  */
 export const ActionMenu = ({ subject, children }: { subject: Subject | null; children: ReactElement }) => {
   const context = useActionContext()
+  // Set by an entry that moved the focus to a field of its own, which the trigger mustn't take back.
+  const focusTaken = useRef(false)
   if (!subject) return children
-  return <ContextMenu entries={() => useActionEntries(subject, context)}>{children}</ContextMenu>
+  const closed = (event: Event) => {
+    if (focusTaken.current) event.preventDefault()
+    focusTaken.current = false
+  }
+  return (
+    <ContextMenu entries={() => useActionEntries(subject, context, focusTaken)} onCloseAutoFocus={closed}>
+      {children}
+    </ContextMenu>
+  )
 }
