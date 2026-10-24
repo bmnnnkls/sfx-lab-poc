@@ -17,11 +17,7 @@ const WHOLE_STATUS = [
 ]
 
 /** Files that may still select the whole status, each with the reason. Paths are relative to src/ui. */
-const ALLOWED: Readonly<Record<string, string>> = {
-  // Not legitimate, only not fixed yet: it needs the status just to ask `touchDestination` whether Touch can record
-  // here, so a selector returning that boolean would do. Each one re-renders on every status update.
-  'controls/EffectiveValue.tsx': 'pending: select whether a touch destination exists',
-}
+const ALLOWED: Readonly<Record<string, string>> = {}
 
 const uiFiles = (readdirSync(UI, { recursive: true }) as string[])
   .filter((file) => /\.(ts|tsx)$/.test(file) && !/\.test\.tsx?$/.test(file))
