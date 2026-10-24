@@ -31,11 +31,13 @@ export const LibraryPanel = () => {
     } catch (error) { if (token === operationId.current) setMessage(error instanceof Error ? error.message : String(error)) }
     finally { if (token === operationId.current) { previewOperation.current = false; setBusy(false) } }
   }
+  // Also runs each time the hidden view is shown again. Hiding drops the result of an operation still running (its
+  // work finishes in storage) and stops the preview; showing reads the catalog again, which picks that work up.
   useEffect(() => {
     let active = true
     const token = operationId.current
     void library.read().then(value => { if (active && operationId.current === token) setCatalog(value) }).catch(error => { if (active && operationId.current === token) setMessage(String(error)) })
-    return () => { active = false; operationId.current++; library.stopPreview() }
+    return () => { active = false; operationId.current++; previewOperation.current = false; setBusy(false); library.stopPreview() }
   }, [library])
   useEffect(() => { stopPreview() }, [library, query, kind, trash, selection.trackId, selection.master, selection.clipId])
   const reviewExport = (selection: LibraryBundleSelection, bundleName: string) => run(async () => {

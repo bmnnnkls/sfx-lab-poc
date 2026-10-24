@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { EditorPanel } from './editor-panel/EditorPanel'
 import { useLayoutPersistence } from './layout/use-layout-persistence'
-import { ViewHost } from './layout/ViewHost'
+import { KeptViews } from './layout/KeptViews'
 import { Splitter } from './shared/Splitter'
 import { TooltipLayer } from './shared/tooltip/TooltipLayer'
 import { useStoredState } from './shared/use-stored-state'
@@ -43,7 +43,7 @@ export const Workspace = () => {
       {audioFailure && <div className={styles.audioFailure} role="alert">{audioFailure}. Your project remains available; save or export your work before reloading.</div>}
       <TransportBar />
       <main className={styles.session}>
-        <ViewHost key={main} id={main} />
+        <KeptViews active={main} />
       </main>
       <Splitter size={editorHeight} min={MIN_EDITOR_HEIGHT} max={max} onResize={setEditorHeight} />
       <section className={styles.editor} style={{ height: editorHeight }}>

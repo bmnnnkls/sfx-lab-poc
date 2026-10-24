@@ -1,5 +1,5 @@
 import { useLayoutStore } from '@state'
-import { ViewHost } from '../layout/ViewHost'
+import { KeptViews } from '../layout/KeptViews'
 import { views } from '../layout/views'
 import styles from './EditorPanel.module.css'
 
@@ -18,7 +18,7 @@ export const EditorPanel = () => {
         ))}
       </nav>
       <div className={styles.body}>
-        <ViewHost key={panel.active} id={panel.active} />
+        <KeptViews active={panel.active} />
       </div>
     </div>
   )

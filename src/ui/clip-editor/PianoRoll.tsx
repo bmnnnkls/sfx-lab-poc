@@ -83,15 +83,18 @@ export const PianoRoll = ({
     onQuantize: groove?.quantize,
   })
 
-  // Open each clip scrolled to where its notes are, not the top of the keyboard.
+  // Open each clip scrolled to where its notes are, not the top of the keyboard. Only when the clip changes: the
+  // Effect also runs each time a hidden view is shown again, and that must keep the user's scroll.
   const initialNotes = useRef(notes)
   initialNotes.current = notes
   const laneHeight = showVelocity ? LANE_HEIGHT : 0
   const laneHeightRef = useRef(laneHeight)
   laneHeightRef.current = laneHeight
+  const centredClip = useRef<string | null>(null)
   useEffect(() => {
     const element = scroller.current
-    if (element) {
+    if (element && centredClip.current !== clipId) {
+      centredClip.current = clipId
       element.scrollTop = scrollTopFor(centerPitch(initialNotes.current), element.clientHeight, laneHeightRef.current)
     }
   }, [clipId])
