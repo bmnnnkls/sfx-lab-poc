@@ -6,7 +6,7 @@ const split: LayoutSnapshot = {
   groups: [
     { id: 'editor', region: 'editor', views: ['session', 'arrangement'], active: 'session' },
     { id: 'right', region: 'editor', views: ['mixer'], active: 'mixer' },
-    { id: 'border_bottom', region: 'panel', views: ['instrument', 'clip'], active: 'clip' },
+    { id: 'panel', region: 'panel', views: ['instrument', 'clip'], active: 'clip' },
   ],
   visible: ['session', 'mixer', 'clip'],
   hiddenRegions: ['primary', 'secondary'],

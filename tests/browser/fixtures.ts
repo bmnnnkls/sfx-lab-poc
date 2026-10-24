@@ -43,9 +43,9 @@ export const viewRoot = (page: Page, title: ViewTitle): Locator => page.locator(
  */
 export const openView = async (page: Page, title: ViewTitle): Promise<Locator> => {
   const tab = page.getByRole('tab', { name: title, exact: true })
-  // Clicking the open tab of the panel would collapse the panel.
-  if (await tab.getAttribute('aria-selected') !== 'true') await tab.click()
   const root = viewRoot(page, title)
+  // Clicking the open tab of the panel or a sidebar would collapse it; on a collapsed panel it expands it.
+  if (await tab.getAttribute('aria-selected') !== 'true' || !await root.isVisible()) await tab.click()
   await expect(root).toBeVisible()
   return root
 }

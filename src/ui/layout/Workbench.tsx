@@ -1,10 +1,10 @@
 import { useLayoutStore } from '@state'
 import { Layout, Model, type TabNode } from 'flexlayout-react'
 import 'flexlayout-react/style/dark.css'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { defaultLayout } from './default-layout'
 import './flex-theme.css'
-import { groupToFocus, tabButtonId, viewOfElement } from './group-focus'
+import { groupToFocus, tabButtonId, viewOfElement, viewOfTab } from './group-focus'
 import { FlexLayoutDriver } from './layout-driver'
 import type { LayoutPersistence } from './use-layout-persistence'
 import { ViewTab } from './ViewHost'
@@ -58,8 +58,14 @@ export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) =
     persistence.changed(model)
   }
 
+  // Before flexlayout sees it, which ignores clicks on a group's open tab: the panel's collapses or expands it.
+  const onClickCapture = (event: MouseEvent) => {
+    const id = viewOfTab(event.target as Element)
+    if (id) driver.current?.clickTab(id)
+  }
+
   return (
-    <div className={styles.workbench}>
+    <div className={styles.workbench} onClickCapture={onClickCapture}>
       <Layout
         key={generation}
         model={model}

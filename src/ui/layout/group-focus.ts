@@ -14,13 +14,19 @@ export const groupToFocus = (layout: LayoutSnapshot, focusedView: ViewId | undef
   return groups[next]!.active
 }
 
+const TAB_BUTTON_PREFIX = 'flexlayout-tabbutton-'
+
 /** The id flexlayout gives a tab's button. */
-export const tabButtonId = (id: ViewId): string => `flexlayout-tabbutton-${id}`
+export const tabButtonId = (id: ViewId): string => `${TAB_BUTTON_PREFIX}${id}`
+
+/** The view whose tab button the element is on, if it is on one (not on a tab inside a view). */
+export const viewOfTab = (element: Element | null): ViewId | undefined => {
+  const tab = element?.closest('[role="tab"]')
+  return tab?.id.startsWith(TAB_BUTTON_PREFIX) ? tab.id.slice(TAB_BUTTON_PREFIX.length) as ViewId : undefined
+}
 
 /** The view the focused element belongs to: inside its root, or on its tab. */
 export const viewOfElement = (element: Element | null): ViewId | undefined => {
   const root = element?.closest('[data-view]')
-  if (root) return root.getAttribute('data-view') as ViewId
-  const tab = element?.closest('[role="tab"]')
-  return tab?.id.startsWith('flexlayout-tabbutton-') ? tab.id.slice('flexlayout-tabbutton-'.length) as ViewId : undefined
+  return root ? root.getAttribute('data-view') as ViewId : viewOfTab(element ?? null)
 }

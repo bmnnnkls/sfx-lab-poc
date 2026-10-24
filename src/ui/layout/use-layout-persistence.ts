@@ -23,15 +23,17 @@ const write = (model: Model) => {
 }
 
 /**
- * The layout to start from: the saved one; else, in a browser that has never saved one, the default with what the
- * old keys remembered; else (a saved layout that can't be used) the default.
+ * The layout to start from: the saved one (migrated if an older version saved it); else, in a browser that has never
+ * saved one, the default with what the old keys remembered; else (a saved layout that can't be used) the default.
+ * `saved` is false when what is loaded isn't what storage holds, so it is written at once.
  */
 const loadLayout = (): { model: Model; saved: boolean } => {
   const raw = read(LAYOUT_KEY)
-  const json = parseStoredLayout(raw)
+  const parsed = parseStoredLayout(raw)
+  const json = parsed?.model
     ?? (raw === null ? migratedLayout(read(LEGACY_MAIN_VIEW_KEY), read(LEGACY_PANEL_SIZE_KEY)) : defaultLayout())
   try {
-    return { model: Model.fromJson(json), saved: raw !== null }
+    return { model: Model.fromJson(json), saved: raw !== null && !parsed?.migrated }
   } catch {
     return { model: Model.fromJson(defaultLayout()), saved: false }
   }
@@ -49,7 +51,7 @@ export interface LayoutPersistence {
 /**
  * Saves the layout per browser under `sfxlab:layout`. Mount once, above the layout. A browser without a saved
  * layout gets one built from `sfxlab:main-view` and `sfxlab:editor-height`, saved at once, so the old keys are
- * read only that first time.
+ * read only that first time; a layout saved by an older version is saved again at once, migrated.
  */
 export const useLayoutPersistence = (): LayoutPersistence => {
   const [persistence] = useState(() => {

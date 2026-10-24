@@ -1,10 +1,9 @@
 import { DEFAULT_LAYOUT, groupIn, type RegionId, type ViewId } from '@state'
-import type { IBorderLocation, IGlobalAttributes, IJsonBorderNode, IJsonModel, IJsonTabNode } from 'flexlayout-react'
+import type { IBorderLocation, IGlobalAttributes, IJsonBorderNode, IJsonModel, IJsonTabNode, IJsonTabSetNode } from 'flexlayout-react'
 import { viewTitles, viewTooltips } from './view-titles'
 
-/** The edge regions are flexlayout borders; the editor area is its main row of tab groups. */
+/** The sidebars are flexlayout borders; the editor area and the panel are tab groups in its main layout. */
 export const BORDER_LOCATIONS: Readonly<Partial<Record<RegionId, IBorderLocation>>> = {
-  panel: 'bottom',
   primary: 'left',
   secondary: 'right',
 }
@@ -15,9 +14,14 @@ export const borderId = (location: IBorderLocation): string => `border_${locatio
 /** The id of the editor area's first tab group. */
 export const EDITOR_GROUP = 'editor'
 
-/** The panel's height when nothing else says, and the least it can be dragged to. */
-export const DEFAULT_PANEL_SIZE = 460
-export const MIN_PANEL_SIZE = 180
+/** The panel's tab group. Only the group with this id is the panel; every other tab group is the editor area. */
+export const PANEL_GROUP = 'panel'
+
+/** The panel's share of the column it shares with the editor area, out of 100: about 460 px at 1500 × 1000. */
+export const DEFAULT_PANEL_WEIGHT = 52
+
+/** The least a sidebar can be dragged to. */
+export const MIN_SIDEBAR_SIZE = 180
 
 /** Applies to every layout, saved ones included: tabs can't be closed, renamed, popped out or floated. */
 export const GLOBAL_ATTRIBUTES: IGlobalAttributes = {
@@ -27,11 +31,14 @@ export const GLOBAL_ATTRIBUTES: IGlobalAttributes = {
   // Each view's root is its own scroll container.
   tabEnableScrollbars: false,
   tabSetEnableClose: false,
-  borderMinSize: MIN_PANEL_SIZE,
-  borderSize: DEFAULT_PANEL_SIZE,
-  // A view dropped into a closed border (an empty sidebar, a collapsed panel) opens there.
+  borderMinSize: MIN_SIDEBAR_SIZE,
+  borderSize: 460,
+  // A view dropped into a closed border (an empty sidebar) opens there.
   borderAutoSelectTabWhenClosed: true,
 }
+
+/** The panel's own attributes, saved layouts included: it is never deleted, so the toggles always find it. */
+export const PANEL_ATTRIBUTES: Partial<IJsonTabSetNode> = { enableDeleteWhenEmpty: false }
 
 /** A view's tab. The name and tooltip come from the registry, so a saved layout gets the current ones. */
 export const viewTab = (id: ViewId): IJsonTabNode => ({
@@ -42,27 +49,29 @@ export const viewTab = (id: ViewId): IJsonTabNode => ({
   ...(viewTooltips[id] ? { helpText: viewTooltips[id] } : {}),
 })
 
+/** A panel height in pixels as the panel's weight, measured against 1000 px (for layouts saved by height). */
+export const panelWeightOf = (height: number): number => Math.min(90, Math.max(10, Math.round(height / 10)))
+
 export interface DefaultLayoutOptions {
   /** Which of the editor area's views shows (migrated from `sfxlab:main-view`). */
   readonly editorView?: ViewId
-  /** The panel's height (migrated from `sfxlab:editor-height`). */
-  readonly panelSize?: number
+  /** The panel's weight (migrated from `sfxlab:editor-height`). */
+  readonly panelWeight?: number
 }
 
-/** Today's layout, from the layout store's default: Session and Arrangement over the tool views in the panel. */
-export const defaultLayout = ({ editorView, panelSize = DEFAULT_PANEL_SIZE }: DefaultLayoutOptions = {}): IJsonModel => {
+/** The layout store's default: the editor area's views over the panel's, the sidebars beside both. */
+export const defaultLayout = ({ editorView, panelWeight = DEFAULT_PANEL_WEIGHT }: DefaultLayoutOptions = {}): IJsonModel => {
   const editor = groupIn(DEFAULT_LAYOUT, 'editor')
   const views = editor?.views ?? []
   const editorActive = editorView && views.includes(editorView) ? editorView : editor?.active
+  const panel = groupIn(DEFAULT_LAYOUT, 'panel')
   const borders = (Object.keys(BORDER_LOCATIONS) as RegionId[]).map((region): IJsonBorderNode => {
-    const location = BORDER_LOCATIONS[region]!
     const group = groupIn(DEFAULT_LAYOUT, region)
     return {
       type: 'border',
-      location,
+      location: BORDER_LOCATIONS[region]!,
       show: !DEFAULT_LAYOUT.hiddenRegions.includes(region),
       selected: group ? group.views.indexOf(group.active) : -1,
-      ...(region === 'panel' ? { size: panelSize } : {}),
       children: (group?.views ?? []).map(viewTab),
     }
   })
@@ -71,11 +80,27 @@ export const defaultLayout = ({ editorView, panelSize = DEFAULT_PANEL_SIZE }: De
     borders,
     layout: {
       type: 'row',
+      // The root row is horizontal, so the column inside it stacks the editor area over the panel.
       children: [{
-        type: 'tabset',
-        id: EDITOR_GROUP,
-        selected: editorActive ? Math.max(0, views.indexOf(editorActive)) : 0,
-        children: views.map(viewTab),
+        type: 'row',
+        children: [
+          {
+            type: 'tabset',
+            id: EDITOR_GROUP,
+            weight: 100 - panelWeight,
+            selected: editorActive ? Math.max(0, views.indexOf(editorActive)) : 0,
+            children: views.map(viewTab),
+          },
+          {
+            type: 'tabset',
+            id: PANEL_GROUP,
+            weight: panelWeight,
+            ...PANEL_ATTRIBUTES,
+            selected: panel ? Math.max(0, panel.views.indexOf(panel.active)) : -1,
+            ...(DEFAULT_LAYOUT.hiddenRegions.includes('panel') ? { maxHeight: 0 } : {}),
+            children: (panel?.views ?? []).map(viewTab),
+          },
+        ],
       }],
     },
   }

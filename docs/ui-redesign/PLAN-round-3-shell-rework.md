@@ -211,6 +211,40 @@ Each step is one commit and leaves `npm test`, `npm run typecheck` and `npm run 
      the activity bar, the Wave editor, layout version 2 and named layouts.
    * [README.md](README.md) marks round 3 done.
 
+## Changes made while implementing
+
+What turned out different from the design above, step by step.
+
+* **Step 1: the default weight is 52, not 45.** Measured at 1500 × 1000 the layout is 931 px high; 52 of 100 gives
+  the panel's views 457 px, round 2's 460. A height migrated from version 1 or from `sfxlab:editor-height` still
+  becomes a weight against 1000 px (`panelWeightOf`), kept between 10 and 90.
+* **Step 1: clicking the panel's open tab is caught before flexlayout.** flexlayout ignores a click on a tab group's
+  open tab (borders toggle, tab groups don't), so `Workbench` listens in the capture phase and calls the driver's
+  `clickTab`: on the panel's open tab it collapses the panel, on any open tab of a collapsed panel it expands it.
+  Clicks on another tab go to flexlayout as before, and the driver's `intercept` adds the expand.
+* **Step 1: a view in a collapsed panel is hidden by the mirror, not by flexlayout.** The panel keeps its open tab
+  selected, so flexlayout's `visibility` event still says visible. `ViewTab` also asks the layout store, which
+  counts the collapsed panel's open view as not visible, so `<Activity>` hides it and its Effects pause, as a
+  collapsed border's did.
+* **Step 1: a panel split sideways collapses with the groups beside it.** A row is only as tall as its shortest
+  member, so `maxHeight: 0` on the panel shrinks the whole row it shares (Clip beside Mixer) to the strip. The
+  driver treats that row as one band: its groups stay editor-area groups, as decided, but they count as hidden while
+  the panel is collapsed, and selecting or revealing a view in them expands the panel. A panel with nothing above or
+  below it (dragged beside the editor area) doesn't collapse: it would shrink the whole layout.
+* **Step 1: the weight isn't remembered, it is kept.** `maxHeight` doesn't touch the panel's weight, so expanding
+  restores the height by itself. The one thing that could change it, a drag on the pinned splitter beside a
+  collapsed panel, is adjusted in `intercept`: the panel keeps its weight and the others are rescaled.
+* **Step 1: a tab dropped into a collapsed panel expands it**, as a view dropped into a closed sidebar opens it
+  (`borderAutoSelectTabWhenClosed`).
+* **Step 1: empty tab groups were never deleted.** Round 2's `tabSetEnableClose: false` also stops flexlayout's tidy
+  from deleting an emptied group, so `enableDeleteWhenEmpty: false` on the panel is a guard for later, not a fix.
+  The parser applies it to every saved panel, like the global attributes.
+* **Step 1: an emptied version-1 bottom border becomes a collapsed panel**, since an empty border was only a strip.
+* **Step 1: the sidebars keep a minimum.** `MIN_PANEL_SIZE` went, but borders still need one until round 4, so
+  `borderMinSize` is `MIN_SIDEBAR_SIZE` (180).
+* **Step 1: `parseStoredLayout` returns `{ model, migrated }`**, so `useLayoutPersistence` saves a migrated layout at
+  once.
+
 ## Behavior changes
 
 Intended:
