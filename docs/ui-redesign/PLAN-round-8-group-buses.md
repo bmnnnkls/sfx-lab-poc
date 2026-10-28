@@ -1,6 +1,6 @@
 # Round 8: group buses
 
-Status: **planned** 2026-10-28, for sign-off. Part of the [UI redesign](README.md). Carries out
+Status: **planned** 2026-10-28, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 8](DRAFT-roadmap.md#round-8-group-buses), from an inventory of how the engine mixes and of everything
 that switches on a control owner, taken on `feat/ui-redesign` at `eaa26c7` (round 7 merged). It builds on
 [round 7's model](PLAN-round-7-track-groups.md#model) and its [§ What this leaves for round
@@ -397,6 +397,8 @@ reviewer notices is a bug in this round.
   more than once per status update.
 
 ## Decisions to sign off
+
+Signed off 2026-10-28: every row as proposed.
 
 | Question | Proposed | Notes |
 |---|---|---|

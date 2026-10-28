@@ -197,7 +197,7 @@ plan.
 
 ## Round 8: group buses
 
-**Planned** 2026-10-28; see the [plan](PLAN-round-8-group-buses.md), for sign-off. Its inventory changes the outline
+**Planned** 2026-10-28; see the [plan](PLAN-round-8-group-buses.md), signed off as proposed. Its inventory changes the outline
 below: the engine has no folders, so `core` works out each channel's effective mute, solo and output and the engine
 applies the rules to those; every group gets mute and solo, a folder too; the output follows the nesting, so there is
 no output picker; a bus is a new runtime, since returns have no send knobs; a move can now close a loop and is refused;
@@ -314,7 +314,7 @@ Deliberately last, so it restyles a stable structure.
 | A track group: folder or summing bus | **Settled 2026-10-24 by the user:** always a folder, optionally converted to a summing bus, in two rounds (7 and 8) | rounds 7 and 8 |
 | What a collapsed group shows in the session grid | **Settled in round 7:** one column whose cells launch the members' clips in that scene | round 7 |
 | Hidden tracks: saved with the project or per browser | **Settled in round 7:** with the project, outside undo | round 7 |
-| A group's output: picked, or following the nesting | following the nesting (nearest enclosing bus, else the master), no picker | round 8 plan |
-| Automation of a group's controls | not in round 8; on the arrangement's lanes (round 12) | round 8 plan |
+| A group's output: picked, or following the nesting | **Settled in round 8's plan:** following the nesting (nearest enclosing bus, else the master), no picker | round 8 |
+| Automation of a group's controls | **Settled in round 8's plan:** not in round 8; on the arrangement's lanes (round 12) | round 8 |
 | Wave editor: destructive edits vs. derived samples | destructive with undo, original kept until project save | round 11 SPEC |
 | Stereo samples throughout the engine, or only in the editor | throughout (needed for the wave editor to be honest) | round 11 SPEC |
