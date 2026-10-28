@@ -106,8 +106,10 @@ findings in [REVIEW-performance-and-library.md](REVIEW-performance-and-library.m
   needs its own design and acceptance criteria.
 - Add standalone module-only library items. Instrument/audio-effect/note-effect dependency closures, presets,
   MIDI/audio clips, samples, virtual folders, recoverable trash, isolated preview and reviewed `.sfxlib` exchange exist.
-- Consider library drag/drop and an explicit workflow for updating/replacing a module definition from a file.
-  Inserted sounds are independent project copies; automatic linked updates remain outside the completed sequence.
+- Consider an explicit workflow for updating/replacing a module definition from a file. Library drag and drop for
+  inserting into the project is done (UI redesign round 6: library items drop on tracks, the master, canvases and
+  empty slots); library samples don't drag yet. Inserted sounds are independent project copies; automatic linked
+  updates remain outside the completed sequence.
 - Expose module usage directly from the module list. The module editor already lists uses and warns that edits
   affect every use.
 - Expand example modules (E8), provide a workflow for saving a personal module example, and build the drum-machine

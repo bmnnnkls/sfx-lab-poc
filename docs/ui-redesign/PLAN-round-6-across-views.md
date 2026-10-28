@@ -1,6 +1,6 @@
 # Round 6: working across views
 
-Status: **planned** 2026-10-24, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
+Status: **done** 2026-10-28, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 6](DRAFT-roadmap.md#round-6-working-across-views), from an inventory of every drag, drop and
 view-local selection in the app, taken on `feat/ui-redesign` at `048bf83` (round 5 merged).
 
@@ -474,3 +474,19 @@ What turned out different from the design above, step by step.
 * **Step 8: the selected lane name carries `aria-current`** besides its mark, so the spec finds it without a class
   name. A region has no accessible name or role yet; it takes the focus (`tabIndex={0}`) and passes Shift+F10 on to
   its menu before handling Enter.
+* **Step 9: the profile.** One run each, 10 s after 2 s of warm-up, headless Chromium, 1500 × 1000. The servers ran
+  outside the sandbox, which no longer allowed local ports by then.
+
+  | Per second | Round 4 `editor` | Round 5 `editor` | Round 6 `editor` | Round 5 `four` | Round 6 `four` |
+  |---|---|---|---|---|---|
+  | Component renders (dev) | 145 | 144 | 145 | 173 | 173 |
+
+  Drop targets subscribe to nothing and the drag isn't a store, so the renders stay as they were; `ArrangementView`
+  rendered 0 times a second in both setups. Script time in the production build was 13.8 ms (`editor`) and 15.8 ms
+  (`four`) a second, not compared with earlier rounds, which ran in other sessions.
+* **Step 9: checks.** `npm test`, `npm run typecheck` and `npm run test:smoke` passed at every step (144 smoke tests at
+  step 8); `npm run test:audio` passed once after step 7 (14 tests). Step 4 checked in Chromium that a drag goes on
+  when its source view is hidden by a spring-loaded tab. The manual pass from Verification (every cell with the
+  mouse in each region, a drag released outside the window or cancelled with Escape, a region edited while the
+  arrangement plays, Safari and Firefox) was not done.
+

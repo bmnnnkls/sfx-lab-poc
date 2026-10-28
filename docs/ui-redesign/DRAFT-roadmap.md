@@ -147,7 +147,7 @@ delete and duplicate for graph selections wait for round 10.
 
 The point of seeing several views at once.
 
-**Planned** 2026-10-24; see the [plan](PLAN-round-6-across-views.md), signed off as proposed. Its inventory changed the
+**Done** 2026-10-28; see the [plan](PLAN-round-6-across-views.md), signed off as proposed. Its inventory changed the
 outline below: the default layout shares one tab group between Session and Arrangement, so drags hold over a tab to
 show its view; a region opens in Clip as its own copy, through a clip reference in `core`, and selecting it doesn't
 reveal Clip; "the inspector" is the views that already follow the selected track; project presets drop only on a
@@ -161,6 +161,12 @@ has a menu twin; *Place on arrangement* stays as the keyboard's route to the tim
 * Linked selection: selecting a region in the arrangement opens it in Clip (the arrangement's selected region moves
   to the selection store), and selecting a track anywhere updates the inspector.
 * Drag targets and context menus share round 5's actions (a drop is "paste here").
+
+What moved while it ran: every drop is in one list in `state/actions/drops.ts`, run through round 5's actions or the
+bodies of their *Paste*; the two drops that had no action (a sample on an audio lane, on an instrument canvas) got
+*Add audio clip* ▸ and *Add sampler* ▸; the workbench and the activity bar spring-load from one listener each; Clip
+edits a region through `ClipRef` and `editClipAt` in `core`, without automation or a playhead until round 12. Firefox,
+Safari and touch were not checked. Popouts stay off; the round that turns them on checks drags between windows.
 
 ## Round 7: track groups and the Tracks tree
 
