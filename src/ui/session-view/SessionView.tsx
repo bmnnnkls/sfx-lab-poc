@@ -1,5 +1,6 @@
+import { tracksInOrder } from '@core'
 import { type Subject, runAction, useProjectStore } from '@state'
-import { type CSSProperties, useMemo } from 'react'
+import type { CSSProperties } from 'react'
 import { ActionMenu, PopupMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename } from '../shared/RenameField'
 import { AutomationSlotCell } from './AutomationSlotCell'
@@ -7,15 +8,13 @@ import { ClipSlot } from './ClipSlot'
 import { MasterHeader } from './MasterHeader'
 import styles from './SessionView.module.css'
 import { TrackHeader } from './TrackHeader'
-import { sessionOrder } from './track-order'
 
 /**
  * The clip-launcher grid: tracks as columns, scenes as rows. It scrolls in its own scroller, under track headers that
  * stay at the top and a scene column that stays at the right, so tracks can be named and scenes launched anywhere.
  */
 export const SessionView = () => {
-  const projectTracks = useProjectStore((state) => state.project.tracks)
-  const tracks = useMemo(() => sessionOrder(projectTracks), [projectTracks])
+  const tracks = useProjectStore((state) => tracksInOrder(state.project))
   const sceneCount = useProjectStore((state) => state.project.sceneCount)
   const addTrack = useProjectStore((state) => state.addTrack)
   const addAudioTrack = useProjectStore((state) => state.addAudioTrack)
@@ -54,8 +53,7 @@ export const SessionView = () => {
 const SceneRow = ({ scene }: { scene: number }) => {
   const context = useActionContext()
   const subject: Subject = { kind: 'scene', scene }
-  const projectTracks = useProjectStore((state) => state.project.tracks)
-  const tracks = useMemo(() => sessionOrder(projectTracks), [projectTracks])
+  const tracks = useProjectStore((state) => tracksInOrder(state.project))
   const name = useProjectStore((state) => state.project.sceneNames?.[scene])
   return (
     <>

@@ -2,6 +2,7 @@ import {
   arrangementEnd,
   arrangementLoopEnd,
   arrangementOnTrack,
+  tracksInOrder,
 } from '@core'
 import { useEngineControls, useLayoutStore, useProjectStore, useSelectionStore, useStatusStore } from '@state'
 import { Fragment, type ReactNode, useState } from 'react'
@@ -74,7 +75,7 @@ const LaneName = ({ trackId, name }: { trackId: string; name: string }) => {
  */
 export const ArrangementView = () => {
   const controls = useEngineControls()
-  const tracks = useProjectStore((state) => state.project.tracks)
+  const tracks = useProjectStore((state) => tracksInOrder(state.project))
   const placed = useProjectStore((state) => state.project.arrangement)
   const arrangement = placed ?? []
   // The zoom is remembered between sessions, as the piano roll's is.

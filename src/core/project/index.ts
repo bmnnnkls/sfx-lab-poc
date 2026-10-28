@@ -9,6 +9,8 @@ export type {
   ReturnTrack,
   SendLevels,
   Track,
+  TrackGroup,
+  GroupColour,
   WarpMode,
 } from './types'
 export { isAudioTrack, isInstrumentTrack, isReturnTrack } from './track-kind'
@@ -139,7 +141,37 @@ export {
   type QuantizeOptions,
 } from './groove'
 export { canPasteSessionClip, clipCopyFor, clipFitsTrack, copySessionClip, pasteSessionClip } from './clip-copy'
-export { NAME_LIMITS, setClipName, setSampleName, setSceneName, setTrackName } from './rename'
+export { NAME_LIMITS, setClipName, setGroupName, setSampleName, setSceneName, setTrackName } from './rename'
+export {
+  GROUP_COLOURS,
+  MAX_GROUP_DEPTH,
+  MAX_GROUPS,
+  type TrackItem,
+  type TrackPlace,
+  type TrackRow,
+  canGroupTrack,
+  canMoveGroup,
+  canMoveTrack,
+  findGroup,
+  groupDepth,
+  groupTrack,
+  moveGroup,
+  moveTrack,
+  neighbourPlace,
+  normalizeTrackGroups,
+  removeGroup,
+  setGroupCollapsed,
+  setGroupColour,
+  setGroupHidden,
+  setTrackHidden,
+  showAllTracks,
+  trackRows,
+  tracksInGroup,
+  tracksInOrder,
+  ungroup,
+  visibleRows,
+  withViewOf,
+} from './track-groups'
 export { duplicateTrack } from './track-duplicate'
 export { copyNodes, pasteNodes, type CopiedNodes } from './node-copy'
 export { duplicateScene, insertScene, removeScene } from './scenes'

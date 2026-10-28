@@ -1,6 +1,5 @@
+import { tracksInOrder } from '@core'
 import { useProjectStore } from '@state'
-import { useMemo } from 'react'
-import { sessionOrder } from '../session-view/track-order'
 import { ChannelStrip } from './ChannelStrip'
 import { MasterStrip } from './MasterStrip'
 import styles from './Mixer.module.css'
@@ -10,8 +9,7 @@ import styles from './Mixer.module.css'
  * flows (the same order as the session grid). The strips scroll sideways; the master stays at the right edge.
  */
 export const MixerPanel = () => {
-  const projectTracks = useProjectStore((state) => state.project.tracks)
-  const tracks = useMemo(() => sessionOrder(projectTracks), [projectTracks])
+  const tracks = useProjectStore((state) => tracksInOrder(state.project))
 
   return (
     <div className={styles.mixer} data-scroll="x">

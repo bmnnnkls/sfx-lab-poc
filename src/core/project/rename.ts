@@ -2,7 +2,7 @@ import { updateTrack } from './edit'
 import type { Project, Track } from './types'
 
 /** The longest names a file keeps (the sanitizer cuts longer ones); the setters cut a name to the same length. */
-export const NAME_LIMITS = { track: 40, clip: 40, scene: 24, sample: 60 } as const
+export const NAME_LIMITS = { track: 40, group: 40, clip: 40, scene: 24, sample: 60 } as const
 
 /** A name as typed: trimmed and cut to `limit`; null when nothing is left, so the old name stays. */
 const cleaned = (name: string, limit: number): string | null => {
@@ -44,4 +44,11 @@ export const setSampleName = (project: Project, sampleId: string, name: string):
   const next = cleaned(name, NAME_LIMITS.sample)
   if (next === null || !project.samples.some((sample) => sample.id === sampleId && sample.name !== next)) return project
   return { ...project, samples: project.samples.map((sample) => (sample.id === sampleId ? { ...sample, name: next } : sample)) }
+}
+
+/** Renames a group of tracks. */
+export const setGroupName = (project: Project, groupId: string, name: string): Project => {
+  const next = cleaned(name, NAME_LIMITS.group)
+  if (next === null || !project.groups?.some((group) => group.id === groupId && group.name !== next)) return project
+  return { ...project, groups: project.groups.map((group) => (group.id === groupId ? { ...group, name: next } : group)) }
 }
