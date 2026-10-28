@@ -63,6 +63,20 @@ import {
   undo,
   updateArrangementClip,
   updateAudioClip,
+  type GroupColour,
+  type TrackPlace,
+  groupTrack,
+  moveGroup,
+  moveTrack,
+  removeGroup,
+  setGroupCollapsed,
+  setGroupColour,
+  setGroupHidden,
+  setGroupName,
+  setTrackHidden,
+  showAllTracks,
+  ungroup,
+  withViewOf,
 } from '@core'
 import { create } from 'zustand'
 import type { ArrangementChanges, AudioClip } from '@core'
@@ -90,6 +104,22 @@ interface ProjectActions {
   duplicateTrack(trackId: string): string | null
   /** Renames a track; an empty name keeps the old one. */
   setTrackName(trackId: string, name: string): void
+  /** A new group around a track, in the track's group; returns its id, or null when it can't. */
+  groupTrack(trackId: string): string | null
+  /** Moves a track or a group; it joins the group of what it lands next to. */
+  moveTrack(trackId: string, place: TrackPlace): void
+  moveGroup(groupId: string, place: TrackPlace): void
+  /** Removes a group and keeps its tracks and nested groups, one level up. */
+  ungroup(groupId: string): void
+  /** Removes a group, its nested groups and their tracks. */
+  removeGroup(groupId: string): void
+  setGroupName(groupId: string, name: string): void
+  setGroupColour(groupId: string, colour: GroupColour): void
+  /** View edits: saved with the project, but not undo steps, and undo and redo keep them. */
+  setGroupCollapsed(groupId: string, collapsed: boolean): void
+  setTrackHidden(trackId: string, hidden: boolean): void
+  setGroupHidden(groupId: string, hidden: boolean): void
+  showAllTracks(): void
   /** Renames a session clip; an empty name keeps the old one. */
   setClipName(trackId: string, clipId: string, name: string): void
   /** Names a scene; an empty name clears it. */
@@ -221,6 +251,19 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       return history === state.history ? state : withHistory(history)
     })
 
+  /** A view edit replaces the present without an undo step (see `withViewOf`). */
+  const editView = (change: (project: Project) => Project) =>
+    set((state) => {
+      const project = change(state.project)
+      return project === state.project ? state : { history: { ...state.history, present: project }, project }
+    })
+
+  /** After undo or redo: the restored project, showing what the current one shows. */
+  const restored = (state: ProjectState, history: History<Project>) => {
+    const present = withViewOf(history.present, state.project)
+    return withHistory(present === history.present ? history : { ...history, present })
+  }
+
   return {
     documentEpoch: 0,
     project: demo,
@@ -231,8 +274,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       ...withHistory(commit(state.history, project, { now: Date.now() })),
       documentEpoch: state.documentEpoch + 1,
     })),
-    undo: () => set((state) => withHistory(undo(state.history))),
-    redo: () => set((state) => withHistory(redo(state.history))),
+    undo: () => set((state) => restored(state, undo(state.history))),
+    redo: () => set((state) => restored(state, redo(state.history))),
 
     setName: (name) => edit((project) => setProjectName(project, name), 'name'),
     setTempo: (bpm) => edit((project) => setTempo(project, bpm), 'tempo'),
@@ -256,6 +299,21 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       return result.trackId
     },
     setTrackName: (trackId, name) => edit((project) => setTrackName(project, trackId, name)),
+    groupTrack: (trackId) => {
+      const result = groupTrack(get().project, trackId)
+      if (result.groupId) edit(() => result.project)
+      return result.groupId
+    },
+    moveTrack: (trackId, place) => edit((project) => moveTrack(project, trackId, place)),
+    moveGroup: (groupId, place) => edit((project) => moveGroup(project, groupId, place)),
+    ungroup: (groupId) => edit((project) => ungroup(project, groupId)),
+    removeGroup: (groupId) => edit((project) => removeGroup(project, groupId)),
+    setGroupName: (groupId, name) => edit((project) => setGroupName(project, groupId, name)),
+    setGroupColour: (groupId, colour) => edit((project) => setGroupColour(project, groupId, colour)),
+    setGroupCollapsed: (groupId, collapsed) => editView((project) => setGroupCollapsed(project, groupId, collapsed)),
+    setTrackHidden: (trackId, hidden) => editView((project) => setTrackHidden(project, trackId, hidden)),
+    setGroupHidden: (groupId, hidden) => editView((project) => setGroupHidden(project, groupId, hidden)),
+    showAllTracks: () => editView(showAllTracks),
     setClipName: (trackId, clipId, name) => edit((project) => setClipName(project, trackId, clipId, name)),
     setSceneName: (scene, name) => edit((project) => setSceneName(project, scene, name)),
     insertScene: (at) => edit((project) => insertScene(project, at)),

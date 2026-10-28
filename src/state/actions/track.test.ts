@@ -20,9 +20,10 @@ beforeEach(() => {
 
 describe('track', () => {
   it("offers what applies to the track's kind", () => {
-    expect(titles({ kind: 'track', trackId: track('Bass').id })).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Show automation', 'Rename', 'Duplicate', 'Mute', 'Solo', 'Delete'])
-    expect(titles({ kind: 'track', trackId: track('Kick').id })).toEqual(['Stop', 'Open effects', 'Show automation', 'Rename', 'Duplicate', 'Mute', 'Solo', 'Delete'])
-    expect(titles({ kind: 'track', trackId: 'ret' })).toEqual(['Open effects', 'Show automation', 'Rename', 'Duplicate', 'Mute', 'Solo', 'Delete'])
+    const edits = ['Rename', 'Duplicate', 'Group', 'Move to group', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo']
+    expect(titles({ kind: 'track', trackId: track('Bass').id })).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Show automation', ...edits, 'Delete'])
+    expect(titles({ kind: 'track', trackId: track('Kick').id })).toEqual(['Stop', 'Open effects', 'Show automation', ...edits, 'Delete'])
+    expect(titles({ kind: 'track', trackId: 'ret' })).toEqual(['Open effects', 'Show automation', 'Rename', 'Duplicate', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo', 'Delete'])
   })
 
   it('stops the track and opens its views', () => {

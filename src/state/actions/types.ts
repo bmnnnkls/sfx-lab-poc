@@ -6,7 +6,9 @@ import type { SampleLibrary } from '../sample-library'
 
 /** What was right-clicked: a small value with a kind and ids, never a component or a DOM element. */
 export type Subject =
-  | { readonly kind: 'track'; readonly trackId: string } // instrument, audio and return tracks
+  // Instrument, audio and return tracks. `edge`: which side of it a dragged track or group lands on (drop targets only).
+  | { readonly kind: 'track'; readonly trackId: string; readonly edge?: 'before' | 'after' }
+  | { readonly kind: 'group'; readonly groupId: string; readonly edge?: 'before' | 'after' | 'inside' } // a group of tracks
   | { readonly kind: 'master' }
   | { readonly kind: 'clip'; readonly trackId: string; readonly clipId: string } // a session clip
   | { readonly kind: 'slot'; readonly trackId: string; readonly scene: number } // an empty session cell

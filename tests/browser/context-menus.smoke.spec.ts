@@ -58,7 +58,7 @@ test('a track renames and duplicates from its menu, in the session grid and the 
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
   await session.getByRole('button', { name: 'Bass', exact: true }).click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Show automation', '—', 'Rename', 'Duplicate', 'Mute', 'Solo', '—', 'Delete'])
+  expect(await menuEntries(page)).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Show automation', '—', 'Rename', 'Duplicate', 'Group', 'Move to group▸', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo', '—', 'Delete'])
   await page.getByRole('menuitem', { name: 'Rename', exact: true }).click()
   const field = session.getByRole('textbox', { name: 'Name of Bass', exact: true })
   await expect(field).toBeFocused()

@@ -54,6 +54,8 @@ export const commitRename = (subject: Subject, typed: string, context: ActionCon
   switch (subject.kind) {
     case 'track':
       return store.setTrackName(subject.trackId, name)
+    case 'group':
+      return store.setGroupName(subject.groupId, name)
     case 'clip':
       return store.setClipName(subject.trackId, subject.clipId, name)
     case 'scene':
