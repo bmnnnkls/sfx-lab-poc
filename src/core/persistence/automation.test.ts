@@ -9,7 +9,7 @@ describe('v4 saved automation', () => {
     expect(result.warnings).toEqual([])
     const track = result.project.tracks[0]!
     expect(track.kind !== 'return' && track.clips[0]?.automation).toHaveLength(2)
-    expect(JSON.parse(serializeProject(result.project)).version).toBe(9)
+    expect(JSON.parse(serializeProject(result.project)).version).toBe(10)
     expect(read(serializeProject(result.project)).project).toEqual(result.project)
   })
   it('explicitly drops unknown automation fields in v1/v2/v3 files', () => {
