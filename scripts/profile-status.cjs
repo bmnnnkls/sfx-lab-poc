@@ -11,18 +11,20 @@
 //           nothing.
 //   four    Session and Arrangement side by side over Clip, Mixer in the panel; scene 1 plays, its first clip
 //           open in Clip, so Clip's playhead runs too. Needs the docking shell (round 2).
+//   groups  Session and Arrangement side by side, Mixer in the panel, the Tracks view open: Lead in an expanded group,
+//           Pad in a collapsed one, Bass hidden; scene 1 plays, so the hidden track sounds. Needs round 7.
 //
 // Prints one JSON object per build. Each figure is a per-second average over the measured seconds.
 const { chromium } = require('@playwright/test')
 
 const [devUrl, previewUrl, secondsArg, setupArg] = process.argv.slice(2)
 if (!devUrl || !previewUrl) {
-  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four]')
+  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four|groups]')
   process.exit(2)
 }
 const SECONDS = Number(secondsArg ?? 10)
 const SETUP = setupArg ?? 'editor'
-const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost']
+const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot']
 
 // A stub React DevTools hook: React then runs in profiling mode (dev build) and reports every commit.
 const hook = () => {
@@ -106,6 +108,19 @@ const setUp = async (page, url) => {
     await page.getByRole('button', { name: 'Edit Root', exact: true }).click()
     await page.waitForTimeout(300)
     await dock(page, 'Clip', 'session', 0.5, 0.9)
+    await show(page, 'Mixer')
+    await page.getByRole('button', { name: 'Launch scene 1', exact: true }).click()
+  } else if (SETUP === 'groups') {
+    await dock(page, 'Session', 'arrangement', 0.1, 0.5)
+    await page.getByRole('navigation', { name: 'Views' }).getByRole('button', { name: 'Tracks', exact: true }).click()
+    const tree = page.getByRole('tree', { name: 'Tracks' })
+    for (const name of ['Lead', 'Pad']) {
+      await tree.getByRole('treeitem', { name, exact: true }).click({ button: 'right' })
+      await page.getByRole('menuitem', { name: 'Group', exact: true }).click()
+    }
+    await page.getByRole('button', { name: 'Collapse Group 2', exact: true }).first().click()
+    await tree.getByRole('treeitem', { name: 'Bass', exact: true }).hover()
+    await page.getByRole('button', { name: 'Hide Bass', exact: true }).click()
     await show(page, 'Mixer')
     await page.getByRole('button', { name: 'Launch scene 1', exact: true }).click()
   } else {

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { addTrack, createDemoProject, createReturnTrack, groupTrack, moveTrack, setGroupCollapsed, setTrackHidden, trackRows } from '../project'
 import type { Project } from '../project'
@@ -36,6 +37,15 @@ const outline = (project: Project) =>
   trackRows(project).map((row) => '  '.repeat(row.depth) + (row.kind === 'group' ? `[${row.group.name}` : row.track.name)).join('\n')
 
 describe('track groups in files', () => {
+  it('loads the committed v10 fixture without warnings', () => {
+    const text = readFileSync(new URL('./fixtures/v10-track-groups.sfxlab.json', import.meta.url), 'utf8')
+    const { project, warnings } = parseOk(text)
+    expect(warnings).toEqual([])
+    expect(outline(project)).toBe('Bass\n[Group 1\n  Lead\n  [Group 2\n    Pad\nReturn A')
+    expect(project.tracks[0]!.hidden).toBe(true)
+    expect(project.groups![1]!.collapsed).toBe(true)
+  })
+
   it('keeps groups, collapse and hidden tracks through save and load', () => {
     const project = grouped()
     const result = parseOk(serializeProject(project))

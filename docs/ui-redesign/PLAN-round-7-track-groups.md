@@ -1,6 +1,6 @@
 # Round 7: track groups and the Tracks tree
 
-Status: **planned** 2026-10-28, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
+Status: **done** 2026-10-28, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 7](DRAFT-roadmap.md#round-7-track-groups-and-the-tracks-tree), from an inventory of where tracks are
 kept, ordered and listed, taken on `feat/ui-redesign` at `22a2c69` (round 6 merged). The roadmap asked for a short
 SPEC of the model before this plan; § [Model](#model) below is that SPEC, and its open questions are rows of the
@@ -408,3 +408,67 @@ Signed off 2026-10-28: every row as proposed.
 ## Changes made while implementing
 
 What turned out different from the design above, step by step.
+
+* **Step 1: the edits rebuild the project from a tree of the rows.** `moveTrack` and `moveGroup` take the moved item out
+  of the tree, put it at its place and flatten the tree back into `tracks` (clip tracks, then returns) and `groups`, so
+  members always end up together and groups left without tracks go. `normalizeTrackGroups` is the same flattening,
+  for the sanitizer. A no-op move gives the same project.
+* **Step 1: `pruneGroups` lives in `group-membership.ts`,** with `groupChain`, so `removeTrack` in `edit.ts` drops an
+  emptied group without importing `track-groups.ts`, which imports `edit.ts`. `setGroupName` joined the other setters
+  in `rename.ts`.
+* **Step 1: more helpers than planned:** `tracksInOrder` (the rows' tracks, memoized: the views' replacement for
+  `sessionOrder`), `findGroup`, `tracksInGroup`, `groupDepth`, `canGroupTrack`, `showAllTracks`.
+* **Step 1: the smoke tests ran at step 2** for steps 1 and 2 together (144 passed); step 1 alone ran the unit tests and
+  the typecheck. Its view change was only `sessionOrder` to `tracksInOrder`, which draws the same order.
+* **Step 2: tracks keep their raw `groupId` and `hidden` when read,** and `sanitizeGroups` checks them against the
+  groups afterwards; `repairGroupOrder` then normalizes and warns. A cycle is cut at the group that closes it, walking up
+  from groups in file order. Five persistence tests and one storage test pinned version 9 as the current one and now
+  say 10; the storage's pre-signature backup still applies only to files older than version 9.
+* **Step 2: the v10 fixture came with step 8,** `fixtures/v10-track-groups.sfxlab.json` with a test that loads it
+  without warnings, as ARCHITECTURE.md's rule for a new format version asks. The plan's steps didn't list it.
+* **Step 3: *Move up* and *Move down* are one `moveAction`** shared by the track and group lists. A return's menu has
+  them and *Hide*, but not *Group* or *Move to group*. *Move to group* shows as a disabled submenu while there are no
+  groups. A group renamed from outside a view is renamed in the Tracks view.
+* **Step 4: the drops are `drop.track-on-track`, `drop.track-on-group`, `drop.group-on-track` and
+  `drop.group-on-group`.** A track target without an edge (a preset's, or a menu's) refuses a track or a group.
+* **Step 5: the drag glue gained `useEdgeTarget(subject, axis)`,** which computes the edge from the pointer and writes
+  `data-edge` only while a track or group is dragged; `unmark` clears it. `useSounding` lives in `ui/shared`. The group
+  colours are CSS variables in `theme.css`.
+* **Step 5: the tree's details.** The *Returns* heading is an `aria-hidden` row with `role="none"`. A group row is named
+  "*name*, group of *n* tracks", a hidden row ends in ", hidden". The eye is a button outside the tab order, faded until
+  the row is hovered or focused. The activity bar's glyph is ☰.
+* **Step 5: a saved round-2 layout puts Tracks in its hidden primary sidebar,** which draws no tabs, so
+  `layout.smoke.spec.ts` checks that the saved layout has it rather than its tab. The full smoke run at step 5 failed
+  four layout tests on their expected tab lists; after fixing them, `layout.smoke.spec.ts` and
+  `views-at-min-size.smoke.spec.ts` passed (87 tests), and the next full run, at step 6, passed.
+* **Step 6: the *Hidden* button sits under the + in the scene column's head,** not after the last header, where it would
+  take a column. With every track hidden the grid has no extra line: the button is the way back. The arrangement got
+  that empty state instead (step 7): "Every track is hidden", with *Show all tracks*.
+* **Step 6: band rows are whole grid rows.** Each level is a row of cells, a spacer where a column is in no group at that
+  level and under the master and scene columns, so the grid's auto placement keeps the headers and scenes in place. The
+  bands and headers stick at the top by `--bands` and `--level`. A collapsed group's cell has no menu.
+* **Step 6: `Automation.scene` takes the track ids too,** so a group's cell launches its members' clip lanes and leaves the
+  returns' and the master's slots alone. `npm run test:audio` passed after this step (14 tests).
+* **Step 7: the mixer is a CSS grid,** one column per strip (72 px for a collapsed group) and one row per band level over
+  the strips; the master strip ends the row with `justify-self: end`. A track at the top level leaves its band rows
+  empty, so the faders line up.
+* **Step 7: the arrangement's group lane is 28 px high.** A selected lane name inside a group keeps its accent mark over
+  the group's stripe.
+* **Step 7: specs read a hidden view only after showing it.** Views hidden in a tab group are kept in `<Activity>` and
+  don't re-render until shown, so the lane-name drag spec shows Session before reading its columns.
+* **Step 8: the profile.** One run each, 10 s after 2 s of warm-up, headless Chromium, 1500 × 1000, the servers outside
+  the sandbox (it refuses local ports). `scripts/profile-status.cjs` gained a `groups` setup: Session and Arrangement side
+  by side, Mixer in the panel, the Tracks view open, Lead in an expanded group, Pad in a collapsed one, Bass hidden, scene
+  1 playing.
+
+  | Per second | Round 6 `editor` | Round 7 `editor` | Round 6 `four` | Round 7 `four` | Round 7 `groups` |
+  |---|---|---|---|---|---|
+  | Component renders (dev) | 145 | 145 | 173 | 173 | 87 |
+
+  `TracksView`, `GroupCell`, `HiddenTracks` and `SoundingDot` rendered 0 times a second in `groups`. Script time in the
+  production build was 14.3 ms (`editor`), 17.0 ms (`four`) and 13.6 ms (`groups`) a second.
+* **Step 8: checks.** `npm test` and `npm run typecheck` passed at every step (2128 unit tests at step 7, 2129 with the
+  fixture test). Full smoke runs: 144 passed at steps 2, 3 (after fixing the track menu's expected entries) and 4, 156 at
+  step 6 and 158 at step 7. `npm run test:audio` passed once, after step 6. The manual pass from Verification (nested
+  groups three deep in each region, every drag edge, undo through view edits, a hand-broken file) was not done, beyond
+  looking at the grid, the mixer and the arrangement with a group in the dev build. Firefox and Safari were not checked.
