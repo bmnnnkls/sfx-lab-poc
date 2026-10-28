@@ -11,6 +11,15 @@
   --queued: #f5d524;
   --wire: #7aa2f7;
   --radius: 4px;
+  /* Track groups' colours, by the names in core's GROUP_COLOURS. */
+  --group-red: #e5534b;
+  --group-orange: #e8833a;
+  --group-yellow: #d9b43a;
+  --group-green: #57ab5a;
+  --group-teal: #39a99d;
+  --group-blue: #539bf5;
+  --group-purple: #b083f0;
+  --group-pink: #e275ad;
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 13px;
   color: var(--text);

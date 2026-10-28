@@ -106,7 +106,7 @@ describe('parseStoredLayout', () => {
     const parsed = parse(stored(json))!
     expect(tabsOf(parsed, 'editor')).toEqual(['session', 'arrangement', 'wave'])
     expect(tabsOf(parsed, 'panel')).toEqual(['mixer', 'instrument', 'effects', 'notes', 'clip'])
-    expect(borderTabs(parsed, 'left')).toEqual(['sounds', 'samples', 'library'])
+    expect(borderTabs(parsed, 'left')).toEqual(['sounds', 'samples', 'library', 'tracks'])
     expect(parsed.borders!.map((border) => [border.location, border.show])).toEqual([['left', undefined], ['right', false]])
     expect(() => Model.fromJson(parsed)).not.toThrow()
   })
@@ -193,7 +193,7 @@ describe('parseStoredLayout with a version-1 layout', () => {
     const parsed = parseStoredLayout(v1(undefined))!
     expect(group(parsed.model, 'panel')).toMatchObject({ maxHeight: 0 })
     expect(tabsOf(parsed.model, 'panel')).toEqual(['instrument', 'effects', 'notes', 'clip', 'mixer'])
-    expect(borderTabs(parsed.model, 'left')).toEqual(['samples', 'library'])
+    expect(borderTabs(parsed.model, 'left')).toEqual(['samples', 'library', 'tracks'])
     expect(borderTabs(parsed.model, 'right')).toEqual(['sounds'])
   })
 

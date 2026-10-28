@@ -17,7 +17,7 @@ describe('default layout', () => {
     const [primary, secondary] = json.borders!
     // Shown but collapsed: their tabs show in the strips, and the editor area keeps its width.
     expect(primary).toMatchObject({ location: 'left', show: true, selected: -1 })
-    expect(primary!.children!.map((tab) => tab.id)).toEqual(['samples', 'library'])
+    expect(primary!.children!.map((tab) => tab.id)).toEqual(['samples', 'library', 'tracks'])
     expect(secondary).toMatchObject({ location: 'right', show: true, selected: -1 })
     expect(secondary!.children!.map((tab) => tab.id)).toEqual(['sounds'])
     expect(json.global).toMatchObject({ borderSize: 300 })

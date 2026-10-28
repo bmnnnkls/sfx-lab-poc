@@ -17,6 +17,7 @@ export const viewTitles: Readonly<Record<ViewId, string>> = {
   samples: 'Samples',
   sounds: 'Sounds',
   library: 'Library',
+  tracks: 'Tracks',
 }
 
 /** The tooltips of the tabs that have one. */
@@ -27,6 +28,7 @@ export const viewTooltips: Readonly<Partial<Record<ViewId, string>>> = {
   effects: "Effects: process the track's sound after the instrument (or the samples) and before the fader",
   notes: 'MIDI effects: change the notes before they reach the instrument',
   mixer: 'Mixer: a channel strip for every track, the returns and the master',
+  tracks: 'Tracks: group, order, hide and show the tracks',
 }
 
 export interface ViewMinSize {
@@ -53,4 +55,5 @@ export const viewMinSizes: Readonly<Record<ViewId, ViewMinSize>> = {
   samples: TOOL_VIEW,
   sounds: TOOL_VIEW,
   library: TOOL_VIEW,
+  tracks: TOOL_VIEW,
 }

@@ -3,7 +3,7 @@ import { create } from 'zustand'
 /** Every view the workbench can show. The ids are stable: layouts are saved by them. */
 export type ViewId =
   | 'session' | 'arrangement' | 'wave'
-  | 'instrument' | 'effects' | 'notes' | 'clip' | 'mixer' | 'samples' | 'sounds' | 'library'
+  | 'instrument' | 'effects' | 'notes' | 'clip' | 'mixer' | 'samples' | 'sounds' | 'library' | 'tracks'
 
 /** Where a view can sit: the editor area in the middle, the panel below it, and a sidebar on either side. */
 export type RegionId = 'editor' | 'panel' | 'primary' | 'secondary'
@@ -65,7 +65,7 @@ const visibleOf = (groups: readonly GroupState[], hiddenRegions: readonly Region
 const DEFAULT_GROUPS: readonly GroupState[] = [
   { id: 'editor', region: 'editor', views: [...MAIN_VIEWS, 'wave'], active: 'session' },
   { id: 'panel', region: 'panel', views: PANEL_VIEWS, active: 'instrument' },
-  { id: 'border_left', region: 'primary', views: ['samples', 'library'], active: 'samples' },
+  { id: 'border_left', region: 'primary', views: ['samples', 'library', 'tracks'], active: 'samples' },
   { id: 'border_right', region: 'secondary', views: ['sounds'], active: 'sounds' },
 ]
 const DEFAULT_HIDDEN: readonly RegionId[] = ['primary', 'secondary']

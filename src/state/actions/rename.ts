@@ -9,6 +9,7 @@ import type { Action, ActionContext, Subject, SubjectKind, SubjectOf } from './t
 /** Where each kind's name is drawn when a rename starts outside a view. */
 const HOME: Partial<Record<SubjectKind, ViewId>> = {
   track: 'session',
+  group: 'tracks',
   clip: 'session',
   scene: 'session',
   sample: 'samples',

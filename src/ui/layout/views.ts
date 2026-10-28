@@ -10,6 +10,7 @@ import { Patcher } from '../patcher/Patcher'
 import { PresetsPanel } from '../presets/PresetsPanel'
 import { SamplesPanel } from '../samples/SamplesPanel'
 import { SessionView } from '../session-view/SessionView'
+import { TracksView } from '../tracks/TracksView'
 import { WaveEditorView } from '../wave-editor/WaveEditorView'
 import { type ViewMinSize, viewMinSizes, viewTitles, viewTooltips } from './view-titles'
 
@@ -37,4 +38,5 @@ export const views: Readonly<Record<ViewId, ViewDescriptor>> = {
   samples: { title: viewTitles.samples, component: SamplesPanel, minSize: viewMinSizes.samples },
   sounds: { title: viewTitles.sounds, component: PresetsPanel, minSize: viewMinSizes.sounds },
   library: { title: viewTitles.library, component: LibraryView, minSize: viewMinSizes.library },
+  tracks: { title: viewTitles.tracks, tooltip: viewTooltips.tracks, component: TracksView, minSize: viewMinSizes.tracks },
 }
