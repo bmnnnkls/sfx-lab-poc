@@ -276,7 +276,9 @@ Grows from the existing prototype. Follow-ups are already listed in [TASKS.md](.
 
 * Track headers (name, mute, solo, arm) docked beside the lanes, with vertical scroll kept in sync. Groups from
   rounds 7 and 8 fold here too.
-* Automation lanes on the timeline, and recording into the arrangement (touch recording, slice 3c).
+* Automation lanes on the timeline, and recording into the arrangement (touch recording, slice 3c). This includes
+  what [round 8](PLAN-round-8-group-buses.md) left out for group buses: lanes for a group owner, and touch recording
+  into a group's fader, pan, sends and effect knobs.
 * Loop brace, markers, follow-playhead, horizontal zoom to fit or to the selection.
 * Opening a region in the clip editor and in the wave editor.
 
