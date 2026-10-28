@@ -104,4 +104,5 @@ export type EngineCommand =
   | { readonly type: 'sample/preview'; readonly sampleId: string }
   | { readonly type: 'sample/stopPreview' }
   | { readonly type: 'clip/launch'; readonly trackId: string; readonly clipId: string }
-  | { readonly type: 'scene/launch'; readonly scene: number }
+  /** Every track's clip in that scene; with `trackIds`, only those tracks' (a collapsed group's cell). */
+  | { readonly type: 'scene/launch'; readonly scene: number; readonly trackIds?: readonly string[] }

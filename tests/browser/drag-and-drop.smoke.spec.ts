@@ -269,3 +269,22 @@ test('a project preset dropped on its own track recalls it, and a track with ano
   await dragTo(page, preset, lead, { whileOver: () => expect(lead.locator('xpath=..')).toHaveAttribute('data-drop', 'refuse') })
   await expect(recalled).toHaveCount(1)
 })
+
+test("a track's name drags onto another header's side to reorder the columns; a return refuses a clip track", async ({ page }) => {
+  await page.goto('/?starter')
+  const session = await openView(page, 'Session')
+  const header = (name: string) => session.getByRole('button', { name: `Remove ${name}`, exact: true }).locator('..')
+  const names = () => session.locator('button[class*="trackName"]').allTextContents()
+  const box = (await header('Pad').boundingBox())!
+  await dragTo(page, session.getByRole('button', { name: 'Bass', exact: true }), header('Pad'), { position: { x: box.width - 10, y: 20 } })
+  expect(await names()).toEqual(['Lead', 'Pad', 'Bass', 'Master'])
+  await page.keyboard.press('ControlOrMeta+z')
+  expect(await names()).toEqual(['Bass', 'Lead', 'Pad', 'Master'])
+
+  await session.getByRole('button', { name: 'Add track', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Return track', exact: true }).click()
+  await dragTo(page, session.getByRole('button', { name: 'Bass', exact: true }), header('Return A'), {
+    whileOver: async () => expect(header('Return A')).toHaveAttribute('data-drop', 'refuse'),
+  })
+  expect(await names()).toEqual(['Bass', 'Lead', 'Pad', 'Return A return', 'Master'])
+})

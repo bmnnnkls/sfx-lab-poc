@@ -61,7 +61,14 @@ export class EngineAutomation {
     else { track.queue.queued = { clip: null } }
   }
   slotStatus(owner: ControlOwner): LauncherStatus | undefined { const track = this.tracks.get(automationOwnerKey(owner)); return track?.slots ? track.queue.status() : undefined }
-  scene(scene: number): void { for (const track of this.tracks.values()) { const clip = track.clips[scene]; if (clip) track.queue.launch(clip); else if (track.slots) track.queue.queued = { clip: null }; else track.queue.stop() } }
+  /** Launches each owner's lanes in that scene; with `trackIds`, only those tracks' (not the returns' or the master's slots). */
+  scene(scene: number, trackIds?: readonly string[]): void {
+    const keys = trackIds && new Set(trackIds.map((trackId) => automationOwnerKey({ kind: 'track', trackId })))
+    for (const [key, track] of this.tracks) {
+      if (keys && !keys.has(key)) continue
+      const clip = track.clips[scene]; if (clip) track.queue.launch(clip); else if (track.slots) track.queue.queued = { clip: null }; else track.queue.stop()
+    }
+  }
   finish(trackId: string): void { const queue = this.tracks.get(automationOwnerKey({ kind: 'track', trackId }))?.queue; if (queue) queue.playback = null }
   stopTrack(trackId: string): void { const track = this.tracks.get(automationOwnerKey({ kind: 'track', trackId })); if (track?.slots) track.queue.queued = { clip: null }; else track?.queue.stop() }
   reset(): void { this.overrides.clear(); this.restore(); for (const track of this.tracks.values()) track.queue.reset() }

@@ -250,8 +250,8 @@ export class Engine {
         this.playSession()
         break
       case 'scene/launch':
-        this.automation.scene(command.scene)
-        for (const track of this.tracks.values()) track.launchScene(command.scene)
+        this.automation.scene(command.scene, command.trackIds)
+        for (const [id, track] of this.tracks) if (!command.trackIds || command.trackIds.includes(id)) track.launchScene(command.scene)
         this.playSession()
         break
     }

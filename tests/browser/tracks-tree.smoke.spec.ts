@@ -111,3 +111,55 @@ test('a group ungroups, or deletes with its tracks, and undo brings them back', 
   await page.keyboard.press('ControlOrMeta+z')
   expect(await outline(tree)).toBe('Bass\nGroup 1, group of 1 track\n  Lead\nPad')
 })
+
+/** The session grid's column headers, by the name each shows. */
+const columnNames = (session: Locator) =>
+  session.locator('[role="group"][aria-label$=", collapsed"], button[class*="trackName"]').evaluateAll((elements) =>
+    elements.map((element) => element.getAttribute('aria-label') ?? element.textContent ?? '').filter((name) => name !== 'Master'))
+
+test('the session grid draws a group as a band, and a collapsed group as one column whose cells launch its members', async ({ page }) => {
+  await page.goto('/?starter')
+  const { tree } = await openTracks(page)
+  await group(page, tree, 'Lead')
+  await dragTo(page, row(tree, 'Pad'), row(tree, 'Group 1, group of 1 track'))
+  const session = await openView(page, 'Session')
+  const band = session.getByRole('group', { name: 'Group Group 1', exact: true })
+  await expect(band).toBeVisible()
+  // The band spans the two members' columns.
+  const [bandBox, lead, pad] = await Promise.all([band.boundingBox(), session.getByRole('button', { name: 'Lead', exact: true }).boundingBox(), session.getByRole('button', { name: 'Pad', exact: true }).boundingBox()])
+  expect(bandBox!.x).toBeLessThanOrEqual(lead!.x)
+  expect(bandBox!.x + bandBox!.width).toBeGreaterThanOrEqual(pad!.x + pad!.width)
+
+  await session.getByRole('button', { name: 'Collapse Group 1', exact: true }).click()
+  expect(await columnNames(session)).toEqual(['Bass', 'Group Group 1, collapsed'])
+  await expect(row(tree, 'Group 1, group of 2 tracks')).toHaveAttribute('aria-expanded', 'false')
+  // Lead has no clip in scene 2, Pad has; nobody has one in scene 4.
+  await expect(session.getByRole('button', { name: 'Launch Group 1 in scene 2', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: 'Stop Group 1 in scene 4', exact: true })).toBeVisible()
+  const launch = session.getByRole('button', { name: 'Launch Group 1 in scene 1', exact: true })
+  await launch.click()
+  await expect(launch).toHaveAttribute('data-state', 'playing')
+  await expect(session.getByRole('button', { name: 'Launch scene 1', exact: true })).toBeVisible()
+  await session.getByRole('button', { name: 'Expand Group 1', exact: true }).click()
+  await expect(session.getByRole('button', { name: '■ Arp', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: '■ Cm', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: '▶ Root', exact: true })).toBeVisible()
+})
+
+test('a hidden track leaves the grid, which counts it and lights while it sounds', async ({ page }) => {
+  await page.goto('/?starter')
+  const { view, tree } = await openTracks(page)
+  await row(tree, 'Bass').hover()
+  await view.getByRole('button', { name: 'Hide Bass', exact: true }).click()
+  const session = await openView(page, 'Session')
+  expect(await columnNames(session)).toEqual(['Lead', 'Pad'])
+  const hidden = session.getByRole('button', { name: '1 hidden track', exact: true })
+  await expect(hidden).toBeVisible()
+  // Only Bass plays: the hidden track still sounds, and the grid says so.
+  await session.getByRole('button', { name: 'Launch scene 2', exact: true }).click()
+  await session.getByRole('button', { name: 'Stop Pad', exact: true }).click()
+  await expect(session.getByRole('button', { name: '1 hidden track, sounding', exact: true })).toBeVisible()
+  await expect((await openTracks(page)).tree.getByRole('treeitem', { name: 'Bass, hidden', exact: true }).locator('[data-sounding]')).toBeVisible()
+  await (await openView(page, 'Session')).getByRole('button', { name: '1 hidden track, sounding', exact: true }).click()
+  await expect(viewRoot(page, 'Tracks')).toBeVisible()
+})
