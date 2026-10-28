@@ -1,4 +1,4 @@
-import { type LibraryCatalog, captureLibraryAsset, captureLibraryClip, captureSnapshot, editControlBase, editPatchAt, emptyLibrary, putSnapshot, saveProjectPreset } from '@core'
+import { type LibraryCatalog, addTrack, createReturnTrack, tracksInOrder, captureLibraryAsset, captureLibraryClip, captureSnapshot, editControlBase, editPatchAt, emptyLibrary, putSnapshot, saveProjectPreset } from '@core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { PersonalLibrary } from '../library'
 import { useLibraryStore } from '../library-store'
@@ -246,5 +246,63 @@ describe('library items', () => {
     useLibraryStore.setState({ catalog: { ...catalog, items: catalog.items.map((entry) => ({ ...entry, trashed: true })) } })
     expect(accepted(item('Synth'), onTrack('Lead'))).toBeUndefined()
     expect(accepted(item('Riff'), slot('Lead', 1))).toBeUndefined()
+  })
+})
+
+describe('tracks and groups', () => {
+  const dragTrack = (name: string): DragPayload => ({ kind: 'track', trackId: track(name).id })
+  const at = (name: string, edge: 'before' | 'after'): DropTarget => ({ kind: 'track', trackId: track(name).id, edge })
+  const groupId = () => project().groups![0]!.id
+  const atGroup = (edge: 'before' | 'after' | 'inside'): DropTarget => ({ kind: 'group', groupId: groupId(), edge })
+  const names = () => tracksInOrder(project()).map((candidate) => candidate.name).join(' ')
+
+  beforeEach(() => {
+    useProjectStore.getState().resetProject(addTrack(project(), { ...createReturnTrack('Return A'), id: 'ret' }))
+    useProjectStore.getState().groupTrack(track('Lead').id)
+  })
+
+  it('moves a track before or after a track, joining its group, one undo step', () => {
+    const before = undoSteps()
+    expect(dropFor(dragTrack('Pad'), at('Lead', 'before'), fakeContext())?.effect(dragTrack('Pad'), at('Lead', 'before'), NONE)).toBe('move')
+    runDrop(dragTrack('Pad'), at('Lead', 'before'), fakeContext(), NONE)
+    expect(names()).toBe('Bass Pad Lead Kick Return A')
+    expect(track('Pad').groupId).toBe(groupId())
+    expect(undoSteps()).toBe(before + 1)
+    runDrop(dragTrack('Pad'), at('Kick', 'after'), fakeContext(), NONE)
+    expect(names()).toBe('Bass Lead Kick Pad Return A')
+    expect(track('Pad').groupId).toBeUndefined()
+  })
+
+  it('moves a track before, after or inside a group', () => {
+    runDrop(dragTrack('Bass'), atGroup('inside'), fakeContext(), NONE)
+    expect(names()).toBe('Lead Bass Pad Kick Return A')
+    runDrop(dragTrack('Kick'), atGroup('before'), fakeContext(), NONE)
+    expect(names()).toBe('Kick Lead Bass Pad Return A')
+    expect(track('Kick').groupId).toBeUndefined()
+  })
+
+  it('moves a group next to a track, or into another group', () => {
+    const group: DragPayload = { kind: 'group', groupId: groupId() }
+    runDrop(group, at('Kick', 'after'), fakeContext(), NONE)
+    expect(names()).toBe('Bass Pad Kick Lead Return A')
+    useProjectStore.getState().groupTrack(track('Bass').id)
+    const other = project().groups!.find((candidate) => candidate.id !== groupId())!.id
+    runDrop(group, { kind: 'group', groupId: other, edge: 'inside' }, fakeContext(), NONE)
+    expect(project().groups!.find((candidate) => candidate.id === groupId())!.parentId).toBe(other)
+  })
+
+  it('refuses a track without an edge, among the returns, onto itself, and a group into itself', () => {
+    expect(accepted(dragTrack('Bass'), onTrack('Lead'))).toBeUndefined()
+    expect(accepted(dragTrack('Bass'), { kind: 'track', trackId: 'ret', edge: 'after' })).toBeUndefined()
+    expect(accepted({ kind: 'track', trackId: 'ret' }, at('Bass', 'before'))).toBeUndefined()
+    expect(accepted(dragTrack('Bass'), at('Bass', 'after'))).toBeUndefined()
+    expect(accepted({ kind: 'group', groupId: groupId() }, atGroup('inside'))).toBeUndefined()
+    expect(accepted({ kind: 'group', groupId: groupId() }, at('Lead', 'after'))).toBeUndefined()
+    expect(accepted({ kind: 'group', groupId: groupId() }, { kind: 'track', trackId: 'ret', edge: 'before' })).toBeUndefined()
+  })
+
+  it('names the drop that moves a track or a group', () => {
+    expect(accepted(dragTrack('Bass'), at('Pad', 'after'))).toBe('drop.track-on-track')
+    expect(accepted({ kind: 'group', groupId: groupId() }, at('Pad', 'after'))).toBe('drop.group-on-track')
   })
 })

@@ -1,4 +1,4 @@
-import type { ControlOwner } from '@core'
+import { type ControlOwner, type TrackItem, type TrackPlace, canMoveGroup, canMoveTrack } from '@core'
 import { useLibraryStore } from '../library-store'
 import { useProjectStore } from '../project-store'
 import { canRunAction, runAction, type RunOptions, settle } from '.'
@@ -10,10 +10,13 @@ import { canRecallPresetOn, recallPresetOn } from './sound'
 import type { ActionContext, SubjectOf } from './types'
 
 /** What is dragged: the subject of the thing picked up. It holds ids, read when it lands. */
-export type DragPayload = SubjectOf<'clip' | 'sample' | 'sound' | 'library-item'>
+export type DragPayload = SubjectOf<'clip' | 'sample' | 'sound' | 'library-item' | 'track' | 'group'>
 
-/** Where it lands: the subject of the place under the pointer. A lane carries the beat, a canvas the point. */
-export type DropTarget = SubjectOf<'slot' | 'lane' | 'track' | 'master' | 'canvas'>
+/**
+ * Where it lands: the subject of the place under the pointer. A lane carries the beat, a canvas the point, a track or
+ * a group the side a dragged track or group lands on.
+ */
+export type DropTarget = SubjectOf<'slot' | 'lane' | 'track' | 'master' | 'canvas' | 'group'>
 
 export interface DropModifiers {
   readonly alt: boolean
@@ -46,6 +49,49 @@ const canvasGraph = ({ target, path }: SubjectOf<'canvas'>): { owner: ControlOwn
   if (path.length > 0 || 'moduleId' in target) return undefined
   return 'trackId' in target ? { owner: trackOwner(target.trackId), domain: target.graph ?? 'patch' } : { owner: MASTER, domain: 'fx' }
 }
+
+const moves = () => 'move' as const
+
+/** Where a track or group target's edge puts what is dropped on it; undefined without an edge. */
+const placeAt = (target: SubjectOf<'track' | 'group'>): TrackPlace | undefined => {
+  const item: TrackItem = target.kind === 'track' ? { kind: 'track', id: target.trackId } : { kind: 'group', id: target.groupId }
+  switch (target.edge) {
+    case 'before':
+      return { before: item }
+    case 'after':
+      return { after: item }
+    case 'inside':
+      return target.kind === 'group' ? { inside: target.groupId } : undefined
+    default:
+      return undefined
+  }
+}
+
+/** A track or a group dragged next to, or into, a track or a group: moved there, as *Move up* and *Move down* move it. */
+const trackMoves = (['track', 'group'] as const).flatMap((target) => [
+  define<'track', typeof target>({
+    id: `drop.track-on-${target}`,
+    payload: 'track',
+    target,
+    accepts: (payload, at) => {
+      const place = placeAt(at)
+      return !!place && canMoveTrack(project(), payload.trackId, place)
+    },
+    effect: moves,
+    run: (payload, at) => useProjectStore.getState().moveTrack(payload.trackId, placeAt(at)!),
+  }),
+  define<'group', typeof target>({
+    id: `drop.group-on-${target}`,
+    payload: 'group',
+    target,
+    accepts: (payload, at) => {
+      const place = placeAt(at)
+      return !!place && canMoveGroup(project(), payload.groupId, place)
+    },
+    effect: moves,
+    run: (payload, at) => useProjectStore.getState().moveGroup(payload.groupId, placeAt(at)!),
+  }),
+])
 
 /** Every drop, by what is dragged and where it lands. Nothing else decides what a drop does. */
 export const drops: readonly Drop[] = [
@@ -184,6 +230,7 @@ export const drops: readonly Drop[] = [
       return replaceGraph(item, insertionScope(item, graph.domain, graph.owner), context)
     },
   }),
+  ...trackMoves,
 ]
 
 /** The drop that would land `payload` on `target` now, or undefined when nothing accepts it there. */
