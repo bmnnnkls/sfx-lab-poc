@@ -170,6 +170,12 @@ Safari and touch were not checked. Popouts stay off; the round that turns them o
 
 ## Round 7: track groups and the Tracks tree
 
+**Planned** 2026-10-28; see the [plan](PLAN-round-7-track-groups.md), not yet signed off. It folds the SPEC into its
+§ Model and decisions. Its inventory changed the outline below: `Project.tracks` stays the only order, so a group's
+tracks sit together in it and there are no empty groups; *Group* wraps one track, since tracks have no
+multi-selection; collapse and hide are saved but not undo steps; a collapsed group's cell is a scene launch for its
+members (the round's one engine change); group mute and solo wait for round 8; copying tracks stays out.
+
 A **group** is one concept with two steps: always a folder, optionally a summing bus (round 8). The project format is
 designed for both in this round, so round 8 needs no second migration. Needs a short SPEC for the model before its
 plan.
@@ -295,7 +301,7 @@ Deliberately last, so it restyles a stable structure.
 | Can a view be open twice (e.g. two patchers on different tracks)? | not yet: one instance of each view; round 9's pinned panels show copies inside one view; pinned per-entity editor tabs later | round 4 |
 | The panel: bottom border or tab group | **Settled 2026-10-24 by the user:** a tab group, for full-height sidebars (overrides round 2) | round 3 |
 | A track group: folder or summing bus | **Settled 2026-10-24 by the user:** always a folder, optionally converted to a summing bus, in two rounds (7 and 8) | rounds 7 and 8 |
-| What a collapsed group shows in the session grid | one column whose cells launch all members' clips in that scene, or only the header | round 7 SPEC |
-| Hidden tracks: saved with the project or per browser | with the project | round 7 SPEC |
+| What a collapsed group shows in the session grid | one column whose cells launch all members' clips in that scene, or only the header; **round 7's plan proposes** the column | round 7 plan |
+| Hidden tracks: saved with the project or per browser | with the project; **round 7's plan proposes** the same, outside undo | round 7 plan |
 | Wave editor: destructive edits vs. derived samples | destructive with undo, original kept until project save | round 11 SPEC |
 | Stereo samples throughout the engine, or only in the editor | throughout (needed for the wave editor to be honest) | round 11 SPEC |
