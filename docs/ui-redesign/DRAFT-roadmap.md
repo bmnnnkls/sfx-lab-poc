@@ -170,7 +170,7 @@ Safari and touch were not checked. Popouts stay off; the round that turns them o
 
 ## Round 7: track groups and the Tracks tree
 
-**Planned** 2026-10-28; see the [plan](PLAN-round-7-track-groups.md), not yet signed off. It folds the SPEC into its
+**Planned** 2026-10-28; see the [plan](PLAN-round-7-track-groups.md), signed off as proposed. It folds the SPEC into its
 § Model and decisions. Its inventory changed the outline below: `Project.tracks` stays the only order, so a group's
 tracks sit together in it and there are no empty groups; *Group* wraps one track, since tracks have no
 multi-selection; collapse and hide are saved but not undo steps; a collapsed group's cell is a scene launch for its

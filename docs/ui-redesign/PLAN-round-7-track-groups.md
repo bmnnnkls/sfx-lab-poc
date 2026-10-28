@@ -1,6 +1,6 @@
 # Round 7: track groups and the Tracks tree
 
-Status: **planned** 2026-10-28, decisions not yet signed off. Part of the [UI redesign](README.md). Carries out
+Status: **planned** 2026-10-28, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 7](DRAFT-roadmap.md#round-7-track-groups-and-the-tracks-tree), from an inventory of where tracks are
 kept, ordered and listed, taken on `feat/ui-redesign` at `22a2c69` (round 6 merged). The roadmap asked for a short
 SPEC of the model before this plan; § [Model](#model) below is that SPEC, and its open questions are rows of the
@@ -382,6 +382,8 @@ round.
   record the numbers.
 
 ## Decisions to sign off
+
+Signed off 2026-10-28: every row as proposed.
 
 | Question | Proposed | Notes |
 |---|---|---|
