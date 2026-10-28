@@ -1,7 +1,8 @@
 import type { SampleInfo } from '@core'
-import { type Subject, runAction, useSampleStore } from '@state'
+import { type SubjectOf, runAction, useSampleStore } from '@state'
+import { useDragSource } from '../shared/drag'
 import { ActionMenu, useActionContext } from '../shared/menu'
-import { InPlaceRename } from '../shared/RenameField'
+import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import styles from './SamplesPanel.module.css'
 
@@ -10,13 +11,15 @@ const describeSample = (sample: SampleInfo): string =>
 
 export const SampleRow = ({ sample }: { sample: SampleInfo }) => {
   const context = useActionContext()
-  const subject: Subject = { kind: 'sample', sampleId: sample.id }
+  const subject: SubjectOf<'sample'> = { kind: 'sample', sampleId: sample.id }
   const run = (id: string) => () => runAction(id, subject, context)
   const ready = useSampleStore((state) => state.status[sample.id] === 'ready')
+  // It drags onto an empty audio slot, an audio lane or an instrument's canvas.
+  const drag = useDragSource(useRenaming(subject) ? null : subject)
 
   return (
     <ActionMenu subject={subject}>
-    <li className={styles.row}>
+    <li className={styles.row} {...drag}>
       <WaveformThumb sampleId={sample.id} />
       <div className={styles.meta}>
         <InPlaceRename subject={subject} name={sample.name} label={`Name of ${sample.name}`}>

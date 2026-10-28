@@ -1018,7 +1018,14 @@ out for metering).
   `syncClips` swaps in edited clip data it releases any sounding note that was deleted, moved, re-pitched or cut
   short, and lets one that merely got longer ring to its new end. Without this, deleting a held note would
   leave its voice sounding forever (its note-off is never generated).
-* No-op edits return the same project object (`updateTrack`/`updateClip`), so they don't create empty undo steps.
+* No-op edits return the same project object (`updateTrack`/`editClipAt`), so they don't create empty undo steps.
+* **Clip references.** The clip setters (`setClipNotes`, `setClipLength`, `doubleClip`, `updateAudioClip`) take a
+  `ClipRef` (`core/project/clip-ref.ts`): `{ kind: 'session', trackId, clipId }` or `{ kind: 'region', regionId }`.
+  `editClipAt(project, ref, change)` edits a session clip in its slot or a region's own `content`, and `clipAt` reads
+  one. So Clip edits a selected region's copy the same way it edits a session clip, and never its session source.
+  Lengthening a region in Clip lets it overlap the next one, as resizing its edge does. A region shows no automation
+  toggle and no playhead in Clip yet (the timeline plays neither; round 12): its content keeps its source's id, so
+  the piano roll and the waveform are told not to follow the session launcher (`playhead={false}`).
 * **Velocity lane** (`VelocityLane.tsx`, pure picking logic in `velocity-lane-logic.ts`): one bar per note under the
   roll. Press a bar and drag; if the note is selected the whole selection follows. Chords put several bars at one x,
   so the bar whose top is nearest the pointer wins. Same draft-then-commit pattern as the roll (one undo step).
@@ -1072,8 +1079,9 @@ right-clicked; what can be done to it lives in `state/actions/`.
   `runAction` with the same subject, so a button and its menu entry share one implementation. Two exceptions keep the
   view's choice: a preset's *Recall* and *Update* in Sounds act on the scope chosen at the top of the view (the menu's
   on the preset's own), and the automation cell's ▶ and ■ launch directly.
-* **Selection in views.** When an action removes what a view had selected (a region, nodes), the view drops the stale
-  id on its next render; actions don't reach into view state. What a menu needs from a view lives in a store: the
+* **Selection in views.** When an action removes what a view had selected (nodes), the view drops the stale id on its
+  next render; actions don't reach into view state. A deleted region stays named in the selection store and shows as
+  nothing. What a menu needs from a view lives in a store: the
   graph editor's open sub-patch and module-interface toggle and its *Add node…* request (`graph-view-store`), and the
   Library's catalog and open folder (`library-store`).
 
@@ -1096,8 +1104,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
 * **Keyboard and touch.** Radix opens a menu on `contextmenu`, which browsers fire for the Menu key and, on Windows and
   Linux, Shift+F10, and on a long press. Chromium on macOS fires nothing for Shift+F10, so `ContextMenu` handles that
   key itself on the focused trigger (or inside it): it prevents the browser's handling and sends a `contextmenu` from
-  the trigger's bottom-left corner. Every trigger is or holds a focusable element; the arrangement lane's name is
-  focusable for that, and carries the track's menu. Checked in Chromium; Firefox and Safari were not checked.
+  the trigger's bottom-left corner. Every trigger is or holds a focusable element; the arrangement lane's name and
+  regions are focusable for that, and carry their menus. Checked in Chromium; Firefox and Safari were not checked.
 * **Focus after a rename.** Radix returns the focus to the trigger as a menu closes. `ActionMenu` prevents that after
   an action that `takesFocus` (an in-place rename, *Add node…*).
 * **Popups stay.** The *+* add-track popup, the empty audio slot's *+* and the *Layout* menu are menus of a place, not
@@ -1123,15 +1131,15 @@ right-clicked; what can be done to it lives in `state/actions/`.
 | Library item | Preview | Rename, Duplicate, Insert new instrument track, Replace selected graph / Add sample to project | | Trash; in the trash: Restore |
 | Library folder | Open | Rename, New folder inside | | Trash; in the trash: Restore |
 | Nodes | Open module (one use) | Rename (one control), Bypass / Unbypass (note effects), Group into module, Unlink (one use) | Copy, Cut, Duplicate | Delete |
-| Canvas | Add node… | | Paste | |
+| Canvas | Add node… | Add sampler ▸ samples (an instrument graph, while the project has samples) | Paste | |
 | Module | | Rename, Show / Hide interface | | Delete (disabled while used, the reason in its title) |
-| Region | Edit clip (its session source, while it exists) | Duplicate, Loop until next region / Stop looping | Copy | Delete |
-| Lane | | Add clip ▸ the track's session clips | Paste | Clear this track |
+| Region | Edit (its own copy, in Clip), Edit session clip (its source, while it exists) | Duplicate, Loop until next region / Stop looping | Copy | Delete |
+| Lane | | Add clip ▸ the track's session clips, Add audio clip ▸ samples (an audio track) | Paste | Clear this track |
 | Control | | MIDI learn (per axis), Show automation | | |
 | Sound | Recall | Update, Rename, Duplicate | | Delete |
 
-*Open* entries are the navigation intents (`openClip`, `openTrackView`, `openMasterEffects`, `openAutomationSlot`,
-`openSampleEditor`) and `useAutomationEditor.show`: they reveal the view wherever it is docked. *Show automation* on a
+*Open* entries are the navigation intents (`openClip`, `openRegion`, `openTrackView`, `openMasterEffects`,
+`openAutomationSlot`, `openSampleEditor`) and `useAutomationEditor.show`: they reveal the view wherever it is docked. *Show automation* on a
 track opens its volume lane, in the selected (or first) clip, or a return's slot (created when empty).
 
 ### In-place rename
@@ -1195,6 +1203,63 @@ track opens its volume lane, in the selected (or first) clip, or a return's slot
   row, and resets to the first scene when its row goes. Clips that are playing keep playing: the launcher knows them
   by id.
 * `MAX_TRACKS`, `MAX_SCENES` and `MAX_PATCH_NODES` live in `core/project`; the file format's `LIMITS` reads them.
+
+## Drag and drop
+
+Things picked up in one view land in another. A drop is "paste here": it runs a round-5 action, or the function the
+action's *Paste* runs, so every drop has a menu twin and the two can't drift apart.
+
+* **Payloads and targets are subjects.** What is dragged is a `DragPayload`: a `clip` (a session clip), a `sample`, a
+  `sound` (a project preset; snapshots don't drag) or a `library-item`. Where it lands is a `DropTarget`: a `slot`, a
+  `lane` (with the snapped beat under the pointer), a `track`, the `master` or a `canvas` (with the canvas point). A
+  payload holds ids and is read when it lands, so something deleted mid-drag drops nothing.
+* **One list of drops.** `state/actions/drops.ts` holds every `Drop`: its payload and target kinds, `accepts` (refused
+  drops show the "no drop" cursor), `effect` (`move` or `copy`) and `run`. `dropFor(payload, target, context)` is the
+  drop that accepts now; `runDrop` runs it and reports an asynchronous drop's message to the toasts, as `runAction`
+  does. A drop that runs an action as it is accepts by `canRunAction` (the action applies, is enabled and has that
+  choice). Where an action reads a clipboard, its body is a shared function that takes the value: `pasteClipInSlot`,
+  `pasteClipOnLane`, `replaceGraph`, `insertLibraryClipAt` and `recallPresetOn`, with `canPasteClipInSlot`,
+  `canPasteClipOnLane`, `graphFitsOwner`, `libraryClipFitsSlot` and `canRecallPresetOn` (over `core`'s
+  `canRecallProjectPreset`) as the checks. One undo step per drop.
+
+| Payload | Empty slot | Lane | Track (session header, mixer strip, lane name) | Master (header, strip) | Canvas |
+|---|---|---|---|---|---|
+| Session clip | Moves it (`moveClip`, keeping its id; the selection follows); Alt copies it (*Paste*) | Copies it: on its own track as *Add clip* (linked to its source), on another track of its kind as *Paste* | | | |
+| Sample | On an audio track: *Add audio clip*, opened in Clip | On an audio track: *Add audio clip* | | | In an instrument graph: *Add sampler* at the point |
+| Project preset | | | Recalls it, in its own domain, when the track's graph matches its revision | When the master's effects match | |
+| Library item | A clip of the track's kind: as the Library's *Insert into empty slot* | | An instrument, note effect, audio effect or preset: replaces that graph (*Replace selected graph* with this owner) | An audio effect or effects preset | The same into this graph, when its kind matches and the canvas is at the top level |
+
+Everything else refuses: an occupied slot, a track of the other kind, a library clip on a lane, a canvas inside a
+module, an effect made for another input (`trackIn`, `returnIn`, `masterIn`), a preset on a graph that differs.
+
+* **The hooks.** `ui/shared/drag/` holds the DOM side. `useDragSource(payload)` makes an element draggable: its
+  `dragstart` writes the payload as JSON under `application/x-sfxlab-drag` and records it as the current drag; a
+  `null` payload (a row being renamed in place) makes nothing draggable. A drag starts past the browser's movement
+  threshold, so a click still launches, opens or selects. `useDropTarget(target)` takes a subject, or a function of
+  the event for a lane's beat and a canvas's point. It looks only at drags carrying our type, so flexlayout's tab
+  drags, files and the panel's control reorder pass through. It asks `dropFor`, prevents the default and sets
+  `dropEffect` when a drop accepts, and on `drop` calls `runDrop` with `useActionContext()`.
+* **The current drag is a module variable,** not a store: `dragover` can't read `dataTransfer`'s data, only its types.
+  The window ends it on `dragend` and, a task after the target's handler, on `drop`, both in the capture phase.
+* **Feedback without rendering.** The target under the pointer gets `data-drop="accept"` or `"refuse"`, set on the
+  element and cleared on leave, on drop and when another target takes over; a lane also gets `--drop-at`, where its
+  marker is drawn. No target subscribes to anything, so a drag re-renders nothing. The innermost target stops
+  `dragover` and `drop`, refused ones too, so it decides.
+* **Sources and targets.** Sources: a filled session slot, a sample row, a project preset's row in Sounds, a library
+  item's row. Targets: every session slot (a filled one shows `refuse`), a lane's whole row (so a drop over a region
+  lands too), the session header, the mixer strip, the lane name, the master's header and strip, and a graph
+  editor's canvas.
+* **Spring-loaded tabs.** A drag of ours resting 500 ms (`SPRING_LOAD_MS`) on the tab of a view that isn't showing,
+  or on an activity-bar button, shows that view (`revealView`), a collapsed sidebar or panel included; moving off
+  first cancels. `useSpringLoad` listens on the workbench's root (a tab's button carries its view in flexlayout's id)
+  and on the activity bar's strip. A tab group keeps hidden views mounted, so the source is still there when its view
+  is hidden mid-drag.
+* **The rule.** `tests/architecture.test.ts`: outside `ui/shared/drag/`, only `ControlCell` (the control reorder, with
+  its own type `application/x-sfxlab-control`), `SamplesPanel` (operating-system files, `Files` only) and
+  `RegionToggles` (which cancels drags) may use `dataTransfer`, `draggable` or `onDrag…`/`onDrop` handlers.
+* **Not yet.** Dragging regions out of the arrangement, drops that make tracks, files outside Samples, library samples,
+  several things at once, keyboard and touch drags (the menus cover both), and popout windows (turned off). Checked
+  in Chromium only.
 
 ## Groove: quantize, swing, humanize
 
@@ -1420,14 +1485,19 @@ switches views like in Ableton.
   switch back to the session. A track added mid-arrangement follows the timeline like the rest. `arrangement/set`
   pushes the whole region list (it is small, and edits create new arrays).
 * **UI.** `ui/arrangement/`: a ruler in bars, one lane per non-return track, regions drawn as a note preview (MIDI)
-  or a waveform thumbnail (audio). Right-click an empty lane to place one of the track's session clips at the
-  clicked beat (*Add clip* ▸), paste a copied clip or region there, or clear the track; the lane's name carries the
-  track's menu. A session slot's context menu has **Place on arrangement**, which appends a copy at the end of its
-  track's timeline (the two main views are exclusive, so a slot cannot be dragged onto a lane). Drag a region to
-  move it (quarter-beat snap) — vertical dragging onto another lane moves it across tracks (the drop resolves the
-  target from the lane element's `data-lane`); drag its edge to resize (MIDI clips trim their notes); right-click a
-  region to open its session source (*Edit clip*, while it exists), duplicate, loop (until the next region: a repeat
-  badge and a hatched span up to the loop end), copy or delete. The region is the menu's `asChild` child, so it forwards the trigger's handlers, `data-state` and `ref`
+  or a waveform thumbnail (audio). **Drag a session slot onto a lane** to copy it there at the snapped beat (see
+  [Drag and drop](#drag-and-drop)); in the default layout, where Session and Arrangement share a tab group, hold the
+  drag over the Arrangement tab to show it. Right-click an empty lane to place one of the track's session clips at
+  the clicked beat (*Add clip* ▸), add a sample's clip on an audio lane (*Add audio clip* ▸), paste a copied clip or
+  region there, or clear the track. A session slot's menu keeps **Place on arrangement**, which appends a copy at the
+  end of its track's timeline: the keyboard's route, since a lane can't take the focus. The lane's name carries the
+  track's menu and selects the track on click, marked while selected. Drag a region to move it (quarter-beat snap) —
+  vertical dragging onto another lane moves it across tracks (the drop resolves the target from the lane element's
+  `data-lane`); drag its edge to resize (MIDI clips trim their notes). **Selecting a region**: pressing it selects
+  it in the selection store, with its track, so Instrument, Effects, Notes and Sounds follow, and Clip shows its own
+  copy if Clip is showing; double-click, Enter (regions are focusable) or the menu's *Edit* open it in Clip
+  (`openRegion`). Right-click a region to edit it, open its session source (*Edit session clip*, while it exists),
+  duplicate, loop (until the next region: a repeat badge and a hatched span up to the loop end), copy or delete. The region is the menu's `asChild` child, so it forwards the trigger's handlers, `data-state` and `ref`
   onto its root element — a component that drops them silently never opens the menu. Regions render live while
   the transport runs. Every edit is an undoable project step (`addArrangementClip` / `updateArrangementClip` /
   `removeArrangementClip`), a drag merging into one step.
@@ -1614,9 +1684,15 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   `{ version: 2, layouts: { [name]: model } }`. The menu lists the names to load, the way *Reset layout* loads the
   default, and deletes them from a *Delete…* submenu. Each goes through the same checks and migration as the
   layout when loaded; saving rewrites them all at today's version.
-* **Selection store** (`state/selection-store.ts`): `trackId`, `master`, `clipId`, `automationScene`, `sampleId`.
-  Selecting never changes the view.
-* **Navigation intents** (`state/navigation.ts`) select *and* reveal: `openClip`, `openTrackView(trackId, view)`
+* **Selection store** (`state/selection-store.ts`): `trackId`, `master`, `clipId`, `regionId`, `automationScene`,
+  `sampleId`. Selecting never changes the view. `selectRegion(regionId, trackId)` selects a region and its track
+  instead of a session clip; every other `select…` but `selectSample`, and `reset`, clear `regionId`. A selected
+  region moved to another lane, and a selected session clip moved to another slot, stay selected with their new
+  track. A track is selected from the session header, the mixer strip, the arrangement lane's name and a region;
+  "the inspector" is the views that follow `trackId` (Instrument, Effects, Notes, Clip, Sounds, the Library's
+  destination). Launching a session clip doesn't select it.
+* **Navigation intents** (`state/navigation.ts`) select *and* reveal: `openClip`, `openRegion` (a region's own copy
+  in Clip), `openTrackView(trackId, view)`
   (the fx / notes badges, *New sampler track*), `openMasterEffects`, `openAutomationSlot`, `openSampleEditor` (✎ on
   a sample: the Wave editor, `ui/wave-editor/`, whose *Close* clears the selection; the Samples view always shows
   its list). Code

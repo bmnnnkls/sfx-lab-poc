@@ -1,3 +1,4 @@
+import { useDropTarget } from '../shared/drag'
 import { ActionMenu } from '../shared/menu'
 import { type ControlTarget, MASTER_IN_TYPE, TRACK_OUT_TYPE, describeNode } from '@core'
 import { openMasterEffects, useProjectStore } from '@state'
@@ -13,6 +14,7 @@ export const MasterStrip = () => {
   const fx = useProjectStore((state) => state.project.master.fx)
   const volume = useProjectStore((state) => state.project.master.volume ?? 1)
   const gesture = useControlGesture()
+  const drop = useDropTarget({ kind: 'master' })
   const target: ControlTarget = { kind: 'mixer', owner: { kind: 'master' }, control: 'volume' }
   const setVolume = (value: number) => gesture.change([{ target, value }])
   const labels = fx.nodes
@@ -21,7 +23,7 @@ export const MasterStrip = () => {
 
   return (
     <ActionMenu subject={{ kind: 'master' }}>
-    <section {...gesture.events} className={`${styles.strip} ${styles.masterStrip}`} aria-label="Master channel">
+    <section {...gesture.events} {...drop} className={`${styles.strip} ${styles.masterStrip}`} aria-label="Master channel">
       <span className={styles.name}>Master</span>
       <div className={styles.badges}>
         <EffectsBadge name="Master" labels={labels} onOpen={openMasterEffects} />

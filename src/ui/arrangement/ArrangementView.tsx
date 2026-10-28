@@ -3,9 +3,10 @@ import {
   arrangementLoopEnd,
   arrangementOnTrack,
 } from '@core'
-import { useEngineControls, useLayoutStore, useProjectStore, useStatusStore } from '@state'
-import { Fragment, useState } from 'react'
+import { useEngineControls, useLayoutStore, useProjectStore, useSelectionStore, useStatusStore } from '@state'
+import { Fragment, type ReactNode, useState } from 'react'
 import { viewTitles } from '../layout/view-titles'
+import { useDropTarget } from '../shared/drag'
 import { ActionMenu } from '../shared/menu'
 import { useStoredState } from '../shared/use-stored-state'
 import { ArrangementPlayhead } from './ArrangementPlayhead'
@@ -28,12 +29,48 @@ const snap = (beats: number): number => Math.round(beats * 4) / 4
 
 /** How to fill the timeline. Shown in the toolbar while it fits, and always its tooltip. */
 const HINT =
-  'Right-click an empty lane to add a session clip; right-click a session slot to place it here; drag regions to move (across lanes too), the edge to resize.'
+  'Drag a session slot onto a lane, or right-click an empty lane to add a session clip; drag regions to move (across lanes too), the edge to resize.'
+
+/** A lane's row: what is dropped on it lands at the snapped beat under the pointer, marked while it is over. */
+const LaneRow = ({ trackId, pxPerBeat, width, children }: { trackId: string; pxPerBeat: number; width: number; children: ReactNode }) => {
+  const drop = useDropTarget(
+    (event) => ({ kind: 'lane', trackId, beat: snap(Math.max(0, (event.clientX - event.currentTarget.getBoundingClientRect().left) / pxPerBeat)) }),
+    (event, target) => event.currentTarget.style.setProperty('--drop-at', `${(target.kind === 'lane' ? target.beat : 0) * pxPerBeat}px`),
+  )
+  return (
+    <div className={styles.row} style={{ width }} {...drop}>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * A lane's track name: clicking selects the track, as the session header and the mixer strip do, and the selected
+ * one is marked. Its menu is the track's, and a preset or a library graph dropped on it goes onto the track.
+ */
+const LaneName = ({ trackId, name }: { trackId: string; name: string }) => {
+  const drop = useDropTarget({ kind: 'track', trackId })
+  const selected = useSelectionStore((state) => state.trackId === trackId)
+  return (
+    <ActionMenu subject={{ kind: 'track', trackId }}>
+      <div
+        className={`${styles.name} ${selected ? styles.selectedName : ''}`}
+        tabIndex={0}
+        aria-current={selected || undefined}
+        onClick={() => useSelectionStore.getState().selectTrack(trackId)}
+        {...drop}
+      >
+        {name}
+      </div>
+    </ActionMenu>
+  )
+}
 
 /**
  * The "Arrangement" view: copies of session clips on a timeline, one lane per track. Playback follows
  * the transport; ▶ starts it from the beginning (or resumes from where it was stopped). Session slots
- * drag onto a lane, regions drag across lanes, and a region can loop until the next one on its track.
+ * drag onto a lane (*Place on arrangement* is the keyboard's way), regions drag across lanes, and a region
+ * can loop until the next one on its track.
  */
 export const ArrangementView = () => {
   const controls = useEngineControls()
@@ -42,9 +79,8 @@ export const ArrangementView = () => {
   const arrangement = placed ?? []
   // The zoom is remembered between sessions, as the piano roll's is.
   const [pxPerBeat, setPxPerBeat] = useStoredState('sfxlab:arrangement-zoom', DEFAULT_PX_PER_BEAT, isZoom)
-  const [picked, setPicked] = useState<string | null>(null)
-  // A region deleted from its menu (or by undo) drops out of the selection here.
-  const selected = arrangement.some((region) => region.id === picked) ? picked : null
+  // The selection store's: a region deleted from its menu (or by undo) is still named there, and shows as nothing.
+  const selected = useSelectionStore((state) => state.regionId)
   /** Where an empty lane was right-clicked, so "add" places the clip there. */
   const [placedAt, setPlacedAt] = useState(0)
 
@@ -92,12 +128,8 @@ export const ArrangementView = () => {
           .filter((track) => track.kind !== 'return')
           .map((track) => (
             <div key={track.id} className={styles.lane}>
-              <ActionMenu subject={{ kind: 'track', trackId: track.id }}>
-                <div className={styles.name} tabIndex={0}>
-                  {track.name}
-                </div>
-              </ActionMenu>
-              <div className={styles.row} style={{ width }}>
+              <LaneName trackId={track.id} name={track.name} />
+              <LaneRow trackId={track.id} pxPerBeat={pxPerBeat} width={width}>
                 <ActionMenu subject={{ kind: 'lane', trackId: track.id, beat: placedAt }}>
                   <div
                     className={styles.laneBody}
@@ -128,14 +160,14 @@ export const ArrangementView = () => {
                           region={region}
                           pxPerBeat={pxPerBeat}
                           selected={selected === region.id}
-                          onSelect={() => setPicked(region.id)}
+                          onSelect={() => useSelectionStore.getState().selectRegion(region.id, region.trackId)}
                         />
                       </ActionMenu>
                     </Fragment>
                   )
                 })}
                 <ArrangementPlayhead pxPerBeat={pxPerBeat} />
-              </div>
+              </LaneRow>
             </div>
           ))}
         {tracks.every((track) => track.kind === 'return') && (

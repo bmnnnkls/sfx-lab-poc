@@ -198,3 +198,14 @@ span.name {
     min-height: 40px;
   }
 }
+
+/* A strip a drag of ours is over: it would land there, or it can't. */
+.strip[data-drop='accept'] {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.strip[data-drop='refuse'] {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
+}

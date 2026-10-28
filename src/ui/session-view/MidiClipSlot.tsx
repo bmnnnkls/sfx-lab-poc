@@ -1,7 +1,8 @@
 import type { Clip } from '@core'
-import { type Subject, runAction, useStatusStore } from '@state'
+import { type SubjectOf, runAction, useStatusStore } from '@state'
+import { useDragSource, useDropTarget } from '../shared/drag'
 import { ActionMenu, useActionContext } from '../shared/menu'
-import { InPlaceRename } from '../shared/RenameField'
+import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import styles from './SessionView.module.css'
 
 interface ClipSlotProps {
@@ -18,12 +19,16 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
   const queued = useStatusStore(
     (state) => !!clip && state.status?.tracks[trackId]?.queued === clip.id,
   )
+  const slot: SubjectOf<'slot'> = { kind: 'slot', trackId, scene }
+  const subject: SubjectOf<'clip'> | null = clip && { kind: 'clip', trackId, clipId: clip.id }
+  // A filled slot is a target too, so it shows that it refuses.
+  const drop = useDropTarget(slot)
+  const drag = useDragSource(useRenaming(subject ?? slot) ? null : subject)
 
-  if (!clip) {
-    const slot: Subject = { kind: 'slot', trackId, scene }
+  if (!clip || !subject) {
     return (
       <ActionMenu subject={slot}>
-        <div className={`${styles.slot} ${styles.empty}`}>
+        <div className={`${styles.slot} ${styles.empty}`} {...drop}>
           <button onClick={() => runAction('slot.create-clip', slot, context)} aria-label="Create clip">
             +
           </button>
@@ -32,11 +37,10 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
     )
   }
 
-  const subject: Subject = { kind: 'clip', trackId, clipId: clip.id }
   const state = playing ? styles.playing : queued ? styles.queued : ''
   return (
     <ActionMenu subject={subject}>
-      <div className={`${styles.slot} ${state}`} >
+      <div className={`${styles.slot} ${state}`} {...drop} {...drag}>
         <InPlaceRename subject={subject} name={clip.name} label={`Name of ${clip.name}`} className={styles.launch}>
           <button className={styles.launch} onClick={() => runAction('clip.launch', subject, context)}>
             {playing ? '■' : '▶'} {clip.name}

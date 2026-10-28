@@ -64,6 +64,12 @@ export const saveProjectPreset = (project: Project, scope: SnapshotScope, name: 
   if (preset.values.length > 4096 || preset.samples.length > 4096) throw new Error('Preset exceeds 4096 controls or sample bindings')
   return { ...project, assetRevisions: existing ? project.assetRevisions : [...(project.assetRevisions ?? []), revision], presets: [...(project.presets ?? []).filter(p => p.id !== id), preset] }
 }
+/** Whether `recallProjectPreset` can recall a preset onto a scope: its revision is there, and the scope's graph is of its kind and matches it. */
+export const canRecallProjectPreset = (project: Project, preset: ProjectPreset, scope = preset.scope): boolean => {
+  const revision = project.assetRevisions?.find(r => r.id === preset.revisionId)
+  if (!revision || scope.domain !== preset.scope.domain) return false
+  try { return assetSignature(captureAsset(project, scope)) === revision.signature } catch { return false }
+}
 export const recallProjectPreset = (project: Project, preset: ProjectPreset, scope = preset.scope) => {
   const issues: RecallIssue[] = []
   const revision = project.assetRevisions?.find(r => r.id === preset.revisionId)

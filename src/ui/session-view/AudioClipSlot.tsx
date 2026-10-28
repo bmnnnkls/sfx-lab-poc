@@ -1,7 +1,8 @@
 import type { AudioClip } from '@core'
-import { type Subject, runAction, useProjectStore, useStatusStore } from '@state'
+import { type SubjectOf, runAction, useProjectStore, useStatusStore } from '@state'
+import { useDragSource, useDropTarget } from '../shared/drag'
 import { ActionMenu, type MenuEntry, PopupMenu, useActionContext } from '../shared/menu'
-import { InPlaceRename } from '../shared/RenameField'
+import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import styles from './SessionView.module.css'
 
@@ -17,9 +18,13 @@ export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
   const samples = useProjectStore((state) => state.project.samples)
   const playing = useStatusStore((state) => !!clip && state.status?.tracks[trackId]?.playingClipId === clip.id)
   const queued = useStatusStore((state) => !!clip && state.status?.tracks[trackId]?.queued === clip.id)
+  const slot: SubjectOf<'slot'> = { kind: 'slot', trackId, scene }
+  const subject: SubjectOf<'clip'> | null = clip && { kind: 'clip', trackId, clipId: clip.id }
+  // A filled slot is a target too, so it shows that it refuses.
+  const drop = useDropTarget(slot)
+  const drag = useDragSource(useRenaming(subject ?? slot) ? null : subject)
 
-  if (!clip) {
-    const slot: Subject = { kind: 'slot', trackId, scene }
+  if (!clip || !subject) {
     // The same choices as the right-click menu's *Add audio clip* ▸.
     const add = (choice: string) => () => runAction('slot.add-audio-clip', slot, context, { choice })
     const choices: MenuEntry[] =
@@ -28,7 +33,7 @@ export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
         : samples.map((sample) => ({ label: sample.name, onSelect: add(sample.id) }))
     return (
       <ActionMenu subject={slot}>
-        <div className={`${styles.slot} ${styles.empty}`}>
+        <div className={`${styles.slot} ${styles.empty}`} {...drop}>
           <PopupMenu entries={choices}>
             <button aria-label="Add audio clip" title="Add an audio clip from the sample library">
               +
@@ -39,11 +44,10 @@ export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
     )
   }
 
-  const subject: Subject = { kind: 'clip', trackId, clipId: clip.id }
   const state = playing ? styles.playing : queued ? styles.queued : ''
   return (
     <ActionMenu subject={subject}>
-      <div className={`${styles.slot} ${state}`}>
+      <div className={`${styles.slot} ${state}`} {...drop} {...drag}>
         <InPlaceRename subject={subject} name={clip.name} label={`Name of ${clip.name}`} className={styles.launch}>
           <button className={`${styles.launch} ${styles.audioLaunch}`} onClick={() => runAction('clip.launch', subject, context)}>
             <span>{playing ? '■' : '▶'}</span>

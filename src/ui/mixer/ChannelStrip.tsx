@@ -1,3 +1,4 @@
+import { useDropTarget } from '../shared/drag'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename } from '../shared/RenameField'
 import { type ControlTarget, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode, mixesAfter, panOf } from '@core'
@@ -30,6 +31,8 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
   const modules = useProjectStore((state) => state.project.modules)
   const tracks = useProjectStore((state) => state.project.tracks)
   const gesture = useControlGesture()
+  // A preset or a library graph dropped here goes onto this track.
+  const drop = useDropTarget({ kind: 'track', trackId: track.id })
   const target = (control: 'volume' | 'pan'): ControlTarget => ({ kind: 'mixer', owner: { kind: 'track', trackId: track.id }, control })
   const setVolume = (_id: string, value: number) => gesture.change([{ target: target('volume'), value }])
   const setPan = (_id: string, value: number) => gesture.change([{ target: target('pan'), value }])
@@ -49,6 +52,7 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
     <ActionMenu subject={subject}>
     <section
       {...gesture.events}
+      {...drop}
       className={`${styles.strip} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnStrip : ''} ${muted ? styles.mutedStrip : ''}`}
       aria-label={`${track.name} channel`}
     >

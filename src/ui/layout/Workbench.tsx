@@ -2,6 +2,7 @@ import { useLayoutStore } from '@state'
 import { type BorderNode, type IJsonModel, type ITabSetRenderValues, Layout, Model, type TabNode, type TabSetNode } from 'flexlayout-react'
 import 'flexlayout-react/style/dark.css'
 import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useSpringLoad } from '../shared/drag'
 import { defaultLayout, PANEL_GROUP } from './default-layout'
 import './flex-theme.css'
 import { groupToFocus, tabButtonId, viewOfElement, viewOfTab } from './group-focus'
@@ -85,8 +86,13 @@ export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) =
     if (id) driver.current?.clickTab(id)
   }
 
+  // A drag of ours held on the tab of a view that isn't showing shows it, a collapsed sidebar or panel included.
+  const springLoad = useSpringLoad(viewOfTab, (id) => {
+    if (!useLayoutStore.getState().visible.includes(id)) useLayoutStore.getState().revealView(id)
+  })
+
   return (
-    <div className={styles.workbench} onClickCapture={onClickCapture}>
+    <div className={styles.workbench} onClickCapture={onClickCapture} {...springLoad}>
       <Layout
         key={generation}
         model={model}

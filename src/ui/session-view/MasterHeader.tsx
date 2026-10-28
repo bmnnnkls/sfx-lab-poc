@@ -1,5 +1,6 @@
 import { MASTER_IN_TYPE, TRACK_OUT_TYPE, describeNode } from '@core'
 import { openMasterEffects, useProjectStore, useSelectionStore } from '@state'
+import { useDropTarget } from '../shared/drag'
 import { ActionMenu } from '../shared/menu'
 import styles from './SessionView.module.css'
 
@@ -9,10 +10,11 @@ export const MasterHeader = () => {
   const fx = useProjectStore((state) => state.project.master.fx)
   const selected = useSelectionStore((state) => state.master)
   const effects = fx.nodes.filter((node) => node.type !== MASTER_IN_TYPE && node.type !== TRACK_OUT_TYPE)
+  const drop = useDropTarget({ kind: 'master' })
 
   return (
     <ActionMenu subject={{ kind: 'master' }}>
-    <div className={`${styles.header} ${styles.masterHeader} ${selected ? styles.selected : ''}`}>
+    <div {...drop} className={`${styles.header} ${styles.masterHeader} ${selected ? styles.selected : ''}`}>
       <button className={styles.trackName} onClick={openMasterEffects} title="Effects on the final mix of all tracks">
         Master
       </button>

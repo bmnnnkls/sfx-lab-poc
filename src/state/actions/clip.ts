@@ -22,8 +22,8 @@ export const duplicateSessionClip = (trackId: string, clipId: string) => {
 
 /**
  * Places a copy of a session clip on the arrangement timeline of its own track: at the end of the
- * track's regions (or beat 0 when it has none), so a clip can join the timeline from the session
- * view — the two views are exclusive, so dragging a slot onto a lane is not possible.
+ * track's regions (or beat 0 when it has none). Dragging a slot onto a lane places it at a beat;
+ * this is the way from the keyboard, since a lane can't take the focus.
  */
 export const placeOnArrangement = (trackId: string, clip: Clip | AudioClip): void => {
   const { addArrangementClip, project } = useProjectStore.getState()

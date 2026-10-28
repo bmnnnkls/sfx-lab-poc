@@ -168,6 +168,24 @@ test('an empty audio slot offers its samples from the menu, and automation slots
   expect(await menuEntries(page)).toEqual(['Create', '—', 'Paste'])
   await page.getByRole('menuitem', { name: 'Paste', exact: true }).click()
   await expect(session.getByRole('button', { name: 'Launch Master automation scene 2', exact: true })).toBeVisible()
+
+  // An audio lane adds a clip of a sample, and an instrument's canvas a sampler, from the same kind of submenu.
+  const arrangement = await openView(page, 'Arrangement')
+  const audioLane = arrangement.locator('[data-lane]').nth(3)
+  await audioLane.click({ button: 'right', position: { x: 120, y: 20 } })
+  await page.getByRole('menuitem', { name: 'Add audio clip', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Demo Drum Loop 120 BPM', exact: true }).click()
+  await expect(audioLane.locator('xpath=..').getByTestId('arrangement-region')).toHaveCount(1)
+  // The new audio track is selected; Bass has an instrument.
+  await (await openView(page, 'Session')).getByRole('button', { name: 'Bass', exact: true }).click()
+  const instrument = await openView(page, 'Instrument')
+  const viewport = instrument.getByTestId('graph-viewport')
+  const box = (await viewport.boundingBox())!
+  await viewport.click({ button: 'right', position: { x: box.width - 120, y: box.height - 80 } })
+  expect(await menuEntries(page)).toEqual(['Add node…', '—', 'Add sampler▸', '—', 'Paste'])
+  await page.getByRole('menuitem', { name: 'Add sampler', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Demo Drum Loop 120 BPM', exact: true }).click()
+  await expect(instrument.locator('[data-node]', { hasText: 'Sampler' })).toHaveCount(1)
 })
 
 test('a library item trashes and restores from its menu, and a folder makes one inside', async ({ page }) => {
@@ -262,4 +280,21 @@ test("nodes copy into another track's instrument, and the canvas adds nodes wher
   const fxViewport = effects.getByTestId('graph-viewport')
   await fxViewport.click({ button: 'right', position: { x: 20, y: 200 } })
   await expect(page.getByRole('menuitem', { name: 'Paste', exact: true })).toBeDisabled()
+})
+
+test("a region's menu edits its own copy, or its session source", async ({ page }) => {
+  await page.goto('/?starter')
+  const arrangement = await openView(page, 'Arrangement')
+  await arrangement.locator('[data-lane]').first().click({ button: 'right', position: { x: 120, y: 20 } })
+  await page.getByRole('menuitem', { name: 'Add clip', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Root', exact: true }).click()
+  const region = arrangement.getByTestId('arrangement-region')
+  await region.click({ button: 'right' })
+  expect(await menuEntries(page)).toEqual(['Edit', 'Edit session clip', '—', 'Duplicate', 'Loop until next region', '—', 'Copy', '—', 'Delete'])
+  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
+  const clip = viewRoot(page, 'Clip')
+  await expect(clip.getByText(/^Bass \/ Root · arrangement, bar \d+$/)).toBeVisible()
+  await region.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Edit session clip', exact: true }).click()
+  await expect(clip.getByText('Bass / Root', { exact: true })).toBeVisible()
 })

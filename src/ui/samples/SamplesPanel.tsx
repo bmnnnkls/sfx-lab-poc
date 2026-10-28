@@ -10,7 +10,11 @@ export const SamplesPanel = () => {
   const input = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
 
+  /** Only files dragged in are imported; any other drag passes by. */
+  const files = (event: DragEvent) => event.dataTransfer.types.includes('Files')
+
   const onDrop = (event: DragEvent) => {
+    if (!files(event)) return
     event.preventDefault()
     setDragging(false)
     void library.importFiles(Array.from(event.dataTransfer.files))
@@ -20,6 +24,7 @@ export const SamplesPanel = () => {
     <div
       className={`${styles.panel} ${dragging ? styles.dragging : ''}`}
       onDragOver={(event) => {
+        if (!files(event)) return
         event.preventDefault()
         setDragging(true)
       }}

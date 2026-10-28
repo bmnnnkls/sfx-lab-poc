@@ -1,6 +1,6 @@
 # Round 6: working across views
 
-Status: **planned** 2026-10-24, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
+Status: **done** 2026-10-28, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 6](DRAFT-roadmap.md#round-6-working-across-views), from an inventory of every drag, drop and
 view-local selection in the app, taken on `feat/ui-redesign` at `048bf83` (round 5 merged).
 
@@ -410,4 +410,83 @@ round checks HTML5 drags between windows.
 
 ## Changes made while implementing
 
-Filled in as the round lands.
+What turned out different from the design above, step by step.
+
+* **Step 1: the sample drops onto a lane and a canvas come with step 5,** with the two actions they run. Step 1 has
+  every other cell of the table, and its tests.
+* **Step 1: `canRunAction(id, subject, context, choice?)`** says whether `runAction` would run an action now, the
+  chosen choice included. A drop that runs an action as it is (*Add clip*, *Add audio clip*) accepts by it, so its
+  `accepts` is the action's own check. `settle(result, report?)` is `runAction`'s reporting, shared with `runDrop`.
+* **Step 1: the drop list is exported from `state/index.ts`,** not from the actions' index, since it imports
+  `runAction` from there.
+* **Step 1: `recallPresetOn(preset, owner, domain?)`.** The domain is the preset's own by default; Sounds' *Recall*
+  button passes the view's, so a scope of another kind still refuses with the same message as before.
+  `canRecallPresetOn` is the drop's check over `canRecallProjectPreset`.
+* **Step 1: `graphFitsOwner(item, owner)`** is the check for a library graph dropped on a track, the master or a
+  canvas: an instrument or note effect on an instrument track, an audio effect on an owner that provides the input it
+  was made for (`trackIn`, `returnIn` or `masterIn`). Without it, an instrument's effects dropped on the master would
+  show as accepted and fail with a toast. `libraryClipFitsSlot` is the slot's check for a library clip.
+* **Step 1: graphs match by node ids,** so a project preset fits its own track and copies of it (*Duplicate track*),
+  not the starter's other instruments, whose default patches are alike but made apart.
+* **Step 2: feedback is set on the element, not rendered.** `useDropTarget` writes `data-drop` (and a lane's
+  `--drop-at`) on the element under the pointer and clears the one before, so a drag re-renders nothing at all. A
+  target handles `dragenter` as it does `dragover`, which Firefox needs to send `dragover` to it.
+* **Step 2: a target stops a drag of ours even when it refuses it,** so the innermost target decides and shows
+  `refuse`, rather than a target around it.
+* **Step 2: the window ends a drag in the capture phase,** on `dragend` and, a task after the target's handler, on
+  `drop`, since a target stops the `drop` it handles. A source hidden mid-drag sends `dragend` to nothing, so the
+  current drag stays until the next one starts; it is only read while a drag carries our type.
+* **Step 2: the rule ignores comments,** since two components describe a "draggable" selection or handle in theirs.
+* **Step 3: the lane's whole row is the target,** not just the lane body under the regions, so a slot dropped over a
+  region lands too. The beat comes from the row, which starts where the body does.
+* **Step 3: a filled slot is a target too,** of its slot subject, so it shows `refuse` when a clip is dragged over it.
+* **Step 4: the workbench listens, not each label.** A tab's button already carries its view in flexlayout's id
+  (`flexlayout-tabbutton-…`, read by `viewOfTab` for F6), so `Workbench` spring-loads through one `useSpringLoad` on
+  its root instead of a handler on each label from `onRenderTab`. The activity bar does the same on its strip, its
+  buttons marked with `data-view-button`. `useSpringLoad` lives in `ui/shared/drag`, so the rule holds for both.
+* **Step 4: the source view stays mounted when it is hidden.** A tab group keeps its hidden views in the DOM, so in
+  Chromium the dragged slot is still there, and `dragend` reaches it. The smoke spec checks that Session is hidden
+  while the pointer is over the lane and that the region lands; a spec also checks that passing over a tab without
+  resting there shows nothing.
+* **Step 5: the two submenus show only when the project has samples,** as they would otherwise be empty; the slot's
+  *Add audio clip* offers *Import samples…* instead, since an empty slot has nothing else to offer. *Add sampler* is
+  in the canvas menu's *edit* group, between *Add node…* and *Paste*, and is disabled at `MAX_PATCH_NODES`.
+* **Step 5: a sampler's card doesn't show its sample,** so the smoke spec opens the new card's properties and finds
+  the sample chosen there.
+* **Step 6: the rows that drag are small components** (`PresetRow` in Sounds, `ItemRow` in the Library) holding the
+  row's menu, so the hooks aren't called inside a list. Snapshot rows don't drag.
+* **Step 6: the smoke spec drops on the session header only.** The mixer strips, the lane names and the master's
+  header and strip take the same `track` and `master` targets, and the unit tests cover the drops on each kind.
+* **Step 7: `clipAt(project, ref)`, `sessionClipRef` and `regionClipRef`** join `editClipAt` in `core`. A setter given
+  a ref to a clip of the other kind (notes for an audio clip) leaves the project as it is.
+* **Step 7: selecting a sample keeps the region,** as it keeps `clipId`: the Wave editor is a different selection.
+  Every other `select…` and `reset` clear `regionId`; `selectTrack` keeps `clipId`, as before.
+* **Step 7: the project store keeps a moved region selected.** `updateArrangementClip` selects it again with its new
+  track when a selected region changes lanes, as `moveClip` does for a moved session clip.
+* **Step 7: `npm run test:audio` passed** (14 tests) after the setters moved onto refs.
+* **Step 8: the region menu's actions are `region.edit` and `region.edit-session-clip`;** the old `region.edit-clip`
+  id went with its title. `arrangement.smoke.spec.ts` never clicked *Edit clip*, so the drag spec checks *Edit session
+  clip* and a new case in `context-menus.smoke.spec.ts` runs both entries.
+* **Step 8: the editors take an optional `clipRef` and `where`.** `MidiClipEditor` and `AudioClipEditor` edit a
+  session ref by default; `ClipEditor` passes a region ref and the title's "arrangement, bar 3". The piano roll and the
+  audio waveform take a `playhead` flag, off for a region, since a region's content keeps its source's id and the
+  session launcher's playhead would otherwise show on it.
+* **Step 8: the selected lane name carries `aria-current`** besides its mark, so the spec finds it without a class
+  name. A region has no accessible name or role yet; it takes the focus (`tabIndex={0}`) and passes Shift+F10 on to
+  its menu before handling Enter.
+* **Step 9: the profile.** One run each, 10 s after 2 s of warm-up, headless Chromium, 1500 × 1000. The servers ran
+  outside the sandbox, which no longer allowed local ports by then.
+
+  | Per second | Round 4 `editor` | Round 5 `editor` | Round 6 `editor` | Round 5 `four` | Round 6 `four` |
+  |---|---|---|---|---|---|
+  | Component renders (dev) | 145 | 144 | 145 | 173 | 173 |
+
+  Drop targets subscribe to nothing and the drag isn't a store, so the renders stay as they were; `ArrangementView`
+  rendered 0 times a second in both setups. Script time in the production build was 13.8 ms (`editor`) and 15.8 ms
+  (`four`) a second, not compared with earlier rounds, which ran in other sessions.
+* **Step 9: checks.** `npm test`, `npm run typecheck` and `npm run test:smoke` passed at every step (144 smoke tests at
+  step 8); `npm run test:audio` passed once after step 7 (14 tests). Step 4 checked in Chromium that a drag goes on
+  when its source view is hidden by a spring-loaded tab. The manual pass from Verification (every cell with the
+  mouse in each region, a drag released outside the window or cancelled with Escape, a region edited while the
+  arrangement plays, Safari and Firefox) was not done.
+

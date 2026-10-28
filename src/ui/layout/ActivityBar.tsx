@@ -1,4 +1,5 @@
 import { type ViewId, useLayoutStore } from '@state'
+import { useSpringLoad } from '../shared/drag'
 import styles from './ActivityBar.module.css'
 import { viewTitles } from './view-titles'
 
@@ -28,15 +29,23 @@ const activate = (id: ViewId) => {
  */
 export const ActivityBar = () => {
   const visible = useLayoutStore((state) => state.visible)
+  // A drag of ours held on a button shows its view, wherever it is docked.
+  const springLoad = useSpringLoad(
+    (element) => element.closest<HTMLElement>('[data-view-button]')?.dataset.viewButton as ViewId | undefined,
+    (id) => {
+      if (!useLayoutStore.getState().visible.includes(id)) useLayoutStore.getState().revealView(id)
+    },
+  )
 
   return (
-    <nav className={styles.bar} aria-label="Views" data-activity-bar>
+    <nav className={styles.bar} aria-label="Views" data-activity-bar {...springLoad}>
       {VIEWS.map(({ id, glyph }) => (
         <button
           key={id}
           className={visible.includes(id) ? styles.showing : undefined}
           onClick={() => activate(id)}
           aria-label={viewTitles[id]}
+          data-view-button={id}
           title={`Show ${viewTitles[id]}`}
         >
           {glyph}

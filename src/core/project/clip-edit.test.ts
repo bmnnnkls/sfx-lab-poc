@@ -8,6 +8,7 @@ import {
   doubleClip,
   setClipAt,
   setClipLength,
+  sessionClipRef,
 } from '.'
 
 const setup = (length = 4) => {
@@ -21,7 +22,7 @@ const setup = (length = 4) => {
 describe('clip length', () => {
   it('lengthening keeps notes as they are', () => {
     const { project, trackId, clip, read } = setup()
-    const longer = read(setClipLength(project, trackId, clip.id, 16))
+    const longer = read(setClipLength(project, sessionClipRef(trackId, clip.id), 16))
 
     expect(longer.lengthBeats).toBe(16)
     expect(longer.notes).toEqual(clip.notes)
@@ -29,7 +30,7 @@ describe('clip length', () => {
 
   it('shortening trims notes that fall outside', () => {
     const { project, trackId, clip, read } = setup()
-    const shorter = read(setClipLength(project, trackId, clip.id, 2))
+    const shorter = read(setClipLength(project, sessionClipRef(trackId, clip.id), 2))
 
     expect(shorter.lengthBeats).toBe(2)
     expect(shorter.notes).toHaveLength(1)
@@ -37,14 +38,14 @@ describe('clip length', () => {
 
   it('clamps to the allowed range and ignores no-op changes', () => {
     const { project, trackId, clip, read } = setup()
-    expect(read(setClipLength(project, trackId, clip.id, 100000)).lengthBeats).toBe(MAX_CLIP_BEATS)
-    expect(read(setClipLength(project, trackId, clip.id, 0)).lengthBeats).toBe(1)
-    expect(setClipLength(project, trackId, clip.id, 4)).toBe(project)
+    expect(read(setClipLength(project, sessionClipRef(trackId, clip.id), 100000)).lengthBeats).toBe(MAX_CLIP_BEATS)
+    expect(read(setClipLength(project, sessionClipRef(trackId, clip.id), 0)).lengthBeats).toBe(1)
+    expect(setClipLength(project, sessionClipRef(trackId, clip.id), 4)).toBe(project)
   })
 
   it('doubling repeats the content into the new half with fresh ids', () => {
     const { project, trackId, clip, read } = setup()
-    const doubled = read(doubleClip(project, trackId, clip.id))
+    const doubled = read(doubleClip(project, sessionClipRef(trackId, clip.id)))
 
     expect(doubled.lengthBeats).toBe(8)
     expect(doubled.notes.map((n) => [n.pitch, n.start])).toEqual([
@@ -58,6 +59,6 @@ describe('clip length', () => {
 
   it('refuses to double past the maximum length', () => {
     const { project, trackId, clip } = setup(MAX_CLIP_BEATS)
-    expect(doubleClip(project, trackId, clip.id)).toBe(project)
+    expect(doubleClip(project, sessionClipRef(trackId, clip.id))).toBe(project)
   })
 })

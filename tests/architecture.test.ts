@@ -133,6 +133,23 @@ describe('architecture', () => {
     expect(importsContextMenu("import { ActionMenu, type MenuEntry } from '../shared/menu'")).toBe(false)
   })
 
+  it('drags and drops through ui/shared/drag, except the drags that stay inside one view', () => {
+    const dragRoot = join(SRC, 'ui', 'shared', 'drag') + sep
+    // The panel's control reorder, the Samples file drop, and the region toggles, which cancel drags.
+    const allowed = new Set(['ui/panel/ControlCell.tsx', 'ui/samples/SamplesPanel.tsx', 'ui/layout/RegionToggles.tsx'])
+    const withoutComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+    const usesDrag = (source: string) => /\bdataTransfer\b|\bdraggable\b|\bonDrag\w*|\bonDrop\b/.test(withoutComments(source))
+    const violations = sourceFiles
+      .filter((file) => !file.startsWith(dragRoot) && !allowed.has(relative(SRC, file).split(sep).join('/')) && !/\.test\.tsx?$/.test(file))
+      .filter((file) => usesDrag(readFileSync(file, 'utf8')))
+      .map((file) => relative(SRC, file))
+    expect(violations).toEqual([])
+    // The check finds what it looks for, and not in comments.
+    expect(usesDrag('<span draggable onDragStart={start} />')).toBe(true)
+    expect(usesDrag('event.dataTransfer.files')).toBe(true)
+    expect(usesDrag('/** A draggable selection. */ // onDrop')).toBe(false)
+  })
+
   it('pins the docking library to an exact version', () => {
     const manifest = JSON.parse(readFileSync(resolve(SRC, '../package.json'), 'utf8')) as { dependencies: Record<string, string> }
     expect(manifest.dependencies['flexlayout-react']).toMatch(/^\d+\.\d+\.\d+$/)

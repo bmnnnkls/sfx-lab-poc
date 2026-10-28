@@ -1,7 +1,7 @@
-import { type LibraryCatalog, type LibraryItem, type SnapshotScope, saveLibraryFolder, saveLibraryItem, trashLibraryEntry } from '@core'
+import { type ControlOwner, type LibraryCatalog, type LibraryItem, type SnapshotScope, saveLibraryFolder, saveLibraryItem, trashLibraryEntry } from '@core'
 import { useLibraryStore } from '../library-store'
 import { useSelectionStore } from '../selection-store'
-import { project } from './lookup'
+import { project, trackOf } from './lookup'
 import { renameAction, startRename } from './rename'
 import type { Action, ActionContext, SubjectOf } from './types'
 
@@ -22,20 +22,59 @@ const update = async (context: ActionContext, edit: (catalog: LibraryCatalog) =>
 export const isInstrumentItem = (value: LibraryCatalog, item: LibraryItem): boolean =>
   item.content.kind === 'instrument' || (item.content.kind === 'preset' && value.revisions.find((revision) => item.content.kind === 'preset' && revision.id === item.content.revisionId)?.payload.kind === 'instrument')
 
-/**
- * Where *Replace selected graph* puts an item: the selected track (or the first) or the master, in the graph its kind
- * belongs to; a sample or clip takes `domain`.
- */
-export const insertionScope = (item: LibraryItem, domain: SnapshotScope['domain'] = 'patch'): SnapshotScope => {
+/** The selected track (or the first), or the master: where *Replace selected graph* puts an item. */
+const selectedOwner = (): ControlOwner => {
   const selection = useSelectionStore.getState()
   const tracks = project().tracks
   const track = tracks.find((candidate) => candidate.id === selection.trackId) ?? tracks[0]
+  return selection.master ? { kind: 'master' } : { kind: 'track', trackId: track?.id ?? '' }
+}
+
+/**
+ * Where an item goes on `owner` (the selection's by default): in the graph its kind belongs to; a sample or clip takes
+ * `domain`.
+ */
+export const insertionScope = (item: LibraryItem, domain: SnapshotScope['domain'] = 'patch', owner: ControlOwner = selectedOwner()): SnapshotScope => {
   const content = item.content
   return {
-    owner: selection.master ? { kind: 'master' } : { kind: 'track', trackId: track?.id ?? '' },
-    domain: content.kind === 'instrument' ? 'patch' : content.kind === 'note-effect' ? 'notes' : content.kind === 'audio-effect' ? 'fx' : content.kind === 'preset' ? content.state.scope.domain : selection.master ? 'fx' : domain,
+    owner,
+    domain: content.kind === 'instrument' ? 'patch' : content.kind === 'note-effect' ? 'notes' : content.kind === 'audio-effect' ? 'fx' : content.kind === 'preset' ? content.state.scope.domain : owner.kind === 'master' ? 'fx' : domain,
   }
 }
+
+/** Replaces a graph by a library instrument, effect or preset: *Replace selected graph*, and an item dropped on a track or a canvas. */
+export const replaceGraph = (item: LibraryItem, scope: SnapshotScope, { library }: ActionContext): Promise<string> =>
+  library.insert(item, { mode: 'replace', scope })
+
+/** The fixed inputs an effect graph starts from; an effect only fits an owner that provides its own. */
+const EFFECT_INPUTS = ['masterIn', 'returnIn', 'trackIn']
+
+/**
+ * Whether a library instrument, effect or preset can replace a graph of `owner`: an instrument or note effect on an
+ * instrument track, an audio effect on a track or the master whose input it was made for.
+ */
+export const graphFitsOwner = (item: LibraryItem, owner: ControlOwner): boolean => {
+  const content = item.content
+  if (item.trashed || !('revisionId' in content)) return false
+  const payload = catalog().revisions.find((revision) => revision.id === content.revisionId)?.payload
+  const track = owner.kind === 'track' ? trackOf(owner.trackId) : undefined
+  if (!payload || (owner.kind === 'track' && !track)) return false
+  if (payload.kind !== 'audio-effect') return track?.kind === 'instrument'
+  const input = owner.kind === 'master' ? 'masterIn' : track?.kind === 'return' ? 'returnIn' : 'trackIn'
+  return ![payload.graph, ...payload.modules.map((module) => module.patch)].some((graph) => graph.nodes.some((node) => EFFECT_INPUTS.includes(node.type) && node.type !== input))
+}
+
+/** Whether a library clip can go into a slot: an empty one of a track of its kind, an audio clip's sample at hand. */
+export const libraryClipFitsSlot = (item: LibraryItem, trackId: string, scene: number): boolean => {
+  const content = item.content, track = trackOf(trackId)
+  if (item.trashed || (content.kind !== 'midi-clip' && content.kind !== 'audio-clip') || !track || track.kind === 'return' || !!track.clips[scene]) return false
+  if ((track.kind === 'instrument') !== (content.kind === 'midi-clip')) return false
+  return content.kind === 'midi-clip' || [...project().samples, ...catalog().samples].some((sample) => sample.id === content.clip.sampleId)
+}
+
+/** Inserts a library clip into an empty slot of `owner`'s: the Library's *Insert into empty slot*, and a clip dropped on a slot. */
+export const insertLibraryClipAt = (item: LibraryItem, owner: ControlOwner, scene: number, { library }: ActionContext): Promise<string> =>
+  library.insert(item, { mode: 'replace', scope: { owner, domain: 'patch' } }, scene)
 
 const live = (subject: ItemSubject) => !!itemOf(subject) && !itemOf(subject)?.trashed
 const isClip = (item: LibraryItem | undefined) => item?.content.kind === 'audio-clip' || item?.content.kind === 'midi-clip'
@@ -84,9 +123,9 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     title: (subject) => (itemOf(subject)?.content.kind === 'sample' ? 'Add sample to project' : 'Replace selected graph'),
     group: 'edit',
     applies: (subject) => live(subject) && !isClip(itemOf(subject)),
-    run: (subject, { library }) => {
+    run: (subject, context) => {
       const item = itemOf(subject)!
-      return library.insert(item, { mode: 'replace', scope: insertionScope(item) })
+      return replaceGraph(item, insertionScope(item), context)
     },
   },
   {

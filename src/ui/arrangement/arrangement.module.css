@@ -118,6 +118,11 @@
   user-select: none;
 }
 
+.region:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .region.selected {
   border-width: 2px;
   box-shadow: 0 0 0 1px var(--accent);
@@ -194,6 +199,45 @@
   line-height: 1.2;
   color: var(--accent);
   pointer-events: none;
+}
+
+/* A lane a drag of ours is over, with a marker at the beat it would land on. */
+.row[data-drop='accept'] {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.row[data-drop='accept']::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--drop-at, 0);
+  width: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.row[data-drop='refuse'] {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
+}
+
+/* The selected track's name, as the session header and the mixer strip mark theirs. */
+.selectedName {
+  color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* A lane's name a drag of ours is over. */
+.name[data-drop='accept'] {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.name[data-drop='refuse'] {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
 }
 
 /* The lane a dragged region is over. */

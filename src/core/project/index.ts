@@ -86,6 +86,7 @@ export {
   updateAudioClip,
   type AudioClipChanges,
 } from './edit'
+export { type ClipRef, clipAt, editClipAt, regionClipRef, sessionClipRef } from './clip-ref'
 export {
   type PatchTarget,
   type TrackGraph,
