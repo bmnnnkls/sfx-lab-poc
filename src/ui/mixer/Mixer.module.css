@@ -1,6 +1,7 @@
 .mixer {
   --padding: 10px;
-  display: flex;
+  /* Columns and rows are set by the panel: a row per level of group bands over the strips. */
+  display: grid;
   gap: 6px;
   height: 100%;
   padding: var(--padding);
@@ -35,8 +36,42 @@
   position: sticky;
   right: calc(-1 * var(--padding));
   z-index: 1;
-  margin-left: auto;
+  justify-self: end;
+  width: 120px;
   border-width: 2px;
+}
+
+/* A member's strip carries its group's colour; a collapsed group is a narrow strip of its own. */
+.strip[data-stripe],
+.groupStrip {
+  box-shadow: inset 0 3px 0 var(--group);
+}
+
+.groupStrip {
+  align-items: stretch;
+  padding-inline: 4px;
+  border-color: var(--group);
+}
+
+.groupStrip span.name {
+  padding: 4px 2px;
+  cursor: grab;
+}
+
+.twisty {
+  padding: 0 4px;
+  border-color: transparent;
+  background: none;
+  color: var(--text-dim);
+}
+
+/* Where a dragged track or group would land. */
+.strip[data-drop='accept'][data-edge='before'] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.strip[data-drop='accept'][data-edge='after'] {
+  box-shadow: inset -3px 0 0 var(--accent);
 }
 
 /* In a short mixer only the fader row gives up height; the name and buttons keep theirs. */

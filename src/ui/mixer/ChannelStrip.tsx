@@ -1,8 +1,9 @@
-import { useDropTarget } from '../shared/drag'
+import type { CSSProperties } from 'react'
+import { useDragSource, useEdgeTarget } from '../shared/drag'
 import { ActionMenu, useActionContext } from '../shared/menu'
-import { InPlaceRename } from '../shared/RenameField'
-import { type ControlTarget, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode, mixesAfter, panOf } from '@core'
-import { type Subject, openTrackView, runAction, useProjectStore, useSelectionStore } from '@state'
+import { InPlaceRename, useRenaming } from '../shared/RenameField'
+import { type ControlTarget, type GroupColour, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type Track, describeNode, mixesAfter, panOf } from '@core'
+import { type SubjectOf, openTrackView, runAction, useProjectStore, useSelectionStore } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
 import { LevelBar } from './LevelBar'
@@ -24,20 +25,22 @@ export const EffectsBadge = ({ name, labels, onOpen }: { name: string; labels: s
     </button>
   )
 
-/** One track in the mixer: pan, sends, mute and solo, the fader and the track's own level meter. */
-export const ChannelStrip = ({ track }: { track: Track }) => {
+/** One track in the mixer: pan, sends, mute and solo, the fader and the track's own level meter. `stripe`: its group's colour. */
+export const ChannelStrip = ({ track, stripe }: { track: Track; stripe?: GroupColour }) => {
   const selected = useSelectionStore((state) => state.trackId === track.id)
   const selectTrack = useSelectionStore((state) => state.selectTrack)
   const modules = useProjectStore((state) => state.project.modules)
   const tracks = useProjectStore((state) => state.project.tracks)
   const gesture = useControlGesture()
-  // A preset or a library graph dropped here goes onto this track.
-  const drop = useDropTarget({ kind: 'track', trackId: track.id })
+  const subject: SubjectOf<'track'> = { kind: 'track', trackId: track.id }
+  // A preset or a library graph dropped here goes onto this track; a track or a group lands on the side it is over.
+  const drop = useEdgeTarget(subject, 'x')
+  // The name drags the track: the sliders keep their own gestures.
+  const drag = useDragSource(useRenaming(subject) ? null : subject)
   const target = (control: 'volume' | 'pan'): ControlTarget => ({ kind: 'mixer', owner: { kind: 'track', trackId: track.id }, control })
   const setVolume = (_id: string, value: number) => gesture.change([{ target: target('volume'), value }])
   const setPan = (_id: string, value: number) => gesture.change([{ target: target('pan'), value }])
   const context = useActionContext()
-  const subject: Subject = { kind: 'track', trackId: track.id }
   const sendTarget = (returnId: string): ControlTarget => ({ kind: 'mixer', owner: { kind: 'track', trackId: track.id }, control: 'send', returnId })
   const setSend = (_id: string, returnId: string, value: number) => gesture.change([{ target: sendTarget(returnId), value }])
 
@@ -53,11 +56,13 @@ export const ChannelStrip = ({ track }: { track: Track }) => {
     <section
       {...gesture.events}
       {...drop}
+      style={stripe && ({ '--group': `var(--group-${stripe})` } as CSSProperties)}
+      data-stripe={stripe}
       className={`${styles.strip} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnStrip : ''} ${muted ? styles.mutedStrip : ''}`}
       aria-label={`${track.name} channel`}
     >
       <InPlaceRename subject={subject} name={track.name} label={`Name of ${track.name}`} className={styles.name}>
-        <button className={styles.name} onClick={() => selectTrack(track.id)} title={`Select ${track.name}`}>
+        <button className={styles.name} onClick={() => selectTrack(track.id)} title={`Select ${track.name}`} {...drag}>
           {track.name}
           {track.kind !== 'instrument' && <span className={styles.kind}> {track.kind}</span>}
         </button>

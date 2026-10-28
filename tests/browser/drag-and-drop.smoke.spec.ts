@@ -288,3 +288,21 @@ test("a track's name drags onto another header's side to reorder the columns; a 
   })
   expect(await names()).toEqual(['Bass', 'Lead', 'Pad', 'Return A return', 'Master'])
 })
+
+test("a lane's name drags into a group's lane, and a mixer strip's name beside another strip", async ({ page }) => {
+  await page.goto('/?starter')
+  const session = await openView(page, 'Session')
+  await session.getByRole('button', { name: 'Lead', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Group', exact: true }).click()
+  const arrangement = await openView(page, 'Arrangement')
+  await dragTo(page, arrangement.getByText('Bass', { exact: true }), arrangement.getByRole('group', { name: 'Group Group 1', exact: true }))
+  // Inside a group is at its end.
+  await openView(page, 'Session')
+  const names = () => session.locator('button[class*="trackName"]').allTextContents()
+  await expect.poll(names).toEqual(['Lead', 'Bass', 'Pad', 'Master'])
+
+  const mixer = await openView(page, 'Mixer')
+  const strip = mixer.getByRole('region', { name: 'Bass channel', exact: true })
+  await dragTo(page, mixer.getByRole('button', { name: 'Pad', exact: true }), strip, { position: { x: 5, y: 60 } })
+  await expect.poll(names).toEqual(['Lead', 'Pad', 'Bass', 'Master'])
+})
