@@ -15,6 +15,7 @@ import { clamp, createId } from '../shared'
 import { createNote, notesEqual, shiftedCopies, trimNotesToLength } from './note-edit'
 import { clampAudioClip, createAudioClip } from './audio-clip'
 import { type ClipRef, editClipAt } from './clip-ref'
+import { pruneGroups } from './group-membership'
 import { mixesAfter } from './mix-order'
 import { MAX_CLIP_BEATS, MIN_CLIP_BEATS } from './limits'
 import type { AudioClip, AudioTrack, Clip, InstrumentTrack, MasterBus, Note, Project, ReturnTrack, Track } from './types'
@@ -112,9 +113,9 @@ export const addTrack = (project: Project, track: Track): Project => ({
 
 /**
  * Removes a track, and what other tracks pointed at it: "notes from this track" inputs of note graphs and the return a
- * Send node sends to (also inside modules). Undo restores all of it.
+ * Send node sends to (also inside modules). A group it leaves empty goes too. Undo restores all of it.
  */
-export const removeTrack = (project: Project, trackId: string): Project => ({
+export const removeTrack = (project: Project, trackId: string): Project => pruneGroups({
   ...project,
   ...(project.controlValues && { controlValues: project.controlValues.filter((entry) => !removedControlReference(entry.target, trackId)) }),
   ...(project.midiMappings && { midiMappings: project.midiMappings.filter((entry) => !removedControlReference(entry.target, trackId)) }),

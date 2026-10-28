@@ -2,6 +2,7 @@ import { usePersistenceStore } from '../persistence-store'
 import { automationSlotActions } from './automation-slot'
 import { clipActions } from './clip'
 import { controlActions } from './control'
+import { groupActions } from './group'
 import { laneActions } from './lane'
 import { libraryFolderActions, libraryItemActions } from './library'
 import { masterActions } from './master'
@@ -27,6 +28,7 @@ export { editTargetOf, graphKeyOf } from './nodes'
 
 const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = {
   track: trackActions,
+  group: groupActions,
   master: masterActions,
   clip: clipActions,
   slot: slotActions,

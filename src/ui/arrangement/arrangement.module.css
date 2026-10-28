@@ -288,3 +288,60 @@
     --name-width: 72px;
   }
 }
+
+/* A group's lane: a short row with its name, over its members' lanes. */
+.groupLane .name,
+.groupRow {
+  height: 28px;
+}
+
+.groupName {
+  gap: 2px;
+  background: color-mix(in srgb, var(--group) 22%, var(--panel));
+  box-shadow: inset 3px 0 0 var(--group);
+  cursor: grab;
+}
+
+.groupRow {
+  background: color-mix(in srgb, var(--group) 8%, transparent);
+}
+
+.twisty {
+  padding: 0 4px;
+  border-color: transparent;
+  background: none;
+  color: var(--text-dim);
+}
+
+/* Where a collapsed group's members have regions. */
+.memberBar {
+  position: absolute;
+  top: 10px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--group);
+  opacity: 0.7;
+}
+
+/* A member's name carries its group's colour. */
+.name[data-stripe] {
+  box-shadow: inset 3px 0 0 var(--group);
+}
+
+/* Where a dragged track or group would land. */
+.name[data-drop='accept'][data-edge='before'] {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.name[data-drop='accept'][data-edge='after'] {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.name[data-drop='accept'][data-edge='inside'] {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.name[data-stripe].selectedName {
+  box-shadow: inset 3px 0 0 var(--accent);
+}

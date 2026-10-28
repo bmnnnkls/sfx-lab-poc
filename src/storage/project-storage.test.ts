@@ -4,7 +4,7 @@ import { type KeyValueStore, createMemoryStore } from './key-value-store'
 import { ProjectStorage } from './project-storage'
 
 describe('ProjectStorage', () => {
-  it('preserves the exact old envelope once before a v9 rewrite', () => {
+  it('preserves the exact old envelope once before rewriting it as the current version', () => {
     const store = createMemoryStore()
     const old = JSON.stringify({ ...JSON.parse(serializeProject(createDemoProject())), version: 8 }, null, 2)
     store.setItem('sfxlab:project', old)
@@ -12,7 +12,7 @@ describe('ProjectStorage', () => {
     expect(storage.loadCurrent().status).toBe('loaded')
     expect(storage.saveCurrent(createEmptyProject())).toEqual({ ok: true })
     expect(store.getItem('sfxlab:pre-signature-v9')).toBe(old)
-    expect(JSON.parse(store.getItem('sfxlab:project')!).version).toBe(9)
+    expect(JSON.parse(store.getItem('sfxlab:project')!).version).toBe(10)
     storage.saveCurrent(createDemoProject())
     storage.saveBackup(createEmptyProject())
     expect(store.getItem('sfxlab:pre-signature-v9')).toBe(old)

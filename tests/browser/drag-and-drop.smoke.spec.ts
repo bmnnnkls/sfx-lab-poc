@@ -269,3 +269,40 @@ test('a project preset dropped on its own track recalls it, and a track with ano
   await dragTo(page, preset, lead, { whileOver: () => expect(lead.locator('xpath=..')).toHaveAttribute('data-drop', 'refuse') })
   await expect(recalled).toHaveCount(1)
 })
+
+test("a track's name drags onto another header's side to reorder the columns; a return refuses a clip track", async ({ page }) => {
+  await page.goto('/?starter')
+  const session = await openView(page, 'Session')
+  const header = (name: string) => session.getByRole('button', { name: `Remove ${name}`, exact: true }).locator('..')
+  const names = () => session.locator('button[class*="trackName"]').allTextContents()
+  const box = (await header('Pad').boundingBox())!
+  await dragTo(page, session.getByRole('button', { name: 'Bass', exact: true }), header('Pad'), { position: { x: box.width - 10, y: 20 } })
+  expect(await names()).toEqual(['Lead', 'Pad', 'Bass', 'Master'])
+  await page.keyboard.press('ControlOrMeta+z')
+  expect(await names()).toEqual(['Bass', 'Lead', 'Pad', 'Master'])
+
+  await session.getByRole('button', { name: 'Add track', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Return track', exact: true }).click()
+  await dragTo(page, session.getByRole('button', { name: 'Bass', exact: true }), header('Return A'), {
+    whileOver: async () => expect(header('Return A')).toHaveAttribute('data-drop', 'refuse'),
+  })
+  expect(await names()).toEqual(['Bass', 'Lead', 'Pad', 'Return A return', 'Master'])
+})
+
+test("a lane's name drags into a group's lane, and a mixer strip's name beside another strip", async ({ page }) => {
+  await page.goto('/?starter')
+  const session = await openView(page, 'Session')
+  await session.getByRole('button', { name: 'Lead', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Group', exact: true }).click()
+  const arrangement = await openView(page, 'Arrangement')
+  await dragTo(page, arrangement.getByText('Bass', { exact: true }), arrangement.getByRole('group', { name: 'Group Group 1', exact: true }))
+  // Inside a group is at its end.
+  await openView(page, 'Session')
+  const names = () => session.locator('button[class*="trackName"]').allTextContents()
+  await expect.poll(names).toEqual(['Lead', 'Bass', 'Pad', 'Master'])
+
+  const mixer = await openView(page, 'Mixer')
+  const strip = mixer.getByRole('region', { name: 'Bass channel', exact: true })
+  await dragTo(page, mixer.getByRole('button', { name: 'Pad', exact: true }), strip, { position: { x: 5, y: 60 } })
+  await expect.poll(names).toEqual(['Lead', 'Pad', 'Bass', 'Master'])
+})

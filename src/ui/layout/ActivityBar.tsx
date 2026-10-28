@@ -8,6 +8,7 @@ const VIEWS: readonly { readonly id: ViewId; readonly glyph: string }[] = [
   { id: 'arrangement', glyph: '▤' },
   { id: 'wave', glyph: '∿' },
   { id: 'library', glyph: '▥' },
+  { id: 'tracks', glyph: '☰' },
 ]
 
 /**
@@ -23,9 +24,9 @@ const activate = (id: ViewId) => {
 }
 
 /**
- * The strip beside the layout: Session, Arrangement, the wave editor and the library, each marked while it shows.
- * The region toggles sit in the panel's tab strip and the status bar's *Layout* menu, *Reset layout* only in the
- * menu. Text and glyphs only until round 13's icons. The Tab key moves through it rather than switching views.
+ * The strip beside the layout: Session, Arrangement, the wave editor, the library and the tracks, each marked while
+ * it shows. The region toggles sit in the panel's tab strip and the status bar's *Layout* menu, *Reset layout* only in
+ * the menu. Text and glyphs only until round 13's icons. The Tab key moves through it rather than switching views.
  */
 export const ActivityBar = () => {
   const visible = useLayoutStore((state) => state.visible)

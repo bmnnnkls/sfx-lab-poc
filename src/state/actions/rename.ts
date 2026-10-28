@@ -9,6 +9,7 @@ import type { Action, ActionContext, Subject, SubjectKind, SubjectOf } from './t
 /** Where each kind's name is drawn when a rename starts outside a view. */
 const HOME: Partial<Record<SubjectKind, ViewId>> = {
   track: 'session',
+  group: 'tracks',
   clip: 'session',
   scene: 'session',
   sample: 'samples',
@@ -54,6 +55,8 @@ export const commitRename = (subject: Subject, typed: string, context: ActionCon
   switch (subject.kind) {
     case 'track':
       return store.setTrackName(subject.trackId, name)
+    case 'group':
+      return store.setGroupName(subject.groupId, name)
     case 'clip':
       return store.setClipName(subject.trackId, subject.clipId, name)
     case 'scene':

@@ -98,7 +98,7 @@ for (const [name, saved] of [
   await page.goto('/?starter')
   await expect(viewRoot(page, 'Session')).toBeVisible()
   await expect(viewRoot(page, 'Instrument')).toBeVisible()
-  await expect(page.getByRole('tab')).toHaveCount(11)
+  await expect(page.getByRole('tab')).toHaveCount(12)
 })
 
 test("the toggles in the panel's strip hide and show the panel and each sidebar", async ({ page }) => {
@@ -234,12 +234,14 @@ test("a round-2 layout loads with the panel's tabs, open tab and height kept, an
   await expect(viewRoot(page, 'Arrangement')).toBeVisible()
   await expect(viewRoot(page, 'Mixer')).toBeVisible()
   const tabs = await page.getByRole('tab').allTextContents()
-  // The round-2 layout kept Sounds in the panel; only the Wave editor is new.
+  // The round-2 layout kept Sounds in the panel; only the Wave editor is new here. Tracks went to the hidden primary
+  // sidebar, which draws no tabs.
   expect(tabs).toEqual(['Session', 'Arrangement', 'Wave editor', 'Instrument', 'Effects', 'Notes', 'Clip', 'Mixer', 'Samples', 'Sounds', 'Library'])
   const mixer = await viewRoot(page, 'Mixer').boundingBox()
   expect(mixer!.height).toBeGreaterThan(220)
   expect(mixer!.height).toBeLessThanOrEqual(300)
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('sfxlab:layout')!).version)).toBe(2)
+  expect(await page.evaluate(() => localStorage.getItem('sfxlab:layout'))).toContain('"id":"tracks"')
   await page.reload()
   await expect(viewRoot(page, 'Mixer')).toBeVisible()
 })
@@ -295,13 +297,13 @@ test('the editor area and the panel maximize inside the window, and restore', as
   await expect(session).toBeVisible()
 })
 
-test('the activity bar shows Session, Arrangement, the Wave editor and Library wherever they are docked', async ({ page }) => {
+test('the activity bar shows Session, Arrangement, the Wave editor, Library and Tracks wherever they are docked', async ({ page }) => {
   await page.goto('/?starter')
   const bar = page.getByRole('navigation', { name: 'Views' })
   const button = (name: string) => bar.getByRole('button', { name, exact: true })
-  await expect(bar.getByRole('button')).toHaveText(['▦', '▤', '∿', '▥'])
+  await expect(bar.getByRole('button')).toHaveText(['▦', '▤', '∿', '▥', '☰'])
 
-  for (const [name, title] of [['Wave editor', 'Wave editor'], ['Library', 'Library'], ['Arrangement', 'Arrangement']] as const) {
+  for (const [name, title] of [['Wave editor', 'Wave editor'], ['Tracks', 'Tracks'], ['Library', 'Library'], ['Arrangement', 'Arrangement']] as const) {
     await button(name).click()
     await expect(viewRoot(page, title)).toBeVisible()
   }

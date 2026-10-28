@@ -16,7 +16,7 @@ describe('v8 delay divisions', () => {
     expect(track.fx.nodes.find(n => n.id === 'echo')?.params).toMatchObject({ time: 0.75, sync: 1 })
     expect(track.fx.nodes.find(n => n.id === 'echo')?.params.division).toBe(version === 8 ? 8 : undefined)
     const saved = serializeProject(loaded.project)
-    expect(JSON.parse(saved).version).toBe(9)
+    expect(JSON.parse(saved).version).toBe(10)
     expect(parseProject(saved)).toEqual(loaded)
   })
   it('v7 discards formerly unknown divisions and references in nested graphs, revisions and automation', () => {

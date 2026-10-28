@@ -185,6 +185,14 @@ const CASES: readonly Case[] = [
       root.getByLabel('Search library', { exact: true }),
       ...(width && height ? [] : [root.getByLabel('Library items', { exact: true }).getByRole('button').first()]),
     ],
+  },  {
+    title: 'Tracks',
+    min: TOOL_VIEW,
+    prepare: async (_page, root) => {
+      await root.getByRole('treeitem', { name: 'Lead', exact: true }).click({ button: 'right' })
+      await root.page().getByRole('menuitem', { name: 'Group', exact: true }).click()
+    },
+    controls: (root) => [root.getByRole('treeitem', { name: 'Group 1, group of 1 track', exact: true }), root.getByRole('button', { name: 'Collapse all', exact: true })],
   },
 ]
 

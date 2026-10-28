@@ -2,11 +2,17 @@ import {
   arrangementEnd,
   arrangementLoopEnd,
   arrangementOnTrack,
+  type ArrangementClip,
+  type GroupColour,
+  type TrackGroup,
+  type TrackRow,
+  trackRows,
+  visibleRows,
 } from '@core'
-import { useEngineControls, useLayoutStore, useProjectStore, useSelectionStore, useStatusStore } from '@state'
-import { Fragment, type ReactNode, useState } from 'react'
+import { type SubjectOf, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore, useStatusStore } from '@state'
+import { type CSSProperties, Fragment, type ReactNode, useMemo, useState } from 'react'
 import { viewTitles } from '../layout/view-titles'
-import { useDropTarget } from '../shared/drag'
+import { useDragSource, useDropTarget, useEdgeTarget } from '../shared/drag'
 import { ActionMenu } from '../shared/menu'
 import { useStoredState } from '../shared/use-stored-state'
 import { ArrangementPlayhead } from './ArrangementPlayhead'
@@ -48,21 +54,66 @@ const LaneRow = ({ trackId, pxPerBeat, width, children }: { trackId: string; pxP
  * A lane's track name: clicking selects the track, as the session header and the mixer strip do, and the selected
  * one is marked. Its menu is the track's, and a preset or a library graph dropped on it goes onto the track.
  */
-const LaneName = ({ trackId, name }: { trackId: string; name: string }) => {
-  const drop = useDropTarget({ kind: 'track', trackId })
+const LaneName = ({ trackId, name, depth, stripe }: { trackId: string; name: string; depth: number; stripe?: GroupColour }) => {
+  const subject: SubjectOf<'track'> = { kind: 'track', trackId }
+  // A track or a group dragged here lands above or below it.
+  const drop = useEdgeTarget(subject, 'y')
+  const drag = useDragSource(subject)
   const selected = useSelectionStore((state) => state.trackId === trackId)
   return (
-    <ActionMenu subject={{ kind: 'track', trackId }}>
+    <ActionMenu subject={subject}>
       <div
         className={`${styles.name} ${selected ? styles.selectedName : ''}`}
         tabIndex={0}
         aria-current={selected || undefined}
+        style={{ paddingInlineStart: 8 + depth * 10, ...(stripe && { '--group': `var(--group-${stripe})` }) } as CSSProperties}
+        data-stripe={stripe}
         onClick={() => useSelectionStore.getState().selectTrack(trackId)}
         {...drop}
+        {...drag}
       >
         {name}
       </div>
     </ActionMenu>
+  )
+}
+
+/**
+ * A group's lane: its twisty and name over the timeline, before its members' lanes. Collapsed, the members' lanes are
+ * not drawn, and it shows where their regions are as thin bars.
+ */
+const GroupLane = ({ group, trackIds, depth, regions, pxPerBeat, width }: { group: TrackGroup; trackIds: readonly string[]; depth: number; regions: readonly ArrangementClip[]; pxPerBeat: number; width: number }) => {
+  const subject: SubjectOf<'group'> = { kind: 'group', groupId: group.id }
+  const drop = useEdgeTarget(subject, 'y')
+  const drag = useDragSource(subject)
+  const colour = { '--group': `var(--group-${group.colour})` } as CSSProperties
+  const members = group.collapsed ? regions.filter((region) => trackIds.includes(region.trackId)) : []
+  return (
+    <div className={`${styles.lane} ${styles.groupLane}`} style={colour}>
+      <ActionMenu subject={subject}>
+        <div className={`${styles.name} ${styles.groupName}`} style={{ paddingInlineStart: 4 + depth * 10 }} role="group" aria-label={`Group ${group.name}${group.collapsed ? ', collapsed' : ''}`} {...drop} {...drag}>
+          <button
+            className={styles.twisty}
+            aria-label={`${group.collapsed ? 'Expand' : 'Collapse'} ${group.name}`}
+            aria-expanded={!group.collapsed}
+            onClick={() => useProjectStore.getState().setGroupCollapsed(group.id, !group.collapsed)}
+          >
+            {group.collapsed ? '▸' : '▾'}
+          </button>
+          {group.name}
+        </div>
+      </ActionMenu>
+      <div className={`${styles.row} ${styles.groupRow}`} style={{ width }}>
+        {members.map((region) => (
+          <div
+            key={region.id}
+            className={styles.memberBar}
+            data-testid="arrangement-member-bar"
+            style={{ left: region.startBeat * pxPerBeat, width: Math.max(2, arrangementLoopEnd(region, regions) - region.startBeat) * pxPerBeat }}
+          />
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -74,7 +125,20 @@ const LaneName = ({ trackId, name }: { trackId: string; name: string }) => {
  */
 export const ArrangementView = () => {
   const controls = useEngineControls()
-  const tracks = useProjectStore((state) => state.project.tracks)
+  const rows = useProjectStore((state) => visibleRows(trackRows(state.project)))
+  const hiddenTracks = useProjectStore((state) => state.project.tracks.some((track) => track.kind !== 'return' && track.hidden))
+  // The clip tracks and their groups; returns have no lane. Each track with the colour of the group it is in.
+  const lanes = useMemo(() => {
+    const open: { depth: number; colour: GroupColour }[] = []
+    return rows.flatMap((row): { row: TrackRow; stripe?: GroupColour }[] => {
+      while (open.length && open[open.length - 1]!.depth >= row.depth) open.pop()
+      if (row.kind === 'group') {
+        open.push({ depth: row.depth, colour: row.group.colour })
+        return [{ row }]
+      }
+      return row.track.kind === 'return' ? [] : [{ row, stripe: open.at(-1)?.colour }]
+    })
+  }, [rows])
   const placed = useProjectStore((state) => state.project.arrangement)
   const arrangement = placed ?? []
   // The zoom is remembered between sessions, as the piano roll's is.
@@ -124,11 +188,12 @@ export const ArrangementView = () => {
             ))}
           </div>
         </div>
-        {tracks
-          .filter((track) => track.kind !== 'return')
-          .map((track) => (
+        {lanes.map(({ row, stripe }) => {
+          if (row.kind === 'group') return <GroupLane key={row.group.id} group={row.group} trackIds={row.trackIds} depth={row.depth} regions={arrangement} pxPerBeat={pxPerBeat} width={width} />
+          const track = row.track
+          return (
             <div key={track.id} className={styles.lane}>
-              <LaneName trackId={track.id} name={track.name} />
+              <LaneName trackId={track.id} name={track.name} depth={row.depth} stripe={stripe} />
               <LaneRow trackId={track.id} pxPerBeat={pxPerBeat} width={width}>
                 <ActionMenu subject={{ kind: 'lane', trackId: track.id, beat: placedAt }}>
                   <div
@@ -169,13 +234,19 @@ export const ArrangementView = () => {
                 <ArrangementPlayhead pxPerBeat={pxPerBeat} />
               </LaneRow>
             </div>
-          ))}
-        {tracks.every((track) => track.kind === 'return') && (
+          )
+        })}
+        {lanes.length === 0 && (hiddenTracks ? (
+          <div className={styles.empty}>
+            <p>Every track is hidden. Hidden tracks still play.</p>
+            <button onClick={() => useProjectStore.getState().showAllTracks()}>Show all tracks</button>
+          </div>
+        ) : (
           <div className={styles.empty}>
             <p>No tracks yet. Add a track and give it clips, then place them on the timeline.</p>
             <button onClick={() => useLayoutStore.getState().revealView('session')}>Show {viewTitles.session.toLowerCase()}</button>
           </div>
-        )}
+        ))}
       </div>
     </div>
   )

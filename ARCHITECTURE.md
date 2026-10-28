@@ -156,9 +156,9 @@ while opening a module definition still edits the shared definition deliberately
 normalized evaluation and compilation against current control specs. Clip lanes address only their own track's
 instrument, note graph, insert effects or mixer. Missing/wired targets stay in the document with feedback and do
 not acquire runtime ownership. Group/unlink remap lane paths together with instance values and MIDI mappings.
-Return/master slots arrived in format **v5** (clip lanes in v4; v6 adds saved sounds; v7 adds library origins below; v8 adds optional delay divisions; current format v9 versions deterministic signatures): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
+Return/master slots arrived in format **v5** (clip lanes in v4; v6 adds saved sounds; v7 adds library origins below; v8 adds optional delay divisions; v9 versions deterministic signatures; current format v10 adds track groups): optional `Clip.automation` / `AudioClip.automation`, at most 64 lanes per clip and
 2048 points per lane, bounded IDs/paths and finite numbers. The explicit v3→v4 migration drops formerly unknown
-lane data; v4→v5 drops formerly unknown return/master slot fields. Committed v1–v8 fixtures cover compatibility. Saved bases remain authored values.
+lane data; v4→v5 drops formerly unknown return/master slot fields. Committed v1–v8 and v10 fixtures cover compatibility. Saved bases remain authored values.
 
 Each point holds a normalized value and linear/hold interpolation to the next point. Points are sorted, equal
 times collapse with last input winning, and the valid time interval is [0, clip length]. Before/after the point
@@ -629,10 +629,66 @@ sends to it; it just processes what the tracks and returns have summed.
   (an audition is not part of the mix). `master/setVolume`; `diffProject` sends it on load and on change. There is still no
   limiter: the soft clip is the only one.
 
+## Tracks and groups
+
+Tracks have one order, and can be put in folders: **groups**. A group is always a folder; round 8 of the
+[UI redesign](docs/ui-redesign/PLAN-round-7-track-groups.md) adds an optional summing bus to the same group.
+
+* **Model** (`core/project/track-groups.ts`). `Project.groups?: TrackGroup[]`, each `{ id, name, colour, collapsed?,
+  parentId? }`: groups nest through `parentId`, at most `MAX_GROUP_DEPTH` (4) levels and `MAX_GROUPS` (64). Instrument and
+  audio tracks have `groupId?`, the group they are directly in; returns and the master can't be grouped. Every track has
+  `hidden?`. A group's colour is a name from `GROUP_COLOURS`, drawn through `--group-<name>` in `theme.css`. Group ids
+  are never a track's: round 8 makes a group a control owner.
+* **One order.** `Project.tracks` stays the order of everything. A group's tracks, nested groups' included, sit together
+  among the clip tracks, and a group is drawn where its first track is, so a group always has a track: *Group* makes one
+  around a track, and a group goes when its last track leaves (`pruneGroups`, also run by `removeTrack`). The order of
+  `groups` means nothing. Nothing of this reaches the engine: `diffProject` keys tracks by id and `diffTrack` ignores
+  `groupId` and `hidden`.
+* **Rows.** `trackRows(project)` is what the views draw, depth first: a row per group (with its tracks' ids, deep)
+  before its members, and per track; clip tracks first, returns after them at depth 0. `tracksInOrder` is its tracks;
+  `visibleRows` leaves out hidden tracks, what is inside a collapsed group, and groups whose tracks are all hidden. All
+  three are memoized by the identity of `tracks` and `groups`, so a selector can return them.
+* **Edits.** `groupTrack`, `moveTrack` and `moveGroup` to a `TrackPlace` (`{ before: item }`, `{ after: item }` or
+  `{ inside: groupId }`, at its end; the moved thing joins the group of what it lands next to), `ungroup` (members move
+  up a level, in place), `removeGroup` (with its tracks, through `removeTrack`), `setGroupName`, `setGroupColour`.
+  `canMoveTrack` and `canMoveGroup` keep clip tracks and returns apart, a group out of itself and within the depth.
+  `neighbourPlace` is *Move up* and *Move down*: before the previous item or after the next one at the same level. The
+  moves rebuild the project from a tree of the rows, so members always end up together. Each is one undo step.
+* **View fields.** `collapsed` and `hidden` are saved with the project but are not undo steps: the project store's
+  `editView` replaces the present without a commit, and `undo` and `redo` pass the restored project through
+  `withViewOf(restored, current)`, which keeps what shows now for every group and track both have. So an undo of a note
+  edit doesn't unfold a group, and the Tracks tree can collapse on ← without filling the history. One flag per group,
+  shared by every view.
+* **Files.** Format version 10; the v9→v10 migration strips `groups`, `groupId` and `hidden`. `sanitize-groups.ts` drops
+  a group without an id of its own (or with a track's), makes an unknown colour the first, clears a parent that is
+  missing, closes a cycle or nests too deep, and a group on a return or to a missing group; then `normalizeTrackGroups`
+  drops groups without tracks and brings members together. Each repair warns. Round 8 adds `bus?` to a group without a
+  version bump.
+* **Actions.** A `group` subject (`state/actions/group.ts`): *Collapse*/*Expand*, *Rename*, *Colour* ▸, *Move up*, *Move
+  down*, *Hide tracks*/*Show tracks*, *Ungroup*, *Delete group and tracks*. Tracks gain *Group*, *Move to group* ▸ (the
+  groups by path, and *No group*), *Move up*, *Move down* and *Hide*/*Show*. Grouping is one track at a time: there is no
+  multi-selection of tracks.
+* **The Tracks view** (`ui/tracks/`, view `tracks`, in the primary sidebar, an activity-bar button): the rows as a WAI-ARIA
+  tree. One row is in the tab order; ↑ ↓ Home End move, → and ← expand and collapse a group (its `collapsed` flag) or move
+  to the first child and the parent, Enter selects a track, **Alt+↑ and Alt+↓** run *Move up* and *Move down*. A row
+  drags onto another: before or after by halves, into a group by its middle third. Each row has an eye; a hidden row is
+  dimmed, with a dot lit while it sounds. A toolbar has *Show all*, *Collapse all* and *Expand all*.
+* **In the other views.** The session grid and the mixer draw `visibleRows` through `groupedColumns` and `bandsOf`
+  (`ui/shared/group-columns.ts`): an expanded group is a band over its members, one row of bands per level, and members
+  carry a stripe of its colour; a collapsed group is one column. In the session grid that column's cell per scene
+  launches the members' clips in that scene and stops the members whose slot is empty (`launchScene(scene, trackIds)`,
+  `scene/launch` with `trackIds`), hidden members included; it is marked while one of those clips plays or is queued. In
+  the mixer it is a narrow strip with no fader until round 8. The arrangement draws a group lane before its members;
+  collapsed, it shows their regions as thin bars. Hidden tracks have no column, strip or lane, and still play.
+* **Hidden sound.** The grid's corner shows how many tracks are hidden, lit while one sounds (`useSounding`: its peak in
+  the status above -60 dB, after mute and solo); it reveals the Tracks view. Both it and the tree's dot subscribe through
+  a boolean selector, so the status's 30 updates a second render nothing until that changes.
+
 ## Mixer
 
-The **Mixer** tab (`ui/mixer/`, view `mixer`) is a row of vertical channel strips: every track in `sessionOrder`
-(clip tracks, then returns), then the master. A strip has the track's name (select), an fx badge (opens the Effects tab),
+The **Mixer** tab (`ui/mixer/`, view `mixer`) is a row of vertical channel strips: every shown track in the order of
+`trackRows` (clip tracks group by group, then returns), then the master. Groups are bands over their members' strips, and
+a collapsed group one narrow strip (see "Tracks and groups"). A strip has the track's name (select), an fx badge (opens the Effects tab),
 pan, one send knob per return, **M**ute, **S**olo, the fader and a level meter. The session grid keeps its header volume
 slider (the same `track.volume`) and gains no other control; its header only strikes through the name of a muted track.
 
@@ -1050,7 +1106,7 @@ Right-click works throughout the app, from one list of actions per kind of thing
 right-clicked; what can be done to it lives in `state/actions/`.
 
 * **Subjects.** What was right-clicked is a `Subject`: a small value with a `kind` and ids, never a component or a DOM
-  element. The kinds: `track` (instrument, audio and return tracks), `master`, `clip` (a session clip), `slot` (an
+  element. The kinds: `track` (instrument, audio and return tracks), `group` (a group of tracks), `master`, `clip` (a session clip), `slot` (an
   empty session cell), `automation-slot`, `scene`, `sample`, `library-item`, `library-folder`, `nodes`, `canvas`,
   `module`, `region`, `lane`, `control` (a panel control or a mixer value) and `sound` (a snapshot or preset). `nodes`
   is the selection when the right-clicked card is selected, otherwise that card alone. `nodes` and `canvas` name the
@@ -1210,8 +1266,9 @@ Things picked up in one view land in another. A drop is "paste here": it runs a 
 action's *Paste* runs, so every drop has a menu twin and the two can't drift apart.
 
 * **Payloads and targets are subjects.** What is dragged is a `DragPayload`: a `clip` (a session clip), a `sample`, a
-  `sound` (a project preset; snapshots don't drag) or a `library-item`. Where it lands is a `DropTarget`: a `slot`, a
-  `lane` (with the snapped beat under the pointer), a `track`, the `master` or a `canvas` (with the canvas point). A
+  `sound` (a project preset; snapshots don't drag), a `library-item`, a `track` or a `group`. Where it lands is a
+  `DropTarget`: a `slot`, a `lane` (with the snapped beat under the pointer), a `track` or a `group` (with the `edge` the
+  pointer is on: before, after, or a group's middle third, inside), the `master` or a `canvas` (with the canvas point). A
   payload holds ids and is read when it lands, so something deleted mid-drag drops nothing.
 * **One list of drops.** `state/actions/drops.ts` holds every `Drop`: its payload and target kinds, `accepts` (refused
   drops show the "no drop" cursor), `effect` (`move` or `copy`) and `run`. `dropFor(payload, target, context)` is the
@@ -1228,9 +1285,11 @@ action's *Paste* runs, so every drop has a menu twin and the two can't drift apa
 | Sample | On an audio track: *Add audio clip*, opened in Clip | On an audio track: *Add audio clip* | | | In an instrument graph: *Add sampler* at the point |
 | Project preset | | | Recalls it, in its own domain, when the track's graph matches its revision | When the master's effects match | |
 | Library item | A clip of the track's kind: as the Library's *Insert into empty slot* | | An instrument, note effect, audio effect or preset: replaces that graph (*Replace selected graph* with this owner) | An audio effect or effects preset | The same into this graph, when its kind matches and the canvas is at the top level |
+| Track, group | | | Moves it before or after the track (`moveTrack`, `moveGroup`), into that track's group; on a group, also inside it | | |
 
 Everything else refuses: an occupied slot, a track of the other kind, a library clip on a lane, a canvas inside a
-module, an effect made for another input (`trackIn`, `returnIn`, `masterIn`), a preset on a graph that differs.
+module, an effect made for another input (`trackIn`, `returnIn`, `masterIn`), a preset on a graph that differs, a clip
+track among the returns (or a return among the clip tracks), a group into itself or deeper than four levels.
 
 * **The hooks.** `ui/shared/drag/` holds the DOM side. `useDragSource(payload)` makes an element draggable: its
   `dragstart` writes the payload as JSON under `application/x-sfxlab-drag` and records it as the current drag; a
@@ -1245,8 +1304,12 @@ module, an effect made for another input (`trackIn`, `returnIn`, `masterIn`), a 
   element and cleared on leave, on drop and when another target takes over; a lane also gets `--drop-at`, where its
   marker is drawn. No target subscribes to anything, so a drag re-renders nothing. The innermost target stops
   `dragover` and `drop`, refused ones too, so it decides.
+* **Track and group targets** use `useEdgeTarget(subject, axis)`: the edge comes from the pointer along the axis (x in
+  the session grid and the mixer, y in the tree and the arrangement) and shows as `data-edge` while a track or a group is
+  over it. Presets and library items land on the track as before and ignore the edge.
 * **Sources and targets.** Sources: a filled session slot, a sample row, a project preset's row in Sounds, a library
-  item's row. Targets: every session slot (a filled one shows `refuse`), a lane's whole row (so a drop over a region
+  item's row, a Tracks tree row, a track's name (session header, mixer strip, lane name; not the whole header, whose
+  slider keeps its gesture) and a group's band, collapsed header, strip or lane. Targets: every session slot (a filled one shows `refuse`), a lane's whole row (so a drop over a region
   lands too), the session header, the mixer strip, the lane name, the master's header and strip, and a graph
   editor's canvas.
 * **Spring-loaded tabs.** A drag of ours resting 500 ms (`SPRING_LOAD_MS`) on the tab of a view that isn't showing,
@@ -1484,7 +1547,8 @@ switches views like in Ableton.
   (with an optional `fromBeat`) switches to the arrangement; `transport/play`, `clip/launch` and `scene/launch`
   switch back to the session. A track added mid-arrangement follows the timeline like the rest. `arrangement/set`
   pushes the whole region list (it is small, and edits create new arrays).
-* **UI.** `ui/arrangement/`: a ruler in bars, one lane per non-return track, regions drawn as a note preview (MIDI)
+* **UI.** `ui/arrangement/`: a ruler in bars, one lane per shown non-return track (in the order of `trackRows`, with a
+  group lane before a group's members, see "Tracks and groups"), regions drawn as a note preview (MIDI)
   or a waveform thumbnail (audio). **Drag a session slot onto a lane** to copy it there at the snapped beat (see
   [Drag and drop](#drag-and-drop)); in the default layout, where Session and Arrangement share a tab group, hold the
   drag over the Arrangement tab to show it. Right-click an empty lane to place one of the track's session clips at
@@ -1596,8 +1660,8 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
     one split off the panel. It holds the tool views and is never deleted, even when empty. The primary and
     secondary sidebars are flexlayout's left and right borders and run the full height, from the transport bar to
     the status bar (flexlayout spans top and bottom borders across the sidebars, which is why the panel isn't one).
-    By default the panel holds Instrument, Effects, Notes, Clip and Mixer; Samples and Library start in the primary
-    sidebar and Sounds in the secondary one, both collapsed to their strips; sidebars open 300 px wide. A border
+    By default the panel holds Instrument, Effects, Notes, Clip and Mixer; Samples, Library and Tracks start in the
+    primary sidebar and Sounds in the secondary one, both collapsed to their strips; sidebars open 300 px wide. A border
     shows one tab at a time. Views can be dragged between all of them; tabs
     can't be closed, so every view is always somewhere.
   * **Collapsing.** Clicking the open tab of a sidebar or the panel collapses it to its tab strip; clicking a tab
@@ -1616,7 +1680,7 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
     the panel's tab strip before its maximize button (`onRenderTabSet`). The panel's own toggle collapses it to
     that strip. **Status bar** (`contentinfo`): the audio-failure alert, `SaveIndicator`, and a *Layout* menu with
     the same toggles, the named layouts and *Reset layout*: the route when the panel's strip is off screen.
-  * **Activity bar** (`nav` "Views"): Session, Arrangement, Wave editor and Library, each marked while it shows. A
+  * **Activity bar** (`nav` "Views"): Session, Arrangement, Wave editor, Library and Tracks, each marked while it shows. A
     button shows its view wherever it is docked; on a sidebar's open view it hides that sidebar instead.
   * **Keyboard.** Tabs follow the tab pattern and splitters are focusable separators (flexlayout's). F6 and
     Shift+F6 move the focus between the tab groups that show, the panel and sidebars included (`group-focus.ts`;
@@ -1624,7 +1688,7 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
     a tab, a splitter, the activity bar, the region toggles, a tab group's buttons and dialogs.
 * **Minimum sizes.** `viewMinSizes` in `ui/layout/view-titles.ts` (also `minSize` in the registry): 480 × 240 for the
   editors (Session, Arrangement, Wave editor, Instrument, Effects, Notes, Clip), 280 × 200 for the tool views
-  (Samples, Sounds, Library, Mixer). `viewTab` puts them on each tab as flexlayout's `minWidth` and `minHeight`, so
+  (Samples, Sounds, Library, Tracks, Mixer). `viewTab` puts them on each tab as flexlayout's `minWidth` and `minHeight`, so
   saved layouts get them too; a tab group takes its largest tab's, a sidebar its open tab's (and at least
   `MIN_SIDEBAR_SIZE`). Sashes and keyboard steps stop there. flexlayout raises a group's maximum to its minimum, so
   the driver (`keepMinimumHeights`, on every sync) clears the minimum height of the tabs a collapsed panel squeezes

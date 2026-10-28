@@ -13,7 +13,7 @@ describe('v3 portable MIDI mappings', () => {
     expect(result.warnings).toEqual([])
     expect(result.project.midiMappings).toHaveLength(2)
     expect(read(serializeProject(result.project)).project).toEqual(result.project)
-    expect(JSON.parse(serializeProject(result.project)).version).toBe(9)
+    expect(JSON.parse(serializeProject(result.project)).version).toBe(10)
   })
   it('migrates v1/v2 and drops unknown old mapping fields', () => {
     for (const version of [1, 2]) {

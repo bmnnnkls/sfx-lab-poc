@@ -20,6 +20,7 @@ export const mark = (element: HTMLElement | null, state?: 'accept' | 'refuse') =
 
 export const unmark = (element: HTMLElement) => {
   delete element.dataset.drop
+  delete element.dataset.edge
   element.style.removeProperty('--drop-at')
   if (marked === element) marked = null
 }

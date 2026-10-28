@@ -28,7 +28,7 @@ describe('layout store without a driver', () => {
     expect(layout().groups).toEqual([
       group('editor', 'editor', ['session', 'arrangement', 'wave'], 'session'),
       group('panel', 'panel', ['instrument', 'effects', 'notes', 'clip', 'mixer'], 'instrument'),
-      group('border_left', 'primary', ['samples', 'library'], 'samples'),
+      group('border_left', 'primary', ['samples', 'library', 'tracks'], 'samples'),
       group('border_right', 'secondary', ['sounds'], 'sounds'),
     ])
     expect(layout().visible).toEqual(['session', 'instrument'])

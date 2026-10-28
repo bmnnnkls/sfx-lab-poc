@@ -22,6 +22,7 @@ import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
 import { sanitizeArrangement } from './sanitize-arrangement'
 import { sanitizeAudioClip } from './sanitize-audio-clip'
 import { sanitizeClip } from './sanitize-clip'
+import { repairGroupOrder, sanitizeGroups } from './sanitize-groups'
 import { repairTrackReferences } from './sanitize-track-references'
 import { sanitizeModules } from './sanitize-modules'
 import { sanitizePatch } from './sanitize-patch'
@@ -57,6 +58,9 @@ const sanitizeTrack = (
     ...(pan !== 0 && { pan }),
     ...(raw.muted === true && { muted: true }),
     ...(raw.soloed === true && { soloed: true }),
+    // Checked against the groups by `sanitizeGroups`.
+    ...(typeof raw.groupId === 'string' && { groupId: raw.groupId }),
+    ...(raw.hidden === true && { hidden: true }),
   }
   // Files from before insert graphs existed have none: the sound passes through untouched.
   const isReturn = raw.kind === 'return'
@@ -139,16 +143,17 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
   const modules = sanitizeModules(raw.modules, sampleIds, warn)
 
   const usedTrackIds = new Set<string>()
-  const tracks = rawTracks
+  const read = rawTracks
     .slice(0, LIMITS.tracks)
     .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, sampleIds, modules, warn))
     .filter((track): track is Track => track !== null)
+  const { tracks, groups } = sanitizeGroups(raw.groups, read, warn)
 
   const libraryOrigins = sanitizeLibraryOrigins(raw.libraryOrigins, warn)
   const controlValues = sanitizeControlValues(raw.controlValues, warn)
   const midiMappings = sanitizeMidiMappings(raw.midiMappings, warn)
   const arrangement = sanitizeArrangement(raw.arrangement, new Set(tracks.map((track) => track.id)), sampleIds, warn)
-  return {
+  return repairGroupOrder({
     ...sanitizePresetFields(raw, sampleIds, warn),
     ...(libraryOrigins && { libraryOrigins }),
     ...(controlValues && { controlValues }),
@@ -170,5 +175,6 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
       ...(isRecord(raw.master) && masterVolume(raw.master.volume) !== 1 && { volume: masterVolume(raw.master.volume) }),
     },
     tracks: repairSendLevels(repairTrackReferences(tracks, modules, warn), modules, warn),
-  }
+    ...(groups && { groups }),
+  }, warn)
 }
