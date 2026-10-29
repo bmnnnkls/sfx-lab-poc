@@ -10,14 +10,17 @@ import {
   applySampleEdit,
   buildPeakPyramid,
   bytesKeyOf,
+  changedFrames,
   computePeaks,
   createDemoSamples,
+  decodedBytes,
   encodeWavChannels,
   frameCount,
   originOf,
   sampleEditEntry,
   sampleRemap,
   savedFrameCount,
+  updatePeakPyramid,
 } from '@core'
 import {
   type SampleLibrary,
@@ -31,7 +34,8 @@ import {
   waveViewOf,
 } from '@state'
 import { type SampleEditLog, type SampleStorage, StorageFullError, createMemorySampleEditLog, freeBytes, sha256Hex } from '@storage'
-import { ROOM_FACTOR } from './sample-budgets'
+import { ENGINE_KEEP_ALIVE_BYTES, ROOM_FACTOR, WORKING_COPY_CACHE_BYTES } from './sample-budgets'
+import { createWorkingCopies } from './working-copies'
 
 /** Enough detail for the large clip waveform; thumbnails simply sample it more coarsely. */
 const PEAK_BUCKETS = 800
@@ -61,6 +65,8 @@ export interface SampleLibraryOptions {
   /** How many bytes the site may still store, or null when the browser doesn't say. */
   readonly freeBytes?: () => Promise<number | null>
   readonly now?: () => number
+  /** The caches' budgets in bytes of decoded audio; `sample-budgets.ts` by default. */
+  readonly budgets?: { readonly workingCopies?: number; readonly keepAlive?: number }
 }
 
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -76,16 +82,22 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
   const edits = options.edits ?? createMemorySampleEditLog()
   const room = options.freeBytes ?? freeBytes
   const now = options.now ?? Date.now
+  const keepAliveBudget = options.budgets?.keepAlive ?? ENGINE_KEEP_ALIVE_BYTES
+  const copies = createWorkingCopies(options.budgets?.workingCopies ?? WORKING_COPY_CACHE_BYTES)
 
-  const inEngine = new Set<string>()
+  /** What the engine holds, with the bytes of its decoded audio. */
+  const inEngine = new Map<string, number>()
+  /** When each sample the present no longer uses left it, so the first to leave is the first out past the budget. */
+  const leftAt = new Map<string, number>()
+  let leaving = 0
   const loading = new Map<string, Promise<void>>()
 
   /** Decoded audio goes to the engine (each channel transferred, not copied) and a thumbnail is kept for the UI. */
   const deliver = (id: string, decoded: { audio: SampleAudio }) => {
     const sample: SampleData = { id, ...decoded.audio }
     view().setPeaks(id, computePeaks(sample.channels, PEAK_BUCKETS))
+    inEngine.set(id, decodedBytes(sample))
     host.send({ type: 'sample/add', sample }, sample.channels.map((channel) => channel.buffer as ArrayBuffer))
-    inEngine.add(id)
     view().setStatus(id, 'ready')
   }
 
@@ -127,6 +139,8 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
       return
     }
     if (waveAudio.current?.sampleId === sampleId || waveAudio.loading === sampleId) return
+    const cached = copies.get(sampleId)
+    if (cached) return waveAudio.setCurrent({ ...cached, viewKey: originOf(info) })
     waveAudio.setLoading(sampleId)
     try {
       const bytes = await storage.get(bytesKeyOf(info))
@@ -162,16 +176,57 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     if (selection && selection.to > frames) store.select(key, { ...selection, to: frames })
   }
 
-  const syncWithProject = () => {
-    const { samples } = useProjectStore.getState().project
-    const wanted = new Set(samples.map((sample) => sample.id))
+  const removeFromEngine = (id: string) => {
+    host.send({ type: 'sample/remove', sampleId: id })
+    inEngine.delete(id)
+    leftAt.delete(id)
+    view().forget(id)
+  }
 
-    for (const info of samples) void load(info)
-    for (const id of [...inEngine]) {
-      if (wanted.has(id)) continue
-      host.send({ type: 'sample/remove', sampleId: id })
-      inEngine.delete(id)
-      view().forget(id)
+  /** Loads the samples the present project has that the engine lacks. */
+  const loadPresent = () => {
+    for (const info of useProjectStore.getState().project.samples) void load(info)
+  }
+
+  /**
+   * What the engine lets go (the keep-alive rule): a sample the present doesn't use stays while any history entry names
+   * it, so undo plays it at once; past `keepAliveBudget` of such audio, the first to leave goes first; one no entry names
+   * goes at once. Runs on every history change (a commit can drop the redo future without touching the present's
+   * samples), so it reads only the `samples` arrays, each once (entries share them).
+   */
+  const keepAlive = () => {
+    const { history } = useProjectStore.getState()
+    const present = new Set(history.present.samples.map((sample) => sample.id))
+    if ([...inEngine.keys()].every((id) => present.has(id))) return leftAt.clear()
+
+    const named = new Set<string>()
+    const seen = new WeakSet<readonly SampleInfo[]>()
+    const name = (samples: readonly SampleInfo[]) => {
+      if (seen.has(samples)) return
+      seen.add(samples)
+      for (const sample of samples) named.add(sample.id)
+    }
+    for (const entry of history.past) name(entry.samples)
+    for (const entry of history.future) name(entry.samples)
+
+    const kept: string[] = []
+    let bytes = 0
+    for (const [id, size] of inEngine) {
+      if (present.has(id)) {
+        leftAt.delete(id)
+      } else if (!named.has(id)) {
+        removeFromEngine(id)
+      } else {
+        if (!leftAt.has(id)) leftAt.set(id, leaving++)
+        kept.push(id)
+        bytes += size
+      }
+    }
+    kept.sort((a, b) => leftAt.get(a)! - leftAt.get(b)!)
+    for (const id of kept) {
+      if (bytes <= keepAliveBudget) break
+      bytes -= inEngine.get(id)!
+      removeFromEngine(id)
     }
   }
 
@@ -208,6 +263,8 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
   const audioOf = async (info: SampleInfo): Promise<{ audio: SampleAudio; pyramid: PeakPyramid | null } | null> => {
     const working = useWaveAudioStore.getState().current
     if (working?.sampleId === info.id) return { audio: working.audio, pyramid: working.pyramid }
+    const cached = copies.get(info.id)
+    if (cached) return { audio: cached.audio, pyramid: cached.pyramid }
     const bytes = await storage.get(bytesKeyOf(info))
     return bytes ? { audio: (await decodeAudio(bytes)).audio, pyramid: null } : null
   }
@@ -294,7 +351,10 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
       return
     }
     const open = useSelectionStore.getState().sampleId === info.id
-    const working = (key: string, sampleId: string): WaveAudio => ({ sampleId, viewKey: key, audio, pyramid: buildPeakPyramid(audio) })
+    // The pyramid redraws only what the edit changed.
+    const pyramid = () =>
+      source.pyramid ? updatePeakPyramid(source.pyramid, audio, changedFrames(edit, frameCount(source.audio), audio.sampleRate)) : buildPeakPyramid(audio)
+    const working = (key: string, sampleId: string): WaveAudio => ({ sampleId, viewKey: key, audio, pyramid: pyramid() })
 
     if (asCopy) {
       // Added while the editor still shows the original, then opened with its working copy in place: nothing decodes.
@@ -379,13 +439,20 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     editSample: (sampleId, edit, { asCopy }) => editSample(sampleId, edit, asCopy),
 
     connect: () => {
-      syncWithProject()
+      loadPresent()
+      keepAlive()
       void openAudio()
       const unsubscribeProject = useProjectStore.subscribe((state, previous) => {
+        if (state.history === previous.history) return
+        if (state.project.samples !== previous.project.samples) loadPresent()
+        keepAlive()
         if (state.project.samples === previous.project.samples) return
-        syncWithProject()
         follow(previous.project.samples)
         void openAudio()
+      })
+      // A working copy the editor lets go of is kept for a while.
+      const unsubscribeWave = useWaveAudioStore.subscribe((state, previous) => {
+        if (previous.current && previous.current.sampleId !== state.current?.sampleId) copies.put(previous.current)
       })
       const unsubscribeSelection = useSelectionStore.subscribe((state, previous) => {
         if (state.sampleId !== previous.sampleId) void openAudio()
@@ -393,6 +460,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
       return () => {
         unsubscribeProject()
         unsubscribeSelection()
+        unsubscribeWave()
       }
     },
   }

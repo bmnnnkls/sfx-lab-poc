@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type PeakPyramid, type SampleAudio, buildPeakPyramid, columnsFor, waveDrawFor } from '.'
+import { type PeakPyramid, type SampleAudio, type SampleEdit, applySampleEdit, buildPeakPyramid, changedFrames, columnsFor, frameCount, updatePeakPyramid, waveDrawFor } from '.'
 
 const noise = (length: number, seed: number) => {
   let state = seed
@@ -93,5 +93,46 @@ describe('columnsFor', () => {
     expect(Number.isNaN(columns.min[0]![9])).toBe(false)
     expect(Number.isNaN(columns.min[0]![10])).toBe(true)
     expect(Number.isNaN(columns.max[1]![19])).toBe(true)
+  })
+})
+
+describe('updatePeakPyramid', () => {
+  /** A copy of `AUDIO` with frames `from` up to `to` replaced by other noise: an edit that keeps the length. */
+  const changedMiddle = (from: number, to: number): SampleAudio => ({
+    sampleRate: AUDIO.sampleRate,
+    channels: AUDIO.channels.map((channel, index) => {
+      const next = channel.slice()
+      next.set(noise(to - from, 10 + index), from)
+      return next
+    }),
+  })
+
+  const cases: Array<{ name: string; edit: SampleEdit } | { name: string; audio: SampleAudio; changed: { from: number; to: number } }> = [
+    { name: 'a fade at the start', edit: { kind: 'fade-in', seconds: 0.05 } },
+    { name: 'a fade at the end', edit: { kind: 'fade-out', seconds: 0.05 } },
+    { name: 'a change in the middle', audio: changedMiddle(40_001, 52_345), changed: { from: 40_001, to: 52_345 } },
+    { name: 'a delete at the start', edit: { kind: 'delete', range: { from: 0, to: 1000 } } },
+    { name: 'a delete in the middle', edit: { kind: 'delete', range: { from: 33_333, to: 66_000 } } },
+    { name: 'a delete at the end', edit: { kind: 'delete', range: { from: 99_000, to: 100_000 } } },
+    { name: 'a crop', edit: { kind: 'keep', range: { from: 1, to: 70_000 } } },
+    { name: 'a reverse', edit: { kind: 'reverse' } },
+  ]
+
+  it.each(cases)('equals a full build after $name, at every level', (entry) => {
+    const audio = 'edit' in entry ? applySampleEdit(AUDIO, entry.edit) : entry.audio
+    const changed = 'edit' in entry ? changedFrames(entry.edit, frameCount(AUDIO), AUDIO.sampleRate) : entry.changed
+    const updated = updatePeakPyramid(pyramid, audio, changed)
+    const built = buildPeakPyramid(audio)
+    expect(updated.frames).toBe(built.frames)
+    expect(updated.levels.map((level) => level.size)).toEqual(built.levels.map((level) => level.size))
+    updated.levels.forEach((level, index) => {
+      expect(level.min.map((min) => Array.from(min)), `min ${index}`).toEqual(built.levels[index]!.min.map((min) => Array.from(min)))
+      expect(level.max.map((max) => Array.from(max)), `max ${index}`).toEqual(built.levels[index]!.max.map((max) => Array.from(max)))
+    })
+  })
+
+  it('builds anew when the channel count changes', () => {
+    const mono: SampleAudio = { sampleRate: 48000, channels: [AUDIO.channels[0]!] }
+    expect(updatePeakPyramid(pyramid, mono, { from: 0, to: 0 })).toEqual(buildPeakPyramid(mono))
   })
 })

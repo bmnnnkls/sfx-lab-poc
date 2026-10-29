@@ -11,6 +11,9 @@ export type SampleChannel = 0 | 1
 /** How many frames the sample has. */
 export const frameCount = (audio: SampleAudio): number => audio.channels[0]?.length ?? 0
 
+/** How much memory the decoded audio takes: 4 bytes per frame and channel. What the caches' budgets count. */
+export const decodedBytes = (audio: SampleAudio): number => frameCount(audio) * audio.channels.length * 4
+
 /**
  * The sample's mono value at `index`, 0 outside it: the one channel, or the average of two. The same arithmetic as
  * `toMono` (the sum rounded to 32 bits, then halved and rounded), so a stereo file reads what the old mix gave, bit for bit.

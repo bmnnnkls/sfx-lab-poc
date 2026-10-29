@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { type SampleInfo, createAudioClip, createAudioTrack, createEmptyProject, encodeWavChannels, originOf } from '@core'
+import { type SampleInfo, createAudioClip, decodedBytes, createAudioTrack, createEmptyProject, encodeWavChannels, originOf } from '@core'
 import { usePersistenceStore, useProjectStore, useSelectionStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
 import { type SampleStorage, StorageFullError, createMemorySampleEditLog, createMemorySampleStorage, sha256Hex } from '@storage'
-import type { AudioHost } from '@audio'
-import { ROOM_FACTOR } from './sample-budgets'
+import { type AudioHost, decodeAudio } from '@audio'
+import { ENGINE_KEEP_ALIVE_BYTES, ROOM_FACTOR, WORKING_COPY_CACHE_BYTES } from './sample-budgets'
 import { createSampleLibrary } from './sample-library'
 
 /** The browser decodes with Web Audio; here a WAV reader for the two formats these tests write stands in. */
@@ -27,7 +27,7 @@ const readWav = (bytes: Uint8Array) => {
   throw new Error('No data chunk')
 }
 
-vi.mock('@audio', () => ({ decodeAudio: async (bytes: Uint8Array) => readWav(bytes) }))
+vi.mock('@audio', () => ({ decodeAudio: vi.fn(async (bytes: Uint8Array) => readWav(bytes)) }))
 
 const host = { send: vi.fn() } as unknown as AudioHost
 const LEFT = Float32Array.from({ length: 480 }, (_, i) => Math.sin(i / 7) * 0.5 + 1e-7 * i)
@@ -305,5 +305,98 @@ describe('editing a sample in place', () => {
     const bytes = encodeWavChannels([LEFT.slice().reverse(), RIGHT.slice().reverse()], 48000, 32)
     await library.importFiles([new File([bytes as Uint8Array<ArrayBuffer>], 'Again.wav')])
     expect(await edits.list()).toEqual([])
+  })
+})
+
+describe('undo and memory', () => {
+  const removed = () => vi.mocked(host.send).mock.calls.flatMap(([command]) => (command.type === 'sample/remove' ? [command.sampleId] : []))
+  const decodes = () => vi.mocked(decodeAudio).mock.calls.length
+
+  it('keeps 128 MB of decoded audio on each side by default', () => {
+    expect([WORKING_COPY_CACHE_BYTES, ENGINE_KEEP_ALIVE_BYTES]).toEqual([128 * 1024 * 1024, 128 * 1024 * 1024])
+  })
+
+  it('undoes and redoes an edit inside the budgets with no sample/remove and nothing decoded', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    vi.mocked(host.send).mockClear()
+    const before = decodes()
+    for (let round = 0; round < 2; round++) {
+      useProjectStore.getState().undo()
+      await settled()
+      expect(useWaveAudioStore.getState().current?.sampleId).toBe(info.id)
+      useProjectStore.getState().redo()
+      await settled()
+    }
+    expect(removed()).toEqual([])
+    expect(decodes()).toBe(before)
+    expect(vi.mocked(host.send).mock.calls.filter(([command]) => command.type === 'sample/add')).toEqual([])
+    disconnect()
+  })
+
+  it('past the budget lets the first sample to leave go first, and undo decodes it again', async () => {
+    const one = decodedBytes({ sampleRate: 48000, channels: [LEFT, RIGHT] })
+    const { info, library } = await setup({ budgets: { keepAlive: one } })
+    const disconnect = library.connect()
+    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    const reversed = samples()[0]!
+    expect(removed()).toEqual([])
+    await library.editSample(reversed.id, { kind: 'normalize' }, { asCopy: false })
+    expect(removed()).toEqual([info.id])
+
+    const before = decodes()
+    useProjectStore.getState().undo()
+    expect(decodes()).toBe(before)
+    useProjectStore.getState().undo()
+    await vi.waitFor(() => expect(decodes()).toBe(before + 1))
+    disconnect()
+  })
+
+  it('lets go of what only the redo future named once a new step drops it', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    const reversed = samples()[0]!
+    useProjectStore.getState().undo()
+    expect(removed()).toEqual([])
+    useProjectStore.getState().setName('Another step')
+    expect(removed()).toEqual([reversed.id])
+    disconnect()
+  })
+
+  it('undoes removing a sample with nothing decoded', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    await vi.waitFor(() => expect(vi.mocked(host.send).mock.calls.some(([command]) => command.type === 'sample/add')).toBe(true))
+    const before = decodes()
+    useProjectStore.getState().removeSample(info.id)
+    expect(removed()).toEqual([])
+    useProjectStore.getState().undo()
+    await Promise.resolve()
+    expect(decodes()).toBe(before)
+    expect(samples()).toEqual([info])
+    disconnect()
+  })
+
+  it('reopens a sample from the working copies, without decoding', async () => {
+    const storage = createMemorySampleStorage()
+    const first = await stored(storage, [LEFT, RIGHT])
+    const second = await stored(storage, [RIGHT], 'Other')
+    useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [first, second] })
+    const library = createSampleLibrary(storage, host)
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(first.id)
+    await settled()
+    useSelectionStore.getState().selectSample(second.id)
+    await settled()
+    const before = decodes()
+    useSelectionStore.getState().selectSample(first.id)
+    await settled()
+    expect(useWaveAudioStore.getState().current?.sampleId).toBe(first.id)
+    expect(decodes()).toBe(before)
+    disconnect()
   })
 })

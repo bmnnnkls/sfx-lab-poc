@@ -86,6 +86,39 @@ export const buildPeakPyramid = (audio: SampleAudio): PeakPyramid => {
   return { frames: frameCount(audio), levels }
 }
 
+/**
+ * The pyramid of `audio` after an edit, from the one before it (`pyramid`) and the output frames the edit changed
+ * (`changed`, `changedFrames`): at each level, buckets wholly before `changed.from` (and, when the length is the same,
+ * wholly from `changed.to` on) are copied, the rest computed. Equal to `buildPeakPyramid(audio)`, bucket for bucket.
+ */
+export const updatePeakPyramid = (pyramid: PeakPyramid, audio: SampleAudio, changed: { readonly from: number; readonly to: number }): PeakPyramid => {
+  const frames = frameCount(audio)
+  if ((pyramid.levels[0]?.min.length ?? 0) !== audio.channels.length) return buildPeakPyramid(audio)
+  const sameLength = frames === pyramid.frames
+  const levels = emptyLevels(audio)
+  levels.forEach((level, index) => {
+    const count = level.min[0]?.length ?? 0
+    const old = pyramid.levels[index]
+    const oldCount = old && old.size === level.size ? (old.min[0]?.length ?? 0) : 0
+    const before = Math.min(count, oldCount, Math.max(0, Math.floor(changed.from / level.size)))
+    const after = sameLength ? Math.max(before, Math.min(count, Math.ceil(changed.to / level.size))) : count
+    if (old && oldCount > 0) {
+      level.min.forEach((min, channel) => {
+        const max = level.max[channel]!
+        min.set(old.min[channel]!.subarray(0, before), 0)
+        max.set(old.max[channel]!.subarray(0, before), 0)
+        if (after < count) {
+          min.set(old.min[channel]!.subarray(after, count), after)
+          max.set(old.max[channel]!.subarray(after, count), after)
+        }
+      })
+    }
+    if (index === 0) fillBase(audio, level, before, after)
+    else fillFrom(levels[index - 1]!, level, before, after)
+  })
+  return { frames, levels }
+}
+
 /** What the view shows: the first frame at the left edge, how many frames one pixel column covers, and how many columns. */
 export interface WaveView {
   readonly startFrame: number
