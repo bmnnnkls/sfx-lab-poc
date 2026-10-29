@@ -197,12 +197,17 @@ plan.
 
 ## Round 8: group buses
 
-**Planned** 2026-10-28; see the [plan](PLAN-round-8-group-buses.md), signed off as proposed. Its inventory changes the outline
+**Done** 2026-10-29; see the [plan](PLAN-round-8-group-buses.md), signed off as proposed. Its inventory changes the outline
 below: the engine has no folders, so `core` works out each channel's effective mute, solo and output and the engine
 applies the rules to those; every group gets mute and solo, a folder too; the output follows the nesting, so there is
 no output picker; a bus is a new runtime, since returns have no send knobs; a move can now close a loop and is refused;
 a group's controls can be learned and kept in presets but not automated, which waits for round 12's lanes; the format
 stays version 10.
+
+What moved while it ran: a return and a bus share one runtime base (`StereoBus`); the mix order's dependencies are
+worked out once per project; file repairs judge tracks among themselves first, then a bus's pointers with the routing;
+a switched-off bus keeps its controls' mappings, unavailable, for undo; actions gained a tooltip; *Move to group*
+refuses a group the move would make loop, as the drag does. The manual pass, Firefox and Safari were not done.
 
 A group can be switched to **sum to a bus**: its members' output goes into the group instead of the master, and the
 group gets what a track has after its instrument.

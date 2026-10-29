@@ -1,6 +1,6 @@
 # Round 8: group buses
 
-Status: **planned** 2026-10-28, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
+Status: **done** 2026-10-29, decisions signed off as proposed (planned 2026-10-28). Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 8](DRAFT-roadmap.md#round-8-group-buses), from an inventory of how the engine mixes and of everything
 that switches on a control owner, taken on `feat/ui-redesign` at `eaa26c7` (round 7 merged). It builds on
 [round 7's model](PLAN-round-7-track-groups.md#model) and its [§ What this leaves for round
@@ -501,3 +501,23 @@ What turned out different from the design above, step by step.
 * **Step 7: one smoke run had a flake.** The full run at step 7: 166 passed, and `library.smoke.spec.ts`'s isolated
   preview case failed. Repeated alone it failed 2 times in 5 and 1 in 6. It reads the saved project right after
   loading the Starter, sometimes before the autosave has written it (`null`). The spec was left as it is.
+* **Step 8: the profile.** One run each, 10 s after 2 s of warm-up, headless Chromium, 1500 × 1000, the servers outside
+  the sandbox, on a machine with nothing else running. The `groups` setup now makes Group 1 (Lead, expanded) sum to a
+  bus, and the script reports how many bus strips it measured (one). It still runs on round 7, where the menu has no
+  *Sum to a bus*.
+
+  | Per second | Round 7 `editor` | Round 8 `editor` | Round 7 `four` | Round 8 `four` | Round 7 `groups` | Round 8 `groups` (with a bus) |
+  |---|---|---|---|---|---|---|
+  | Component renders (dev) | 145 | 145 | 173 | 173 | 87 | 87 |
+
+  `BusStrip`, `ChannelStrip`, `GroupStrip`, `GroupVolume`, `TracksView`, `GroupCell`, `HiddenTracks` and `SoundingDot`
+  rendered 0 times a second in `groups`: the bus's meter writes to the DOM from its subscription, as every meter does, so
+  no group strip renders on a status update. Script time in the production build was 12.0 ms (`editor`), 15.6 ms
+  (`four`) and 11.1 to 12.1 ms (`groups`, three runs) a second.
+* **Step 8: checks.** `npm test` and `npm run typecheck` passed at every step (2149 unit tests at step 1, 2161 at step 2,
+  2200 at step 3, 2211 at step 4, 2219 from step 5). Full smoke runs: 158 passed at steps 1 to 5, 162 at step 6 and 166
+  at step 7, with the flake above; 167 passed at step 8. `npm run test:audio`: at step 3, 13 passed and 1 flaked under load (see above); at
+  step 6, on a quiet machine, 20 passed, the six new cases included. The manual pass from Verification (three nested
+  buses by ear, every rule by ear, tails, undo through bus changes, a hand-edited looping file) was not done, beyond
+  looking at the mixer with nested buses, a muted folder and a collapsed bus in the dev build. Firefox and Safari were
+  not checked.
