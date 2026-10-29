@@ -435,3 +435,24 @@ describe('options', () => {
     expect(peakOf(withReturn.left)).toBeGreaterThan(peakOf(dry.left) * 1.3) // the send adds the same signal again
   })
 })
+
+describe('renderProject with group buses', () => {
+  it('renders nested buses, the same twice, and as the same mix without them', () => {
+    const { project } = withTone()
+    const graph = noteGraphFrom([{ id: 'i', type: 'groupIn' }, { id: 'o', type: 'trackOut' }], ['i.out>o.in'])
+    const nested: Project = {
+      ...project,
+      tracks: project.tracks.map((track) => ({ ...track, groupId: 'inner' })),
+      groups: [
+        { id: 'outer', name: 'Outer', colour: 'red', bus: { volume: 1, fx: graph, sends: {} } },
+        { id: 'inner', name: 'Inner', colour: 'blue', parentId: 'outer', bus: { volume: 0.5, fx: graph, sends: {} } },
+      ],
+    }
+    const options = { scope: { kind: 'scene' as const, scene: 0 }, maxTail: 0 }
+    const first = renderProject(nested, [], options)
+    expect(identical(first.left, renderProject(nested, [], options).left)).toBe(true)
+    const halved = renderProject({ ...project, tracks: project.tracks.map((track) => ({ ...track, volume: track.volume * 0.5 })) }, [], options)
+    expect(peakOf(first.left)).toBeGreaterThan(0.1)
+    for (let i = 0; i < first.left.length; i += 97) expect(Math.abs(first.left[i]! - halved.left[i]!)).toBeLessThan(1e-6)
+  })
+})

@@ -38,6 +38,8 @@ export type EngineCommand =
       readonly voices: number
       /** Absent means nothing is sent. */
       readonly sends?: SendLevels
+      /** The bus it sums into; absent = the master. */
+      readonly output?: string
     }
   | {
       readonly type: 'track/add'
@@ -51,6 +53,7 @@ export type EngineCommand =
       readonly pan?: number
       readonly muted?: boolean
       readonly soloed?: boolean
+      readonly output?: string
     }
   | {
       readonly type: 'track/add'
@@ -61,8 +64,26 @@ export type EngineCommand =
       readonly pan?: number
       readonly muted?: boolean
       readonly soloed?: boolean
+      readonly output?: string
+    }
+  | {
+      /** A group's bus; `trackId` is the group's id. */
+      readonly type: 'track/add'
+      readonly kind: 'group'
+      readonly trackId: string
+      readonly fx: Patch
+      readonly volume: number
+      readonly pan?: number
+      readonly muted?: boolean
+      readonly soloed?: boolean
+      /** Absent means nothing is sent. */
+      readonly sends?: SendLevels
+      /** The bus it sums into; absent = the master. */
+      readonly output?: string
     }
   | { readonly type: 'track/remove'; readonly trackId: string }
+  /** Where a track or a bus sums into: a bus (a group's id), or null for the master. */
+  | { readonly type: 'track/setOutput'; readonly trackId: string; readonly output: string | null }
   | { readonly type: 'track/setPatch'; readonly trackId: string; readonly patch: Patch }
   | { readonly type: 'track/setFx'; readonly trackId: string; readonly graph: Patch }
   | { readonly type: 'master/setFx'; readonly graph: Patch }

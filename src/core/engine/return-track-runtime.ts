@@ -1,98 +1,16 @@
-import { DEFAULT_TEMPO, STEREO_FRAMES } from '../dsp'
-import { FxGraph } from '../instrument'
-import { type Patch, audioSources, sendTargets } from '../patch'
-import type { SampleLookup } from '../sample'
-import type { LauncherStatus } from '../session'
-import { ChannelStrip } from './channel-strip'
-import type { MixContext, PlayableTrack, PlaybackMode, ScheduledAction } from './playable-track'
-
-const IDLE: LauncherStatus = { playingClipId: null, startBeat: null, queued: null }
+import type { MixContext } from './playable-track'
+import { StereoBus } from './stereo-bus'
 
 /** Live counterpart of a return track: no clips, only the effects it applies to what the other tracks sent it. */
-export class ReturnTrackRuntime implements PlayableTrack {
-  readonly strip: ChannelStrip
-  private fx: FxGraph
-  private targets: string[]
-  private sources: string[]
-  /** Used when nothing was sent (no board slot): the graph then runs on silence and its tail rings out. */
-  private readonly silence = new Float32Array(STEREO_FRAMES)
-  private tempo = DEFAULT_TEMPO
-
-  constructor(
-    private readonly trackId: string,
-    fx: Patch,
-    volume: number,
-    private readonly sampleRate: number,
-    private readonly samples: SampleLookup,
-  ) {
-    this.strip = new ChannelStrip(volume)
-    this.fx = new FxGraph(fx, sampleRate, samples)
-    this.targets = sendTargets(fx)
-    this.sources = audioSources(fx)
-  }
-
-  readouts(): Readonly<Record<string, number>> {
-    return this.fx.readouts()
-  }
-
-  setTempo(bpm: number): void {
-    this.tempo = bpm
-    this.fx.setTempo(bpm)
-  }
-
-  setFx(fx: Patch): void {
-    this.fx = new FxGraph(fx, this.sampleRate, this.samples, this.tempo)
-    this.targets = sendTargets(fx)
-    this.sources = audioSources(fx)
-  }
-
-  clearAutomation(): void { this.fx.clearAutomation() }
-  setAutomationCurve(nodeId: string, paramId: string, values: Float64Array): void { this.fx.setAutomationCurve(nodeId, paramId, values) }
-
-  setParam(nodeId: string, paramId: string, value: number): void {
-    this.fx.setParam(nodeId, paramId, value)
-  }
-
-  setSample(nodeId: string, sampleId: string | null): void {
-    this.fx.setSample(nodeId, sampleId)
-  }
-
+export class ReturnTrackRuntime extends StereoBus {
+  /** A return has no send knobs, only Send nodes. */
   setSends(): void {}
 
-  launchClip(): void {}
-  launchScene(): void {}
-  stopClip(): void {}
-  reset(): void {}
-
-  /** Return tracks have no clips; the arrangement only touches the tracks that do. */
-  setArrangement(_clips: readonly never[]): void {}
-  setMode(_mode: PlaybackMode): void {}
-
-  status(): LauncherStatus {
-    return IDLE
-  }
-
-  schedule(): ScheduledAction[] {
-    return []
-  }
-
-  tapSources(): string[] {
-    return []
-  }
-
-  sendTargets(): string[] {
-    return this.targets
-  }
-
-  audioSources(): string[] {
-    return this.sources
+  protected input(mix: MixContext): Float32Array | undefined {
+    return mix.sends.read(this.trackId)
   }
 
   mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, mix: MixContext): void {
-    const input = mix.sends.read(this.trackId) ?? this.silence
-    mix.taps.write(this.trackId, 0, input, frames)
-    const signal = this.fx.process(input, frames, { sends: this.strip.sendsTo(mix.sends), taps: mix.taps })
-    mix.taps.write(this.trackId, 1, signal, frames)
-    this.strip.mixInto(left, right, offset, frames, signal)
+    this.strip.mixInto(left, right, offset, frames, this.process(frames, mix))
   }
 }
