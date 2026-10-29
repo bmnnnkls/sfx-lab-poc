@@ -1,6 +1,7 @@
 import { frameCount } from './channels'
+import { type AudioCopy, type JoinFade, silenceCopy, spliceAudio } from './crossfade'
 import { type CrossfadeCurve, type FadeCurve, fadeShape } from './fade-curves'
-import { type FrameMap, type FrameRange, type SampleRemap, identityMap, mirrorMap, spliceMap } from './remap'
+import { type FrameMap, type FrameRange, type SampleRemap, cropMap, identityMap, mirrorMap, spliceMap } from './remap'
 import type { SampleAudio } from './types'
 import type { WavBitDepth } from './wav'
 
@@ -38,7 +39,10 @@ export type SampleEdit =
   | ({ readonly kind: 'reverse' } & Ranged)
   | ({ readonly kind: 'silence'; readonly ramp: EdgeRamp } & Ranged)
   | ({ readonly kind: 'dc-offset'; readonly ramp: EdgeRamp } & Ranged)
-  | { readonly kind: 'delete'; readonly range: FrameRange }
+  | { readonly kind: 'delete'; readonly range: FrameRange; readonly crossfade: JoinFade }
+  | { readonly kind: 'crop'; readonly range: FrameRange }
+  | { readonly kind: 'insert'; readonly at: number; readonly insert: AudioCopy; readonly crossfade: JoinFade }
+  | { readonly kind: 'replace'; readonly range: FrameRange; readonly insert: AudioCopy; readonly crossfade: JoinFade }
 
 export type SampleEditKind = SampleEdit['kind']
 type EditOf<K extends SampleEditKind> = Extract<SampleEdit, { kind: K }>
@@ -180,19 +184,6 @@ const fade = (audio: SampleAudio, edit: EditOf<'fade'>): SampleAudio => {
 const reverse = (audio: SampleAudio, edit: EditOf<'reverse'>): SampleAudio =>
   processRange(audio, edit, (data, from, to) => data.subarray(from, to).reverse())
 
-const remove = (audio: SampleAudio, edit: EditOf<'delete'>): SampleAudio => {
-  const { from, to } = clampTo(frameCount(audio), edit.range)
-  return {
-    sampleRate: audio.sampleRate,
-    channels: audio.channels.map((channel) => {
-      const next = new Float32Array(channel.length - (to - from))
-      next.set(channel.subarray(0, from), 0)
-      next.set(channel.subarray(to), from)
-      return next
-    }),
-  }
-}
-
 /** A selection in the editor: frames `from` up to `to`, on some channels. */
 export interface EditSelection extends FrameRange {
   readonly channels: EditChannels
@@ -209,6 +200,10 @@ export interface SampleEditContext {
   readonly fadeCurve: FadeCurve
   /** The values of the entry's `settings`, by id (a popover's last values); missing ones take the default. */
   readonly settings?: Readonly<Record<string, number>>
+  /** Where an insert goes without a selection. */
+  readonly cursor?: number
+  /** What *Paste* inserts. */
+  readonly clipboard?: AudioCopy | null
 }
 
 /** A numeric field of an edit's settings popover, or a toggle (1 on, 0 off). */
@@ -255,6 +250,8 @@ export interface SampleEditEntry<E extends SampleEdit = SampleEdit> {
   /** `both` for edits that change the length: a one-channel selection can't run them. */
   readonly channels: 'any' | 'both'
   readonly needsSelection: boolean
+  /** It inserts what was copied (`SampleEditContext.clipboard`), so it can't run with nothing copied. */
+  readonly needsClipboard?: boolean
   /** The edit to apply, or null when it can't run (no selection). */
   readonly create: (context: SampleEditContext, variant?: string) => E | null
   readonly apply: (audio: SampleAudio, edit: E) => SampleAudio
@@ -284,12 +281,20 @@ const setting = (context: SampleEditContext, entry: { settings: readonly EditSet
   return Math.min(field.max ?? value, Math.max(field.min ?? value, value))
 }
 
+const joinOf = (context: SampleEditContext): JoinFade => rampOf(context)
+
 const keep = (): SampleEditAfter => 'keep'
+const insertedFrames = (insert: AudioCopy) => frameCount(insert.audio)
+/** A join's crossfade reaches this far before it, so the output differs from there on. */
+const changedFrom = (at: number, fade: JoinFade) => Math.max(0, at - Math.ceil(fade.frames / 2))
 const rangeChanged = (edit: { readonly range: FrameRange }, frames: number) => clampTo(frames, edit.range)
 const hasSelection = (context: SampleEditContext) => !!context.selection && context.selection.to > context.selection.from
 
 const GAIN_SETTINGS: readonly EditSetting[] = [
   { id: 'db', label: 'Gain', kind: 'number', unit: 'dB', min: GAIN_RANGE_DB.min, max: GAIN_RANGE_DB.max, step: 0.1, default: -3 },
+]
+const INSERT_SETTINGS: readonly EditSetting[] = [
+  { id: 'seconds', label: 'Length', kind: 'number', unit: 's', min: 0.001, max: 10, step: 0.001, default: 1 },
 ]
 const NORMALIZE_SETTINGS: readonly EditSetting[] = [
   { id: 'peakDb', label: 'Peak', kind: 'number', unit: 'dBFS', min: -60, max: 0, step: 0.1, default: NORMALIZE_DEFAULT_DB },
@@ -389,23 +394,104 @@ export const SAMPLE_EDITS: { readonly [K in SampleEditKind]: SampleEditEntry<Edi
   delete: {
     kind: 'delete',
     title: 'Delete',
-    tooltip: 'Remove the selection and join the parts around it',
+    tooltip: 'Remove the selection and join the parts around it, with a crossfade',
     suffix: 'edited',
     group: 'structure',
     settings: [],
     channels: 'both',
     needsSelection: true,
-    create: (context) => (hasSelection(context) ? { kind: 'delete', range: targetOf(context).range } : null),
-    apply: remove,
+    create: (context) => (hasSelection(context) ? { kind: 'delete', range: targetOf(context).range, crossfade: joinOf(context) } : null),
+    apply: (audio, edit) => spliceAudio(audio, edit.range, null, edit.crossfade),
     remap: (edit, frames) => {
       const { from, to } = clampTo(frames, edit.range)
       return spliceMap(from, to, 0)
     },
     changed: (edit, frames) => {
       const { from, to } = clampTo(frames, edit.range)
-      return { from, to: frames - (to - from) }
+      return { from: changedFrom(from, edit.crossfade), to: frames - (to - from) }
     },
     after: (edit, frames) => ({ selection: null, cursor: clampTo(frames, edit.range).from }),
+  },
+  crop: {
+    kind: 'crop',
+    title: 'Crop',
+    tooltip: 'Keep only the selection',
+    suffix: 'cropped',
+    group: 'structure',
+    settings: [],
+    channels: 'both',
+    needsSelection: true,
+    create: (context) => (hasSelection(context) ? { kind: 'crop', range: targetOf(context).range } : null),
+    // Nothing is joined, so nothing crossfades.
+    apply: (audio, edit) => {
+      const { from, to } = clampTo(frameCount(audio), edit.range)
+      return { sampleRate: audio.sampleRate, channels: audio.channels.map((channel) => channel.slice(from, to)) }
+    },
+    remap: (edit, frames) => {
+      const { from, to } = clampTo(frames, edit.range)
+      return cropMap(from, to)
+    },
+    changed: (edit, frames) => {
+      const { from, to } = clampTo(frames, edit.range)
+      return { from: 0, to: to - from }
+    },
+    after: () => ({ selection: null, cursor: 0 }),
+  },
+  insert: {
+    kind: 'insert',
+    title: 'Insert silence…',
+    tooltip: 'Insert silence at the cursor; the audio around it fades into and out of it',
+    suffix: 'silence inserted',
+    group: 'structure',
+    settings: INSERT_SETTINGS,
+    channels: 'both',
+    needsSelection: false,
+    create: (context) => {
+      const seconds = setting(context, { settings: INSERT_SETTINGS }, 'seconds')
+      const at = Math.max(0, Math.min(context.frames, Math.round(context.cursor ?? 0)))
+      return { kind: 'insert', at, insert: silenceCopy(seconds * context.sampleRate, context.sampleRate, context.channelCount), crossfade: joinOf(context) }
+    },
+    apply: (audio, edit) => spliceAudio(audio, { from: edit.at, to: edit.at }, edit.insert, edit.crossfade),
+    remap: (edit, frames) => {
+      const at = Math.max(0, Math.min(frames, edit.at))
+      return spliceMap(at, at, insertedFrames(edit.insert))
+    },
+    changed: (edit, frames) => ({ from: changedFrom(Math.min(frames, edit.at), edit.crossfade), to: frames + insertedFrames(edit.insert) }),
+    after: (edit, frames) => {
+      const at = Math.max(0, Math.min(frames, edit.at))
+      return { selection: { from: at, to: at + insertedFrames(edit.insert) }, cursor: at }
+    },
+  },
+  replace: {
+    kind: 'replace',
+    title: 'Paste',
+    tooltip: 'Paste the copied audio over the selection, or at the cursor, with a crossfade at each join',
+    suffix: 'pasted',
+    group: 'clipboard',
+    settings: [],
+    channels: 'both',
+    needsSelection: false,
+    needsClipboard: true,
+    // Over the selection; without one, at the cursor (an empty range: an insert).
+    create: (context) => {
+      if (!context.clipboard || insertedFrames(context.clipboard) === 0) return null
+      const cursor = Math.max(0, Math.min(context.frames, Math.round(context.cursor ?? 0)))
+      const range = hasSelection(context) ? targetOf(context).range : { from: cursor, to: cursor }
+      return { kind: 'replace', range, insert: context.clipboard, crossfade: joinOf(context) }
+    },
+    apply: (audio, edit) => spliceAudio(audio, edit.range, edit.insert, edit.crossfade),
+    remap: (edit, frames) => {
+      const { from, to } = clampTo(frames, edit.range)
+      return spliceMap(from, to, insertedFrames(edit.insert))
+    },
+    changed: (edit, frames) => {
+      const { from, to } = clampTo(frames, edit.range)
+      return { from: changedFrom(from, edit.crossfade), to: frames - (to - from) + insertedFrames(edit.insert) }
+    },
+    after: (edit, frames) => {
+      const { from } = clampTo(frames, edit.range)
+      return { selection: { from, to: from + insertedFrames(edit.insert) }, cursor: from }
+    },
   },
 }
 

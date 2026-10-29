@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { type SampleEdit, type SampleInfo, createAudioClip, decodedBytes, createAudioTrack, createEmptyProject, encodeWavChannels, originOf } from '@core'
-import { usePersistenceStore, useProjectStore, useSelectionStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
+import { audioClipboard, copyWaveSelection, usePersistenceStore, useProjectStore, useSelectionStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
 import { type SampleStorage, StorageFullError, createMemorySampleEditLog, createMemorySampleStorage, sha256Hex } from '@storage'
 import { type AudioHost, decodeAudio } from '@audio'
 import { ENGINE_KEEP_ALIVE_BYTES, ROOM_FACTOR, WORKING_COPY_CACHE_BYTES } from './sample-budgets'
@@ -88,7 +88,7 @@ describe('editing a sample as a copy', () => {
 
   it('is undone like any project edit, leaving the original as it was', async () => {
     const { info, library } = await setup()
-    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 480 } }, { asCopy: true })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 480 }, crossfade: { frames: 0, curve: 'linear' } }, { asCopy: true })
     expect(useProjectStore.getState().project.samples.map((sample) => sample.durationSeconds)).toEqual([0.01, 100 / 48000])
     useProjectStore.getState().undo()
     expect(useProjectStore.getState().project.samples).toEqual([info])
@@ -96,7 +96,7 @@ describe('editing a sample as a copy', () => {
 
   it('refuses an edit that leaves nothing, and gives the same copy for the same edit', async () => {
     const { info, library } = await setup()
-    await library.editSample(info.id, { kind: 'delete', range: { from: 0, to: 480 } }, { asCopy: true })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 0, to: 480 }, crossfade: { frames: 0, curve: 'linear' } }, { asCopy: true })
     expect(useProjectStore.getState().project.samples).toHaveLength(1)
     await library.editSample(info.id, NORMALIZE, { asCopy: true })
     await library.editSample(info.id, NORMALIZE, { asCopy: true })
@@ -204,7 +204,7 @@ describe('editing a sample in place', () => {
     useSelectionStore.getState().selectSample(info.id)
     await settled()
     useWaveEditorStore.getState().select(originOf(info), { from: 100, to: 300, channels: 'both' })
-    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 300 } }, { asCopy: false })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 300 }, crossfade: { frames: 0, curve: 'linear' } }, { asCopy: false })
     expect(waveViewOf(useWaveEditorStore.getState().views, originOf(info))).toMatchObject({ selection: null, cursor: 100 })
     useWaveEditorStore.getState().select(originOf(info), { from: 200, to: 280, channels: 'both' })
     useProjectStore.getState().undo()
@@ -400,6 +400,44 @@ describe('undo and memory', () => {
     await settled()
     expect(useWaveAudioStore.getState().current?.sampleId).toBe(first.id)
     expect(decodes()).toBe(before)
+    disconnect()
+  })
+})
+
+describe('the audio clipboard', () => {
+  it('copies one channel of a stereo selection alone, with handles', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    copyWaveSelection(useWaveAudioStore.getState().current!, { from: 100, to: 200, channels: 'right' })
+    const copy = audioClipboard.get()!
+    expect(copy.audio.channels.map((channel) => Array.from(channel))).toEqual([Array.from(RIGHT.subarray(100, 200))])
+    expect(copy.handles.before.channels[0]).toHaveLength(100)
+    disconnect()
+  })
+
+  it('cuts as a copy and one undo step, and pastes back at the cursor to the same length', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    const butt = { frames: 0, curve: 'linear' } as const
+    const past = useProjectStore.getState().history.past.length
+    copyWaveSelection(useWaveAudioStore.getState().current!, { from: 100, to: 200, channels: 'both' })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 200 }, crossfade: butt }, { asCopy: false })
+    expect(useProjectStore.getState().history.past.length).toBe(past + 1)
+    expect(samples()[0]!.durationSeconds).toBeCloseTo(380 / 48000, 12)
+
+    const cut = samples()[0]!
+    await library.editSample(cut.id, { kind: 'replace', range: { from: 100, to: 100 }, insert: audioClipboard.get()!, crossfade: butt }, { asCopy: false })
+    // Pasted back where it was cut with butt splices: the original file, so the original entry.
+    expect(samples()[0]!.id).toBe(info.id)
+    expect(waveViewOf(useWaveEditorStore.getState().views, originOf(info)).selection).toMatchObject({ from: 100, to: 200 })
+    useProjectStore.getState().undo()
+    useProjectStore.getState().undo()
+    expect(samples()).toEqual([info])
+    expect(audioClipboard.get()).not.toBeNull()
     disconnect()
   })
 })

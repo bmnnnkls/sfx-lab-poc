@@ -17,11 +17,22 @@
   min-width: 0;
 }
 
-/* A run of related buttons that wraps as one. */
+/* The edits: a line of their own under the editor's buttons, scrolling sideways where it doesn't fit. */
+.editRow {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* A run of related buttons. */
 .toolGroup {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  flex-wrap: wrap;
   gap: 4px;
 }
 

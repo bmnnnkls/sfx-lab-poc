@@ -82,7 +82,7 @@ const everyPlace = (): Project => {
   }
 }
 
-const DELETE: SampleEdit = { kind: 'delete', range: { from: 400, to: 600 } }
+const DELETE: SampleEdit = { kind: 'delete', range: { from: 400, to: 600 }, crossfade: { frames: 0, curve: 'linear' } }
 const remapOf = (edit: SampleEdit, toFrames: number) => sampleRemap(edit, 1000, toFrames)
 
 describe('SAMPLE_USES', () => {
@@ -157,6 +157,38 @@ describe('replaceSample', () => {
     expect(result.end).toBeCloseTo(expected[1]!, 12)
     // Length, gain and fades stay.
     expect(result).toMatchObject({ lengthBeats: audio.clips[0]!.lengthBeats, gain: 1, fadeIn: audio.clips[0]!.fadeIn })
+  })
+
+  const silence = (frames: number) => ({
+    audio: { sampleRate: 1000, channels: [new Float32Array(frames)] },
+    handles: { before: { sampleRate: 1000, channels: [new Float32Array(0)] }, after: { sampleRate: 1000, channels: [new Float32Array(0)] } },
+  })
+  const BUTT = { frames: 0, curve: 'linear' } as const
+  it.each([
+    { name: 'a crop', edit: { kind: 'crop', range: { from: 200, to: 600 } }, frames: 400, trim: [0, 100], markers: [450 - 200], regions: [[100, 400], [220, 280]] },
+    {
+      name: 'an insert',
+      edit: { kind: 'insert', at: 400, insert: silence(100), crossfade: BUTT },
+      frames: 1100,
+      trim: [100, 300],
+      markers: [100, 550, 900],
+      regions: [[300, 800], [520, 580]],
+    },
+    {
+      name: 'a paste over a range',
+      edit: { kind: 'replace', range: { from: 400, to: 600 }, insert: silence(50), crossfade: BUTT },
+      frames: 850,
+      trim: [100, 300],
+      markers: [100, 650],
+      regions: [[300, 550]],
+    },
+  ] as const)('remaps trims, markers and regions through $name', ({ edit, frames, trim, markers, regions }) => {
+    const { project } = replaceSample(everyPlace(), OLD.id, NEW, sampleRemap(edit as SampleEdit, 1000, frames))
+    const audio = project.tracks.find((track) => track.name === 'Audio') as AudioTrack
+    expect(audio.clips[0]!.start).toBeCloseTo(trim[0] / frames, 12)
+    expect(audio.clips[0]!.end).toBeCloseTo(trim[1] / frames, 12)
+    expect(project.samples[1]!.markers!.map((marker) => marker.frame)).toEqual(markers)
+    expect(project.samples[1]!.regions!.map((region) => [region.from, region.to])).toEqual(regions)
   })
 
   it('keeps the smallest trim where an emptied one started, and counts it', () => {

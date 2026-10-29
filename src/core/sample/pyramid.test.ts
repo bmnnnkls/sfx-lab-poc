@@ -111,9 +111,9 @@ describe('updatePeakPyramid', () => {
     { name: 'a fade at the start', edit: { kind: 'fade', range: { from: 0, to: 2400 }, channels: 'both', direction: 'in', curve: 'linear' } },
     { name: 'a fade at the end', edit: { kind: 'fade', range: { from: 97_600, to: 100_000 }, channels: 'both', direction: 'out', curve: 'linear' } },
     { name: 'a change in the middle', audio: changedMiddle(40_001, 52_345), changed: { from: 40_001, to: 52_345 } },
-    { name: 'a delete at the start', edit: { kind: 'delete', range: { from: 0, to: 1000 } } },
-    { name: 'a delete in the middle', edit: { kind: 'delete', range: { from: 33_333, to: 66_000 } } },
-    { name: 'a delete at the end', edit: { kind: 'delete', range: { from: 99_000, to: 100_000 } } },
+    { name: 'a delete at the start', edit: { kind: 'delete', range: { from: 0, to: 1000 }, crossfade: { frames: 0, curve: 'linear' } } },
+    { name: 'a delete in the middle', edit: { kind: 'delete', range: { from: 33_333, to: 66_000 }, crossfade: { frames: 0, curve: 'linear' } } },
+    { name: 'a delete at the end', edit: { kind: 'delete', range: { from: 99_000, to: 100_000 }, crossfade: { frames: 0, curve: 'linear' } } },
     { name: 'a reverse', edit: { kind: 'reverse', range: { from: 0, to: 100_000 }, channels: 'both' } },
     { name: 'gain on one channel', edit: { kind: 'gain', range: { from: 10_000, to: 20_000 }, channels: 'right', db: -6, ramp: { frames: 240, curve: 'linear' } } },
   ]

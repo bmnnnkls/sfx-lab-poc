@@ -273,3 +273,45 @@ test('Gain on the left channel of a selection changes only the left lane, and un
   await expect.poll(async () => (await left.screenshot()).equals(before.left)).toBe(true)
   expect((await right.screenshot()).equals(before.right)).toBe(true)
 })
+
+test('a cut part pastes at the cursor; the length and the status line agree, and two undos bring the sample back', async ({ page }) => {
+  await page.goto('/?starter')
+  const samples = await openView(page, 'Samples')
+  await samples.getByTestId('sample-input').setInputFiles({ name: 'Stereo.wav', mimeType: 'audio/wav', buffer: stereoWav() })
+  const row = samples.getByRole('listitem').filter({ hasText: 'Stereo' })
+  await expect(row.locator('[data-status="ready"]')).toHaveCount(1)
+  await row.getByRole('button', { name: '✎', exact: true }).click()
+  const wave = viewRoot(page, 'Wave editor')
+  const detail = wave.getByTestId('wave-detail')
+  const status = wave.getByTestId('wave-status')
+  await expect(wave.getByRole('img', { name: 'Left', exact: true })).toBeVisible()
+  const duration = async () =>
+    page.evaluate(() => (JSON.parse(localStorage.getItem('sfxlab:project') ?? '{"project":{"samples":[]}}') as { project: { samples: Array<{ name: string; durationSeconds: number }> } }).project.samples.find((sample) => sample.name === 'Stereo')?.durationSeconds)
+  await expect.poll(duration).toBe(4)
+  const paste = wave.getByRole('button', { name: 'Paste', exact: true })
+  await expect(paste).toBeDisabled()
+
+  await dragAcross(page, detail, 0.2, 0.4)
+  const cut = await selectionOf(wave)
+  const length = cut.to - cut.from
+  await wave.getByRole('button', { name: 'Cut', exact: true }).click()
+  // The cursor sits at the join; the sample is shorter by the cut.
+  await expect(status).toHaveText(new RegExp(`^Cursor 0:0${Math.floor(cut.from)}\\.`))
+  await expect.poll(duration).toBeCloseTo(4 - length, 2)
+
+  // A click puts the cursor near the end; Paste inserts the cut there and selects it.
+  const box = (await detail.boundingBox())!
+  await page.mouse.click(box.x + box.width * 0.8, box.y + box.height / 2)
+  await expect(status).toContainText('Cursor')
+  await expect(paste).toBeEnabled()
+  await paste.click()
+  await expect(status).toContainText('Selection')
+  const pasted = await selectionOf(wave)
+  expect(pasted.to - pasted.from).toBeCloseTo(length, 2)
+  await expect.poll(duration).toBeCloseTo(4, 3)
+
+  await page.getByRole('button', { name: 'Undo', exact: true }).first().click()
+  await expect.poll(duration).toBeCloseTo(4 - length, 2)
+  await page.getByRole('button', { name: 'Undo', exact: true }).first().click()
+  await expect.poll(duration).toBe(4)
+})

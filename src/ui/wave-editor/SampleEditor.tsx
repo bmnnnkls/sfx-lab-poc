@@ -76,7 +76,6 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
         <button aria-pressed={loop} onClick={() => setLoop(!loop)} title="Loop the preview">
           Loop
         </button>
-        <EditToolbar sample={sample} wave={wave} selection={selection} />
         <button onClick={() => zoom(selection)} disabled={!wave || !selection} title="Zoom to the selection">
           Zoom to selection
         </button>
@@ -98,6 +97,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
         <button onClick={onClose} title="Close this sample">
           Close
         </button>
+        <EditToolbar sample={sample} wave={wave} selection={selection} cursor={cursor} />
       </div>
       {wave ? (
         <>

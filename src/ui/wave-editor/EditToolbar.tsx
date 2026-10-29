@@ -15,7 +15,7 @@ import {
   isFadeCurve,
   savedFrameCount,
 } from '@core'
-import { type WaveAudio, type WaveSelection, useSampleLibrary, useWaveAudioStore } from '@state'
+import { type WaveAudio, type WaveSelection, audioClipboard, copyWaveSelection, useClipboard, useSampleLibrary, useWaveAudioStore } from '@state'
 import { useState } from 'react'
 import { useStoredState } from '../shared/use-stored-state'
 import { EditSettings } from './EditSettings'
@@ -29,18 +29,26 @@ const isSettings = (value: unknown): value is Record<string, Record<string, numb
 
 const CROSSFADE_TITLES = Object.fromEntries(FADE_CURVES.map((entry) => [entry.curve, entry.title]))
 const ENTRIES = Object.values(SAMPLE_EDITS) as readonly SampleEditEntry[]
-const GROUPS: ReadonlyArray<{ label: string; groups: ReadonlyArray<SampleEditEntry['group']> }> = [
-  { label: 'Edit', groups: ['clipboard', 'structure'] },
-  { label: 'Process', groups: ['process'] },
-]
+const inGroup = (group: SampleEditEntry['group']) => ENTRIES.filter((entry) => entry.group === group)
 
 /**
  * The editor's edits, built from `SAMPLE_EDITS` by group: the structure and clipboard edits, then the processes (with
  * the fade curve beside the fades), the crossfade every join and edge ramp takes, and *Edits make copies*. A button that
  * can't run is disabled, with a tooltip that says why. Each runs through `SampleLibrary.editSample`.
  */
-export const EditToolbar = ({ sample, wave, selection }: { sample: SampleInfo; wave: WaveAudio | null; selection: WaveSelection | null }) => {
+export const EditToolbar = ({
+  sample,
+  wave,
+  selection,
+  cursor,
+}: {
+  sample: SampleInfo
+  wave: WaveAudio | null
+  selection: WaveSelection | null
+  cursor: number
+}) => {
   const library = useSampleLibrary()
+  const clipboard = useClipboard(audioClipboard)
   const busy = useWaveAudioStore((state) => state.editing !== null)
   const [copies, setCopies] = useStoredState('sfxlab:wave-edit-copies', false, isBoolean)
   const [crossfade, setCrossfade] = useStoredState('sfxlab:wave-crossfade', DEFAULT_CROSSFADE, isCrossfade)
@@ -57,6 +65,8 @@ export const EditToolbar = ({ sample, wave, selection }: { sample: SampleInfo; w
     crossfade,
     fadeCurve,
     settings: values,
+    cursor,
+    clipboard,
   })
   const run = (entry: SampleEditEntry, variant?: string, values?: Readonly<Record<string, number>>) => {
     const edit = entry.create(context(values), variant)
@@ -68,6 +78,7 @@ export const EditToolbar = ({ sample, wave, selection }: { sample: SampleInfo; w
     if (busy) return 'An edit is running'
     if (!wave) return 'The audio is not loaded'
     if (entry.needsSelection && !selection) return 'Select a part first'
+    if (entry.needsClipboard && !clipboard) return 'Copy some audio first'
     if (entry.channels === 'both' && channelCount > 1 && selection && selection.channels !== 'both') {
       return `Select both channels to ${entry.title.replace('…', '').toLowerCase()}`
     }
@@ -92,55 +103,85 @@ export const EditToolbar = ({ sample, wave, selection }: { sample: SampleInfo; w
 
   const askingEntry = asking ? ENTRIES.find((entry) => entry.kind === asking) : undefined
 
+  // Copy isn't an edit: it fills the clipboard. Cut is Copy, then the delete (one undo step).
+  const remove = SAMPLE_EDITS.delete as unknown as SampleEditEntry
+  const copyBlocked = !wave ? 'The audio is not loaded' : !selection ? 'Select a part first' : null
+  const cutBlocked = copyBlocked ?? blocked(remove)
+  const group = (entries: readonly SampleEditEntry[]) =>
+    entries.map((entry) => (
+      <span key={entry.kind} className={styles.toolGroup}>
+        {buttons(entry)}
+        {entry.takesFadeCurve && (
+          <select aria-label="Fade curve" value={fadeCurve} onChange={(event) => isFadeCurve(event.target.value) && setFadeCurve(event.target.value)} title="The shape of Fade in and Fade out">
+            {FADE_CURVES.map((curve) => (
+              <option key={curve.curve} value={curve.curve}>
+                {curve.title}
+              </option>
+            ))}
+          </select>
+        )}
+      </span>
+    ))
+
   return (
     <>
-      {GROUPS.map(({ label, groups }) => (
-        <span key={label} className={styles.toolGroup} role="group" aria-label={label}>
-          {ENTRIES.filter((entry) => groups.includes(entry.group)).map((entry) => (
-            <span key={entry.kind} className={styles.toolGroup}>
-              {buttons(entry)}
-              {entry.takesFadeCurve && (
-                <select aria-label="Fade curve" value={fadeCurve} onChange={(event) => isFadeCurve(event.target.value) && setFadeCurve(event.target.value)} title="The shape of Fade in and Fade out">
-                  {FADE_CURVES.map((curve) => (
-                    <option key={curve.curve} value={curve.curve}>
-                      {curve.title}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </span>
-          ))}
+      {/* One line of its own, under the editor's buttons; it scrolls sideways where it doesn't fit. */}
+      <div className={styles.editRow} data-scroll>
+        <span className={styles.toolGroup} role="group" aria-label="Edit">
+          <button
+            onClick={() => {
+              if (!wave || !selection) return
+              copyWaveSelection(wave, selection)
+              run(remove)
+            }}
+            disabled={cutBlocked !== null}
+            title={cutBlocked ? `Copy the selection, then delete it (${cutBlocked.replace('delete', 'cut').toLowerCase()})` : 'Copy the selection, then delete it'}
+          >
+            Cut
+          </button>
+          <button
+            onClick={() => wave && selection && copyWaveSelection(wave, selection)}
+            disabled={copyBlocked !== null}
+            title={copyBlocked ? `Copy the selection (${copyBlocked.toLowerCase()})` : 'Copy the selection, with a little of the audio around it for crossfades'}
+          >
+            Copy
+          </button>
+          {group(inGroup('clipboard'))}
+          {group(inGroup('structure'))}
         </span>
-      ))}
-      <span className={styles.toolGroup} role="group" aria-label="Crossfade" title="Every join, and the edges of Gain, Silence and Remove DC offset, crossfade over this long">
-        <label className={styles.settingField}>
-          Crossfade
-          <input
-            type="number"
-            aria-label="Crossfade length"
-            min={0}
-            max={MAX_CROSSFADE_SECONDS * 1000}
-            step={1}
-            value={Math.round(crossfade.seconds * 1000 * 10) / 10}
-            onChange={(event) => setCrossfade({ ...crossfade, seconds: clampCrossfadeSeconds(event.target.valueAsNumber / 1000) })}
-          />
-          <span>ms</span>
-        </label>
-        <select aria-label="Crossfade curve" value={crossfade.curve} onChange={(event) => isCrossfadeCurve(event.target.value) && setCrossfade({ ...crossfade, curve: event.target.value })}>
-          {CROSSFADE_CURVES.map((curve) => (
-            <option key={curve} value={curve}>
-              {CROSSFADE_TITLES[curve]}
-            </option>
-          ))}
-        </select>
-      </span>
-      <button
-        aria-pressed={copies}
-        onClick={() => setCopies(!copies)}
-        title={copies ? 'Each edit adds a new sample and leaves this one as it is' : 'Edits change this sample everywhere it is used; turn on to make a new sample instead'}
-      >
-        Edits make copies
-      </button>
+        <span className={styles.toolGroup} role="group" aria-label="Process">
+          {group(inGroup('process'))}
+        </span>
+        <span className={styles.toolGroup} role="group" aria-label="Crossfade" title="Every join, and the edges of Gain, Silence and Remove DC offset, crossfade over this long">
+          <label className={styles.settingField}>
+            Crossfade
+            <input
+              type="number"
+              aria-label="Crossfade length"
+              min={0}
+              max={MAX_CROSSFADE_SECONDS * 1000}
+              step={1}
+              value={Math.round(crossfade.seconds * 1000 * 10) / 10}
+              onChange={(event) => setCrossfade({ ...crossfade, seconds: clampCrossfadeSeconds(event.target.valueAsNumber / 1000) })}
+            />
+            <span>ms</span>
+          </label>
+          <select aria-label="Crossfade curve" value={crossfade.curve} onChange={(event) => isCrossfadeCurve(event.target.value) && setCrossfade({ ...crossfade, curve: event.target.value })}>
+            {CROSSFADE_CURVES.map((curve) => (
+              <option key={curve} value={curve}>
+                {CROSSFADE_TITLES[curve]}
+              </option>
+            ))}
+          </select>
+        </span>
+        <button
+          aria-pressed={copies}
+          onClick={() => setCopies(!copies)}
+          title={copies ? 'Each edit adds a new sample and leaves this one as it is' : 'Edits change this sample everywhere it is used; turn on to make a new sample instead'}
+        >
+          Edits make copies
+        </button>
+      </div>
       {askingEntry && (
         <EditSettings
           entry={askingEntry}

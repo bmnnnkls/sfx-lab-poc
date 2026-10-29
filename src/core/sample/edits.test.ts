@@ -151,8 +151,8 @@ describe('the processes', () => {
   })
 
   it('deletes a range and joins the parts around it, on every channel', () => {
-    expect(values(applySampleEdit(audio(LEFT, RIGHT), { kind: 'delete', range: { from: 1, to: 4 } }))).toEqual([[0, 4, 5, 6, 7], [0, -4, -5, -6, -7]])
-    expect(values(applySampleEdit(audio(LEFT), { kind: 'delete', range: { from: 0, to: 8 } }))).toEqual([[]])
+    expect(values(applySampleEdit(audio(LEFT, RIGHT), { kind: 'delete', range: { from: 1, to: 4 }, crossfade: { frames: 0, curve: 'linear' } }))).toEqual([[0, 4, 5, 6, 7], [0, -4, -5, -6, -7]])
+    expect(values(applySampleEdit(audio(LEFT), { kind: 'delete', range: { from: 0, to: 8 }, crossfade: { frames: 0, curve: 'linear' } }))).toEqual([[]])
   })
 
   it('leaves its input alone and keeps the sample rate', () => {
@@ -176,8 +176,8 @@ describe('remap and changed', () => {
     // Reverse mirrors positions inside its range when every channel turns; on one channel, positions stay.
     { edit: { kind: 'reverse', range, channels: 'both' }, frame: [30, 50], moved: [{ from: 25, to: 30 }, { from: 50, to: 55 }], changed: range },
     { edit: { kind: 'reverse', range, channels: 'right' }, frame: [30, 30], moved: [{ from: 25, to: 30 }, { from: 25, to: 30 }], changed: range },
-    { edit: { kind: 'delete', range }, frame: [70, 30], moved: [{ from: 10, to: 70 }, { from: 10, to: 30 }], changed: { from: 20, to: 60 } },
-    { edit: { kind: 'delete', range }, frame: [30, null], moved: [{ from: 30, to: 50 }, null], changed: { from: 20, to: 60 } },
+    { edit: { kind: 'delete', range, crossfade: { frames: 0, curve: 'linear' } }, frame: [70, 30], moved: [{ from: 10, to: 70 }, { from: 10, to: 30 }], changed: { from: 20, to: 60 } },
+    { edit: { kind: 'delete', range, crossfade: { frames: 0, curve: 'linear' } }, frame: [30, null], moved: [{ from: 30, to: 50 }, null], changed: { from: 20, to: 60 } },
   ] as const)('$edit.kind ($edit.range.from–$edit.range.to) maps $frame.0, a range, and says what changed', ({ edit, frame, moved, changed }) => {
     expect(remapFrame(edit as SampleEdit, frames, frame[0])).toBe(frame[1])
     expect(remapRange(edit as SampleEdit, frames, moved[0])).toEqual(moved[1])
@@ -197,7 +197,7 @@ describe('SAMPLE_EDITS', () => {
   })
 
   it('is one entry per kind, each with a title, a tooltip, a suffix and a group', () => {
-    expect(Object.keys(SAMPLE_EDITS)).toEqual(['gain', 'fade', 'normalize', 'reverse', 'silence', 'dc-offset', 'delete'])
+    expect(Object.keys(SAMPLE_EDITS)).toEqual(['gain', 'fade', 'normalize', 'reverse', 'silence', 'dc-offset', 'delete', 'crop', 'insert', 'replace'])
     for (const [kind, entry] of Object.entries(SAMPLE_EDITS)) {
       expect(entry.kind).toBe(kind)
       expect(entry.tooltip && entry.suffix && entry.group, kind).toBeTruthy()
@@ -225,11 +225,27 @@ describe('SAMPLE_EDITS', () => {
     expect(SAMPLE_EDITS.fade.variants?.map((variant) => variant.title)).toEqual(['Fade in', 'Fade out'])
   })
 
-  it('needs a selection, and both channels, to delete', () => {
+  it('needs a selection to delete and crop, and both channels for every edit that changes the length', () => {
     expect(sampleEditEntry('delete').create(context())).toBeNull()
-    expect(sampleEditEntry('delete').create(context({ selection: { from: 5, to: 5, channels: 'both' } }))).toBeNull()
-    expect(SAMPLE_EDITS.delete).toMatchObject({ needsSelection: true, channels: 'both' })
-    expect(Object.values(SAMPLE_EDITS).filter((entry) => entry.channels === 'both').map((entry) => entry.kind)).toEqual(['delete'])
+    expect(sampleEditEntry('crop').create(context({ selection: { from: 5, to: 5, channels: 'both' } }))).toBeNull()
+    expect(Object.values(SAMPLE_EDITS).filter((entry) => entry.needsSelection).map((entry) => entry.kind)).toEqual(['delete', 'crop'])
+    expect(Object.values(SAMPLE_EDITS).filter((entry) => entry.channels === 'both').map((entry) => entry.kind)).toEqual(['delete', 'crop', 'insert', 'replace'])
+    // A delete joins with the toolbar's crossfade, in frames.
+    expect(sampleEditEntry('delete').create(context({ selection: { from: 10, to: 20, channels: 'both' } }))).toEqual({
+      kind: 'delete',
+      range: { from: 10, to: 20 },
+      crossfade: { frames: 5, curve: 'linear' },
+    })
+  })
+
+  it('inserts silence at the cursor, and pastes over the selection or at the cursor, with nothing to paste disabled', () => {
+    const insert = sampleEditEntry('insert').create(context({ cursor: 300, settings: { seconds: 0.25 } }))!
+    expect(insert).toMatchObject({ kind: 'insert', at: 300 })
+    expect(insert.insert.audio.channels.map((channel) => channel.length)).toEqual([250, 250])
+    expect(sampleEditEntry('replace').create(context({ cursor: 300 }))).toBeNull()
+    const clipboard = { audio: { sampleRate: 1000, channels: [new Float32Array(10)] }, handles: { before: { sampleRate: 1000, channels: [new Float32Array(0)] }, after: { sampleRate: 1000, channels: [new Float32Array(0)] } } }
+    expect(sampleEditEntry('replace').create(context({ cursor: 300, clipboard }))).toMatchObject({ range: { from: 300, to: 300 } })
+    expect(sampleEditEntry('replace').create(context({ cursor: 300, clipboard, selection: { from: 10, to: 20, channels: 'both' } }))).toMatchObject({ range: { from: 10, to: 20 } })
   })
 
   it('keeps a crossfade between 0 and 100 ms', () => {
