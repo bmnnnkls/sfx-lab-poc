@@ -483,3 +483,21 @@ What turned out different from the design above, step by step.
   group's flags.
 * **Step 6: the live-versus-offline case** compares the worklet's left channel with the app's own scene export, as a
   32-bit float WAV at the context's rate, so the spec needs nothing from `src/`.
+* **Step 7: `GraphEditor` takes a bus group as its owner** (`BusGroup`, a group with its `bus`). It edits through
+  `PatchTarget { groupId }` and the store's new `updateGroupFx`, reads its indicators by the group's id, and its palette
+  is a return's. Effects shows a folder's empty state with *Sum to a bus*, which runs the group's action.
+* **Step 7: Instrument, Notes and Clip say "*name* is a group"** and offer *Open effects* for a bus, or the session
+  grid in Clip. Sounds and the Library treat a selected group as they treat the master: effects and the mixer only. The
+  Library's destination line says when the group is a folder.
+* **Step 7: the band's and the collapsed header's slider is `GroupVolume`,** through the same control gesture as the
+  mixer's fader. A group's name in the grid selects it. A group's name is struck through when it or an enclosing group is
+  muted; a track's header uses its muted flag through the groups (`mixRouting`), so a folder's mute strikes its members.
+* **Step 7: *Move to group* disables a group the track's move would make loop,** as the drag refuses it. The Tracks view
+  selects a group with a click or Enter and marks it selected.
+* **Step 7: the arrangement's group lane needed no change.** It was already a `group` drop target, so the two new drops
+  land on it.
+* **Step 7: the specs add nodes with the Effects view's *Add* button and the picker's search field** (`Add a node`). The
+  loop case builds its loop in the UI: a Track audio node on Bass from the return, and the bus's send knob to it.
+* **Step 7: one smoke run had a flake.** The full run at step 7: 166 passed, and `library.smoke.spec.ts`'s isolated
+  preview case failed. Repeated alone it failed 2 times in 5 and 1 in 6. It reads the saved project right after
+  loading the Starter, sometimes before the autosave has written it (`null`). The spec was left as it is.

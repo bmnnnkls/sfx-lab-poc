@@ -184,6 +184,12 @@ interface ProjectActions {
     edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
     mergeKey?: string,
   ): void
+  /** Like `updatePatch`, for a group bus's graph (the effects on what its tracks sum to). */
+  updateGroupFx(
+    groupId: string,
+    edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
+    mergeKey?: string,
+  ): void
   /** Like `updatePatch`, for the track's note graph (what happens to notes before the instrument). */
   updateNoteGraph(
     trackId: string,
@@ -361,6 +367,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       edit((project) => editPatchAt(project, { trackId, graph: 'fx' }, change), mergeKey),
     updateMasterFx: (change, mergeKey) =>
       edit((project) => editPatchAt(project, { master: true }, change), mergeKey),
+    updateGroupFx: (groupId, change, mergeKey) =>
+      edit((project) => editPatchAt(project, { groupId }, change), mergeKey),
     updateNoteGraph: (trackId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { trackId, graph: 'notes' }, change), mergeKey),
     updateModulePatch: (moduleId, change, mergeKey) =>

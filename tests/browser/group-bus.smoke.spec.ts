@@ -95,3 +95,79 @@ test("a bus fader learns a MIDI controller from its menu", async ({ page }) => {
   await page.getByRole('button', { name: 'MIDI', exact: true }).click()
   await expect(page.getByTestId('midi-mapping')).toContainText('Group 1 / volume')
 })
+
+/** Adds a node to the graph open in a view by searching the picker for it. */
+const addNode = async (page: Page, view: Locator, name: string) => {
+  await view.getByRole('button', { name: 'Add', exact: true }).click()
+  const search = page.getByRole('combobox', { name: 'Add a node', exact: true })
+  await search.fill(name)
+  await search.press('Enter')
+  await expect(view.locator('[data-node]', { hasText: name })).toHaveCount(1)
+}
+
+test("clicking a group's name selects it: Effects edits the bus, or offers one to a folder", async ({ page }) => {
+  await page.goto('/?starter')
+  const tree = await openTracks(page)
+  await fromMenu(page, tree, 'Lead', 'Group')
+  const session = await openView(page, 'Session')
+  await session.getByRole('group', { name: 'Group Group 1', exact: true }).getByText('Group 1', { exact: true }).click()
+  let effects = await openView(page, 'Effects')
+  await expect(effects).toContainText('is a folder')
+  await effects.getByRole('button', { name: 'Sum to a bus', exact: true }).click()
+  const cards = effects.locator('[data-node]')
+  await expect(cards).toHaveCount(2)
+  await expect(cards.filter({ hasText: 'Group in' })).toHaveCount(1)
+  await expect(cards.filter({ hasText: 'Track out' })).toHaveCount(1)
+  await addNode(page, effects, 'Reverb')
+
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible()
+  await page.reload()
+  await (await openView(page, 'Session')).getByRole('group', { name: 'Group Group 1', exact: true }).getByText('Group 1', { exact: true }).click()
+  effects = await openView(page, 'Effects')
+  await expect(effects.locator('[data-node]', { hasText: 'Reverb' })).toHaveCount(1)
+  for (const view of ['Instrument', 'Notes', 'Clip'] as const) await expect(await openView(page, view)).toContainText('is a group')
+})
+
+test("the band's slider moves the bus fader, and a folder's M strikes its members through in the grid", async ({ page }) => {
+  await page.goto('/?starter')
+  const tree = await leadInBus(page)
+  const session = await openView(page, 'Session')
+  await session.getByRole('slider', { name: 'Group 1 volume', exact: true }).fill('0.5')
+  const mixer = await openView(page, 'Mixer')
+  await expect(mixer.getByRole('slider', { name: 'Group 1 fader', exact: true })).toHaveValue('0.5')
+
+  await fromMenu(page, tree, 'Pad', 'Group')
+  await openView(page, 'Mixer')
+  await mixer.getByRole('group', { name: 'Group Group 2', exact: true }).getByRole('button', { name: 'Group 2 mute', exact: true }).click()
+  await openView(page, 'Session')
+  await expect(session.getByRole('button', { name: 'Pad', exact: true })).toHaveCSS('text-decoration-line', 'line-through')
+  await expect(session.getByRole('group', { name: 'Group Group 2', exact: true }).getByText('Group 2', { exact: true })).toHaveCSS('text-decoration-line', 'line-through')
+  await expect(session.getByRole('button', { name: 'Lead', exact: true })).not.toHaveCSS('text-decoration-line', 'line-through')
+})
+
+test('the Tracks view tags a bus, and refuses a move that would make the mix loop', async ({ page }) => {
+  await page.goto('/?starter')
+  const session = await openView(page, 'Session')
+  await session.getByRole('button', { name: 'Add track', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Return track', exact: true }).click()
+  // Bass takes audio from the return, and Lead's bus sends to it: Bass in that bus would loop.
+  await session.getByRole('button', { name: 'Bass', exact: true }).click()
+  const effects = await openView(page, 'Effects')
+  await addNode(page, effects, 'Track audio')
+  await effects.locator('[data-node]', { hasText: 'Track audio' }).click()
+  await effects.getByLabel('Take audio from track', { exact: true }).selectOption({ label: 'Return A' })
+  const tree = await leadInBus(page)
+  await expect(row(tree, 'Group 1, group of 1 track')).toContainText('bus')
+  await expect(row(tree, 'Lead')).not.toContainText('bus')
+  await openView(page, 'Mixer')
+  await page.getByRole('slider', { name: 'Group 1 send to Return A', exact: true }).fill('0.5')
+
+  await openTracks(page)
+  await dragTo(page, row(tree, 'Bass'), row(tree, 'Group 1, group of 1 track'), {
+    whileOver: async () => expect(row(tree, 'Group 1, group of 1 track')).toHaveAttribute('data-drop', 'refuse'),
+  })
+  await expect(row(tree, 'Group 1, group of 1 track')).toBeVisible()
+  await row(tree, 'Bass').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Move to group', exact: true }).click()
+  await expect(page.getByRole('menuitem', { name: 'Group 1', exact: true })).toBeDisabled()
+})
