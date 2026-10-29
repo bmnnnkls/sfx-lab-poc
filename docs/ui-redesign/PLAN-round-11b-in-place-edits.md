@@ -1,6 +1,6 @@
 # Round 11b: in-place edits
 
-Status: **plan, proposed** 2026-10-29. Written 2026-10-29. Part of the [UI redesign](README.md). Carries out the second
+Status: **plan, signed off** 2026-10-29, every decision as proposed (one plan, one branch). Written 2026-10-29. Part of the [UI redesign](README.md). Carries out the second
 of the three parts in the signed-off [round 11 spec](SPEC-round-11-wave-editor.md) (§ Suggested split), from a fresh
 inventory of the code it touches, taken on `imp/serene-clarke-868d95` at `e1d2404` (round 11a done, not merged into
 `feat/ui-redesign` yet). The spec's decisions are settled and not repeated here; this plan only adds the ones it raises.
@@ -446,6 +446,8 @@ at steps 3 and 7. The bounce hashes in `src/core/engine/old-projects.test.ts` mu
   time for 5 s and 120 s stereo.
 
 ## Decisions to sign off
+
+Signed off 2026-10-29: every row as proposed.
 
 | Question | Proposed | Alternative |
 |---|---|---|
