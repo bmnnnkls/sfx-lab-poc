@@ -70,13 +70,17 @@ between sample and catalog adapters. Trash retains bytes conservatively; bundle 
 | Compressed file (checked before browser file allocation) | 128 MiB |
 | Total declared/actual expanded bytes | 256 MiB |
 | ZIP entries, including manifest | 4097 |
-| One sample entry | 32 MiB |
+| One sample entry | 64 MiB (32 MiB before round 11b) |
 | Manifest bytes before JSON parsing | 8 MiB |
 | Folders / items / revisions / sample records per bundle | 1024 / 4096 / 4096 / 4096 |
 | Object/array containers / visited values | 100,000 / 300,000 |
 | Object depth / string length / identity length | 64 / 1 Mi characters / 256 characters |
 | Modules per revision / nodes per graph / connections per graph | 128 / 200 / 40,000 |
 | Module depth / expanded node visits per revision | 16 / 10,000 |
+
+The sample cap matches the project package's 64 MB entry cap, so a 120 s stereo sample an edit wrote (32-bit float
+WAV, 46 MB) fits. Builds before round 11b refuse a bundle with a sample over 32 MiB as over the entry limit; nothing
+else in the format changed, so the bundle version stays.
 
 Existing project record bounds also apply per payload/state/clip: 256 sample dependencies per revision,
 64 module ports/knobs, 4096 preset values/bindings, 32-step target paths, 64 automation lanes,

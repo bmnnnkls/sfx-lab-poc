@@ -116,7 +116,7 @@ test('an older open database connection blocks upgrade visibly, then preserves i
   await panel.getByRole('button', { name: 'Refresh', exact: true }).click()
   await expect(panel.getByRole('status')).toContainText('Library saved')
   const bytes = await page.evaluate(() => new Promise<number[]>((resolve, reject) => {
-    const r = indexedDB.open('sfxlab', 2)
+    const r = indexedDB.open('sfxlab', 3)
     r.onsuccess = () => { const q = r.result.transaction('samples').objectStore('samples').get('retained'); q.onsuccess = () => { resolve(Array.from(q.result as Uint8Array)); r.result.close() }; q.onerror = () => reject(q.error) }
     r.onerror = () => reject(r.error)
   }))

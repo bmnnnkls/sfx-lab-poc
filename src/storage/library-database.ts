@@ -1,13 +1,20 @@
-/** Samples and catalog share one upgrade coordinator. Never recreate the v1 samples store. */
+/**
+ * The database's version and its stores: sample bytes, the library catalog (version 2) and the log of files edits
+ * wrote (version 3). Every adapter opens it through here, so one upgrade makes them all.
+ */
+export const LIBRARY_DATABASE_VERSION = 3
+const STORES = ['samples', 'catalog', 'sample-edits'] as const
+
+/** Samples, catalog and the edit log share one upgrade coordinator. Never recreate the v1 samples store. */
 export const openLibraryDatabase = (databaseName = 'sfxlab') => {
   let opened: Promise<IDBDatabase> | undefined
   return (): Promise<IDBDatabase> => {
     if (opened) return opened
     opened = new Promise((resolve, reject) => {
-      const request = indexedDB.open(databaseName, 2)
+      const request = indexedDB.open(databaseName, LIBRARY_DATABASE_VERSION)
       let blocked = false
       request.onupgradeneeded = () => {
-        for (const store of ['samples', 'catalog']) if (!request.result.objectStoreNames.contains(store)) request.result.createObjectStore(store)
+        for (const store of STORES) if (!request.result.objectStoreNames.contains(store)) request.result.createObjectStore(store)
       }
       request.onblocked = () => { blocked = true; opened = undefined; reject(new Error('Library upgrade blocked. Close older SFX Lab tabs, then retry.')) }
       request.onerror = () => { opened = undefined; reject(request.error ?? new Error('Cannot open library storage')) }

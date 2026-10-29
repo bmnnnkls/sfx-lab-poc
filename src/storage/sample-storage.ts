@@ -1,10 +1,21 @@
 import { openLibraryDatabase, transactionDone } from './library-database'
+
+/** A write refused because the browser's storage for the site is full; nothing was stored. */
+export class StorageFullError extends Error {
+  constructor() {
+    super('Browser storage is full. Free some space, then retry.')
+    this.name = 'StorageFullError'
+  }
+}
+
+const isQuotaError = (error: unknown) => error instanceof DOMException && error.name === 'QuotaExceededError'
 /** Where the original bytes of imported sample files live, keyed by content hash. */
 export interface SampleStorage {
   /** False when nothing survives a reload (storage unavailable). */
   readonly persistent: boolean
   has(id: string): Promise<boolean>
   get(id: string): Promise<Uint8Array | undefined>
+  /** Throws `StorageFullError` when the browser's quota is used up. */
   put(id: string, bytes: Uint8Array): Promise<void>
   delete(id: string): Promise<void>
 }
@@ -45,7 +56,13 @@ export const createIndexedDbSampleStorage = (databaseName = 'sfxlab'): SampleSto
       const value = await operate('readonly', store => store.get(id))
       return value instanceof Uint8Array ? value : undefined
     },
-    put: async (id, bytes) => void (await operate('readwrite', store => store.put(bytes, id))),
+    put: async (id, bytes) => {
+      try {
+        await operate('readwrite', store => store.put(bytes, id))
+      } catch (error) {
+        throw isQuotaError(error) ? new StorageFullError() : error
+      }
+    },
     delete: async (id) => void (await operate('readwrite', store => store.delete(id))),
   }
 }

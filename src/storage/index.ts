@@ -4,10 +4,18 @@ export { resolveBrowserStore } from './key-value-store'
 export { downloadFile, pickFile } from './project-file'
 export { sha256Hex } from './hash'
 export {
+  StorageFullError,
   createMemorySampleStorage,
   resolveSampleStorage,
   type SampleStorage,
 } from './sample-storage'
+export {
+  createMemorySampleEditLog,
+  resolveSampleEditLog,
+  type SampleEditLog,
+  type SampleEditNote,
+} from './sample-edit-log'
+export { freeBytes } from './storage-room'
 export {
   fileStem,
   exportProject,
