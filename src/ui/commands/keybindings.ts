@@ -23,6 +23,8 @@ export const DEFAULT_KEYS: readonly KeyRow[] = [
   { command: 'history.redo', key: 'mod+y' },
   { command: 'view.toggle-main', key: 'tab', scope: 'workspace' },
   { command: 'view.toggle-main', key: 'shift+tab', scope: 'workspace' },
+  { command: 'layout.focus-next-group', key: 'f6', scope: 'text' },
+  { command: 'layout.focus-previous-group', key: 'shift+f6', scope: 'text' },
   { command: 'layout.toggle.primary', key: 'mod+alt+b', apple: 'ctrl+mod+b' },
   { command: 'layout.toggle.panel', key: 'mod+alt+j', apple: 'ctrl+mod+j' },
   { command: 'layout.toggle.secondary', key: 'mod+alt+shift+b', apple: 'ctrl+mod+shift+b' },

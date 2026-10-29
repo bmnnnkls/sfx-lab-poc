@@ -1,5 +1,5 @@
 import * as Menu from '@radix-ui/react-context-menu'
-import type { KeyboardEvent, ReactElement } from 'react'
+import type { KeyboardEvent, ReactElement, Ref } from 'react'
 import { MenuEntries } from './MenuEntries'
 import type { MenuEntry } from './menu-types'
 import styles from './Menu.module.css'
@@ -16,6 +16,8 @@ interface ContextMenuProps {
   readonly children: ReactElement
   /** Called as the menu closes, before the focus returns to the trigger; preventing the event keeps it where it is. */
   onCloseAutoFocus?(event: Event): void
+  /** The trigger's element, `children`'s own root. */
+  readonly triggerRef?: Ref<HTMLElement>
 }
 
 /** Builds the entries while the menu is open; `build` calls the same hooks on every render. */
@@ -44,9 +46,9 @@ const openFromKeyboard = (event: KeyboardEvent<HTMLElement>) => {
  * To make entries depend on what was clicked, set state from `children`'s own `onContextMenu`;
  * it runs before the menu opens.
  */
-export const ContextMenu = ({ entries, children, onCloseAutoFocus }: ContextMenuProps) => (
+export const ContextMenu = ({ entries, children, onCloseAutoFocus, triggerRef }: ContextMenuProps) => (
   <Menu.Root>
-    <Menu.Trigger asChild onKeyDown={openFromKeyboard} onContextMenu={(event) => event.stopPropagation()}>
+    <Menu.Trigger asChild ref={triggerRef} onKeyDown={openFromKeyboard} onContextMenu={(event) => event.stopPropagation()}>
       {children}
     </Menu.Trigger>
     <Menu.Portal>

@@ -22,6 +22,8 @@ export interface Command {
   readonly tooltip?: string
   /** False: keys and menus only (the edit verbs). */
   readonly palette?: boolean
+  /** A held key runs it again on each repeat (undo, redo). Otherwise a repeat does nothing, and the browser gets nothing. */
+  readonly repeat?: boolean
   /** False: no key can be set on it (a choice of named layouts, whose names change). */
   readonly bindable?: boolean
   /** Hidden when false. */

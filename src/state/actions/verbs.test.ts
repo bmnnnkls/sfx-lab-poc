@@ -95,6 +95,16 @@ describe('runVerb', () => {
     expect(track('Bass').patch.nodes).toHaveLength(count + 1)
   })
 
+  it('lets the innermost subject decide every verb but Paste: Delete on a fader in a strip leaves the track', () => {
+    const bass = track('Bass')
+    const fader: Subject = { kind: 'control', targets: [{ kind: 'mixer', owner: { kind: 'track', trackId: bass.id }, control: 'volume' }] }
+    const strip: Subject = { kind: 'track', trackId: bass.id }
+    expect(runVerb('delete', [fader, strip], fakeContext())).toBe(false)
+    expect(runVerb('duplicate', [fader, strip], fakeContext())).toBe(false)
+    expect(track('Bass')).toBeDefined()
+    expect(undoSteps()).toBe(0)
+  })
+
   it('skips an action that is disabled: Paste with an empty clipboard', () => {
     const slot: Subject = { kind: 'slot', trackId: track('Lead').id, scene: 1 }
     expect(verbTarget('paste', [slot], fakeContext())).toBeUndefined()

@@ -575,3 +575,23 @@ What turned out different from the design above, step by step.
   button inputs, and the roles button, link, checkbox, switch, radio, option, the three menu items and tree item.
 * **Step 2: overrides are read entry by entry.** A file that isn't version 1 with a `keys` object is ignored whole;
   inside it, an entry that isn't a list of keys is dropped and the others kept. Saving no overrides removes the entry.
+* **Step 3: the innermost focus subject decides every verb but Paste.** Step 1's `runVerb` walked out through every
+  subject; with the focus on a fader in a mixer strip (`[control, track]`), Delete would have deleted the track. Now
+  the innermost subject's action runs or nothing does, and only Paste walks out to the first subject that takes a paste
+  (the graph's `[nodes, canvas]`). The spec's "Delete in the Mixer" case focuses Bass's fader.
+* **Step 3: the canvas's subjects are given by `PatchCanvas`, not `GraphEditor`,** since the canvas element, the pointer
+  and the selection are there. The canvas (`graph-viewport`) became focusable (`tabIndex` 0, a group named *Graph
+  canvas*, an outline only for keyboard focus), and a press on it or on a card focuses it unless it lands on something
+  focusable of its own. A view's own subjects replace its element's menu subject, so the canvas isn't listed twice.
+* **Step 3: `ActionMenu` records its subject through a ref on the trigger** (`ContextMenu` gained `triggerRef`), in a
+  `WeakMap` read through a getter, so the subject is the latest render's.
+* **Step 3: *Undo* and *Redo* allow repeats** (`Command.repeat`), as the old handler did when ⌘Z was held. Every other
+  command swallows a repeat, so holding ⌘D doesn't open the browser's bookmark dialog after the first copy.
+* **Step 3: F6 applies only when a group's tab is there to take the focus,** as before; otherwise the browser gets it.
+* **Step 3: the command host is `CommandHost`,** a provider around the workspace: the keys in effect (read once, saved
+  on each change), the listener, and `useKeyLabel` and `withKey` for labels. It holds the services the commands run with
+  (`engine`, `samples`, `library`, `files`); `commandContextFor` adds the focused view and its subjects.
+* **Step 3: the Space case checks the position.** Space plays (the position moves) and Space again stops (back at the
+  start, and staying there). Space on the focused Stop button stops and doesn't start again.
+* **Step 3: checks.** `npm run test:audio` on step 3's build: 20 passed. The smoke run: 185 passed (180 and the five
+  new cases).
