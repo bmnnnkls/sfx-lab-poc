@@ -108,19 +108,19 @@ describe('updatePeakPyramid', () => {
   })
 
   const cases: Array<{ name: string; edit: SampleEdit } | { name: string; audio: SampleAudio; changed: { from: number; to: number } }> = [
-    { name: 'a fade at the start', edit: { kind: 'fade-in', seconds: 0.05 } },
-    { name: 'a fade at the end', edit: { kind: 'fade-out', seconds: 0.05 } },
+    { name: 'a fade at the start', edit: { kind: 'fade', range: { from: 0, to: 2400 }, channels: 'both', direction: 'in', curve: 'linear' } },
+    { name: 'a fade at the end', edit: { kind: 'fade', range: { from: 97_600, to: 100_000 }, channels: 'both', direction: 'out', curve: 'linear' } },
     { name: 'a change in the middle', audio: changedMiddle(40_001, 52_345), changed: { from: 40_001, to: 52_345 } },
     { name: 'a delete at the start', edit: { kind: 'delete', range: { from: 0, to: 1000 } } },
     { name: 'a delete in the middle', edit: { kind: 'delete', range: { from: 33_333, to: 66_000 } } },
     { name: 'a delete at the end', edit: { kind: 'delete', range: { from: 99_000, to: 100_000 } } },
-    { name: 'a crop', edit: { kind: 'keep', range: { from: 1, to: 70_000 } } },
-    { name: 'a reverse', edit: { kind: 'reverse' } },
+    { name: 'a reverse', edit: { kind: 'reverse', range: { from: 0, to: 100_000 }, channels: 'both' } },
+    { name: 'gain on one channel', edit: { kind: 'gain', range: { from: 10_000, to: 20_000 }, channels: 'right', db: -6, ramp: { frames: 240, curve: 'linear' } } },
   ]
 
   it.each(cases)('equals a full build after $name, at every level', (entry) => {
     const audio = 'edit' in entry ? applySampleEdit(AUDIO, entry.edit) : entry.audio
-    const changed = 'edit' in entry ? changedFrames(entry.edit, frameCount(AUDIO), AUDIO.sampleRate) : entry.changed
+    const changed = 'edit' in entry ? changedFrames(entry.edit, frameCount(AUDIO)) : entry.changed
     const updated = updatePeakPyramid(pyramid, audio, changed)
     const built = buildPeakPyramid(audio)
     expect(updated.frames).toBe(built.frames)

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { type SampleInfo, createAudioClip, decodedBytes, createAudioTrack, createEmptyProject, encodeWavChannels, originOf } from '@core'
+import { type SampleEdit, type SampleInfo, createAudioClip, decodedBytes, createAudioTrack, createEmptyProject, encodeWavChannels, originOf } from '@core'
 import { usePersistenceStore, useProjectStore, useSelectionStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
 import { type SampleStorage, StorageFullError, createMemorySampleEditLog, createMemorySampleStorage, sha256Hex } from '@storage'
 import { type AudioHost, decodeAudio } from '@audio'
@@ -30,6 +30,9 @@ const readWav = (bytes: Uint8Array) => {
 vi.mock('@audio', () => ({ decodeAudio: vi.fn(async (bytes: Uint8Array) => readWav(bytes)) }))
 
 const host = { send: vi.fn() } as unknown as AudioHost
+const WHOLE = { range: { from: 0, to: 480 }, channels: 'both' } as const
+const REVERSE: SampleEdit = { kind: 'reverse', ...WHOLE }
+const NORMALIZE: SampleEdit = { kind: 'normalize', ...WHOLE, peakDb: -0.1, linked: true }
 const LEFT = Float32Array.from({ length: 480 }, (_, i) => Math.sin(i / 7) * 0.5 + 1e-7 * i)
 const RIGHT = Float32Array.from({ length: 480 }, (_, i) => Math.cos(i / 11) * 0.25)
 
@@ -70,7 +73,7 @@ const settled = () => new Promise<void>((resolve) => {
 describe('editing a sample as a copy', () => {
   it('adds a new library entry with both channels, stored as 32-bit float that decodes to the same floats', async () => {
     const { storage, info, library } = await setup()
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: true })
+    await library.editSample(info.id, REVERSE, { asCopy: true })
 
     const samples = useProjectStore.getState().project.samples
     expect(samples).toHaveLength(2)
@@ -85,7 +88,7 @@ describe('editing a sample as a copy', () => {
 
   it('is undone like any project edit, leaving the original as it was', async () => {
     const { info, library } = await setup()
-    await library.editSample(info.id, { kind: 'keep', range: { from: 100, to: 200 } }, { asCopy: true })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 480 } }, { asCopy: true })
     expect(useProjectStore.getState().project.samples.map((sample) => sample.durationSeconds)).toEqual([0.01, 100 / 48000])
     useProjectStore.getState().undo()
     expect(useProjectStore.getState().project.samples).toEqual([info])
@@ -95,8 +98,8 @@ describe('editing a sample as a copy', () => {
     const { info, library } = await setup()
     await library.editSample(info.id, { kind: 'delete', range: { from: 0, to: 480 } }, { asCopy: true })
     expect(useProjectStore.getState().project.samples).toHaveLength(1)
-    await library.editSample(info.id, { kind: 'normalize' }, { asCopy: true })
-    await library.editSample(info.id, { kind: 'normalize' }, { asCopy: true })
+    await library.editSample(info.id, NORMALIZE, { asCopy: true })
+    await library.editSample(info.id, NORMALIZE, { asCopy: true })
     expect(useProjectStore.getState().project.samples).toHaveLength(2)
   })
 })
@@ -130,7 +133,7 @@ describe('the working copy', () => {
     useSelectionStore.getState().selectSample(info.id)
     await settled()
     await storage.delete(info.id)
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: true })
+    await library.editSample(info.id, REVERSE, { asCopy: true })
     expect(useProjectStore.getState().project.samples.map((sample) => sample.name)).toEqual(['Loop', 'Loop (reversed)'])
     disconnect()
   })
@@ -145,7 +148,7 @@ describe('editing a sample in place', () => {
       const sent = vi.mocked(host.send).mock.calls.some(([command]) => command.type === 'sample/add' && command.sample.id === id)
       void Promise.all([storage.has(id), edits.list()]).then(([has, notes]) => seen.push({ stored: has, noted: notes.some((note) => note.id === id && note.at === 1234), sent }))
     })
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    await library.editSample(info.id, REVERSE, { asCopy: false })
     unsubscribe()
     await Promise.resolve()
     await new Promise((resolve) => setTimeout(resolve, 0))
@@ -159,7 +162,7 @@ describe('editing a sample in place', () => {
     const disconnect = library.connect()
     useSelectionStore.getState().selectSample(info.id)
     await settled()
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    await library.editSample(info.id, REVERSE, { asCopy: false })
     const sent = vi.mocked(host.send).mock.calls.find(([command]) => command.type === 'sample/add' && command.sample.id === samples()[0]!.id)!
     const working = useWaveAudioStore.getState().current!
     expect(sent[0].type === 'sample/add' && sent[0].sample.channels[0]).not.toBe(working.audio.channels[0])
@@ -176,7 +179,7 @@ describe('editing a sample in place', () => {
     useWaveEditorStore.getState().setView(originOf(info), { framesPerPixel: 2, startFrame: 4 })
     const past = useProjectStore.getState().history.past.length
 
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    await library.editSample(info.id, REVERSE, { asCopy: false })
     const edited = samples()[0]!
     expect(useProjectStore.getState().history.past.length).toBe(past + 1)
     expect(useSelectionStore.getState().sampleId).toBe(edited.id)
@@ -224,7 +227,7 @@ describe('editing a sample in place', () => {
     const edits = createMemorySampleEditLog()
     const library = createSampleLibrary(storage ? storage(memory) : memory, host, { edits, ...options })
     const before = useProjectStore.getState().history
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    await library.editSample(info.id, REVERSE, { asCopy: false })
     expect(useProjectStore.getState().history).toBe(before)
     expect(await edits.list()).toEqual([])
     expect(lastNotice()).toMatch(message)
@@ -234,7 +237,7 @@ describe('editing a sample in place', () => {
   it('checks for twice the file in free room', async () => {
     const wav = encodeWavChannels([LEFT, RIGHT], 48000, 32).length
     const { info, library } = await setup({ freeBytes: async () => ROOM_FACTOR * wav })
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    await library.editSample(info.id, REVERSE, { asCopy: false })
     expect(samples()[0]!.id).not.toBe(info.id)
   })
 
@@ -245,7 +248,7 @@ describe('editing a sample in place', () => {
         return null
       },
     })
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    await library.editSample(info.id, REVERSE, { asCopy: false })
     expect(samples()).toEqual([])
     expect(lastNotice()).toMatch(/left the project/)
     expect(await edits.list()).toHaveLength(1)
@@ -256,7 +259,7 @@ describe('editing a sample in place', () => {
     const silent = await stored(storage, [new Float32Array(480)])
     useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [silent] })
     const before = useProjectStore.getState().history
-    await createSampleLibrary(storage, host).editSample(silent.id, { kind: 'normalize' }, { asCopy: false })
+    await createSampleLibrary(storage, host).editSample(silent.id, NORMALIZE, { asCopy: false })
     expect(useProjectStore.getState().history).toBe(before)
     expect(lastNotice()).toBe('Nothing changed')
   })
@@ -267,7 +270,7 @@ describe('editing a sample in place', () => {
     const reversed = await stored(storage, [LEFT.slice().reverse(), RIGHT.slice().reverse()], 'Backwards')
     const track = { ...createAudioTrack('Audio', 4), clips: [createAudioClip(original, 120), null, null, null] }
     useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [original, reversed], tracks: [track] })
-    await createSampleLibrary(storage, host).editSample(original.id, { kind: 'reverse' }, { asCopy: false })
+    await createSampleLibrary(storage, host).editSample(original.id, REVERSE, { asCopy: false })
     expect(samples()).toEqual([reversed])
     const clip = useProjectStore.getState().project.tracks[0]!
     expect(clip.kind === 'audio' && clip.clips[0]?.sampleId).toBe(reversed.id)
@@ -276,9 +279,9 @@ describe('editing a sample in place', () => {
 
   it('runs one edit at a time: one asked for meanwhile is refused', async () => {
     const { info, library } = await setup()
-    const first = library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    const first = library.editSample(info.id, REVERSE, { asCopy: false })
     expect(useWaveAudioStore.getState().editing).toBe(info.id)
-    await library.editSample(info.id, { kind: 'normalize' }, { asCopy: false })
+    await library.editSample(info.id, NORMALIZE, { asCopy: false })
     await first
     expect(useWaveAudioStore.getState().editing).toBeNull()
     expect(useProjectStore.getState().history.past).toHaveLength(1)
@@ -289,7 +292,7 @@ describe('editing a sample in place', () => {
     const disconnect = library.connect()
     useSelectionStore.getState().selectSample(info.id)
     await settled()
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: true })
+    await library.editSample(info.id, REVERSE, { asCopy: true })
     expect(samples().map((sample) => sample.name)).toEqual(['Loop', 'Loop (reversed)'])
     expect(samples()[1]!.origin).toBeUndefined()
     expect(useSelectionStore.getState().sampleId).toBe(samples()[1]!.id)
@@ -299,7 +302,7 @@ describe('editing a sample in place', () => {
 
   it('forgets the note when the same bytes are imported, so imports are never cleaned up', async () => {
     const { info, edits, library } = await setup()
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    await library.editSample(info.id, REVERSE, { asCopy: false })
     const edited = samples()[0]!
     expect((await edits.list()).map((note) => note.id)).toEqual([edited.id])
     const bytes = encodeWavChannels([LEFT.slice().reverse(), RIGHT.slice().reverse()], 48000, 32)
@@ -321,7 +324,7 @@ describe('undo and memory', () => {
     const disconnect = library.connect()
     useSelectionStore.getState().selectSample(info.id)
     await settled()
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    await library.editSample(info.id, REVERSE, { asCopy: false })
     vi.mocked(host.send).mockClear()
     const before = decodes()
     for (let round = 0; round < 2; round++) {
@@ -341,10 +344,10 @@ describe('undo and memory', () => {
     const one = decodedBytes({ sampleRate: 48000, channels: [LEFT, RIGHT] })
     const { info, library } = await setup({ budgets: { keepAlive: one } })
     const disconnect = library.connect()
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    await library.editSample(info.id, REVERSE, { asCopy: false })
     const reversed = samples()[0]!
     expect(removed()).toEqual([])
-    await library.editSample(reversed.id, { kind: 'normalize' }, { asCopy: false })
+    await library.editSample(reversed.id, NORMALIZE, { asCopy: false })
     expect(removed()).toEqual([info.id])
 
     const before = decodes()
@@ -358,7 +361,7 @@ describe('undo and memory', () => {
   it('lets go of what only the redo future named once a new step drops it', async () => {
     const { info, library } = await setup()
     const disconnect = library.connect()
-    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: false })
+    await library.editSample(info.id, REVERSE, { asCopy: false })
     const reversed = samples()[0]!
     useProjectStore.getState().undo()
     expect(removed()).toEqual([])

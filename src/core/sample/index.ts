@@ -6,21 +6,36 @@ export { SampleBank } from './sample-bank'
 export { computePeaks, toMono } from './audio-math'
 export { type WavBitDepth, encodeWav, encodeWavChannels } from './wav'
 export {
+  type Crossfade,
+  DEFAULT_CROSSFADE,
   EDIT_WAV_BIT_DEPTH,
+  type EdgeRamp,
+  type EditChannels,
+  type EditSelection,
+  type EditSetting,
   type FrameRange,
+  GAIN_RANGE_DB,
+  MAX_CROSSFADE_SECONDS,
+  NORMALIZE_DEFAULT_DB,
   SAMPLE_EDITS,
+  SILENT_PEAK,
   type SampleEdit,
+  type SampleEditAfter,
   type SampleEditContext,
   type SampleEditEntry,
   type SampleEditKind,
-  type SampleEditAfter,
+  type SampleEditVariant,
   afterEdit,
   applySampleEdit,
   changedFrames,
+  clampCrossfadeSeconds,
+  editSuffix,
+  peakOfRange,
   remapFrame,
   remapRange,
   sampleEditEntry,
   sampleRemap,
 } from './edits'
+export { CROSSFADE_CURVES, type CrossfadeCurve, FADE_CURVES, type FadeCurve, type FadeCurveEntry, fadeShape, isCrossfadeCurve, isFadeCurve } from './fade-curves'
 export { type PeakPyramid, type WaveColumns, type WaveDraw, type WaveView, buildPeakPyramid, columnsFor, updatePeakPyramid, waveDrawFor } from './pyramid'
 export { createDemoSamples, type DemoSample } from './demo-samples'

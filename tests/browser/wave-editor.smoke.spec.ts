@@ -244,3 +244,32 @@ test('a session clip, its region and a sampler open their sample in the Wave edi
   await instrument.getByRole('button', { name: 'Edit', exact: true }).click()
   await expect(wave.getByTestId('sample-editor')).toContainText('Demo Snare')
 })
+
+test('Gain on the left channel of a selection changes only the left lane, and undo takes it back', async ({ page }) => {
+  await page.goto('/?starter')
+  const samples = await openView(page, 'Samples')
+  await samples.getByTestId('sample-input').setInputFiles({ name: 'Stereo.wav', mimeType: 'audio/wav', buffer: stereoWav() })
+  const row = samples.getByRole('listitem').filter({ hasText: 'Stereo' })
+  await expect(row.locator('[data-status="ready"]')).toHaveCount(1)
+  await row.getByRole('button', { name: '✎', exact: true }).click()
+  const wave = viewRoot(page, 'Wave editor')
+  const [left, right] = [wave.getByRole('img', { name: 'Left', exact: true }), wave.getByRole('img', { name: 'Right', exact: true })]
+  await expect(left).toBeVisible()
+  await dragAcross(page, wave.getByTestId('wave-detail'), 0.2, 0.6, 0.05)
+  await expect(wave.getByTestId('wave-status')).toContainText('left only')
+  const before = { left: await left.screenshot(), right: await right.screenshot() }
+
+  await wave.getByRole('button', { name: 'Gain…', exact: true }).click()
+  const dialog = wave.getByRole('dialog', { name: 'Gain' })
+  await dialog.getByLabel('Gain', { exact: true }).fill('-6')
+  await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect.poll(async () => (await left.screenshot()).equals(before.left)).toBe(false)
+  expect((await right.screenshot()).equals(before.right)).toBe(true)
+  // The selection stays, so the edit can be repeated or undone in place.
+  await expect(wave.getByTestId('wave-status')).toContainText('left only')
+
+  await page.getByRole('button', { name: 'Undo', exact: true }).first().click()
+  await expect.poll(async () => (await left.screenshot()).equals(before.left)).toBe(true)
+  expect((await right.screenshot()).equals(before.right)).toBe(true)
+})

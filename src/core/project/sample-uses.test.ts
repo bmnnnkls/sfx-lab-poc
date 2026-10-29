@@ -128,7 +128,7 @@ describe('replaceSample', () => {
 
   it('keeps the origin through a chain of edits', () => {
     const once = replaceSample(everyPlace(), OLD.id, NEW, remapOf(DELETE, 800)).project
-    const twice = replaceSample(once, NEW.id, info('c'), sampleRemap({ kind: 'reverse' }, 800, 800)).project
+    const twice = replaceSample(once, NEW.id, info('c'), sampleRemap({ kind: 'reverse', range: { from: 0, to: 800 }, channels: 'both' }, 800, 800)).project
     expect(twice.samples[1]).toMatchObject({ id: info('c').id, origin: OLD.id, name: OLD.name })
     // Reverse mirrors the markers.
     expect(twice.samples[1]!.markers).toEqual([
@@ -171,7 +171,7 @@ describe('replaceSample', () => {
 
   it('keeps trims exactly through an edit that moves nothing', () => {
     const project = everyPlace()
-    const moved = replaceSample(project, OLD.id, NEW, sampleRemap({ kind: 'normalize' }, 1000, 1000)).project
+    const moved = replaceSample(project, OLD.id, NEW, sampleRemap({ kind: 'normalize', range: { from: 0, to: 1000 }, channels: 'both', peakDb: -0.1, linked: true }, 1000, 1000)).project
     const content = moved.arrangement![0]!.content as AudioClip
     expect([content.start, content.end]).toEqual([0.5, 0.9])
   })
@@ -179,7 +179,7 @@ describe('replaceSample', () => {
   it('points the uses at an entry the result already is, and removes the edited one', () => {
     const existing = info('c', { name: 'Earlier' })
     const project = { ...everyPlace(), samples: [existing, ...everyPlace().samples] }
-    const { project: moved, report } = replaceSample(project, OLD.id, existing, remapOf({ kind: 'reverse' }, 1000))
+    const { project: moved, report } = replaceSample(project, OLD.id, existing, remapOf({ kind: 'reverse', range: { from: 0, to: 1000 }, channels: 'both' }, 1000))
     expect(report.merged).toEqual(existing)
     expect(moved.samples.map((sample) => sample.name)).toEqual(['Earlier', 'Sample z'])
     expect(usedSampleIds(moved)).toEqual([existing.id])

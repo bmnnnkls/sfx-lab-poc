@@ -1,86 +1,238 @@
 import { describe, expect, it } from 'vitest'
-import { SAMPLE_EDITS, type SampleAudio, type SampleEdit, applySampleEdit, changedFrames, remapFrame, remapRange, sampleEditEntry } from '.'
+import {
+  DEFAULT_CROSSFADE,
+  FADE_CURVES,
+  SAMPLE_EDITS,
+  type EditChannels,
+  type SampleAudio,
+  type SampleEdit,
+  type SampleEditContext,
+  applySampleEdit,
+  changedFrames,
+  clampCrossfadeSeconds,
+  editSuffix,
+  fadeShape,
+  remapFrame,
+  remapRange,
+  sampleEditEntry,
+} from '.'
 
 const audio = (...channels: number[][]): SampleAudio => ({ sampleRate: 100, channels: channels.map((values) => Float32Array.from(values)) })
 const values = (result: SampleAudio) => result.channels.map((channel) => Array.from(channel, (value) => +value.toFixed(5)))
+const round = (list: readonly number[]) => list.map((value) => +value.toFixed(5))
 
-const LEFT = [0, 1, 2, 3, 4, 5]
-const RIGHT = [0, -1, -2, -3, -4, -5]
+const LEFT = [0, 1, 2, 3, 4, 5, 6, 7]
+const RIGHT = [0, -1, -2, -3, -4, -5, -6, -7]
+const NO_RAMP = { frames: 0, curve: 'linear' } as const
+const WHOLE = { from: 0, to: 8 }
+const PART = { from: 2, to: 6 }
 
-/** Each edit on a mono and a stereo sample: the stereo result is the mono result on each channel. */
-const table: Array<{ edit: SampleEdit; left: number[]; right: number[] }> = [
-  { edit: { kind: 'reverse' }, left: [5, 4, 3, 2, 1, 0], right: [-5, -4, -3, -2, -1, -0] },
-  { edit: { kind: 'keep', range: { from: 1, to: 4 } }, left: [1, 2, 3], right: [-1, -2, -3] },
-  { edit: { kind: 'keep', range: { from: 4, to: 1 } }, left: [1, 2, 3], right: [-1, -2, -3] },
-  { edit: { kind: 'keep', range: { from: -3, to: 99 } }, left: LEFT, right: RIGHT },
-  { edit: { kind: 'delete', range: { from: 1, to: 4 } }, left: [0, 4, 5], right: [0, -4, -5] },
-  { edit: { kind: 'delete', range: { from: 0, to: 6 } }, left: [], right: [] },
-  // 0.02 s at 100 Hz = 2 frames.
-  { edit: { kind: 'fade-in', seconds: 0.02 }, left: [0, 0.5, 2, 3, 4, 5], right: [0, -0.5, -2, -3, -4, -5] },
-  { edit: { kind: 'fade-out', seconds: 0.02 }, left: [0, 1, 2, 3, 2, 0], right: [0, -1, -2, -3, -2, -0] },
-  // A fade is at most half the sample.
-  { edit: { kind: 'fade-in', seconds: 10 }, left: [0, 1 / 3, 4 / 3, 3, 4, 5], right: [0, -1 / 3, -4 / 3, -3, -4, -5] },
+/** A process on a mono sample: what it gives for the whole of it and for frames 2 to 6. */
+const processes: Array<{ name: string; make: (range: { from: number; to: number }, channels: EditChannels) => SampleEdit; whole: number[]; part: number[] }> = [
+  {
+    name: 'gain −6.0206 dB (half)',
+    make: (range, channels) => ({ kind: 'gain', range, channels, db: 20 * Math.log10(0.5), ramp: NO_RAMP }),
+    whole: LEFT.map((value) => value / 2),
+    part: [0, 1, 1, 1.5, 2, 2.5, 6, 7],
+  },
+  {
+    name: 'fade in, linear',
+    make: (range, channels) => ({ kind: 'fade', range, channels, direction: 'in', curve: 'linear' }),
+    whole: LEFT.map((value, i) => value * (i / 8)),
+    part: [0, 1, 0, 3 * 0.25, 4 * 0.5, 5 * 0.75, 6, 7],
+  },
+  {
+    name: 'fade out, linear',
+    make: (range, channels) => ({ kind: 'fade', range, channels, direction: 'out', curve: 'linear' }),
+    whole: LEFT.map((value, i) => value * ((7 - i) / 8)),
+    part: [0, 1, 2 * 0.75, 3 * 0.5, 4 * 0.25, 0, 6, 7],
+  },
+  {
+    name: 'normalize to 0 dBFS',
+    make: (range, channels) => ({ kind: 'normalize', range, channels, peakDb: 0, linked: true }),
+    whole: LEFT.map((value) => value / 7),
+    part: [0, 1, 2 / 5, 3 / 5, 4 / 5, 1, 6, 7],
+  },
+  {
+    name: 'reverse',
+    make: (range, channels) => ({ kind: 'reverse', range, channels }),
+    whole: [...LEFT].reverse(),
+    part: [0, 1, 5, 4, 3, 2, 6, 7],
+  },
+  {
+    name: 'silence',
+    make: (range, channels) => ({ kind: 'silence', range, channels, ramp: NO_RAMP }),
+    whole: LEFT.map(() => 0),
+    part: [0, 1, 0, 0, 0, 0, 6, 7],
+  },
+  {
+    name: 'remove DC offset',
+    make: (range, channels) => ({ kind: 'dc-offset', range, channels, ramp: NO_RAMP }),
+    whole: LEFT.map((value) => value - 3.5),
+    part: [0, 1, 2 - 3.5, 3 - 3.5, 4 - 3.5, 5 - 3.5, 6, 7],
+  },
 ]
 
-describe('applySampleEdit', () => {
-  it.each(table)('$edit.kind $edit works on every channel, mono and stereo alike', ({ edit, left, right }) => {
-    const round = (list: number[]) => list.map((value) => +value.toFixed(5))
-    expect(values(applySampleEdit(audio(LEFT), edit))).toEqual([round(left)])
-    expect(values(applySampleEdit(audio(LEFT, RIGHT), edit))).toEqual([round(left), round(right)])
+describe('the processes', () => {
+  it.each(processes)('$name works on the whole sample and on a range, mono and stereo', ({ make, whole, part }) => {
+    expect(values(applySampleEdit(audio(LEFT), make(WHOLE, 'both')))).toEqual([round(whole)])
+    expect(values(applySampleEdit(audio(LEFT), make(PART, 'both')))).toEqual([round(part)])
+    // On a stereo sample, both channels; the right is the left negated, so each result is too (DC offset included).
+    const stereo = values(applySampleEdit(audio(LEFT, RIGHT), make(PART, 'both')))
+    expect(stereo[0]).toEqual(round(part))
+    expect(stereo[1]).toEqual(round(part).map((value) => +(-value).toFixed(5)))
   })
 
-  it('normalizes with one gain for both channels, so the balance stays', () => {
-    const result = applySampleEdit(audio([0.1, 0.2], [-0.4, 0.1]), { kind: 'normalize' })
-    expect(values(result)).toEqual([[0.24975, 0.4995], [-0.999, 0.24975]])
-    // Silence is left silent.
-    expect(values(applySampleEdit(audio([1e-6, -1e-6]), { kind: 'normalize' }))).toEqual([[0, -0]])
-    expect(applySampleEdit(audio([1e-6]), { kind: 'normalize' }).channels[0]![0]).toBeCloseTo(1e-6, 9)
+  it.each(processes)('$name works on the left or the right channel alone, and leaves the other bit for bit', ({ make, part }) => {
+    const input = audio(LEFT, RIGHT)
+    const left = applySampleEdit(input, make(PART, 'left'))
+    expect(values(left)[0]).toEqual(round(part))
+    expect(Array.from(left.channels[1]!)).toEqual(Array.from(input.channels[1]!))
+    const right = applySampleEdit(input, make(PART, 'right'))
+    expect(Array.from(right.channels[0]!)).toEqual(Array.from(input.channels[0]!))
+    expect(values(right)[1]).toEqual(round(part).map((value) => +(-value).toFixed(5)))
+  })
+
+  it.each(FADE_CURVES)('fades in and out with the $title curve: g(t), and g(1 − t)', ({ curve, g }) => {
+    const ones = audio(Array(10).fill(1))
+    const range = { from: 0, to: 10 }
+    const fadeIn = applySampleEdit(ones, { kind: 'fade', range, channels: 'both', direction: 'in', curve })
+    const fadeOut = applySampleEdit(ones, { kind: 'fade', range, channels: 'both', direction: 'out', curve })
+    expect(values(fadeIn)[0]).toEqual(round(Array.from({ length: 10 }, (_, i) => g(i / 10))))
+    expect(values(fadeOut)[0]).toEqual(round(Array.from({ length: 10 }, (_, i) => g((9 - i) / 10))))
+    expect([g(0), g(1)].map((value) => +value.toFixed(9))).toEqual([0, 1])
+  })
+
+  it.each([
+    { kind: 'gain', edit: (ramp: { frames: number; curve: 'linear' | 'equal-power' }) => ({ kind: 'gain', range: { from: 20, to: 80 }, channels: 'both', db: -12, ramp }) },
+    { kind: 'silence', edit: (ramp: { frames: number; curve: 'linear' | 'equal-power' }) => ({ kind: 'silence', range: { from: 20, to: 80 }, channels: 'both', ramp }) },
+    { kind: 'dc-offset', edit: (ramp: { frames: number; curve: 'linear' | 'equal-power' }) => ({ kind: 'dc-offset', range: { from: 20, to: 80 }, channels: 'both', ramp }) },
+  ] as const)('$kind ramps inside the range at edges inside the sample, and leaves the frames outside bit for bit', ({ edit }) => {
+    const input = audio(Array.from({ length: 100 }, (_, i) => Math.sin(i / 3) * 0.7 + 0.2))
+    for (const curve of ['linear', 'equal-power'] as const) {
+      const ramped = applySampleEdit(input, edit({ frames: 10, curve }) as SampleEdit)
+      const plain = applySampleEdit(input, edit({ frames: 0, curve }) as SampleEdit)
+      const [before, after, full] = [ramped.channels[0]!, input.channels[0]!, plain.channels[0]!]
+      for (let i = 0; i < 100; i++) {
+        if (i < 20 || i >= 80) expect(before[i], `${curve} ${i}`).toBe(after[i])
+        else if (i >= 30 && i < 70) expect(before[i], `${curve} ${i}`).toBe(full[i])
+      }
+      // In the ramps, between the input and the fully changed value, moving towards the change.
+      const g = fadeShape(curve)
+      for (let j = 0; j < 10; j++) {
+        const weight = g((j + 1) / 11)
+        expect(before[20 + j]).toBeCloseTo(after[20 + j]! + weight * (full[20 + j]! - after[20 + j]!), 6)
+        expect(before[79 - j]).toBeCloseTo(after[79 - j]! + weight * (full[79 - j]! - after[79 - j]!), 6)
+      }
+    }
+  })
+
+  it("doesn't ramp at the sample's own ends, and a ramp is at most half the range", () => {
+    const input = audio(Array(10).fill(1))
+    const atStart = applySampleEdit(input, { kind: 'silence', range: { from: 0, to: 4 }, channels: 'both', ramp: { frames: 10, curve: 'linear' } })
+    // The start is the sample's: no ramp there; the end ramps over 2 frames (half of 4).
+    expect(values(atStart)[0]).toEqual(round([0, 0, 1 - 2 / 3, 1 - 1 / 3, 1, 1, 1, 1, 1, 1]))
+  })
+
+  it('normalizes linked with one gain, keeping the balance, or each channel to the peak, and leaves silence alone', () => {
+    const input = audio([0.1, 0.2], [-0.4, 0.1])
+    const range = { from: 0, to: 2 }
+    expect(values(applySampleEdit(input, { kind: 'normalize', range, channels: 'both', peakDb: 0, linked: true }))).toEqual([[0.25, 0.5], [-1, 0.25]])
+    expect(values(applySampleEdit(input, { kind: 'normalize', range, channels: 'both', peakDb: 0, linked: false }))).toEqual([[0.5, 1], [-1, 0.25]])
+    const target = 10 ** (-0.1 / 20)
+    expect(values(applySampleEdit(input, { kind: 'normalize', range, channels: 'both', peakDb: -0.1, linked: true }))[1]![0]).toBeCloseTo(-target, 5)
+    const quiet = audio([1e-6, -1e-6])
+    expect(applySampleEdit(quiet, { kind: 'normalize', range, channels: 'both', peakDb: 0, linked: true }).channels[0]![0]).toBeCloseTo(1e-6, 9)
+  })
+
+  it('may go past full scale: float keeps it', () => {
+    const result = applySampleEdit(audio([0.5, -0.5]), { kind: 'gain', range: { from: 0, to: 2 }, channels: 'both', db: 12, ramp: NO_RAMP })
+    expect(result.channels[0]![0]).toBeGreaterThan(1.9)
+  })
+
+  it('deletes a range and joins the parts around it, on every channel', () => {
+    expect(values(applySampleEdit(audio(LEFT, RIGHT), { kind: 'delete', range: { from: 1, to: 4 } }))).toEqual([[0, 4, 5, 6, 7], [0, -4, -5, -6, -7]])
+    expect(values(applySampleEdit(audio(LEFT), { kind: 'delete', range: { from: 0, to: 8 } }))).toEqual([[]])
   })
 
   it('leaves its input alone and keeps the sample rate', () => {
     const input = audio(LEFT, RIGHT)
-    const result = applySampleEdit(input, { kind: 'reverse' })
+    const result = applySampleEdit(input, { kind: 'reverse', range: WHOLE, channels: 'both' })
     expect(values(input)).toEqual([LEFT, RIGHT])
     expect(result.sampleRate).toBe(100)
     expect(result.channels[0]).not.toBe(input.channels[0])
   })
 })
 
-describe('SAMPLE_EDITS', () => {
-  it('lists the six edits in toolbar order, each with a title, a tooltip and a suffix', () => {
-    expect(SAMPLE_EDITS.map((entry) => entry.title)).toEqual(['Normalize', 'Reverse', 'Keep selection', 'Delete selection', 'Fade in', 'Fade out'])
-    for (const entry of SAMPLE_EDITS) expect(entry.tooltip && entry.suffix, entry.kind).toBeTruthy()
-  })
-
-  it('makes an edit from the selection, or none without one where it needs it', () => {
-    const selection = { from: 10, to: 20 }
-    expect(sampleEditEntry('keep').create({ selection })).toEqual({ kind: 'keep', range: selection })
-    expect(sampleEditEntry('delete').create({ selection: null })).toBeNull()
-    expect(sampleEditEntry('delete').create({ selection: { from: 5, to: 5 } })).toBeNull()
-    expect(sampleEditEntry('fade-in').create({ selection: null })).toEqual({ kind: 'fade-in', seconds: 0.01 })
-    expect(SAMPLE_EDITS.filter((entry) => entry.needsSelection).map((entry) => entry.kind)).toEqual(['keep', 'delete'])
+describe('remap and changed', () => {
+  const frames = 100
+  const range = { from: 20, to: 60 }
+  it.each([
+    { edit: { kind: 'gain', range, channels: 'both', db: -3, ramp: NO_RAMP }, frame: [30, 30], moved: [{ from: 10, to: 30 }, { from: 10, to: 30 }], changed: range },
+    { edit: { kind: 'fade', range, channels: 'left', direction: 'in', curve: 'linear' }, frame: [30, 30], moved: [{ from: 10, to: 30 }, { from: 10, to: 30 }], changed: range },
+    { edit: { kind: 'normalize', range, channels: 'both', peakDb: 0, linked: true }, frame: [30, 30], moved: [{ from: 10, to: 30 }, { from: 10, to: 30 }], changed: range },
+    { edit: { kind: 'silence', range, channels: 'both', ramp: NO_RAMP }, frame: [30, 30], moved: [{ from: 10, to: 30 }, { from: 10, to: 30 }], changed: range },
+    { edit: { kind: 'dc-offset', range, channels: 'both', ramp: NO_RAMP }, frame: [30, 30], moved: [{ from: 10, to: 30 }, { from: 10, to: 30 }], changed: range },
+    // Reverse mirrors positions inside its range when every channel turns; on one channel, positions stay.
+    { edit: { kind: 'reverse', range, channels: 'both' }, frame: [30, 50], moved: [{ from: 25, to: 30 }, { from: 50, to: 55 }], changed: range },
+    { edit: { kind: 'reverse', range, channels: 'right' }, frame: [30, 30], moved: [{ from: 25, to: 30 }, { from: 25, to: 30 }], changed: range },
+    { edit: { kind: 'delete', range }, frame: [70, 30], moved: [{ from: 10, to: 70 }, { from: 10, to: 30 }], changed: { from: 20, to: 60 } },
+    { edit: { kind: 'delete', range }, frame: [30, null], moved: [{ from: 30, to: 50 }, null], changed: { from: 20, to: 60 } },
+  ] as const)('$edit.kind ($edit.range.from–$edit.range.to) maps $frame.0, a range, and says what changed', ({ edit, frame, moved, changed }) => {
+    expect(remapFrame(edit as SampleEdit, frames, frame[0])).toBe(frame[1])
+    expect(remapRange(edit as SampleEdit, frames, moved[0])).toEqual(moved[1])
+    expect(changedFrames(edit as SampleEdit, frames)).toEqual(changed)
   })
 })
 
-describe('remapFrame and remapRange', () => {
-  const frames = 100
-  it.each([
-    { edit: { kind: 'normalize' } as SampleEdit, frame: [10, 10], range: [{ from: 10, to: 20 }, { from: 10, to: 20 }] },
-    { edit: { kind: 'fade-in', seconds: 0.01 } as SampleEdit, frame: [10, 10], range: [{ from: 10, to: 20 }, { from: 10, to: 20 }] },
-    { edit: { kind: 'reverse' } as SampleEdit, frame: [10, 90], range: [{ from: 10, to: 20 }, { from: 80, to: 90 }] },
-    { edit: { kind: 'keep', range: { from: 20, to: 60 } } as SampleEdit, frame: [30, 10], range: [{ from: 10, to: 30 }, { from: 0, to: 10 }] },
-    { edit: { kind: 'keep', range: { from: 20, to: 60 } } as SampleEdit, frame: [10, null], range: [{ from: 70, to: 90 }, null] },
-    { edit: { kind: 'delete', range: { from: 20, to: 60 } } as SampleEdit, frame: [70, 30], range: [{ from: 10, to: 70 }, { from: 10, to: 30 }] },
-    { edit: { kind: 'delete', range: { from: 20, to: 60 } } as SampleEdit, frame: [30, null], range: [{ from: 30, to: 50 }, null] },
-    { edit: { kind: 'delete', range: { from: 20, to: 60 } } as SampleEdit, frame: [60, 20], range: [{ from: 40, to: 80 }, { from: 20, to: 40 }] },
-  ])('$edit.kind maps $frame.0 and a range', ({ edit, frame, range }) => {
-    expect(remapFrame(edit, frames, frame[0]!)).toBe(frame[1])
-    expect(remapRange(edit, frames, range[0]!)).toEqual(range[1])
+describe('SAMPLE_EDITS', () => {
+  const context = (change: Partial<SampleEditContext> = {}): SampleEditContext => ({
+    selection: null,
+    frames: 1000,
+    sampleRate: 1000,
+    channelCount: 2,
+    crossfade: DEFAULT_CROSSFADE,
+    fadeCurve: 's-curve',
+    ...change,
   })
 
-  it('says which output frames changed', () => {
-    expect(changedFrames({ kind: 'delete', range: { from: 20, to: 60 } }, 100, 100)).toEqual({ from: 20, to: 60 })
-    expect(changedFrames({ kind: 'fade-out', seconds: 0.1 }, 100, 100)).toEqual({ from: 90, to: 100 })
-    expect(changedFrames({ kind: 'reverse' }, 100, 100)).toEqual({ from: 0, to: 100 })
+  it('is one entry per kind, each with a title, a tooltip, a suffix and a group', () => {
+    expect(Object.keys(SAMPLE_EDITS)).toEqual(['gain', 'fade', 'normalize', 'reverse', 'silence', 'dc-offset', 'delete'])
+    for (const [kind, entry] of Object.entries(SAMPLE_EDITS)) {
+      expect(entry.kind).toBe(kind)
+      expect(entry.tooltip && entry.suffix && entry.group, kind).toBeTruthy()
+    }
+  })
+
+  it('makes a process from the selection and its channels, or the whole sample, with the crossfade as its ramp', () => {
+    const selection = { from: 10, to: 20, channels: 'left' as const }
+    expect(sampleEditEntry('silence').create(context({ selection }))).toEqual({ kind: 'silence', range: { from: 10, to: 20 }, channels: 'left', ramp: { frames: 5, curve: 'linear' } })
+    expect(sampleEditEntry('reverse').create(context())).toEqual({ kind: 'reverse', range: { from: 0, to: 1000 }, channels: 'both' })
+    // A mono sample is always both channels.
+    expect(sampleEditEntry('reverse').create(context({ selection, channelCount: 1 }))).toMatchObject({ channels: 'both' })
+  })
+
+  it('takes its settings, clamped, or their defaults', () => {
+    expect(sampleEditEntry('gain').create(context())).toMatchObject({ db: -3 })
+    expect(sampleEditEntry('gain').create(context({ settings: { db: 99 } }))).toMatchObject({ db: 24 })
+    expect(sampleEditEntry('normalize').create(context({ settings: { linked: 0 } }))).toMatchObject({ peakDb: -0.1, linked: false })
+  })
+
+  it('makes fades in and out with the curve from the menu, and names their copies by direction', () => {
+    const fadeOut = sampleEditEntry('fade').create(context(), 'out')!
+    expect(fadeOut).toMatchObject({ kind: 'fade', direction: 'out', curve: 's-curve' })
+    expect(editSuffix(fadeOut)).toBe('fade out')
+    expect(SAMPLE_EDITS.fade.variants?.map((variant) => variant.title)).toEqual(['Fade in', 'Fade out'])
+  })
+
+  it('needs a selection, and both channels, to delete', () => {
+    expect(sampleEditEntry('delete').create(context())).toBeNull()
+    expect(sampleEditEntry('delete').create(context({ selection: { from: 5, to: 5, channels: 'both' } }))).toBeNull()
+    expect(SAMPLE_EDITS.delete).toMatchObject({ needsSelection: true, channels: 'both' })
+    expect(Object.values(SAMPLE_EDITS).filter((entry) => entry.channels === 'both').map((entry) => entry.kind)).toEqual(['delete'])
+  })
+
+  it('keeps a crossfade between 0 and 100 ms', () => {
+    expect([clampCrossfadeSeconds(-1), clampCrossfadeSeconds(0.05), clampCrossfadeSeconds(1), clampCrossfadeSeconds(NaN)]).toEqual([0, 0.05, 0.1, 0.005])
   })
 })

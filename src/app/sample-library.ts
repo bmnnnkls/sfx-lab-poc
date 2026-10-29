@@ -17,7 +17,8 @@ import {
   encodeWavChannels,
   frameCount,
   originOf,
-  sampleEditEntry,
+  editSuffix,
+  peakOfRange,
   sampleRemap,
   savedFrameCount,
   updatePeakPyramid,
@@ -321,13 +322,17 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
       notify('error', 'Nothing left after the edit')
       return
     }
+    const changed = changedFrames(edit, frameCount(source.audio))
+    // Float WAV keeps a peak past full scale; the edit is kept, with a word.
+    const peak = peakOfRange(audio, changed)
+    const clipping = peak > 1 ? `The result peaks at +${(20 * Math.log10(peak)).toFixed(1)} dBFS, past full scale; lower the gain if it distorts.` : null
     const wav = encodeWavChannels(audio.channels, audio.sampleRate, EDIT_WAV_BIT_DEPTH)
     const id = await sha256Hex(wav)
     if (id === info.id) {
       notify('info', 'Nothing changed')
       return
     }
-    const name = asCopy ? `${info.name} (${sampleEditEntry(edit.kind).suffix})`.slice(0, 60) : info.name
+    const name = asCopy ? `${info.name} (${editSuffix(edit)})`.slice(0, 60) : info.name
     if (asCopy && useProjectStore.getState().project.samples.some((sample) => sample.id === id)) {
       notify('info', `"${name}" is already in the library`)
       return
@@ -353,7 +358,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     const open = useSelectionStore.getState().sampleId === info.id
     // The pyramid redraws only what the edit changed.
     const pyramid = () =>
-      source.pyramid ? updatePeakPyramid(source.pyramid, audio, changedFrames(edit, frameCount(source.audio), audio.sampleRate)) : buildPeakPyramid(audio)
+      source.pyramid ? updatePeakPyramid(source.pyramid, audio, changed) : buildPeakPyramid(audio)
     const working = (key: string, sampleId: string): WaveAudio => ({ sampleId, viewKey: key, audio, pyramid: pyramid() })
 
     if (asCopy) {
@@ -362,6 +367,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
       if (open) moveEditor({ info, audio: source.audio }, working(id, id), edit)
       if (open) useSelectionStore.getState().selectSample(id)
       notify('info', `Added "${name}" to the library`)
+      if (clipping) notify('warning', clipping)
       return
     }
 
@@ -375,6 +381,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
       const count = report.emptiedTrims
       notify('warning', `${count} ${count === 1 ? 'clip was' : 'clips were'} trimmed to audio the edit removed.`)
     }
+    if (clipping) notify('warning', clipping)
   }
 
   const editSample = async (sampleId: string, edit: SampleEdit, asCopy: boolean) => {
