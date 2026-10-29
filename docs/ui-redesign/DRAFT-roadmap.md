@@ -282,7 +282,8 @@ Safari (Firefox isn't installed on the machine), and the manual pass.
 
 **Spec signed off** 2026-10-29; see the [spec](SPEC-round-11-wave-editor.md). It splits the round into 11a (stereo and
 the pyramid), 11b (in-place edits) and 11c (markers, regions and keys), and keeps every decision behind one seam so it
-can be changed later. The outline below is what the spec started from.
+can be changed later. 11a has its [plan](PLAN-round-11a-stereo-and-the-pyramid.md), waiting for sign-off. The outline
+below is what the spec started from.
 
 The biggest single piece, mostly beyond the UI. It needs its own SPEC before planning. Round 3 already gives it its
 view, its activity-bar button and its entry points; this round replaces what is inside.
