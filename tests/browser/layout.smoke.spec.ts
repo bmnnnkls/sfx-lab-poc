@@ -24,6 +24,24 @@ test('Sounds starts in the secondary sidebar, collapsed, and opens 300 px wide',
   await expect(toggle).toHaveAttribute('aria-pressed', 'true')
 })
 
+test('Pinned starts beside Sounds, and a layout saved without it gets it there', async ({ page }) => {
+  await page.goto('/?starter')
+  await expect(page.getByRole('tab', { name: 'Pinned', exact: true })).toBeVisible()
+  await openView(page, 'Sounds')
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('sfxlab:layout'))).toContain('"pinned"')
+  // As a layout saved before round 9 has it: no Pinned anywhere.
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('sfxlab:layout')!)
+    for (const border of stored.model.borders) border.children = border.children.filter((tab: { id: string }) => tab.id !== 'pinned')
+    localStorage.setItem('sfxlab:layout', JSON.stringify(stored))
+  })
+  await page.reload()
+  const session = (await viewRoot(page, 'Session').boundingBox())!
+  const pinned = (await (await openView(page, 'Pinned')).boundingBox())!
+  expect(pinned.x).toBeGreaterThan(session.x + session.width / 2)
+  await expect(viewRoot(page, 'Pinned').getByText(/Nothing is pinned/)).toBeVisible()
+})
+
 /** Choose an entry in the status bar's Layout menu. */
 const layoutMenu = async (page: import('@playwright/test').Page, entry: string) => {
   await page.getByRole('contentinfo').getByRole('button', { name: 'Layout', exact: true }).click()
@@ -98,7 +116,7 @@ for (const [name, saved] of [
   await page.goto('/?starter')
   await expect(viewRoot(page, 'Session')).toBeVisible()
   await expect(viewRoot(page, 'Instrument')).toBeVisible()
-  await expect(page.getByRole('tab')).toHaveCount(12)
+  await expect(page.getByRole('tab')).toHaveCount(13)
 })
 
 test("the toggles in the panel's strip hide and show the panel and each sidebar", async ({ page }) => {

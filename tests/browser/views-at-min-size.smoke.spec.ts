@@ -185,7 +185,24 @@ const CASES: readonly Case[] = [
       root.getByLabel('Search library', { exact: true }),
       ...(width && height ? [] : [root.getByLabel('Library items', { exact: true }).getByRole('button').first()]),
     ],
-  },  {
+  },
+  {
+    title: 'Pinned',
+    state: 'empty',
+    min: TOOL_VIEW,
+    controls: (root) => [root.getByText(/Nothing is pinned/)],
+  },
+  {
+    title: 'Pinned',
+    min: TOOL_VIEW,
+    prepare: async (page, root) => {
+      await viewRoot(page, 'Session').getByRole('button', { name: 'Master', exact: true }).click({ button: 'right' })
+      await page.getByRole('menuitem', { name: 'Pin effects panel', exact: true }).click()
+      await expect(root.getByRole('region', { name: 'Master effects', exact: true })).toBeVisible()
+    },
+    controls: (root) => [root.getByRole('button', { name: 'Open', exact: true }).first(), root.getByRole('button', { name: 'Unpin Master effects', exact: true })],
+  },
+  {
     title: 'Tracks',
     min: TOOL_VIEW,
     prepare: async (_page, root) => {

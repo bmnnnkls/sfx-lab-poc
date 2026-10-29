@@ -43,11 +43,12 @@ export const openGroupEffects = (groupId: string) => {
   reveal('effects')
 }
 
-/** Pins a graph's front panel when it isn't pinned, and asks the Pinned view to show it. */
+/** Pins a graph's front panel when it isn't pinned, reveals the Pinned view, and asks it to scroll to the pin. */
 export const revealPin = (pin: Pick<PanelPin, 'owner' | 'graph'>) => {
   const store = useProjectStore.getState()
   store.pinPanel(pin)
   if (!isPinned(useProjectStore.getState().project, pin)) return
+  reveal('pinned')
   useGraphViewStore.getState().requestPin(pinKey(pin))
 }
 

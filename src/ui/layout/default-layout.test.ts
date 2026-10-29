@@ -3,7 +3,7 @@ import { type IJsonTabSetNode, Model, RowNode, TabNode, TabSetNode } from 'flexl
 import { defaultLayout, defaultRegionOf, panelWeightOf } from './default-layout'
 
 describe('default layout', () => {
-  it('stacks the editor area over the panel in a column, with Samples, Library and Sounds in collapsed sidebars', () => {
+  it('stacks the editor area over the panel in a column, with Samples, Library and Tracks, and Sounds and Pinned, in collapsed sidebars', () => {
     const json = defaultLayout()
     const [column] = json.layout.children!
     expect(json.layout.children).toHaveLength(1)
@@ -19,7 +19,7 @@ describe('default layout', () => {
     expect(primary).toMatchObject({ location: 'left', show: true, selected: -1 })
     expect(primary!.children!.map((tab) => tab.id)).toEqual(['samples', 'library', 'tracks'])
     expect(secondary).toMatchObject({ location: 'right', show: true, selected: -1 })
-    expect(secondary!.children!.map((tab) => tab.id)).toEqual(['sounds'])
+    expect(secondary!.children!.map((tab) => tab.id)).toEqual(['sounds', 'pinned'])
     expect(json.global).toMatchObject({ borderSize: 300 })
   })
 
@@ -69,5 +69,6 @@ describe('default layout', () => {
     expect(defaultRegionOf('mixer')).toBe('panel')
     expect(defaultRegionOf('library')).toBe('primary')
     expect(defaultRegionOf('sounds')).toBe('secondary')
+    expect(defaultRegionOf('pinned')).toBe('secondary')
   })
 })

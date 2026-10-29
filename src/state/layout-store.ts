@@ -3,7 +3,7 @@ import { create } from 'zustand'
 /** Every view the workbench can show. The ids are stable: layouts are saved by them. */
 export type ViewId =
   | 'session' | 'arrangement' | 'wave'
-  | 'instrument' | 'effects' | 'notes' | 'clip' | 'mixer' | 'samples' | 'sounds' | 'library' | 'tracks'
+  | 'instrument' | 'effects' | 'notes' | 'clip' | 'mixer' | 'samples' | 'sounds' | 'library' | 'tracks' | 'pinned'
 
 /** Where a view can sit: the editor area in the middle, the panel below it, and a sidebar on either side. */
 export type RegionId = 'editor' | 'panel' | 'primary' | 'secondary'
@@ -66,14 +66,14 @@ const DEFAULT_GROUPS: readonly GroupState[] = [
   { id: 'editor', region: 'editor', views: [...MAIN_VIEWS, 'wave'], active: 'session' },
   { id: 'panel', region: 'panel', views: PANEL_VIEWS, active: 'instrument' },
   { id: 'border_left', region: 'primary', views: ['samples', 'library', 'tracks'], active: 'samples' },
-  { id: 'border_right', region: 'secondary', views: ['sounds'], active: 'sounds' },
+  { id: 'border_right', region: 'secondary', views: ['sounds', 'pinned'], active: 'sounds' },
 ]
 const DEFAULT_HIDDEN: readonly RegionId[] = ['primary', 'secondary']
 
 /**
  * The default layout, in the spirit of VS Code: Session, Arrangement and the wave editor over the editors and the
- * Mixer in the panel; Samples and Library in the primary sidebar and Sounds in the secondary one, both collapsed to
- * their strips.
+ * Mixer in the panel; Samples, Library and Tracks in the primary sidebar and Sounds and Pinned in the secondary one, both
+ * collapsed to their strips.
  */
 export const DEFAULT_LAYOUT: LayoutSnapshot = {
   groups: DEFAULT_GROUPS,

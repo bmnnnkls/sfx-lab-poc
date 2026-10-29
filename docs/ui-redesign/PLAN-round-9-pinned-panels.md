@@ -410,3 +410,16 @@ What turned out different from the design above, step by step.
   columns, and every pad is 1 × 2 at one.
 * **Step 3: the pinned variant's empty state is a line:** "No controls yet." with *Open*, which `PanelView` takes as
   `onOpen`, so it runs no action itself.
+* **Step 4: `revealPin` reveals `pinned`** now that it is a view, before it posts the request.
+* **Step 4: `PinnedView` reads only the live pins' keys,** and each `PinnedPanel` (memoized) its own pin, title and
+  colour, all through `useProjectSelect`. Turning a knob in one pin re-renders that pin, not the list or the others.
+  The title comes from `pinTitle` (`ui/pinned/pin-title.ts`).
+* **Step 4: the request is answered once the pin is drawn:** the view's effect looks for `[data-pin-key]`, scrolls it
+  into view and focuses its header (`tabIndex={-1}`), then clears the request. A view hidden in `<Activity>` answers
+  when it shows again.
+* **Step 4: the pin's menu is on its whole header,** the twisty and buttons included, as a track header's is. The
+  twisty is named *Collapse Lead instrument* (or *Expand …*) and the × *Unpin Lead instrument*.
+* **Step 4: the empty state's offers** are the selected owner's panels that `canPin` allows, each running the menu's
+  action (`track.pin` with its graph, `group.pin`, `master.pin`); with nothing selected it offers none.
+* **Step 4: `layout.smoke.spec.ts` checks the repair in the page:** it removes `pinned` from the saved layout and
+  reloads.

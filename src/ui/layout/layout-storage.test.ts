@@ -111,6 +111,20 @@ describe('parseStoredLayout', () => {
     expect(() => Model.fromJson(parsed)).not.toThrow()
   })
 
+  it('adds Pinned to the secondary sidebar of a layout saved before it existed', () => {
+    const json = defaultLayout()
+    const right = json.borders!.find((border) => border.location === 'right')!
+    right.children = right.children!.filter((tab) => tab.id !== 'pinned')
+    const parsed = parse(stored(json))!
+    expect(borderTabs(parsed, 'right')).toEqual(['sounds', 'pinned'])
+    // Moved elsewhere, it stays there.
+    const moved = defaultLayout()
+    moved.borders!.find((border) => border.location === 'right')!.children = [{ type: 'tab', id: 'sounds', component: 'view' }]
+    moved.borders!.find((border) => border.location === 'left')!.children!.push({ type: 'tab', id: 'pinned', component: 'view' })
+    expect(borderTabs(parse(stored(moved))!, 'left')).toContain('pinned')
+    expect(borderTabs(parse(stored(moved))!, 'right')).toEqual(['sounds'])
+  })
+
   it("puts a missing editor view into the first group that isn't the panel", () => {
     const json = defaultLayout()
     const column = json.layout.children![0] as IJsonRowNode
@@ -194,7 +208,7 @@ describe('parseStoredLayout with a version-1 layout', () => {
     expect(group(parsed.model, 'panel')).toMatchObject({ maxHeight: 0 })
     expect(tabsOf(parsed.model, 'panel')).toEqual(['instrument', 'effects', 'notes', 'clip', 'mixer'])
     expect(borderTabs(parsed.model, 'left')).toEqual(['samples', 'library', 'tracks'])
-    expect(borderTabs(parsed.model, 'right')).toEqual(['sounds'])
+    expect(borderTabs(parsed.model, 'right')).toEqual(['sounds', 'pinned'])
   })
 
   it('still rejects a version-1 layout with an unknown view', () => {

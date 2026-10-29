@@ -30,7 +30,7 @@ describe('FlexLayoutDriver', () => {
         { id: 'editor', region: 'editor', views: ['session', 'arrangement', 'wave'], active: 'session' },
         { id: 'panel', region: 'panel', views: PANEL_VIEWS, active: 'instrument' },
         { id: 'border_left', region: 'primary', views: ['samples', 'library', 'tracks'], active: 'samples' },
-        { id: 'border_right', region: 'secondary', views: ['sounds'], active: 'sounds' },
+        { id: 'border_right', region: 'secondary', views: ['sounds', 'pinned'], active: 'sounds' },
       ],
       visible: ['session', 'instrument'],
       hiddenRegions: ['primary', 'secondary'],
