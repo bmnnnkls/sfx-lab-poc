@@ -12,7 +12,11 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
 
 - **U1 Round 11c: markers, regions and keys** in the wave editor ([spec](active/SPEC-round-11-wave-editor.md)),
   including *Revert to original*. 11b left that to 11c because remapping trims back through a chain of edits needs the
-  chain, which isn't kept.
+  chain, which isn't kept. A second spec, [handling and spectrum](active/SPEC-wave-editor-handling-and-spectrum.md)
+  (signed off), replaces 11c's keys and splits 11c into handling, markers and regions, and a second pane.
+- **U9 Round 11d: the spectrogram and spectral edits** in the wave editor
+  ([spec](active/SPEC-wave-editor-handling-and-spectrum.md), signed off): the FFT core (idea H1), a spectrum
+  pyramid computed in a worker, time-and-frequency selection, band gain and keep band.
 - **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline (groups are
   control owners but not automation owners yet), recording into the arrangement (touch recording on the timeline).
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
@@ -90,7 +94,7 @@ Things that shipped without the check their plan asked for.
 - **E5 Stereo plain Reverb** (Stereo reverb and Mono sum cover stereo routing today).
 - **E6 Audio clips and regions**: loop points inside a region, loop crossfades, time-stretch, recording.
 - **E7 Bounce**: stems and batch export.
-- **E8 Wave editor**: spectrum view (needs the FFT utility, idea H1), slicing a selection to pads.
+- **E8 Wave editor**: slicing a selection to pads (the spectrum view is U9).
 
 ## Library and reusable sounds
 

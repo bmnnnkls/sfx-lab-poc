@@ -35,6 +35,9 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 
 1. **Round 11c: markers, regions and keys** in the wave editor, and *Revert to original*. Specified in
    [active/SPEC-round-11-wave-editor.md](active/SPEC-round-11-wave-editor.md). It still needs its plan.
+   [active/SPEC-wave-editor-handling-and-spectrum.md](active/SPEC-wave-editor-handling-and-spectrum.md) (signed off
+   2026-10-29) splits it into handling (menu, keys, mouse, a grouped toolbar), markers and regions, and a second pane,
+   followed by round 11d: the spectrogram and spectral edits. The first part, handling, needs its plan.
 2. **Round 12: the arrangement editor.** Track headers, automation lanes on the timeline (groups too), recording into
    the arrangement. Outline in [active/ui-redesign-roadmap.md](active/ui-redesign-roadmap.md#round-12-arrangement-editor).
 3. **Round 13: visual refresh and themes.**
