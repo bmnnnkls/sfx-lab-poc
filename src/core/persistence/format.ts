@@ -4,7 +4,7 @@ import { MAX_GROUPS, MAX_PATCH_NODES, MAX_PINS, MAX_SCENES, MAX_TRACKS } from '.
 export const FORMAT = 'sfx-lab-project'
 
 /** Bump when the saved shape changes, and add a step to `migrations.ts`. */
-export const CURRENT_VERSION = 10
+export const CURRENT_VERSION = 11
 
 /** Hard caps so a malformed or hostile file cannot make the app allocate without bound. */
 export const LIMITS = {

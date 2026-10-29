@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { CURRENT_VERSION } from './format'
 import { describe, expect, it } from 'vitest'
 import { parseProject, serializeProject } from './index'
 import { migrate } from './migrations'
@@ -16,7 +17,7 @@ describe('v8 delay divisions', () => {
     expect(track.fx.nodes.find(n => n.id === 'echo')?.params).toMatchObject({ time: 0.75, sync: 1 })
     expect(track.fx.nodes.find(n => n.id === 'echo')?.params.division).toBe(version === 8 ? 8 : undefined)
     const saved = serializeProject(loaded.project)
-    expect(JSON.parse(saved).version).toBe(10)
+    expect(JSON.parse(saved).version).toBe(CURRENT_VERSION)
     expect(parseProject(saved)).toEqual(loaded)
   })
   it('v7 discards formerly unknown divisions and references in nested graphs, revisions and automation', () => {

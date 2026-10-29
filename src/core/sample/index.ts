@@ -1,4 +1,5 @@
-export type { SampleAudio, SampleData, SampleInfo, SampleLookup } from './types'
+export type { SampleAudio, SampleData, SampleInfo, SampleLookup, SampleMarker, SampleRegion } from './types'
+export { SAMPLE_MARK_LIMITS, originOf, savedFrameCount } from './marks'
 export { type SampleChannel, channelAt, frameCount, monoAt } from './channels'
 export { SampleBank } from './sample-bank'
 export { computePeaks, toMono } from './audio-math'

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { CURRENT_VERSION } from './format'
 import { describe, it, expect } from 'vitest'
 import { parseProject, serializeProject } from './project-file'
 const fixture = readFileSync(new URL('./fixtures/v3-midi-mappings.sfxlab.json', import.meta.url), 'utf8')
@@ -13,7 +14,7 @@ describe('v3 portable MIDI mappings', () => {
     expect(result.warnings).toEqual([])
     expect(result.project.midiMappings).toHaveLength(2)
     expect(read(serializeProject(result.project)).project).toEqual(result.project)
-    expect(JSON.parse(serializeProject(result.project)).version).toBe(10)
+    expect(JSON.parse(serializeProject(result.project)).version).toBe(CURRENT_VERSION)
   })
   it('migrates v1/v2 and drops unknown old mapping fields', () => {
     for (const version of [1, 2]) {
