@@ -18,6 +18,8 @@ export interface KeyRow {
 
 /** The global keys. View-local keys (the piano roll's, the trees', the controls') stay in their views: `VIEW_KEYS`. */
 export const DEFAULT_KEYS: readonly KeyRow[] = [
+  { command: 'palette.show', key: 'mod+k', scope: 'text' },
+  { command: 'palette.show', key: 'mod+shift+p', scope: 'text' },
   { command: 'history.undo', key: 'mod+z' },
   { command: 'history.redo', key: 'mod+shift+z' },
   { command: 'history.redo', key: 'mod+y' },

@@ -3,6 +3,8 @@ import { createContext, type ReactNode, useCallback, useContext, useMemo, useSta
 import { useActionContext } from '../shared/menu'
 import { type Binding, bindingsOf, DEFAULT_KEYS, type KeyOverrides, keysOf, loadOverrides, saveOverrides } from './keybindings'
 import { IS_APPLE, keyLabel } from './keys'
+import { CommandPalette } from './CommandPalette'
+import { showDialog, useOpenDialog } from './dialogs'
 import { type CommandServices, useKeybindings } from './use-keybindings'
 
 interface Keybindings {
@@ -34,7 +36,21 @@ export const CommandHost = ({ children }: { children: ReactNode }) => {
   const services = useMemo(() => ({ engine, samples, library, files }), [engine, samples, library, files])
   useKeybindings(bindings, services)
   const value = useMemo(() => ({ bindings, overrides, setOverrides, services }), [bindings, overrides, setOverrides, services])
-  return <KeybindingsContext.Provider value={value}>{children}</KeybindingsContext.Provider>
+  return (
+    <KeybindingsContext.Provider value={value}>
+      {children}
+      <HostDialogs />
+    </KeybindingsContext.Provider>
+  )
+}
+
+const close = () => showDialog(null)
+
+/** The palette and the dialogs commands open; only this re-renders when one opens or closes. */
+const HostDialogs = () => {
+  const dialog = useOpenDialog()
+  if (dialog?.kind === 'palette') return <CommandPalette context={dialog.context} returnTo={dialog.returnTo} onClose={close} />
+  return null
 }
 
 export const useKeybindingsContext = (): Keybindings => {

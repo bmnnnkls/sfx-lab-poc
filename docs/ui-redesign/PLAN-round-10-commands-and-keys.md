@@ -595,3 +595,18 @@ What turned out different from the design above, step by step.
   start, and staying there). Space on the focused Stop button stops and doesn't start again.
 * **Step 3: checks.** `npm run test:audio` on step 3's build: 20 passed. The smoke run: 185 passed (180 and the five
   new cases).
+* **Step 4: the palette is a dialog the command host opens,** through a small subscribable store in
+  `ui/commands/dialogs.ts` (`showDialog`), so `palette.show` is a plain command. Only `HostDialogs` inside the host
+  subscribes; the host itself doesn't re-render when the palette opens. Step 5 puts the other dialogs there.
+* **Step 4: the palette's key closes it again** while it is open (and puts the focus back), so Firefox never gets ⌘K
+  (its web search) from the palette's field. The focus leaving the palette (Tab) closes it too.
+* **Step 4: row labels.** A command is "*Category: label*"; a choice of a command is "*label: choice*" (*Open example:
+  Starter*); a subject's action is "*Subject: title*", an inline choice "*Subject: choice*" and a submenu's choice
+  "*Subject: title: choice*" (*Bass: Pin panel: Instrument*). Matching is by the label, and by the category as a
+  further word.
+* **Step 4: ranking.** Typed: tier, then the commands run recently, then commands before subject actions, then the
+  order given. With nothing typed, the recent commands are not repeated in the list by category.
+* **Step 4: `search-match.ts` takes the label and lists of further texts,** each list a tier lower than the one before:
+  QuickAdd passes its category, keywords and description, so its ranking and tests are unchanged.
+* **Step 4: *Load layout* and the presets wait for steps 5 and 6,** with their palette cases; the named-layout commands
+  came with the menus that use them.
