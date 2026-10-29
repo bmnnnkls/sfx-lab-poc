@@ -22,6 +22,9 @@ export const captureLibraryAsset = (catalog: LibraryCatalog, project: Project, s
 }
 
 /** Remap the closure, including derived interface/knob IDs and every reference to those IDs. */
+/** The start nodes of insert graphs: an effect made from one fits only an owner that starts there. */
+export const EFFECT_INPUTS: readonly string[] = ['masterIn', 'returnIn', 'trackIn', 'groupIn']
+
 const copyAsset = (payload: AssetPayload, owner: ControlOwner) => {
   const nodes = new Map<string, string>(), modules = new Map(payload.modules.map(m => [m.id, createId('module')]))
   const graphs = payload.kind === 'instrument' ? [payload.patch, payload.noteGraph] : [payload.graph]
@@ -95,12 +98,13 @@ export const insertLibraryAsset = (project: Project, catalog: LibraryCatalog, it
   }
   const copy = copyAsset(original.payload, scope.owner), payload = copy.payload
   const owner = scope.owner, track = owner.kind === 'track' ? next.tracks.find(t => t.id === owner.trackId) : undefined
+  const bus = owner.kind === 'group' ? next.groups?.find(g => g.id === owner.groupId)?.bus : undefined
   if (payload.kind === 'audio-effect') {
-    const input = owner.kind === 'master' ? 'masterIn' : track?.kind === 'return' ? 'returnIn' : 'trackIn'
-    const incompatible = [payload.graph, ...payload.modules.map(m => m.patch)].flatMap(g => g.nodes).find(n => ['masterIn', 'returnIn', 'trackIn'].includes(n.type) && n.type !== input)
+    const input = owner.kind === 'master' ? 'masterIn' : owner.kind === 'group' ? 'groupIn' : track?.kind === 'return' ? 'returnIn' : 'trackIn'
+    const incompatible = [payload.graph, ...payload.modules.map(m => m.patch)].flatMap(g => g.nodes).find(n => EFFECT_INPUTS.includes(n.type) && n.type !== input)
     if (incompatible) throw new Error(`Effect requires ${incompatible.type} routing; destination provides ${input}`)
   }
-  if ((domain !== 'fx' && track?.kind !== 'instrument') || (owner.kind === 'track' && !track)) throw new Error('Destination graph is unavailable')
+  if ((domain !== 'fx' && track?.kind !== 'instrument') || (owner.kind === 'track' && !track) || (owner.kind === 'group' && !bus)) throw new Error('Destination graph is unavailable')
   const revisionId = createId('revision')
   const associated = catalog.items.filter(i => !i.trashed && i.content.kind === 'preset' && i.content.assetId === (content.kind === 'preset' ? content.assetId : item.id))
   const sounds = [item, ...associated.filter(i => i.id !== item.id)].filter(i => 'state' in i.content)
@@ -116,6 +120,7 @@ export const insertLibraryAsset = (project: Project, catalog: LibraryCatalog, it
   next = { ...next,
     tracks: next.tracks.map(t => owner.kind === 'track' && t.id === owner.trackId ? payload.kind === 'instrument' && t.kind === 'instrument' ? { ...t, patch: payload.patch, noteGraph: payload.noteGraph, voices: payload.voices } : payload.kind === 'note-effect' && t.kind === 'instrument' ? { ...t, noteGraph: payload.graph } : payload.kind === 'audio-effect' ? { ...t, fx: payload.graph } : t : t),
     master: owner.kind === 'master' && payload.kind === 'audio-effect' ? { ...next.master, fx: payload.graph } : next.master,
+    ...(owner.kind === 'group' && payload.kind === 'audio-effect' && { groups: next.groups?.map(g => g.id === owner.groupId && g.bus ? { ...g, bus: { ...g.bus, fx: payload.graph } } : g) }),
     modules: [...next.modules, ...payload.modules],
     samples: [...next.samples, ...catalog.samples.filter(s => payload.sampleIds.includes(s.id) && !next.samples.some(known => known.id === s.id))],
     controlValues: next.controlValues?.filter(v => !affected(v.target)), sampleBindings: next.sampleBindings?.filter(b => !affected(b.target)),

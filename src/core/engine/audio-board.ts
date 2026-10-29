@@ -1,18 +1,34 @@
 import { RIGHT, STEREO_FRAMES, type SendSink, isStereoBuffer } from '../dsp'
 
 /**
- * Where the tracks leave sound for the return tracks, one stereo buffer per return track. The engine clears it before
- * every stretch of audio it mixes, tracks that send add to it (Send nodes, send knobs), and a return track reads its
- * own buffer as its input; the engine runs senders before the returns they send to, so each buffer is complete by then.
+ * Where the tracks leave sound for the return tracks (or, on a second board, for the group buses), one stereo buffer
+ * per return track or bus. The engine clears it before every stretch of audio it mixes, tracks that send add to it
+ * (Send nodes, send knobs; members their output), and a return track or bus reads its own buffer as its input; the
+ * engine runs senders before the returns they send to, so each buffer is complete by then.
  */
 export class AudioBoard implements SendSink {
   private readonly slots = new Map<string, Float32Array>()
+  private readonly views = new Map<string, { readonly left: Float32Array; readonly right: Float32Array }>()
 
-  /** Keeps one buffer per return track in `ids` (allocating here, not while rendering) and forgets the rest. */
+  /** Keeps one buffer per id in `ids` (allocating here, not while rendering) and forgets the rest. */
   sync(ids: Iterable<string>): void {
     const wanted = new Set(ids)
-    for (const id of this.slots.keys()) if (!wanted.has(id)) this.slots.delete(id)
-    for (const id of wanted) if (!this.slots.has(id)) this.slots.set(id, new Float32Array(STEREO_FRAMES))
+    for (const id of this.slots.keys()) {
+      if (wanted.has(id)) continue
+      this.slots.delete(id)
+      this.views.delete(id)
+    }
+    for (const id of wanted) {
+      if (this.slots.has(id)) continue
+      const slot = new Float32Array(STEREO_FRAMES)
+      this.slots.set(id, slot)
+      this.views.set(id, { left: slot.subarray(0, RIGHT), right: slot.subarray(RIGHT) })
+    }
+  }
+
+  /** A buffer's left and right halves, to mix into at offset 0; undefined when there is no such id. */
+  channels(id: string): { readonly left: Float32Array; readonly right: Float32Array } | undefined {
+    return this.views.get(id)
   }
 
   /** Empties the first `frames` samples of every buffer. */

@@ -12,7 +12,7 @@ const slotOf = ({ owner, scene }: SlotSubject) => automationSlotsOf(project(), o
 const exists = (subject: SlotSubject) => !!slotOf(subject)
 const playing = (subject: SlotSubject) => {
   const status = useStatusStore.getState().status
-  const launcher = subject.owner.kind === 'master' ? status?.masterAutomation : status?.tracks[subject.owner.trackId]
+  const launcher = subject.owner.kind === 'master' ? status?.masterAutomation : (subject.owner.kind === 'track' ? status?.tracks[subject.owner.trackId] : undefined)
   return !!launcher && launcher.playingClipId === slotOf(subject)?.id
 }
 

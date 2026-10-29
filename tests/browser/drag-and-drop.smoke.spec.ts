@@ -306,3 +306,27 @@ test("a lane's name drags into a group's lane, and a mixer strip's name beside a
   await dragTo(page, mixer.getByRole('button', { name: 'Pad', exact: true }), strip, { position: { x: 5, y: 60 } })
   await expect.poll(names).toEqual(['Lead', 'Pad', 'Bass', 'Master'])
 })
+
+test("a bus's effects preset dropped on a bus strip recalls it, and a folder refuses it", async ({ page }) => {
+  await page.goto('/?starter')
+  const tree = (await openView(page, 'Tracks')).getByRole('tree', { name: 'Tracks' })
+  for (const [name, entry] of [['Lead', 'Group'], ['Group 1, group of 1 track', 'Sum to a bus'], ['Pad', 'Group']]) {
+    await tree.getByRole('treeitem', { name, exact: true }).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: entry, exact: true }).click()
+  }
+  await tree.getByRole('treeitem', { name: 'Group 1, group of 1 track', exact: true }).click()
+  const sounds = await openView(page, 'Sounds')
+  await expect(sounds.getByLabel('Sound scope', { exact: true })).toHaveValue('fx')
+  await sounds.getByLabel('Sound name', { exact: true }).fill('Glue')
+  await sounds.getByRole('button', { name: 'Save as preset', exact: true }).click()
+  const preset = sounds.getByRole('button', { name: 'Recall preset Glue', exact: true })
+  await expect(preset).toBeVisible()
+
+  const mixer = await openView(page, 'Mixer')
+  const recalled = page.getByRole('status').filter({ hasText: 'controls recalled' })
+  await dragTo(page, preset, mixer.getByRole('region', { name: 'Group 1 bus', exact: true }))
+  await expect(recalled).toHaveCount(1)
+  const folder = mixer.getByRole('group', { name: 'Group Group 2', exact: true })
+  await dragTo(page, preset, folder, { whileOver: () => expect(folder).toHaveAttribute('data-drop', 'refuse') })
+  await expect(recalled).toHaveCount(1)
+})

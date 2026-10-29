@@ -24,7 +24,12 @@ export const projectWithControlValues = (project: Project, overrides: readonly C
     const clamped = clampControlValue(resolved.spec, value)
     if (target.kind === 'mixer') {
       if (target.owner.kind === 'master') next = { ...next, master: { ...next.master, volume: clamped } }
-      else {
+      else if (target.owner.kind === 'group') {
+        const groupId = target.owner.groupId
+        next = { ...next, groups: next.groups?.map((group) => group.id !== groupId || !group.bus ? group : { ...group, bus: target.control === 'volume' ? { ...group.bus, volume: clamped }
+          : target.control === 'pan' ? { ...group.bus, pan: clamped }
+          : { ...group.bus, sends: { ...group.bus.sends, [target.returnId]: clamped } } }) }
+      } else {
         const trackId = target.owner.trackId
         next = { ...next, tracks: next.tracks.map((track) => track.id !== trackId ? track
           : target.control === 'volume' ? { ...track, volume: clamped }
@@ -37,7 +42,10 @@ export const projectWithControlValues = (project: Project, overrides: readonly C
     if (!graph) continue
     const patch = setNodeParam(flattenPatch(graph, project.modules), flatControlNodeId(target), target.paramId, clamped)
     if (target.owner.kind === 'master') next = { ...next, master: { ...next.master, fx: patch } }
-    else {
+    else if (target.owner.kind === 'group') {
+      const groupId = target.owner.groupId
+      next = { ...next, groups: next.groups?.map((group) => group.id !== groupId || !group.bus ? group : { ...group, bus: { ...group.bus, fx: patch } }) }
+    } else {
       const trackId = target.owner.trackId
       next = { ...next, tracks: next.tracks.map((track) => track.id !== trackId ? track : target.domain === 'fx' ? { ...track, fx: patch }
         : track.kind !== 'instrument' ? track : target.domain === 'patch' ? { ...track, patch } : { ...track, noteGraph: patch }) }

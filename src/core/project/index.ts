@@ -10,6 +10,7 @@ export type {
   SendLevels,
   Track,
   TrackGroup,
+  GroupBus,
   GroupColour,
   WarpMode,
 } from './types'
@@ -108,6 +109,7 @@ export {
   type MixGraph,
   audioSourceTracks,
   audioSourcesOf,
+  hasMixLoop,
   mixDependencies,
   mixesAfter,
   sendTargetsOf,
@@ -172,6 +174,17 @@ export {
   visibleRows,
   withViewOf,
 } from './track-groups'
+export { type BusGroup, type ChannelRoute, busGroups, mixRouting } from './group-routing'
+export {
+  busOf,
+  createGroupBus,
+  setGroupBus,
+  setGroupMuted,
+  setGroupPan,
+  setGroupSend,
+  setGroupSoloed,
+  setGroupVolume,
+} from './group-bus'
 export { duplicateTrack } from './track-duplicate'
 export { copyNodes, pasteNodes, type CopiedNodes } from './node-copy'
 export { duplicateScene, insertScene, removeScene } from './scenes'

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import styles from './MidiSettings.module.css'
 import { formatParam } from '../shared/param-scale'
 
-const targetName = (target: ControlTarget, names: ReadonlyMap<string, string>) => `${target.owner.kind === 'master' ? 'Master' : names.get(target.owner.trackId) ?? 'Missing track'} / ${target.kind === 'graph' ? `${target.path.map((s) => s.nodeId).join('/')} ${target.nodeId} · ${target.paramId}` : target.control === 'send' ? `send to ${names.get(target.returnId) ?? 'missing return'}` : target.control}`
+const targetName = (target: ControlTarget, names: ReadonlyMap<string, string>) => `${target.owner.kind === 'master' ? 'Master' : target.owner.kind === 'group' ? names.get(target.owner.groupId) ?? 'Missing group' : names.get(target.owner.trackId) ?? 'Missing track'} / ${target.kind === 'graph' ? `${target.path.map((s) => s.nodeId).join('/')} ${target.nodeId} · ${target.paramId}` : target.control === 'send' ? `send to ${names.get(target.returnId) ?? 'missing return'}` : target.control}`
 
 export const MidiSettings = () => {
   const [open, setOpen] = useState(false)
@@ -13,7 +13,7 @@ export const MidiSettings = () => {
   const project = useProjectStore((s) => s.project)
   const overrides = useControlStore((s) => s.overrides)
   const mappings = project.midiMappings ?? []
-  const names = new Map(project.tracks.map((t) => [t.id, t.name]))
+  const names = new Map([...project.tracks.map((t) => [t.id, t.name] as const), ...(project.groups ?? []).map((g) => [g.id, g.name] as const)])
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { useMidiStore.getState().cancelLearn(); setOpen(false) }

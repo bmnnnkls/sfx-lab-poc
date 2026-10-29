@@ -147,7 +147,9 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     .slice(0, LIMITS.tracks)
     .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, sampleIds, modules, warn))
     .filter((track): track is Track => track !== null)
-  const { tracks, groups } = sanitizeGroups(raw.groups, read, warn)
+  const grouped = sanitizeGroups(raw.groups, read, sampleIds, modules, warn)
+  const references = repairTrackReferences(grouped.tracks, grouped.groups, modules, warn)
+  const { tracks, groups } = repairSendLevels(references.tracks, references.groups, modules, warn)
 
   const libraryOrigins = sanitizeLibraryOrigins(raw.libraryOrigins, warn)
   const controlValues = sanitizeControlValues(raw.controlValues, warn)
@@ -174,7 +176,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
           : createDefaultMasterGraph(),
       ...(isRecord(raw.master) && masterVolume(raw.master.volume) !== 1 && { volume: masterVolume(raw.master.volume) }),
     },
-    tracks: repairSendLevels(repairTrackReferences(tracks, modules, warn), modules, warn),
+    tracks,
     ...(groups && { groups }),
   }, warn)
 }

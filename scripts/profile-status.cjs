@@ -11,8 +11,9 @@
 //           nothing.
 //   four    Session and Arrangement side by side over Clip, Mixer in the panel; scene 1 plays, its first clip
 //           open in Clip, so Clip's playhead runs too. Needs the docking shell (round 2).
-//   groups  Session and Arrangement side by side, Mixer in the panel, the Tracks view open: Lead in an expanded group,
-//           Pad in a collapsed one, Bass hidden; scene 1 plays, so the hidden track sounds. Needs round 7.
+//   groups  Session and Arrangement side by side, Mixer in the panel, the Tracks view open: Lead in an expanded group
+//           that sums to a bus, Pad in a collapsed one, Bass hidden; scene 1 plays, so the hidden track sounds. Needs
+//           round 8 (round 7 without the bus).
 //
 // Prints one JSON object per build. Each figure is a per-second average over the measured seconds.
 const { chromium } = require('@playwright/test')
@@ -24,7 +25,7 @@ if (!devUrl || !previewUrl) {
 }
 const SECONDS = Number(secondsArg ?? 10)
 const SETUP = setupArg ?? 'editor'
-const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot']
+const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume']
 
 // A stub React DevTools hook: React then runs in profiling mode (dev build) and reports every commit.
 const hook = () => {
@@ -118,6 +119,12 @@ const setUp = async (page, url) => {
       await tree.getByRole('treeitem', { name, exact: true }).click({ button: 'right' })
       await page.getByRole('menuitem', { name: 'Group', exact: true }).click()
     }
+    // Round 8: the expanded group sums to a bus, so its strip and meter join the mixer.
+    const bus = tree.getByRole('treeitem', { name: 'Group 1, group of 1 track', exact: true })
+    await bus.click({ button: 'right' })
+    const sum = page.getByRole('menuitem', { name: 'Sum to a bus', exact: true })
+    if (await sum.count()) await sum.click()
+    else await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Collapse Group 2', exact: true }).first().click()
     await tree.getByRole('treeitem', { name: 'Bass', exact: true }).hover()
     await page.getByRole('button', { name: 'Hide Bass', exact: true }).click()
@@ -139,6 +146,7 @@ const main = async () => {
     await page.addInitScript(hook)
     await setUp(page, devUrl)
     const visible = await page.evaluate(() => [...document.querySelectorAll('[data-view]')].filter((view) => view.checkVisibility()).map((view) => view.dataset.view))
+    const busStrips = await page.locator('[data-view="mixer"] section[aria-label$=" bus"]').count()
     await page.evaluate(() => { window.__profile.recording = true })
     await page.waitForTimeout(SECONDS * 1000)
     const stats = await page.evaluate(() => { window.__profile.recording = false; return window.__profile })
@@ -147,6 +155,7 @@ const main = async () => {
       build: 'dev',
       setup: SETUP,
       visible,
+      busStrips,
       commitsPerSecond: +(stats.commits / SECONDS).toFixed(1),
       renderMsPerSecond: +(stats.renderMs / SECONDS).toFixed(1),
       componentRendersPerSecond: Math.round(stats.rendered / SECONDS),

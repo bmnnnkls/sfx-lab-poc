@@ -1,4 +1,4 @@
-import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type ControlTarget, type GroupColour, type Track, describeNode } from '@core'
+import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE, type ControlTarget, type GroupColour, type Track, describeNode, mixRouting } from '@core'
 import { type SubjectOf, openTrackView, runAction, useProjectStore, useSelectionStore } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
@@ -21,6 +21,8 @@ export const TrackHeader = ({ track, stripe }: { track: Track; stripe?: GroupCol
   const selected = useSelectionStore((state) => state.trackId === track.id)
   const selectTrack = useSelectionStore((state) => state.selectTrack)
   const modules = useProjectStore((state) => state.project.modules)
+  // Muted by its own flag or through a group.
+  const muted = useProjectStore((state) => mixRouting(state.project).get(track.id)?.muted ?? false)
   // Everything in a graph except where the notes or the sound come in and go out counts as an effect.
   const ENDS = new Set([TRACK_IN_TYPE, TRACK_OUT_TYPE, RETURN_IN_TYPE])
   const soundEffects = track.fx.nodes.filter((node) => !ENDS.has(node.type))
@@ -31,7 +33,7 @@ export const TrackHeader = ({ track, stripe }: { track: Track; stripe?: GroupCol
 
   return (
     <ActionMenu subject={subject}>
-    <div {...gesture.events} {...drop} style={stripe && ({ '--group': `var(--group-${stripe})` } as CSSProperties)} data-stripe={stripe} className={`${styles.header} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnHeader : ''} ${track.muted ? styles.mutedHeader : ''}`}>
+    <div {...gesture.events} {...drop} style={stripe && ({ '--group': `var(--group-${stripe})` } as CSSProperties)} data-stripe={stripe} className={`${styles.header} ${selected ? styles.selected : ''} ${track.kind === 'return' ? styles.returnHeader : ''} ${muted ? styles.mutedHeader : ''}`}>
       <InPlaceRename subject={subject} name={track.name} label={`Name of ${track.name}`} className={styles.trackName}>
         <button className={styles.trackName} onClick={() => selectTrack(track.id)} {...drag}>
           {track.name}

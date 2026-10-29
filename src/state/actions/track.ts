@@ -1,4 +1,4 @@
-import { type ControlTarget, MAX_TRACKS, canGroupTrack, trackRows } from '@core'
+import { type ControlTarget, MAX_TRACKS, canGroupTrack, canMoveTrack, trackRows } from '@core'
 import { openTrackView } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { useSelectionStore } from '../selection-store'
@@ -25,7 +25,8 @@ const groupChoices = ({ trackId }: TrackSubject): ActionChoice[] => {
     if (row.kind !== 'group') continue
     path.length = row.depth
     path.push(row.group.name)
-    choices.push({ id: row.group.id, title: path.join(' / '), enabled: groupId !== row.group.id })
+    // A group whose bus the track would make loop is refused, as a drag there is.
+    choices.push({ id: row.group.id, title: path.join(' / '), enabled: groupId !== row.group.id && canMoveTrack(project(), trackId, { inside: row.group.id }) })
   }
   if (groupId) choices.push({ id: NO_GROUP, title: 'No group' })
   return choices

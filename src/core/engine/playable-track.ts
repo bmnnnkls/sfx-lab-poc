@@ -24,6 +24,8 @@ export interface MixContext {
   readonly timing: MixTiming
   /** Sends to return tracks go here; a return track reads its own slot as its input. */
   readonly sends: AudioBoard
+  /** Members of a group bus add their output here; the bus reads its own slot as its input. */
+  readonly outputs: AudioBoard
   /** Tracks write their sound here for Track audio nodes to read (the engine mixes the tracks they read from first). */
   readonly taps: AudioTaps
 }

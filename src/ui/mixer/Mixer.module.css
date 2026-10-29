@@ -53,6 +53,31 @@
   border-color: var(--group);
 }
 
+.busStrip {
+  border-color: var(--group);
+  box-shadow: inset 0 3px 0 var(--group);
+}
+
+.busTitle {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.busTitle .name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Where a channel sums into, under its name: a bus, or the master. */
+.output {
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .groupStrip span.name {
   padding: 4px 2px;
   cursor: grab;
@@ -178,6 +203,28 @@ span.name {
   color: var(--bg);
   background: var(--accent);
   border-color: var(--accent);
+}
+
+/* Muted or soloed only through a group: half lit, so the cause shows on the group. */
+.buttons .muteHalf {
+  background: linear-gradient(to top, var(--queued) 50%, transparent 50%);
+  border-color: var(--queued);
+}
+
+.buttons .soloHalf {
+  background: linear-gradient(to top, var(--accent) 50%, transparent 50%);
+  border-color: var(--accent);
+}
+
+/* A folder's M and S at the end of its band. */
+.compact {
+  margin-left: auto;
+}
+
+.compact button {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  font-size: 11px;
 }
 
 .faderRow {

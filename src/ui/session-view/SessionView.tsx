@@ -6,7 +6,7 @@ import { ActionMenu, PopupMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename } from '../shared/RenameField'
 import { AutomationSlotCell } from './AutomationSlotCell'
 import { ClipSlot } from './ClipSlot'
-import { CollapsedGroupHeader, GroupBand, GroupCell, HiddenTracks } from './GroupHeader'
+import { CollapsedGroupHeader, GroupBand, GroupCell, GroupVolume, HiddenTracks } from './GroupHeader'
 import { MasterHeader } from './MasterHeader'
 import styles from './SessionView.module.css'
 import { TrackHeader } from './TrackHeader'
@@ -37,7 +37,9 @@ export const SessionView = () => {
             {level.map((band, at) =>
               band.group ? (
                 <div key={band.group.group.id} className={styles.bandCell} style={{ gridColumn: `span ${band.span}`, '--level': index } as CSSProperties}>
-                  <GroupBand group={band.group.group} trackIds={band.group.trackIds} />
+                  <GroupBand group={band.group.group} trackIds={band.group.trackIds}>
+                    <GroupVolume group={band.group.group} />
+                  </GroupBand>
                 </div>
               ) : (
                 <div key={`gap-${at}`} className={styles.bandCell} style={{ gridColumn: `span ${band.span}`, '--level': index } as CSSProperties} />

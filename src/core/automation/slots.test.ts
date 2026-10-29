@@ -11,7 +11,7 @@ describe('automation slot route transforms', () => {
     let p: Project = owner.kind === 'master' ? { ...initial, master: { ...initial.master, fx } } : { ...initial, tracks: [...initial.tracks, { ...createReturnTrack('Return'), id: 'return', fx }] }
     const target: ControlTarget = { kind: 'graph', owner, domain: 'fx', path: [], nodeId: 'gain', nodeType: 'gain', paramId: 'gain' }
     p = setAutomationSlot(p, owner, 0, { id: 'slot', name: 'Lane', lengthBeats: 4, automation: [{ id: 'lane', enabled: true, target, points: [{ id: 'point', beat: 0, value: 0.5, interpolation: 'hold' }] }] })
-    const scope = owner.kind === 'master' ? { master: true as const } : { trackId: owner.trackId, graph: 'fx' as const }
+    const scope = owner.kind === 'track' ? { trackId: owner.trackId, graph: 'fx' as const } : { master: true as const }
     const grouped = groupNodesAsModule(p, scope, ['gain'])
     const route = automationSlotsOf(grouped, owner)![0]!.automation![0]!.target
     expect(route.kind === 'graph' && route.path).toHaveLength(1)

@@ -144,7 +144,7 @@ export class Bounce {
   constructor(project: Project, samples: readonly SampleData[], options: BounceOptions) {
     // Delay lines can be silent for seconds while an echo is still pending, including in serial graphs.
     // Render their explicit tail budget, then trim; a short silence window cannot prove they are empty.
-    this.hasDelay = [project.master.fx, ...project.modules.map(m => m.patch), ...project.tracks.flatMap(t => t.kind === 'instrument' ? [t.patch, t.fx] : [t.fx])].some(graph => graph.nodes.some(n => n.type === 'delay' || n.type === 'pingPong'))
+    this.hasDelay = [project.master.fx, ...project.modules.map(m => m.patch), ...project.tracks.flatMap(t => t.kind === 'instrument' ? [t.patch, t.fx] : [t.fx]), ...(project.groups ?? []).flatMap(g => g.bus ? [g.bus.fx] : [])].some(graph => graph.nodes.some(n => n.type === 'delay' || n.type === 'pingPong'))
     this.options = resolveBounceOptions(project, options)
     const { sampleRate, bars, maxTail, scope } = this.options
     this.engine = new Engine(sampleRate)

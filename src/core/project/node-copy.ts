@@ -1,11 +1,11 @@
-import { MASTER_IN_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE } from '../dsp'
+import { GROUP_IN_TYPE, MASTER_IN_TYPE, RETURN_IN_TYPE, TRACK_IN_TYPE, TRACK_OUT_TYPE } from '../dsp'
 import { CLIP_NOTES_TYPE, NOTE_OUT_TYPE } from '../notefx'
 import type { Patch, PatchConnection, PatchNode } from '../patch'
 import { createId } from '../shared'
 import { MAX_PATCH_NODES } from './edit'
 
 /** Where a graph's sound or notes come in and go out. A graph has one of each, so they are never copied. */
-const FIXED_ENDS = new Set([TRACK_IN_TYPE, TRACK_OUT_TYPE, CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, MASTER_IN_TYPE])
+const FIXED_ENDS = new Set([TRACK_IN_TYPE, TRACK_OUT_TYPE, CLIP_NOTES_TYPE, NOTE_OUT_TYPE, RETURN_IN_TYPE, MASTER_IN_TYPE, GROUP_IN_TYPE])
 
 /** Copied nodes and the wires between them. */
 export interface CopiedNodes {

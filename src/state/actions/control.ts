@@ -59,8 +59,9 @@ export const controlActions: readonly Action<ControlSubject>[] = [
         const track = ownerTrack(target)
         return {
           id: String(index),
-          title: `Show automation${targets.length > 1 && target.kind === 'graph' ? ` ${target.paramId.toUpperCase()}` : ''}`,
-          enabled: target.owner.kind !== 'track' || (!!track && (track.kind === 'return' || track.clips.some(Boolean))),
+          // A group has no clips or slots to hold a lane: its automation comes with the arrangement's lanes.
+          title: `Show automation${targets.length > 1 && target.kind === 'graph' ? ` ${target.paramId.toUpperCase()}` : ''}${target.owner.kind === 'group' ? ' — not on a group yet' : ''}`,
+          enabled: target.owner.kind === 'master' || (!!track && (track.kind === 'return' || track.clips.some(Boolean))),
         }
       }),
     run: ({ targets }, _context, choice) => {

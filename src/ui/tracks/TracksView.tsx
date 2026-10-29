@@ -27,7 +27,7 @@ const treeRows = (rows: readonly TrackRow[]): TrackRow[] => {
 /**
  * The "Tracks" view: tracks and groups as a tree (the WAI-ARIA tree view pattern), the clip tracks group by group, then
  * the returns. One row is in the tab order; arrow keys move through the rows, Right and Left expand and collapse a
- * group (its `collapsed` flag, so every view follows), Enter selects a track, Alt+Up and Alt+Down move the row. Rows
+ * group (its `collapsed` flag, so every view follows), Enter selects a track or a group, Alt+Up and Alt+Down move the row. Rows
  * drag onto each other; each has the menu of its track or group and an eye that hides or shows it.
  */
 export const TracksView = () => {
@@ -36,6 +36,7 @@ export const TracksView = () => {
   const hidden = useMemo(() => new Set(rows.flatMap((row) => (row.kind === 'track' && row.track.hidden ? [row.track.id] : []))), [rows])
   const groups = rows.flatMap((row) => (row.kind === 'group' ? [row.group] : []))
   const selected = useSelectionStore((state) => state.trackId)
+  const selectedGroup = useSelectionStore((state) => state.groupId)
   const context = useActionContext()
   const [chosen, setChosen] = useState<string | null>(null)
   const tree = useRef<HTMLUListElement>(null)
@@ -83,6 +84,7 @@ export const TracksView = () => {
       case 'Enter':
       case ' ':
         if (active.kind === 'track') useSelectionStore.getState().selectTrack(active.track.id)
+        else useSelectionStore.getState().selectGroup(active.group.id)
         break
       default:
         return
@@ -121,7 +123,7 @@ export const TracksView = () => {
             row={row}
             label={row === firstReturn ? 'Returns' : undefined}
             active={row === active}
-            selected={row.kind === 'track' && row.track.id === selected}
+            selected={row.kind === 'track' ? row.track.id === selected : row.group.id === selectedGroup}
             hidden={row.kind === 'track' ? hidden.has(row.track.id) : row.trackIds.every((id) => hidden.has(id))}
             onChoose={() => setChosen(keyOf(row))}
           />
@@ -173,6 +175,7 @@ const Row = ({ row, label, active, selected, hidden, onChoose }: RowProps) => {
           onClick={() => {
             onChoose()
             if (row.kind === 'track') useSelectionStore.getState().selectTrack(row.track.id)
+            else useSelectionStore.getState().selectGroup(row.group.id)
           }}
         >
           <span
@@ -191,6 +194,7 @@ const Row = ({ row, label, active, selected, hidden, onChoose }: RowProps) => {
             <span className={styles.name}>{name}</span>
           </InPlaceRename>
           {row.kind === 'track' && row.track.kind !== 'instrument' && <span className={styles.tag} aria-hidden>{row.track.kind}</span>}
+          {row.kind === 'group' && row.group.bus && <span className={styles.tag} aria-hidden>bus</span>}
           {row.kind === 'group' && <span className={styles.count} aria-hidden>{count}</span>}
           {hidden && <SoundingDot trackIds={row.kind === 'group' ? row.trackIds : [row.track.id]} />}
           <button

@@ -1,4 +1,4 @@
-import { controlTargetKey, flatControlNodeId, type ControlTarget } from '../control'
+import { controlOwnerId, controlTargetKey, flatControlNodeId, type ControlTarget } from '../control'
 import { EngineAutomation } from './automation'
 import { RIGHT, STEREO_FRAMES } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
@@ -11,6 +11,8 @@ import { AudioBoard } from './audio-board'
 import { AudioTaps } from './audio-taps'
 import { AudioTrackRuntime } from './audio-track-runtime'
 import type { EngineCommand } from './commands'
+import { GroupBusRuntime } from './group-bus-runtime'
+import { type MixChannel, mixState } from './mix-state'
 import type { MixContext, PlayableTrack, ScheduledAction, PlaybackMode } from './playable-track'
 import { ReturnTrackRuntime } from './return-track-runtime'
 import { SamplePreview } from './sample-preview'
@@ -55,7 +57,7 @@ export class Engine {
    * to it, a track after the tracks it takes audio from). Each is rebuilt when tracks or graphs change.
    */
   private scheduleOrder: PlayableTrack[] | null = null
-  private mixOrder: PlayableTrack[] | null = null
+  private mixOrder: (readonly [string, PlayableTrack])[] | null = null
   private instrumentOrder: readonly TrackRuntime[] | null = null
   private noteComponents: readonly { tracks: readonly TrackRuntime[]; ids: readonly string[] }[] | null = null
   private readonly noteOwners = new Set<string>()
@@ -66,6 +68,10 @@ export class Engine {
   private readonly noteTaps: TapBoard = new Map()
   /** What the tracks sent to each return track in the stretch being mixed. */
   private readonly sends = new AudioBoard()
+  /** Where members of a group bus leave their output, one slot per bus. */
+  private readonly outputs = new AudioBoard()
+  /** The bus each channel sums into; absent = the master. */
+  private readonly routes = new Map<string, string>()
   /** What the tracks sounded like in the stretch being mixed, for Track audio nodes. */
   private readonly audioTaps = new AudioTaps()
   /** The master bus's insert graph, on the mix of all tracks (a pass-through until the project sets one). */
@@ -146,6 +152,7 @@ export class Engine {
         if (this.tracks.has(command.trackId)) this.cancelTrackNotes(command.trackId)
         this.invalidateOrder()
         this.tracks.set(command.trackId, this.createTrack(command))
+        this.setRoute(command.trackId, command.output ?? null)
         // A track added mid-arrangement follows the timeline like the rest.
         if (this.playbackMode === 'arrangement') this.tracks.get(command.trackId)?.setMode('arrangement')
         break
@@ -154,6 +161,11 @@ export class Engine {
         this.cancelTrackNotes(command.trackId)
         this.invalidateOrder()
         this.tracks.delete(command.trackId)
+        this.routes.delete(command.trackId)
+        break
+      case 'track/setOutput':
+        this.setRoute(command.trackId, command.output)
+        this.invalidateOrder()
         break
       case 'track/setPatch':
         this.cancelTrackNotes(command.trackId)
@@ -466,29 +478,38 @@ export class Engine {
         else { this.masterVolumeCurve = values; this.masterVolume = values[frames - 1]! }
         continue
       }
-      const track = this.tracks.get(target.owner.trackId)
+      // A group owner is its bus's channel, keyed by the group's id.
+      const ownerId = controlOwnerId(target.owner)!
+      const track = this.tracks.get(ownerId)
       if (!track) continue
       if (target.kind === 'graph') track.setAutomationCurve(flatControlNodeId(target), target.paramId, values, target.domain)
       else if (target.control === 'volume') { track.strip.volumeCurve = values; track.strip.volume = values[frames - 1]! }
       else if (target.control === 'pan') { track.strip.panCurve = values; track.strip.pan = values[frames - 1]! }
       else {
         track.strip.sendCurves.set(target.returnId, values)
-        const sends = this.automationSends.get(target.owner.trackId) ?? {}
+        const sends = this.automationSends.get(ownerId) ?? {}
         sends[target.returnId] = values[frames - 1]!
-        this.automationSends.set(target.owner.trackId, sends)
-        this.setSendLevels(target.owner.trackId, sends)
+        this.automationSends.set(ownerId, sends)
+        this.setSendLevels(ownerId, sends)
       }
     }
     const mix: MixContext = {
       timing: { beat: this.transport.beatAfter(cursor), beatsPerSample: this.transport.beatsPerSample },
       sends: this.sends,
+      outputs: this.outputs,
       taps: this.audioTaps,
     }
     // Tracks come after the ones they take sound from, so what they read from the boards is complete.
     if (this.mixStateStale) this.updateMixState()
     this.sends.clear(frames)
+    this.outputs.clear(frames)
     this.audioTaps.clear(frames)
-    for (const track of this.mixTracks()) track.mixInto(left, right, blockOffset + cursor, frames, mix)
+    for (const [id, track] of this.mixTracks()) {
+      // A member of a bus adds to the bus's slot, at its start; everything else to the master, at the stretch.
+      const bus = this.outputs.channels(this.routes.get(id) ?? '')
+      if (bus) track.mixInto(bus.left, bus.right, 0, frames, mix)
+      else track.mixInto(left, right, blockOffset + cursor, frames, mix)
+    }
     this.processMaster(left, right, blockOffset + cursor, frames)
     for (const [id, track] of this.tracks) if (track instanceof AudioTrackRuntime && !track.status().playingClipId) this.automation.finish(id)
   }
@@ -511,41 +532,31 @@ export class Engine {
     this.mixStateStale = true // which tracks feed which returns may have changed
   }
 
+  /** A channel's bus, or null for the master. */
+  private setRoute(trackId: string, output: string | null): void {
+    if (output === null) this.routes.delete(trackId)
+    else this.routes.set(trackId, output)
+  }
+
   /**
-   * Works out, from every track's mute and solo, which tracks are heard and which sends are open (rules in
-   * ARCHITECTURE.md, "Mixer"). Done when something changes, never per sample.
+   * Works out, from every channel's mute and solo (the effective flags, through its groups), which channels are heard
+   * and which sends are open (`mixState`, rules in ARCHITECTURE.md, "Mixer"). Done when something changes, never per
+   * sample.
    */
   private updateMixState(): void {
     this.mixStateStale = false
-    const entries = [...this.tracks]
-    const soloActive = entries.some(([, track]) => track.strip.soloed)
-    const returns = entries.filter(([, track]) => track instanceof ReturnTrackRuntime)
-    for (const [, track] of entries) track.strip.audible = soloActive ? track.strip.soloed : !track.strip.muted
-
-    // A send is open when its track is soloed, or is not muted and either heard or sending to a soloed return.
-    const open = (from: PlayableTrack, to: PlayableTrack): boolean =>
-      from.strip.soloed || (!from.strip.muted && (from.strip.audible || to.strip.soloed))
-
-    if (soloActive) {
-      // Returns fed by a heard track stay heard (so a soloed track keeps its reverb), however many returns deep.
-      let grew = true
-      while (grew) {
-        grew = false
-        for (const [, from] of entries) {
-          if (!from.strip.audible) continue
-          for (const targetId of from.sendTargets()) {
-            const to = this.tracks.get(targetId)
-            if (to instanceof ReturnTrackRuntime && !to.strip.audible && !to.strip.muted && open(from, to)) {
-              to.strip.audible = true
-              grew = true
-            }
-          }
-        }
-      }
-    }
-    for (const [id, from] of entries) {
-      const blocked = returns.filter(([returnId, to]) => returnId !== id && !open(from, to)).map(([returnId]) => returnId)
-      from.strip.blockedSends = new Set(blocked)
+    const channels: MixChannel[] = [...this.tracks].map(([id, track]) => ({
+      id,
+      kind: track instanceof ReturnTrackRuntime ? 'return' : track instanceof GroupBusRuntime ? 'bus' : 'track',
+      muted: track.strip.muted,
+      soloed: track.strip.soloed,
+      output: this.routes.get(id) ?? null,
+      sends: track.sendTargets(),
+    }))
+    const { heard, blocked } = mixState(channels)
+    for (const [id, track] of this.tracks) {
+      track.strip.audible = heard.has(id)
+      track.strip.blockedSends = blocked.get(id)!
     }
   }
 
@@ -605,18 +616,22 @@ export class Engine {
   }
 
   /**
-   * The tracks in the order they are mixed in: each return track after every track that sends to it, and each track
-   * after the tracks it takes audio from. Also prepares the boards that carry that sound.
+   * The tracks in the order they are mixed in: each return track after every track that sends to it, each bus after
+   * the channels that sum into it, and each track after the tracks it takes audio from. Also prepares the boards that
+   * carry that sound.
    */
-  private mixTracks(): readonly PlayableTrack[] {
+  private mixTracks(): readonly (readonly [string, PlayableTrack])[] {
     if (this.mixOrder) return this.mixOrder
     const needs = new Map<string, string[]>([...this.tracks].map(([id, track]) => [id, [...track.audioSources()]]))
     for (const [id, track] of this.tracks) {
       for (const target of track.sendTargets()) if (target !== id) needs.get(target)?.push(id)
     }
+    for (const [id, bus] of this.routes) needs.get(bus)?.push(id)
     this.sends.sync([...this.tracks].filter(([, track]) => track instanceof ReturnTrackRuntime).map(([id]) => id))
+    this.outputs.sync([...this.tracks].filter(([, track]) => track instanceof GroupBusRuntime).map(([id]) => id))
     this.audioTaps.sync([...this.tracks.values()].flatMap((track) => track.audioSources()).filter((id) => this.tracks.has(id)))
-    this.mixOrder = this.sorted(needs)
+    const ids = new Map([...this.tracks].map(([id, track]) => [track, id]))
+    this.mixOrder = this.sorted(needs).map((track) => [ids.get(track)!, track] as const)
     return this.mixOrder
   }
 
@@ -656,6 +671,11 @@ export class Engine {
     switch (command.kind) {
       case 'return':
         return new ReturnTrackRuntime(command.trackId, command.fx, command.volume, this.sampleRate, this.samples)
+      case 'group': {
+        const bus = new GroupBusRuntime(command.trackId, command.fx, command.volume, this.sampleRate, this.samples)
+        bus.setSends(command.sends ?? {})
+        return bus
+      }
       case 'audio': {
         const track = new AudioTrackRuntime(command.trackId, command.fx, command.clips, command.volume, this.samples, this.sampleRate)
         track.setSends(command.sends ?? {})
@@ -705,7 +725,8 @@ export class Engine {
       else this.masterVolume = value
       return
     }
-    const track = this.tracks.get(target.owner.trackId)
+    const ownerId = controlOwnerId(target.owner)!
+    const track = this.tracks.get(ownerId)
     if (!track) return
     if (target.kind === 'graph') {
       const nodeId = metadata.nodeId
@@ -714,10 +735,10 @@ export class Engine {
     } else if (target.control === 'volume') track.strip.volume = value
     else if (target.control === 'pan') track.strip.pan = value
     else {
-      const sends = this.automationSends.get(target.owner.trackId) ?? {}
+      const sends = this.automationSends.get(ownerId) ?? {}
       sends[target.returnId] = value
-      this.automationSends.set(target.owner.trackId, sends)
-      this.setSendLevels(target.owner.trackId, sends)
+      this.automationSends.set(ownerId, sends)
+      this.setSendLevels(ownerId, sends)
     }
   }
 

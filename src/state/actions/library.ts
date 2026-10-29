@@ -1,4 +1,4 @@
-import { type ControlOwner, type LibraryCatalog, type LibraryItem, type SnapshotScope, saveLibraryFolder, saveLibraryItem, trashLibraryEntry } from '@core'
+import { type ControlOwner, type LibraryCatalog, type LibraryItem, type SnapshotScope, EFFECT_INPUTS, saveLibraryFolder, saveLibraryItem, trashLibraryEntry } from '@core'
 import { useLibraryStore } from '../library-store'
 import { useSelectionStore } from '../selection-store'
 import { project, trackOf } from './lookup'
@@ -22,11 +22,12 @@ const update = async (context: ActionContext, edit: (catalog: LibraryCatalog) =>
 export const isInstrumentItem = (value: LibraryCatalog, item: LibraryItem): boolean =>
   item.content.kind === 'instrument' || (item.content.kind === 'preset' && value.revisions.find((revision) => item.content.kind === 'preset' && revision.id === item.content.revisionId)?.payload.kind === 'instrument')
 
-/** The selected track (or the first), or the master: where *Replace selected graph* puts an item. */
+/** The selected track (or the first), group or the master: where *Replace selected graph* puts an item. */
 const selectedOwner = (): ControlOwner => {
   const selection = useSelectionStore.getState()
   const tracks = project().tracks
   const track = tracks.find((candidate) => candidate.id === selection.trackId) ?? tracks[0]
+  if (selection.groupId !== null) return { kind: 'group', groupId: selection.groupId }
   return selection.master ? { kind: 'master' } : { kind: 'track', trackId: track?.id ?? '' }
 }
 
@@ -38,7 +39,7 @@ export const insertionScope = (item: LibraryItem, domain: SnapshotScope['domain'
   const content = item.content
   return {
     owner,
-    domain: content.kind === 'instrument' ? 'patch' : content.kind === 'note-effect' ? 'notes' : content.kind === 'audio-effect' ? 'fx' : content.kind === 'preset' ? content.state.scope.domain : owner.kind === 'master' ? 'fx' : domain,
+    domain: content.kind === 'instrument' ? 'patch' : content.kind === 'note-effect' ? 'notes' : content.kind === 'audio-effect' ? 'fx' : content.kind === 'preset' ? content.state.scope.domain : owner.kind !== 'track' ? 'fx' : domain,
   }
 }
 
@@ -46,21 +47,19 @@ export const insertionScope = (item: LibraryItem, domain: SnapshotScope['domain'
 export const replaceGraph = (item: LibraryItem, scope: SnapshotScope, { library }: ActionContext): Promise<string> =>
   library.insert(item, { mode: 'replace', scope })
 
-/** The fixed inputs an effect graph starts from; an effect only fits an owner that provides its own. */
-const EFFECT_INPUTS = ['masterIn', 'returnIn', 'trackIn']
-
 /**
  * Whether a library instrument, effect or preset can replace a graph of `owner`: an instrument or note effect on an
- * instrument track, an audio effect on a track or the master whose input it was made for.
+ * instrument track, an audio effect on a track, a bus or the master whose input it was made for (`EFFECT_INPUTS`).
  */
 export const graphFitsOwner = (item: LibraryItem, owner: ControlOwner): boolean => {
   const content = item.content
   if (item.trashed || !('revisionId' in content)) return false
   const payload = catalog().revisions.find((revision) => revision.id === content.revisionId)?.payload
   const track = owner.kind === 'track' ? trackOf(owner.trackId) : undefined
-  if (!payload || (owner.kind === 'track' && !track)) return false
+  const bus = owner.kind === 'group' ? project().groups?.find((group) => group.id === owner.groupId)?.bus : undefined
+  if (!payload || (owner.kind === 'track' && !track) || (owner.kind === 'group' && !bus)) return false
   if (payload.kind !== 'audio-effect') return track?.kind === 'instrument'
-  const input = owner.kind === 'master' ? 'masterIn' : track?.kind === 'return' ? 'returnIn' : 'trackIn'
+  const input = owner.kind === 'master' ? 'masterIn' : owner.kind === 'group' ? 'groupIn' : track?.kind === 'return' ? 'returnIn' : 'trackIn'
   return ![payload.graph, ...payload.modules.map((module) => module.patch)].some((graph) => graph.nodes.some((node) => EFFECT_INPUTS.includes(node.type) && node.type !== input))
 }
 

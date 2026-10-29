@@ -6,6 +6,8 @@ export interface MenuAction {
   readonly disabled?: boolean
   /** Styles the item as destructive (red). */
   readonly danger?: boolean
+  /** Says more than the label, on hover. */
+  readonly tooltip?: string
   onSelect(): void
 }
 

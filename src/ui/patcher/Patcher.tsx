@@ -1,4 +1,5 @@
-import { openClip, openMasterEffects, openTrackView, useLayoutStore, useProjectStore, useSelectionStore } from '@state'
+import { findGroup } from '@core'
+import { openClip, openGroupEffects, openMasterEffects, openTrackView, useLayoutStore, useProjectStore, useSelectionStore } from '@state'
 import { viewTitles } from '../layout/view-titles'
 import { GraphEditor } from './GraphEditor'
 import styles from './Patcher.module.css'
@@ -10,6 +11,8 @@ export const Patcher = () => {
   const tracks = useProjectStore((state) => state.project.tracks)
   const selectedId = useSelectionStore((state) => state.trackId)
   const master = useSelectionStore((state) => state.master)
+  const groupId = useSelectionStore((state) => state.groupId)
+  const group = useProjectStore((state) => (groupId === null ? undefined : findGroup(state.project, groupId)))
   const addTrack = useProjectStore((state) => state.addTrack)
 
   if (master) {
@@ -17,6 +20,15 @@ export const Patcher = () => {
       <div className={styles.empty}>
         <p>The master bus has no instrument, only effects.</p>
         <button onClick={openMasterEffects}>{OPEN_EFFECTS}</button>
+      </div>
+    )
+  }
+
+  if (group) {
+    return (
+      <div className={styles.empty}>
+        <p>“{group.name}” is a group: it has no instrument{group.bus ? ', only its bus\'s effects' : ''}.</p>
+        {group.bus && <button onClick={() => openGroupEffects(group.id)}>{OPEN_EFFECTS}</button>}
       </div>
     )
   }

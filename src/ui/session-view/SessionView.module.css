@@ -160,6 +160,26 @@
   box-shadow: inset 0 3px 0 var(--group);
 }
 
+.mutedGroup {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+/* A bus's volume, on its band or its collapsed header. */
+.groupVolume {
+  display: flex;
+  flex: 0 1 120px;
+  align-items: center;
+  min-width: 40px;
+  grid-column: 1 / -1;
+}
+
+.groupVolume input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+}
+
 .groupCount {
   grid-column: 1 / -1;
   font-size: 11px;

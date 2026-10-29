@@ -15,14 +15,19 @@ export interface Band {
   readonly span: number
 }
 
-/** The columns of the visible rows: every track and collapsed group; an expanded group is a band over its members. */
-export const groupedColumns = (rows: readonly TrackRow[]): GroupedColumn[] => {
+/**
+ * The columns of the visible rows: every track and collapsed group; an expanded group is a band over its members. With
+ * `buses` (the mixer), an expanded group with a bus also has a column of its own, first under its band.
+ */
+export const groupedColumns = (rows: readonly TrackRow[], { buses = false } = {}): GroupedColumn[] => {
   const columns: GroupedColumn[] = []
   const open: GroupRow[] = []
   for (const row of rows) {
     while (open.length && open[open.length - 1]!.depth >= row.depth) open.pop()
-    if (row.kind === 'group' && !row.group.collapsed) open.push(row)
-    else columns.push({ row, groups: [...open] })
+    if (row.kind === 'group' && !row.group.collapsed) {
+      open.push(row)
+      if (buses && row.group.bus) columns.push({ row, groups: [...open] })
+    } else columns.push({ row, groups: [...open] })
   }
   return columns
 }

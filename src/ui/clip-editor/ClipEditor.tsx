@@ -1,4 +1,4 @@
-import { type AudioTrack, type InstrumentTrack, automationSlotsOf, isAudioContent, regionClipRef, resizeAutomation, type ControlOwner } from '@core'
+import { type AudioTrack, type InstrumentTrack, automationSlotsOf, findGroup, isAudioContent, regionClipRef, resizeAutomation, type ControlOwner } from '@core'
 import { editAutomationSlot, openClip, useAutomationEditor, useLayoutStore, useProjectStore, useSelectionStore } from '@state'
 import { AutomationEditor } from '../automation/AutomationEditor'
 import { AudioClipEditor } from '../audio-clip-editor/AudioClipEditor'
@@ -22,6 +22,8 @@ export const ClipEditor = () => {
   const regionTrack = useProjectStore((state) => state.project.tracks.find((candidate) => candidate.id === region?.trackId))
 
   const master = useSelectionStore((s) => s.master)
+  const groupId = useSelectionStore((s) => s.groupId)
+  const group = useProjectStore((s) => (groupId === null ? undefined : findGroup(s.project, groupId)))
   const scene = useSelectionStore((s) => s.automationScene)
   const project = useProjectStore((s) => s.project)
 
@@ -33,6 +35,9 @@ export const ClipEditor = () => {
     if (regionTrack?.kind === 'audio' && isAudioContent(content)) return <div className={styles.view}><AudioClipEditor key={region.id} track={regionTrack} clip={content} clipRef={regionClipRef(region.id)} where={where} /></div>
   }
 
+  if (group) {
+    return <div className={styles.empty}><p>“{group.name}” is a group: it has no clips. Its tracks' clips are in the {viewTitles.session.toLowerCase()} and the arrangement.</p><button onClick={() => useLayoutStore.getState().revealView('session')}>Show {viewTitles.session.toLowerCase()}</button></div>
+  }
   if (master || track?.kind === 'return') {
     const owner: ControlOwner = master ? { kind: 'master' } : { kind: 'track', trackId: track!.id }
     const slot = automationSlotsOf(project, owner)?.[scene]

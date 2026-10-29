@@ -22,7 +22,9 @@ export const LibraryPanel = () => {
   const [bundle, setBundle] = useState<{ stage: LibraryBundleStage; exporting: boolean } | null>(null), [partial, setPartial] = useState(false), [checked, setChecked] = useState<string[]>([])
   const [moveTo, setMoveTo] = useState(''), [message, setMessage] = useState(''), [busy, setBusy] = useState(false)
   const track = project.tracks.find(t => t.id === selection.trackId) ?? project.tracks[0]
-  const scope: SnapshotScope = { owner: selection.master ? { kind: 'master' } : { kind: 'track', trackId: track?.id ?? '' }, domain: selection.master ? 'fx' : domain }
+  // A selected group saves and takes its bus's effects, as the master does.
+  const group = selection.groupId === null ? undefined : project.groups?.find(g => g.id === selection.groupId)
+  const scope: SnapshotScope = { owner: selection.master ? { kind: 'master' } : group ? { kind: 'group', groupId: group.id } : { kind: 'track', trackId: track?.id ?? '' }, domain: selection.master || group ? 'fx' : domain }
   const item = catalog.items.find(i => i.id === selected), currentFolder = catalog.folders.find(f => f.id === folder)
   const operationId = useRef(0), previewOperation = useRef(false)
   const stopPreview = () => {
@@ -50,7 +52,7 @@ export const LibraryPanel = () => {
     void library.read().then(value => { if (active && operationId.current === token) setCatalog(value) }).catch(error => { if (active && operationId.current === token) setMessage(String(error)) })
     return () => { active = false; operationId.current++; previewOperation.current = false; setBusy(false); library.stopPreview() }
   }, [library])
-  useEffect(() => { stopPreview() }, [library, query, kind, trash, selection.trackId, selection.master, selection.clipId])
+  useEffect(() => { stopPreview() }, [library, query, kind, trash, selection.trackId, selection.master, selection.groupId, selection.clipId])
   const reviewExport = (selection: LibraryBundleSelection, bundleName: string) => run(async () => {
     stopPreview(); setBundle(null); setPartial(false)
     setBundle({ stage: await library.prepareBundle(selection, bundleName), exporting: true })
@@ -135,7 +137,7 @@ export const LibraryPanel = () => {
         <p>{dependencies.routing}</p>
         {dependencies.presets > 0 && <section aria-label="Associated presets"><strong>Presets</strong>{catalog.items.filter(i => !i.trashed && i.content.kind === 'preset' && i.content.assetId === item.id).map(preset => <button key={preset.id} onClick={() => choose(preset)}>Select preset {preset.name}</button>)}</section>}
         {dependencies.sampleIds.map(id => { const sample = catalog.samples.find(s => s.id === id); return <p key={id}>{sample?.name ?? 'Missing metadata'} · {sample?.durationSeconds.toFixed(2)} s · {sample?.sampleRate} Hz · {sample?.bytes} bytes <small>{id}</small></p> })}
-        <p>Destination: {selection.master ? 'Master' : track?.name ?? 'Select a track'}. Replacement changes only the chosen graph; instruments also replace notes and voices. Existing automation/mappings stay and may become unavailable.</p>
+        <p>Destination: {selection.master ? 'Master' : group ? `${group.name}${group.bus ? ' bus' : ' (a folder: sum it to a bus first)'}` : track?.name ?? 'Select a track'}. Replacement changes only the chosen graph; instruments also replace notes and voices. Existing automation/mappings stay and may become unavailable.</p>
         {!trash ? <>
           <button disabled={busy} onClick={() => act('library-item.preview', { kind: 'library-item', itemId: item.id }, true)}>Preview</button><button onClick={stopPreview}>Stop preview</button>
           <button disabled={busy || !instrumentItem} onClick={() => act('library-item.insert-track', { kind: 'library-item', itemId: item.id })}>Insert new instrument track</button>

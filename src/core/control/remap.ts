@@ -18,9 +18,10 @@ export const remapControlTarget = (target: ControlTarget, remap: ControlRemap, d
     return result.status === 'available' ? { status: 'mapped', target: route.to } : result
   }
   const map = (id: string, ids?: Readonly<Record<string, string | null>>) => ids && Object.hasOwn(ids, id) ? ids[id] : id
-  const ownerId = target.owner.kind === 'track' ? map(target.owner.trackId, remap.owners) : undefined
+  const owner = target.owner
+  const ownerId = owner.kind === 'track' ? map(owner.trackId, remap.owners) : owner.kind === 'group' ? map(owner.groupId, remap.owners) : undefined
   if (ownerId === null) return { status: 'missing', reason: 'Owner removed' }
-  let mapped: ControlTarget = { ...target, owner: target.owner.kind === 'track' ? { kind: 'track', trackId: ownerId as string } : target.owner }
+  let mapped: ControlTarget = { ...target, owner: owner.kind === 'track' ? { kind: 'track', trackId: ownerId as string } : owner.kind === 'group' ? { kind: 'group', groupId: ownerId as string } : owner }
   if (mapped.kind === 'graph') {
     const nodeId = map(mapped.nodeId, remap.nodes)
     const path = mapped.path.map((step) => ({ nodeId: map(step.nodeId, remap.nodes), moduleId: map(step.moduleId, remap.modules) }))

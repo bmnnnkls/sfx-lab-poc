@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { createEmptyProject, createTrack, createAudioTrack, createReturnTrack, createClip, createAudioClip, createNote, type Project, type InstrumentTrack } from '../project'
+import { groupTrack, setGroupBus, createEmptyProject, createTrack, createAudioTrack, createReturnTrack, createClip, createAudioClip, createNote, type Project, type InstrumentTrack } from '../project'
 import { createNode, createModuleUse, type ModuleDefinition } from '../patch'
 import { parseProject, serializeProject } from '../persistence'
 import { editControlBase, enumerateControlTargets, resolveControlTarget } from '../control'
@@ -183,6 +183,22 @@ describe('isolated library preview documents', () => {
     expect(serializeProject(p)).toBe(original)
     const c = captureLibraryAsset(emptyLibrary(), withReturn, { owner: { kind: 'track', trackId: returned.id }, domain: 'fx' }, 'Return', null)
     expect(() => insertLibraryAsset(p, c, c.items[0]!, { mode: 'replace', scope: scopeOf(p, 'fx') })).toThrow(/routing/)
+  })
+  it('saves a bus\'s effects from Group in, previews them and inserts them only on a bus', () => {
+    const base = createEmptyProject()
+    const grouped = groupTrack(base, base.tracks[0]!.id)
+    const groupId = grouped.groupId!
+    const p = setGroupBus(grouped.project, groupId, true)
+    const scope = { owner: { kind: 'group' as const, groupId }, domain: 'fx' as const }
+    const c = captureLibraryAsset(emptyLibrary(), p, scope, 'Bus', null)
+    const preview = libraryPreviewProject(c, c.items[0]!)
+    expect(preview.groups?.[0]?.bus).toBeDefined()
+    const audio = renderProject(load(preview), [], { scope: { kind: 'scene', scene: 0 }, bars: 0.25, maxTail: 0 })
+    expect(audio.left.some(value => Math.abs(value) > 0.01)).toBe(true)
+    const inserted = insertLibraryAsset(p, c, c.items[0]!, { mode: 'replace', scope }).project
+    expect(load(inserted).groups![0]!.bus!.fx.nodes.map(n => n.type)).toEqual(['groupIn', 'trackOut'])
+    expect(() => insertLibraryAsset(p, c, c.items[0]!, { mode: 'replace', scope: scopeOf(p, 'fx') })).toThrow(/groupIn routing/)
+    expect(() => insertLibraryAsset(grouped.project, c, c.items[0]!, { mode: 'replace', scope })).toThrow(/unavailable/)
   })
   it('restoring a child restores its parent path while leaving unrelated trashed items alone', () => {
     let c = saveLibraryFolder(saveLibraryFolder(emptyLibrary(), 'A', null, 'a'), 'B', 'a', 'b')

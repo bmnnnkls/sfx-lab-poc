@@ -16,26 +16,30 @@ const PresetRow = ({ soundId, children }: { soundId: string; children: ReactNode
 
 export const PresetsPanel = () => {
   const project = useProjectStore(s => s.project)
-  const trackId = useSelectionStore(s => s.trackId), master = useSelectionStore(s => s.master)
+  const trackId = useSelectionStore(s => s.trackId), master = useSelectionStore(s => s.master), groupId = useSelectionStore(s => s.groupId)
+  // A selected group acts through its bus, which has only effects and a mixer, as the master has.
+  const group = groupId === null ? undefined : project.groups?.find(g => g.id === groupId)
+  const bus = master || !!group
   const [domain, setDomain] = useState<SnapshotScope['domain']>('patch')
   const [name, setName] = useState('Sound 1'), [message, setMessage] = useState('')
   const [a, setA] = useState(''), [b, setB] = useState(''), [amount, setAmount] = useState(0)
   const gesture = useControlGesture()
   const context = useActionContext()
-  const owner = master ? { kind: 'master' as const } : { kind: 'track' as const, trackId: trackId ?? project.tracks[0]?.id ?? '' }
-  const scope: SnapshotScope = { owner, domain: master ? (domain === 'track' ? 'track' : 'fx') : domain }
+  const owner = master ? { kind: 'master' as const } : group ? { kind: 'group' as const, groupId: group.id } : { kind: 'track' as const, trackId: trackId ?? project.tracks[0]?.id ?? '' }
+  const scope: SnapshotScope = { owner, domain: bus ? (domain === 'track' ? 'track' : 'fx') : domain }
   const act = (run: () => string | void) => { try { setMessage(run() ?? 'Sound saved') } catch (error) { setMessage(error instanceof Error ? error.message : 'Sound action failed') } }
   const snapshots = project.snapshots ?? []
   const scopeNames = { patch: 'Instrument', notes: 'Note effects', fx: 'Audio effects', track: 'Whole track + mixer' }
-  const label = (snapshot: Snapshot) => `${snapshot.name} · ${snapshot.scope.owner.kind === 'master' ? 'Master' : project.tracks.find(t => t.id === (snapshot.scope.owner.kind === 'track' ? snapshot.scope.owner.trackId : ''))?.name ?? 'Missing owner'} / ${scopeNames[snapshot.scope.domain]}`
+  const ownerName = (scoped: Snapshot['scope']['owner']) => scoped.kind === 'master' ? 'Master' : scoped.kind === 'group' ? project.groups?.find(g => g.id === scoped.groupId)?.name ?? 'Missing group' : project.tracks.find(t => t.id === scoped.trackId)?.name ?? 'Missing owner'
+  const label = (snapshot: Snapshot) => `${snapshot.name} · ${ownerName(snapshot.scope.owner)} / ${scopeNames[snapshot.scope.domain]}`
   /** Runs a sound's action from its row, with its message on the status line. */
   const run = (id: string, snapshot: Snapshot, preset: boolean) => runAction(id, { kind: 'sound', soundId: snapshot.id, preset }, context, { report: (_kind, text) => setMessage(text) })
   const labelled = (snapshot: Snapshot, preset: boolean) => <InPlaceRename subject={{ kind: 'sound', soundId: snapshot.id, preset }} name={snapshot.name} label={`Name of ${snapshot.name}`}><span>{label(snapshot)}</span></InPlaceRename>
   return <section className={styles.panel} aria-label="Snapshots and presets">
     <div className={styles.toolbar}>
-      <strong>{master ? 'Master' : project.tracks.find(t => t.id === owner.trackId)?.name ?? 'Select a track'}</strong>
+      <strong>{owner.kind === 'track' ? project.tracks.find(t => t.id === owner.trackId)?.name ?? 'Select a track' : ownerName(owner)}</strong>
       <label>Scope <select aria-label="Sound scope" value={scope.domain} onChange={e => setDomain(e.target.value as SnapshotScope['domain'])}>
-        {!master && <><option value="patch">Instrument + notes (presets)</option><option value="notes">Note effects</option></>}
+        {!bus && <><option value="patch">Instrument + notes (presets)</option><option value="notes">Note effects</option></>}
         <option value="fx">Audio effects</option><option value="track">Whole track + mixer (snapshots)</option>
       </select></label>
       <input aria-label="Sound name" value={name} maxLength={80} onChange={e => setName(e.target.value)} />

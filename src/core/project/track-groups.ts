@@ -1,6 +1,8 @@
 import { createId } from '../shared'
 import { removeTrack } from './edit'
-import { groupChain, groupsById } from './group-membership'
+import { groupChain, groupsById, withoutGroups } from './group-membership'
+import { busGroups } from './group-routing'
+import { hasMixLoop } from './mix-order'
 import type { GroupColour, Project, Track, TrackGroup } from './types'
 
 /** The most groups a project has, and how deep they nest (a top-level group is one level). */
@@ -117,8 +119,10 @@ const withTree = (project: Project, roots: readonly TreeNode[], returns: readonl
     sameItems(clips, project.tracks.filter((track) => track.kind !== 'return')) &&
     sameItems(returns, project.tracks.filter((track) => track.kind === 'return'))
   ) return project
+  // Groups left without tracks go, with what their buses owned.
+  const gone = new Set(before.flatMap((group) => (ordered.some((kept) => kept.id === group.id) ? [] : [group.id])))
   const { groups: _old, ...rest } = project
-  return { ...rest, tracks: [...clips, ...returns], ...(ordered.length && { groups: ordered }) }
+  return withoutGroups({ ...rest, tracks: [...clips, ...returns], ...(before.length && { groups: [...ordered, ...before.filter((group) => gone.has(group.id))] }) }, gone)
 }
 
 const returnsOf = (project: Project) => project.tracks.filter((track) => track.kind === 'return')
@@ -229,23 +233,30 @@ const parentAt = (project: Project, place: TrackPlace): string | undefined => {
 
 const targetOf = (place: TrackPlace): TrackItem => ('inside' in place ? { kind: 'group', id: place.inside } : 'before' in place ? place.before : place.after)
 
+/** Whether moving an item there would make the mix loop: it changes which bus sums what. */
+const closesLoop = (project: Project, item: TrackItem, place: TrackPlace): boolean =>
+  busGroups(project).length > 0 && hasMixLoop(moveInTree(project, item, place))
+
 /**
  * Whether a track can go there: a clip track among the clip tracks and into any group, a return only next to another
- * return. Not next to itself.
+ * return. Not next to itself, and not where its bus would make the mix loop.
  */
 export const canMoveTrack = (project: Project, trackId: string, place: TrackPlace): boolean => {
   const track = trackOf(project, trackId)
   const target = targetOf(place)
   if (!track || (target.kind === 'track' && target.id === trackId)) return false
   if (track.kind === 'return') return target.kind === 'track' && !('inside' in place) && trackOf(project, target.id)?.kind === 'return'
-  return isClipItem(project, target)
+  return isClipItem(project, target) && !closesLoop(project, { kind: 'track', id: trackId }, place)
 }
 
-/** Whether a group can go there: among the clip tracks, not into itself, and no deeper than `MAX_GROUP_DEPTH`. */
+/**
+ * Whether a group can go there: among the clip tracks, not into itself, no deeper than `MAX_GROUP_DEPTH`, and not where
+ * the mix would loop.
+ */
 export const canMoveGroup = (project: Project, groupId: string, place: TrackPlace): boolean => {
   const target = targetOf(place)
   if (!isClipItem(project, { kind: 'group', id: groupId }) || !isClipItem(project, target) || within(project, target, groupId)) return false
-  return groupDepth(project, parentAt(project, place)) + heightOf(project, groupId) <= MAX_GROUP_DEPTH
+  return groupDepth(project, parentAt(project, place)) + heightOf(project, groupId) <= MAX_GROUP_DEPTH && !closesLoop(project, { kind: 'group', id: groupId }, place)
 }
 
 const moveInTree = (project: Project, item: TrackItem, place: TrackPlace): Project => {
@@ -330,17 +341,17 @@ export const groupTrack = (project: Project, trackId: string): { project: Projec
 export const ungroup = (project: Project, groupId: string): Project => {
   const group = findGroup(project, groupId)
   if (!group) return project
-  const groups = project.groups!.filter((candidate) => candidate !== group).map((candidate) => (candidate.parentId === groupId ? withKey(candidate, 'parentId', group.parentId) : candidate))
+  const groups = project.groups!.map((candidate) => (candidate.parentId === groupId ? withKey(candidate, 'parentId', group.parentId) : candidate))
   const tracks = project.tracks.map((track) => (track.groupId === groupId ? withKey(track, 'groupId', group.parentId) : track))
-  const { groups: _old, ...rest } = project
-  return { ...rest, tracks, ...(groups.length && { groups }) }
+  return withoutGroups({ ...project, tracks, groups }, new Set([groupId]))
 }
 
 /** Removes a group with its nested groups and their tracks, as `removeTrack` removes each. */
 export const removeGroup = (project: Project, groupId: string): Project =>
   tracksInGroup(project, groupId).reduce((next, track) => removeTrack(next, track.id), project)
 
-const updateGroup = (project: Project, groupId: string, change: (group: TrackGroup) => TrackGroup): Project => {
+/** `change` applied to one group; the same project when it returns the same group. */
+export const updateGroup = (project: Project, groupId: string, change: (group: TrackGroup) => TrackGroup): Project => {
   if (!project.groups) return project
   const groups = project.groups.map((group) => (group.id === groupId ? change(group) : group))
   return sameItems(groups, project.groups) ? project : { ...project, groups }

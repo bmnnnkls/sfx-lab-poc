@@ -106,9 +106,10 @@ Each folder exposes one `index.ts`; everything else in it is private.
 
 ## Shared control targets and effective values
 
-`core/control` is the common framework-free control model. A `ControlTarget` names a track or master owner and either
-an instrument (`patch`), note (`notes`) or insert (`fx`) graph, or a mixer control (volume, pan, send with return ID).
-Returns use their track IDs. Graph targets carry an ordered path of `{ nodeId, moduleId }` uses, the leaf node ID,
+`core/control` is the common framework-free control model. A `ControlTarget` names a track, group or master owner and
+either an instrument (`patch`), note (`notes`) or insert (`fx`) graph, or a mixer control (volume, pan, send with return
+ID). Returns use their track IDs; a group (`{ kind: 'group', groupId }`) is its bus. `controlOwnerId(owner)` is the id
+an owner has in the project and the engine. Graph targets carry an ordered path of `{ nodeId, moduleId }` uses, the leaf node ID,
 expected node type and parameter ID. Names, panel order and canvas positions never enter identity. Canonical keys
 serialize these fields in a fixed order. Resolution checks every use before flattening and refuses ambiguous flat IDs;
 a replaced module or node type is incompatible, while absent nodes, parameters, returns and owners are missing.
@@ -145,6 +146,15 @@ and consecutive gestures do not merge accidentally. Wheel bursts use an 800 ms i
 undo restores its starting value. Shared-definition panels keep the graph editor's authoring path. Panel, property and mixer
 `EffectiveValue` outputs show active Read/override values, show the base in a tooltip and provide re-enable/release. The pure
 `effectiveControlReadouts` helper returns only active compatible overrides rather than every parameter on every frame.
+
+**A group as an owner** (round 8). A group's bus has a fader, pan, sends and an insert graph in domain `fx`; they resolve,
+enumerate, edit (`editControlBase` writes back to the bus) and project (`projectWithControlValues`) like a track's. A
+folder has nothing to control: its targets are missing, "The group has no bus". `patch` and `notes` are incompatible, as
+on a return. Panel controls, MIDI learn, snapshots and presets (`SnapshotScope { owner: group, domain: 'fx' }`), sample
+bindings and the bounce reach a bus; automation does not yet. A group has no clips or session cells to hold a lane, so
+the automation parsers keep refusing a group owner with their unsupported-owner warning, *Show automation* is disabled
+on a group's control, and touch on one authors its base. `ungroup`, `removeGroup` and a group losing its last track drop
+the control values and mappings its bus owned; switching the bus off keeps them, unavailable, for undo.
 
 This control foundation is reused by MIDI and clip automation below. Snapshots and project presets ship in slice 4 below; library insertion ships in slice 5 below. Touch recording is described below. Manual overrides reach the engine through main-thread commands; lane evaluation follows its beat clock.
 The existing panel shows directly nested controls; deeper paths are supported by the control API and saved values,
@@ -569,9 +579,10 @@ tracks; a return track *is* the bus, so there are no bus names.
   The per-track send knobs use the same call, post-fader.
 * **Return in is stereo**, so mono effects on a return need the **L R** switch (or use *Stereo reverb*, *Ping-pong delay*,
   *Width*); `Track in` stays mono for instrument and audio tracks. The editor offers `Track in` on every track but returns
-  and `Return in` only on returns.
-* **Order** (`Engine.runOrder`). A track runs after the tracks it takes notes from, and a return after every track that sends
-  to it (`PlayableTrack.sendTargets()`, read from the flattened insert graph). Mixing now follows that order too. A loop
+  and `Return in` only on returns. **Group in**, where a group bus's graph starts, is the same stereo source under a third
+  name, offered only on buses.
+* **Order** (`Engine.runOrder`). A track runs after the tracks it takes notes from, and a return after every track or group
+  bus that sends to it (`PlayableTrack.sendTargets()`, read from the flattened insert graph). Mixing now follows that order too. A loop
   between returns degrades to the plain order (the later one reads a buffer that is not complete); the editor and files
   prevent it. Sending to a missing return does nothing.
 * **Rules** are the same as for notes taken from other tracks. `sendableReturns` offers each Send the other returns that do
@@ -616,7 +627,7 @@ sends to it; it just processes what the tracks and returns have summed.
   graph; `master/setFx` replaces it (restarting its tails), `master/setParam` and `master/setSample` are the knob and picker
   changes. `diffProject` sends `master/setFx` when a project is loaded, then only what changed, by the same function that
   diffs track graphs (`diffPatch('master', ...)`).
-* **Nodes.** `Master in` is the same stereo source as `Return in` (one implementation, two names). The master's picker
+* **Nodes.** `Master in` is the same stereo source as `Return in` and `Group in` (one implementation, three names). The master's picker
   has `Master in`, not `Track in`, `Return in` or `Send` (the returns are mixed before the master, so there is nothing to
   send to).
 * **Project.** The default graph comes with every new project, files without one load with it silently, and a stored one
@@ -631,14 +642,35 @@ sends to it; it just processes what the tracks and returns have summed.
 
 ## Tracks and groups
 
-Tracks have one order, and can be put in folders: **groups**. A group is always a folder; round 8 of the
-[UI redesign](docs/ui-redesign/PLAN-round-7-track-groups.md) adds an optional summing bus to the same group.
+Tracks have one order, and can be put in folders: **groups** ([round 7](docs/ui-redesign/PLAN-round-7-track-groups.md)).
+A group is always a folder, and can also sum its tracks into a **bus** ([round
+8](docs/ui-redesign/PLAN-round-8-group-buses.md)).
 
 * **Model** (`core/project/track-groups.ts`). `Project.groups?: TrackGroup[]`, each `{ id, name, colour, collapsed?,
-  parentId? }`: groups nest through `parentId`, at most `MAX_GROUP_DEPTH` (4) levels and `MAX_GROUPS` (64). Instrument and
+  parentId?, muted?, soloed?, bus? }`: groups nest through `parentId`, at most `MAX_GROUP_DEPTH` (4) levels and `MAX_GROUPS` (64). Instrument and
   audio tracks have `groupId?`, the group they are directly in; returns and the master can't be grouped. Every track has
   `hidden?`. A group's colour is a name from `GROUP_COLOURS`, drawn through `--group-<name>` in `theme.css`. Group ids
-  are never a track's: round 8 makes a group a control owner.
+  are never a track's, since a group is a control owner.
+* **Buses** (`group-bus.ts`). `GroupBus { volume, pan?, fx, sends }` is what a group that sums its tracks has after
+  them, as a track has after its instrument: a fader, pan, an insert graph from **Group in** to Track out
+  (`createDefaultGroupGraph`) and post-fader send knobs. A group without `bus` is a folder. `setGroupBus(on)` adds a bus
+  at unity with the default graph, or removes it (undo brings it back, effects and all); `setGroupVolume`, `setGroupPan`
+  and `setGroupSend` clamp and refuse what a track's would; the graph is edited through `PatchTarget { groupId }`. Bus
+  graphs count for modules ("Group *name*" in `moduleUsage`), samples (`usedSampleIds`, `removeSample`) and
+  `removeTrack`'s cleanup of Sends, Track audio inputs and send knobs.
+* **Mute and solo** sit on every group, a folder too (`setGroupMuted`, `setGroupSoloed`), and reach its members, nested
+  groups' included (see "Mixer").
+* **Routing** (`group-routing.ts`). `mixRouting(project)` gives every channel the engine mixes, each track and each bus,
+  its `output`: the nearest enclosing group with a bus (a bus's own group doesn't count), or null for the master. So the
+  output follows the nesting, with no picker, and moving a group in the tree changes it. It also gives the effective
+  `muted` and `soloed`: the channel's own flag or any enclosing group's. Returns go to the master with their own flags.
+  Memoized by `tracks` and `groups`, as `trackRows` is.
+* **Loops.** `MixGraph` includes the groups, so `mixDependencies` knows that a bus mixes after what sums into it and a
+  return after the buses that send to it, and `sendableReturns`, `audioSourceTracks` and `mixesAfter` apply the same
+  rules to a bus's pickers and knobs. A bus is never a Track audio source or a send target. `hasMixLoop` finds a channel
+  that would mix after itself (a track taking audio from a return that its bus sends to); `canMoveTrack`,
+  `canMoveGroup` and `setGroupBus` refuse a result with one, so the drag shows refuse and *Move to group* disables the
+  group.
 * **One order.** `Project.tracks` stays the order of everything. A group's tracks, nested groups' included, sit together
   among the clip tracks, and a group is drawn where its first track is, so a group always has a track: *Group* makes one
   around a track, and a group goes when its last track leaves (`pruneGroups`, also run by `removeTrack`). The order of
@@ -662,15 +694,28 @@ Tracks have one order, and can be put in folders: **groups**. A group is always 
 * **Files.** Format version 10; the v9→v10 migration strips `groups`, `groupId` and `hidden`. `sanitize-groups.ts` drops
   a group without an id of its own (or with a track's), makes an unknown colour the first, clears a parent that is
   missing, closes a cycle or nests too deep, and a group on a return or to a missing group; then `normalizeTrackGroups`
-  drops groups without tracks and brings members together. Each repair warns. Round 8 adds `bus?` to a group without a
-  version bump.
-* **Actions.** A `group` subject (`state/actions/group.ts`): *Collapse*/*Expand*, *Rename*, *Colour* ▸, *Move up*, *Move
-  down*, *Hide tracks*/*Show tracks*, *Ungroup*, *Delete group and tracks*. Tracks gain *Group*, *Move to group* ▸ (the
-  groups by path, and *No group*), *Move up*, *Move down* and *Hide*/*Show*. Grouping is one track at a time: there is no
+  drops groups without tracks and brings members together. Each repair warns. Round 8 added `muted`, `soloed` (only a
+  real `true`) and `bus` to a group without a bump: `sanitizeGroups` clamps the fader and pan, reads the graph through
+  `sanitizePatch` (none: the default, silently) and the sends through `readSends`, and keeps only the fields it knows.
+  `repairTrackReferences` and `repairSendLevels` take the groups: tracks are judged among themselves, then a bus's
+  Sends, Track audio inputs and knobs with the routing, so a loop through a bus loses the bus's pointer, with a warning
+  naming the group. A round-7 build reading a round-8 file drops the bus and the flags silently. The fixtures
+  `v10-track-groups` and `v10-group-buses` load without warnings.
+* **Actions.** A `group` subject (`state/actions/group.ts`): *Collapse*/*Expand*, *Open effects* (with a bus), *Rename*,
+  *Sum to a bus*/*Remove bus* (its tooltip says that removing discards the bus's effects), *Mute*/*Unmute*,
+  *Solo*/*Unsolo*, *Colour* ▸, *Move up*, *Move down*, *Hide tracks*/*Show tracks*, *Ungroup*, *Delete group and tracks*.
+  The mixer's M and S and the fx badge run them. Tracks gain *Group*, *Move to group* ▸ (the groups by path, and *No
+  group*), *Move up*, *Move down* and *Hide*/*Show*. Grouping is one track at a time: there is no
   multi-selection of tracks.
+* **Selection.** The selection store's `groupId` (`selectGroup`, which clears the track, the master and the region) is
+  set by clicking a group's name: the band, the collapsed header, the bus strip, the tree row. Effects then edits the
+  bus's graph (`GraphEditor` takes a bus group as its owner; its palette is a return's), or shows a folder's empty state
+  with *Sum to a bus*; Instrument, Notes and Clip say a group has none; Sounds and the Library act on the bus's effects
+  and mixer, as on the master; MIDI notes go nowhere, as for a return. Presets and Group in effects drop on a bus's
+  band, collapsed header, strip and lane (`drop.sound-on-group`, `drop.library-item-on-group`); a folder refuses them.
 * **The Tracks view** (`ui/tracks/`, view `tracks`, in the primary sidebar, an activity-bar button): the rows as a WAI-ARIA
   tree. One row is in the tab order; ↑ ↓ Home End move, → and ← expand and collapse a group (its `collapsed` flag) or move
-  to the first child and the parent, Enter selects a track, **Alt+↑ and Alt+↓** run *Move up* and *Move down*. A row
+  to the first child and the parent, Enter selects a track or a group, a bus's row has a *bus* tag, **Alt+↑ and Alt+↓** run *Move up* and *Move down*. A row
   drags onto another: before or after by halves, into a group by its middle third. Each row has an eye; a hidden row is
   dimmed, with a dot lit while it sounds. A toolbar has *Show all*, *Collapse all* and *Expand all*.
 * **In the other views.** The session grid and the mixer draw `visibleRows` through `groupedColumns` and `bandsOf`
@@ -678,7 +723,9 @@ Tracks have one order, and can be put in folders: **groups**. A group is always 
   carry a stripe of its colour; a collapsed group is one column. In the session grid that column's cell per scene
   launches the members' clips in that scene and stops the members whose slot is empty (`launchScene(scene, trackIds)`,
   `scene/launch` with `trackIds`), hidden members included; it is marked while one of those clips plays or is queued. In
-  the mixer it is a narrow strip with no fader until round 8. The arrangement draws a group lane before its members;
+  the mixer, a bus is a strip before its members, and a collapsed bus group is that strip with a twisty; a folder is a
+  narrow strip when collapsed (see "Mixer"). In the session grid, a bus group's band and collapsed header have the bus's
+  volume slider, and a muted group's name is struck through. The arrangement draws a group lane before its members;
   collapsed, it shows their regions as thin bars. Hidden tracks have no column, strip or lane, and still play.
 * **Hidden sound.** The grid's corner shows how many tracks are hidden, lit while one sounds (`useSounding`: its peak in
   the status above -60 dB, after mute and solo); it reveals the Tracks view. Both it and the tree's dot subscribe through
@@ -687,10 +734,18 @@ Tracks have one order, and can be put in folders: **groups**. A group is always 
 ## Mixer
 
 The **Mixer** tab (`ui/mixer/`, view `mixer`) is a row of vertical channel strips: every shown track in the order of
-`trackRows` (clip tracks group by group, then returns), then the master. Groups are bands over their members' strips, and
-a collapsed group one narrow strip (see "Tracks and groups"). A strip has the track's name (select), an fx badge (opens the Effects tab),
+`trackRows` (clip tracks group by group, then returns), then the master. Groups are bands over their members' strips; a
+bus has a strip of its own, first under its band, and a collapsed group is one strip, its bus's or a narrow one with M
+and S for a folder (see "Tracks and groups"). An expanded folder's band has its M and S. A strip has the track's name (select), an fx badge (opens the Effects tab),
 pan, one send knob per return, **M**ute, **S**olo, the fader and a level meter. The session grid keeps its header volume
-slider (the same `track.volume`) and gains no other control; its header only strikes through the name of a muted track.
+slider (the same `track.volume`) and gains no other control; its header only strikes through the name of a muted track
+(muted by its own flag or through a group).
+
+* **Strips share their parts.** `ChannelStrip.tsx` exports `PanControl`, `SendKnobs`, `FaderRow`, `MuteSolo` and
+  `OutputLine`, fed by a small `StripOwner` (`owner`, `name`, `volume`, `pan`, `sends?`), so a track's strip and a
+  bus's (`BusStrip.tsx`) draw the same controls. Under the name, a bus shows where it sums into (*→ Drums*, *→
+  Master*), and a member does when that isn't the master. A strip muted or soloed only through a group lights its M or
+  S halfway (`data-through-group`), so the cause shows on the group.
 
 * **Model.** `TrackBase` gets optional `pan` (-1..1), `muted` and `soloed`, and `MasterBus` an optional `volume`. They are
   saved only when they differ from the default (centre, false, false, 1): `setTrackPan` & co. delete the key when the value
@@ -708,22 +763,39 @@ slider (the same `track.volume`) and gains no other control; its header only str
 * **Mute** silences the track everywhere it is heard: its output *and* its sends (both the knobs and the Send nodes in its
   graph, through a per-track `SendGate`). Its insert graph keeps running, so tails ring on, and its taps are still written,
   so Track audio nodes that read it keep working. Only what it adds to the output is silenced.
-* **Solo** is "solo in place". When any track is soloed, a track is heard only if it is soloed, or it is a **return fed by a
-  heard track** (so a soloed track keeps its reverb, however many returns deep: `Engine.updateMixState` grows the set until
-  nothing changes). A muted return stays muted. Rules, in full:
+* **Solo** is "solo in place". When any channel is soloed, a channel is heard only if it is soloed, or it is a **bus fed
+  by a heard channel**, or a **return fed by a heard channel** (so a soloed track keeps its group's bus and its reverb,
+  however deep: the set grows until nothing changes). A muted return or bus stays muted.
+* **Through groups.** The rules apply to **effective** flags (`mixRouting`): a track or a bus is muted when it or any
+  enclosing group is, soloed likewise. So muting a group, folder or bus, silences its members everywhere they are heard,
+  sends included, and soloing a group solos its members and its bus. Rules, in full, for tracks, returns and buses:
   * no solo anywhere: heard = not muted;
-  * a **soloed return** is heard, and tracks that send to it keep sending to it even though they are not heard themselves
-    (solo a reverb to hear only the wet signal);
-  * a track that is both muted and soloed is heard (solo wins);
-  * a send from track T to return R is open when T is soloed, or T is not muted and (T is heard or R is soloed).
-  The flags are worked out when a mute, solo, track, send or graph changes (`mixStateStale`), never per sample; the result is
-  each strip's `audible` and its set of blocked send targets.
+  * under solo, a soloed channel is heard; a bus fed by a heard channel is heard unless muted; a return fed by a heard
+    channel through an open send is heard unless muted;
+  * a **soloed return** is heard, and channels that send to it keep sending to it even though they are not heard
+    themselves (solo a reverb to hear only the wet signal). A bus that sends to it gets nothing from members that are
+    not heard, so its share of the wet signal goes;
+  * a channel that is both muted and soloed is heard (solo wins); a soloed member of a muted bus is then heard only
+    through its own sends;
+  * a send from X to return R is open when X is soloed, or X is not muted and (X is heard or R is soloed). A member's
+    output into its bus is not a send: it follows whether the member is heard.
+  `mixState(channels)` (`engine/mix-state.ts`) is these rules as a pure function, with table tests;
+  `Engine.updateMixState` calls it when a mute, solo, output, track, send or graph changes (`mixStateStale`), never per
+  sample. The result is each strip's `audible` and its set of blocked send targets.
+* **Buses in the engine.** A bus is a channel in the engine's track map, keyed by its group id: `GroupBusRuntime`, which
+  shares the return's input, graph and taps code (`StereoBus`) and adds real send knobs. Each channel has an output (a
+  bus id or none, in the engine's `routes`); `mixSegment` hands it its destination: the master's arrays at the stretch's
+  offset, or its bus's slot on a second `AudioBoard` (`outputs`, views made at `sync` by `channels(id)`) at offset 0. A
+  channel whose bus isn't there mixes into the master. The mix order puts a bus after the channels that sum into it.
 * **Commands.** `track/setPan`, `track/setMute`, `track/setSolo`, `master/setVolume`, small and separate like
-  `track/setVolume`; `track/add` carries the three track fields too (so a project loaded with a muted track starts muted).
-  `diffTrack` compares the fields with their defaults, so a field that appears or disappears is a command only if the value
-  changed.
-* **Meters.** `EngineStatus.peaks` is a record track id -> the loudest sample the track *added to the output* since the
-  previous status, after fader, pan, mute and solo (zero for a track that is not heard), read-and-reset like `peak`. The
+  `track/setVolume`; `track/add` carries the three track fields too (so a project loaded with a muted track starts muted),
+  and an `output`. A bus is `track/add` kind `group`, then the same `track/*` commands with the group id;
+  `track/setOutput` moves a channel to another bus. `diffProject` sends mute, solo and output through `mixRouting` of
+  both projects, for every channel: a group's mute is one `track/setMute` per member, a track moved into a bus group one
+  `track/setOutput`. `diffTrack` compares pan with its default, so a field that appears or disappears is a command only
+  if the value changed.
+* **Meters.** `EngineStatus.peaks` is a record track or bus id -> the loudest sample the channel *added to its output* (the
+  master, or its bus) since the previous status, after fader, pan, mute and solo (zero for a track that is not heard), read-and-reset like `peak`. The
   master strip shows `peak`. The bars are drawn by `LevelBar` from the status store (~30 Hz): the engine reports raw peaks and
   the bar falls with a fixed factor per update, on a dB scale (the raw value is in `data-peak`).
 * **Fader law.** The stored volume is linear 0..1, as before; the control is linear too (no dB taper yet).
@@ -1279,17 +1351,18 @@ action's *Paste* runs, so every drop has a menu twin and the two can't drift apa
   `canPasteClipOnLane`, `graphFitsOwner`, `libraryClipFitsSlot` and `canRecallPresetOn` (over `core`'s
   `canRecallProjectPreset`) as the checks. One undo step per drop.
 
-| Payload | Empty slot | Lane | Track (session header, mixer strip, lane name) | Master (header, strip) | Canvas |
-|---|---|---|---|---|---|
-| Session clip | Moves it (`moveClip`, keeping its id; the selection follows); Alt copies it (*Paste*) | Copies it: on its own track as *Add clip* (linked to its source), on another track of its kind as *Paste* | | | |
-| Sample | On an audio track: *Add audio clip*, opened in Clip | On an audio track: *Add audio clip* | | | In an instrument graph: *Add sampler* at the point |
-| Project preset | | | Recalls it, in its own domain, when the track's graph matches its revision | When the master's effects match | |
-| Library item | A clip of the track's kind: as the Library's *Insert into empty slot* | | An instrument, note effect, audio effect or preset: replaces that graph (*Replace selected graph* with this owner) | An audio effect or effects preset | The same into this graph, when its kind matches and the canvas is at the top level |
-| Track, group | | | Moves it before or after the track (`moveTrack`, `moveGroup`), into that track's group; on a group, also inside it | | |
+| Payload | Empty slot | Lane | Track (session header, mixer strip, lane name) | Group (band, collapsed header, bus strip, group lane) | Master (header, strip) | Canvas |
+|---|---|---|---|---|---|---|
+| Session clip | Moves it (`moveClip`, keeping its id; the selection follows); Alt copies it (*Paste*) | Copies it: on its own track as *Add clip* (linked to its source), on another track of its kind as *Paste* | | | | |
+| Sample | On an audio track: *Add audio clip*, opened in Clip | On an audio track: *Add audio clip* | | | | In an instrument graph: *Add sampler* at the point |
+| Project preset | | | Recalls it, in its own domain, when the track's graph matches its revision | On a bus, when its effects match | When the master's effects match | |
+| Library item | A clip of the track's kind: as the Library's *Insert into empty slot* | | An instrument, note effect, audio effect or preset: replaces that graph (*Replace selected graph* with this owner) | On a bus: an audio effect made from Group in, or an effects preset | An audio effect or effects preset | The same into this graph, when its kind matches and the canvas is at the top level |
+| Track, group | | | Moves it before or after the track (`moveTrack`, `moveGroup`), into that track's group | Before, after or inside it | | |
 
 Everything else refuses: an occupied slot, a track of the other kind, a library clip on a lane, a canvas inside a
-module, an effect made for another input (`trackIn`, `returnIn`, `masterIn`), a preset on a graph that differs, a clip
-track among the returns (or a return among the clip tracks), a group into itself or deeper than four levels.
+module, an effect made for another input (`trackIn`, `returnIn`, `masterIn`, `groupIn`), a preset on a graph that
+differs, a preset or library effect on a folder, a clip track among the returns (or a return among the clip tracks), a
+group into itself or deeper than four levels, and a move that would make the mix loop through a bus.
 
 * **The hooks.** `ui/shared/drag/` holds the DOM side. `useDragSource(payload)` makes an element draggable: its
   `dragstart` writes the payload as JSON under `application/x-sfxlab-drag` and records it as the current drag; a
@@ -1389,14 +1462,14 @@ File > Export audio (WAV)… renders the project to a stereo WAV without playing
 browser and no Web Audio); the UI is a dialog and `app/` fetches the sample audio and saves the file.
 
 * **What is run.** `renderProject(project, samples, options)` builds an `Engine` at `options.sampleRate` (44100 or 48000, default 48000), applies
-  `diffProject(null, project)` (the commands that build the live engine from nothing: tempo, master graph and volume, every track, and `arrangement/set`),
+  `diffProject(null, project)` (the commands that build the live engine from nothing: tempo, master graph and volume, every track and group bus, and `arrangement/set`),
   a `sample/add` for each decoded sample it is given, and one launch: `clip/launch` for a **clip** scope (one track's clip; the other tracks idle, but the
   returns it sends to and the master still work), `scene/launch` for a **scene** (the clip of every track in that row), or `arrangement/play` for an
   **arrangement** scope (the timeline from beat 0; no clip or scene is ever launched, so the launch state machines stay idle and only the timeline plays,
   looping regions included). It then pulls `Engine.render` in chunks
   of 4096 frames (`BOUNCE_CHUNK_FRAMES`, 32 engine blocks) and returns `{ left, right, sampleRate, bitDepth, bodyFrames }`. The transport starts at beat 0
   and a launch takes effect at the next bar line, so the first note is at the first sample. It is the engine the worklet runs, so the file is what you
-  hear, master volume, soft clip and all; a muted or soloed track is muted or soloed in the file.
+  hear, master volume, soft clip and all; a muted or soloed track or group is muted or soloed in the file, and buses sum as they do live (a clip scope still runs every bus, as it runs the returns).
 * **Where it ends** (clips loop for ever, so the bounce decides). The *body* is `bars` bars (a bar is four beats, the project is 4/4 everywhere) at the
   project tempo, to the frame (`round(bars * 4 * 60 / tempo * sampleRate)`; `bars` may be fractional, so a 2-beat clip is 0.5 and is 1 s at 120 BPM
   and 2 s at 60). Its default is the longest clip of the scope played once through (`defaultBounceBars`; an arrangement scope runs to the end of its last
@@ -1416,7 +1489,7 @@ browser and no Web Audio); the UI is a dialog and `app/` fetches the sample audi
   about 12 ms, reports progress, and yields with a `setTimeout(0)`, so a few seconds of audio takes a moment and the dialog can still be used (Stop aborts
   through an `AbortSignal`). The engine renders far faster than real time (seconds of audio per tens of milliseconds), so a worker was not needed.
 * **Samples.** The live engine holds decoded samples in the audio thread, so the export decodes the ones the project plays again from storage
-  (`usedSampleIds(project)`: audio clips and every sampler node, in tracks, insert graphs, the master and modules, through `decodeAudio`). A sample whose
+  (`usedSampleIds(project)`: audio clips and every sampler node, in tracks, insert graphs, buses, the master and modules, through `decodeAudio`). A sample whose
   audio is missing is silent and the user is told, as for the project export.
 * **WAV** (`sample/wav.ts`). `encodeWavChannels(channels, rate, 16 | 32)` writes any number of interleaved channels: RIFF, `fmt ` (PCM, or float
   with the 18-byte form and a `fact` chunk the format asks for), `data`, padded when odd. The old mono `encodeWav` is untouched: the demo samples'

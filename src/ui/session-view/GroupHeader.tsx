@@ -1,6 +1,8 @@
-import type { Project, TrackGroup } from '@core'
-import { type SubjectOf, useEngineControls, useLayoutStore, useProjectStore, useStatusStore } from '@state'
-import type { CSSProperties } from 'react'
+import type { ControlTarget, Project, TrackGroup } from '@core'
+import { type SubjectOf, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore, useStatusStore } from '@state'
+import type { CSSProperties, ReactNode } from 'react'
+import { EffectiveValue } from '../controls/EffectiveValue'
+import { useControlGesture } from '../controls/use-control-gesture'
 import { useDragSource, useEdgeTarget } from '../shared/drag'
 import { ActionMenu } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
@@ -15,10 +17,21 @@ interface GroupProps {
 
 const colourOf = (group: TrackGroup) => ({ '--group': `var(--group-${group.colour})` }) as CSSProperties
 
-/** The twisty, colour and name of a group: draggable, renamed in place, with the group's menu. */
+/** Whether a group is muted, by its own flag or an enclosing group's. */
+const mutedGroup = (project: Project, group: TrackGroup): boolean => {
+  const seen = new Set<string>()
+  for (let at: TrackGroup | undefined = group; at && !seen.has(at.id); at = project.groups?.find((candidate) => candidate.id === at!.parentId)) {
+    if (at.muted) return true
+    seen.add(at.id)
+  }
+  return false
+}
+
+/** The twisty, colour and name of a group: selects it, draggable, renamed in place, with the group's menu. Struck through while muted. */
 const GroupTitle = ({ group, count }: { group: TrackGroup; count: number }) => {
   const subject: SubjectOf<'group'> = { kind: 'group', groupId: group.id }
   const drag = useDragSource(useRenaming(subject) ? null : subject)
+  const muted = useProjectStore((state) => mutedGroup(state.project, group))
   return (
     <>
       <button
@@ -30,7 +43,13 @@ const GroupTitle = ({ group, count }: { group: TrackGroup; count: number }) => {
         {group.collapsed ? '▸' : '▾'}
       </button>
       <InPlaceRename subject={subject} name={group.name} label={`Name of ${group.name}`} className={styles.groupName}>
-        <span className={styles.groupName} {...drag} title={`${group.name}: ${count} track${count === 1 ? '' : 's'}`}>
+        <span
+          className={`${styles.groupName} ${muted ? styles.mutedGroup : ''}`}
+          {...drag}
+          data-muted={muted || undefined}
+          title={`${group.name}: ${count} track${count === 1 ? '' : 's'}`}
+          onClick={() => useSelectionStore.getState().selectGroup(group.id)}
+        >
           {group.name}
         </span>
       </InPlaceRename>
@@ -38,28 +57,56 @@ const GroupTitle = ({ group, count }: { group: TrackGroup; count: number }) => {
   )
 }
 
-/** An expanded group, as a band over its members' headers. A track or group dropped on its middle third goes inside. */
-export const GroupBand = ({ group, trackIds }: GroupProps) => {
+/**
+ * An expanded group, as a band over its members' headers. A track or group dropped on its middle third goes inside.
+ * `children` are drawn after the title: the mixer's M and S for a folder.
+ */
+export const GroupBand = ({ group, trackIds, children }: GroupProps & { children?: ReactNode }) => {
   const subject: SubjectOf<'group'> = { kind: 'group', groupId: group.id }
   const drop = useEdgeTarget(subject, 'x')
+  const selected = useSelectionStore((state) => state.groupId === group.id)
   return (
     <ActionMenu subject={subject}>
-      <div className={styles.band} style={colourOf(group)} role="group" aria-label={`Group ${group.name}`} {...drop}>
+      <div className={`${styles.band} ${selected ? styles.selected : ''}`} style={colourOf(group)} role="group" aria-label={`Group ${group.name}`} {...drop}>
         <GroupTitle group={group} count={trackIds.length} />
+        {children}
       </div>
     </ActionMenu>
   )
 }
 
-/** A collapsed group, as one column's header. */
+/** A bus's volume, as a track header's: the same fader as its mixer strip. */
+export const GroupVolume = ({ group }: { group: TrackGroup }) => {
+  const gesture = useControlGesture()
+  if (!group.bus) return null
+  const target: ControlTarget = { kind: 'mixer', owner: { kind: 'group', groupId: group.id }, control: 'volume' }
+  return (
+    <span className={styles.groupVolume} {...gesture.events}>
+      <ActionMenu subject={{ kind: 'control', targets: [target] }}><input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={group.bus.volume}
+        aria-label={`${group.name} volume`}
+        onChange={(event) => gesture.change([{ target, value: Number(event.target.value) }])}
+      /></ActionMenu>
+      <EffectiveValue target={target} />
+    </span>
+  )
+}
+
+/** A collapsed group, as one column's header, with its bus's volume. */
 export const CollapsedGroupHeader = ({ group, trackIds }: GroupProps) => {
   const subject: SubjectOf<'group'> = { kind: 'group', groupId: group.id }
   const drop = useEdgeTarget(subject, 'x')
+  const selected = useSelectionStore((state) => state.groupId === group.id)
   return (
     <ActionMenu subject={subject}>
-      <div className={`${styles.header} ${styles.groupHeader}`} style={colourOf(group)} role="group" aria-label={`Group ${group.name}, collapsed`} {...drop}>
+      <div className={`${styles.header} ${styles.groupHeader} ${selected ? styles.selected : ''}`} style={colourOf(group)} role="group" aria-label={`Group ${group.name}, collapsed`} {...drop}>
         <GroupTitle group={group} count={trackIds.length} />
         <span className={styles.groupCount}>{trackIds.length} track{trackIds.length === 1 ? '' : 's'}</span>
+        <GroupVolume group={group} />
       </div>
     </ActionMenu>
   )

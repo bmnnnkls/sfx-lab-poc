@@ -1,13 +1,12 @@
 import { type MidiMapping, isLearnableCC, midiSourceKey } from '../midi'
 import type { ControlTarget } from '../control'
-import { sanitizeControlValues } from './sanitize-control-values'
+import { readControlOwner, sanitizeControlValues } from './sanitize-control-values'
 import { isRecord, type Warn } from './raw'
 const id = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256
 export const targetOf = (raw: unknown): ControlTarget | undefined => {
   if (!isRecord(raw)) return undefined
   if (raw.kind === 'graph') return sanitizeControlValues([{ target: raw, value: 0 }], () => {})?.[0]?.target
-  const owner = isRecord(raw.owner) && raw.owner.kind === 'master' ? { kind: 'master' as const }
-    : isRecord(raw.owner) && raw.owner.kind === 'track' && id(raw.owner.trackId) ? { kind: 'track' as const, trackId: raw.owner.trackId } : undefined
+  const owner = readControlOwner(raw.owner)
   if (!owner || raw.kind !== 'mixer') return undefined
   if (raw.control === 'volume' || raw.control === 'pan') return { kind: 'mixer', owner, control: raw.control }
   if (raw.control === 'send' && id(raw.returnId)) return { kind: 'mixer', owner, control: 'send', returnId: raw.returnId }

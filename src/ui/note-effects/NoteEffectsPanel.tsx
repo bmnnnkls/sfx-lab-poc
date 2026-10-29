@@ -1,4 +1,5 @@
-import { openMasterEffects, openTrackView, useProjectStore, useSelectionStore } from '@state'
+import { findGroup } from '@core'
+import { openGroupEffects, openMasterEffects, openTrackView, useProjectStore, useSelectionStore } from '@state'
 import { viewTitles } from '../layout/view-titles'
 import { GraphEditor } from '../patcher/GraphEditor'
 import { HeardNotes } from './HeardNotes'
@@ -13,9 +14,15 @@ export const NoteEffectsPanel = () => {
   const tracks = useProjectStore((state) => state.project.tracks)
   const selectedId = useSelectionStore((state) => state.trackId)
   const master = useSelectionStore((state) => state.master)
+  const groupId = useSelectionStore((state) => state.groupId)
+  const group = useProjectStore((state) => (groupId === null ? undefined : findGroup(state.project, groupId)))
   const addTrack = useProjectStore((state) => state.addTrack)
 
   if (master) return <Empty text="The master bus has no notes to process." action={{ label: OPEN_EFFECTS, run: openMasterEffects }} />
+  if (group) {
+    const text = `“${group.name}” is a group, so it has no notes to process.`
+    return group.bus ? <Empty text={text} action={{ label: OPEN_EFFECTS, run: () => openGroupEffects(group.id) }} /> : <div className={styles.empty}><p>{text}</p></div>
+  }
 
   const track =
     tracks.find((candidate) => candidate.id === selectedId) ?? tracks.find((candidate) => candidate.kind === 'instrument')

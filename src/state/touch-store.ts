@@ -20,7 +20,8 @@ export const setTouchClock = (read?: (agoMs?: number) => number | undefined) => 
 export const touchBeatNow = (agoMs = 0) => clock ? clock(agoMs) : useStatusStore.getState().status?.beat
 export const touchDestination = (project: Project, target: ControlTarget, status: EngineStatus | null) => {
   const owner = target.owner
-  const playing = owner.kind === 'master' ? status?.masterAutomation : status?.tracks[owner.trackId]
+  // A group has no clips or slots, so nothing plays its lanes: touch authors its base.
+  const playing = owner.kind === 'master' ? status?.masterAutomation : owner.kind === 'group' ? undefined : status?.tracks[owner.trackId]
   const track = owner.kind === 'track' ? project.tracks.find((t) => t.id === owner.trackId) : undefined
   const slots = automationSlotsOf(project, owner)
   const clip = (slots ?? (track && track.kind !== 'return' ? track.clips : []))?.find((c) => c?.id === playing?.playingClipId)
@@ -123,8 +124,9 @@ export const reconcileTouches = (status: EngineStatus) => {
     const dest = touchDestination(useProjectStore.getState().project, capture.target, status)
     if (!dest || dest.clip.id !== capture.clipId || dest.start !== capture.start || dest.clip.lengthBeats !== capture.length) {
       const previous = useStatusStore.getState().status
-      const old = capture.target.owner.kind === 'master' ? previous?.masterAutomation : previous?.tracks[capture.target.owner.trackId]
-      const next = capture.target.owner.kind === 'master' ? status.masterAutomation : status.tracks[capture.target.owner.trackId]
+      const owner = capture.target.owner
+      const old = owner.kind === 'master' ? previous?.masterAutomation : owner.kind === 'group' ? undefined : previous?.tracks[owner.trackId]
+      const next = owner.kind === 'master' ? status.masterAutomation : owner.kind === 'group' ? undefined : status.tracks[owner.trackId]
       const boundary = dest?.start ?? next?.stopBeat ?? (old?.queued ? Math.ceil(((previous?.beat ?? 0) + 1e-9) / 4) * 4 : undefined)
       finishTouch(source, boundary); break
     }
