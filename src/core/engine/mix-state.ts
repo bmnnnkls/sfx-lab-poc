@@ -19,8 +19,8 @@ export interface MixState {
 }
 
 /**
- * Works out which channels are heard and which sends are open, from effective mute and solo (rules in ARCHITECTURE.md,
- * "Mixer"). With no solo, a channel is heard unless muted. Under solo, a soloed channel is heard; then, until nothing
+ * Works out which channels are heard and which sends are open, from effective mute and solo (rules in
+ * docs/architecture/mixing-and-routing.md, "Mixer"). With no solo, a channel is heard unless muted. Under solo, a soloed channel is heard; then, until nothing
  * changes, a bus fed by a heard channel is heard unless muted, and so is a return fed by a heard channel through an open
  * send. A send is open when its sender is soloed, or is not muted and either heard or sending to a soloed return. A
  * channel's output into its bus is not a send: it follows whether the channel is heard.

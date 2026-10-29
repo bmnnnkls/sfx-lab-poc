@@ -1,0 +1,63 @@
+# Baselines
+
+Numbers worth comparing against, taken from the rounds' implementation notes. Each row says when, on which commit or
+round, and how it was measured. The machine is an Apple Silicon Mac, often under load. Load moves these numbers, so to
+compare two builds, measure both in the same session, interleaved
+([gotchas](../dev/gotchas.md#measuring)). Raw campaign evidence is in [`measurements/`](../measurements/README.md).
+
+## UI work per second while playing
+
+`scripts/profile-status.cjs`: one run per setup, 10 s after 2 s of warm-up, headless Chromium at 1500 × 1000; the dev
+server for component renders and `vite preview` for script time. Setups are described in the script's header.
+Latest: round 11b (2026-10-29, load average 5 to 8).
+
+| Per second | `editor` | `four` | `groups` | `pinned` | `wave` |
+|---|---:|---:|---:|---:|---:|
+| Component renders (dev) | 145 | 173 | 87 | 145 | 56 |
+| Script ms (production) | 15.3 | 16.7 | 15.5 | 16.5 | 14.6 |
+
+* Component renders are the stable signal: they have matched since round 2 (`editor` 144–145, `four` 173). A change
+  of even one is worth explaining.
+* Script time is noisy. 11a's build profiled again beside 11b's on the same machine gave `editor` 12.6 / 13.3 ms
+  against 13.0 / 13.5 ms. Compare only within one session.
+* In `wave`, the only status readers are `WavePlayhead` (29/s, the status rate) and `LevelMeter` (27/s). The editor's
+  own components render 0 times.
+
+Earlier tables: [round 2](../archive/ui-redesign/PLAN-round-2-shell.md#changes-made-while-implementing) (the
+first, with base comparisons), [round 11a](../archive/ui-redesign/PLAN-round-11a-stereo-and-the-pyramid.md#changes-made-while-implementing),
+[round 11b](../archive/ui-redesign/PLAN-round-11b-in-place-edits.md#changes-made-while-implementing).
+
+## Wave editor
+
+Chromium (Playwright's headless shell), median of 7 runs for the pyramid and 5 for the flow, load average 5 to 9,
+round 11b step 8 (2026-10-29). The measuring script is not committed ([BACKLOG](../BACKLOG.md#verification-debt) V8).
+
+| 120 s stereo, 48 kHz | Time |
+|---|---:|
+| `buildPeakPyramid` (full build) | 19.3 ms (11.7 ms in 11a, unloaded) |
+| `updatePeakPyramid`, a fade over the last 0.5 s | 0.2 ms |
+| `updatePeakPyramid`, a delete of the first second (a full rebuild) | 19.5 ms |
+
+| In-place edit flow, stereo | apply | encode | hash | store | total |
+|---|---:|---:|---:|---:|---:|
+| 5 s | 0.2 ms | 1.7 ms | 0.9 ms | 1.4 ms | 4.2 ms |
+| 120 s | 2.9 ms | 44 ms | 20 ms | 34 ms | 100.9 ms |
+
+## Audio engine
+
+The F1 capacity campaign (2026-10-19) is the most recent engine measurement. Its accepted results (first callback
+3.265 ms against a 2.667 ms budget, +27/+30% no-lane overhead) are in [STATUS](../STATUS.md#accepted-limits); the
+method and raw data are in [measurements/f1-fix](../measurements/f1-fix/README.md) and
+[`scripts/review-benchmark/`](../../scripts/review-benchmark/README.md).
+
+## Bit-for-bit references
+
+`core/engine/old-projects.test.ts` holds bounce hashes taken before round 11a's engine changes: both examples' busiest
+scene and a project with stereo files on old audio tracks and a sampler. They must not change unless a decision says
+old projects may sound different.
+
+## Bundle
+
+After the vendor chunk split, the main chunk went from 705.5 kB to 400.1 kB, React 218.8 kB, menu dependencies
+85.8 kB, and the audio worklet 117.8 kB (slice 1, 2026-10). These numbers predate the redesign; measure again before
+using them ([BACKLOG](../BACKLOG.md#performance) P4).

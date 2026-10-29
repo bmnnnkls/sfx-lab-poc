@@ -541,7 +541,7 @@ export class Engine {
 
   /**
    * Works out, from every channel's mute and solo (the effective flags, through its groups), which channels are heard
-   * and which sends are open (`mixState`, rules in ARCHITECTURE.md, "Mixer"). Done when something changes, never per
+   * and which sends are open (`mixState`, rules in docs/architecture/mixing-and-routing.md, "Mixer"). Done when something changes, never per
    * sample.
    */
   private updateMixState(): void {

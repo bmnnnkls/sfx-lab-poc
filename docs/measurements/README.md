@@ -32,7 +32,7 @@ comparison tolerance. Hardware MIDI and other browser/device combinations are un
 Focused coverage lives with the affected suites: `send-invalidation.test.ts`, preset
 and owner-diagnostic tests, `validation-scaling.test.ts`, storage tests, library service
 and fake-port MIDI tests, and the automation/library/bundle browser smoke files.
-Historical `docs/tmp/claims.test.ts` assertions remain unchanged outside normal suites;
+Historical `docs/archive/2026-10-perf-library/diagnostics/claims.test.ts` assertions remain unchanged outside normal suites;
 they describe pre-fix behavior and must not be used as post-fix acceptance tests.
 
 ## Measurements

@@ -199,7 +199,7 @@ const withMixField = <K extends 'pan' | 'muted' | 'soloed'>(track: Track, key: K
 export const setTrackPan = (project: Project, trackId: string, pan: number): Project =>
   updateTrack(project, trackId, (track) => withMixField(track, 'pan', clamp(pan, -1, 1), 0))
 
-/** Mute and solo are independent: a track can be both (solo then wins, see ARCHITECTURE.md). */
+/** Mute and solo are independent: a track can be both (solo then wins, see docs/architecture/mixing-and-routing.md). */
 export const setTrackMuted = (project: Project, trackId: string, muted: boolean): Project =>
   updateTrack(project, trackId, (track) => withMixField(track, 'muted', muted, false))
 

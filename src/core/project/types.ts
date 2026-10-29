@@ -68,7 +68,7 @@ interface TrackBase {
   readonly pan?: number
   /** Silences the track everywhere it is heard, its sends included; absent = false. Its effects keep running. */
   readonly muted?: boolean
-  /** Silences every track that is not soloed (see ARCHITECTURE.md, "Mixer"); absent = false. */
+  /** Silences every track that is not soloed (see docs/architecture/mixing-and-routing.md, "Mixer"); absent = false. */
   readonly soloed?: boolean
   /** The group the track is directly in (see `TrackGroup`); absent = the top level. Never set on a return. */
   readonly groupId?: string
@@ -160,7 +160,7 @@ export interface TrackGroup {
   readonly parentId?: string
   /** Silences its members, nested groups' included, everywhere they are heard; absent = false. */
   readonly muted?: boolean
-  /** Solos its members and its bus (see ARCHITECTURE.md, "Mixer"); absent = false. */
+  /** Solos its members and its bus (see docs/architecture/mixing-and-routing.md, "Mixer"); absent = false. */
   readonly soloed?: boolean
   /** Sums its members after their faders, instead of sending them to the master; absent = a folder. */
   readonly bus?: GroupBus

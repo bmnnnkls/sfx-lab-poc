@@ -3,7 +3,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /**
- * Enforces the layering described in ARCHITECTURE.md:
+ * Enforces the layering described in docs/architecture/overview.md:
  *   core  <-  audio, storage, state  <-  ui  <-  app
  * and that modules inside core are only reached through their `index.ts`.
  */

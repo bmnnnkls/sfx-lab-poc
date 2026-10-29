@@ -3,7 +3,7 @@
 Baseline: `36f71d1dea37367d4f1a0f4a18f1d4c17a19e9ec`, existing `codex/performance-and-library` checkout.
 The preceding chat's planning documents, evidence and TASKS changes were already uncommitted and are preserved.
 
-**Wrap-up status (2026-10-19):** [implementation report and decision review](../../REPORT-fix-F1-implementation-status.md).
+**Wrap-up status (2026-10-19):** [implementation report and decision review](../../archive/2026-10-perf-library/REPORT-fix-F1-implementation-status.md).
 The TypeScript implementation passes 1,742 unit tests, build/typecheck, 21 smoke and 13 real-output audio checks.
 Fresh offline pairs pass every required notes gate. The [final production campaign](startup/clock-final/README.md)
 passes all engine gates and three of four callback scenarios, but retains one 3.265 ms constant-case first callback.

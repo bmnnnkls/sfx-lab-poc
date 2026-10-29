@@ -33,7 +33,7 @@ signature algorithms in the application.
 Raw results and setup notes are in `docs/measurements/`. Results include current
 HEAD and dirty status; these runs used uncommitted changes. A source-file digest
 manifest identifies the delivered source/test tree. Historical diagnostic assertions
-remain under `docs/tmp`, excluded from normal suites. They deliberately describe
+remain under `docs/archive/2026-10-perf-library/diagnostics`, excluded from normal suites. They deliberately describe
 pre-fix defects and are not expected to pass against repaired code.
 
 These are offline capacity/counter measurements, not worklet callback durations or
