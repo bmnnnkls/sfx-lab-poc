@@ -1,6 +1,6 @@
 # Round 10: commands and keys
 
-Status: **planned** 2026-10-29, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
+Status: **done** 2026-10-29, decisions signed off as proposed; what changed on the way is at the end. Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 10](DRAFT-roadmap.md#round-10-commands-and-keys), from an inventory of every keyboard handler and
 shortcut label in `src/`, the action lists and their subjects, the selection store, the layout store and its driver,
 named layouts, the File and Layout menus and the QuickAdd matcher, taken on `imp/inspiring-boyd-f8a32a` at `5286ffe`
@@ -503,7 +503,7 @@ a reviewer notices is a bug in this round.
 
   | Per second | Round 9 `editor` | Round 10 `editor` | Round 9 `four` | Round 10 `four` | Round 9 `groups` | Round 10 `groups` | Round 9 `pinned` | Round 10 `pinned` |
   |---|---|---|---|---|---|---|---|---|
-  | Component renders (dev) | 145 | | 173 | | 86 | | 144 | |
+  | Component renders (dev) | 145 | 145 | 173 | 173 | 86 | 87 | 144 | 144 |
 
 ## Decisions to sign off
 
@@ -649,3 +649,56 @@ What turned out different from the design above, step by step.
   sidebar's." Firefox is told by its user agent, for ⇧⌘P.
 * **Step 7: `VIEW_KEYS` lists 15 rows** (where, what, keys), drawn with `keyLabel`, under *In the views*, only while
   nothing is searched. Page Up and Page Down got names on Apple too.
+* **Step 8: the profile.** As round 9 ran it: one run each, 10 s after 2 s of warm-up, headless Chromium, 1500 × 1000,
+  the servers outside the sandbox, the palette closed and no dialog open. `WATCHED` gained `CommandHost`, `HostDialogs`
+  and `CommandPalette`; all three rendered 0 times a second in every setup.
+
+  | Per second | Round 9 `editor` | Round 10 `editor` | Round 9 `four` | Round 10 `four` | Round 9 `groups` | Round 10 `groups` | Round 9 `pinned` | Round 10 `pinned` |
+  |---|---|---|---|---|---|---|---|---|
+  | Component renders (dev) | 145 | 145 | 173 | 173 | 86 | 87 | 144 | 144 |
+
+  The first runs gave 144 for `editor` and 145 for `pinned` (one `ArrangementPlayhead` render a second either way);
+  run again, they measured 145 and 144, and 145 for `editor` once more. The machine was busy (load average 5 to 9, other
+  sessions running), and script time in the production build spread widely: 10.4 to 18.5 ms a second for `editor`
+  alone. So the production builds were compared side by side, round 9's (`5286ffe`, built in a throwaway worktree) and
+  round 10's, in turn on the same machine within minutes:
+
+  | Script ms a second (production) | `editor` | `four` | `groups` | `pinned` |
+  |---|---|---|---|---|
+  | Round 9 | 11.6, 11.1 | 15.5, 14.4 | 14.4 | 12.0 |
+  | Round 10 | 12.8, 11.8 | 13.5, 14.1 | 16.6 | 13.0 |
+
+  The differences go both ways and are within the spread of one build's runs. Nothing round 10 adds runs while the
+  transport plays: the listener waits for keys, and the host, the dialogs and the palette don't render.
+* **Step 8: the keys were not checked by hand.** The plan asks for every default to be pressed on a real keyboard in
+  Chrome, Firefox and Safari on macOS. That wasn't possible here: this session drives browsers only through the
+  DevTools protocol (Playwright, the app's browser pane, Claude in Chrome), whose key events reach the page whatever the
+  browser would keep, and Firefox isn't installed on the machine (Playwright's Firefox and WebKit builds for this
+  version aren't downloaded either). So no default was changed for a browser, and the table below records what is
+  expected from each browser's documented shortcuts, not what was seen. **Each cell still needs a hand check**, with the
+  focus on the page's background, on a button, in the project name field and on a graph canvas.
+
+  | Key (macOS) | Command | Chrome | Firefox | Safari |
+  |---|---|---|---|---|
+  | ⌘K | Palette | Not checked; expected the page's | Not checked; web search, which a page may take | Not checked; expected the page's |
+  | ⇧⌘P | Palette | Not checked; expected the page's | Kept (private window): only ⌘K there | Not checked; expected the page's |
+  | ⌘Z, ⇧⌘Z, ⌘Y | Undo, redo | Not checked (as before this round) | Not checked | Not checked |
+  | Tab, ⇧Tab | Session and Arrangement | Not checked (as before) | Not checked | Not checked |
+  | F6, ⇧F6 | Focus a group | Not checked (as before) | Not checked | Not checked |
+  | ⌃⌘B, ⌃⌘J, ⌃⇧⌘B | Regions | Not checked; no known binding | Not checked; no known binding | Not checked; no known binding |
+  | ⌃⌘M | Maximize | Not checked; no known binding | Not checked; no known binding | Not checked; no known binding |
+  | Space | Play or stop | Not checked; expected the page's | Not checked | Not checked |
+  | ⌫, ⌦ | Delete | Not checked; the page's outside fields | Not checked | Not checked |
+  | ⌘D | Duplicate | Not checked; bookmark, which a page may take | Not checked; bookmark, as Chrome | Not checked; bookmark, as Chrome |
+  | ⌘C, ⌘X, ⌘V | Copy, cut, paste | Not checked; the page's | Not checked | Not checked |
+  | F2 | Rename | Not checked; no known binding | Not checked | Not checked |
+
+  Windows and Linux were not checked either.
+* **Step 8: checks.** `npm test` and `npm run typecheck` passed at every step: 2280 unit tests at step 1, 2335 at step
+  2, 2336 at step 3, 2346 at step 4, 2350 at step 5, 2355 at step 6, 2357 from step 7. Full smoke runs, outside the
+  sandbox: 180 at steps 1 and 2, 185 at step 3, 187 at step 4, 188 at step 5, 190 at step 6, 192 at steps 7 and 8.
+  `npm run test:audio` at step 3: 20 passed. At step 3 the smoke run was repeated on exactly step 3's files, since step
+  4's had been begun beside them. The manual pass from Verification (the palette from every region with each kind of
+  selection, Delete and ⌘D inside a module, the menus by keyboard only, each preset and a named layout saved after one)
+  was not done by hand; the specs and a look at the View menu, the palette and the shortcuts dialog in the dev build
+  stand in for parts of it.

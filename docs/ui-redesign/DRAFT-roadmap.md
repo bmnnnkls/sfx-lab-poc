@@ -256,12 +256,19 @@ it is. Pinned panels stack vertically.
 
 ## Round 10: commands and keys
 
-**Planned** 2026-10-29; see the [plan](PLAN-round-10-commands-and-keys.md), signed off as proposed. Its inventory changes
+**Done** 2026-10-29; see the [plan](PLAN-round-10-commands-and-keys.md), signed off as proposed. Its inventory changes
 the outline below: subject actions stay in round 5's lists and the registry reads them, adding only what has no
 subject; keys act on the *focus subject* (what the keyboard focus is on), the palette also on the selection; graph
 delete and duplicate come as verbs (*delete*, *duplicate*, *copy*, *cut*, *paste*, *rename*) that every kind can
 name; maximize gets a store action; the File menu is rebuilt as a shared menu; the four layout presets are new; the
 region keys are ⌃⌘B, ⌃⌘J and ⌃⇧⌘B (Ctrl+Alt elsewhere), since VS Code's are browser keys.
+
+What moved while it ran: only Paste walks out from the focused thing; every other verb is the innermost thing's, so
+Delete on a fader in a mixer strip leaves the track; the graph canvas became focusable and gives its own subjects; the
+view commands are made in `state` from `ui`'s titles, and the region names moved to `state`; a menu's key is shown but
+not part of the entry's name; *Maximize* and Session's and Arrangement's tab tooltips read the key in effect; presets
+load through the layout store like named layouts. Not done: the keys were not checked by hand in Chrome, Firefox or
+Safari (Firefox isn't installed on the machine), and the manual pass.
 
 * A **command registry**: every view, region toggle, layout, preset and common action, with an id and a title. It is
   built on round 5's action lists.

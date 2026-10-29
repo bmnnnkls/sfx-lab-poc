@@ -1234,7 +1234,7 @@ right-clicked; what can be done to it lives in `state/actions/`.
   track's (or the master's) graph as `target` and the modules opened from there as `path`; the nodes are in the last
   module of `path` (`editTargetOf`). `canvas` and `lane` carry where the click landed, which is where *Paste* and *Add*
   put things; the view sets it from the trigger's own `onContextMenu`, which runs before the menu opens.
-* **Actions.** One file per kind exports its list of `Action`s: an `id` (`clip.duplicate`, round 10's command ids), a
+* **Actions.** One file per kind exports its list of `Action`s: an `id` (`clip.duplicate`, stable: the palette lists it), a
   `title` (text, or a function of the subject), a `group` (open, edit, clipboard, delete: a separator between groups),
   `danger`, `applies` (hidden when false: *Stop* on a return), `enabled` (shown but disabled: *Paste* with an empty
   clipboard) and `run`. An action that asks which one has `choices` (a lane's session clips, an empty audio slot's
@@ -1252,6 +1252,15 @@ right-clicked; what can be done to it lives in `state/actions/`.
   undo. An asynchronous action (the library's, the sounds') resolves with a message or throws; `runAction` reports it
   to the toasts (`usePersistenceStore.notify`), or to `report` (the Library's and Sounds' status lines, from their own
   buttons), and returns a promise that settles after.
+* **Verbs.** An action can name the edit key that runs it on the focused thing: `verb` is `delete`, `duplicate`,
+  `copy`, `cut`, `paste` or `rename`, at most one action of a kind per verb (a unit test checks it). Every kind's
+  *Rename* has `rename` (set in `renameAction`); the deletes that remove more than the thing itself (*Delete group and
+  tracks*, *Clear this track*) have none. `runVerb(verb, subjects, context)` runs the innermost subject's action with
+  that verb if it applies and is enabled, and says whether it ran one; only Paste walks out to the first subject that
+  takes a paste (the graph's selected nodes paste on the canvas around them). `verbTarget` says what would run.
+* **Names.** `subjectName(subject)` names a subject for the palette: the track's, group's, clip's, scene's (*Scene
+  2* when unnamed), sample's or region's name, *Master*, *2 nodes* or a single node's title, a control's target label,
+  *Lead instrument* for a pin, and the kind's word (*Track*) for a thing that is gone.
 * **Buttons run actions too.** ×, ✎, ■, M and S, the sample row's buttons, the Library's details and folder buttons,
   the Sounds rows, a card's *Edit* and *Unlink*, the toolbar's *Group into module* and the module bar's buttons call
   `runAction` with the same subject, so a button and its menu entry share one implementation. Two exceptions keep the
@@ -1293,8 +1302,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
   regions are focusable for that, and carry their menus. Checked in Chromium; Firefox and Safari were not checked.
 * **Focus after a rename.** Radix returns the focus to the trigger as a menu closes. `ActionMenu` prevents that after
   an action that `takesFocus` (an in-place rename, *Add node…*).
-* **Popups stay.** The *+* add-track popup, the empty audio slot's *+* and the *Layout* menu are menus of a place, not
-  of a thing. The empty audio slot's *+* runs the same *Add audio clip* action as its right-click submenu.
+* **Popups stay.** The *+* add-track popup, the empty audio slot's *+*, File, View and the *Layout* menu are menus of
+  a place, not of a thing. File, View and *Layout* are built from commands (§ Commands and keys). The empty audio slot's *+* runs the same *Add audio clip* action as its right-click submenu.
 * **View-local menus stay local.** The piano roll's (it acts on the note selection and the hover beat) and an input
   port's (*Create knob* needs `GraphEditor`'s `createControl`) build their entries through `ContextMenu`. The rule in
   `tests/architecture.test.ts`: outside `ui/shared/menu`, only `PianoRoll`, `GraphEditor` and `NodeView` may import
@@ -1388,6 +1397,78 @@ track opens its volume lane, in the selected (or first) clip, or a return's slot
   row, and resets to the first scene when its row goes. Clips that are playing keep playing: the launcher knows them
   by id.
 * `MAX_TRACKS`, `MAX_SCENES` and `MAX_PATCH_NODES` live in `core/project`; the file format's `LIMITS` reads them.
+
+## Commands and keys
+
+Everything the app can do from a menu can be found by name and run from the keyboard. Subject actions stay in
+`state/actions/`; commands are what has no subject.
+
+* **Commands** (`state/commands/`). A `Command` has a stable `id` (`view.show.mixer`, `layout.toggle.panel`: key
+  overrides are saved by it), a `category` (View, Layout, File, Transport, Track, Edit, Help), a `title` (*Toggle
+  panel*) and a `label` for now (*Hide panel*), `applies`, `enabled`, `choices` (one palette row each), `danger`,
+  `takesFocus`, `repeat` (a held key runs it again: undo and redo), `palette: false` (the edit verbs) and `bindable:
+  false` (*Load layout*, whose choices are names). `runCommand` runs nothing that doesn't apply or isn't enabled and
+  reports like `runAction`. `CommandContext` is an `ActionContext` with the project's `files` and `focus`, the
+  subjects the keyboard focus is on. `STATE_COMMANDS` holds those that need only `state` (regions, maximize, reset,
+  files, examples, transport, Touch, undo, adding tracks, the edit verbs); `viewCommands(viewTitles)` makes the 13
+  *Show …* commands; `ui/commands/ui-commands.ts` has those that move the DOM focus or open dialogs (F6's, the palette,
+  the shortcuts, *Save layout as…*, *Export audio*, the presets, the named layouts). `ui/commands/registry.ts` joins
+  them into `COMMANDS`.
+* **Subjects for keys.** `ActionMenu` records its subject on its trigger (a `WeakMap` in
+  `ui/shared/menu/focus-subjects.ts`); `focusSubjects(element)` walks up from the focused element and returns the
+  subjects around it, innermost first. A view can give an element subjects of its own with `useFocusSubjects(ref,
+  read)`, in place of its menu's: the graph canvas (focusable, focused by a press on it or a card) gives its selected
+  `nodes` and the `canvas` at the pointer, or the middle of what shows. **Keys use the focus subjects only**, so Delete
+  never removes something selected long ago in another view. `selectionSubjects()` (`state/commands`) gives the
+  selected region, else the selected session clip (each while it exists), else the group, master or track, and the
+  selected sample; only the palette uses it.
+* **Keys** (`ui/commands/keys.ts`, `keybindings.ts`, pure and tested as tables). A key is a string, modifiers then the
+  key: `mod+shift+z`, `ctrl+mod+b`, `f6`, `space`. `mod` is ⌘ on Apple and Ctrl elsewhere, `ctrl` is ⌃ on Apple, `meta`
+  the Windows key elsewhere. `keyOf(event, apple)` takes letters and digits from `event.key` when it is a Latin one,
+  else from `event.code` (⌥B is "∫", AltGr and other layouts change the key, not the code); a Mac's ⌫ is `delete` and
+  ⌦ `forwarddelete`. `keyLabel` draws "⌃⇧⌘B" on Apple, "Ctrl+Alt+Shift+B" elsewhere. `DEFAULT_KEYS` is the table:
+  ⌘K and ⇧⌘P the palette; ⌘Z, ⇧⌘Z, ⌘Y; Tab (and Shift+Tab) Session and Arrangement; F6 and ⇧F6; ⌃⌘B, ⌃⌘J and ⌃⇧⌘B the
+  regions, ⌃⌘M maximize (Ctrl+Alt elsewhere); Space play or stop; ⌫ ⌦ (Delete, Backspace), ⌘D, ⌘C, ⌘X, ⌘V and F2 the
+  verbs.
+* **Scopes,** three: `text` works everywhere (the palette, F6); `outside-text`, the default, not in a text entry (a
+  text-like input, textarea, select or contenteditable); `workspace` also not in the chrome (a tab, a splitter, the
+  activity bar, the region toggles, a group's buttons, dialogs) and not on an element that uses Space or Enter itself
+  (a button, link, checkbox, switch, option, menu or tree item): Tab and Space.
+* **The dispatcher** (`useKeybindings`, mounted once by `CommandHost`). One `keydown` listener on `window` in the
+  bubble phase, so a view's own handler runs first (the piano roll's ⌘D). It ignores prevented and composing events,
+  finds the commands bound to the key whose scope holds, runs the first that applies and is enabled with the focused
+  view as `origin` and its subjects as `focus`, and prevents the browser's handling only then: ⌘C with nothing focused
+  that copies is the browser's. A repeat runs only a command that allows it, and is swallowed otherwise.
+* **Overrides** are saved per browser under `sfxlab:keybindings` as `{ version: 1, keys: { [commandId]: string[] } }`,
+  each changed command's full list (`[]` for none). Anything unreadable is ignored; an unknown id is kept.
+  `bindingsOf(defaults, overrides, apple)` gives the table in effect; a key set on one command moves off any other of
+  the same scope (`assignKey`, `replaceKeys`). Keys a browser keeps (⌘N, ⌘T, ⌘W, ⌘Q, ⇧⌘N, ⇧⌘T, ⇧⌘W, ⌘Tab, ⌘1 to ⌘9,
+  Firefox's ⇧⌘P) are refused when recording; keys it uses (⌘F, ⌘L, ⌘R, ⌘P, ⌘S, ⌘D, ⌘O, ⌘H, ⌘M) are warned about.
+* **`CommandHost`** wraps the workspace: the bindings (read once, saved on each change), the listener, the services
+  the commands run with, and `useKeyLabel(id)` and `withKey(text, label)` for tooltips ("Undo (⌘Z)", "Toggle panel
+  (⌃⌘J)", flexlayout's *Maximize*, Session's and Arrangement's tabs). It renders only when the bindings change; its
+  `HostDialogs` owns which of the palette, *Save layout*, *Export audio* and *Keyboard shortcuts* is open
+  (`showDialog` in `ui/commands/dialogs.ts`).
+* **The palette** (`CommandPalette`, behaviour in `palette-model.ts`, rows in `palette-rows.ts`). A combobox owning a
+  listbox at the top middle of the window. Rows: the commands that apply ("*Category: label*", one per choice: *Load
+  layout: Mix*), then `describeActions` for the focus subjects and then the selection subjects not already listed
+  ("*Bass: Duplicate*", a test keeps them equal), a disabled row dimmed. Matching is QuickAdd's (`ui/shared/
+  search-match.ts`: `norm` and `tierOf` over a label and further texts); ties go to the commands run recently (the last
+  8, in memory), then commands before actions. With nothing typed: recent commands, the subjects' actions, then every
+  command by category. Closing gives the focus back where it was (a menu's button, when opened from a menu), except
+  after an action that takes it; its key again closes it.
+* **Menus from commands.** `menuEntriesOf(items, context, keyOf)` turns a list of command ids, ids with a label or inline
+  choices, submenus and separators into `MenuEntry`s, each with its key (drawn, `aria-hidden`, not part of its name).
+  `useCommandEntries` builds them while a `PopupMenu` is open, following the stores. File (`FILE_MENU`), View
+  (`VIEW_MENU`: the palette, the shortcuts, *Show ▸* every view, the region toggles, maximize, *Layouts ▸*) and the
+  status bar's *Layout* (`LAYOUT_MENU`) are lists in `ui/commands/menus.ts`.
+* **Keyboard shortcuts** (`KeyboardShortcuts`, a `<dialog>`): a search, then every bindable command by category with its
+  keys, *Change* (records the next key, Escape cancels; it replaces the command's keys), *Remove* and *Reset*; *Reset
+  all*. A refused key says why, a used key warns, a moved key names the command that lost it. `VIEW_KEYS` lists the
+  view-local keys read only: the piano roll's, the automation editor's, QuickAdd's, the trees', the controls',
+  Shift+A and Shift+F10. They stay in their views and run first.
+* **Not checked by hand.** Whether Chrome, Firefox and Safari leave every default to the page was not tried with a
+  real keyboard; Playwright's keys reach the page whatever a browser would do. See the round-10 plan.
 
 ## Drag and drop
 
@@ -1801,7 +1882,9 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
     maximum) and keeps its weight, so it expands to the height it had. A panel split sideways collapses with the
     groups beside it (they share a row); one with nothing above or below it doesn't collapse. flexlayout ignores
     clicks on a group's open tab, so `Workbench` catches them first and calls the driver's `clickTab`.
-  * **Maximize.** Every tab group has flexlayout's maximize button (*Maximize* / *Restore*), and double-clicking a
+  * **Maximize.** Every tab group has flexlayout's maximize button (*Maximize* / *Restore*, with the key), ⌃⌘M (Ctrl+Alt+M
+    elsewhere) does it for the group the focus is in (`toggleMaximize(view)` on the store and the driver; flexlayout's
+    active group with no view; nothing for a sidebar view), and double-clicking a
     tab strip does the same: the group fills the main layout, the sidebars stay. The panel counts as hidden while
     another group is maximized; showing a view elsewhere, or the panel, restores the layout. Not the browser's
     Fullscreen API, which would hide every Radix menu and tooltip (they render into `document.body`).
@@ -1811,13 +1894,16 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   * **Region toggles** (`RegionToggles`): primary sidebar ◧, panel ⬓ and secondary sidebar ◨, at the right end of
     the panel's tab strip before its maximize button (`onRenderTabSet`). The panel's own toggle collapses it to
     that strip. **Status bar** (`contentinfo`): the audio-failure alert, `SaveIndicator`, and a *Layout* menu with
-    the same toggles, the named layouts and *Reset layout*: the route when the panel's strip is off screen.
+    the same toggles, the built-in and named layouts and *Reset layout*, from the commands: the route when the panel's
+    strip is off screen.
   * **Activity bar** (`nav` "Views"): Session, Arrangement, Wave editor, Library and Tracks, each marked while it shows. A
     button shows its view wherever it is docked; on a sidebar's open view it hides that sidebar instead.
-  * **Keyboard.** Tabs follow the tab pattern and splitters are focusable separators (flexlayout's). F6 and
-    Shift+F6 move the focus between the tab groups that show, the panel and sidebars included (`group-focus.ts`;
-    flexlayout's own key skips borders). Tab toggles Session and Arrangement, except in form fields and the chrome:
-    a tab, a splitter, the activity bar, the region toggles, a tab group's buttons and dialogs.
+  * **Keyboard.** Every global key goes through the dispatcher (§ Commands and keys). ⌃⌘B, ⌃⌘J and ⌃⇧⌘B (Ctrl+Alt
+    elsewhere) toggle the primary sidebar, the panel and the secondary sidebar. Tabs follow the tab pattern and
+    splitters are focusable separators (flexlayout's). F6 and Shift+F6 move the focus between the tab groups that
+    show, the panel and sidebars included (`group-focus.ts`; flexlayout's own key skips borders). Tab toggles Session
+    and Arrangement (the `workspace` scope): not in fields, the chrome (a tab, a splitter, the activity bar, the region
+    toggles, a tab group's buttons, dialogs) or on a button, link or other element that uses Space or Enter.
 * **Minimum sizes.** `viewMinSizes` in `ui/layout/view-titles.ts` (also `minSize` in the registry): 480 × 240 for the
   editors (Session, Arrangement, Wave editor, Instrument, Effects, Notes, Clip), 280 × 200 for the tool views
   (Samples, Sounds, Library, Tracks, Pinned, Mixer). `viewTab` puts them on each tab as flexlayout's `minWidth` and `minHeight`, so
@@ -1861,9 +1947,9 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   `visible` and `hiddenRegions` (a collapsed sidebar or panel counts as hidden). `revealView(id)` shows a view
   wherever it is docked (opening a collapsed region and restoring a maximized group first), `toggleMainView()`
   shows whichever of Session and Arrangement isn't showing (nothing when both are), `toggleRegion`, `resetLayout`,
-  `saveLayoutAs(name)` and `loadLayout(name)`. With a driver attached the actions go to it and the shell mirrors the model
-  back through `sync` after each change; without one (unit tests, before the shell mounts) they update the mirror
-  directly. Read `visible` to know whether a view shows.
+  `saveLayoutAs(name)`, `loadLayout(name)`, `loadPreset(id)` and `toggleMaximize(view?)`. With a driver attached the
+  actions go to it and the shell mirrors the model back through `sync` after each change; without one (unit tests,
+  before the shell mounts) they update the mirror directly, and named layouts, presets and maximize do nothing. Read `visible` to know whether a view shows.
 * **Persistence** (`ui/layout/layout-storage.ts`, `use-layout-persistence.ts`). The whole layout, every group's
   open tab included, is saved per browser under `sfxlab:layout` as `{ version: 2, model }`, 250 ms after the last
   change, and read once before the first render. `parseStoredLayout` rejects anything that isn't JSON, an unknown
@@ -1875,6 +1961,12 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   weight against 1000 px, and a collapsed, hidden or empty border a collapsed panel. A browser without a saved
   layout gets one from the old `sfxlab:main-view` and `sfxlab:editor-height`. *Reset layout* saves the default.
   Replacing the project doesn't touch the layout.
+* **Built-in layouts** (`presetLayout(id)` in `ui/layout/default-layout.ts`), above the named ones and made from the
+  default, so every view is in each once: *Compose* (Session, the panel on Clip), *Arrange* (Arrangement, the panel on
+  Mixer), *Sound design* (the editor area split: the Wave editor beside Instrument in group `editor-instrument`; the
+  panel on Effects; the secondary sidebar open on Sounds) and *Mix* (Mixer in the editor area, the panel collapsed).
+  `loadPreset(id)` on the store, the driver and the shell replaces the layout, as loading a named layout does. They
+  can't be deleted or saved over; a named layout may share a preset's name.
 * **Named layouts** (`ui/layout/named-layouts.ts`). *Save layout as…* in the *Layout* menu asks for a name (a name
   in use asks again before replacing) and saves the model under `sfxlab:layouts` as
   `{ version: 2, layouts: { [name]: model } }`. The menu lists the names to load, the way *Reset layout* loads the
@@ -1928,6 +2020,18 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
 * Commands and status are plain serialisable data so they can cross the worklet boundary.
 
 ## Common changes
+
+**Add a command** — one that needs only `state` goes in `STATE_COMMANDS` (`state/commands/state-commands.ts`), one
+that opens a dialog, moves the DOM focus or reads `ui`'s data in `UI_COMMANDS` (`ui/commands/ui-commands.ts`). Give it
+a stable id (keys are saved by it), a category and a title; `label` when a menu should say something else now. It shows
+in the palette and the shortcuts dialog at once; add it to a list in `ui/commands/menus.ts` to put it in a menu. An
+action on a thing is not a command: add it to its kind's list in `state/actions/`, with a `verb` if an edit key should
+run it.
+
+**Add a key** — a row in `DEFAULT_KEYS` (`ui/commands/keybindings.ts`): the command, the key (`mod+alt+x`), the Apple
+key if it differs (`ctrl+mod+x`), and a scope if not `outside-text`. Never a key a browser keeps; check the new key by
+hand in Chrome, Firefox and Safari, since a test's keys reach the page whatever the browser would do. Tooltips take it
+from `useKeyLabel`.
 
 **Add a DSP node** — create `core/dsp/nodes/<name>.node.ts` exporting a `NodeDefinition`, add it to
 `core/dsp/registry.ts` (add its words to `node-docs.ts` or the completeness test fails; every numeric parameter then has a socket automatically; `paramSockets: false` opts out, `global: true` lets it run in the global stage; an elementwise math node is a few lines with `mathNode`). Set `shared: true` if it is an effect whose state must outlive individual notes (reverb,
