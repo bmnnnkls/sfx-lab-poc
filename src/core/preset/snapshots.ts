@@ -1,10 +1,10 @@
-import { controlGraph, controlTargetKey, controlToNormalized, controlFromNormalized, editControlBase, enumerateControlTargets, resolveControlTarget, type ControlTarget, type ControlValue } from '../control'
+import { controlGraph, controlOwnerId, controlTargetKey, controlToNormalized, controlFromNormalized, editControlBase, enumerateControlTargets, resolveControlTarget, type ControlTarget, type ControlValue } from '../control'
 import { flattenPatch } from '../patch'
 import type { Project } from '../project'
 import { createId } from '../shared'
 import type { Snapshot, SnapshotScope, RecallIssue } from './types'
 export const inSnapshotScope = (target: Pick<ControlTarget, 'kind' | 'owner'> & { readonly domain?: string }, scope: SnapshotScope): boolean =>
-  target.owner.kind === scope.owner.kind && (target.owner.kind !== 'track' || scope.owner.kind !== 'track' || target.owner.trackId === scope.owner.trackId) && (scope.domain === 'track' || (target.kind === 'graph' && target.domain === scope.domain))
+  target.owner.kind === scope.owner.kind && controlOwnerId(target.owner) === controlOwnerId(scope.owner) && (scope.domain === 'track' || (target.kind === 'graph' && target.domain === scope.domain))
 export const isSnapshotControl = (project: Project, target: ControlTarget): boolean => {
   const resolved = resolveControlTarget(project, target)
   if (resolved.status !== 'available' || !resolved.automatable) return false

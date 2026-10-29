@@ -1,5 +1,5 @@
 import { setNodeParam } from '../patch'
-import { type Project, editPatchAt, setMasterVolume, setTrackPan, setTrackSend, setTrackVolume } from '../project'
+import { type Project, editPatchAt, setGroupPan, setGroupSend, setGroupVolume, setMasterVolume, setTrackPan, setTrackSend, setTrackVolume } from '../project'
 import { resolveControlTarget } from './resolve'
 import { type ControlTarget, type ControlValue, controlTargetKey } from './types'
 import { clampControlValue } from './values'
@@ -15,13 +15,17 @@ export const editControlBase = (project: Project, target: ControlTarget, value: 
   if (target.kind === 'mixer') {
     const owner = target.owner
     const edited = owner.kind === 'master' ? setMasterVolume(project, next)
+      : owner.kind === 'group' ? target.control === 'volume' ? setGroupVolume(project, owner.groupId, next)
+        : target.control === 'pan' ? setGroupPan(project, owner.groupId, next)
+        : setGroupSend(project, owner.groupId, target.returnId, next)
       : target.control === 'volume' ? setTrackVolume(project, owner.trackId, next)
       : target.control === 'pan' ? setTrackPan(project, owner.trackId, next)
       : setTrackSend(project, owner.trackId, target.returnId, next)
     return { status: 'applied', project: edited }
   }
   if (target.path.length === 0) {
-    const at = target.owner.kind === 'master' ? { master: true as const } : { trackId: target.owner.trackId, graph: target.domain }
+    const owner = target.owner
+    const at = owner.kind === 'master' ? { master: true as const } : owner.kind === 'group' ? { groupId: owner.groupId } : { trackId: owner.trackId, graph: target.domain }
     const entries = project.controlValues?.filter((entry) => controlTargetKey(entry.target) !== controlTargetKey(target))
     const { controlValues: _saved, ...withoutValues } = project
     const clean = entries?.length === project.controlValues?.length ? project

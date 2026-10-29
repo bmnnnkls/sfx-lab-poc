@@ -1,4 +1,4 @@
-import { controlTargetKey, flatControlNodeId, type ControlTarget } from '../control'
+import { controlOwnerId, controlTargetKey, flatControlNodeId, type ControlTarget } from '../control'
 import { EngineAutomation } from './automation'
 import { RIGHT, STEREO_FRAMES } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
@@ -478,17 +478,19 @@ export class Engine {
         else { this.masterVolumeCurve = values; this.masterVolume = values[frames - 1]! }
         continue
       }
-      const track = this.tracks.get(target.owner.trackId)
+      // A group owner is its bus's channel, keyed by the group's id.
+      const ownerId = controlOwnerId(target.owner)!
+      const track = this.tracks.get(ownerId)
       if (!track) continue
       if (target.kind === 'graph') track.setAutomationCurve(flatControlNodeId(target), target.paramId, values, target.domain)
       else if (target.control === 'volume') { track.strip.volumeCurve = values; track.strip.volume = values[frames - 1]! }
       else if (target.control === 'pan') { track.strip.panCurve = values; track.strip.pan = values[frames - 1]! }
       else {
         track.strip.sendCurves.set(target.returnId, values)
-        const sends = this.automationSends.get(target.owner.trackId) ?? {}
+        const sends = this.automationSends.get(ownerId) ?? {}
         sends[target.returnId] = values[frames - 1]!
-        this.automationSends.set(target.owner.trackId, sends)
-        this.setSendLevels(target.owner.trackId, sends)
+        this.automationSends.set(ownerId, sends)
+        this.setSendLevels(ownerId, sends)
       }
     }
     const mix: MixContext = {
@@ -723,7 +725,8 @@ export class Engine {
       else this.masterVolume = value
       return
     }
-    const track = this.tracks.get(target.owner.trackId)
+    const ownerId = controlOwnerId(target.owner)!
+    const track = this.tracks.get(ownerId)
     if (!track) return
     if (target.kind === 'graph') {
       const nodeId = metadata.nodeId
@@ -732,10 +735,10 @@ export class Engine {
     } else if (target.control === 'volume') track.strip.volume = value
     else if (target.control === 'pan') track.strip.pan = value
     else {
-      const sends = this.automationSends.get(target.owner.trackId) ?? {}
+      const sends = this.automationSends.get(ownerId) ?? {}
       sends[target.returnId] = value
-      this.automationSends.set(target.owner.trackId, sends)
-      this.setSendLevels(target.owner.trackId, sends)
+      this.automationSends.set(ownerId, sends)
+      this.setSendLevels(ownerId, sends)
     }
   }
 

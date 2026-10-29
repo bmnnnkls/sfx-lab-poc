@@ -1,7 +1,7 @@
 import { createId } from '../shared'
 import { resolveControlTarget } from '../control'
 import { canonicalPortableSignature, canonicalRecord, validateLibraryPayloads } from '../persistence'
-import { createEmptyProject } from '../project'
+import { createEmptyProject, createGroupBus } from '../project'
 import { insertLibraryAsset } from './assets'
 import { libraryName } from './catalog'
 import { LIBRARY_CATALOG_VERSION, type LibraryCatalog, type LibraryItem } from './types'
@@ -150,8 +150,10 @@ export const validateLibraryCatalog = (input: unknown): LibraryCatalog => {
     const revision = revisionById.get(item.content.revisionId)!
     const owner = item.content.state.scope.owner
     const p = createEmptyProject(), track = p.tracks[0]!
-    const sourceInput = revision.payload.kind === 'audio-effect' ? [revision.payload.graph, ...revision.payload.modules.map(m => m.patch)].flatMap(g => g.nodes).find(n => ['masterIn', 'returnIn', 'trackIn'].includes(n.type))?.type : undefined
-    const project = owner.kind === 'master' ? p : { ...p, tracks: [{ ...track, id: owner.trackId, ...(sourceInput === 'returnIn' && { kind: 'return' as const }) }] }
+    const sourceInput = revision.payload.kind === 'audio-effect' ? [revision.payload.graph, ...revision.payload.modules.map(m => m.patch)].flatMap(g => g.nodes).find(n => ['masterIn', 'returnIn', 'trackIn', 'groupIn'].includes(n.type))?.type : undefined
+    const project = owner.kind === 'master' ? p
+      : owner.kind === 'group' ? { ...p, tracks: [{ ...track, groupId: owner.groupId }], groups: [{ id: owner.groupId, name: 'Group', colour: 'red' as const, bus: createGroupBus() }] }
+      : { ...p, tracks: [{ ...track, id: owner.trackId, ...(sourceInput === 'returnIn' && { kind: 'return' as const }) }] }
     // Test each sound in isolation so a large catalog isn't constrained by project preset count (128).
     const isolated = { ...c, items: [item] }
     const inserted = insertLibraryAsset(project, isolated, item, revision.payload.kind === 'instrument' ? { mode: 'new-track' } : { mode: 'replace', scope: { owner, domain: revision.payload.kind === 'note-effect' ? 'notes' : 'fx' } }).project

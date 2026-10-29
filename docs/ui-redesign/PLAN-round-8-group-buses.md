@@ -425,3 +425,39 @@ Signed off 2026-10-28: every row as proposed.
 ## Changes made while implementing
 
 What turned out different from the design above, step by step.
+
+* **Step 1: the bus edits live in `group-bus.ts`,** with `busOf` and `createGroupBus`; `updateGroup` is exported from
+  `track-groups.ts` for them. `group-routing.ts` also has `busGroups`, and `group-membership.ts` has `mapBuses` and
+  `mapBusGraphs`, which `removeTrack`, `removeSample` and `reconcileModules` use.
+* **Step 1: the mix order's dependencies are worked out once** per `tracks`, `groups` and `modules` (a cache keyed as
+  `mixRouting`'s), so `mixesAfter` no longer flattens every graph on each call. `hasMixLoop` is a depth-first search
+  over the same map.
+* **Step 1: a bus may take Track audio from its own members.** It is mixed after them anyway, so that makes no loop.
+* **Step 1: `GraphEditor`'s `START` gained `group` in this step,** so Group in stays out of the tracks' palettes.
+* **Step 1: the owner references moved to step 4.** A group can't own a control value or a mapping before
+  `ControlOwner` has the `group` kind.
+* **Step 2: `repairTrackReferences` and `repairSendLevels` take the groups and return `{ tracks, groups }`.** Tracks are
+  judged among themselves first, as before. Then a bus's Sends, Track audio inputs and send knobs are judged with the
+  routing. So a loop through a bus loses the bus's pointer or knob, never a track's. Warnings name the group:
+  `Track group "G": …`.
+* **Step 2: the fixture was written by a throwaway test from a built project.** Its learned group fader came with
+  step 4, once a mapping can name a group.
+* **Step 3: `StereoBus` (`stereo-bus.ts`) is the shared helper:** a base class with the input, graph, taps and no-op
+  clip methods. `ReturnTrackRuntime` and `GroupBusRuntime` say where their input comes from and what their knobs do.
+* **Step 3: the engine keeps each channel's bus in a `routes` map.** A member whose bus isn't in the engine yet mixes
+  into the master, so commands in any order sound sensible. The mix order is a list of `[id, track]` pairs, so
+  `mixSegment` finds each channel's destination without a lookup per track.
+* **Step 3: the audio run had one failure under load.** `npm run test:audio`: 13 passed, and the ping-pong case of
+  `tempo.audio.spec.ts` failed its tail-level check. Other work was running on the machine. Run alone on the same
+  build, both tempo cases passed. The spec times its tempo edits from the page, so a loaded machine moves them.
+* **Step 4: `controlOwnerId(owner)`** gives the id a track or group owner has in the project and the engine (null for
+  the master). `controlTargetKey`, the engine's automation writes and the snapshot scope use it. Without it, a group
+  scope would have matched every group's targets.
+* **Step 4: the parsers share `readControlOwner`.** Automation keeps refusing a group owner through
+  `automationOwnerKey`, and `automationSlotsOf` gives a group no slots.
+* **Step 4: switching a bus off keeps its group's control values and mappings,** now missing ("The group has no bus"),
+  so undo and *Sum to a bus* find them again. `ungroup`, `removeGroup`, `pruneGroups` and a move that empties a group
+  drop them (`withoutGroups`).
+* **Step 4: `EFFECT_INPUTS` moved to `core/library`,** with `groupIn`, and `state`'s `graphFitsOwner` uses it. The
+  Library previews a Group in effect on a test tone in a preview bus group. A library origin on a bus has no `trackId`,
+  as on the master.

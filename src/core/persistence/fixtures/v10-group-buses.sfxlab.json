@@ -1,1 +1,1166 @@
-{"format":"sfx-lab-project","version":10,"project":{"name":"Group buses","samples":[],"modules":[],"master":{"fx":{"nodes":[{"id":"node_kunzvl3c","type":"masterIn","x":20,"y":40,"params":{}},{"id":"node_amoptobg","type":"trackOut","x":620,"y":40,"params":{}}],"connections":[{"id":"wire_ccvn807j","from":{"node":"node_kunzvl3c","port":"out"},"to":{"node":"node_amoptobg","port":"in"}}]}},"tempo":110,"sceneCount":4,"tracks":[{"kind":"instrument","id":"track_pwokize8","name":"Bass","volume":0.8,"fx":{"nodes":[{"id":"node_v4eugn0g","type":"trackIn","x":20,"y":40,"params":{}},{"id":"node_sa9bjtao","type":"trackOut","x":620,"y":40,"params":{}}],"connections":[{"id":"wire_16jr2nq3","from":{"node":"node_v4eugn0g","port":"out"},"to":{"node":"node_sa9bjtao","port":"in"}}]},"sends":{},"voices":8,"patch":{"nodes":[{"id":"node_0uajp7dl","type":"note","x":20,"y":120,"params":{}},{"id":"node_hjzariw5","type":"oscillator","x":220,"y":40,"params":{"waveform":1,"frequency":220,"detune":0,"pitchAmount":2}},{"id":"node_hhc9hluk","type":"filter","x":420,"y":40,"params":{"mode":0,"cutoff":700,"resonance":0.707,"cvAmount":2,"keyTrack":0,"gain":0,"slope":0}},{"id":"node_3kwfovyg","type":"envelope","x":220,"y":260,"params":{"attack":0.01,"decay":0.15,"sustain":0.6,"release":0.25}},{"id":"node_bgm83lbm","type":"gain","x":620,"y":120,"params":{"gain":0.3}},{"id":"node_6346cl1l","type":"delay","x":820,"y":120,"params":{"time":0.3,"feedback":0.4,"mix":0.35,"sync":0,"division":0}},{"id":"node_5q634j4f","type":"output","x":1020,"y":150,"params":{}}],"connections":[{"id":"wire_tkcif7gp","from":{"node":"node_0uajp7dl","port":"frequency"},"to":{"node":"node_hjzariw5","port":"freq"}},{"id":"wire_knpu8ame","from":{"node":"node_0uajp7dl","port":"gate"},"to":{"node":"node_3kwfovyg","port":"gate"}},{"id":"wire_29voxyj2","from":{"node":"node_hjzariw5","port":"out"},"to":{"node":"node_hhc9hluk","port":"in"}},{"id":"wire_vt8pxyp2","from":{"node":"node_hhc9hluk","port":"out"},"to":{"node":"node_bgm83lbm","port":"in"}},{"id":"wire_pgz9t7qg","from":{"node":"node_3kwfovyg","port":"out"},"to":{"node":"node_bgm83lbm","port":"cv"}},{"id":"wire_7g1yufp3","from":{"node":"node_bgm83lbm","port":"out"},"to":{"node":"node_6346cl1l","port":"in"}},{"id":"wire_xbslbpa0","from":{"node":"node_6346cl1l","port":"out"},"to":{"node":"node_5q634j4f","port":"in"}}]},"noteGraph":{"nodes":[{"id":"node_hri56u6r","type":"clipNotes","x":20,"y":40,"params":{}},{"id":"node_b1uykxhb","type":"noteOut","x":620,"y":40,"params":{}}],"connections":[{"id":"wire_3os6li06","from":{"node":"node_hri56u6r","port":"out"},"to":{"node":"node_b1uykxhb","port":"in"}}]},"clips":[{"id":"clip_pcvssgc0","name":"Root","lengthBeats":4,"notes":[{"id":"note_6d4p1ida","pitch":36,"start":0,"duration":0.4,"velocity":0.9},{"id":"note_up259cvn","pitch":36,"start":1,"duration":0.4,"velocity":0.9},{"id":"note_dfph21mc","pitch":43,"start":1.5,"duration":0.4,"velocity":0.9},{"id":"note_dd0g5264","pitch":36,"start":2,"duration":0.4,"velocity":0.9},{"id":"note_lg7j4mm3","pitch":39,"start":3,"duration":0.4,"velocity":0.9},{"id":"note_sunh8ced","pitch":41,"start":3.5,"duration":0.4,"velocity":0.9}]},{"id":"clip_q66rx6gp","name":"Walk","lengthBeats":4,"notes":[{"id":"note_23h31cm1","pitch":36,"start":0,"duration":0.4,"velocity":0.9},{"id":"note_wt5akmhl","pitch":38,"start":0.5,"duration":0.4,"velocity":0.9},{"id":"note_pweb36cn","pitch":39,"start":1,"duration":0.4,"velocity":0.9},{"id":"note_dxkrq50i","pitch":41,"start":1.5,"duration":0.4,"velocity":0.9},{"id":"note_jvn4b41c","pitch":43,"start":2,"duration":0.4,"velocity":0.9},{"id":"note_j3a10gth","pitch":41,"start":2.5,"duration":0.4,"velocity":0.9},{"id":"note_5f86ny0x","pitch":39,"start":3,"duration":0.4,"velocity":0.9},{"id":"note_6dd85xwg","pitch":38,"start":3.5,"duration":0.4,"velocity":0.9}]},null,null]},{"kind":"instrument","id":"track_cd0oduvj","name":"Lead","volume":0.8,"fx":{"nodes":[{"id":"node_mw8wphft","type":"trackIn","x":20,"y":40,"params":{}},{"id":"node_jz09sead","type":"trackOut","x":620,"y":40,"params":{}}],"connections":[{"id":"wire_f2yorc9y","from":{"node":"node_mw8wphft","port":"out"},"to":{"node":"node_jz09sead","port":"in"}}]},"sends":{},"voices":8,"patch":{"nodes":[{"id":"node_4i83ipxa","type":"note","x":20,"y":120,"params":{}},{"id":"node_9v4gm0kc","type":"oscillator","x":220,"y":40,"params":{"waveform":2,"frequency":220,"detune":0,"pitchAmount":2}},{"id":"node_1ixf3zzg","type":"filter","x":420,"y":40,"params":{"mode":0,"cutoff":2000,"resonance":0.707,"cvAmount":2,"keyTrack":0,"gain":0,"slope":0}},{"id":"node_rbqhy6if","type":"envelope","x":220,"y":260,"params":{"attack":0.01,"decay":0.15,"sustain":0.6,"release":0.25}},{"id":"node_voaiwnnh","type":"gain","x":620,"y":120,"params":{"gain":0.3}},{"id":"node_25fa7jb6","type":"delay","x":820,"y":120,"params":{"time":0.3,"feedback":0.4,"mix":0.35,"sync":0,"division":0}},{"id":"node_ikntjovg","type":"output","x":1020,"y":150,"params":{}}],"connections":[{"id":"wire_pk2vav83","from":{"node":"node_4i83ipxa","port":"frequency"},"to":{"node":"node_9v4gm0kc","port":"freq"}},{"id":"wire_vptvszdw","from":{"node":"node_4i83ipxa","port":"gate"},"to":{"node":"node_rbqhy6if","port":"gate"}},{"id":"wire_8vu38tmi","from":{"node":"node_9v4gm0kc","port":"out"},"to":{"node":"node_1ixf3zzg","port":"in"}},{"id":"wire_yt12t1mx","from":{"node":"node_1ixf3zzg","port":"out"},"to":{"node":"node_voaiwnnh","port":"in"}},{"id":"wire_flqud5oa","from":{"node":"node_rbqhy6if","port":"out"},"to":{"node":"node_voaiwnnh","port":"cv"}},{"id":"wire_9pxztyk1","from":{"node":"node_voaiwnnh","port":"out"},"to":{"node":"node_25fa7jb6","port":"in"}},{"id":"wire_czd5r7yp","from":{"node":"node_25fa7jb6","port":"out"},"to":{"node":"node_ikntjovg","port":"in"}}]},"noteGraph":{"nodes":[{"id":"node_4kakcr2d","type":"clipNotes","x":20,"y":40,"params":{}},{"id":"node_8x11n6ln","type":"noteOut","x":620,"y":40,"params":{}}],"connections":[{"id":"wire_7o1vxyh5","from":{"node":"node_4kakcr2d","port":"out"},"to":{"node":"node_8x11n6ln","port":"in"}}]},"clips":[{"id":"clip_wzqx43mv","name":"Arp","lengthBeats":4,"notes":[{"id":"note_qb431jvy","pitch":60,"start":0,"duration":0.3,"velocity":0.9},{"id":"note_hn8d12v3","pitch":63,"start":0.5,"duration":0.3,"velocity":0.9},{"id":"note_u22vahr1","pitch":67,"start":1,"duration":0.3,"velocity":0.9},{"id":"note_lm9nkdqk","pitch":72,"start":1.5,"duration":0.3,"velocity":0.9},{"id":"note_zju5txxe","pitch":67,"start":2,"duration":0.3,"velocity":0.9},{"id":"note_tp1gi0yz","pitch":63,"start":2.5,"duration":0.3,"velocity":0.9},{"id":"note_r8rrluod","pitch":60,"start":3,"duration":0.3,"velocity":0.9},{"id":"note_ah8c95jp","pitch":63,"start":3.5,"duration":0.3,"velocity":0.9}]},null,{"id":"clip_wqphdmop","name":"Hook","lengthBeats":4,"notes":[{"id":"note_7qawofmk","pitch":72,"start":0,"duration":0.4,"velocity":0.9},{"id":"note_20vikrn5","pitch":70,"start":1,"duration":0.4,"velocity":0.9},{"id":"note_p158m6hq","pitch":67,"start":1.5,"duration":0.4,"velocity":0.9},{"id":"note_t6516hta","pitch":63,"start":2.5,"duration":0.4,"velocity":0.9},{"id":"note_57jzjmit","pitch":67,"start":3,"duration":0.4,"velocity":0.9}]},null],"groupId":"group_j9thi12r","soloed":true},{"kind":"instrument","id":"track_iiaje4lg","name":"Pad","volume":0.8,"fx":{"nodes":[{"id":"node_hhi8j1dq","type":"trackIn","x":20,"y":40,"params":{}},{"id":"node_5qx00797","type":"trackOut","x":620,"y":40,"params":{}}],"connections":[{"id":"wire_f3gip7kp","from":{"node":"node_hhi8j1dq","port":"out"},"to":{"node":"node_5qx00797","port":"in"}}]},"sends":{},"voices":8,"patch":{"nodes":[{"id":"node_55bk4kbw","type":"note","x":20,"y":120,"params":{}},{"id":"node_auv5qc7z","type":"oscillator","x":220,"y":40,"params":{"waveform":3,"frequency":220,"detune":0,"pitchAmount":2}},{"id":"node_z6kjnezv","type":"filter","x":420,"y":40,"params":{"mode":0,"cutoff":2000,"resonance":0.707,"cvAmount":2,"keyTrack":0,"gain":0,"slope":0}},{"id":"node_30ndxhtd","type":"envelope","x":220,"y":260,"params":{"attack":0.4,"decay":0.15,"sustain":0.6,"release":1.2}},{"id":"node_lf7cjfpu","type":"gain","x":620,"y":120,"params":{"gain":0.3}},{"id":"node_zx70lflw","type":"delay","x":820,"y":120,"params":{"time":0.3,"feedback":0.4,"mix":0.35,"sync":0,"division":0}},{"id":"node_9tl51qjd","type":"output","x":1020,"y":150,"params":{}}],"connections":[{"id":"wire_xvrkh7a6","from":{"node":"node_55bk4kbw","port":"frequency"},"to":{"node":"node_auv5qc7z","port":"freq"}},{"id":"wire_5l8mupes","from":{"node":"node_55bk4kbw","port":"gate"},"to":{"node":"node_30ndxhtd","port":"gate"}},{"id":"wire_6rbyyjju","from":{"node":"node_auv5qc7z","port":"out"},"to":{"node":"node_z6kjnezv","port":"in"}},{"id":"wire_fk6p4l0i","from":{"node":"node_z6kjnezv","port":"out"},"to":{"node":"node_lf7cjfpu","port":"in"}},{"id":"wire_zk16e9ra","from":{"node":"node_30ndxhtd","port":"out"},"to":{"node":"node_lf7cjfpu","port":"cv"}},{"id":"wire_fmqtjyal","from":{"node":"node_lf7cjfpu","port":"out"},"to":{"node":"node_zx70lflw","port":"in"}},{"id":"wire_bim4lltu","from":{"node":"node_zx70lflw","port":"out"},"to":{"node":"node_9tl51qjd","port":"in"}}]},"noteGraph":{"nodes":[{"id":"node_wcxnrlty","type":"clipNotes","x":20,"y":40,"params":{}},{"id":"node_8nsldwsg","type":"noteOut","x":620,"y":40,"params":{}}],"connections":[{"id":"wire_u4i91crk","from":{"node":"node_wcxnrlty","port":"out"},"to":{"node":"node_8nsldwsg","port":"in"}}]},"clips":[{"id":"clip_f1ge3cg0","name":"Cm","lengthBeats":8,"notes":[{"id":"note_xnrygovr","pitch":60,"start":0,"duration":8,"velocity":0.7},{"id":"note_126ssosi","pitch":63,"start":0,"duration":8,"velocity":0.7},{"id":"note_kmvgrcz8","pitch":67,"start":0,"duration":8,"velocity":0.7}]},{"id":"clip_wmjfl1zr","name":"Ab","lengthBeats":8,"notes":[{"id":"note_7d14y1qf","pitch":56,"start":0,"duration":8,"velocity":0.7},{"id":"note_sn2mx2ip","pitch":60,"start":0,"duration":8,"velocity":0.7},{"id":"note_czu4gfll","pitch":63,"start":0,"duration":8,"velocity":0.7}]},null,null],"groupId":"group_31dfe00h"},{"kind":"return","id":"track_return_a","name":"Return A","volume":0.8,"fx":{"nodes":[{"id":"node_bitcackl","type":"returnIn","x":20,"y":40,"params":{}},{"id":"node_ij0v14yw","type":"trackOut","x":620,"y":40,"params":{}}],"connections":[{"id":"wire_l18tb6xs","from":{"node":"node_bitcackl","port":"out"},"to":{"node":"node_ij0v14yw","port":"in"}}]}}],"groups":[{"id":"group_j9thi12r","name":"Outer bus","colour":"red","bus":{"volume":1,"fx":{"nodes":[{"id":"node_i5payddz","type":"groupIn","x":20,"y":40,"params":{}},{"id":"node_stlj0w1x","type":"trackOut","x":620,"y":40,"params":{}}],"connections":[{"id":"wire_97x9vpd0","from":{"node":"node_i5payddz","port":"out"},"to":{"node":"node_stlj0w1x","port":"in"}}]},"sends":{"track_return_a":0.3}}},{"id":"group_wfj4hlbp","name":"Folder","colour":"orange","parentId":"group_j9thi12r","muted":true},{"id":"group_31dfe00h","name":"Inner bus","colour":"yellow","parentId":"group_wfj4hlbp","bus":{"volume":0.7,"fx":{"nodes":[{"id":"node_he27ltwc","type":"groupIn","x":20,"y":40,"params":{}},{"id":"node_fl8jcl8r","type":"trackOut","x":620,"y":40,"params":{}}],"connections":[{"id":"wire_1dfa4j9s","from":{"node":"node_he27ltwc","port":"out"},"to":{"node":"node_fl8jcl8r","port":"in"}}]},"sends":{},"pan":-0.25}}]}}
+{
+  "format": "sfx-lab-project",
+  "version": 10,
+  "project": {
+    "name": "Group buses",
+    "samples": [],
+    "modules": [],
+    "master": {
+      "fx": {
+        "nodes": [
+          {
+            "id": "node_kunzvl3c",
+            "type": "masterIn",
+            "x": 20,
+            "y": 40,
+            "params": {}
+          },
+          {
+            "id": "node_amoptobg",
+            "type": "trackOut",
+            "x": 620,
+            "y": 40,
+            "params": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "wire_ccvn807j",
+            "from": {
+              "node": "node_kunzvl3c",
+              "port": "out"
+            },
+            "to": {
+              "node": "node_amoptobg",
+              "port": "in"
+            }
+          }
+        ]
+      }
+    },
+    "tempo": 110,
+    "sceneCount": 4,
+    "tracks": [
+      {
+        "kind": "instrument",
+        "id": "track_pwokize8",
+        "name": "Bass",
+        "volume": 0.8,
+        "fx": {
+          "nodes": [
+            {
+              "id": "node_v4eugn0g",
+              "type": "trackIn",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_sa9bjtao",
+              "type": "trackOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_16jr2nq3",
+              "from": {
+                "node": "node_v4eugn0g",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_sa9bjtao",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "sends": {},
+        "voices": 8,
+        "patch": {
+          "nodes": [
+            {
+              "id": "node_0uajp7dl",
+              "type": "note",
+              "x": 20,
+              "y": 120,
+              "params": {}
+            },
+            {
+              "id": "node_hjzariw5",
+              "type": "oscillator",
+              "x": 220,
+              "y": 40,
+              "params": {
+                "waveform": 1,
+                "frequency": 220,
+                "detune": 0,
+                "pitchAmount": 2
+              }
+            },
+            {
+              "id": "node_hhc9hluk",
+              "type": "filter",
+              "x": 420,
+              "y": 40,
+              "params": {
+                "mode": 0,
+                "cutoff": 700,
+                "resonance": 0.707,
+                "cvAmount": 2,
+                "keyTrack": 0,
+                "gain": 0,
+                "slope": 0
+              }
+            },
+            {
+              "id": "node_3kwfovyg",
+              "type": "envelope",
+              "x": 220,
+              "y": 260,
+              "params": {
+                "attack": 0.01,
+                "decay": 0.15,
+                "sustain": 0.6,
+                "release": 0.25
+              }
+            },
+            {
+              "id": "node_bgm83lbm",
+              "type": "gain",
+              "x": 620,
+              "y": 120,
+              "params": {
+                "gain": 0.3
+              }
+            },
+            {
+              "id": "node_6346cl1l",
+              "type": "delay",
+              "x": 820,
+              "y": 120,
+              "params": {
+                "time": 0.3,
+                "feedback": 0.4,
+                "mix": 0.35,
+                "sync": 0,
+                "division": 0
+              }
+            },
+            {
+              "id": "node_5q634j4f",
+              "type": "output",
+              "x": 1020,
+              "y": 150,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_tkcif7gp",
+              "from": {
+                "node": "node_0uajp7dl",
+                "port": "frequency"
+              },
+              "to": {
+                "node": "node_hjzariw5",
+                "port": "freq"
+              }
+            },
+            {
+              "id": "wire_knpu8ame",
+              "from": {
+                "node": "node_0uajp7dl",
+                "port": "gate"
+              },
+              "to": {
+                "node": "node_3kwfovyg",
+                "port": "gate"
+              }
+            },
+            {
+              "id": "wire_29voxyj2",
+              "from": {
+                "node": "node_hjzariw5",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_hhc9hluk",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_vt8pxyp2",
+              "from": {
+                "node": "node_hhc9hluk",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_bgm83lbm",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_pgz9t7qg",
+              "from": {
+                "node": "node_3kwfovyg",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_bgm83lbm",
+                "port": "cv"
+              }
+            },
+            {
+              "id": "wire_7g1yufp3",
+              "from": {
+                "node": "node_bgm83lbm",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_6346cl1l",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_xbslbpa0",
+              "from": {
+                "node": "node_6346cl1l",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_5q634j4f",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "noteGraph": {
+          "nodes": [
+            {
+              "id": "node_hri56u6r",
+              "type": "clipNotes",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_b1uykxhb",
+              "type": "noteOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_3os6li06",
+              "from": {
+                "node": "node_hri56u6r",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_b1uykxhb",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "clips": [
+          {
+            "id": "clip_pcvssgc0",
+            "name": "Root",
+            "lengthBeats": 4,
+            "notes": [
+              {
+                "id": "note_6d4p1ida",
+                "pitch": 36,
+                "start": 0,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_up259cvn",
+                "pitch": 36,
+                "start": 1,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_dfph21mc",
+                "pitch": 43,
+                "start": 1.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_dd0g5264",
+                "pitch": 36,
+                "start": 2,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_lg7j4mm3",
+                "pitch": 39,
+                "start": 3,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_sunh8ced",
+                "pitch": 41,
+                "start": 3.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              }
+            ]
+          },
+          {
+            "id": "clip_q66rx6gp",
+            "name": "Walk",
+            "lengthBeats": 4,
+            "notes": [
+              {
+                "id": "note_23h31cm1",
+                "pitch": 36,
+                "start": 0,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_wt5akmhl",
+                "pitch": 38,
+                "start": 0.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_pweb36cn",
+                "pitch": 39,
+                "start": 1,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_dxkrq50i",
+                "pitch": 41,
+                "start": 1.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_jvn4b41c",
+                "pitch": 43,
+                "start": 2,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_j3a10gth",
+                "pitch": 41,
+                "start": 2.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_5f86ny0x",
+                "pitch": 39,
+                "start": 3,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_6dd85xwg",
+                "pitch": 38,
+                "start": 3.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              }
+            ]
+          },
+          null,
+          null
+        ]
+      },
+      {
+        "kind": "instrument",
+        "id": "track_cd0oduvj",
+        "name": "Lead",
+        "volume": 0.8,
+        "fx": {
+          "nodes": [
+            {
+              "id": "node_mw8wphft",
+              "type": "trackIn",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_jz09sead",
+              "type": "trackOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_f2yorc9y",
+              "from": {
+                "node": "node_mw8wphft",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_jz09sead",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "sends": {},
+        "voices": 8,
+        "patch": {
+          "nodes": [
+            {
+              "id": "node_4i83ipxa",
+              "type": "note",
+              "x": 20,
+              "y": 120,
+              "params": {}
+            },
+            {
+              "id": "node_9v4gm0kc",
+              "type": "oscillator",
+              "x": 220,
+              "y": 40,
+              "params": {
+                "waveform": 2,
+                "frequency": 220,
+                "detune": 0,
+                "pitchAmount": 2
+              }
+            },
+            {
+              "id": "node_1ixf3zzg",
+              "type": "filter",
+              "x": 420,
+              "y": 40,
+              "params": {
+                "mode": 0,
+                "cutoff": 2000,
+                "resonance": 0.707,
+                "cvAmount": 2,
+                "keyTrack": 0,
+                "gain": 0,
+                "slope": 0
+              }
+            },
+            {
+              "id": "node_rbqhy6if",
+              "type": "envelope",
+              "x": 220,
+              "y": 260,
+              "params": {
+                "attack": 0.01,
+                "decay": 0.15,
+                "sustain": 0.6,
+                "release": 0.25
+              }
+            },
+            {
+              "id": "node_voaiwnnh",
+              "type": "gain",
+              "x": 620,
+              "y": 120,
+              "params": {
+                "gain": 0.3
+              }
+            },
+            {
+              "id": "node_25fa7jb6",
+              "type": "delay",
+              "x": 820,
+              "y": 120,
+              "params": {
+                "time": 0.3,
+                "feedback": 0.4,
+                "mix": 0.35,
+                "sync": 0,
+                "division": 0
+              }
+            },
+            {
+              "id": "node_ikntjovg",
+              "type": "output",
+              "x": 1020,
+              "y": 150,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_pk2vav83",
+              "from": {
+                "node": "node_4i83ipxa",
+                "port": "frequency"
+              },
+              "to": {
+                "node": "node_9v4gm0kc",
+                "port": "freq"
+              }
+            },
+            {
+              "id": "wire_vptvszdw",
+              "from": {
+                "node": "node_4i83ipxa",
+                "port": "gate"
+              },
+              "to": {
+                "node": "node_rbqhy6if",
+                "port": "gate"
+              }
+            },
+            {
+              "id": "wire_8vu38tmi",
+              "from": {
+                "node": "node_9v4gm0kc",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_1ixf3zzg",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_yt12t1mx",
+              "from": {
+                "node": "node_1ixf3zzg",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_voaiwnnh",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_flqud5oa",
+              "from": {
+                "node": "node_rbqhy6if",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_voaiwnnh",
+                "port": "cv"
+              }
+            },
+            {
+              "id": "wire_9pxztyk1",
+              "from": {
+                "node": "node_voaiwnnh",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_25fa7jb6",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_czd5r7yp",
+              "from": {
+                "node": "node_25fa7jb6",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_ikntjovg",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "noteGraph": {
+          "nodes": [
+            {
+              "id": "node_4kakcr2d",
+              "type": "clipNotes",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_8x11n6ln",
+              "type": "noteOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_7o1vxyh5",
+              "from": {
+                "node": "node_4kakcr2d",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_8x11n6ln",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "clips": [
+          {
+            "id": "clip_wzqx43mv",
+            "name": "Arp",
+            "lengthBeats": 4,
+            "notes": [
+              {
+                "id": "note_qb431jvy",
+                "pitch": 60,
+                "start": 0,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_hn8d12v3",
+                "pitch": 63,
+                "start": 0.5,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_u22vahr1",
+                "pitch": 67,
+                "start": 1,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_lm9nkdqk",
+                "pitch": 72,
+                "start": 1.5,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_zju5txxe",
+                "pitch": 67,
+                "start": 2,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_tp1gi0yz",
+                "pitch": 63,
+                "start": 2.5,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_r8rrluod",
+                "pitch": 60,
+                "start": 3,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_ah8c95jp",
+                "pitch": 63,
+                "start": 3.5,
+                "duration": 0.3,
+                "velocity": 0.9
+              }
+            ]
+          },
+          null,
+          {
+            "id": "clip_wqphdmop",
+            "name": "Hook",
+            "lengthBeats": 4,
+            "notes": [
+              {
+                "id": "note_7qawofmk",
+                "pitch": 72,
+                "start": 0,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_20vikrn5",
+                "pitch": 70,
+                "start": 1,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_p158m6hq",
+                "pitch": 67,
+                "start": 1.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_t6516hta",
+                "pitch": 63,
+                "start": 2.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_57jzjmit",
+                "pitch": 67,
+                "start": 3,
+                "duration": 0.4,
+                "velocity": 0.9
+              }
+            ]
+          },
+          null
+        ],
+        "groupId": "group_j9thi12r",
+        "soloed": true
+      },
+      {
+        "kind": "instrument",
+        "id": "track_iiaje4lg",
+        "name": "Pad",
+        "volume": 0.8,
+        "fx": {
+          "nodes": [
+            {
+              "id": "node_hhi8j1dq",
+              "type": "trackIn",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_5qx00797",
+              "type": "trackOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_f3gip7kp",
+              "from": {
+                "node": "node_hhi8j1dq",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_5qx00797",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "sends": {},
+        "voices": 8,
+        "patch": {
+          "nodes": [
+            {
+              "id": "node_55bk4kbw",
+              "type": "note",
+              "x": 20,
+              "y": 120,
+              "params": {}
+            },
+            {
+              "id": "node_auv5qc7z",
+              "type": "oscillator",
+              "x": 220,
+              "y": 40,
+              "params": {
+                "waveform": 3,
+                "frequency": 220,
+                "detune": 0,
+                "pitchAmount": 2
+              }
+            },
+            {
+              "id": "node_z6kjnezv",
+              "type": "filter",
+              "x": 420,
+              "y": 40,
+              "params": {
+                "mode": 0,
+                "cutoff": 2000,
+                "resonance": 0.707,
+                "cvAmount": 2,
+                "keyTrack": 0,
+                "gain": 0,
+                "slope": 0
+              }
+            },
+            {
+              "id": "node_30ndxhtd",
+              "type": "envelope",
+              "x": 220,
+              "y": 260,
+              "params": {
+                "attack": 0.4,
+                "decay": 0.15,
+                "sustain": 0.6,
+                "release": 1.2
+              }
+            },
+            {
+              "id": "node_lf7cjfpu",
+              "type": "gain",
+              "x": 620,
+              "y": 120,
+              "params": {
+                "gain": 0.3
+              }
+            },
+            {
+              "id": "node_zx70lflw",
+              "type": "delay",
+              "x": 820,
+              "y": 120,
+              "params": {
+                "time": 0.3,
+                "feedback": 0.4,
+                "mix": 0.35,
+                "sync": 0,
+                "division": 0
+              }
+            },
+            {
+              "id": "node_9tl51qjd",
+              "type": "output",
+              "x": 1020,
+              "y": 150,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_xvrkh7a6",
+              "from": {
+                "node": "node_55bk4kbw",
+                "port": "frequency"
+              },
+              "to": {
+                "node": "node_auv5qc7z",
+                "port": "freq"
+              }
+            },
+            {
+              "id": "wire_5l8mupes",
+              "from": {
+                "node": "node_55bk4kbw",
+                "port": "gate"
+              },
+              "to": {
+                "node": "node_30ndxhtd",
+                "port": "gate"
+              }
+            },
+            {
+              "id": "wire_6rbyyjju",
+              "from": {
+                "node": "node_auv5qc7z",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_z6kjnezv",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_fk6p4l0i",
+              "from": {
+                "node": "node_z6kjnezv",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_lf7cjfpu",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_zk16e9ra",
+              "from": {
+                "node": "node_30ndxhtd",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_lf7cjfpu",
+                "port": "cv"
+              }
+            },
+            {
+              "id": "wire_fmqtjyal",
+              "from": {
+                "node": "node_lf7cjfpu",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_zx70lflw",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_bim4lltu",
+              "from": {
+                "node": "node_zx70lflw",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_9tl51qjd",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "noteGraph": {
+          "nodes": [
+            {
+              "id": "node_wcxnrlty",
+              "type": "clipNotes",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_8nsldwsg",
+              "type": "noteOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_u4i91crk",
+              "from": {
+                "node": "node_wcxnrlty",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_8nsldwsg",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "clips": [
+          {
+            "id": "clip_f1ge3cg0",
+            "name": "Cm",
+            "lengthBeats": 8,
+            "notes": [
+              {
+                "id": "note_xnrygovr",
+                "pitch": 60,
+                "start": 0,
+                "duration": 8,
+                "velocity": 0.7
+              },
+              {
+                "id": "note_126ssosi",
+                "pitch": 63,
+                "start": 0,
+                "duration": 8,
+                "velocity": 0.7
+              },
+              {
+                "id": "note_kmvgrcz8",
+                "pitch": 67,
+                "start": 0,
+                "duration": 8,
+                "velocity": 0.7
+              }
+            ]
+          },
+          {
+            "id": "clip_wmjfl1zr",
+            "name": "Ab",
+            "lengthBeats": 8,
+            "notes": [
+              {
+                "id": "note_7d14y1qf",
+                "pitch": 56,
+                "start": 0,
+                "duration": 8,
+                "velocity": 0.7
+              },
+              {
+                "id": "note_sn2mx2ip",
+                "pitch": 60,
+                "start": 0,
+                "duration": 8,
+                "velocity": 0.7
+              },
+              {
+                "id": "note_czu4gfll",
+                "pitch": 63,
+                "start": 0,
+                "duration": 8,
+                "velocity": 0.7
+              }
+            ]
+          },
+          null,
+          null
+        ],
+        "groupId": "group_31dfe00h"
+      },
+      {
+        "kind": "return",
+        "id": "track_return_a",
+        "name": "Return A",
+        "volume": 0.8,
+        "fx": {
+          "nodes": [
+            {
+              "id": "node_bitcackl",
+              "type": "returnIn",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_ij0v14yw",
+              "type": "trackOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_l18tb6xs",
+              "from": {
+                "node": "node_bitcackl",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_ij0v14yw",
+                "port": "in"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "groups": [
+      {
+        "id": "group_j9thi12r",
+        "name": "Outer bus",
+        "colour": "red",
+        "bus": {
+          "volume": 1,
+          "fx": {
+            "nodes": [
+              {
+                "id": "node_i5payddz",
+                "type": "groupIn",
+                "x": 20,
+                "y": 40,
+                "params": {}
+              },
+              {
+                "id": "node_stlj0w1x",
+                "type": "trackOut",
+                "x": 620,
+                "y": 40,
+                "params": {}
+              }
+            ],
+            "connections": [
+              {
+                "id": "wire_97x9vpd0",
+                "from": {
+                  "node": "node_i5payddz",
+                  "port": "out"
+                },
+                "to": {
+                  "node": "node_stlj0w1x",
+                  "port": "in"
+                }
+              }
+            ]
+          },
+          "sends": {
+            "track_return_a": 0.3
+          }
+        }
+      },
+      {
+        "id": "group_wfj4hlbp",
+        "name": "Folder",
+        "colour": "orange",
+        "parentId": "group_j9thi12r",
+        "muted": true
+      },
+      {
+        "id": "group_31dfe00h",
+        "name": "Inner bus",
+        "colour": "yellow",
+        "parentId": "group_wfj4hlbp",
+        "bus": {
+          "volume": 0.7,
+          "fx": {
+            "nodes": [
+              {
+                "id": "node_he27ltwc",
+                "type": "groupIn",
+                "x": 20,
+                "y": 40,
+                "params": {}
+              },
+              {
+                "id": "node_fl8jcl8r",
+                "type": "trackOut",
+                "x": 620,
+                "y": 40,
+                "params": {}
+              }
+            ],
+            "connections": [
+              {
+                "id": "wire_1dfa4j9s",
+                "from": {
+                  "node": "node_he27ltwc",
+                  "port": "out"
+                },
+                "to": {
+                  "node": "node_fl8jcl8r",
+                  "port": "in"
+                }
+              }
+            ]
+          },
+          "sends": {},
+          "pan": -0.25
+        }
+      }
+    ],
+    "midiMappings": [
+      {
+        "id": "mapping_group_fader",
+        "deviceId": "device_1",
+        "deviceName": "Fader box",
+        "channel": 0,
+        "cc": 7,
+        "target": {
+          "kind": "mixer",
+          "owner": {
+            "kind": "group",
+            "groupId": "group_j9thi12r"
+          },
+          "control": "volume"
+        },
+        "pickup": false
+      }
+    ]
+  }
+}

@@ -9,7 +9,7 @@ const pointClipboard = createClipboard<readonly AutomationPoint[]>([])
 const pointId = () => crypto.randomUUID()
 
 /** The status entry that plays an owner's clips or automation slots. */
-const launcherOf = (status: EngineStatus | null, owner: ControlOwner) => owner.kind === 'master' ? status?.masterAutomation : status?.tracks[owner.trackId]
+const launcherOf = (status: EngineStatus | null, owner: ControlOwner) => owner.kind === 'master' ? status?.masterAutomation : owner.kind === 'group' ? undefined : status?.tracks[owner.trackId]
 
 /** The phase line of a playing clip. Owns its status subscription so the editor doesn't re-render at 30 Hz. */
 const AutomationPhase = ({ owner, clipId, lengthBeats }: { owner: ControlOwner; clipId: string; lengthBeats: number }) => {

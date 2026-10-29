@@ -1,4 +1,5 @@
-import { createEmptyProject, createTrack, createAudioTrack, createReturnTrack, createClip, createNote, type Project } from '../project'
+import { createEmptyProject, createGroupBus, createTrack, createAudioTrack, createReturnTrack, createClip, createNote, type Project } from '../project'
+import { createId } from '../shared'
 import type { SnapshotScope } from '../preset'
 import type { LibraryCatalog, LibraryItem } from './types'
 import { insertLibraryAsset } from './assets'
@@ -17,7 +18,11 @@ export const libraryPreviewProject = (catalog: LibraryCatalog, item: LibraryItem
   if (payload.kind === 'audio-effect') {
     const graphs = [payload.graph, ...payload.modules.map(m => m.patch)]
     if (graphs.some(g => g.nodes.some(n => n.type === 'masterIn'))) scope = { owner: { kind: 'master' }, domain: 'fx' }
-    else if (graphs.some(g => g.nodes.some(n => n.type === 'returnIn'))) {
+    else if (graphs.some(g => g.nodes.some(n => n.type === 'groupIn'))) {
+      const group = { id: createId('group'), name: 'Preview group', colour: 'red' as const, bus: createGroupBus() }
+      project = { ...project, tracks: [{ ...track, groupId: group.id }], groups: [group] }
+      scope = { owner: { kind: 'group', groupId: group.id }, domain: 'fx' }
+    } else if (graphs.some(g => g.nodes.some(n => n.type === 'returnIn'))) {
       const effect = { ...createReturnTrack('Preview return'), soloed: true as const }
       project = { ...project, tracks: [{ ...track, sends: { [effect.id]: 1 } }, effect] }
       scope = { owner: { kind: 'track', trackId: effect.id }, domain: 'fx' }

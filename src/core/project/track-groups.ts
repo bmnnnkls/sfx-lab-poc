@@ -1,6 +1,6 @@
 import { createId } from '../shared'
 import { removeTrack } from './edit'
-import { groupChain, groupsById } from './group-membership'
+import { groupChain, groupsById, withoutGroups } from './group-membership'
 import { busGroups } from './group-routing'
 import { hasMixLoop } from './mix-order'
 import type { GroupColour, Project, Track, TrackGroup } from './types'
@@ -119,8 +119,10 @@ const withTree = (project: Project, roots: readonly TreeNode[], returns: readonl
     sameItems(clips, project.tracks.filter((track) => track.kind !== 'return')) &&
     sameItems(returns, project.tracks.filter((track) => track.kind === 'return'))
   ) return project
+  // Groups left without tracks go, with what their buses owned.
+  const gone = new Set(before.flatMap((group) => (ordered.some((kept) => kept.id === group.id) ? [] : [group.id])))
   const { groups: _old, ...rest } = project
-  return { ...rest, tracks: [...clips, ...returns], ...(ordered.length && { groups: ordered }) }
+  return withoutGroups({ ...rest, tracks: [...clips, ...returns], ...(before.length && { groups: [...ordered, ...before.filter((group) => gone.has(group.id))] }) }, gone)
 }
 
 const returnsOf = (project: Project) => project.tracks.filter((track) => track.kind === 'return')
@@ -339,10 +341,9 @@ export const groupTrack = (project: Project, trackId: string): { project: Projec
 export const ungroup = (project: Project, groupId: string): Project => {
   const group = findGroup(project, groupId)
   if (!group) return project
-  const groups = project.groups!.filter((candidate) => candidate !== group).map((candidate) => (candidate.parentId === groupId ? withKey(candidate, 'parentId', group.parentId) : candidate))
+  const groups = project.groups!.map((candidate) => (candidate.parentId === groupId ? withKey(candidate, 'parentId', group.parentId) : candidate))
   const tracks = project.tracks.map((track) => (track.groupId === groupId ? withKey(track, 'groupId', group.parentId) : track))
-  const { groups: _old, ...rest } = project
-  return { ...rest, tracks, ...(groups.length && { groups }) }
+  return withoutGroups({ ...project, tracks, groups }, new Set([groupId]))
 }
 
 /** Removes a group with its nested groups and their tracks, as `removeTrack` removes each. */

@@ -15,6 +15,24 @@ export const groupChain = (groups: ReadonlyMap<string, TrackGroup>, groupId: str
 export const groupsById = (project: Pick<Project, 'groups'>): ReadonlyMap<string, TrackGroup> =>
   new Map((project.groups ?? []).map((group) => [group.id, group]))
 
+/**
+ * Without the groups whose ids are in `gone`, and without the control values and MIDI mappings their buses owned, as
+ * `removeTrack` drops a track's. Nothing else names a group yet: automation can't.
+ */
+export const withoutGroups = (project: Project, gone: ReadonlySet<string>): Project => {
+  if (!project.groups || gone.size === 0) return project
+  const owned = (entry: { readonly target: { readonly owner: { readonly kind: string; readonly groupId?: string } } }) =>
+    entry.target.owner.kind === 'group' && gone.has(entry.target.owner.groupId!)
+  const groups = project.groups.filter((group) => !gone.has(group.id))
+  const { groups: _gone, ...rest } = project
+  return {
+    ...rest,
+    ...(project.controlValues && { controlValues: project.controlValues.filter((entry) => !owned(entry)) }),
+    ...(project.midiMappings && { midiMappings: project.midiMappings.filter((entry) => !owned(entry)) }),
+    ...(groups.length && { groups }),
+  }
+}
+
 /** Without the groups that have no track left in them or in a group nested in them; the same project when none went. */
 export const pruneGroups = (project: Project): Project => {
   if (!project.groups) return project
@@ -25,10 +43,7 @@ export const pruneGroups = (project: Project): Project => {
     for (const group of groupChain(byId, track.groupId)) used.add(group.id)
   }
   if (used.size === project.groups.length) return project
-  const groups = project.groups.filter((group) => used.has(group.id))
-  if (groups.length) return { ...project, groups }
-  const { groups: _gone, ...rest } = project
-  return rest
+  return withoutGroups(project, new Set(project.groups.flatMap((group) => (used.has(group.id) ? [] : [group.id]))))
 }
 
 /** `change` applied to every bus; the same groups when no bus changed. */

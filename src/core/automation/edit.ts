@@ -54,9 +54,10 @@ export const setClipAutomation = (project: Project, trackId: string, clipId: str
 export const automationTargetOwnedBy = (target: AutomationLane['target'], trackId: string): boolean => target.owner.kind === 'track' && target.owner.trackId === trackId
 export const uniqueAutomationLanes = (lanes: readonly AutomationLane[]): readonly AutomationLane[] => [...new Map(lanes.map((lane) => [controlTargetKey(lane.target), lane])).values()]
 
-/** Owner identity is structural; track IDs cannot collide with the master. */
-export const automationOwnerKey = (owner: import('../control').ControlOwner): string => JSON.stringify(owner.kind === 'master' ? ['master'] : ['track', owner.trackId])
-export const automationSlotsOf = (project: Project, owner: import('../control').ControlOwner) => owner.kind === 'master' ? project.master.automationSlots : project.tracks.filter((t) => t.kind === 'return').find((t) => t.id === owner.trackId)?.automationSlots
+/** Owner identity is structural; track IDs cannot collide with the master or with groups. */
+export const automationOwnerKey = (owner: import('../control').ControlOwner): string => JSON.stringify(owner.kind === 'master' ? ['master'] : owner.kind === 'group' ? ['group', owner.groupId] : ['track', owner.trackId])
+/** A group has no slots: its automation waits for the arrangement's lanes. */
+export const automationSlotsOf = (project: Project, owner: import('../control').ControlOwner) => owner.kind === 'master' ? project.master.automationSlots : owner.kind === 'group' ? undefined : project.tracks.filter((t) => t.kind === 'return').find((t) => t.id === owner.trackId)?.automationSlots
 export const setAutomationSlot = (project: Project, owner: import('../control').ControlOwner, scene: number, slot: AutomationSlot | null): Project => {
   if (!Number.isInteger(scene) || scene < 0 || scene >= project.sceneCount || (slot && (!Number.isFinite(slot.lengthBeats) || slot.lengthBeats < 0.25 || slot.lengthBeats > 256))) return project
   const slots = Array.from({ length: project.sceneCount }, (_, i) => automationSlotsOf(project, owner)?.[i] ?? null)
@@ -64,6 +65,7 @@ export const setAutomationSlot = (project: Project, owner: import('../control').
   slots[scene] = slot ? { ...slot, ...(automation && { automation }) } : null
   if (JSON.stringify(slots) === JSON.stringify(automationSlotsOf(project, owner))) return project
   if (owner.kind === 'master') return { ...project, master: { ...project.master, automationSlots: slots } }
+  if (owner.kind === 'group') return project
   const tracks = project.tracks.map((t) => t.id === owner.trackId && t.kind === 'return' ? { ...t, automationSlots: slots } : t)
   return tracks.every((t, i) => t === project.tracks[i]) ? project : { ...project, tracks }
 }

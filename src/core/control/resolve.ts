@@ -1,11 +1,12 @@
 import { type ParamSpec, findNodeDefinition, paramPortId } from '../dsp'
 import { type Patch, type PatchNode, describeNode, flattenPatch, resolveSpec } from '../patch'
-import { type Project, mixesAfter } from '../project'
+import { type Project, busGroups, mixesAfter } from '../project'
 import { controlTargetKey, type ControlOwner, type ControlTarget, type ControlResolution } from './types'
 import { clampControlValue } from './values'
 
 export const controlGraph = (project: Project, owner: ControlOwner, domain: 'patch' | 'notes' | 'fx'): Patch | undefined => {
   if (owner.kind === 'master') return domain === 'fx' ? project.master.fx : undefined
+  if (owner.kind === 'group') return domain === 'fx' ? project.groups?.find((group) => group.id === owner.groupId)?.bus?.fx : undefined
   const track = project.tracks.find((track) => track.id === owner.trackId)
   return domain === 'fx' ? track?.fx : track?.kind === 'instrument' ? domain === 'patch' ? track.patch : track.noteGraph : undefined
 }
@@ -15,6 +16,20 @@ export const resolveControlTarget = (project: Project, target: ControlTarget): C
   const owner = target.owner
   const track = owner.kind === 'track' ? project.tracks.find((track) => track.id === owner.trackId) : undefined
   if (target.owner.kind === 'track' && !track) return { status: 'missing', reason: 'Owner track is missing' }
+  const group = owner.kind === 'group' ? project.groups?.find((candidate) => candidate.id === owner.groupId) : undefined
+  if (owner.kind === 'group' && !group) return { status: 'missing', reason: 'Owner group is missing' }
+  // A folder has nothing to control until it sums to a bus.
+  if (group && !group.bus) return { status: 'missing', reason: 'The group has no bus' }
+  if (target.kind === 'mixer' && group?.bus) {
+    const bus = group.bus
+    if (target.control === 'send') {
+      if (!project.tracks.some((candidate) => candidate.id === target.returnId && candidate.kind === 'return')) return { status: 'missing', reason: 'Destination return is missing' }
+      if (mixesAfter(project, group.id, target.returnId)) return { status: 'incompatible', reason: 'Send would create an audio loop' }
+    }
+    const spec: ParamSpec = { id: target.control, label: target.control, min: target.control === 'pan' ? -1 : 0, max: 1, default: target.control === 'volume' ? 1 : 0 }
+    const baseValue = target.control === 'send' ? bus.sends[target.returnId] ?? 0 : target.control === 'pan' ? bus.pan ?? 0 : bus.volume
+    return { status: 'available', spec, baseValue, automatable: true, interpolation: 'linear' }
+  }
   if (target.kind === 'mixer') {
     if (target.owner.kind === 'master' && target.control !== 'volume') return { status: 'incompatible', reason: 'Master supports volume only' }
     if (target.control === 'send') {
@@ -60,12 +75,17 @@ export const resolveControlTarget = (project: Project, target: ControlTarget): C
 
 export const enumerateControlTargets = (project: Project): ControlTarget[] => {
   const targets: ControlTarget[] = []
-  const owners: ControlOwner[] = [...project.tracks.map((track): ControlOwner => ({ kind: 'track', trackId: track.id })), { kind: 'master' }]
+  const owners: ControlOwner[] = [
+    ...project.tracks.map((track): ControlOwner => ({ kind: 'track', trackId: track.id })),
+    ...busGroups(project).map((group): ControlOwner => ({ kind: 'group', groupId: group.id })),
+    { kind: 'master' },
+  ]
+  const returns = project.tracks.filter((track) => track.kind === 'return')
   for (const owner of owners) {
     targets.push({ kind: 'mixer', owner, control: 'volume' })
-    if (owner.kind === 'track') {
+    if (owner.kind !== 'master') {
       targets.push({ kind: 'mixer', owner, control: 'pan' })
-      if (project.tracks.find((track) => track.id === owner.trackId)?.kind !== 'return') for (const bus of project.tracks.filter((track) => track.kind === 'return')) targets.push({ kind: 'mixer', owner, control: 'send', returnId: bus.id })
+      if (owner.kind === 'group' || project.tracks.find((track) => track.id === owner.trackId)?.kind !== 'return') for (const bus of returns) targets.push({ kind: 'mixer', owner, control: 'send', returnId: bus.id })
     }
     for (const domain of ['patch', 'notes', 'fx'] as const) {
       const walk = (patch: Patch, path: Extract<ControlTarget, { kind: 'graph' }>['path'], seen: ReadonlySet<string>) => {

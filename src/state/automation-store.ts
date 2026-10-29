@@ -16,7 +16,7 @@ export const useAutomationEditor = create<AutomationEditorState>((set) => ({
     if (target) {
       const project = useProjectStore.getState().project
       const owner = target.owner
-      if (owner.kind === 'master' || project.tracks.find((t) => t.id === owner.trackId)?.kind === 'return') {
+      if (owner.kind === 'master' || (owner.kind === 'track' && project.tracks.find((t) => t.id === owner.trackId)?.kind === 'return')) {
         const scene = useSelectionStore.getState().automationScene
         if (!automationSlotsOf(project, owner)?.[scene]) editAutomationSlot(owner, scene, { id: crypto.randomUUID(), name: 'Automation', lengthBeats: 4 })
         openAutomationSlot(owner, scene)
