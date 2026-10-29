@@ -7,6 +7,7 @@ import {
   type SampleInfo,
   applySampleEdit,
   buildPeakPyramid,
+  bytesKeyOf,
   computePeaks,
   createDemoSamples,
   encodeWavChannels,
@@ -65,7 +66,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
     view().setStatus(info.id, 'loading')
     const task = (async () => {
       try {
-        const bytes = await storage.get(info.id)
+        const bytes = await storage.get(bytesKeyOf(info))
         if (!bytes) {
           view().setStatus(info.id, 'missing')
           return
@@ -89,15 +90,15 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
   const openAudio = async () => {
     const sampleId = useSelectionStore.getState().sampleId
     const waveAudio = useWaveAudioStore.getState()
-    const wanted = sampleId !== null && useProjectStore.getState().project.samples.some((sample) => sample.id === sampleId)
-    if (!wanted) {
+    const info = sampleId === null ? undefined : useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
+    if (!info || sampleId === null) {
       if (waveAudio.current || waveAudio.loading) waveAudio.setCurrent(null)
       return
     }
     if (waveAudio.current?.sampleId === sampleId || waveAudio.loading === sampleId) return
     waveAudio.setLoading(sampleId)
     try {
-      const bytes = await storage.get(sampleId)
+      const bytes = await storage.get(bytesKeyOf(info))
       const audio = bytes ? (await decodeAudio(bytes)).audio : null
       // Another sample may have been opened meanwhile; that one's load wins.
       if (useWaveAudioStore.getState().loading !== sampleId) return
@@ -129,22 +130,21 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
 
     const id = await sha256Hex(bytes)
     const decoded = await decodeAudio(bytes)
-    if (!(await storage.has(id))) await storage.put(id, bytes)
+    const info: SampleInfo = {
+      id,
+      name,
+      extension,
+      durationSeconds: decoded.durationSeconds,
+      sampleRate: decoded.audio.sampleRate,
+      channels: decoded.channels,
+      bytes: bytes.length,
+    }
+    if (!(await storage.has(bytesKeyOf(info)))) await storage.put(bytesKeyOf(info), bytes)
 
     const known = useProjectStore.getState().project.samples.some((sample) => sample.id === id)
     if (!inEngine.has(id)) deliver(id, decoded)
 
-    useProjectStore.getState().addSamples([
-      {
-        id,
-        name,
-        extension,
-        durationSeconds: decoded.durationSeconds,
-        sampleRate: decoded.audio.sampleRate,
-        channels: decoded.channels,
-        bytes: bytes.length,
-      },
-    ])
+    useProjectStore.getState().addSamples([info])
     return { name, known }
   }
 
@@ -158,7 +158,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
     // The open sample's working copy, or the stored bytes decoded again.
     const working = useWaveAudioStore.getState().current
     const open = working?.sampleId === sampleId ? working.audio : null
-    const bytes = open ? null : await storage.get(sampleId)
+    const bytes = open ? null : await storage.get(bytesKeyOf(info))
     if (!open && !bytes) {
       notify('error', `The audio of "${info.name}" is missing; import the file again to edit it.`)
       return
@@ -177,18 +177,17 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
       notify('info', `"${name}" is already in the library`)
       return
     }
-    if (!(await storage.has(id))) await storage.put(id, wav)
-    useProjectStore.getState().addSamples([
-      {
-        id,
-        name,
-        extension: 'wav',
-        durationSeconds: frames / audio.sampleRate,
-        sampleRate: audio.sampleRate,
-        channels: audio.channels.length,
-        bytes: wav.length,
-      },
-    ])
+    const copy: SampleInfo = {
+      id,
+      name,
+      extension: 'wav',
+      durationSeconds: frames / audio.sampleRate,
+      sampleRate: audio.sampleRate,
+      channels: audio.channels.length,
+      bytes: wav.length,
+    }
+    if (!(await storage.has(bytesKeyOf(copy)))) await storage.put(bytesKeyOf(copy), wav)
+    useProjectStore.getState().addSamples([copy])
     notify('info', `Added "${name}" to the library`)
   }
 

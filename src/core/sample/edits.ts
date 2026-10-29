@@ -1,18 +1,15 @@
 import { frameCount } from './channels'
+import { type FrameMap, type FrameRange, type SampleRemap, cropMap, identityMap, mirrorMap, spliceMap } from './remap'
 import type { SampleAudio } from './types'
 import type { WavBitDepth } from './wav'
+
+export type { FrameRange } from './remap'
 
 /**
  * Sample edits as data: what an edit does is a value (`SampleEdit`), applied by one pure function, so the same edit of
  * the same audio gives the same floats every time, and an edit can be described, repeated and tested apart from who asks
  * for it. Every edit works on every channel.
  */
-
-/** A stretch of a sample in frames, from `from` up to (not including) `to`. */
-export interface FrameRange {
-  readonly from: number
-  readonly to: number
-}
 
 export type SampleEdit =
   | { readonly kind: 'normalize' }
@@ -39,12 +36,14 @@ const map = (audio: SampleAudio, each: (channel: Float32Array) => Float32Array):
   channels: audio.channels.map(each),
 })
 
-/** The range inside the sample, in order. */
-const clampRange = (audio: SampleAudio, { from, to }: FrameRange): FrameRange => {
-  const length = frameCount(audio)
+/** The range inside a sample of `length` frames, in order. */
+const clampTo = (length: number, { from, to }: FrameRange): FrameRange => {
   const clamp = (frame: number) => Math.max(0, Math.min(length, Math.round(frame)))
   return { from: clamp(Math.min(from, to)), to: clamp(Math.max(from, to)) }
 }
+
+/** The range inside the sample, in order. */
+const clampRange = (audio: SampleAudio, range: FrameRange): FrameRange => clampTo(frameCount(audio), range)
 
 /** One gain for every channel, so a stereo sample keeps its balance. */
 const normalize = (audio: SampleAudio): SampleAudio => {
@@ -56,8 +55,9 @@ const normalize = (audio: SampleAudio): SampleAudio => {
 }
 
 /** How many frames a fade of `seconds` covers: sample-rate aware, at least one, at most half the sample. */
-const fadeFrames = (audio: SampleAudio, seconds: number) =>
-  Math.max(1, Math.min(Math.floor(seconds * audio.sampleRate), Math.floor(frameCount(audio) / 2)))
+const fadeFrames = (audio: SampleAudio, seconds: number) => fadeFramesOf(audio.sampleRate, frameCount(audio), seconds)
+const fadeFramesOf = (sampleRate: number, frames: number, seconds: number) =>
+  Math.max(1, Math.min(Math.floor(seconds * sampleRate), Math.floor(frames / 2)))
 
 /** A new `SampleAudio` with `edit` applied; the input is left as it is. */
 export const applySampleEdit = (audio: SampleAudio, edit: SampleEdit): SampleAudio => {
@@ -110,10 +110,23 @@ export interface SampleEditEntry {
   readonly needsSelection: boolean
   /** The edit to apply, or null when it can't run (no selection). */
   readonly create: (context: SampleEditContext) => SampleEdit | null
+  /** Where the positions of a sample of `frames` frames are after the edit (`remapFrame`, `remapRange`). */
+  readonly remap: (edit: SampleEdit, frames: number) => FrameMap
+  /**
+   * The output frames that differ from the input, for a sample of `frames` frames and `sampleRate`: to the new end for
+   * edits that change the length. The pyramid update redraws just these.
+   */
+  readonly changed: (edit: SampleEdit, frames: number, sampleRate: number) => FrameRange
 }
 
 const withSelection = (make: (range: FrameRange) => SampleEdit) => ({ selection }: SampleEditContext) =>
   selection && selection.to > selection.from ? make(selection) : null
+
+/** The edit's range inside the sample; the whole sample for edits without one. */
+const rangeOf = (edit: SampleEdit, frames: number): FrameRange =>
+  'range' in edit ? clampTo(frames, edit.range) : { from: 0, to: frames }
+
+const whole = (_edit: SampleEdit, frames: number): FrameRange => ({ from: 0, to: frames })
 
 /** The edits, in toolbar order. Adding or dropping one is one entry. */
 export const SAMPLE_EDITS: readonly SampleEditEntry[] = [
@@ -121,31 +134,55 @@ export const SAMPLE_EDITS: readonly SampleEditEntry[] = [
     kind: 'normalize', title: 'Normalize', suffix: 'normalized', needsSelection: false,
     tooltip: 'Scale the sample so its loudest point is just under full scale',
     create: () => ({ kind: 'normalize' }),
+    remap: () => identityMap,
+    changed: whole,
   },
   {
     kind: 'reverse', title: 'Reverse', suffix: 'reversed', needsSelection: false,
     tooltip: 'Play the sample backwards',
     create: () => ({ kind: 'reverse' }),
+    remap: (_edit, frames) => mirrorMap(0, frames),
+    changed: whole,
   },
   {
     kind: 'keep', title: 'Keep selection', suffix: 'cut', needsSelection: true,
     tooltip: 'Keep only the selected part',
     create: withSelection((range) => ({ kind: 'keep', range })),
+    remap: (edit, frames) => {
+      const { from, to } = rangeOf(edit, frames)
+      return cropMap(from, to)
+    },
+    changed: (edit, frames) => {
+      const { from, to } = rangeOf(edit, frames)
+      return { from: 0, to: to - from }
+    },
   },
   {
     kind: 'delete', title: 'Delete selection', suffix: 'edited', needsSelection: true,
     tooltip: 'Remove the selected part and join the parts around it',
     create: withSelection((range) => ({ kind: 'delete', range })),
+    remap: (edit, frames) => {
+      const { from, to } = rangeOf(edit, frames)
+      return spliceMap(from, to, 0)
+    },
+    changed: (edit, frames) => {
+      const { from, to } = rangeOf(edit, frames)
+      return { from, to: frames - (to - from) }
+    },
   },
   {
     kind: 'fade-in', title: 'Fade in', suffix: 'fade in', needsSelection: false,
     tooltip: 'Fade in over the first 10 ms (removes clicks)',
     create: () => ({ kind: 'fade-in', seconds: CLICK_FADE_SECONDS }),
+    remap: () => identityMap,
+    changed: (edit, frames, sampleRate) => ({ from: 0, to: fadeFramesOf(sampleRate, frames, edit.kind === 'fade-in' ? edit.seconds : 0) }),
   },
   {
     kind: 'fade-out', title: 'Fade out', suffix: 'fade out', needsSelection: false,
     tooltip: 'Fade out over the last 10 ms (removes clicks)',
     create: () => ({ kind: 'fade-out', seconds: CLICK_FADE_SECONDS }),
+    remap: () => identityMap,
+    changed: (edit, frames, sampleRate) => ({ from: frames - fadeFramesOf(sampleRate, frames, edit.kind === 'fade-out' ? edit.seconds : 0), to: frames }),
   },
 ]
 
@@ -155,3 +192,22 @@ export const sampleEditEntry = (kind: SampleEditKind): SampleEditEntry => {
   if (!entry) throw new Error(`Unknown sample edit: ${kind}`)
   return entry
 }
+
+/** Where a position of a sample of `frames` frames is after `edit`, or null when the audio at it is gone. */
+export const remapFrame = (edit: SampleEdit, frames: number, position: number): number | null =>
+  sampleEditEntry(edit.kind).remap(edit, frames).frame(position)
+
+/** A range of a sample of `frames` frames after `edit`: its start mapped forward, its end backward; null when it is gone. */
+export const remapRange = (edit: SampleEdit, frames: number, range: FrameRange): FrameRange | null =>
+  sampleEditEntry(edit.kind).remap(edit, frames).range(range)
+
+/** What `replaceSample` needs to move uses onto the edited sample: the map, with the lengths before and after. */
+export const sampleRemap = (edit: SampleEdit, fromFrames: number, toFrames: number): SampleRemap => ({
+  ...sampleEditEntry(edit.kind).remap(edit, fromFrames),
+  fromFrames,
+  toFrames,
+})
+
+/** The output frames `edit` changes in a sample of `frames` frames at `sampleRate`. */
+export const changedFrames = (edit: SampleEdit, frames: number, sampleRate: number): FrameRange =>
+  sampleEditEntry(edit.kind).changed(edit, frames, sampleRate)

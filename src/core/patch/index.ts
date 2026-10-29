@@ -74,6 +74,7 @@ export {
   setNodeStereo,
   clearTrackReferences,
   clearSampleReferences,
+  replaceSampleReferences,
 } from './edit'
 export { isDownstream, topologicalOrder } from './graph'
 export {

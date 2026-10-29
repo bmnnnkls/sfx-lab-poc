@@ -42,6 +42,9 @@ import {
   redo,
   removeArrangementClip,
   removeSample,
+  replaceSample,
+  type SampleRemap,
+  type SampleReplaceReport,
   removeTrack,
   pasteSessionClip,
   setClipAt,
@@ -161,6 +164,11 @@ interface ProjectActions {
   setTrackSend(trackId: string, returnId: string, level: number): void
   addSamples(samples: readonly SampleInfo[]): void
   removeSample(sampleId: string): void
+  /**
+   * Moves every use of a sample onto the result of an edit (see `replaceSample`), as one undo step. Returns what it did
+   * besides, for the caller to tell the user.
+   */
+  replaceSample(fromId: string, to: SampleInfo, remap: SampleRemap): SampleReplaceReport
   /** Adds a track with a sampler playing `sample`, plus a clip that triggers it. */
   addSamplerTrack(sample: SampleInfo): void
   /** Adds an audio track with a looping clip of `sample` in the first scene. */
@@ -364,6 +372,11 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     addSamples: (samples) => edit((project) => addSamples(project, samples)),
     removeSample: (sampleId) => edit((project) => removeSample(project, sampleId)),
+    replaceSample: (fromId, to, remap) => {
+      const result = replaceSample(get().project, fromId, to, remap)
+      if (result.project !== get().project) edit(() => result.project)
+      return result.report
+    },
     addSamplerTrack: (sample) => edit((project) => addSamplerTrack(project, sample)),
     addAudioTrackFromSample: (sample) => edit((project) => addAudioTrackWithClip(project, sample)),
     deleteAudioClip: (trackId, scene) => edit((project) => setAudioClipAt(project, trackId, scene, null)),

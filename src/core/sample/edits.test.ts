@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SAMPLE_EDITS, type SampleAudio, type SampleEdit, applySampleEdit, sampleEditEntry } from '.'
+import { SAMPLE_EDITS, type SampleAudio, type SampleEdit, applySampleEdit, changedFrames, remapFrame, remapRange, sampleEditEntry } from '.'
 
 const audio = (...channels: number[][]): SampleAudio => ({ sampleRate: 100, channels: channels.map((values) => Float32Array.from(values)) })
 const values = (result: SampleAudio) => result.channels.map((channel) => Array.from(channel, (value) => +value.toFixed(5)))
@@ -59,5 +59,28 @@ describe('SAMPLE_EDITS', () => {
     expect(sampleEditEntry('delete').create({ selection: { from: 5, to: 5 } })).toBeNull()
     expect(sampleEditEntry('fade-in').create({ selection: null })).toEqual({ kind: 'fade-in', seconds: 0.01 })
     expect(SAMPLE_EDITS.filter((entry) => entry.needsSelection).map((entry) => entry.kind)).toEqual(['keep', 'delete'])
+  })
+})
+
+describe('remapFrame and remapRange', () => {
+  const frames = 100
+  it.each([
+    { edit: { kind: 'normalize' } as SampleEdit, frame: [10, 10], range: [{ from: 10, to: 20 }, { from: 10, to: 20 }] },
+    { edit: { kind: 'fade-in', seconds: 0.01 } as SampleEdit, frame: [10, 10], range: [{ from: 10, to: 20 }, { from: 10, to: 20 }] },
+    { edit: { kind: 'reverse' } as SampleEdit, frame: [10, 90], range: [{ from: 10, to: 20 }, { from: 80, to: 90 }] },
+    { edit: { kind: 'keep', range: { from: 20, to: 60 } } as SampleEdit, frame: [30, 10], range: [{ from: 10, to: 30 }, { from: 0, to: 10 }] },
+    { edit: { kind: 'keep', range: { from: 20, to: 60 } } as SampleEdit, frame: [10, null], range: [{ from: 70, to: 90 }, null] },
+    { edit: { kind: 'delete', range: { from: 20, to: 60 } } as SampleEdit, frame: [70, 30], range: [{ from: 10, to: 70 }, { from: 10, to: 30 }] },
+    { edit: { kind: 'delete', range: { from: 20, to: 60 } } as SampleEdit, frame: [30, null], range: [{ from: 30, to: 50 }, null] },
+    { edit: { kind: 'delete', range: { from: 20, to: 60 } } as SampleEdit, frame: [60, 20], range: [{ from: 40, to: 80 }, { from: 20, to: 40 }] },
+  ])('$edit.kind maps $frame.0 and a range', ({ edit, frame, range }) => {
+    expect(remapFrame(edit, frames, frame[0]!)).toBe(frame[1])
+    expect(remapRange(edit, frames, range[0]!)).toEqual(range[1])
+  })
+
+  it('says which output frames changed', () => {
+    expect(changedFrames({ kind: 'delete', range: { from: 20, to: 60 } }, 100, 100)).toEqual({ from: 20, to: 60 })
+    expect(changedFrames({ kind: 'fade-out', seconds: 0.1 }, 100, 100)).toEqual({ from: 90, to: 100 })
+    expect(changedFrames({ kind: 'reverse' }, 100, 100)).toEqual({ from: 0, to: 100 })
   })
 })

@@ -28,7 +28,15 @@ export {
   type ArrangementChanges,
   type ArrangementClip,
 } from './arrangement-clip'
-export { usedSampleIds, projectSampleDependencies } from './sample-use'
+export {
+  SAMPLE_USES,
+  type SampleReplaceReport,
+  type SampleUse,
+  projectSampleDependencies,
+  removeSample,
+  replaceSample,
+  usedSampleIds,
+} from './sample-uses'
 export {
   DEFAULT_FADE_SECONDS,
   MAX_FADE_SECONDS,
@@ -70,7 +78,6 @@ export {
   createClip,
   createReturnTrack,
   createTrack,
-  removeSample,
   removeTrack,
   doubleClip,
   setAudioClipAt,
