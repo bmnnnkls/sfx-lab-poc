@@ -30,8 +30,10 @@ import {
   exampleModules,
   findExampleModule,
   randomizeParams,
+  canPin,
+  isPinned,
 } from '@core'
-import { type Subject, canvasKey, graphKey, livePath, runAction, useGraphViewStore, useProjectStore } from '@state'
+import { type Subject, canvasKey, graphKey, livePath, runAction, useGraphViewStore, useProjectSelect, useProjectStore } from '@state'
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { PanelView } from '../panel/PanelView'
@@ -189,6 +191,16 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
       path: known.slice(0, index + 1) as string[],
     })),
   )
+  // The Pin toggle: whether this graph's panel is pinned, and whether it could be.
+  const pin = { owner: controlOwner, graph }
+  const pinned = useProjectSelect((project) => isPinned(project, pin), Object.is)
+  const pinnable = useProjectSelect((project) => canPin(project, pin), Object.is)
+  const togglePin = () => {
+    if (pinned) runAction('pin.unpin', { kind: 'pin', ...pin }, context)
+    else if (track) runAction('track.pin', { kind: 'track', trackId: track.id }, context, { choice: graph })
+    else if (group) runAction('group.pin', { kind: 'group', groupId: group.id }, context)
+    else runAction('master.pin', { kind: 'master' }, context)
+  }
   const palette = paletteFor(graph, track?.kind ?? (group ? 'group' : 'master'))
   // A wire dropped on empty canvas: the picker offers only what can take it, and wires the new node in.
   const dropped = picker?.from
@@ -355,6 +367,17 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
               onClick={() => setDrawerOpen(!drawerOpen)}
             >
               Properties
+            </button>
+          )}
+          {!definition && (
+            <button
+              className={styles.pinToggle}
+              aria-pressed={pinned}
+              disabled={!pinned && !pinnable}
+              title={pinned ? 'Unpin this panel from the Pinned view' : pinnable ? 'Pin this panel to the Pinned view, to play it while you work elsewhere' : '16 panels are pinned'}
+              onClick={togglePin}
+            >
+              Pin
             </button>
           )}
           <RandomizeBar onRoll={(seed, amount) => edit((current, library) => randomizeParams(current, library, { seed, amount }))} />

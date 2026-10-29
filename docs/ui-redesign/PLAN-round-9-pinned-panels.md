@@ -423,3 +423,12 @@ What turned out different from the design above, step by step.
   action (`track.pin` with its graph, `group.pin`, `master.pin`); with nothing selected it offers none.
 * **Step 4: `layout.smoke.spec.ts` checks the repair in the page:** it removes `pinned` from the saved layout and
   reloads.
+* **Step 5: the *Pin* toggle is disabled at the limit** unless its graph is pinned, titled "16 panels are pinned". It
+  reads `isPinned` and `canPin` through `useProjectSelect`, so it doesn't re-render on other edits.
+* **Step 5: the spec's undo case turns the pinned knob with one arrow key.** Each key press is a gesture of its own,
+  so one undo step, as in the editor; five presses would take five undos.
+* **Step 5: the specs find Lead's new knob by its cell's `data-testid`,** taken before and after *Add*, since the
+  starter's instrument may already have controls. The new audio track's header is *Audio 4 audio*.
+* **Step 5: the context-menu checks are one new case** in `context-menus.smoke.spec.ts`: *Pin panel ▸* and *Unpin
+  notes panel* on Bass, *Pin effects panel* turning into *Unpin effects panel* on an audio track, and a pin header's
+  menu. The bus, folder and master entries are checked by the cases that already list those menus.
