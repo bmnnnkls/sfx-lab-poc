@@ -15,8 +15,20 @@ const sourceFiles = (readdirSync(SRC, { recursive: true }) as string[])
   .filter((file) => /\.(ts|tsx)$/.test(file) && !file.endsWith('.d.ts'))
   .map((file) => join(SRC, file))
 
+/** Source files a view's layout can live in: code and styles. */
+const styledFiles = (readdirSync(SRC, { recursive: true }) as string[])
+  .filter((file) => /\.(ts|tsx|css)$/.test(file) && !file.endsWith('.d.ts') && !/\.test\.tsx?$/.test(file))
+  .map((file) => join(SRC, file))
+
+/**
+ * Every file's text, read once while the module loads. The checks then work in memory: when the whole suite runs, the
+ * workers compete for the disk, and re-reading every file in every check made them slow enough to time out.
+ */
+const SOURCES = new Map([...new Set([...sourceFiles, ...styledFiles])].map((file) => [file, readFileSync(file, 'utf8')]))
+const sourceOf = (file: string): string => SOURCES.get(file) ?? readFileSync(file, 'utf8')
+
 const importsOf = (file: string): string[] =>
-  [...readFileSync(file, 'utf8').matchAll(IMPORT_PATTERN)].map((match) => match[1] as string)
+  [...sourceOf(file).matchAll(IMPORT_PATTERN)].map((match) => match[1] as string)
 
 const layerOf = (file: string): string => relative(SRC, file).split(sep)[0] ?? ''
 
@@ -45,11 +57,6 @@ const EXTERNAL_ALLOWED: Record<string, readonly string[]> = {
   ui: ['react', 'react-dom', '@radix-ui/react-context-menu', '@radix-ui/react-dropdown-menu', 'flexlayout-react'],
   app: ['react', 'react-dom'],
 }
-
-/** Source files a view's layout can live in: code and styles. */
-const styledFiles = (readdirSync(SRC, { recursive: true }) as string[])
-  .filter((file) => /\.(ts|tsx|css)$/.test(file) && !file.endsWith('.d.ts') && !/\.test\.tsx?$/.test(file))
-  .map((file) => join(SRC, file))
 
 /** Files that place popups and overlays against the window, which is what they are positioned in. */
 const WINDOW_SIZED = new Set([
@@ -125,7 +132,7 @@ describe('architecture', () => {
       [...source.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*shared\/menu(?:\/[^'"]*)?['"]/g)].some((match) => /\bContextMenu\b/.test(match[1]!))
     const violations = sourceFiles
       .filter((file) => !file.startsWith(menuRoot) && !allowed.has(relative(SRC, file).split(sep).join('/')))
-      .filter((file) => importsContextMenu(readFileSync(file, 'utf8')))
+      .filter((file) => importsContextMenu(sourceOf(file)))
       .map((file) => relative(SRC, file))
     expect(violations).toEqual([])
     // The check finds what it looks for.
@@ -141,7 +148,7 @@ describe('architecture', () => {
     const usesDrag = (source: string) => /\bdataTransfer\b|\bdraggable\b|\bonDrag\w*|\bonDrop\b/.test(withoutComments(source))
     const violations = sourceFiles
       .filter((file) => !file.startsWith(dragRoot) && !allowed.has(relative(SRC, file).split(sep).join('/')) && !/\.test\.tsx?$/.test(file))
-      .filter((file) => usesDrag(readFileSync(file, 'utf8')))
+      .filter((file) => usesDrag(sourceOf(file)))
       .map((file) => relative(SRC, file))
     expect(violations).toEqual([])
     // The check finds what it looks for, and not in comments.
@@ -158,7 +165,7 @@ describe('architecture', () => {
   it("lays views out from their own size, never the window's", () => {
     const violations = styledFiles
       .filter((file) => !WINDOW_SIZED.has(relative(SRC, file).split(sep).join('/')))
-      .flatMap((file) => windowSizeReads(readFileSync(file, 'utf8')).map((read) => `${relative(SRC, file)}: ${read}`))
+      .flatMap((file) => windowSizeReads(sourceOf(file)).map((read) => `${relative(SRC, file)}: ${read}`))
     expect(violations).toEqual([])
     // The check finds what it looks for.
     expect(windowSizeReads('@media (max-width: 600px) { a { width: 50vw } } const w = window.innerWidth')).toEqual(['innerWidth', '50vw', '@media (max-width: 600px)'])

@@ -340,8 +340,10 @@ Signed off 2026-10-29: every row as proposed.
   while the preview loops.
 * **Step 8: checks.** `npm test` and `npm run typecheck` passed at every step: 2365 unit tests at step 1, 2375 at
   step 2, 2382 at step 3, 2392 at step 4, 2401 at step 5, 2406 at step 6, 2415 from step 7. `tests/architecture.test.ts`'s
-  drag check, which takes about 5 s, twice ran past vitest's 5 s timeout while the whole suite ran on the busy machine,
-  and passed alone and on the next full run; it is older than this round. Full smoke runs, outside the sandbox: 192 at
+  drag check twice ran past vitest's 5 s timeout while the whole suite ran on the busy machine, and passed alone and on
+  the next full run. Every check in that file read all 525 source files again, and under a full run's contention for
+  the disk each took 0.3 to 1.5 s instead of 40 to 150 ms. After the round, the file reads each source once when it
+  loads: its checks take 5 to 17 ms in a full run at a load average of 19. Full smoke runs, outside the sandbox: 192 at
   steps 1 to 6, 193 at steps 7 and 8. `npm run test:audio`: 20 at step 1 (one test failed on a missing trace file as
   Playwright closed its context, then passed with its spec, 6 of 6), 21 at steps 2 and 6. At step 1 the browser tests ran
   on exactly step 1's files, set apart from step 2's.
