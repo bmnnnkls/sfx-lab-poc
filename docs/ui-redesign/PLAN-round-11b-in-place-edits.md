@@ -1,6 +1,6 @@
 # Round 11b: in-place edits
 
-Status: **plan, signed off** 2026-10-29, every decision as proposed (one plan, one branch). Written 2026-10-29. Part of the [UI redesign](README.md). Carries out the second
+Status: **done** 2026-10-29; plan signed off 2026-10-29, every decision as proposed (one plan, one branch). Written 2026-10-29. Part of the [UI redesign](README.md). Carries out the second
 of the three parts in the signed-off [round 11 spec](SPEC-round-11-wave-editor.md) (§ Suggested split), from a fresh
 inventory of the code it touches, taken on `imp/serene-clarke-868d95` at `e1d2404` (round 11a done, not merged into
 `feat/ui-redesign` yet). The spec's decisions are settled and not repeated here; this plan only adds the ones it raises.
@@ -462,3 +462,112 @@ Signed off 2026-10-29: every row as proposed.
 | What cleanup counts as "named" | **The id's text anywhere in a project slot,** the catalog, or this tab's history, so an unreadable slot still protects its files | Parse each slot; an unreadable one protects nothing |
 | *Revert to original* | **In 11c,** with the subject's actions. Remapping trims back through a chain of edits needs the chain, which isn't kept; 11c decides how | In 11b, keeping trims as fractions |
 | An edit that clips | **Kept, with a warning;** float WAV holds it | Refused, or limited to full scale |
+
+## Changes made while implementing
+
+* **Step 1: one visitor for tracks.** A track's insert graph, its instrument and its session audio clips are one visitor
+  (`tracks`), not three, so `usedSampleIds` still lists samples track by track. A test compares `usedSampleIds` and
+  `projectSampleDependencies` with a copy of the old hand-written walks on all 13 committed fixtures and both examples:
+  the same arrays. `removeSample` moved from `core/project/edit.ts` into `sample-uses.ts`, beside `replaceSample`.
+* **Step 1: the remap's shapes.** `core/sample/remap.ts` has four `FrameMap`s (identity, a splice, a crop, a mirror),
+  each with `frame`, `range` and `start` (where a range's start moves forward to, which an emptied trim needs).
+  Positions are frame boundaries, 0 to the length, and may be fractional (a trim). A trim that didn't move, through an
+  edit of the same length, keeps its fractions exactly, so a process changes no clip's numbers. The store's
+  `replaceSample` returns the report for the flow's toasts.
+* **Step 1: `bytesKeyOf`'s call sites** are the plan's table, plus the library's preview and *Insert*, which look the
+  catalog's `SampleInfo` up to ask it.
+* **Step 2.** `LIBRARY_DATABASE_VERSION = 3` is the one place the version is written; the storage tests that checked
+  the database at version 2 open it at that constant, and `library.smoke.spec.ts`'s check opens version 3. The typed
+  quota error is `StorageFullError`. The 65 MiB refusal and the 40 MiB acceptance read real zips.
+  `LIBRARY-BUNDLE.md` says older builds refuse a bundle with a sample over 32 MiB.
+* **Step 3: `after(edit)` came in step 3,** not with the new kinds: moving the editor needs it. `WaveAudio` carries
+  `viewKey` (the origin), so the lanes, the overview and the ruler find their view without the `SampleInfo`.
+* **Step 3: the order of moving the editor.** In place, the new working copy is set before the commit, so following
+  the sample to its new id finds it and decodes nothing; with a copy, the copy is added first and the working copy set
+  after, for the same reason. A merge into an entry whose origin differs can't be followed by origin; the flow selects it
+  itself (that one decodes once). "Nothing changed" is an info toast; a failed edit says why in an error toast. Importing
+  bytes an edit wrote forgets their note from step 3 on (the plan's Storage section, with the flow that notes them).
+* **Step 3: browser tests** read the autosaved project to see the edit (the entry keeps its name and gains `origin`).
+* **Step 4: the keep-alive and the loader are separate.** Loading still runs only when the present's samples change
+  (otherwise a sample with missing audio would be read again on every edit); the keep-alive runs on every history
+  change and returns at once while the engine holds only what the present uses. The budgets can be passed to
+  `createSampleLibrary` for tests (defaults from `sample-budgets.ts`). The working copies are fed by a subscription:
+  whenever the editor's working copy changes to another sample, the old one goes in.
+* **Step 4: measures**, in Chromium (Playwright's headless shell) on the dev server's modules, median of 7 runs for the
+  pyramid and 5 for the flow, load average 5 to 9:
+
+  | 120 s stereo | `updatePeakPyramid` | `buildPeakPyramid` |
+  |---|---|---|
+  | a fade over the last 0.5 s | 0.3 ms (0.2 ms at step 8) | 20.5 ms (19.3 ms) |
+  | a delete of the first second | 19.8 ms (19.5 ms) | 19.5 ms (19.5 ms) |
+
+  An edit at the start moves everything after it, so the update is a full build there; the plan expected that.
+
+  | The in-place flow, stereo | apply | encode | hash | store | total |
+  |---|---|---|---|---|---|
+  | 5 s, step 4 (11a's 10 ms fade) | 16 ms | 2.0 ms | 1.0 ms | 2.0 ms | 21.8 ms |
+  | 120 s, step 4 | 552.9 ms | 49.1 ms | 20.6 ms | 43.8 ms | 663.4 ms |
+  | 5 s, step 8 (a fade or a crossfaded delete at the start) | 0.2 ms | 1.7 ms | 0.9 ms | 1.4 ms | 4.2 ms |
+  | 120 s, step 8 | 2.9 ms | 44 ms | 20 ms | 34 ms | 100.9 ms |
+
+  11a's fades mapped every frame through `Float32Array.from` with a callback; step 6's processes copy the channels and
+  loop over the range, which is what made the 120 s flow six times faster. The measuring script is not committed.
+* **Step 5: cleanup waits.** It runs `EDIT_CLEANUP_DELAY_MS` (10 s) after startup and then when the browser is idle,
+  not at the first idle moment: run at once, it opened the database at version 3 before `library.smoke.spec.ts`'s
+  stand-in for an older tab could open it at version 1, and startup is busy anyway. It needs both the sample storage and
+  the edit log to be persistent. The project slots are read by `ProjectStorage.slotTexts()`.
+* **Step 5: the sampler's *Edit*** sits beside the picker on one row; the waveform takes the next.
+* **Step 6: the registry.** *Fade in* and *Fade out* are one kind (`fade`, with `direction`) and two `variants`; an entry
+  with `takesFadeCurve` gets the curve menu beside it, and step 7's *Paste* has `needsClipboard`. A setting is a number or
+  a toggle (*Normalize…*'s "Same gain for both channels"). *Gain…* starts at −3 dB (the plan gave no default). `changed`
+  takes `(edit, frames)`, as the plan says (step 1's took the sample rate, for 11a's fades). A copy's suffix comes from its
+  variant (`editSuffix`: "fade in", "fade out").
+* **Step 6: ramps.** An edge ramps only where it is inside the sample: a range from the sample's start has nothing to
+  ease out of there. The weight over a ramp of `k` frames is `g((j + 1) / (k + 1))`, never 0 or 1 inside it, and a fully
+  changed frame takes the processed value exactly. *Normalize* on part of a sample isn't ramped, as the spec's table
+  says. A fade's gain at frame `i` is `g((i − from) / n)` in and `g((to − 1 − i) / n)` out.
+* **Step 6: a one-channel reverse moves no positions:** a clip keeps playing the same part of the sample, and the
+  markers stay. Only a reverse of every channel mirrors them.
+* **Step 6: constants.** `DEFAULT_CROSSFADE`, `MAX_CROSSFADE_SECONDS` and `clampCrossfadeSeconds` are exported: the
+  toolbar's crossfade field needs its default and its range. The rest stay inside `core/sample` but for tests.
+* **Step 7: Paste is `replace`.** With no selection it replaces the empty range at the cursor, which is an insert;
+  `insert` is *Insert silence…*. Cut and Copy are toolbar buttons beside the registry's entries, not entries: Copy
+  isn't an edit, and Cut is Copy and then the `delete` entry.
+* **Step 7: crossfades.** Each side fades over its own window: the outgoing part until its handle runs out, the incoming
+  from where its handle begins, so a missing handle gives that side a plain fade on its half. A paste's two joins are
+  each at most the pasted length long, so they never overlap. A delete's (and a paste's) changed range starts half a
+  crossfade before the join.
+* **Step 7: the edits' own line.** With the structure edits added, the wrapped toolbar pushed the overview 4 px out of
+  the editor at 480 × 240 (`views-at-min-size`). The edits now sit on a line of their own under the editor's buttons,
+  which scrolls sideways where it doesn't fit (`data-scroll`); the settings popover sits outside that line, so it isn't
+  clipped.
+* **Step 8: the profile.** As 11a ran it: one run each, 10 s after 2 s of warm-up, headless Chromium, 1500 × 1000, the
+  dev server and `vite preview` outside the sandbox, load average 5 to 8. `WATCHED` gained `EditToolbar` and
+  `EditSettings`.
+
+  | Per second | 11a `editor` | 11b `editor` | 11a `four` | 11b `four` | 11a `groups` | 11b `groups` | 11a `pinned` | 11b `pinned` | 11a `wave` | 11b `wave` |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | Component renders (dev) | 144 | 145 | 173 | 173 | 87 | 87 | 145 | 145 | 56 | 56 |
+  | Script ms (production) | 10.7 | 15.3 | 12.5 | 16.7 | 11.3 | 15.5 | 10.5 | 16.5 | 10.1 | 14.6 |
+
+  Renders match 11a (`editor`'s one is the `ArrangementPlayhead` render rounds 10 and 11a also saw come and go);
+  `EditToolbar` and `EditSettings` render 0 times in every case, and the `wave` case's only status readers are still
+  `WavePlayhead` (29) and `LevelMeter` (27). The script times read higher than 11a's record in every case, the ones
+  without the editor too, so 11a's build (`ef518db`) was profiled again beside 11b's on the same machine, twice each:
+  `editor` 12.6 and 13.3 ms against 11b's 13.0 and 13.5, `wave` 13.0 and 12.7 against 12.8 and 13.0. The same, within
+  the noise; the difference from 11a's record is the machine's.
+* **Step 8: checks.** `npm test` and `npm run typecheck` passed at every step: 2454 unit tests at step 1, 2461 at
+  step 2, 2474 at step 3, 2491 at step 4, 2498 at step 5, 2518 at step 6, 2536 at step 7. The bounce hashes in
+  `old-projects.test.ts` held at every step (11b changes no engine code). Full smoke runs, outside the sandbox: 193 at
+  steps 1 and 2, 195 at steps 3 and 4, 196 at step 5, 197 at step 6, 198 at steps 7 and 8. Four first runs had tests
+  fail for a reason the step then fixed and re-ran: step 2's library spec opened the database at version 2; step 3's two
+  new tests read the autosave without its envelope; step 5's library spec met the cleanup's early database open; step
+  7's failed `views-at-min-size` by 4 px.
+  `npm run test:audio`: 21 at step 3, and 21 at step 7 (twice: before and after the toolbar's own line).
+* **Not checked.** The manual pass in Verification was not done by hand: nothing was heard by ear (reverse used by a
+  clip, a region and a sampler; a delete before a looped clip's trim; cut and paste with 0 and 100 ms crossfades);
+  the quota override in DevTools and setting a note two days back by hand weren't tried (the unit tests stand in for
+  both); a 120 s stereo file wasn't opened in the UI (the flow and the pyramid were timed on 120 s of audio in a page);
+  Firefox and Safari weren't run (not installed, or not drivable from the session, as in 11a), so whether Safari loads
+  float WAV is still unknown. In Chromium, the dev build was looked at in the app's browser pane: the toolbar, and
+  *Gain…*'s popover under it.

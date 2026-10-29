@@ -29,7 +29,7 @@ if (!devUrl || !previewUrl) {
 }
 const SECONDS = Number(secondsArg ?? 10)
 const SETUP = setupArg ?? 'editor'
-const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume', 'PinnedView', 'PinnedPanel', 'PanelView', 'ControlCell', 'CommandHost', 'HostDialogs', 'CommandPalette', 'SampleEditor', 'Overview', 'Ruler', 'DetailView', 'WaveLane', 'WavePlayhead']
+const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume', 'PinnedView', 'PinnedPanel', 'PanelView', 'ControlCell', 'CommandHost', 'HostDialogs', 'CommandPalette', 'SampleEditor', 'Overview', 'Ruler', 'DetailView', 'WaveLane', 'WavePlayhead', 'EditToolbar', 'EditSettings']
 
 // A stub React DevTools hook: React then runs in profiling mode (dev build) and reports every commit.
 const hook = () => {

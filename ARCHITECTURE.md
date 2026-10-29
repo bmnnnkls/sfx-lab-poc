@@ -1582,6 +1582,18 @@ applying something that changes nothing adds no undo step (`setClipNotes` keeps 
 * UI: ↶ ↷ buttons in the transport bar and `Ctrl/⌘+Z`, `Ctrl/⌘+Shift+Z`, `Ctrl/⌘+Y` (ignored inside text fields,
   which keep the browser's own undo).
 * **To make a new continuous control undoable as one step**, pass a stable merge key to its store action.
+* **Sample bytes are not in history** (round 11b). An edit in place stores a new file before the project names it, and
+  files are only added, never changed, so undo needs nothing but the old `SampleInfo`: its bytes are still stored. Two
+  caches make undo and redo of an edit (or of *Remove*) instant, each within a budget in `app/sample-budgets.ts`:
+  * **the working copies** (`app/working-copies.ts`): recent decoded working copies the Wave editor let go of, least
+    recently used out first past `WORKING_COPY_CACHE_BYTES` (128 MB). Opening a sample and an edit's read look there
+    before decoding;
+  * **engine keep-alive** (`keepAlive` in `app/sample-library.ts`): a sample the present project doesn't use stays in the
+    engine while any history entry (`past`, `present`, `future`) names it, so undo plays it at once; the first to leave
+    goes first once such audio passes `ENGINE_KEEP_ALIVE_BYTES` (128 MB); one no entry names gets `sample/remove` at
+    once. It runs on every history change (a commit can drop the redo future without touching the present's samples)
+    and reads only the `samples` arrays, each once, since entries share them. Past the budget, undo reloads the sample
+    from storage and its uses are silent for that moment.
 
 ## Saving, loading, import/export
 
@@ -1604,6 +1616,15 @@ applying something that changes nothing adds no undo step (`setClipNotes` keeps 
   it saves the outgoing project to a **one-slot backup**, stops the transport, resets selection, then swaps.
   *File → Restore previous* swaps back (and the slot then holds what you just left).
 * If browser storage is unavailable (private mode), the app keeps working in memory and says so.
+* **Files edits wrote are cleaned up** (round 11b, `app/sample-cleanup.ts`). The `sample-edits` store (`sfxlab` database
+  version 3, `storage/sample-edit-log.ts`) notes the id and time of each file an in-place edit or a copy wrote. Once per
+  start, `EDIT_CLEANUP_DELAY_MS` after it and when the browser is idle, and only with persistent storage and
+  `EDIT_CLEANUP_ENABLED`, each noted file older than `EDIT_CLEANUP_AGE_MS` (a day) loses its bytes and its note unless
+  something names it: the raw text of any project slot (`ProjectStorage.slotTexts`: current, backup, corrupt,
+  pre-signature; a text search for the id, so an unreadable slot still protects its samples), the library catalog, or
+  this tab's history. Imported files are never noted (importing bytes an edit wrote forgets the note), and bytes from
+  a project package or a library bundle aren't noted, so neither is ever deleted. A second tab's undo of an edit older
+  than a day can find its file gone; the sample then shows *audio missing*.
 * Ids are random (`createId`), so ids from saved projects never collide with new ones.
 
 ## Exporting audio (the offline bounce)
@@ -1666,8 +1687,10 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   original speed), *Start*, *Tune*. It compensates for the sample's own sample rate, interpolates linearly, and
   fades out in 10 ms on release to avoid clicks. Its sample is a node-level reference (`PatchNode.sampleId`, chosen
   with a picker in the property editor), not a numeric param.
-* **Three homes for one sample**, all keyed by the **SHA-256 of the original file** (so importing the same file
-  twice is a no-op, and ids can't collide):
+* **Three homes for one sample**, all keyed by the **SHA-256 of the file** (so importing the same file twice is a
+  no-op, and ids can't collide). Everything that turns a `SampleInfo` into stored bytes (the loader, an edit's read,
+  the bounce, the project package's writer and reader, the library bundle and preview) asks **`bytesKeyOf(info)`**
+  (`core/sample/marks.ts`), which returns the id: a later scheme with stable ids changes that and `replaceSample` only:
   1. **Project** — `Project.samples: SampleInfo[]` (name, duration, …) is the library. Saved, undoable, tiny.
   2. **Storage** — the original bytes in IndexedDB (`storage/sample-storage.ts`), written once at import.
      Autosave only ever writes the small project JSON.
@@ -1678,7 +1701,24 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   `OfflineAudioContext`, so no user gesture is needed; `keepChannels` keeps one or two channels and averages more into
   one) → store bytes → add to project → send to engine. On startup and
   whenever `project.samples` changes it loads any sample the engine lacks from storage. Removing a sample from
-  the project clears the nodes that used it (undo restores both) but keeps the bytes, so undo and re-import work.
+  the project clears every use of it (undo restores them) but keeps the bytes, so undo and re-import work; the engine
+  keeps the audio while history names it (§ Undo / redo).
+* **Where a sample is used** (round 11b, `core/project/sample-uses.ts`). `SAMPLE_USES` lists the places, one visitor
+  each (`collect`, `replace`, `remove`, and whether the sample `plays` from there): the master's, buses' and modules'
+  patches; tracks (insert graph, instrument and session audio clips, one visitor so samples are listed track by track);
+  arrangement audio regions; sample bindings; presets' bindings; asset revisions (their `sampleIds` and the samplers in
+  their payloads). `usedSampleIds` (the visitors that play), `projectSampleDependencies` (all of them), `removeSample`
+  and `replaceSample` are built from it, so a new place is added once. `removeSample` clears samplers, removes the
+  session clips and arrangement regions that play the sample, silences bindings, and leaves presets and revisions naming
+  it (a recall then reports it missing).
+* **`replaceSample(project, fromId, to, remap)`** moves every use onto an edit's result: the library entry is replaced
+  where it is, with the old name, `origin: originOf(old)`, and markers and regions through the remap (a marker whose
+  frame is gone is dropped, a region clipped and dropped when empty); samplers, bindings, presets and revisions point at
+  `to.id` (asset signatures ignore samples, so none changes); clips' and regions' trims go through the remap so they
+  play the audio they played, and one the edit emptied keeps `MIN_REGION` where it started (`report.emptiedTrims`). A
+  result already in the library is merged into (`report.merged`). The sampler's *Start* param is a param, so it isn't
+  remapped. A visitor with nothing to change returns the same object; `diffProject` then sends only the commands a
+  changed reference needs (`track/setSample`, `track/setAudioClips`, `arrangement/set`).
 * **Missing audio is not fatal.** A sample listed in the project but absent from storage (cleared browser data,
   plain-JSON import on another machine) shows *audio missing*, plays silence, and is restored by importing the
   original file again (same hash).
@@ -1706,7 +1746,8 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   reads `origin ?? id`), `markers` (`{ id, frame, name }`) and `regions` (`{ id, from, to, name }`), in frames.
   `sanitizeSamples` keeps them when well formed (whole frames inside `durationSeconds × sampleRate`, `from < to`, names
   of at most 60 characters, at most 256 of each, unique ids) and drops the rest with a warning. 11a only defines and
-  keeps them; 11b and 11c use them. The personal library keeps them with a captured sample.
+  keeps them; 11b remaps them through edits and 11c gives them a UI. The personal library keeps them with a captured
+  sample.
 * **Add a sample-playing node:** set `usesSample: true` on its definition; the property editor shows the picker and the
   engine calls `setSample` on it.
 
@@ -1812,25 +1853,38 @@ switches views like in Ableton.
 
 An editor for one library sample in the **Wave editor** view (`ui/wave-editor/`; ✎ on a row of Samples opens it). With
 no sample open the view offers the project's samples (up to eight, then *Show samples*) and *Import samples…*. Round 11a
-rebuilt the inside; edits still make copies (11b makes them in place).
+rebuilt the inside; round 11b made edits change the sample in place.
 
+* **Ways in** (round 11b). ✎ on a sample, the palette's *Open in wave editor*, `clip.edit-sample` and
+  `region.edit-sample` (*Edit sample*, on audio clips and regions, enabled while the sample is in the library; the audio
+  clip editor's *Edit sample* button runs them), and *Edit* beside the sampler's picker (the sample the picker shows,
+  a preset's binding included). `openSampleEditor(id, range?)` selects the sample and reveals the view; with a clip's trim
+  (fractions) it calls the view store's `reveal`, which selects that part in frames and sets `zoomPending`, which the
+  editor consumes once with a zoom to the selection when it has its width and the audio.
 * **The working copy** (`app/sample-library.ts`). When the editor opens a sample (`useSelectionStore.sampleId`), the
-  service decodes it again from storage, builds its peak pyramid and puts both in `state/wave-audio-store.ts`
-  (`{ sampleId, audio, pyramid } | null`, plus `loading`). The engine keeps its own copy (that one was transferred).
-  Closing the editor, or a project without the sample, drops it. Memory: one extra copy of the open sample, at most
-  46 MB (120 s stereo).
+  service takes it from the working copies (§ Undo / redo) or decodes it from storage, builds its peak pyramid and puts
+  both in `state/wave-audio-store.ts` (`{ sampleId, viewKey, audio, pyramid } | null`, plus `loading` and `editing`).
+  The engine has its own copy. A working copy the editor lets go of goes into the working copies. Memory: one copy of
+  the open sample, at most 46 MB (120 s stereo), plus the cache's budget.
 * **The pyramid** (`core/sample/pyramid.ts`). `buildPeakPyramid(audio)`: level 0 holds a min and a max per channel for
   every 64 frames; each next level halves the count until a level has at most 512 buckets. A full build of 120 s of
-  stereo takes about 12 ms in Chromium, so it runs at once on the main thread. **`columnsFor(view, pyramid, audio)`** is
+  stereo takes about 12 to 20 ms in Chromium, so it runs at once on the main thread. After an edit,
+  **`updatePeakPyramid(pyramid, audio, changed)`** copies the buckets wholly outside the frames the edit changed
+  (`changedFrames`) and computes the rest, equal to a full build bucket for bucket: a fade at the end of 120 s stereo
+  takes 0.2 ms, an edit at the start (which moves everything after it) a full build. **`columnsFor(view, pyramid, audio)`** is
   its only reader and the one drawing rule: from 64 frames per pixel up, min and max from the finest level whose bucket
   fits in a column (`peaks`); from 1 to 64, min and max read from the audio (`frames`); under 1, the sample points
   (`points`), with dots from 8 px per frame. The base and the step are private constants there.
-* **View state** (`state/wave-editor-store.ts`), per sample id, in memory: `framesPerPixel` (null: fit the whole
-  sample), `startFrame`, `cursor` and `selection` (`{ from, to, channels: 'both' | 'left' | 'right' }`, frames). Not
-  saved with the project and not undone, so it survives tab switches until reload. The ruler's mode (time or beats), its
+* **View state** (`state/wave-editor-store.ts`), in memory, keyed by the sample's **origin** (`originOf`), so a view
+  follows its sample through edits, undo and redo: `framesPerPixel` (null: fit the whole sample), `startFrame`, `cursor`,
+  `selection` (`{ from, to, channels: 'both' | 'left' | 'right' }`, frames) and `zoomPending`. Not saved with the project
+  and not undone, so it survives tab switches until reload. When the open sample's id leaves the project (an undo or
+  redo of an edit), the service opens the sample with the same origin, first in library order, and clamps a selection
+  past its end; with none, the view shows its empty state, as for a removed sample. The ruler's mode (time or beats), its
   tempo (the project's or the one in the sample's name, `tempoFromName`) and the preview's Loop are per browser
   (`useStoredState`: `sfxlab:wave-ruler`, `sfxlab:wave-ruler-tempo`, `sfxlab:wave-loop`).
-* **The view.** `SampleEditor` is the frame: a toolbar that wraps, the `Overview`, the `Ruler`, the `DetailView` and a
+* **The view.** `SampleEditor` is the frame: a toolbar that wraps (the edits on a line of their own that scrolls
+  sideways where it doesn't fit, `EditToolbar`), the `Overview`, the `Ruler`, the `DetailView` and a
   status line (cursor, or the selection and its length). The **overview** (48 px) is the whole sample from `columnsFor`;
   its box is what the detail shows, and it **is the scrollbar** (`role="scrollbar"`, focusable: arrows, Page Up and
   Down, Home and End): drag the box to scroll, its edges to zoom, click elsewhere to centre there. A native scroller
@@ -1848,16 +1902,51 @@ rebuilt the inside; edits still make copies (11b makes them in place).
 * **Preview.** ▶ plays the selection, or from the cursor to the end, looping with *Loop*; ■ stops. The playhead
   (`WavePlayhead`) is a leaf that selects `status.preview` only. A preview may play while the transport plays; it is mixed
   into the master.
-* **Edits as data** (`core/sample/edits.ts`). `SampleEdit` is a union of the six edits: `normalize` (one gain for every
-  channel, so the balance stays), `reverse`, `keep` and `delete` (a `range` in frames), `fade-in` and `fade-out`
-  (`seconds`); `applySampleEdit(audio, edit)` is pure and works on every channel. `SAMPLE_EDITS` is the registry (kind,
-  title, tooltip, suffix, whether it needs a selection, and how to make the edit from the selection); the toolbar is
-  built from it. `SampleLibrary.editSample(id, edit, { asCopy: true })` is the one call: it reads the working copy (or
-  decodes the stored bytes), applies the edit, refuses an empty result, encodes `EDIT_WAV_BIT_DEPTH` (32-bit float)
-  WAV with one or two channels, hashes it and adds it as "name (suffix)". Undoing the project step removes the copy; the
-  original never changes. `encodeWav` (mono 16-bit) stays for the demo samples, whose ids are hashes of its bytes.
-* **Not yet.** In-place edits with undo and the processes on a selection (11b); markers, regions, snap and the view's
-  keys (11c); the spectrogram; the granular stage.
+* **Edits as data** (`core/sample/edits.ts`). `SampleEdit` is a union, one kind per edit, and `SAMPLE_EDITS` a record
+  by kind: each entry has its title, tooltip, suffix (for a copy's name), `group` (`process`, `structure`,
+  `clipboard`), `settings` (numeric fields and toggles for a popover), `variants` (*Fade in* and *Fade out* are one kind),
+  `channels` (`both` for edits that change the length), `needsSelection`, `needsClipboard`, `takesFadeCurve`, and
+  `create(context, variant)`, `apply(audio, edit)`, `remap(edit, frames)`, `changed(edit, frames)` and
+  `after(edit, frames)`. `applySampleEdit`, `remapFrame`, `remapRange`, `sampleRemap`, `changedFrames` and `afterEdit`
+  dispatch through it; nothing else switches on the kind, and the toolbar is built from it.
+  * **Processes** keep the length and work on the selection (or the whole sample) and its channels: `gain` (−48 to
+    +24 dB), `fade` (in or out, with a curve from `FADE_CURVES`: linear, equal power, slow start, fast start, S-curve;
+    out uses `g(1 − t)`), `normalize` (a target peak, −0.1 dBFS by default, linked or per channel; a peak under −100 dB
+    is left alone), `reverse`, `silence` and `dc-offset`. Gain, silence and DC offset **ramp** in and out over the
+    crossfade length at edges inside the sample, inside the range, so audio outside it never changes. A one-channel
+    reverse moves no positions. A result past full scale is kept (float WAV holds it), with a warning.
+  * **Structure edits** need both channels of a stereo selection: `delete` (joins the parts around the selection),
+    `crop` (keeps it; no join, so no crossfade), `insert` (*Insert silence…* at the cursor) and `replace` (*Paste*, over
+    the selection, or an empty range at the cursor). **Crossfades** (`core/sample/crossfade.ts`) are centred on each
+    join: the outgoing part continues into its handle while it fades out, the incoming starts early from its handle
+    while it fades in, so the result has exactly the expected length. A delete's handles are the deleted audio; a
+    paste's are the clipboard's and the audio around the cursor. A side with less to borrow fades over what there is;
+    0 ms is the plain cut, bit for bit. The length (0 to 100 ms, 5 ms by default) and curve (linear or equal power) are
+    the toolbar's, per browser (`sfxlab:wave-crossfade`); the fade curve is `sfxlab:wave-fade-curve`, a popover's last
+    values `sfxlab:wave-edit-settings`.
+  * **Remapping**: each kind's `remap` is one of four shapes in `core/sample/remap.ts` (identity, a splice, a crop, a
+    mirror), which say where a position is now (`frame`), where a range's start moves forward to (`start`) and where a
+    range is (`range`, start forward, end backward, null when nothing is left). `replaceSample` takes them with the old
+    and new lengths (`SampleRemap`).
+* **The audio clipboard** (`state/audio-clipboard.ts`, a `createClipboard`): the copied channels and up to
+  `CLIPBOARD_HANDLE_SECONDS` (50 ms, half the longest crossfade) of audio on each side. A copy from one channel holds
+  that channel alone; a mono copy pastes into both channels of a stereo sample, a stereo copy into a mono one as its
+  average (`monoAt`). *Copy* isn't an edit; *Cut* is *Copy*, then the delete, one undo step. Not the OS clipboard.
+* **The in-place flow** (`SampleLibrary.editSample(id, edit, { asCopy })`, the one call). One edit runs at a time
+  (`useWaveAudioStore.editing`; the toolbar is disabled meanwhile). It reads the working copy (or the working copies, or
+  decodes the stored bytes), applies the edit, refuses an empty result and one that changes nothing ("Nothing changed",
+  same hash), encodes `EDIT_WAV_BIT_DEPTH` (32-bit float) WAV, hashes it, refuses the edit when the site's free
+  storage (`freeBytes`, `navigator.storage.estimate()`) is under `ROOM_FACTOR` (2) times the file or the write hits the
+  quota (`StorageFullError`), stores and notes the file, sends the engine `sample/add` with a **copy** of the audio,
+  then commits, if the sample is still in the project (an undo meanwhile drops the edit, its file left to cleanup):
+  in place, `replaceSample` as one undo step, with a toast for a merge and for emptied trims; with *Edits make copies*
+  (per browser, `sfxlab:wave-edit-copies`, off), a new sample "name (suffix)" with no origin, which the editor opens.
+  The editor moves first: the old working copy goes to the cache, the new one (its pyramid updated) becomes current,
+  the selected id changes, and the entry's `after` sets the selection and cursor (processes keep them; delete leaves
+  the cursor at the join; crop selects nothing; insert and paste select what they inserted). `encodeWav` (mono 16-bit)
+  stays for the demo samples, whose ids are hashes of its bytes.
+* **Not yet.** Markers, regions, snap, *Revert to original*, the sample-selection focus subject and its keys (11c);
+  previewing a process before applying it; the spectrogram; the granular stage.
 
 ## Example projects (`core/examples`)
 
@@ -2126,9 +2215,10 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
   destructive edits (undoable), not a reusable groove pool; swing and quantize use the toolbar grid, which has no
   triplet options yet.
 * Samples keep one or two channels (more are averaged to one); instruments, the sampler included, play them mono. At
-  most 120 s / 32 MB per file (trimming is per clip, not per sample). Sample edits still make copies, as 32-bit float
-  WAV (twice the size of the 16-bit copies before round 11a).
-  Bytes stay in IndexedDB after a sample is removed from a project (so undo works); there is no cleanup yet.
+  most 120 s / 32 MB per imported file. Sample edits write 32-bit float WAV (a 120 s stereo edit is 46 MB, so dragging
+  that file back in from disk is refused by the import cap). Files edits wrote are cleaned up a day after nothing names
+  them; imported bytes stay in IndexedDB after a sample is removed from a project (so undo works), with no cleanup yet.
+  The engine and the main thread each keep up to 128 MB of decoded audio for undo.
   `decodeAudioData` resamples to 48 kHz, and the sample's reported rate is that decoded rate.
 * Sample hashing needs a secure context (https or localhost).
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
@@ -2143,7 +2233,7 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 
 ## Natural next steps
 
-1. Unused-sample cleanup, loop points inside a clip, 2. stems and batch export for the bounce,
+1. Cleanup of unused imported samples, loop points inside a clip, 2. stems and batch export for the bounce,
 3. MIDI hardware verification and later performance features, 4. more nodes (band-limited oscillators, chorus / stereo modulation effects),
 5. WASM DSP nodes (Faust/RNBO).
 

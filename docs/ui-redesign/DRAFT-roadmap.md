@@ -284,8 +284,11 @@ Safari (Firefox isn't installed on the machine), and the manual pass.
 the pyramid), 11b (in-place edits) and 11c (markers, regions and keys), and keeps every decision behind one seam so it
 can be changed later. **11a is done** 2026-10-29; see its [plan](PLAN-round-11a-stereo-and-the-pyramid.md), signed off as
 proposed: samples are stereo through the engine (old projects bit for bit the same), format v11, edits as data, the peak
-pyramid and the new view. 11b (in-place edits with undo) and 11c (markers, regions and keys) are next, each with its own
-plan. The outline below is what the spec started from.
+pyramid and the new view. **11b is done** 2026-10-29; see its [plan](PLAN-round-11b-in-place-edits.md), signed off as
+proposed: edits change the sample in place with one undo step (trims, markers and regions remapped), undo is instant
+within the caches' budgets, edit-made files are cleaned up, and the editor has the six processes, cut, copy, paste,
+delete, crop and insert silence with crossfades, and ways in from clips, regions and the sampler. 11c (markers, regions
+and keys) is next, with its own plan. The outline below is what the spec started from.
 
 The biggest single piece, mostly beyond the UI. It needs its own SPEC before planning. Round 3 already gives it its
 view, its activity-bar button and its entry points; this round replaces what is inside.
