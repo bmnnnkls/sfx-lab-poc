@@ -1,6 +1,6 @@
 # Round 10: commands and keys
 
-Status: **proposed** 2026-10-29, decisions not signed off yet. Part of the [UI redesign](README.md). Carries out
+Status: **planned** 2026-10-29, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 10](DRAFT-roadmap.md#round-10-commands-and-keys), from an inventory of every keyboard handler and
 shortcut label in `src/`, the action lists and their subjects, the selection store, the layout store and its driver,
 named layouts, the File and Layout menus and the QuickAdd matcher, taken on `imp/inspiring-boyd-f8a32a` at `5286ffe`
@@ -506,6 +506,8 @@ a reviewer notices is a bug in this round.
   | Component renders (dev) | 145 | | 173 | | 86 | | 144 | |
 
 ## Decisions to sign off
+
+Signed off 2026-10-29: every row as proposed.
 
 | Question | Proposed | Notes |
 |---|---|---|
