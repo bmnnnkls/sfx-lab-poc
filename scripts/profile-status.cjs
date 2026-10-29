@@ -16,18 +16,20 @@
 //           round 8 (round 7 without the bus).
 //   pinned  The editor setup, after an L knob and a switch were added to Lead's instrument panel, and Lead's instrument,
 //           Lead's effects and the master's effects were pinned, with the Pinned view showing. Needs round 9.
+//   wave    The demo drum loop open in the Wave editor, Mixer in the panel, the transport stopped and the loop's preview
+//           looping from its start, so the editor's playhead runs. Needs round 11a.
 //
 // Prints one JSON object per build. Each figure is a per-second average over the measured seconds.
 const { chromium } = require('@playwright/test')
 
 const [devUrl, previewUrl, secondsArg, setupArg] = process.argv.slice(2)
 if (!devUrl || !previewUrl) {
-  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four|groups|pinned]')
+  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four|groups|pinned|wave]')
   process.exit(2)
 }
 const SECONDS = Number(secondsArg ?? 10)
 const SETUP = setupArg ?? 'editor'
-const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume', 'PinnedView', 'PinnedPanel', 'PanelView', 'ControlCell', 'CommandHost', 'HostDialogs', 'CommandPalette']
+const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume', 'PinnedView', 'PinnedPanel', 'PanelView', 'ControlCell', 'CommandHost', 'HostDialogs', 'CommandPalette', 'SampleEditor', 'Overview', 'Ruler', 'DetailView', 'WaveLane', 'WavePlayhead']
 
 // A stub React DevTools hook: React then runs in profiling mode (dev build) and reports every commit.
 const hook = () => {
@@ -163,6 +165,17 @@ const setUp = async (page, url) => {
     await page.getByRole('button', { name: 'Hide Bass', exact: true }).click()
     await show(page, 'Mixer')
     await page.getByRole('button', { name: 'Launch scene 1', exact: true }).click()
+  } else if (SETUP === 'wave') {
+    await show(page, 'Samples')
+    await page.locator('[data-view="samples"]').getByRole('button', { name: 'Add demo samples', exact: true }).click()
+    const loop = page.locator('[data-view="samples"]').getByRole('listitem').filter({ hasText: 'Demo Drum Loop' })
+    await loop.locator('[data-status="ready"]').waitFor()
+    await loop.getByRole('button', { name: '✎', exact: true }).click()
+    const wave = page.locator('[data-view="wave"]')
+    await wave.getByTestId('wave-detail').waitFor()
+    await show(page, 'Mixer')
+    await wave.getByRole('button', { name: 'Loop', exact: true }).click()
+    await wave.getByRole('button', { name: 'Play from cursor', exact: true }).click()
   } else {
     if (SETUP === 'pinned') await pinPanels(page)
     await show(page, 'Mixer')

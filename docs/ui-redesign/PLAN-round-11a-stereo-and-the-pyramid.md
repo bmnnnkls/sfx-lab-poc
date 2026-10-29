@@ -1,6 +1,6 @@
 # Round 11a: stereo and the pyramid
 
-Status: **plan, signed off** 2026-10-29, decisions as proposed. Written 2026-10-29. Part of the [UI redesign](README.md). Carries out the first of
+Status: **done** 2026-10-29; plan signed off 2026-10-29, decisions as proposed. Written 2026-10-29. Part of the [UI redesign](README.md). Carries out the first of
 the three parts in the signed-off [round 11 spec](SPEC-round-11-wave-editor.md) (§ Suggested split), from a second
 inventory of the code it touches, taken on `imp/jovial-fermat-5ae301` at `be367c6` (round 10 done and the spec
 signed off, neither merged into `feat/ui-redesign` yet). The spec's decisions are settled and not repeated here; this
@@ -280,4 +280,76 @@ Signed off 2026-10-29: every row as proposed.
 
 ## Changes made while implementing
 
-None yet.
+* **Step 1: the hashes.** Taken on `5e39f94` (the plan's sign-off), whose `src/` is `be367c6`'s, before any engine
+  change, and kept unchanged to the end in `core/engine/old-projects.test.ts`: both examples' busiest scene, one bar,
+  32-bit float; and a project with a stereo file (two tones with seeded noise, at 44.1 kHz so playback resamples) on
+  three old audio tracks (re-pitched and loop-trimmed with fades and gain, at original speed, a mono file) and a sampler
+  at three pitches, four bars and a 1 s tail. Its tracks are made "old" by dropping `stereo` from their graphs, since
+  step 2 makes new tracks stereo. Two runs gave the same bytes before the step.
+* **Step 1: `monoAt` rounds as `toMono` did.** `toMono` stored the sum in a `Float32Array` before halving it, so
+  `monoAt` is `fround(fround(left + right) / 2)`; without the inner `fround` the average differs in the last bit for
+  some pairs. A test compares the two on 4096 frames of noise.
+* **Step 1: the per-frame stereo read is `channelAt(sample, channel, index)`**, beside `monoAt` and `frameCount`, in
+  `core/sample/channels.ts`. `readRegion` takes `'mono' | 0 | 1`, so the runtime's two paths share it.
+* **Step 2: `createDefaultFxGraph(stereo?)`** makes the graph with its `Track in` switched, and `trackInIsStereo` lives
+  beside it in `core/patch`. The runtime also switches path when `track/setFx` brings a graph whose switch changed.
+* **Step 2: browser tests.** The new `stereo-sample.audio.spec.ts` imports a left-only stereo WAV, makes an audio track
+  from it, hears the left only, switches *Stereo* off on `Track in` in the property editor and hears half the level in
+  both channels.
+* **Step 3: what "well formed" means.** A marker or region id is 1 to 64 letters, digits, `_` or `-`; a frame may be
+  the sample's last (`frame == length`, `to == length`); a name may be empty. A list that isn't a list is dropped with
+  a warning; an empty list is kept as it is. `savedFrameCount(info)` (`durationSeconds × sampleRate`, rounded) is the
+  length they are checked against. Seven tests that expected version 10 now expect `CURRENT_VERSION` (or 11).
+* **Step 4: the registry's entries** carry the copy's name suffix (as before: *normalized*, *reversed*, *cut*,
+  *edited*, *fade in*, *fade out*) and `create({ selection })`, which makes the edit or returns null without a
+  selection, so the toolbar holds no edit logic. `core/sample/edit.ts` and its six functions are gone; their tests are
+  now tables in `edits.test.ts`. A new `app/sample-library.test.ts` stands a small WAV reader in for Web Audio.
+* **Step 5: the pyramid is not sliced.** A full build of 120 s of stereo at 48 kHz took 11.7 ms (median of 7) in
+  Playwright's Chromium headless shell and 14.1 ms in Node 24, on Apple Silicon, under load. Measured by running
+  `pyramid.ts` as it is (types stripped) in a page; the script is not committed. `updatePeakPyramid` stays 11b's.
+* **Step 5: the working copy follows `useSelectionStore.sampleId`,** which only the Wave editor sets, and is dropped
+  when it is cleared or the sample leaves the project. An edit of the open sample reads it, so it works even when the
+  stored bytes are gone.
+* **Step 6: a loop's seam** interpolates from the range's last frame into its first, as audio clips do. `PreviewRange`
+  is exported for `SampleLibrary.preview(sampleId, range?)`.
+* **Step 7: a *Loop* toggle** sits beside ▶ (per browser, `sfxlab:wave-loop`): the plan's manual pass loops the
+  selection, and nothing else asked for it. The tempo choice is a button shown with the beats ruler (*Project 120 BPM* /
+  *Sample 98 BPM*), disabled when the name has no tempo.
+* **Step 7: files.** The ruler's labels are in `ruler-ticks.ts` (a `ruler.ts` would clash with `Ruler.tsx` on a
+  case-insensitive disk), the geometry in `wave-geometry.ts`, and `current-view.ts` resolves the stored view in the
+  detail's width for the overview, the ruler and the toolbar. Lanes are labelled *Left* and *Right* (*Waveform* when
+  mono). The status line replaces the old hint. Shift extends a selection from its far end. The editor's playhead is
+  `WavePlayhead`, so the profile tells it from the piano roll's `Playhead`.
+* **Step 7: browser tests.** `wave-editor.smoke.spec.ts` gains one test that does everything the plan lists (a stereo
+  import with two lanes, a left-only drag, a drag that selects, Ctrl with the wheel from `peaks` through `frames` to
+  `points`, *Zoom to fit*, the ruler and its tempo, ▶ looping with a moving playhead and ■, and a tab switch that keeps
+  the selection); `views-at-min-size` checks the overview scrollbar.
+* **Step 8: the profile.** As round 10 ran it: one run each, 10 s after 2 s of warm-up, headless Chromium, 1500 × 1000,
+  the servers outside the sandbox (the dev server, and `vite preview` of the production build). The machine was busy
+  (load average 11 to 14, other sessions running). `WATCHED` gained `SampleEditor`, `Overview`, `Ruler`, `DetailView`,
+  `WaveLane` and `WavePlayhead`.
+
+  | Per second | Round 10 `editor` | 11a `editor` | Round 10 `four` | 11a `four` | Round 10 `groups` | 11a `groups` | Round 10 `pinned` | 11a `pinned` | 11a `wave` |
+  |---|---|---|---|---|---|---|---|---|---|
+  | Component renders (dev) | 145 | 144 | 173 | 173 | 87 | 87 | 144 | 145 | 56 |
+  | Script ms (production) | 11.8 to 12.8 | 10.7 | 13.5 to 14.1 | 12.5 | 16.6 | 11.3 | 13.0 | 10.5 | 10.1 |
+
+  The four old setups match round 10 within the one `ArrangementPlayhead` render round 10 also saw come and go. The new
+  `wave` case is the baseline for 11b: 29 `WavePlayhead` renders a second (the status rate) and 27 of the transport's
+  `LevelMeter` (the preview is heard); `SampleEditor`, `Overview`, `Ruler`, `DetailView` and `WaveLane` render 0 times
+  while the preview loops.
+* **Step 8: checks.** `npm test` and `npm run typecheck` passed at every step: 2365 unit tests at step 1, 2375 at
+  step 2, 2382 at step 3, 2392 at step 4, 2401 at step 5, 2406 at step 6, 2415 from step 7. `tests/architecture.test.ts`'s
+  drag check, which takes about 5 s, twice ran past vitest's 5 s timeout while the whole suite ran on the busy machine,
+  and passed alone and on the next full run; it is older than this round. Full smoke runs, outside the sandbox: 192 at
+  steps 1 to 6, 193 at steps 7 and 8. `npm run test:audio`: 20 at step 1 (one test failed on a missing trace file as
+  Playwright closed its context, then passed with its spec, 6 of 6), 21 at steps 2 and 6. At step 1 the browser tests ran
+  on exactly step 1's files, set apart from step 2's.
+* **Not checked.** The manual pass in Verification was not done by hand. Firefox isn't installed; Safari is, but this
+  session can't drive it; and this Playwright version's Firefox and WebKit builds aren't downloaded (a WebKit check of
+  a float stereo WAV failed to launch for that reason). So neither Firefox nor Safari was tried, nor a stereo MP3, nor
+  whether Safari loads the float WAV copies. In Chromium, the dev build was looked at in the app's browser pane (the drum loop
+  opened, a selection, zoom to the selection and to single samples, ▶ with a moving playhead, no console errors), and
+  the specs above stand in for the rest. Hearing an old project with a stereo file is covered by the bounce hashes, and
+  its widening by the audio spec, not by ear. A 120 s stereo file was not opened in the UI; only the pyramid's build
+  was timed.

@@ -137,13 +137,13 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
       {audio.channels.map((_, index) => (
         <WaveLane key={index} label={stereo ? (index === 0 ? 'Left' : 'Right') : 'Waveform'} renderer={drawWaveform} handle={handles[index]!} />
       ))}
-      <Playhead wave={wave} frame={frame} />
+      <WavePlayhead wave={wave} frame={frame} />
     </div>
   )
 }
 
 /** The preview's position. Owns its status subscription, so nothing else renders at the status rate. */
-const Playhead = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<HTMLDivElement | null> }) => {
+const WavePlayhead = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<HTMLDivElement | null> }) => {
   const at = useStatusStore((state) => (state.status?.preview?.sampleId === wave.sampleId ? state.status.preview.frame : null))
   if (at === null) return null
   const view = currentView(frame.current, wave)

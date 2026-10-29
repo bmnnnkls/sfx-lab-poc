@@ -535,8 +535,9 @@ work in it unchanged (a module whose ports are `signal` goes anywhere sound goes
 
 ## Stereo
 
-Instruments and samples are mono; stereo starts in the insert graph, so a pan, a wide reverb or a ping-pong delay can
-sit on any track. It reuses the typed-port machinery the note graph introduced.
+Instruments are mono; stereo starts in the insert graph, so a pan, a wide reverb or a ping-pong delay can sit on any
+track. Samples keep one or two channels (round 11a, below), and an audio track hands both to its insert graph once its
+`Track in` runs in stereo. It reuses the typed-port machinery the note graph introduced.
 
 * **Port kind `stereo`**, beside `signal` and `notes`. A `signal` output may feed a `stereo` input (it is heard in both
   channels); a `stereo` output never feeds a `signal` input, the way back is the explicit *Mono sum* node. Modules inherit
@@ -564,6 +565,17 @@ sit on any track. It reuses the typed-port machinery the note graph introduced.
   (the graph is rebuilt), a knob is still a `setParam`.
 * **Decision for later.** A return track starts from a stereo source (its sends are stereo), so it will have its own
   `Return in` node rather than reuse the mono `Track in`; then mono effects on a return need the L R switch, as expected.
+* **Stereo samples on audio tracks** (round 11a). `Track in` is `stereoCapable`, so it has the L R switch. A lifted copy
+  of a node is told its channel through the optional `DspNode.setChannel(0 | 1)`, which the compiler calls on each copy;
+  `Track in` is the first source that needs it (it reads `ProcessContext.input`, not its inputs). In stereo each copy
+  reads its half of a planar stereo input, and a mono input is heard in both; in mono it reads a mono input as it is and a
+  stereo one as the average. The audio track runtime picks one of **two paths** from `trackInIsStereo(fx)` when its graph
+  is built: **mono**, today's math on `monoAt` into a mono scratch, so a track saved before 11a (no `stereo` flag) sounds
+  bit for bit as it did; **stereo**, a planar `STEREO_FRAMES` scratch, the read position, fade and level worked out once
+  per frame and both channels read there (`readRegion(sample, channel, …)`). The track's tap 0 stays one signal, the
+  average of the halves. **New audio tracks start in stereo** (`NEW_AUDIO_TRACK_STEREO` in `core/project`, the one place
+  that decides); instrument tracks keep a mono `Track in`. `engine/old-projects.test.ts` holds the bounce hashes of
+  both examples and a project with a stereo file, taken before 11a changed the engine.
 
 ## Return tracks and sends
 
@@ -1659,10 +1671,12 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   1. **Project** — `Project.samples: SampleInfo[]` (name, duration, …) is the library. Saved, undoable, tiny.
   2. **Storage** — the original bytes in IndexedDB (`storage/sample-storage.ts`), written once at import.
      Autosave only ever writes the small project JSON.
-  3. **Engine** — decoded **mono** float data in `SampleBank` (`core/sample`), delivered by a
-     `sample/add` command whose buffer is *transferred* to the worklet, not copied.
+  3. **Engine** — decoded float data in `SampleBank` (`core/sample`), **one or two channels** (`SampleData` is
+     `{ id, sampleRate, channels }`), delivered by a `sample/add` command whose channel buffers are each *transferred*
+     to the worklet, not copied.
 * **Flow** (`app/sample-library.ts`): import/drop → hash → decode (`audio/decode-audio.ts`, via
-  `OfflineAudioContext`, so no user gesture is needed) → store bytes → add to project → send to engine. On startup and
+  `OfflineAudioContext`, so no user gesture is needed; `keepChannels` keeps one or two channels and averages more into
+  one) → store bytes → add to project → send to engine. On startup and
   whenever `project.samples` changes it loads any sample the engine lacks from storage. Removing a sample from
   the project clears the nodes that used it (undo restores both) but keeps the bytes, so undo and re-import work.
 * **Missing audio is not fatal.** A sample listed in the project but absent from storage (cleared browser data,
@@ -1670,7 +1684,9 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   original file again (same hash).
 * **Engine side:** a sampler node looks samples up at process time (`ProcessContext.samples`), so samples that
   arrive after the instrument was built, or are swapped (`track/setSample`), take effect without a rebuild.
-  `sample/preview` auditions a sample straight to the master; `EngineStatus.peak` drives the output meter.
+  `sample/preview` auditions a sample straight to the master, each channel to its side: the whole sample, or frames
+  `from` up to `to`, once or looping (`loop`). While it plays, `EngineStatus.preview` is `{ sampleId, frame }`, and it is
+  absent otherwise, so nothing else changes. `EngineStatus.peak` drives the output meter.
 * **Project files with samples** (`storage/project-transfer.ts`): a project with no samples exports as plain
   `name.sfxlab.json`. With samples it exports as a zip, `name.sfxlab`: `project.json` (the same envelope as
   always) + `samples/<sha256>.<ext>` holding the **original bytes** (no re-encoding; WAV is deflated, compressed
@@ -1678,7 +1694,19 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   trusting it, ignores unexpected entries, caps inflated entry size, then runs the usual `parseProject`.
   Missing/corrupt samples become warnings, not failures.
 * **Persistence of the new fields:** `samples` and `sampleId` are optional with safe defaults (a reference to a
-  sample not in the library is dropped with a warning), so no format-version bump was needed.
+  sample not in the library is dropped with a warning), so no format-version bump was needed. Format v11 (round 11a)
+  added a sample's origin, markers and regions; `MIGRATIONS[10]` is the identity.
+* **Reading channels** (round 11a, `core/sample/channels.ts`). Engine code reaches a sample's audio only through
+  `frameCount`, `monoAt` (the one channel, or the average of two with `toMono`'s exact arithmetic, so a stereo file reads
+  the bits the old mixdown gave) and `channelAt` (one channel; a mono sample is the same in both). The sampler node and a
+  mono `Track in` path read `monoAt`; the stereo path, the preview and the library's sample preview read `channelAt`.
+  Playing everything as mono again would be a change in these helpers alone. Thumbnails (`computePeaks`, 800 buckets)
+  take the loudest of the channels.
+* **Origin, markers and regions** (format v11). `SampleInfo` may carry `origin` (the first version's id; `originOf`
+  reads `origin ?? id`), `markers` (`{ id, frame, name }`) and `regions` (`{ id, from, to, name }`), in frames.
+  `sanitizeSamples` keeps them when well formed (whole frames inside `durationSeconds × sampleRate`, `from < to`, names
+  of at most 60 characters, at most 256 of each, unique ids) and drops the rest with a warning. 11a only defines and
+  keeps them; 11b and 11c use them. The personal library keeps them with a captured sample.
 * **Add a sample-playing node:** set `usesSample: true` on its definition; the property editor shows the picker and the
   engine calls `setSample` on it.
 
@@ -1782,26 +1810,54 @@ switches views like in Ableton.
 
 ## The sample editor
 
-An editor for one library sample in the **Wave editor** view (`ui/wave-editor/`; ✎ on a row of Samples opens it):
-a zoomable waveform with a draggable selection and one-click edits. With no sample open the view offers the
-project's samples (up to eight, then *Show samples*) and *Import samples…*. `core/sample/edit.ts` holds the pure transforms (tested); the result of an edit is
-always a **new** library sample, so the original stays untouched.
+An editor for one library sample in the **Wave editor** view (`ui/wave-editor/`; ✎ on a row of Samples opens it). With
+no sample open the view offers the project's samples (up to eight, then *Show samples*) and *Import samples…*. Round 11a
+rebuilt the inside; edits still make copies (11b makes them in place).
 
-* **Transforms.** `normalizeSample` (peak to just under full scale, silence left silent), `reverseSample`,
-  `keepSampleRegion` / `deleteSampleRegion` (the selection as fractions), `fadeIn` / `fadeOut` (sample-rate aware,
-  capped at half the length).
-* **Derivation.** `SampleLibrary.deriveSample(id, suffix, transform)` (`app/sample-library.ts`): the stored bytes
-  are decoded, transformed, re-encoded as mono 16-bit WAV and hashed like any import — so a derived copy is a
-  normal library sample keyed by the SHA-256 of its bytes. Importing the same edit twice is a no-op; the copy
-  travels with project packages; undoing the project edit removes the copy but never the original (bytes stay in
-  IndexedDB, as with any removed sample).
-* **UI.** The waveform is drawn from the sample's peak thumbnails (one value per bucket), zoomed by pixels per
-  bucket; drag to select a part. Normalize, Reverse, Keep selection, Delete selection and 10 ms fades run the
-  transform and add the result to the library; ▶ auditions.
-* **Target.** The sample being edited is `useSelectionStore.sampleId` (`openSampleEditor(id)` / `selectSample(null)`),
-  not component state, so the editor stays open across tab switches and closes on *Close* or a replaced project.
-* **Not in the prototype.** Destructive in-place editing of a sample, stereo samples, and the granular stage
-  (a granular sampler over the loaded buffer is the planned next step).
+* **The working copy** (`app/sample-library.ts`). When the editor opens a sample (`useSelectionStore.sampleId`), the
+  service decodes it again from storage, builds its peak pyramid and puts both in `state/wave-audio-store.ts`
+  (`{ sampleId, audio, pyramid } | null`, plus `loading`). The engine keeps its own copy (that one was transferred).
+  Closing the editor, or a project without the sample, drops it. Memory: one extra copy of the open sample, at most
+  46 MB (120 s stereo).
+* **The pyramid** (`core/sample/pyramid.ts`). `buildPeakPyramid(audio)`: level 0 holds a min and a max per channel for
+  every 64 frames; each next level halves the count until a level has at most 512 buckets. A full build of 120 s of
+  stereo takes about 12 ms in Chromium, so it runs at once on the main thread. **`columnsFor(view, pyramid, audio)`** is
+  its only reader and the one drawing rule: from 64 frames per pixel up, min and max from the finest level whose bucket
+  fits in a column (`peaks`); from 1 to 64, min and max read from the audio (`frames`); under 1, the sample points
+  (`points`), with dots from 8 px per frame. The base and the step are private constants there.
+* **View state** (`state/wave-editor-store.ts`), per sample id, in memory: `framesPerPixel` (null: fit the whole
+  sample), `startFrame`, `cursor` and `selection` (`{ from, to, channels: 'both' | 'left' | 'right' }`, frames). Not
+  saved with the project and not undone, so it survives tab switches until reload. The ruler's mode (time or beats), its
+  tempo (the project's or the one in the sample's name, `tempoFromName`) and the preview's Loop are per browser
+  (`useStoredState`: `sfxlab:wave-ruler`, `sfxlab:wave-ruler-tempo`, `sfxlab:wave-loop`).
+* **The view.** `SampleEditor` is the frame: a toolbar that wraps, the `Overview`, the `Ruler`, the `DetailView` and a
+  status line (cursor, or the selection and its length). The **overview** (48 px) is the whole sample from `columnsFor`;
+  its box is what the detail shows, and it **is the scrollbar** (`role="scrollbar"`, focusable: arrows, Page Up and
+  Down, Home and End): drag the box to scroll, its edges to zoom, click elsewhere to centre there. A native scroller
+  can't be wide enough at full zoom. The **ruler** shows m:ss.mmm (frames under one frame per pixel) or bars and beats in
+  4/4 from frame 0 (`ruler-ticks.ts`, labels at least 72 px apart). The **detail** has one `WaveLane` per channel, each a
+  canvas the size of its box times `devicePixelRatio`; `data-draw` on it says which band is drawn.
+* **Drawing without React.** Zoom and scroll write to the store; the detail, the overview's box and the ruler subscribe
+  to the store directly and redraw in an animation frame (and on resize). React renders only when the sample, the
+  selection or the cursor changes. A lane is drawn by a **lane renderer** (`(context, columns, size, colors) => void`,
+  `lane-renderers.ts`); the waveform is the only one, a spectrogram would be a second.
+* **Gestures.** Drag to select; on a stereo sample a drag starting in the top quarter of the left lane selects the left
+  channel only, in the bottom quarter of the right lane the right only. Shift extends from the far end. A click sets the
+  cursor. ⌘ or Ctrl with the wheel (and a trackpad pinch) zooms around the pointer, from the whole sample to 32 px per
+  frame; the wheel scrolls. *Zoom to selection* and *Zoom to fit* are buttons.
+* **Preview.** ▶ plays the selection, or from the cursor to the end, looping with *Loop*; ■ stops. The playhead
+  (`WavePlayhead`) is a leaf that selects `status.preview` only. A preview may play while the transport plays; it is mixed
+  into the master.
+* **Edits as data** (`core/sample/edits.ts`). `SampleEdit` is a union of the six edits: `normalize` (one gain for every
+  channel, so the balance stays), `reverse`, `keep` and `delete` (a `range` in frames), `fade-in` and `fade-out`
+  (`seconds`); `applySampleEdit(audio, edit)` is pure and works on every channel. `SAMPLE_EDITS` is the registry (kind,
+  title, tooltip, suffix, whether it needs a selection, and how to make the edit from the selection); the toolbar is
+  built from it. `SampleLibrary.editSample(id, edit, { asCopy: true })` is the one call: it reads the working copy (or
+  decodes the stored bytes), applies the edit, refuses an empty result, encodes `EDIT_WAV_BIT_DEPTH` (32-bit float)
+  WAV with one or two channels, hashes it and adds it as "name (suffix)". Undoing the project step removes the copy; the
+  original never changes. `encodeWav` (mono 16-bit) stays for the demo samples, whose ids are hashes of its bytes.
+* **Not yet.** In-place edits with undo and the processes on a selection (11b); markers, regions, snap and the view's
+  keys (11c); the spectrogram; the granular stage.
 
 ## Example projects (`core/examples`)
 
@@ -2064,11 +2120,14 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 * One clip plays per track. Polyphony has simple voice stealing and no unison, glide or legato modes.
 * Audio clips have no time-stretch (only re-pitch or original speed), no loop crossfade (a loop whose ends don't
   match will click unless you add fades) and no recording. Trim is non-destructive but there are no separate loop
-  points inside the region. Audio clips are mono (they are duplicated to both channels, or panned in the insert graph).
+  points inside the region. An audio clip plays its sample's two channels when its track's `Track in` is in stereo (new
+  audio tracks); tracks saved before round 11a play the mono average until switched.
 * The piano roll assumes 4/4 for the ruler and its clipboard is not shared with the OS clipboard. Groove tools are
   destructive edits (undoable), not a reusable groove pool; swing and quantize use the toolbar grid, which has no
   triplet options yet.
-* Samples are mono (stereo is mixed down), at most 120 s / 32 MB per file, (trimming is per clip, not per sample).
+* Samples keep one or two channels (more are averaged to one); instruments, the sampler included, play them mono. At
+  most 120 s / 32 MB per file (trimming is per clip, not per sample). Sample edits still make copies, as 32-bit float
+  WAV (twice the size of the 16-bit copies before round 11a).
   Bytes stay in IndexedDB after a sample is removed from a project (so undo works); there is no cleanup yet.
   `decodeAudioData` resamples to 48 kHz, and the sample's reported rate is that decoded rate.
 * Sample hashing needs a secure context (https or localhost).
