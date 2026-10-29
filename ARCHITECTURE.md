@@ -846,9 +846,57 @@ remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`):
   (drag handle, move, size, sideways for a slider, hide, delete, rename = the node's name); hidden controls are listed in a tray with a
   *Show* button each, and the property editor has *Show on panel* and *Size* for a control node. `PanelView` is the grid, the Play / Edit
   toggle and the add form.
+* **Fitted spans.** A control wider than the board takes the columns there are (`fitSpan` in `panel-values.ts`): a knob
+  stays square, so its rows shrink with it; a pad's rows shrink in proportion, never under two; anything else keeps its
+  rows. `PanelView` counts the board's columns with a `ResizeObserver` (`boardColumns`: its width inside the padding,
+  the 104 px minimum and the gap) and passes them to each `ControlCell`. Every panel does it: at the Instrument view's
+  480 px minimum the board has four columns, so only panels under about 360 px wide change, and a 280 px one never
+  scrolls sideways.
+* **Variants.** `PanelView variant="pinned"` is play only: no bar, so no *Edit panel*, add form, hidden tray or cell
+  tools; the board is as tall as its controls and doesn't scroll (the Pinned view does); an empty one says "No
+  controls yet." with *Open* (`onOpen`). `editor`, the default, is the panel above.
+* **What it reads.** `PanelView` reads its controls' base values through `useProjectSelect` (`state/project-select.ts`),
+  a selector with an equality that re-renders only when its value changes; `EffectiveValue` reads its target's
+  resolution and MIDI mapping the same way. So a knob turned in one panel re-renders that panel and any other showing
+  the same graph, not every panel on screen.
 * **Limits.** Layout is an ordered flow with sizes, not free positioning; a panel belongs to one graph (no combined instrument +
   effects panel, and the controls inside a module are not yet shown on the panel of the graph that uses it: step 7); no selector for
   enum parameters yet; no automation, meters or per-control ranges beyond a control's own (see `docs/TASKS.md`).
+
+### Pinned panels
+
+A front panel can be played from the Pinned view while the editors show something else (round 9).
+
+* **The model** (`core/project/pins.ts`). A pin is `PanelPin { owner: ControlOwner, graph: TrackGraph, collapsed? }`: a
+  track's instrument, effects or notes, a group bus's effects, or the master's effects (a group or the master has only
+  `fx`). `Project.pins` lists them top to bottom, absent when there are none, at most `MAX_PINS` (16). `pinKey` is
+  `<owner id or master>:<graph>`, as `graphKey` writes it; two pins with one key are one pin. `pinTarget` names the
+  graph as the store's patch edits do, and `pinnedGraph` finds it (`patchAt`), or nothing when it is gone.
+* **Liveness.** Nothing that removes a track or a bus touches pins. A pin whose graph is gone (a removed track, *Remove
+  bus*, *Ungroup*, a deleted group) is kept and not shown: `livePins(project)` is the pins whose graph exists, each with
+  its key and graph, the same list while `pins`, `tracks`, `groups` and the master are. Undo brings the graph back, and
+  the pin shows again where it was. A track's copy isn't pinned.
+* **Edits and undo.** `pinPanel`, `unpinPanel`, `movePin` (one place among the shown pins, so a hidden one never stalls
+  a move) and `setPinCollapsed` return the same project when nothing changes. They are **view edits**, as a group's
+  collapse: the store applies them through `editView`, saved but not undo steps. `withViewOf` gives a project undo or
+  redo brings back the current pins, plus its own pins of owners the current project lacks (`withPinsOf`); the master
+  counts as the current project's only when the two share a track, so undoing *New project* brings the old project's
+  pins back, the master's included. A bus switched off and on again is a new bus on the same group, and its old pin shows
+  again on it.
+* **The file.** Version 10 still: `sanitizePins` reads `pins` after the tracks and groups. A malformed pin, a repeated
+  key and anything past 16 go with a warning; a pin whose graph is missing goes silently, since a project saved with an
+  unshown pin is normal. Older builds drop `pins` as an unknown field.
+* **The view** (`ui/pinned/`). `PinnedView` draws the live pins' keys as a list; each `PinnedPanel` reads its own pin,
+  title (`pinTitle`: *Bass instrument*, *Drums effects*, *Master effects*) and group colour, so a knob in one pin
+  doesn't re-render the others. A pin is a `section` named by its title: a header (twisty, title, *Open*, ×; its menu is
+  the pin's actions, a double-click on the title opens the editor) over `PanelView variant="pinned"` with the editor's
+  scope (`<owner id>:<graph>`, so undo keys merge alike), `readoutTrack` and an `edit` through `editPatch(pinTarget(pin))`.
+  Turning a pinned knob is the same control gesture as in the editor: one undo step, MIDI learn, live indicators.
+* **Pinning** is offered by the track, group (with a bus) and master menus, and by the *Pin* toggle in the toolbar of
+  Instrument, Effects and Notes (not inside a module). Pinning runs `revealPin`: it pins, reveals the Pinned view and
+  posts a one-shot `pinRequest` in the graph-view store, which the view answers by scrolling the pin into view and
+  focusing its header. Unpinning leaves the layout alone. *Open* runs `openPinnedEditor`: it selects the owner and
+  reveals its editor in the Graph or Panel mode that editor was in.
 
 ## Control nodes, parameter sockets and the global stage
 
@@ -1180,7 +1228,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
 * **Subjects.** What was right-clicked is a `Subject`: a small value with a `kind` and ids, never a component or a DOM
   element. The kinds: `track` (instrument, audio and return tracks), `group` (a group of tracks), `master`, `clip` (a session clip), `slot` (an
   empty session cell), `automation-slot`, `scene`, `sample`, `library-item`, `library-folder`, `nodes`, `canvas`,
-  `module`, `region`, `lane`, `control` (a panel control or a mixer value) and `sound` (a snapshot or preset). `nodes`
+  `module`, `region`, `lane`, `control` (a panel control or a mixer value), `sound` (a snapshot or preset) and `pin` (a
+  pinned front panel: an owner and a graph). `nodes`
   is the selection when the right-clicked card is selected, otherwise that card alone. `nodes` and `canvas` name the
   track's (or the master's) graph as `target` and the modules opened from there as `path`; the nodes are in the last
   module of `path` (`editTargetOf`). `canvas` and `lane` carry where the click landed, which is where *Paste* and *Add*
@@ -1189,7 +1238,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
   `title` (text, or a function of the subject), a `group` (open, edit, clipboard, delete: a separator between groups),
   `danger`, `applies` (hidden when false: *Stop* on a return), `enabled` (shown but disabled: *Paste* with an empty
   clipboard) and `run`. An action that asks which one has `choices` (a lane's session clips, an empty audio slot's
-  samples, an XY pad's axes), drawn as a submenu or, with `inline`, one entry per choice. An action that moves the
+  samples, an XY pad's axes), drawn as a submenu or, with `inline` (which can depend on the subject), one entry per
+  choice. An action that moves the
   focus to a field of its own says `takesFocus`. `actionsFor(subject)` returns the kind's list; nothing else picks
   actions. `describeActions(subject, context)` is what a menu shows now, and unit tests call it too.
 * **`ActionContext`** carries what actions can't import: the services that are React contexts (`EngineControls`,
@@ -1212,6 +1262,13 @@ right-clicked; what can be done to it lives in `state/actions/`.
   nothing. What a menu needs from a view lives in a store: the
   graph editor's open sub-patch and module-interface toggle and its *Add node…* request (`graph-view-store`), and the
   Library's catalog and open folder (`library-store`).
+
+* **Pins.** A pin's menu is *Open* (tooltip "Open the full editor"), *Collapse* / *Expand*, *Move up*, *Move down*
+  (disabled at the ends) and *Unpin* (not `danger`: nothing is lost); its header's buttons run them. The `open` group of
+  a track gains *Pin panel ▸ Instrument, Effects, Notes* (inline *Pin effects panel* on an audio or return track; a
+  pinned one disabled; hidden when all are pinned) and *Unpin panel ▸* (inline when one is pinned, *Unpin notes
+  panel*); a bus's and the master's gain *Pin effects panel* / *Unpin effects panel*, after the *Open …* entries. At 16
+  pins *Pin* is disabled, titled "… — 16 panels are pinned". Actions in `state/actions/pin.ts`.
 
 ### Menus
 
@@ -1734,7 +1791,9 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
     secondary sidebars are flexlayout's left and right borders and run the full height, from the transport bar to
     the status bar (flexlayout spans top and bottom borders across the sidebars, which is why the panel isn't one).
     By default the panel holds Instrument, Effects, Notes, Clip and Mixer; Samples, Library and Tracks start in the
-    primary sidebar and Sounds in the secondary one, both collapsed to their strips; sidebars open 300 px wide. A border
+    primary sidebar and Sounds and Pinned in the secondary one, both collapsed to their strips; sidebars open 300 px
+    wide. Layouts saved before Pinned existed get it in their secondary sidebar by the missing-view repair, so the
+    layout version stayed 2. A border
     shows one tab at a time. Views can be dragged between all of them; tabs
     can't be closed, so every view is always somewhere.
   * **Collapsing.** Clicking the open tab of a sidebar or the panel collapses it to its tab strip; clicking a tab
@@ -1761,7 +1820,7 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
     a tab, a splitter, the activity bar, the region toggles, a tab group's buttons and dialogs.
 * **Minimum sizes.** `viewMinSizes` in `ui/layout/view-titles.ts` (also `minSize` in the registry): 480 × 240 for the
   editors (Session, Arrangement, Wave editor, Instrument, Effects, Notes, Clip), 280 × 200 for the tool views
-  (Samples, Sounds, Library, Tracks, Mixer). `viewTab` puts them on each tab as flexlayout's `minWidth` and `minHeight`, so
+  (Samples, Sounds, Library, Tracks, Pinned, Mixer). `viewTab` puts them on each tab as flexlayout's `minWidth` and `minHeight`, so
   saved layouts get them too; a tab group takes its largest tab's, a sidebar its open tab's (and at least
   `MIN_SIDEBAR_SIZE`). Sashes and keyboard steps stop there. flexlayout raises a group's maximum to its minimum, so
   the driver (`keepMinimumHeights`, on every sync) clears the minimum height of the tabs a collapsed panel squeezes
@@ -1832,14 +1891,18 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   in Clip), `openTrackView(trackId, view)`
   (the fx / notes badges, *New sampler track*), `openMasterEffects`, `openAutomationSlot`, `openSampleEditor` (✎ on
   a sample: the Wave editor, `ui/wave-editor/`, whose *Close* clears the selection; the Samples view always shows
-  its list). Code
+  its list), `revealPin` (pins a panel, reveals Pinned and asks it to scroll to the pin) and `openPinnedEditor` (a
+  pin's owner and its editor). Code
   that wants to show something calls an intent; code that only selects calls the `select*` action.
 * **View registry** (`ui/layout/views.ts`): `Record<ViewId, { title, tooltip?, component }>`. A view takes no props
   and reads its data from the stores. The titles and tooltips live apart in `ui/layout/view-titles.ts`, which
   imports no components, so a view can use another view's title without an import cycle and the layout can name
   its tabs without loading the views. Adding a `ViewId` without a registry entry fails the typecheck.
 * **Every empty state offers its action**, in a row that wraps under the text at the view's minimum size: *Add
-  instrument track*, a track's clips, *Open effects*, *Save asset + presets*, *Show session*.
+  instrument track*, a track's clips, *Open effects*, *Save asset + presets*, *Show session*, and Pinned's *Pin Bass
+  instrument* (the selected owner's panels).
+* **The Pinned view** (`pinned`, title *Pinned*, a tool view) holds every pin, stacked, since a sidebar shows one tab
+  at a time and a view can't be open twice. See § Front panel, Pinned panels.
 * **A view never names another view in its text.** An empty state or menu that would say "in the Samples tab"
   offers an action instead (*Import samples…*, *Open effects*, *Show session*) that calls `revealView` or an intent,
   because the other view may be docked anywhere, or already visible. Where a label must name a view, it takes the

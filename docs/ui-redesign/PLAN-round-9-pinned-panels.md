@@ -1,6 +1,6 @@
 # Round 9: pinned panels
 
-Status: **planned** 2026-10-29, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
+Status: **done** 2026-10-29, decisions signed off as proposed (planned 2026-10-29). Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 9](DRAFT-roadmap.md#round-9-pinned-panels), from an inventory of the front panel, the graph editors, the
 layout store and view registry, the secondary sidebar, the actions, and of what a pin must survive, taken on
 `feat/ui-redesign` at `5b6bb5f` (round 8 merged).
@@ -432,3 +432,27 @@ What turned out different from the design above, step by step.
 * **Step 5: the context-menu checks are one new case** in `context-menus.smoke.spec.ts`: *Pin panel ▸* and *Unpin
   notes panel* on Bass, *Pin effects panel* turning into *Unpin effects panel* on an audio track, and a pin header's
   menu. The bus, folder and master entries are checked by the cases that already list those menus.
+* **Step 6: the profile.** One run each, 10 s after 2 s of warm-up, headless Chromium, 1500 × 1000, the servers outside
+  the sandbox, nothing else running. The `pinned` setup is the `editor` setup after an L knob and a switch were added to
+  Lead's instrument panel and Lead's instrument, Lead's effects and the master's effects were pinned, with the Pinned
+  view showing (`visible`: Arrangement, Pinned, Mixer); the script reports how many pins it measured (three).
+  `PinnedPanel` became a named function inside `memo`, so the profile can count it.
+
+  | Per second | Round 8 `editor` | Round 9 `editor` | Round 8 `four` | Round 9 `four` | Round 8 `groups` | Round 9 `groups` | Round 9 `pinned` |
+  |---|---|---|---|---|---|---|---|
+  | Component renders (dev) | 145 | 145 | 173 | 173 | 87 | 86 | 144 |
+
+  `PinnedView`, `PinnedPanel`, `PanelView`, `ControlCell` and `EffectiveValue` rendered 0 times a second in `pinned`:
+  with nothing touched, the three pins add no renders over `editor`, and none renders on a status update. The one
+  render a second less in `groups` is a run's variation: repeated twice, it measured 86 and 87. Script time in the
+  production build was 9.4 ms (`editor`), 16.1 ms (`four`), 12.5 to 18.0 ms (`groups`, three runs) and 11.6 ms
+  (`pinned`) a second. The `groups` spread is wider than round 8's 11.1 to 12.1 ms; nothing this round adds is mounted
+  in that setup, and its renders are unchanged, so the spread is taken for the machine's.
+* **Step 6: checks.** `npm test` and `npm run typecheck` passed at every step (2240 unit tests at step 1, 2251 at
+  step 2, 2253 at step 3, 2254 from step 4). Full smoke runs: 167 passed at steps 1 to 3; at step 4, 171 passed and 3
+  failed, the three `layout.smoke.spec.ts` cases that counted 12 tabs, which the Pinned tab makes 13; fixed, that spec
+  passed alone (23) on the same build; 180 passed at step 5 and at step 6. `npm run test:audio`, at step 5 on the
+  smoke run's build: 20 passed. The manual pass from Verification (three pins played with Arrangement and Mixer
+  showing, MIDI learn with a real or virtual port, undo through pin, unpin, removals and *New project*, the view
+  docked elsewhere and at 180 px, React DevTools' highlight) was not done; the profile and the specs stand in for parts
+  of it. Firefox and Safari were not checked.

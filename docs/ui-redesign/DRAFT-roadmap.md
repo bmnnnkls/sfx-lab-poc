@@ -229,12 +229,17 @@ group gets what a track has after its instrument.
 
 ## Round 9: pinned panels
 
-**Planned** 2026-10-29; see the [plan](PLAN-round-9-pinned-panels.md), signed off as proposed. Its inventory changes the
+**Done** 2026-10-29; see the [plan](PLAN-round-9-pinned-panels.md), signed off as proposed. Its inventory changes the
 outline below: round 4 left no narrow front panel, so wide controls are capped at the columns a panel has, in every
 panel; a pin is an owner and a graph, so a bus's effects (round 8), the master's and a track's notes can be pinned too;
 pins are view edits, not undone, so a pin whose graph is gone is kept unshown (undo shows it again) instead of being
 dropped; a pin is play only; `PanelView`'s subscription narrows, for several panels on screen; the layout needs no
 version bump.
+
+What moved while it ran: the narrower subscription is a hook in `state` (`useProjectSelect`), since `ui` can't import
+zustand, and `EffectiveValue` was narrowed with it, or every control's feedback re-rendered on any edit; undoing *New
+project* brings back the old project's master pin too; an action's `inline` can depend on the subject, and a track whose
+panels are all pinned doesn't offer *Pin*. The manual pass, Firefox and Safari were not done.
 
 Pin a track's front panel (its knobs, sliders and pads) into the secondary sidebar as a copy; the original stays where
 it is. Pinned panels stack vertically.
