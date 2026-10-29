@@ -6,6 +6,27 @@
   height: 100%;
 }
 
+/* Pinned: as tall as its controls; the Pinned view scrolls. */
+.panel[data-variant='pinned'] {
+  height: auto;
+}
+
+.panel[data-variant='pinned'] .board {
+  flex: none;
+  overflow: visible;
+}
+
+.panel[data-variant='pinned'] .empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.panel[data-variant='pinned'] .empty p {
+  margin: 0;
+}
+
 .bar {
   display: flex;
   flex-wrap: wrap;

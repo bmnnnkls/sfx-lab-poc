@@ -7,7 +7,7 @@ import { type DragEvent, useState } from 'react'
 import { IndicatorFace } from '../shared/indicators/IndicatorFace'
 import { ControlWidget, type ParamChange, isSettable } from './ControlWidget'
 import styles from './panel.module.css'
-import { knobWidth, spanOf } from './panel-values'
+import { fitSpan, knobWidth, spanOf } from './panel-values'
 
 export type { ParamChange }
 
@@ -36,6 +36,8 @@ interface ControlCellProps {
   editing: boolean
   /** Where an indicator gets its live value (see `PanelView`). */
   readoutTrack?: string
+  /** The board's columns: a wider control takes these (see `fitSpan`). */
+  columns: number
   first: boolean
   last: boolean
   onSet(changes: readonly ParamChange[]): void
@@ -47,11 +49,11 @@ const CONTROL_TYPE = 'application/x-sfxlab-control'
 
 const NEXT_SIZE: Record<ControlSize, ControlSize> = { S: 'M', M: 'L', L: 'S' }
 
-export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions, feedback, midiTargets = [] }: ControlCellProps) => {
+export const ControlCell = ({ item, modules, title, editing, readoutTrack, columns, first, last, onSet, actions, feedback, midiTargets = [] }: ControlCellProps) => {
   const [over, setOver] = useState(false)
   const { node } = item
   const shape = describeNode(node, modules)
-  const span = spanOf(item)
+  const span = fitSpan(spanOf(item), columns, item.kind)
 
   const widget = (() => {
     if (!shape) return <p className={styles.missing}>{title} is not available</p>

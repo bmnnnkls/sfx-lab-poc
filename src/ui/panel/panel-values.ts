@@ -60,5 +60,20 @@ export const spanOf = (item: Pick<PanelItem, 'kind' | 'size' | 'horizontal'>): S
   }
 }
 
+/**
+ * A span that fits a board of `columns` columns: a wider one takes the columns there are. A knob stays square (its rows
+ * shrink with it), a pad keeps its shape as near as two rows or more allow, and anything else keeps its rows.
+ */
+export const fitSpan = (span: Span, columns: number, kind: PanelItem['kind']): Span => {
+  const cols = Math.max(1, Math.floor(columns))
+  if (span.cols <= cols) return span
+  if (kind === 'knob') return { cols, rows: cols }
+  if (kind === 'xy') return { cols, rows: Math.max(2, Math.round((span.rows * cols) / span.cols)) }
+  return { cols, rows: span.rows }
+}
+
+/** The columns a board of `width` px (inside its padding) has: as many as fit at `minimum` px with `gap` between. */
+export const boardColumns = (width: number, minimum: number, gap: number): number => Math.max(1, Math.floor((width + gap) / (minimum + gap)))
+
 /** The widest a knob may draw, in px, for its size. */
 export const knobWidth = (size: ControlSize): number => (size === 'S' ? 64 : size === 'M' ? 112 : 160)

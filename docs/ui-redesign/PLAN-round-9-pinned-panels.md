@@ -398,3 +398,15 @@ What turned out different from the design above, step by step.
 * **Step 2: the pin's menu.** *Open* applies while the pin's graph exists; the other entries while the graph is pinned,
   so an editor's toggle can run `pin.unpin` on a subject it makes. `group.pin` and `master.pin` share
   `effectsPinAction` (`state/actions/pin.ts`). The limit counts every stored pin, shown or not.
+* **Step 3: `ui` can't import zustand, so the narrower subscription is a hook in `state`:** `useProjectSelect(select,
+  equal)` (`state/project-select.ts`), on `useSyncExternalStore`, re-renders only when `equal` says the selected value
+  changed. `PanelView` selects its controls' base values as a list (`sameItems`).
+* **Step 3: `EffectiveValue` was narrowed too.** Every control on a panel has one, and it read the whole project, so a
+  knob turn anywhere re-rendered every control's feedback on every panel. It now selects its target's resolution and
+  MIDI mapping; whether Touch could record is read from the store when the status updates.
+* **Step 3: the columns are counted by `boardColumns(width, 104, gap)`,** from the board's width inside its padding and
+  its computed gap, and are unlimited until the first measurement (a layout effect, before the first paint).
+* **Step 3: a pad's rows shrink in proportion to its columns,** never under two: an L pad (3 × 3) is 2 × 2 at two
+  columns, and every pad is 1 × 2 at one.
+* **Step 3: the pinned variant's empty state is a line:** "No controls yet." with *Open*, which `PanelView` takes as
+  `onOpen`, so it runs no action itself.
