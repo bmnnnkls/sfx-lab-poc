@@ -388,3 +388,13 @@ What turned out different from the design above, step by step.
 * **Step 1: the fixture was written by a throwaway test from a built project:** the demo with Bass in a bus group
   (*Low end*), and pins of Lead's instrument and notes, Pad's instrument, the bus (collapsed) and the master; then Pad
   was removed.
+* **Step 2: `revealPin` pins and posts the `pinRequest` only;** revealing the view came with step 4, since `pinned`
+  isn't a `ViewId` before it.
+* **Step 2: an action's `inline` can depend on the subject.** `track.pin` is inline on an audio or return track and a
+  submenu on an instrument track; `track.unpin` is inline when one panel is pinned (*Unpin notes panel*).
+* **Step 2: `track.pin` is hidden when every panel of the track is pinned.** So an audio or return track's menu toggles
+  between *Pin effects panel* and *Unpin effects panel*, as a bus's and the master's do, and an instrument track with
+  all three pinned shows only *Unpin panel ▸*.
+* **Step 2: the pin's menu.** *Open* applies while the pin's graph exists; the other entries while the graph is pinned,
+  so an editor's toggle can run `pin.unpin` on a subject it makes. `group.pin` and `master.pin` share
+  `effectsPinAction` (`state/actions/pin.ts`). The limit counts every stored pin, shown or not.

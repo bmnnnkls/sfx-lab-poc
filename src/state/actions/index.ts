@@ -8,6 +8,7 @@ import { libraryFolderActions, libraryItemActions } from './library'
 import { masterActions } from './master'
 import { moduleActions } from './module'
 import { canvasActions, nodeActions } from './nodes'
+import { pinActions } from './pin'
 import { regionActions } from './region'
 import { sampleActions } from './sample'
 import { sceneActions } from './scene'
@@ -44,6 +45,7 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   lane: laneActions,
   control: controlActions,
   sound: soundActions,
+  pin: pinActions,
 }
 
 /** The actions of a subject's kind, in menu order. Nothing else picks actions. */
@@ -77,7 +79,7 @@ export const describeActions = (subject: Subject, context: ActionContext): reado
       takesFocus: !!action.takesFocus,
       enabled: action.enabled?.(subject, context) ?? true,
       choices: action.choices?.(subject, context),
-      inline: !!action.inline,
+      inline: typeof action.inline === 'function' ? action.inline(subject, context) : !!action.inline,
     }))
 
 export interface RunOptions {

@@ -1,4 +1,5 @@
-import type { ControlOwner } from '@core'
+import { type ControlOwner, type PanelPin, isPinned, pinKey } from '@core'
+import { useGraphViewStore } from './graph-view-store'
 import { type ViewId, useLayoutStore } from './layout-store'
 import { useProjectStore } from './project-store'
 import { useSelectionStore } from './selection-store'
@@ -40,6 +41,23 @@ export const openMasterEffects = () => {
 export const openGroupEffects = (groupId: string) => {
   useSelectionStore.getState().selectGroup(groupId)
   reveal('effects')
+}
+
+/** Pins a graph's front panel when it isn't pinned, and asks the Pinned view to show it. */
+export const revealPin = (pin: Pick<PanelPin, 'owner' | 'graph'>) => {
+  const store = useProjectStore.getState()
+  store.pinPanel(pin)
+  if (!isPinned(useProjectStore.getState().project, pin)) return
+  useGraphViewStore.getState().requestPin(pinKey(pin))
+}
+
+const EDITORS = { patch: 'instrument', fx: 'effects', notes: 'notes' } as const
+
+/** Selects a pin's owner and shows the editor of its graph, in the mode (Graph or Panel) that editor was in. */
+export const openPinnedEditor = ({ owner, graph }: Pick<PanelPin, 'owner' | 'graph'>) => {
+  if (owner.kind === 'track') openTrackView(owner.trackId, EDITORS[graph])
+  else if (owner.kind === 'group') openGroupEffects(owner.groupId)
+  else openMasterEffects()
 }
 
 /** Edit an automation slot of the master or a return track. */
