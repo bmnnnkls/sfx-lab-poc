@@ -229,7 +229,7 @@ group gets what a track has after its instrument.
 
 ## Round 9: pinned panels
 
-**Planned** 2026-10-29; see the [plan](PLAN-round-9-pinned-panels.md), waiting for sign-off. Its inventory changes the
+**Planned** 2026-10-29; see the [plan](PLAN-round-9-pinned-panels.md), signed off as proposed. Its inventory changes the
 outline below: round 4 left no narrow front panel, so wide controls are capped at the columns a panel has, in every
 panel; a pin is an owner and a graph, so a bus's effects (round 8), the master's and a track's notes can be pinned too;
 pins are view edits, not undone, so a pin whose graph is gone is kept unshown (undo shows it again) instead of being
@@ -330,6 +330,6 @@ Deliberately last, so it restyles a stable structure.
 | Hidden tracks: saved with the project or per browser | **Settled in round 7:** with the project, outside undo | round 7 |
 | A group's output: picked, or following the nesting | **Settled in round 8's plan:** following the nesting (nearest enclosing bus, else the master), no picker | round 8 |
 | Automation of a group's controls | **Settled in round 8's plan:** not in round 8; on the arrangement's lanes (round 12) | round 8 |
-| Pinned panels: saved with the project or per browser, and undone or not | **Proposed in round 9's plan:** with the project, as view edits that undo doesn't change (round 7's rule for collapse and hide) | round 9 |
+| Pinned panels: saved with the project or per browser, and undone or not | **Settled in round 9's plan:** with the project, as view edits that undo doesn't change (round 7's rule for collapse and hide) | round 9 |
 | Wave editor: destructive edits vs. derived samples | destructive with undo, original kept until project save | round 11 SPEC |
 | Stereo samples throughout the engine, or only in the editor | throughout (needed for the wave editor to be honest) | round 11 SPEC |

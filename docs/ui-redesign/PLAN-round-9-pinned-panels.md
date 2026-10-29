@@ -1,6 +1,6 @@
 # Round 9: pinned panels
 
-Status: **planned** 2026-10-29, waiting for sign-off on the decisions. Part of the [UI redesign](README.md). Carries out
+Status: **planned** 2026-10-29, decisions signed off as proposed. Part of the [UI redesign](README.md). Carries out
 [roadmap § Round 9](DRAFT-roadmap.md#round-9-pinned-panels), from an inventory of the front panel, the graph editors, the
 layout store and view registry, the secondary sidebar, the actions, and of what a pin must survive, taken on
 `feat/ui-redesign` at `5b6bb5f` (round 8 merged).
@@ -344,6 +344,8 @@ unchanged. Anything else a reviewer notices is a bug in this round.
   | Component renders (dev) | 145 | | 173 | | 87 | | |
 
 ## Decisions to sign off
+
+Signed off 2026-10-29: every row as proposed.
 
 | Question | Proposed | Notes |
 |---|---|---|
