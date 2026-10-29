@@ -23,6 +23,8 @@ export interface LayoutShell {
   reset(): void
   /** Replace the model with the layout saved under this name. */
   load(name: string): void
+  /** Replace the model with a built-in layout. */
+  loadPreset(id: string): void
   /** Save the current model under this name. */
   saveAs(name: string): void
 }
@@ -200,6 +202,10 @@ export class FlexLayoutDriver implements LayoutDriver {
 
   load(name: string): void {
     this.shell.load(name)
+  }
+
+  loadPreset(id: string): void {
+    this.shell.loadPreset(id)
   }
 
   saveAs(name: string): void {

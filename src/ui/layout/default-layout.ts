@@ -1,5 +1,5 @@
 import { DEFAULT_LAYOUT, groupIn, type RegionId, type ViewId } from '@state'
-import type { IBorderLocation, IGlobalAttributes, IJsonBorderNode, IJsonModel, IJsonTabNode, IJsonTabSetNode } from 'flexlayout-react'
+import type { IBorderLocation, IGlobalAttributes, IJsonBorderNode, IJsonModel, IJsonRowNode, IJsonTabNode, IJsonTabSetNode } from 'flexlayout-react'
 import { viewMinSizes, viewTitles, viewTooltips } from './view-titles'
 
 /** The sidebars are flexlayout borders; the editor area and the panel are tab groups in its main layout. */
@@ -119,3 +119,60 @@ export const defaultLayout = ({ editorView, panelWeight = DEFAULT_PANEL_WEIGHT }
 /** Where a view sits in the default layout, and so where it goes when a layout is missing it. */
 export const defaultRegionOf = (id: ViewId): RegionId =>
   DEFAULT_LAYOUT.groups.find((group) => group.views.includes(id))?.region ?? 'editor'
+
+/** The built-in layouts, above the named ones. Their ids are stable: commands and keys name them. */
+export type LayoutPreset = 'compose' | 'arrange' | 'sound-design' | 'mix'
+
+export const LAYOUT_PRESETS: readonly { readonly id: LayoutPreset; readonly title: string }[] = [
+  { id: 'compose', title: 'Compose' },
+  { id: 'arrange', title: 'Arrange' },
+  { id: 'sound-design', title: 'Sound design' },
+  { id: 'mix', title: 'Mix' },
+]
+
+/** The tab group the *Sound design* layout splits off the editor area for Instrument. */
+export const SOUND_DESIGN_GROUP = 'editor-instrument'
+
+const showing = (group: IJsonTabSetNode, view: ViewId): IJsonTabSetNode => ({ ...group, selected: group.children!.findIndex((tab) => tab.id === view) })
+const without = (group: IJsonTabSetNode, view: ViewId): IJsonTabSetNode => ({ ...group, children: group.children!.filter((tab) => tab.id !== view) })
+
+/**
+ * A built-in layout, made from the default one, so every view is in it once.
+ * * *Compose*: Session in the editor area, the panel on Clip.
+ * * *Arrange*: Arrangement in the editor area, the panel on Mixer.
+ * * *Sound design*: the editor area split, Instrument (moved from the panel) beside the Wave editor; the panel on
+ *   Effects; the secondary sidebar open on Sounds.
+ * * *Mix*: Mixer moved to the editor area and showing; the panel collapsed.
+ */
+export const presetLayout = (id: LayoutPreset): IJsonModel => {
+  const json = defaultLayout()
+  const column = json.layout.children![0]!
+  const [editor, panel] = column.children as [IJsonTabSetNode, IJsonTabSetNode]
+  const set = (...children: (IJsonRowNode | IJsonTabSetNode)[]): IJsonModel => ({ ...json, layout: { ...json.layout, children: [{ ...column, children }] } })
+  switch (id) {
+    case 'compose':
+      return set(showing(editor, 'session'), showing(panel, 'clip'))
+    case 'arrange':
+      return set(showing(editor, 'arrangement'), showing(panel, 'mixer'))
+    case 'sound-design': {
+      const instrument = panel.children!.find((tab) => tab.id === 'instrument')!
+      const split = {
+        type: 'row',
+        weight: editor.weight,
+        children: [
+          { ...showing(editor, 'wave'), weight: 50 },
+          { type: 'tabset', id: SOUND_DESIGN_GROUP, weight: 50, selected: 0, children: [instrument] },
+        ],
+      } satisfies IJsonRowNode
+      const borders = json.borders!.map((border) =>
+        border.location === BORDER_LOCATIONS.secondary
+          ? { ...border, show: true, selected: (border.children ?? []).findIndex((tab) => tab.id === 'sounds') }
+          : border)
+      return { ...set(split, showing(without(panel, 'instrument'), 'effects')), borders }
+    }
+    case 'mix': {
+      const mixer = panel.children!.find((tab) => tab.id === 'mixer')!
+      return set(showing({ ...editor, children: [...editor.children!, mixer] }, 'mixer'), { ...without(panel, 'mixer'), maxHeight: 0 })
+    }
+  }
+}

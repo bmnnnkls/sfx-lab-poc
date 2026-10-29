@@ -4,7 +4,7 @@ import 'flexlayout-react/style/dark.css'
 import { type MouseEvent, useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useKeyLabel, withKey } from '../commands/CommandHost'
 import { useSpringLoad } from '../shared/drag'
-import { defaultLayout, PANEL_GROUP } from './default-layout'
+import { defaultLayout, LAYOUT_PRESETS, PANEL_GROUP, presetLayout } from './default-layout'
 import './flex-theme.css'
 import { viewOfTab } from './group-focus'
 import { FlexLayoutDriver } from './layout-driver'
@@ -62,6 +62,10 @@ export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) =
       load: (name) => {
         const json = persistence.named(name)
         if (json) replace(json)
+      },
+      loadPreset: (id) => {
+        const preset = LAYOUT_PRESETS.find((candidate) => candidate.id === id)
+        if (preset) replace(presetLayout(preset.id))
       },
       saveAs: (name) => persistence.saveNamed(name, model.toJson()),
     })

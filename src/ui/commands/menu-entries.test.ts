@@ -41,11 +41,12 @@ describe('menus from commands', () => {
   })
 
   it('list the named layouts inline and to delete, and leave no separator at an end or twice', () => {
-    expect(labels(menuEntriesOf(LAYOUT_MENU, context, keys)).slice(3)).toEqual(['—', 'Save layout as…', '—', 'Reset layout'])
+    const PRESETS = ['Compose', 'Arrange', 'Sound design', 'Mix']
+    expect(labels(menuEntriesOf(LAYOUT_MENU, context, keys)).slice(3)).toEqual(['—', ...PRESETS, '—', 'Save layout as…', '—', 'Reset layout'])
     detach = withNames(['Mixing', 'Writing'])
     const entries = menuEntriesOf(LAYOUT_MENU, context, keys)
-    expect(labels(entries).slice(3)).toEqual(['—', 'Mixing', 'Writing', 'Save layout as…', 'Delete…', '—', 'Reset layout'])
-    const remove = entries[7] as MenuSubmenu
+    expect(labels(entries).slice(3)).toEqual(['—', ...PRESETS, '—', 'Mixing', 'Writing', 'Save layout as…', 'Delete…', '—', 'Reset layout'])
+    const remove = entries[12] as MenuSubmenu
     expect(remove.entries.every((entry) => entry.kind !== 'separator' && entry.kind !== 'submenu' && entry.danger)).toBe(true)
     expect(menuEntriesOf([SEPARATOR, 'layout.load', SEPARATOR, SEPARATOR, 'layout.reset', SEPARATOR], context, keys).map((entry) => entry.kind ?? 'action'))
       .toEqual(['submenu', 'separator', 'action'])

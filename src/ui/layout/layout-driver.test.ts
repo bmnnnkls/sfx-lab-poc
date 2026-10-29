@@ -8,7 +8,7 @@ const PANEL_VIEWS = ['instrument', 'effects', 'notes', 'clip', 'mixer']
 
 const driverFor = (json: IJsonModel = defaultLayout()) => {
   const published: LayoutSnapshot[] = []
-  const shell = { reset: vi.fn(), load: vi.fn(), saveAs: vi.fn() }
+  const shell = { reset: vi.fn(), load: vi.fn(), loadPreset: vi.fn(), saveAs: vi.fn() }
   const driver = new FlexLayoutDriver(Model.fromJson(json), (snapshot) => published.push(snapshot), shell)
   return { driver, model: driver.model, published, shell, last: () => published[published.length - 1]! }
 }
@@ -306,6 +306,8 @@ describe('FlexLayoutDriver', () => {
     driver.reset()
     driver.saveAs('Mix')
     driver.load('Mix')
+    driver.loadPreset('mix')
+    expect(shell.loadPreset).toHaveBeenCalledWith('mix')
     expect(shell.reset).toHaveBeenCalledOnce()
     expect(shell.saveAs).toHaveBeenCalledWith('Mix')
     expect(shell.load).toHaveBeenCalledWith('Mix')

@@ -16,7 +16,7 @@ afterEach(() => {
 
 /** A driver that records its calls, as the shell would receive them. */
 const recordingDriver = () => {
-  const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), toggleMaximize: vi.fn(), reset: vi.fn(), load: vi.fn(), saveAs: vi.fn() }
+  const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), toggleMaximize: vi.fn(), reset: vi.fn(), load: vi.fn(), loadPreset: vi.fn(), saveAs: vi.fn() }
   detach = layout().attachDriver(driver)
   return driver
 }
@@ -128,6 +128,8 @@ describe('layout store with a driver', () => {
     expect(driver.saveAs).toHaveBeenCalledWith('Mix')
     layout().loadLayout('Mix')
     expect(driver.load).toHaveBeenCalledWith('Mix')
+    layout().loadPreset('mix')
+    expect(driver.loadPreset).toHaveBeenCalledWith('mix')
   })
 
   it('toggles the main view from the mirror the driver syncs', () => {

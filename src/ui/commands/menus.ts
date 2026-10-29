@@ -1,4 +1,5 @@
 import type { ViewId } from '@state'
+import { LAYOUT_PRESETS } from '../layout/default-layout'
 import { viewTitles } from '../layout/view-titles'
 import { type CommandMenuItem, SEPARATOR } from './menu-entries'
 
@@ -17,8 +18,10 @@ export const FILE_MENU: readonly CommandMenuItem[] = [
 
 const REGIONS: readonly CommandMenuItem[] = ['layout.toggle.primary', 'layout.toggle.panel', 'layout.toggle.secondary']
 
-/** The layouts: the named ones to load, save and delete, and the default. */
+/** The layouts: the built-in ones, the named ones to load, save and delete, and the default. */
 const LAYOUTS: readonly CommandMenuItem[] = [
+  ...LAYOUT_PRESETS.map(({ id, title }) => ({ command: `layout.preset.${id}`, label: title })),
+  SEPARATOR,
   { command: 'layout.load', inline: true },
   'layout.save-as',
   { command: 'layout.delete', label: 'Delete…' },

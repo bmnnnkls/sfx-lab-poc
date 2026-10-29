@@ -633,3 +633,10 @@ What turned out different from the design above, step by step.
 * **Step 5: the *+* add-track popup stays as it was;** its three commands are in the palette.
 * **Step 5: on Apple, Tab and Escape are drawn as words** ("Session view (Tab)"), not ⇥ and ⎋, which read poorly in a
   tooltip.
+* **Step 6: presets load through the layout store,** as named layouts do: `loadPreset(id)` on the store, the driver
+  and the shell (`LayoutShell.loadPreset`), and `Workbench` builds the preset with `presetLayout`. `state` treats the
+  id as opaque; `LAYOUT_PRESETS` in `ui/layout/default-layout.ts` names them.
+* **Step 6: *Sound design*'s second editor group has the id `editor-instrument`.** It is an editor group like any
+  other: a reset or another preset takes it away.
+* **Step 6: the menus name the presets by their own word** (*Compose*, *Mix*), above the named layouts; the palette
+  and the shortcuts dialog say *Compose layout*. The palette's *Load layout* case, left from step 4, came here.

@@ -59,7 +59,7 @@ describe('state commands', () => {
   })
 
   it('maximize the focused view’s group through the driver', () => {
-    const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), toggleMaximize: vi.fn(), reset: vi.fn(), load: vi.fn(), saveAs: vi.fn() }
+    const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), toggleMaximize: vi.fn(), reset: vi.fn(), load: vi.fn(), loadPreset: vi.fn(), saveAs: vi.fn() }
     detach = useLayoutStore.getState().attachDriver(driver)
     runCommand(command('layout.maximize'), contextOf({ origin: 'mixer' }))
     expect(driver.toggleMaximize).toHaveBeenLastCalledWith('mixer')

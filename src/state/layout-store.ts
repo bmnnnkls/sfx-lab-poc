@@ -38,6 +38,8 @@ export interface LayoutDriver {
   reset(): void
   /** Replace the layout with the one saved under this name. */
   load(name: string): void
+  /** Replace the layout with a built-in one, by its id (the shell knows them). */
+  loadPreset(id: string): void
   /** Save the layout under this name, replacing one of the same name. */
   saveAs(name: string): void
 }
@@ -56,6 +58,8 @@ interface LayoutState extends LayoutSnapshot {
   loadLayout(name: string): void
   /** Save the layout under a name, replacing one of the same name. */
   saveLayoutAs(name: string): void
+  /** Replace the layout with a built-in one: *Compose*, *Arrange*, *Sound design*, *Mix*. */
+  loadPreset(id: string): void
   /** Shell only. Returns the detach function. */
   attachDriver(driver: LayoutDriver): () => void
   /** Shell only: mirror the layout after each change to it. */
@@ -137,6 +141,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   // Named layouts live with the shell's model; without a driver there is nothing to save or load.
   loadLayout: (name) => driver?.load(name),
   saveLayoutAs: (name) => driver?.saveAs(name),
+  loadPreset: (id) => driver?.loadPreset(id),
   attachDriver: (next) => {
     driver = next
     return () => {

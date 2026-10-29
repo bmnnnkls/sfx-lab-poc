@@ -1,4 +1,5 @@
 import { type Command, useLayoutStore } from '@state'
+import { LAYOUT_PRESETS } from '../layout/default-layout'
 import { groupToFocus, tabButtonId, viewOfElement } from '../layout/group-focus'
 import { focusedElement, openDialog, showDialog } from './dialogs'
 import { deleteNamedLayout, layoutNames } from './layout-names'
@@ -35,6 +36,12 @@ export const UI_COMMANDS: readonly Command[] = [
       open.returnTo?.focus({ preventScroll: true })
     },
   },
+  ...LAYOUT_PRESETS.map(({ id, title }): Command => ({
+    id: `layout.preset.${id}`,
+    category: 'Layout',
+    title: `${title} layout`,
+    run: () => useLayoutStore.getState().loadPreset(id),
+  })),
   {
     id: 'layout.load',
     category: 'Layout',

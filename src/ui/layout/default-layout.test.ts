@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { type IJsonTabSetNode, Model, RowNode, TabNode, TabSetNode } from 'flexlayout-react'
-import { defaultLayout, defaultRegionOf, panelWeightOf } from './default-layout'
+import { type IJsonModel, type IJsonTabSetNode, Model, RowNode, TabNode, TabSetNode } from 'flexlayout-react'
+import { defaultLayout, defaultRegionOf, LAYOUT_PRESETS, panelWeightOf, presetLayout } from './default-layout'
+import { FlexLayoutDriver } from './layout-driver'
+import { LAYOUT_VERSION, parseLayoutModel } from './layout-storage'
+import { viewTitles } from './view-titles'
 
 describe('default layout', () => {
   it('stacks the editor area over the panel in a column, with Samples, Library and Tracks, and Sounds and Pinned, in collapsed sidebars', () => {
@@ -72,5 +75,41 @@ describe('default layout', () => {
     expect(defaultRegionOf('library')).toBe('primary')
     expect(defaultRegionOf('sounds')).toBe('secondary')
     expect(defaultRegionOf('pinned')).toBe('secondary')
+  })
+})
+
+describe('layout presets', () => {
+  const tabIds = (json: IJsonModel): string[] => {
+    const ids: string[] = []
+    const visit = (node: { id?: string; type?: string; children?: readonly unknown[] }) => {
+      if (node.type === 'tab') ids.push(node.id!)
+      for (const child of node.children ?? []) visit(child as typeof node)
+    }
+    visit(json.layout)
+    for (const border of json.borders ?? []) visit(border)
+    return ids
+  }
+  const visible = (json: IJsonModel) => {
+    const driver = new FlexLayoutDriver(Model.fromJson(json), () => undefined, { reset: () => undefined, load: () => undefined, loadPreset: () => undefined, saveAs: () => undefined })
+    return driver.snapshot()
+  }
+
+  it.each(LAYOUT_PRESETS.map((preset) => preset.id))('%s passes the saved-layout checks unchanged and holds every view once', (id) => {
+    const json = presetLayout(id)
+    expect(parseLayoutModel(LAYOUT_VERSION, json)?.model).toEqual(json)
+    expect(tabIds(json).sort()).toEqual(Object.keys(viewTitles).sort())
+  })
+
+  it('opens the views each names', () => {
+    expect(visible(presetLayout('compose'))).toMatchObject({ visible: ['session', 'clip'], hiddenRegions: ['primary', 'secondary'] })
+    expect(visible(presetLayout('arrange'))).toMatchObject({ visible: ['arrangement', 'mixer'], hiddenRegions: ['primary', 'secondary'] })
+    const sound = visible(presetLayout('sound-design'))
+    expect(sound.visible).toEqual(['wave', 'instrument', 'effects', 'sounds'])
+    expect(sound.hiddenRegions).toEqual(['primary'])
+    expect(sound.groups.find((group) => group.views.includes('instrument'))).toMatchObject({ region: 'editor', views: ['instrument'] })
+    const mix = visible(presetLayout('mix'))
+    expect(mix.visible).toEqual(['mixer'])
+    expect(mix.hiddenRegions).toEqual(['panel', 'primary', 'secondary'])
+    expect(mix.groups.find((group) => group.region === 'editor')?.views).toEqual(['session', 'arrangement', 'wave', 'mixer'])
   })
 })

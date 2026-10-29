@@ -481,3 +481,19 @@ test('View ▸ Show ▸ Mixer shows the Mixer, and the View menu and the tooltip
   await page.getByRole('menu').last().getByRole('menuitem', { name: 'Mixer', exact: true }).click()
   await expect(viewRoot(page, 'Mixer')).toBeVisible()
 })
+
+test('the built-in layouts load from the status bar: Mix fills the editor area with the Mixer, Sound design splits it', async ({ page }) => {
+  await page.goto('/?starter')
+  await layoutMenu(page, 'Mix')
+  await expect(viewRoot(page, 'Mixer')).toBeVisible()
+  await expect(viewRoot(page, 'Instrument')).toBeHidden()
+  await expect(tabStrip(page, 'Mixer').getByRole('tab', { name: 'Session', exact: true })).toBeVisible()
+  await layoutMenu(page, 'Sound design')
+  await expect(viewRoot(page, 'Wave editor')).toBeVisible()
+  await expect(viewRoot(page, 'Instrument')).toBeVisible()
+  await expect(viewRoot(page, 'Effects')).toBeVisible()
+  await expect(viewRoot(page, 'Sounds')).toBeVisible()
+  // A loaded preset is the layout from then on: a reload keeps it.
+  await page.reload()
+  await expect(viewRoot(page, 'Sounds')).toBeVisible()
+})
