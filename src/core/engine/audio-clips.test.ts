@@ -32,7 +32,7 @@ const audioClip = (overrides: Partial<AudioClip> = {}): AudioClip => ({
 const setup = (data: Float32Array = ramp(4 * BEAT), clip: AudioClip = audioClip(), volume = 1, sampleRate = SAMPLE_RATE) => {
   const engine = new Engine(SAMPLE_RATE)
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
-  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate, data } })
+  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate, channels: [data] } })
   engine.apply({ type: 'track/add', kind: 'audio', trackId: 'a', fx: createDefaultFxGraph(), clips: [clip], volume })
   return { engine, clip }
 }
@@ -166,7 +166,7 @@ describe('audio clips in the engine', () => {
     engine.apply({ type: 'clip/launch', trackId: 'a', clipId: 'clip' })
     expect(Math.max(...render(engine, BEAT))).toBe(0)
 
-    engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, data: ramp(4 * BEAT) } })
+    engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, channels: [ramp(4 * BEAT)] } })
     const left = render(engine, 100)
     // One beat has passed, so we are a quarter of the way through the loop.
     expect(left[0]).toBeCloseTo(out(AMPLITUDE * 0.25), 3)

@@ -107,7 +107,7 @@ describe('Engine samples', () => {
   const SAMPLE = {
     id: 'a'.repeat(64),
     sampleRate: SAMPLE_RATE,
-    data: Float32Array.from({ length: 24000 }, (_, i) => 0.8 * Math.sin((2 * Math.PI * 220 * i) / SAMPLE_RATE)),
+    channels: [Float32Array.from({ length: 24000 }, (_, i) => 0.8 * Math.sin((2 * Math.PI * 220 * i) / SAMPLE_RATE))],
   }
 
   const samplerSetup = () => {
@@ -143,7 +143,7 @@ describe('Engine samples', () => {
     const node = patch.nodes.find((n) => n.type === 'sampler')!
     engine.apply({ type: 'track/setPatch', trackId: 't', patch })
     engine.apply({ type: 'sample/add', sample: SAMPLE })
-    engine.apply({ type: 'sample/add', sample: { ...SAMPLE, id: 'b'.repeat(64), data: new Float32Array(24000) } })
+    engine.apply({ type: 'sample/add', sample: { ...SAMPLE, id: 'b'.repeat(64), channels: [new Float32Array(24000)] } })
     engine.apply({ type: 'track/setSample', trackId: 't', nodeId: node.id, sampleId: 'b'.repeat(64) })
     engine.apply({ type: 'clip/launch', trackId: 't', clipId: clip.id })
 

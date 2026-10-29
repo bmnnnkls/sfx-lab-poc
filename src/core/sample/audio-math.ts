@@ -12,15 +12,16 @@ export const toMono = (channels: readonly Float32Array[]): Float32Array => {
   return mono
 }
 
-/** Largest absolute value in each of `buckets` equal slices; for drawing waveform thumbnails. */
-export const computePeaks = (data: Float32Array, buckets: number): Float32Array => {
+/** Largest absolute value of any channel in each of `buckets` equal slices; for drawing waveform thumbnails. */
+export const computePeaks = (channels: readonly Float32Array[], buckets: number): Float32Array => {
   const peaks = new Float32Array(buckets)
-  if (data.length === 0) return peaks
+  const length = channels[0]?.length ?? 0
+  if (length === 0) return peaks
   for (let bucket = 0; bucket < buckets; bucket++) {
-    const start = Math.floor((bucket * data.length) / buckets)
-    const end = Math.max(start + 1, Math.floor(((bucket + 1) * data.length) / buckets))
+    const start = Math.floor((bucket * length) / buckets)
+    const end = Math.max(start + 1, Math.floor(((bucket + 1) * length) / buckets))
     let peak = 0
-    for (let i = start; i < end; i++) peak = Math.max(peak, Math.abs(data[i] ?? 0))
+    for (const data of channels) for (let i = start; i < end; i++) peak = Math.max(peak, Math.abs(data[i] ?? 0))
     peaks[bucket] = peak
   }
   return peaks

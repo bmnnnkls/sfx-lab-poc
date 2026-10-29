@@ -7,16 +7,24 @@ export interface SampleInfo {
   readonly extension: string
   readonly durationSeconds: number
   readonly sampleRate: number
+  /** The original file's channel count (what was imported), not what the engine plays: that is one or two. */
   readonly channels: number
   /** Size of the original file. */
   readonly bytes: number
 }
 
-/** Decoded audio ready for playback by the engine: mono, floating point. */
-export interface SampleData {
-  readonly id: string
+/** Decoded audio: one channel, or two (left, right) of equal length, as floating point. What edits work on. */
+export interface SampleAudio {
   readonly sampleRate: number
-  readonly data: Float32Array
+  readonly channels: readonly Float32Array[]
+}
+
+/**
+ * Decoded audio ready for playback by the engine. Engine code reaches the channels only through `monoAt`,
+ * `channelAt` and `frameCount` (`channels.ts`), so how many it plays is decided there.
+ */
+export interface SampleData extends SampleAudio {
+  readonly id: string
 }
 
 /** Read access to decoded samples, as seen by DSP nodes. */

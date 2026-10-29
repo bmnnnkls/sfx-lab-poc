@@ -2,7 +2,7 @@ import { DEFAULT_TEMPO } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
 import { type Patch, audioSources, sendTargets } from '../patch'
 import type { ArrangementClip, AudioClip, SendLevels } from '../project'
-import type { SampleLookup } from '../sample'
+import { type SampleLookup, frameCount } from '../sample'
 import { AudioClipLauncher, type AudioEvent, type LauncherStatus } from '../session'
 import { ArrangementAudio } from './arrangement-player'
 import { fadeGain, readRegion, regionOf, repitchPosition } from './audio-clip-playback'
@@ -157,7 +157,7 @@ export class AudioTrackRuntime implements PlayableTrack {
     const sample = this.samples.get(clip.sampleId)
     if (!sample) return Infinity
     if (clip.warp === 'repitch') return Math.max(0, Math.ceil((clip.lengthBeats - (timing.beat - startBeat)) / timing.beatsPerSample - 1e-8))
-    const region = regionOf(clip.start, clip.end, sample.data.length)
+    const region = regionOf(clip.start, clip.end, frameCount(sample))
     const left = region.endPos - (position < 0 ? region.startPos : position)
     return Math.max(0, Math.ceil(left / (sample.sampleRate / this.sampleRate) - 1e-8))
   }
@@ -219,8 +219,7 @@ export class AudioTrackRuntime implements PlayableTrack {
     if (!sample) return true // a sample that hasn't arrived yet just plays silence, then joins in phase
 
     const { clip } = voice
-    const { data } = sample
-    const region = regionOf(clip.start, clip.end, data.length)
+    const region = regionOf(clip.start, clip.end, frameCount(sample))
     const regionLength = region.endPos - region.startPos
     const fadeInFrames = clip.fadeIn * sample.sampleRate
     const fadeOutFrames = clip.fadeOut * sample.sampleRate
@@ -252,7 +251,7 @@ export class AudioTrackRuntime implements PlayableTrack {
         if (remaining <= 0) return false
         level *= remaining / tail.total
       }
-      const value = readRegion(data, position, region, clip.loop) * level
+      const value = readRegion(sample, 'mono', position, region, clip.loop) * level
       this.scratch[i] = (this.scratch[i] ?? 0) + value
     }
     return true

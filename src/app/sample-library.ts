@@ -1,5 +1,5 @@
 import { type AudioHost, decodeAudio } from '@audio'
-import { type SampleData, type SampleInfo, computePeaks, createDemoSamples, encodeWav } from '@core'
+import { type SampleAudio, type SampleData, type SampleInfo, computePeaks, createDemoSamples, encodeWav, toMono } from '@core'
 import { type SampleLibrary, usePersistenceStore, useProjectStore, useSampleStore } from '@state'
 import { type SampleStorage, sha256Hex } from '@storage'
 
@@ -35,11 +35,11 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
   const inEngine = new Set<string>()
   const loading = new Map<string, Promise<void>>()
 
-  /** Decoded audio goes to the engine (transferred, not copied) and a thumbnail is kept for the UI. */
-  const deliver = (id: string, decoded: { mono: Float32Array; sampleRate: number }) => {
-    const sample: SampleData = { id, sampleRate: decoded.sampleRate, data: decoded.mono }
-    view().setPeaks(id, computePeaks(decoded.mono, PEAK_BUCKETS))
-    host.send({ type: 'sample/add', sample }, [decoded.mono.buffer])
+  /** Decoded audio goes to the engine (each channel transferred, not copied) and a thumbnail is kept for the UI. */
+  const deliver = (id: string, decoded: { audio: SampleAudio }) => {
+    const sample: SampleData = { id, ...decoded.audio }
+    view().setPeaks(id, computePeaks(sample.channels, PEAK_BUCKETS))
+    host.send({ type: 'sample/add', sample }, sample.channels.map((channel) => channel.buffer as ArrayBuffer))
     inEngine.add(id)
     view().setStatus(id, 'ready')
   }
@@ -101,7 +101,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
         name,
         extension,
         durationSeconds: decoded.durationSeconds,
-        sampleRate: decoded.sampleRate,
+        sampleRate: decoded.audio.sampleRate,
         channels: decoded.channels,
         bytes: bytes.length,
       },
@@ -119,12 +119,13 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
       return
     }
     const decoded = await decodeAudio(bytes)
-    const mono = transform(decoded.mono)
+    const mono = transform(toMono(decoded.audio.channels))
     if (mono.length === 0) {
       notify('error', 'Nothing left after the edit')
       return
     }
-    const wav = encodeWav(mono, decoded.sampleRate)
+    const { sampleRate } = decoded.audio
+    const wav = encodeWav(mono, sampleRate)
     const id = await sha256Hex(wav)
     const name = `${info.name} (${suffix})`.slice(0, 60)
     if (useProjectStore.getState().project.samples.some((sample) => sample.id === id)) {
@@ -137,8 +138,8 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
         id,
         name,
         extension: 'wav',
-        durationSeconds: mono.length / decoded.sampleRate,
-        sampleRate: decoded.sampleRate,
+        durationSeconds: mono.length / sampleRate,
+        sampleRate,
         channels: 1,
         bytes: wav.length,
       },

@@ -56,7 +56,7 @@ for (const rate of [8000, 44100, 48000, 96000]) it(`prepares only a throwaway en
   const project = { ...p, tracks: [{ ...t, noteGraph, clips: [{ id: 'c', name: 'install', lengthBeats: 4, notes: [], automation: [{ id: 'l', enabled: false, target, points: [] }] }] }] }
   const commands = diffProject(null, project), address = { sourceId: 'keyboard', channel: 2, noteId: 'held' }
   const asset = new Float32Array([.1,.2,.3,.4]), savedAsset = asset.slice()
-  commands.push({ type: 'sample/add', sample: { id: 'asset', sampleRate: rate, data: asset } }, { type: 'track/noteOn', trackId: t.id, note: address, pitch: 60, velocity: .5 })
+  commands.push({ type: 'sample/add', sample: { id: 'asset', sampleRate: rate, channels: [asset] } }, { type: 'track/noteOn', trackId: t.id, note: address, pitch: 60, velocity: .5 })
   const processor = new Processor(), reference = new Engine(rate)
   for (const command of commands) { processor.port.onmessage({ data: { kind: 'command', command } }); reference.apply(command) }
   const allRenders = vi.spyOn(Engine.prototype, 'render')

@@ -26,7 +26,7 @@ interface Channel {
 const build = (channels: readonly Channel[]) => {
   const engine = new Engine(SAMPLE_RATE)
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
-  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, data: new Float32Array(4 * BEAT).fill(LEVEL) } })
+  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, channels: [new Float32Array(4 * BEAT).fill(LEVEL)] } })
   for (const channel of channels) {
     const common = { trackId: channel.id, volume: channel.volume ?? 1, ...(channel.output && { output: channel.output }) }
     if (channel.kind === 'return') engine.apply({ type: 'track/add', kind: 'return', fx: channel.fx ?? createDefaultReturnGraph(), ...common })

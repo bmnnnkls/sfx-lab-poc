@@ -35,7 +35,7 @@ export const exportAudioFile = async (
       continue
     }
     const decoded = await decodeAudio(bytes)
-    samples.push({ id, sampleRate: decoded.sampleRate, data: decoded.mono })
+    samples.push({ id, ...decoded.audio })
     if (signal?.aborted) return null
   }
 

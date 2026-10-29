@@ -36,11 +36,11 @@ const fixture = ({ failResume = false }: { failResume?: boolean } = {}) => {
 
 it('keeps the context suspended and later commands queued until ready; transfers initial samples once', async () => {
   const f = fixture(), host = new AudioHost(), bytes = new Float32Array([.1,.2,.3])
-  host.send({ type: 'sample/add', sample: { id: 'asset', sampleRate: 48000, data: bytes } }, [bytes.buffer])
+  host.send({ type: 'sample/add', sample: { id: 'asset', sampleRate: 48000, channels: [bytes] } }, [bytes.buffer])
   const starting = host.start()
   await vi.waitFor(() => expect(f.order).toContain('prepare'))
   expect(bytes.byteLength).toBe(0)
-  expect(f.sent[0]).toMatchObject({ kind: 'command', command: { type: 'sample/add', sample: { data: new Float32Array([.1,.2,.3]) } } })
+  expect(f.sent[0]).toMatchObject({ kind: 'command', command: { type: 'sample/add', sample: { channels: [new Float32Array([.1,.2,.3])] } } })
   expect(f.order).toEqual(['suspend','module','sample/add','prepare'])
   expect(host.isRunning).toBe(false)
   expect(host.recordingBeat()).toBeUndefined()
@@ -55,7 +55,7 @@ it('keeps the context suspended and later commands queued until ready; transfers
 
 it('makes preparation failure terminal after sample transfer and safely ignores later actions', async () => {
   const f = fixture(), host = new AudioHost(), failure = vi.fn(), bytes = new Float32Array([.25, .5])
-  host.send({ type: 'sample/add', sample: { id: 'asset', sampleRate: 48000, data: bytes } }, [bytes.buffer])
+  host.send({ type: 'sample/add', sample: { id: 'asset', sampleRate: 48000, channels: [bytes] } }, [bytes.buffer])
   host.onFailure(failure)
   const starting = host.start()
   await vi.waitFor(() => expect(f.order).toContain('prepare'))

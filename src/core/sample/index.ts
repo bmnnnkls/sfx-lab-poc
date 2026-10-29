@@ -1,4 +1,5 @@
-export type { SampleData, SampleInfo, SampleLookup } from './types'
+export type { SampleAudio, SampleData, SampleInfo, SampleLookup } from './types'
+export { type SampleChannel, channelAt, frameCount, monoAt } from './channels'
 export { SampleBank } from './sample-bank'
 export { computePeaks, toMono } from './audio-math'
 export { type WavBitDepth, encodeWav, encodeWavChannels } from './wav'
