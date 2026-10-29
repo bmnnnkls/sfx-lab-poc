@@ -25,7 +25,7 @@ const useActionEntries = (subject: Subject, context: ActionContext, focusTaken: 
       runAction(item.id, subject, context, { choice })
     }
     if (!item.choices) {
-      entries.push({ label: item.title, danger: item.danger, disabled: !item.enabled, onSelect: () => run() })
+      entries.push({ label: item.title, danger: item.danger, disabled: !item.enabled, ...(item.tooltip && { tooltip: item.tooltip }), onSelect: () => run() })
     } else {
       const choices = item.choices.map((choice) => ({
         label: choice.title,

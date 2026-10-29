@@ -1,4 +1,5 @@
-import { GROUP_COLOURS, type GroupColour, type TrackItem, findGroup, neighbourPlace, tracksInGroup } from '@core'
+import { GROUP_COLOURS, type GroupColour, type TrackItem, findGroup, neighbourPlace, setGroupBus, tracksInGroup } from '@core'
+import { openGroupEffects } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { project } from './lookup'
 import { renameAction } from './rename'
@@ -33,7 +34,7 @@ export const moveAction = <S extends SubjectOf<'track' | 'group'>>(
   },
 })
 
-/** A group of tracks: a folder this round, with a bus from round 8. */
+/** A group of tracks: a folder, or a bus that sums them. */
 export const groupActions: readonly Action<GroupSubject>[] = [
   {
     id: 'group.collapse',
@@ -42,7 +43,41 @@ export const groupActions: readonly Action<GroupSubject>[] = [
     applies: (subject) => groupOf(subject) !== undefined,
     run: (subject) => useProjectStore.getState().setGroupCollapsed(subject.groupId, !groupOf(subject)?.collapsed),
   },
+  {
+    id: 'group.open-effects',
+    title: 'Open effects',
+    group: 'open',
+    applies: (subject) => groupOf(subject)?.bus !== undefined,
+    run: (subject) => openGroupEffects(subject.groupId),
+  },
   renameAction('group', (subject) => groupOf(subject) !== undefined),
+  {
+    id: 'group.bus',
+    title: (subject) => (groupOf(subject)?.bus ? 'Remove bus' : 'Sum to a bus'),
+    tooltip: (subject) =>
+      groupOf(subject)?.bus
+        ? "Send the group's tracks to the next bus out again, and discard the bus's effects"
+        : "Sum the group's tracks into a bus with its own fader, effects and sends",
+    group: 'edit',
+    applies: (subject) => groupOf(subject) !== undefined,
+    // Refused when the bus would make the mix loop.
+    enabled: (subject) => setGroupBus(project(), subject.groupId, !groupOf(subject)?.bus) !== project(),
+    run: (subject) => useProjectStore.getState().setGroupBus(subject.groupId, !groupOf(subject)?.bus),
+  },
+  {
+    id: 'group.mute',
+    title: (subject) => (groupOf(subject)?.muted ? 'Unmute' : 'Mute'),
+    group: 'edit',
+    applies: (subject) => groupOf(subject) !== undefined,
+    run: (subject) => useProjectStore.getState().setGroupMuted(subject.groupId, !groupOf(subject)?.muted),
+  },
+  {
+    id: 'group.solo',
+    title: (subject) => (groupOf(subject)?.soloed ? 'Unsolo' : 'Solo'),
+    group: 'edit',
+    applies: (subject) => groupOf(subject) !== undefined,
+    run: (subject) => useProjectStore.getState().setGroupSoloed(subject.groupId, !groupOf(subject)?.soloed),
+  },
   {
     id: 'group.colour',
     title: 'Colour',

@@ -67,7 +67,7 @@ describe('group', () => {
   beforeEach(() => runAction('track.group', trackSubject('Lead'), fakeContext()))
 
   it('offers what applies to a group', () => {
-    expect(titles(groupSubject())).toEqual(['Collapse', 'Rename', 'Colour', 'Move up', 'Move down', 'Hide tracks', 'Ungroup', 'Delete group and tracks'])
+    expect(titles(groupSubject())).toEqual(['Collapse', 'Rename', 'Sum to a bus', 'Mute', 'Solo', 'Colour', 'Move up', 'Move down', 'Hide tracks', 'Ungroup', 'Delete group and tracks'])
     expect(titles({ kind: 'group', groupId: 'gone' })).toEqual([])
   })
 

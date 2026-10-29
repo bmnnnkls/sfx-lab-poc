@@ -43,10 +43,12 @@ const presetOf = ({ soundId, preset }: SubjectOf<'sound'>) => (preset ? project(
 const libraryItemOf = ({ itemId }: SubjectOf<'library-item'>) => useLibraryStore.getState().catalog.items.find((item) => item.id === itemId)
 const trackOwner = (trackId: string): ControlOwner => ({ kind: 'track', trackId })
 const MASTER: ControlOwner = { kind: 'master' }
+const groupOwner = (groupId: string): ControlOwner => ({ kind: 'group', groupId })
 
 /** The owner of a canvas's graph and which of its graphs it is, at the top level only: never inside a module. */
 const canvasGraph = ({ target, path }: SubjectOf<'canvas'>): { owner: ControlOwner; domain: 'patch' | 'notes' | 'fx' } | undefined => {
   if (path.length > 0 || 'moduleId' in target) return undefined
+  if ('groupId' in target) return { owner: groupOwner(target.groupId), domain: 'fx' }
   return 'trackId' in target ? { owner: trackOwner(target.trackId), domain: target.graph ?? 'patch' } : { owner: MASTER, domain: 'fx' }
 }
 
@@ -176,6 +178,18 @@ export const drops: readonly Drop[] = [
     effect: copies,
     run: async (sound) => recallPresetOn(presetOf(sound)!, MASTER),
   }),
+  // A group with a bus takes effects presets and Group in effects; a folder has no graph to take them.
+  define<'sound', 'group'>({
+    id: 'drop.sound-on-group',
+    payload: 'sound',
+    target: 'group',
+    accepts: (sound, group) => {
+      const preset = presetOf(sound)
+      return !!preset && canRecallPresetOn(preset, groupOwner(group.groupId))
+    },
+    effect: copies,
+    run: async (sound, group) => recallPresetOn(presetOf(sound)!, groupOwner(group.groupId)),
+  }),
   define<'library-item', 'slot'>({
     id: 'drop.library-item-on-slot',
     payload: 'library-item',
@@ -213,6 +227,20 @@ export const drops: readonly Drop[] = [
     run: (payload, _master, context) => {
       const item = libraryItemOf(payload)!
       return replaceGraph(item, insertionScope(item, 'fx', MASTER), context)
+    },
+  }),
+  define<'library-item', 'group'>({
+    id: 'drop.library-item-on-group',
+    payload: 'library-item',
+    target: 'group',
+    accepts: (payload, group) => {
+      const item = libraryItemOf(payload)
+      return !!item && graphFitsOwner(item, groupOwner(group.groupId))
+    },
+    effect: copies,
+    run: (payload, group, context) => {
+      const item = libraryItemOf(payload)!
+      return replaceGraph(item, insertionScope(item, 'fx', groupOwner(group.groupId)), context)
     },
   }),
   define<'library-item', 'canvas'>({

@@ -54,6 +54,8 @@ export interface Action<S extends Subject = Subject> {
   /** Entries are drawn in groups, with a separator between groups: open, edit, clipboard, delete. */
   readonly group: 'open' | 'edit' | 'clipboard' | 'delete'
   readonly danger?: boolean
+  /** What the entry does, when its title doesn't say enough: drawn as its tooltip. */
+  readonly tooltip?: (subject: S, context: ActionContext) => string | undefined
   /** It moves the focus to a field of its own (an in-place rename), so the menu doesn't return it to the trigger. */
   readonly takesFocus?: boolean
   /** Hidden when false: the action makes no sense here (Stop on a return). */

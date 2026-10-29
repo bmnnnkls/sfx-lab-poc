@@ -36,6 +36,12 @@ export const openMasterEffects = () => {
   reveal('effects')
 }
 
+/** Edit the effects on a group's bus (or offer to make one, for a folder). */
+export const openGroupEffects = (groupId: string) => {
+  useSelectionStore.getState().selectGroup(groupId)
+  reveal('effects')
+}
+
 /** Edit an automation slot of the master or a return track. */
 export const openAutomationSlot = (owner: ControlOwner, scene: number) => {
   useSelectionStore.getState().selectAutomation(owner, scene)

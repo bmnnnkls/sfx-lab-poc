@@ -461,3 +461,12 @@ What turned out different from the design above, step by step.
 * **Step 4: `EFFECT_INPUTS` moved to `core/library`,** with `groupIn`, and `state`'s `graphFitsOwner` uses it. The
   Library previews a Group in effect on a test tone in a preview bus group. A library origin on a bus has no `trackId`,
   as on the master.
+* **Step 5: an action can have a `tooltip`,** drawn as the menu entry's `title`. *Sum to a bus* and *Remove bus* use
+  it; *Remove bus* says it discards the bus's effects. *Sum to a bus* is disabled when the bus would make the mix loop.
+* **Step 5: the group menu's order** is *Collapse*, *Open effects* (with a bus), *Rename*, *Sum to a bus* / *Remove
+  bus*, *Mute*, *Solo*, then round 7's entries.
+* **Step 5: `openGroupEffects`** selects the group and reveals Effects, as `openMasterEffects` does. MIDI notes follow
+  `selection.trackId`, which `selectGroup` clears, so a selected group gets no notes without a change there.
+* **Step 5: *Show automation* on a group's control is disabled,** titled "— not on a group yet". *MIDI learn* works.
+* **Step 5: a canvas of a bus graph (`PatchTarget { groupId }`) is a drop target** for library effects too, as a
+  track's or the master's canvas is.

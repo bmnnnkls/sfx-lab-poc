@@ -22,11 +22,12 @@ const update = async (context: ActionContext, edit: (catalog: LibraryCatalog) =>
 export const isInstrumentItem = (value: LibraryCatalog, item: LibraryItem): boolean =>
   item.content.kind === 'instrument' || (item.content.kind === 'preset' && value.revisions.find((revision) => item.content.kind === 'preset' && revision.id === item.content.revisionId)?.payload.kind === 'instrument')
 
-/** The selected track (or the first), or the master: where *Replace selected graph* puts an item. */
+/** The selected track (or the first), group or the master: where *Replace selected graph* puts an item. */
 const selectedOwner = (): ControlOwner => {
   const selection = useSelectionStore.getState()
   const tracks = project().tracks
   const track = tracks.find((candidate) => candidate.id === selection.trackId) ?? tracks[0]
+  if (selection.groupId !== null) return { kind: 'group', groupId: selection.groupId }
   return selection.master ? { kind: 'master' } : { kind: 'track', trackId: track?.id ?? '' }
 }
 

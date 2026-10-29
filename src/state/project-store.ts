@@ -70,7 +70,10 @@ import {
   moveTrack,
   removeGroup,
   setGroupCollapsed,
+  setGroupBus,
   setGroupColour,
+  setGroupMuted,
+  setGroupSoloed,
   setGroupHidden,
   setGroupName,
   setTrackHidden,
@@ -115,6 +118,10 @@ interface ProjectActions {
   removeGroup(groupId: string): void
   setGroupName(groupId: string, name: string): void
   setGroupColour(groupId: string, colour: GroupColour): void
+  /** Makes a group sum its tracks into a bus, or back into a folder (dropping the bus's effects). */
+  setGroupBus(groupId: string, on: boolean): void
+  setGroupMuted(groupId: string, muted: boolean): void
+  setGroupSoloed(groupId: string, soloed: boolean): void
   /** View edits: saved with the project, but not undo steps, and undo and redo keep them. */
   setGroupCollapsed(groupId: string, collapsed: boolean): void
   setTrackHidden(trackId: string, hidden: boolean): void
@@ -310,6 +317,9 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     removeGroup: (groupId) => edit((project) => removeGroup(project, groupId)),
     setGroupName: (groupId, name) => edit((project) => setGroupName(project, groupId, name)),
     setGroupColour: (groupId, colour) => edit((project) => setGroupColour(project, groupId, colour)),
+    setGroupBus: (groupId, on) => edit((project) => setGroupBus(project, groupId, on)),
+    setGroupMuted: (groupId, muted) => edit((project) => setGroupMuted(project, groupId, muted)),
+    setGroupSoloed: (groupId, soloed) => edit((project) => setGroupSoloed(project, groupId, soloed)),
     setGroupCollapsed: (groupId, collapsed) => editView((project) => setGroupCollapsed(project, groupId, collapsed)),
     setTrackHidden: (trackId, hidden) => editView((project) => setTrackHidden(project, trackId, hidden)),
     setGroupHidden: (groupId, hidden) => editView((project) => setGroupHidden(project, groupId, hidden)),

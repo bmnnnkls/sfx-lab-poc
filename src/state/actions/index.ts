@@ -56,6 +56,7 @@ export interface ActionItem {
   readonly title: string
   readonly group: Action['group']
   readonly danger: boolean
+  readonly tooltip?: string
   readonly takesFocus: boolean
   readonly enabled: boolean
   /** For an action that asks which one; drawn as a submenu, or inline as one entry per choice. */
@@ -72,6 +73,7 @@ export const describeActions = (subject: Subject, context: ActionContext): reado
       title: typeof action.title === 'string' ? action.title : action.title(subject, context),
       group: action.group,
       danger: !!action.danger,
+      ...(action.tooltip && { tooltip: action.tooltip(subject, context) }),
       takesFocus: !!action.takesFocus,
       enabled: action.enabled?.(subject, context) ?? true,
       choices: action.choices?.(subject, context),
