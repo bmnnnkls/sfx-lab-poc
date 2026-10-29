@@ -560,3 +560,18 @@ What turned out different from the design above, step by step.
   *Lead instrument*, and the kind's word (*Track*, *Clip*) for a thing that is gone.
 * **Step 1: `toggleMaximize` runs flexlayout's own action through the driver's `intercept`,** so a collapsed panel
   expands first exactly as for the button.
+* **Step 2: the table grows with its commands.** The palette's keys came with the palette (step 4) and F6's with the
+  dispatcher (step 3), so the test "every default names a command in `COMMANDS`" holds at every step.
+* **Step 2: a Mac's two delete keys are two keys.** `keyOf` calls ⌫ `delete` and ⌦ `forwarddelete` on Apple
+  (Backspace and Delete elsewhere), and *Delete* has both by default, so they can be bound apart.
+* **Step 2: Shift+Tab is a second key of *Switch Session and Arrangement*.** The old handler ignored Shift, so
+  Shift+Tab switched views too; the table keeps that.
+* **Step 2: `meta` is the Windows key** elsewhere (`meta+k`), so a binding can tell it from Ctrl. On Apple, ⌃Z no
+  longer undoes: the old handler took Ctrl or ⌘ on every platform, the table takes ⌘ on Apple and Ctrl elsewhere.
+* **Step 2: `keyLabel` lives in `ui/commands/keys.ts` beside `keyOf`,** not in `shortcut-labels.ts`, which keeps
+  `shortcut()` for the piano roll's menu.
+* **Step 2: the scope rules read an element-like value** (`ElementLike`: tag, type, role, `closest`), so they are
+  tested in Node without a DOM. Space-using elements are buttons, `summary`, links with an `href`, checkbox, radio and
+  button inputs, and the roles button, link, checkbox, switch, radio, option, the three menu items and tree item.
+* **Step 2: overrides are read entry by entry.** A file that isn't version 1 with a `keys` object is ignored whole;
+  inside it, an entry that isn't a list of keys is dropped and the others kept. Saving no overrides removes the entry.
