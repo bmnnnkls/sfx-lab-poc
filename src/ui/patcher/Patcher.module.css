@@ -202,9 +202,15 @@
 
 .samplePicker {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-content: center;
   gap: 4px;
   padding: 4px 10px;
+}
+
+/* The picker and Edit share a row; the waveform takes the next. */
+.samplePicker > :last-child {
+  grid-column: 1 / -1;
 }
 
 .selected {

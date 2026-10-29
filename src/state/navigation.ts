@@ -1,8 +1,9 @@
-import { type ControlOwner, type PanelPin, isPinned, pinKey } from '@core'
+import { type ControlOwner, type PanelPin, isPinned, originOf, pinKey, savedFrameCount } from '@core'
 import { useGraphViewStore } from './graph-view-store'
 import { type ViewId, useLayoutStore } from './layout-store'
 import { useProjectStore } from './project-store'
 import { useSelectionStore } from './selection-store'
+import { useWaveEditorStore } from './wave-editor-store'
 
 /*
  * Selecting something and showing it are separate steps. These intents are for code that wants both:
@@ -67,8 +68,17 @@ export const openAutomationSlot = (owner: ControlOwner, scene: number) => {
   reveal('clip')
 }
 
-/** Open a sample in the wave editor. */
-export const openSampleEditor = (sampleId: string) => {
+/**
+ * Open a sample in the wave editor. With a `range` (fractions of the sample, as a clip's trim), the editor selects that
+ * part and zooms to it.
+ */
+export const openSampleEditor = (sampleId: string, range?: { readonly start: number; readonly end: number }) => {
   useSelectionStore.getState().selectSample(sampleId)
   reveal('wave')
+  const info = useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
+  if (!range || !info) return
+  const frames = savedFrameCount(info)
+  const from = Math.max(0, Math.round(range.start * frames))
+  const to = Math.min(frames, Math.round(range.end * frames))
+  if (to > from) useWaveEditorStore.getState().reveal(originOf(info), { from, to, channels: 'both' })
 }

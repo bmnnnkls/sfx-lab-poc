@@ -25,3 +25,13 @@ describe('wave editor store', () => {
     expect(view('a').selection).toBeNull()
   })
 })
+
+describe('reveal', () => {
+  it('selects a part, puts the cursor at its start and asks the editor to zoom to it once', () => {
+    useWaveEditorStore.getState().reveal('origin', { from: 300, to: 100, channels: 'both' })
+    const view = waveViewOf(useWaveEditorStore.getState().views, 'origin')
+    expect(view).toMatchObject({ selection: { from: 100, to: 300, channels: 'both' }, cursor: 100, zoomPending: true })
+    useWaveEditorStore.getState().setView('origin', { zoomPending: false })
+    expect(waveViewOf(useWaveEditorStore.getState().views, 'origin').zoomPending).toBe(false)
+  })
+})

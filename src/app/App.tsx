@@ -7,12 +7,13 @@ import type { Services } from './services'
 
 /** Composition root: wires state, engine, storage and UI together. */
 export const App = ({ services }: { services: Services }) => {
-  const { library, midi, host, storage, persistent, engineControls, projectFiles, sampleLibrary } = services
+  const { library, midi, host, storage, persistent, engineControls, projectFiles, sampleLibrary, cleanUpSamples } = services
 
   useEffect(() => connectEngine(host), [host])
   useEffect(() => startAutosave(storage, persistent), [storage, persistent])
   useEffect(() => sampleLibrary.connect(), [sampleLibrary])
   useEffect(() => midi.connect(), [midi])
+  useEffect(() => cleanUpSamples(), [cleanUpSamples])
 
   return (
     <EngineControlsProvider value={engineControls}>

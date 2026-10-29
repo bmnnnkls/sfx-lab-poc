@@ -19,6 +19,8 @@ export interface WaveEditorView {
   /** Where ▶ plays from without a selection. */
   readonly cursor: number
   readonly selection: WaveSelection | null
+  /** Set by `reveal`: the editor zooms to the selection once it knows its width and has the audio, then clears it. */
+  readonly zoomPending?: boolean
 }
 
 export const DEFAULT_WAVE_VIEW: WaveEditorView = { framesPerPixel: null, startFrame: 0, cursor: 0, selection: null }
@@ -29,6 +31,8 @@ interface WaveEditorState {
   setView(key: string, change: Partial<WaveEditorView>): void
   /** Sets the selection: ordered, and none when it is empty. */
   select(key: string, selection: WaveSelection | null): void
+  /** Selects a part of a sample and asks the editor to zoom to it, once (an entry point opening a clip's trim). */
+  reveal(key: string, selection: WaveSelection): void
 }
 
 /**
@@ -49,6 +53,10 @@ export const useWaveEditorStore = create<WaveEditorState>((set) => ({
       const kept = ordered && ordered.to > ordered.from ? ordered : null
       return { views: { ...state.views, [sampleId]: { ...(state.views[sampleId] ?? DEFAULT_WAVE_VIEW), selection: kept } } }
     }),
+  reveal: (key, selection) => {
+    useWaveEditorStore.getState().select(key, selection)
+    set((state) => ({ views: { ...state.views, [key]: { ...waveViewOf(state.views, key), cursor: Math.min(selection.from, selection.to), zoomPending: true } } }))
+  },
 }))
 
 /** One sample's view, by its origin, or the default for a sample not looked at yet. */

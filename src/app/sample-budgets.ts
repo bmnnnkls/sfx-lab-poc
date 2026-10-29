@@ -17,7 +17,7 @@ export const EDIT_CLEANUP_AGE_MS = 24 * 60 * 60 * 1000
 /** Switches the cleanup of edit-made files off. */
 export const EDIT_CLEANUP_ENABLED = true
 
-/** When the cleanup runs without `requestIdleCallback`: this long after startup. */
+/** The cleanup waits this long after startup, then for the browser to be idle. */
 export const EDIT_CLEANUP_DELAY_MS = 10_000
 
 /** An edit is refused when the site's free storage is under this many times the file it would write. */

@@ -1,6 +1,6 @@
 import { SAMPLE_EDITS, type SampleEditEntry, type SampleInfo, frameCount, originOf, tempoFromName } from '@core'
 import { useProjectStore, useSampleLibrary, useStatusStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useStoredState } from '../shared/use-stored-state'
 import { currentView } from './current-view'
 import { DetailView } from './DetailView'
@@ -31,6 +31,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
   const [loop, setLoop] = useStoredState('sfxlab:wave-loop', false, isBoolean)
   const [copies, setCopies] = useStoredState('sfxlab:wave-edit-copies', false, isBoolean)
   const busy = useWaveAudioStore((state) => state.editing !== null)
+  const zoomPending = useWaveEditorStore((state) => waveViewOf(state.views, key).zoomPending === true)
   const detail = useRef<HTMLDivElement>(null)
 
   const sampleTempo = tempoFromName(sample.name)
@@ -57,6 +58,20 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
     const next = zoomTo(range.from, range.to, width, frames)
     store.setView(key, { framesPerPixel: next.framesPerPixel, startFrame: next.startFrame })
   }
+
+  // An entry point asked to show a part of the sample: zoom to it once the detail has a width and the audio is here.
+  useEffect(() => {
+    if (!zoomPending || !wave) return
+    let frame = 0
+    const tries = { left: 30 }
+    const check = () => {
+      if (!detail.current?.clientWidth && tries.left-- > 0) return void (frame = requestAnimationFrame(check))
+      zoom(waveViewOf(useWaveEditorStore.getState().views, key).selection)
+      useWaveEditorStore.getState().setView(key, { zoomPending: false })
+    }
+    check()
+    return () => cancelAnimationFrame(frame)
+  }, [zoomPending, wave, key])
 
   return (
     <div className={styles.editor} data-testid="sample-editor">

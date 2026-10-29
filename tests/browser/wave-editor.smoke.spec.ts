@@ -189,3 +189,58 @@ test('an edit in place survives a reload, and the clip that played the sample pl
   const clips = project.tracks.filter((track) => track.kind === 'audio').flatMap((track) => track.clips).filter((clip) => clip !== null)
   expect(clips.map((clip) => clip.sampleId)).toEqual([id])
 })
+
+/** The selection's start and end in seconds, from the editor's status line. */
+const selectionOf = async (wave: ReturnType<Page['locator']>) => {
+  const text = (await wave.getByTestId('wave-status').textContent()) ?? ''
+  const match = /^Selection (\d+):(\d+\.\d+) – (\d+):(\d+\.\d+)/.exec(text)
+  if (!match) throw new Error(`No selection in "${text}"`)
+  return { from: Number(match[1]) * 60 + Number(match[2]), to: Number(match[3]) * 60 + Number(match[4]) }
+}
+
+test('a session clip, its region and a sampler open their sample in the Wave editor, at the part they play', async ({ page }) => {
+  await page.goto('/?starter')
+  const samples = await openView(page, 'Samples')
+  await samples.getByRole('button', { name: 'Add demo samples', exact: true }).click()
+  await expect(samples.locator('[data-status="ready"]')).toHaveCount(5)
+  await samples.getByRole('listitem').filter({ hasText: 'Demo Kick' }).getByRole('button', { name: 'New audio track', exact: true }).click()
+  await samples.getByRole('listitem').filter({ hasText: 'Demo Snare' }).getByRole('button', { name: 'New sampler track', exact: true }).click()
+
+  // The clip, trimmed to start about halfway, opens its sample with the trim selected.
+  const session = await openView(page, 'Session')
+  await session.getByRole('button', { name: 'Edit Demo Kick', exact: true }).click()
+  const clip = viewRoot(page, 'Clip')
+  const handle = clip.getByTestId('trim-start')
+  const waveform = (await clip.getByTestId('audio-waveform').boundingBox())!
+  const grip = (await handle.boundingBox())!
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(waveform.x + waveform.width / 2, grip.y + grip.height / 2, { steps: 4 })
+  await page.mouse.up()
+  const start = Number(await handle.getAttribute('aria-valuenow')) / 100
+  expect(start).toBeGreaterThan(0.3)
+  await clip.getByRole('button', { name: 'Edit sample', exact: true }).click()
+  const wave = viewRoot(page, 'Wave editor')
+  await expect(wave.getByTestId('sample-editor')).toContainText('Demo Kick')
+  await expect(wave.getByTestId('wave-status')).toContainText('Selection')
+  const fromClip = await selectionOf(wave)
+  expect(fromClip.from / fromClip.to).toBeCloseTo(start, 1)
+  await wave.getByRole('button', { name: 'Close', exact: true }).click()
+
+  // A region is a copy of the clip, trim and all; its menu opens the same part.
+  await (await openView(page, 'Session')).getByRole('button', { name: '▶ Demo Kick', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Place on arrangement' }).click()
+  const arrangement = await openView(page, 'Arrangement')
+  await arrangement.getByTestId('arrangement-region').first().click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Edit sample' }).click()
+  await expect(wave.getByTestId('sample-editor')).toContainText('Demo Kick')
+  await expect(wave.getByTestId('wave-status')).toContainText('Selection')
+  expect(await selectionOf(wave)).toEqual(fromClip)
+
+  // The sampler's Edit opens the sample it plays.
+  await (await openView(page, 'Session')).getByRole('button', { name: 'Demo Snare', exact: true }).click()
+  const instrument = await openView(page, 'Instrument')
+  await instrument.locator('[data-node]', { hasText: 'Sampler' }).locator('[data-header]').dblclick()
+  await instrument.getByRole('button', { name: 'Edit', exact: true }).click()
+  await expect(wave.getByTestId('sample-editor')).toContainText('Demo Snare')
+})

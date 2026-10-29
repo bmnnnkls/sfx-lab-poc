@@ -1,6 +1,7 @@
 import { arrangementEnd, isAudioContent } from '@core'
 import { openClip, openRegion } from '../navigation'
 import { useProjectStore } from '../project-store'
+import { editSampleOf, sampleInLibrary } from './clip'
 import { clipClipboard } from './clipboards'
 import { project, sessionClipOf } from './lookup'
 import type { Action, SubjectOf } from './types'
@@ -8,6 +9,11 @@ import type { Action, SubjectOf } from './types'
 type RegionSubject = SubjectOf<'region'>
 
 const regionOf = ({ regionId }: RegionSubject) => (project().arrangement ?? []).find((region) => region.id === regionId)
+
+const audioOf = (subject: RegionSubject) => {
+  const content = regionOf(subject)?.content
+  return content && isAudioContent(content) ? content : undefined
+}
 
 /** A region on the arrangement timeline: a copy of a clip at a beat. */
 export const regionActions: readonly Action<RegionSubject>[] = [
@@ -31,6 +37,15 @@ export const regionActions: readonly Action<RegionSubject>[] = [
       const region = regionOf(subject)
       if (region) openClip(region.trackId, region.content.id)
     },
+  },
+  {
+    id: 'region.edit-sample',
+    title: 'Edit sample',
+    group: 'open',
+    tooltip: (subject) => (sampleInLibrary(audioOf(subject)) ? 'Open the sample in the Wave editor, at the part this region plays' : 'The sample is no longer in the library'),
+    applies: (subject) => !!audioOf(subject),
+    enabled: (subject) => sampleInLibrary(audioOf(subject)),
+    run: (subject) => editSampleOf(audioOf(subject)),
   },
   {
     id: 'region.duplicate',

@@ -60,6 +60,23 @@ export class ProjectStorage {
     }
   }
 
+  /**
+   * The raw text of every project slot (current, backup, corrupt, pre-signature), unread ones left out. Cleanup searches
+   * it for sample ids, so even a slot that no longer parses keeps its samples.
+   */
+  slotTexts(): string[] {
+    const texts: string[] = []
+    for (const key of [KEYS.current, KEYS.backup, KEYS.corrupt, KEYS.preSignatureV9]) {
+      try {
+        const text = this.store.getItem(key)
+        if (text !== null) texts.push(text)
+      } catch {
+        // Unreadable now: nothing to search.
+      }
+    }
+    return texts
+  }
+
   hasBackup(): boolean {
     try {
       return this.store.getItem(KEYS.backup) !== null

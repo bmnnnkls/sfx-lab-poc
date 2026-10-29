@@ -1,4 +1,4 @@
-import { type ControlTarget, type InstrumentTrack, type Track } from '@core'
+import { type AudioClip, type ControlTarget, type InstrumentTrack, type Track, createArrangementClip, originOf, savedFrameCount } from '@core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useAutomationEditor } from '../automation-store'
 import { useLayoutStore } from '../layout-store'
@@ -6,6 +6,7 @@ import { useMidiStore } from '../midi-store'
 import { useProjectStore } from '../project-store'
 import { useSelectionStore } from '../selection-store'
 import { useStatusStore } from '../status-store'
+import { useWaveEditorStore, waveViewOf } from '../wave-editor-store'
 import { actionsFor, describeActions, runAction, type Subject } from '.'
 import { fakeContext, loadDemo } from './test-support'
 
@@ -78,12 +79,40 @@ describe('action lists', () => {
 })
 
 describe('session clip', () => {
-  it('offers the same entries for MIDI and audio clips, naming the editor', () => {
+  it('offers the same entries for MIDI and audio clips, naming the editor, and Edit sample on audio clips', () => {
     const midi: Subject = { kind: 'clip', trackId: track('Bass').id, clipId: clipOf('Bass', 0).id }
     const audio: Subject = { kind: 'clip', trackId: track('Kick').id, clipId: clipOf('Kick', 0).id }
     expect(titles(midi)).toEqual(['Launch', 'Edit notes', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Copy', 'Cut', 'Delete'])
-    expect(titles(audio)).toEqual(['Launch', 'Edit clip', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Copy', 'Cut', 'Delete'])
+    expect(titles(audio)).toEqual(['Launch', 'Edit clip', 'Edit sample', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Copy', 'Cut', 'Delete'])
     expect(describeActions(midi, fakeContext()).find((item) => item.id === 'clip.delete')).toMatchObject({ group: 'delete', danger: true })
+  })
+
+  it("opens an audio clip's sample in the Wave editor at its trim, while the sample is in the library", () => {
+    const kick = track('Kick'), clip = clipOf('Kick', 0) as AudioClip
+    const sample = project().samples.find((candidate) => candidate.id === clip.sampleId)!
+    useProjectStore.getState().updateAudioClip({ kind: 'session', trackId: kick.id, clipId: clip.id }, { start: 0.25, end: 0.5 })
+    const subject: Subject = { kind: 'clip', trackId: kick.id, clipId: clip.id }
+    runAction('clip.edit-sample', subject, fakeContext())
+    expect(useSelectionStore.getState().sampleId).toBe(sample.id)
+    expect(useLayoutStore.getState().visible).toContain('wave')
+    const frames = savedFrameCount(sample)
+    expect(waveViewOf(useWaveEditorStore.getState().views, originOf(sample))).toMatchObject({
+      selection: { from: Math.round(frames * 0.25), to: Math.round(frames * 0.5), channels: 'both' },
+      zoomPending: true,
+    })
+    // A clip whose sample left the library can't open it.
+    useProjectStore.getState().resetProject({ ...project(), samples: [] })
+    expect(describeActions(subject, fakeContext()).find((item) => item.id === 'clip.edit-sample')).toMatchObject({ enabled: false })
+  })
+
+  it("opens an audio region's sample at its trim, and doesn't apply to MIDI regions", () => {
+    const kick = track('Kick'), clip = { ...(clipOf('Kick', 0) as AudioClip), start: 0.5, end: 1 }
+    useProjectStore.getState().resetProject({ ...project(), arrangement: [createArrangementClip(kick.id, 0, clip)] })
+    const region = project().arrangement![0]!
+    runAction('region.edit-sample', { kind: 'region', regionId: region.id }, fakeContext())
+    const sample = project().samples[0]!
+    expect(useSelectionStore.getState().sampleId).toBe(sample.id)
+    expect(waveViewOf(useWaveEditorStore.getState().views, originOf(sample)).selection).toMatchObject({ from: Math.round(savedFrameCount(sample) / 2), to: savedFrameCount(sample) })
   })
 
   it('launches, or restarts while playing', () => {

@@ -7,7 +7,9 @@ import { ProjectStorage, createMemorySampleEditLog, resolveBrowserStore, resolve
 import { createEngineControls } from './engine-controls'
 import { createProjectFiles } from './project-files'
 import { restoreSavedProject } from './restore-project'
+import { scheduleSampleCleanup } from './sample-cleanup'
 import { type SampleLibraryService, createSampleLibrary } from './sample-library'
+import { useProjectStore } from '@state'
 
 export interface Services {
   readonly library: ReturnType<typeof createDeferredPersonalLibrary>
@@ -18,6 +20,8 @@ export interface Services {
   readonly engineControls: EngineControls
   readonly projectFiles: ProjectFiles
   readonly sampleLibrary: SampleLibraryService
+  /** Schedules the cleanup of files edits wrote that nothing names any more, once; returns a cancel. */
+  readonly cleanUpSamples: () => () => void
 }
 
 /** Builds every long-lived object once, and restores the saved project before anything renders. */
@@ -30,10 +34,20 @@ export const createServices = (): Services => {
   const engineControls = createEngineControls(host)
   const memoryBlobs = new Map<string, Uint8Array>()
   const sampleStorage = typeof indexedDB === 'undefined' ? createMemorySampleStorage(memoryBlobs) : resolveSampleStorage()
-  const library = createDeferredPersonalLibrary(typeof indexedDB === 'undefined' ? createMemoryLibraryStorage(memoryBlobs) : createLibraryStorage(), sampleStorage)
+  const libraryStorage = typeof indexedDB === 'undefined' ? createMemoryLibraryStorage(memoryBlobs) : createLibraryStorage()
+  const library = createDeferredPersonalLibrary(libraryStorage, sampleStorage)
   const sampleEdits = typeof indexedDB === 'undefined' ? createMemorySampleEditLog() : resolveSampleEditLog()
   const sampleLibrary = createSampleLibrary(sampleStorage, host, { edits: sampleEdits })
   const projectFiles = createProjectFiles(storage, sampleStorage, engineControls)
   const midi = createMidiInput(engineControls, undefined, () => { void host.start() })
-  return { library, host, storage, persistent, engineControls: { ...engineControls, stop: () => { midi.releaseNotes(); engineControls.stop() }, panic: midi.panic }, projectFiles, sampleLibrary, midi }
+  const cleanUpSamples = () =>
+    scheduleSampleCleanup({
+      samples: sampleStorage,
+      edits: sampleEdits,
+      slots: () => storage.slotTexts(),
+      catalog: async () => (await libraryStorage.read()).samples,
+      history: () => useProjectStore.getState().history,
+      now: Date.now,
+    })
+  return { cleanUpSamples, library, host, storage, persistent, engineControls: { ...engineControls, stop: () => { midi.releaseNotes(); engineControls.stop() }, panic: midi.panic }, projectFiles, sampleLibrary, midi }
 }
