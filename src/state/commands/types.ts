@@ -20,6 +20,10 @@ export interface Command {
   /** What a menu or the palette shows now, when it differs from the title: *Hide panel*. */
   readonly label?: (context: CommandContext) => string
   readonly tooltip?: string
+  /** Styled as destructive in a menu (*Delete layout*). */
+  readonly danger?: boolean
+  /** It moves the focus to a dialog or field of its own, so a menu doesn't take it back as it closes. */
+  readonly takesFocus?: boolean
   /** False: keys and menus only (the edit verbs). */
   readonly palette?: boolean
   /** A held key runs it again on each repeat (undo, redo). Otherwise a repeat does nothing, and the browser gets nothing. */

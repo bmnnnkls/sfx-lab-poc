@@ -1,0 +1,42 @@
+import type { ViewId } from '@state'
+import { viewTitles } from '../layout/view-titles'
+import { type CommandMenuItem, SEPARATOR } from './menu-entries'
+
+/** File, in the transport bar. */
+export const FILE_MENU: readonly CommandMenuItem[] = [
+  'file.export',
+  'file.export-audio',
+  'file.import',
+  SEPARATOR,
+  'file.new',
+  SEPARATOR,
+  'file.open-example',
+  SEPARATOR,
+  'file.restore-previous',
+]
+
+const REGIONS: readonly CommandMenuItem[] = ['layout.toggle.primary', 'layout.toggle.panel', 'layout.toggle.secondary']
+
+/** The layouts: the named ones to load, save and delete, and the default. */
+const LAYOUTS: readonly CommandMenuItem[] = [
+  { command: 'layout.load', inline: true },
+  'layout.save-as',
+  { command: 'layout.delete', label: 'Delete…' },
+  SEPARATOR,
+  'layout.reset',
+]
+
+/** The status bar's *Layout*: the route to the toggles when the panel's strip is off screen. */
+export const LAYOUT_MENU: readonly CommandMenuItem[] = [...REGIONS, SEPARATOR, ...LAYOUTS]
+
+/** View, after File: the palette, every view, the regions and the layouts. */
+export const VIEW_MENU: readonly CommandMenuItem[] = [
+  'palette.show',
+  SEPARATOR,
+  { submenu: 'Show', items: (Object.keys(viewTitles) as ViewId[]).map((view) => ({ command: `view.show.${view}`, label: viewTitles[view] })) },
+  SEPARATOR,
+  ...REGIONS,
+  'layout.maximize',
+  SEPARATOR,
+  { submenu: 'Layouts', items: LAYOUTS },
+]

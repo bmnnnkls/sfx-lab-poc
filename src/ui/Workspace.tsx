@@ -13,14 +13,14 @@ export const Workspace = () => {
   const layout = useLayoutPersistence()
 
   return (
-    <CommandHost>
+    <CommandHost persistence={layout}>
     <div className={styles.workspace}>
       <TransportBar />
       <div className={styles.body}>
         <ActivityBar />
         <Workbench persistence={layout} />
       </div>
-      <StatusBar persistence={layout} />
+      <StatusBar />
       <ToastStack />
       <TooltipLayer />
     </div>

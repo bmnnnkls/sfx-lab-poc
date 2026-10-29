@@ -610,3 +610,26 @@ What turned out different from the design above, step by step.
   QuickAdd passes its category, keywords and description, so its ranking and tests are unchanged.
 * **Step 4: *Load layout* and the presets wait for steps 5 and 6,** with their palette cases; the named-layout commands
   came with the menus that use them.
+* **Step 5: the named layouts reach the commands through `ui/commands/layout-names.ts`,** a small store the command
+  host attaches the shell's `LayoutPersistence` to. *Load layout* and *Delete layout* apply only while there are
+  names; *Delete layout* is `danger`. `Command` gained `danger` and `takesFocus`.
+* **Step 5: a menu from commands is a list of items** (`CommandMenuItem`: an id; an id with a label of the menu's own
+  or its choices inline; a submenu; a separator), turned into entries by `menuEntriesOf`. Separators a missing command
+  leaves at an end or twice are dropped. The *Layout* menu keeps today's look: the named layouts inline, *Delete… ▸*.
+  *View ▸ Show ▸* names each view by its title (*Mixer*).
+* **Step 5: `PopupMenu` takes a builder** as `ContextMenu` does, called only while the menu is open, so the labels and
+  states (*Hide panel*, *Restore previous*, the names) follow the stores while it stays open (`useCommandEntries`). An
+  entry that `takesFocus` (a dialog, the palette) keeps the menu from giving the focus back to its button.
+* **Step 5: a key in a menu is shown, not part of the entry's name** (`aria-hidden`), as the submenu's ▸ already was,
+  so specs and screen readers find *Hide panel* by what it does. This also applies to the piano roll's menu.
+* **Step 5: the palette opened from a menu gives the focus back to the menu's button,** found through the menus'
+  `aria-labelledby` (`focusedElement`).
+* **Step 5: the tab tooltips of Session and Arrangement are drawn by the workbench** (`onRenderTab`, a titled span),
+  since a tab's `helpText` is saved in the layout and the key can change. `viewTooltips` lost their two entries;
+  `MAIN_VIEW_TOOLTIPS` holds the text before the key. flexlayout's *Maximize* and *Restore* read the key too, so their
+  buttons' names are now "Maximize (⌃⌘M)": the specs find them by `/^Maximize/`.
+* **Step 5: Play and Stop show Space,** the key of *Play or stop*, since neither has a key of its own; a key set on
+  *Play* or *Stop* takes its place. The transport's *Session* and *Arrangement* show Tab the same way.
+* **Step 5: the *+* add-track popup stays as it was;** its three commands are in the palette.
+* **Step 5: on Apple, Tab and Escape are drawn as words** ("Session view (Tab)"), not ⇥ and ⎋, which read poorly in a
+  tooltip.

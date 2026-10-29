@@ -1,6 +1,6 @@
 import { serializeProject, parseProject } from '../../src/core'
 import { samplePresetProject } from './preset-project'
-import { test, expect, expectSaved, openView, viewRoot } from './fixtures'
+import { test, expect, expectSaved, openExample, openView, viewRoot } from './fixtures'
 
 /** A folder's row in the library's tree, named by the folder and its item count. */
 const folderName = (name: string) => new RegExp(`^${name}(, \\d+ items?)?$`)
@@ -73,8 +73,7 @@ test('isolated previews close their audio context on navigation, including cance
     }
   })
   await page.goto('/')
-  await page.getByText('File', { exact: true }).click()
-  await page.getByRole('button', { name: /^Starter/ }).click()
+  await openExample(page, 'Starter')
   await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Preview synth')

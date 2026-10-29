@@ -280,23 +280,23 @@ test('the editor area and the panel maximize inside the window, and restore', as
   const panelToggle = tabStrip(page, 'Instrument').getByRole('button', { name: 'Panel', exact: true })
   const before = (await session.boundingBox())!.height
 
-  await tabStrip(page, 'Session').getByRole('button', { name: 'Maximize', exact: true }).click()
+  await tabStrip(page, 'Session').getByRole('button', { name: /^Maximize/ }).click()
   await expect(instrument).toBeHidden()
   await expect.poll(async () => (await session.boundingBox())!.height).toBeGreaterThan(before + 300)
-  const restore = tabStrip(page, 'Session').getByRole('button', { name: 'Restore', exact: true })
+  const restore = tabStrip(page, 'Session').getByRole('button', { name: /^Restore/ })
   await expect(restore).toHaveAttribute('aria-pressed', 'true')
   await restore.click()
   await expect(instrument).toBeVisible()
   await expect(panelToggle).toHaveAttribute('aria-pressed', 'true')
 
   // With the panel's strip off screen, the layout menu shows the panel, restoring the editor area.
-  await tabStrip(page, 'Session').getByRole('button', { name: 'Maximize', exact: true }).click()
+  await tabStrip(page, 'Session').getByRole('button', { name: /^Maximize/ }).click()
   await expect(instrument).toBeHidden()
   await layoutMenu(page, 'Show panel')
   await expect(instrument).toBeVisible()
   await expect(session).toBeVisible()
 
-  await tabStrip(page, 'Instrument').getByRole('button', { name: 'Maximize', exact: true }).click()
+  await tabStrip(page, 'Instrument').getByRole('button', { name: /^Maximize/ }).click()
   await expect(session).toBeHidden()
   await expect.poll(async () => (await instrument.boundingBox())!.height).toBeGreaterThan(before + 300)
   // Showing a view elsewhere restores the layout.
@@ -311,7 +311,7 @@ test('the editor area and the panel maximize inside the window, and restore', as
   await strip.dblclick({ position: { x: box.width / 2, y: box.height / 2 } })
   await expect(instrument).toBeVisible()
   await expect(session).toBeHidden()
-  await strip.getByRole('button', { name: 'Restore', exact: true }).click()
+  await strip.getByRole('button', { name: /^Restore/ }).click()
   await expect(session).toBeVisible()
 })
 
@@ -464,4 +464,20 @@ test('in a window smaller than the minimums, the groups shrink beside open sideb
   // Below its minimum a view scrolls inside its own root.
   const session = viewRoot(page, 'Session')
   expect(await session.evaluate((root) => root.scrollWidth > root.clientWidth)).toBe(true)
+})
+
+test('View ▸ Show ▸ Mixer shows the Mixer, and the View menu and the tooltips name the keys', async ({ page }) => {
+  await page.goto('/?starter')
+  const apple = process.platform === 'darwin'
+  await expect(tabStrip(page, 'Session').getByRole('button', { name: /^Maximize/ })).toHaveAttribute('title', `Maximize (${apple ? '⌃⌘M' : 'Ctrl+Alt+M'})`)
+  await expect(tabStrip(page, 'Instrument').getByRole('button', { name: 'Panel', exact: true })).toHaveAttribute('title', `Toggle panel (${apple ? '⌃⌘J' : 'Ctrl+Alt+J'})`)
+  await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveAttribute('title', `Undo (${apple ? '⌘Z' : 'Ctrl+Z'})`)
+  await expect(viewRoot(page, 'Mixer')).toBeHidden()
+  await page.getByRole('banner').getByRole('button', { name: 'View', exact: true }).click()
+  await expect(page.getByRole('menuitem', { name: 'Hide panel', exact: true })).toContainText(apple ? '⌃⌘J' : 'Ctrl+Alt+J')
+  // Into the submenu with the keyboard (a jump of the mouse closes a submenu).
+  await page.getByRole('menuitem', { name: 'Show', exact: true }).focus()
+  await page.keyboard.press('ArrowRight')
+  await page.getByRole('menu').last().getByRole('menuitem', { name: 'Mixer', exact: true }).click()
+  await expect(viewRoot(page, 'Mixer')).toBeVisible()
 })

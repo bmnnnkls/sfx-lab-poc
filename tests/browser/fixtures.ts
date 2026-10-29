@@ -149,9 +149,19 @@ export const dockAtSize = async (page: Page, title: ViewTitle, size: { width?: n
   return root
 }
 
+/** Opens the File menu in the transport bar. Its entries are `menuitem`s. */
+export const openFileMenu = async (page: Page) => {
+  await page.getByRole('banner').getByRole('button', { name: 'File', exact: true }).click()
+  await expect(page.getByRole('menu')).toBeVisible()
+}
+
+/** File ▸ Open example ▸ an example by its title, or *Starter*. */
 export const openExample = async (page: Page, name: string) => {
-  await page.getByText('File', { exact: true }).click()
-  await page.getByRole('button', { name: new RegExp(`^${name}`) }).click()
+  await openFileMenu(page)
+  // Into the submenu with the keyboard: a jump of the mouse closes a submenu.
+  await page.getByRole('menuitem', { name: 'Open example', exact: true }).focus()
+  await page.keyboard.press('ArrowRight')
+  await page.getByRole('menu').last().getByRole('menuitem', { name, exact: true }).click()
   await expect(page.getByLabel('Project name')).toHaveValue(name === 'Starter' ? 'Demo project' : name)
 }
 

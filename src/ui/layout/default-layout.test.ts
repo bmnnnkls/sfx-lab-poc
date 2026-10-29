@@ -36,7 +36,9 @@ describe('default layout', () => {
     const model = Model.fromJson(defaultLayout())
     const session = model.getNodeById('session') as TabNode
     expect(session.getName()).toBe('Session')
-    expect(session.getHelpText()).toBe('Session view (Tab)')
+    expect((model.getNodeById('mixer') as TabNode).getHelpText()).toBe('Mixer: a channel strip for every track, the returns and the master')
+    // Session's tooltip names its key, which can change, so the workbench draws it.
+    expect(session.getHelpText()).toBeUndefined()
     expect((model.getNodeById('clip') as TabNode).getHelpText()).toBeUndefined()
   })
 

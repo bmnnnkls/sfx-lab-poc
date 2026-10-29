@@ -1,10 +1,14 @@
-import { useProjectFiles } from '@state'
-import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react'
+import { useLayoutStore, useProjectFiles } from '@state'
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { ExportAudioDialog } from '../file-menu/ExportAudioDialog'
+import { SaveLayoutDialog } from '../layout/SaveLayoutDialog'
+import type { LayoutPersistence } from '../layout/use-layout-persistence'
 import { useActionContext } from '../shared/menu'
 import { type Binding, bindingsOf, DEFAULT_KEYS, type KeyOverrides, keysOf, loadOverrides, saveOverrides } from './keybindings'
 import { IS_APPLE, keyLabel } from './keys'
 import { CommandPalette } from './CommandPalette'
 import { showDialog, useOpenDialog } from './dialogs'
+import { attachLayoutNames, layoutNamesChanged, useLayoutNames } from './layout-names'
 import { type CommandServices, useKeybindings } from './use-keybindings'
 
 interface Keybindings {
@@ -21,10 +25,11 @@ const KeybindingsContext = createContext<Keybindings | null>(null)
 
 /**
  * Mounted once around the workspace: the keys in effect (read once, saved on each change), the global key listener,
- * and the context the labels read. It renders only when the bindings change, so a tooltip with a key re-renders then
- * and only then.
+ * the context the labels read, and the palette and dialogs commands open. It renders only when the bindings change,
+ * so a tooltip with a key re-renders then and only then.
  */
-export const CommandHost = ({ children }: { children: ReactNode }) => {
+export const CommandHost = ({ persistence, children }: { persistence: LayoutPersistence; children: ReactNode }) => {
+  useEffect(() => attachLayoutNames(persistence), [persistence])
   const [overrides, setState] = useState(loadOverrides)
   const bindings = useMemo(() => bindingsOf(DEFAULT_KEYS, overrides, IS_APPLE), [overrides])
   const setOverrides = useCallback((next: KeyOverrides) => {
@@ -46,11 +51,25 @@ export const CommandHost = ({ children }: { children: ReactNode }) => {
 
 const close = () => showDialog(null)
 
+const saveLayout = (name: string) => {
+  useLayoutStore.getState().saveLayoutAs(name)
+  layoutNamesChanged()
+}
+
 /** The palette and the dialogs commands open; only this re-renders when one opens or closes. */
 const HostDialogs = () => {
   const dialog = useOpenDialog()
-  if (dialog?.kind === 'palette') return <CommandPalette context={dialog.context} returnTo={dialog.returnTo} onClose={close} />
-  return null
+  const names = useLayoutNames()
+  switch (dialog?.kind) {
+    case 'palette':
+      return <CommandPalette context={dialog.context} returnTo={dialog.returnTo} onClose={close} />
+    case 'save-layout':
+      return <SaveLayoutDialog names={names} onSave={saveLayout} onClose={close} />
+    case 'export-audio':
+      return <ExportAudioDialog onClose={close} />
+    default:
+      return null
+  }
 }
 
 export const useKeybindingsContext = (): Keybindings => {

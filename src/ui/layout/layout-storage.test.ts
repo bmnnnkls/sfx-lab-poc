@@ -137,10 +137,13 @@ describe('parseStoredLayout', () => {
     const json = defaultLayout()
     json.global = { tabEnableClose: true }
     group(json, 'editor').children![0] = { type: 'tab', id: 'session', component: 'view', name: 'Old name', helpText: 'old' }
+    group(json, 'editor').children![2] = { type: 'tab', id: 'wave', component: 'view', name: 'Old name', helpText: 'old' }
     group(json, 'panel').enableDeleteWhenEmpty = true
     const parsed = parse(stored(json))!
     expect(parsed.global).toEqual(GLOBAL_ATTRIBUTES)
-    expect(group(parsed, 'editor').children![0]).toMatchObject({ name: 'Session', helpText: 'Session view (Tab)' })
+    expect(group(parsed, 'editor').children![0]).toMatchObject({ name: 'Session' })
+    expect(group(parsed, 'editor').children![0]).not.toHaveProperty('helpText')
+    expect(group(parsed, 'editor').children![2]).toMatchObject({ name: 'Wave editor', helpText: 'Wave editor: normalize, reverse, trim and fade a sample' })
     expect(group(parsed, 'panel').enableDeleteWhenEmpty).toBe(false)
   })
 })

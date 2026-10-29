@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { unzipSync, strFromU8 } from 'fflate'
-import { test, expect, openExample, expectSound, expectSaved, openView, viewRoot } from './fixtures'
+import { test, expect, openExample, expectSound, expectSaved, openView, viewRoot, openFileMenu } from './fixtures'
 
 test('both examples play through the production AudioWorklet', async ({ page }) => {
   await page.goto('/')
@@ -51,10 +51,10 @@ test('a sample package restores project and audio bytes into a fresh browser', a
   await expectSaved(page)
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('sfxlab:project')!))
 
-  await page.getByText('File', { exact: true }).click()
+  await openFileMenu(page)
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export to file…', exact: true }).click(),
+    page.getByRole('menuitem', { name: 'Export to file…', exact: true }).click(),
   ])
   expect(download.suggestedFilename()).toBe('smoke-package.sfxlab')
   const packagePath = testInfo.outputPath('smoke-package.sfxlab')
@@ -75,10 +75,10 @@ test('a sample package restores project and audio bytes into a fresh browser', a
     await imported.goto(new URL('/?starter', page.url()).href)
     await openView(imported, 'Samples')
     await expect(imported.getByRole('listitem')).toHaveCount(0)
-    await imported.getByText('File', { exact: true }).click()
+    await openFileMenu(imported)
     const [chooser] = await Promise.all([
       imported.waitForEvent('filechooser'),
-      imported.getByRole('button', { name: 'Import from file…', exact: true }).click(),
+      imported.getByRole('menuitem', { name: 'Import from file…', exact: true }).click(),
     ])
     await chooser.setFiles(packagePath)
     await expect(imported.getByLabel('Project name')).toHaveValue('Smoke package')

@@ -8,6 +8,8 @@ export interface MenuAction {
   readonly danger?: boolean
   /** Says more than the label, on hover. */
   readonly tooltip?: string
+  /** It moves the focus to a dialog or field of its own, so the menu doesn't give it back to its button as it closes. */
+  readonly takesFocus?: boolean
   onSelect(): void
 }
 

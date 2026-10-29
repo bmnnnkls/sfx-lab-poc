@@ -61,7 +61,7 @@ describe('keyLabel', () => {
     ['backspace', 'Backspace', 'Backspace'],
     ['shift+f6', '⇧F6', 'Shift+F6'],
     ['space', 'Space', 'Space'],
-    ['tab', '⇥', 'Tab'],
+    ['tab', 'Tab', 'Tab'],
     ['alt+p', '⌥P', 'Alt+P'],
   ])('%s', (key, apple, other) => {
     expect(keyLabel(key, true)).toBe(apple)

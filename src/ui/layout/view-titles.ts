@@ -21,16 +21,23 @@ export const viewTitles: Readonly<Record<ViewId, string>> = {
   pinned: 'Pinned',
 }
 
-/** The tooltips of the tabs that have one. */
+/**
+ * The tooltips of the tabs that have one. Session's and Arrangement's name their key, which can change, so the
+ * workbench draws them (`MAIN_VIEW_TOOLTIPS`).
+ */
 export const viewTooltips: Readonly<Partial<Record<ViewId, string>>> = {
-  session: 'Session view (Tab)',
-  arrangement: 'Arrangement view (Tab)',
   wave: 'Wave editor: normalize, reverse, trim and fade a sample',
   effects: "Effects: process the track's sound after the instrument (or the samples) and before the fader",
   notes: 'MIDI effects: change the notes before they reach the instrument',
   mixer: 'Mixer: a channel strip for every track, the returns and the master',
   tracks: 'Tracks: group, order, hide and show the tracks',
   pinned: 'Pinned: track panels to play while you work elsewhere',
+}
+
+/** Session's and Arrangement's tab tooltips, before the key that switches them. */
+export const MAIN_VIEW_TOOLTIPS: Readonly<Partial<Record<ViewId, string>>> = {
+  session: 'Session view',
+  arrangement: 'Arrangement view',
 }
 
 export interface ViewMinSize {

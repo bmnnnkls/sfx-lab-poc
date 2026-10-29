@@ -63,7 +63,7 @@ const APPLE_ORDER: readonly Modifier[] = ['ctrl', 'alt', 'shift', 'mod']
 const OTHER_ORDER: readonly Modifier[] = ['mod', 'ctrl', 'meta', 'alt', 'shift']
 
 const APPLE_NAMES: Readonly<Record<string, string>> = {
-  delete: '⌫', forwarddelete: '⌦', enter: '↩', escape: '⎋', tab: '⇥', space: 'Space',
+  delete: '⌫', forwarddelete: '⌦', enter: '↩', escape: 'Esc', tab: 'Tab', space: 'Space',
   arrowup: '↑', arrowdown: '↓', arrowleft: '←', arrowright: '→', plus: '+',
 }
 const OTHER_NAMES: Readonly<Record<string, string>> = {

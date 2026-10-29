@@ -1,5 +1,5 @@
 import type { Locator } from '@playwright/test'
-import { test, expect, openView, viewRoot } from './fixtures'
+import { test, expect, openView, viewRoot, openFileMenu } from './fixtures'
 
 /** Runs a lane menu's *Add clip* ▸ entry for a clip, from the menu just opened. */
 const addClip = async (page: import('@playwright/test').Page, name: string) => {
@@ -106,8 +106,8 @@ test('the arrangement bounces to a WAV', async ({ page }) => {
   await addClip(page, 'Root')
   await expect(arrangement.getByTestId('arrangement-region')).toHaveCount(1)
 
-  await page.getByText('File', { exact: true }).click()
-  await page.getByRole('button', { name: 'Export audio (WAV)…', exact: true }).click()
+  await openFileMenu(page)
+  await page.getByRole('menuitem', { name: 'Export audio (WAV)…', exact: true }).click()
   // The timeline has something on it, so the Arrangement scope is offered and defaults to its length
   // (the placed region spans beats 5 to 9: 2.25 bars).
   const scope = page.getByRole('radio', { name: 'Arrangement', exact: true })

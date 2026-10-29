@@ -1,7 +1,8 @@
-import { useLayoutStore } from '@state'
-import { type BorderNode, type IJsonModel, type ITabSetRenderValues, Layout, Model, type TabNode, type TabSetNode } from 'flexlayout-react'
+import { useLayoutStore, type ViewId } from '@state'
+import { type BorderNode, type IJsonModel, type ITabRenderValues, type ITabSetRenderValues, Layout, Model, type TabNode, type TabSetNode } from 'flexlayout-react'
 import 'flexlayout-react/style/dark.css'
-import { type MouseEvent, useLayoutEffect, useRef, useState } from 'react'
+import { type MouseEvent, useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useKeyLabel, withKey } from '../commands/CommandHost'
 import { useSpringLoad } from '../shared/drag'
 import { defaultLayout, PANEL_GROUP } from './default-layout'
 import './flex-theme.css'
@@ -9,6 +10,7 @@ import { viewOfTab } from './group-focus'
 import { FlexLayoutDriver } from './layout-driver'
 import { RegionToggles } from './RegionToggles'
 import type { LayoutPersistence } from './use-layout-persistence'
+import { MAIN_VIEW_TOOLTIPS } from './view-titles'
 import { ViewTab } from './ViewHost'
 import styles from './Workbench.module.css'
 
@@ -19,12 +21,20 @@ const renderTabSet = (node: TabSetNode | BorderNode, values: ITabSetRenderValues
   if (node.getId() === PANEL_GROUP) values.buttons.push(<RegionToggles key="region-toggles" />)
 }
 
-/** flexlayout's labels that differ from ours; every other text (tab names among them) passes through. */
-const LABELS: Readonly<Record<string, string>> = {
-  'flexlayout.ui.maximize.tabset': 'Maximize',
-  'flexlayout.ui.restore.tabset': 'Restore',
+/** flexlayout's labels that differ from ours, with the maximize key; every other text (tab names among them) passes through. */
+const translatorFor = (maximizeKey: string | undefined) => {
+  const labels: Readonly<Record<string, string>> = {
+    'flexlayout.ui.maximize.tabset': withKey('Maximize', maximizeKey),
+    'flexlayout.ui.restore.tabset': withKey('Restore', maximizeKey),
+  }
+  return (key: string): string => labels[key] ?? key
 }
-const translate = (key: string): string => LABELS[key] ?? key
+
+/** Session's and Arrangement's tabs name the key that switches them, which can change, so they are drawn with it. */
+const tabRendererFor = (mainKey: string | undefined) => (node: TabNode, values: ITabRenderValues) => {
+  const tooltip = MAIN_VIEW_TOOLTIPS[node.getId() as ViewId]
+  if (tooltip) values.content = <span title={withKey(tooltip, mainKey)}>{node.getName()}</span>
+}
 
 /**
  * The docking layout. flexlayout owns the layout tree; the layout store is a façade over it, through the driver
@@ -34,6 +44,10 @@ const translate = (key: string): string => LABELS[key] ?? key
 export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) => {
   const [{ model, generation }, setLayout] = useState(() => ({ model: persistence.initial, generation: 0 }))
   const driver = useRef<FlexLayoutDriver | null>(null)
+  const maximizeKey = useKeyLabel('layout.maximize')
+  const mainKey = useKeyLabel('view.toggle-main')
+  const translate = useCallback(translatorFor(maximizeKey), [maximizeKey])
+  const renderTab = useCallback(tabRendererFor(mainKey), [mainKey])
 
   // A layout Effect, so the driver is attached before the views' Effects can reveal anything.
   useLayoutEffect(() => {
@@ -84,6 +98,7 @@ export const Workbench = ({ persistence }: { persistence: LayoutPersistence }) =
         model={model}
         factory={factory}
         i18nTranslator={translate}
+        onRenderTab={renderTab}
         onRenderTabSet={renderTabSet}
         onAction={(action) => driver.current?.intercept(action) ?? action}
         onModelChange={onModelChange}

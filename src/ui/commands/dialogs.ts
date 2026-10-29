@@ -4,6 +4,8 @@ import { useSyncExternalStore } from 'react'
 /** The command host's popups and dialogs; at most one is open. */
 export type HostDialog =
   | { readonly kind: 'palette'; readonly context: CommandContext; readonly returnTo: HTMLElement | null }
+  | { readonly kind: 'save-layout' }
+  | { readonly kind: 'export-audio' }
 
 let open: HostDialog | null = null
 const listeners = new Set<() => void>()
@@ -24,6 +26,15 @@ export const openDialog = (): HostDialog | null => open
 /** The dialog the host shows now. */
 export const useOpenDialog = (): HostDialog | null => useSyncExternalStore(subscribe, openDialog)
 
-/** The element the focus is on, if it is one that can take it back. */
-export const focusedElement = (): HTMLElement | null =>
-  document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
+/**
+ * The element the focus is on, to give it back later. In a menu, which goes away as it closes, the button that opened
+ * it (through each submenu's trigger).
+ */
+export const focusedElement = (): HTMLElement | null => {
+  let element = document.activeElement
+  for (let menu = element?.closest('[role="menu"]'); menu; menu = element?.closest('[role="menu"]')) {
+    const trigger = menu.getAttribute('aria-labelledby')
+    element = trigger ? document.getElementById(trigger) : null
+  }
+  return element instanceof HTMLElement && element !== document.body ? element : null
+}
