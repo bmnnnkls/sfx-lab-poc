@@ -470,3 +470,16 @@ What turned out different from the design above, step by step.
 * **Step 5: *Show automation* on a group's control is disabled,** titled "— not on a group yet". *MIDI learn* works.
 * **Step 5: a canvas of a bus graph (`PatchTarget { groupId }`) is a drop target** for library effects too, as a
   track's or the master's canvas is.
+* **Step 6: the owner adapter is `StripOwner`** (`owner`, `name`, `volume`, `pan`, `sends?`). `ChannelStrip.tsx` exports
+  the parts it feeds, `PanControl`, `SendKnobs`, `FaderRow`, `MuteSolo` and `OutputLine`, and the track strip and the
+  new `BusStrip` are each a list of them. Each part has its own control gesture, where the track strip had one on the
+  whole section.
+* **Step 6: `groupedColumns(rows, { buses: true })`** gives an expanded bus group a column of its own, first under its
+  band. Only the mixer asks for it; the session grid draws the band alone.
+* **Step 6: `GroupBand` takes children,** drawn after the title. The mixer passes a folder's M and S, small, at the
+  band's end.
+* **Step 6: a strip dims when it is muted through a group too,** not only by its own flag. Half lit is a button half
+  filled from below, with `data-through-group` for the specs. A folder's buttons light halfway from an enclosing
+  group's flags.
+* **Step 6: the live-versus-offline case** compares the worklet's left channel with the app's own scene export, as a
+  32-bit float WAV at the context's rate, so the spec needs nothing from `src/`.

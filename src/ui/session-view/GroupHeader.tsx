@@ -1,6 +1,6 @@
 import type { Project, TrackGroup } from '@core'
 import { type SubjectOf, useEngineControls, useLayoutStore, useProjectStore, useStatusStore } from '@state'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { useDragSource, useEdgeTarget } from '../shared/drag'
 import { ActionMenu } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
@@ -38,14 +38,18 @@ const GroupTitle = ({ group, count }: { group: TrackGroup; count: number }) => {
   )
 }
 
-/** An expanded group, as a band over its members' headers. A track or group dropped on its middle third goes inside. */
-export const GroupBand = ({ group, trackIds }: GroupProps) => {
+/**
+ * An expanded group, as a band over its members' headers. A track or group dropped on its middle third goes inside.
+ * `children` are drawn after the title: the mixer's M and S for a folder.
+ */
+export const GroupBand = ({ group, trackIds, children }: GroupProps & { children?: ReactNode }) => {
   const subject: SubjectOf<'group'> = { kind: 'group', groupId: group.id }
   const drop = useEdgeTarget(subject, 'x')
   return (
     <ActionMenu subject={subject}>
       <div className={styles.band} style={colourOf(group)} role="group" aria-label={`Group ${group.name}`} {...drop}>
         <GroupTitle group={group} count={trackIds.length} />
+        {children}
       </div>
     </ActionMenu>
   )
