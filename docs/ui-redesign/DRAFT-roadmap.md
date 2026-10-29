@@ -280,6 +280,10 @@ Safari (Firefox isn't installed on the machine), and the manual pass.
 
 ## Round 11: wave editor
 
+**Spec signed off** 2026-10-29; see the [spec](SPEC-round-11-wave-editor.md). It splits the round into 11a (stereo and
+the pyramid), 11b (in-place edits) and 11c (markers, regions and keys), and keeps every decision behind one seam so it
+can be changed later. The outline below is what the spec started from.
+
 The biggest single piece, mostly beyond the UI. It needs its own SPEC before planning. Round 3 already gives it its
 view, its activity-bar button and its entry points; this round replaces what is inside.
 
@@ -351,5 +355,5 @@ Deliberately last, so it restyles a stable structure.
 | Automation of a group's controls | **Settled in round 8's plan:** not in round 8; on the arrangement's lanes (round 12) | round 8 |
 | Pinned panels: saved with the project or per browser, and undone or not | **Settled in round 9's plan:** with the project, as view edits that undo doesn't change (round 7's rule for collapse and hide) | round 9 |
 | Key overrides: saved with the project or per browser | **Settled in round 10's plan:** per browser (`sfxlab:keybindings`), like layouts | round 10 |
-| Wave editor: destructive edits vs. derived samples | destructive with undo, original kept until project save | round 11 SPEC |
-| Stereo samples throughout the engine, or only in the editor | throughout (needed for the wave editor to be honest) | round 11 SPEC |
+| Wave editor: destructive edits vs. derived samples | **Settled in round 11's [spec](SPEC-round-11-wave-editor.md):** in place with undo; an edit writes a new file and moves every use onto it; bytes are never changed, only added | round 11 SPEC |
+| Stereo samples throughout the engine, or only in the editor | **Settled in round 11's spec:** throughout, instruments staying mono; old audio tracks sound the same | round 11 SPEC |

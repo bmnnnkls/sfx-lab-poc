@@ -1,6 +1,7 @@
 # Round 11: wave editor (spec)
 
-Status: **spec, for sign-off before round 11 is planned.** Written 2026-10-29. Part of the [UI redesign](README.md).
+Status: **spec, signed off** 2026-10-29, every decision as proposed, with one request: build it so the decisions can
+be changed later (see § Built to change). Round 11 can now be planned. Written 2026-10-29. Part of the [UI redesign](README.md).
 [Roadmap § Round 11](DRAFT-roadmap.md#round-11-wave-editor) asks for this spec first, because most of the round is
 beyond the UI: the sample model, the engine, storage and undo. It starts from an inventory taken on
 `imp/jovial-fermat-5ae301` at `380d574` (round 10 done, not merged into `feat/ui-redesign` yet). No code was changed.
@@ -449,7 +450,40 @@ The round is big. Three parts, each landing green on its own, in this order:
 * **Browser:** open from a sample, a clip and a region; select, process, undo, reload and find the edit; stereo lanes;
   the views-at-minimum-size spec; Safari loads a float WAV (checked by hand if no Safari runs in CI).
 
+## Built to change
+
+Signed off with a request: "make sure to design it in a way that allows us to change things later". So every
+decision below sits behind one seam, and the plan names that seam in the step that adds it. The rule: **a decision is
+a constant, a table entry or one function, and nothing else reads around it.**
+
+| Decision | The seam that keeps it cheap to change |
+|---|---|
+| Edits in place vs. copies | Both run through `SampleLibrary.editSample(id, edit, { asCopy })`. The toolbar, menus and keys call that, never the steps inside it. Making copies the default is one flag. |
+| A new id per edit vs. a stable id with a content hash | Every place that turns a `SampleInfo` into stored bytes (storage, the package writer and reader, the bundle, the loader) asks one function, `bytesKeyOf(info)`, which returns the id today. `replaceSample` is the only code that rewrites uses. Switching to stable ids changes those two and adds a migration. |
+| What an edit rewrites | `replaceSample` walks the project through one list of visitors, one per place (nodes, bindings, clips, regions, presets, revisions). Leaving presets alone is removing a visitor. A test checks the list against `usedSampleIds` and `projectSampleDependencies`, so a new place can't be forgotten. |
+| Remapping trims, markers and regions | All of them go through `remapFrame`. Not remapping trims is one visitor's choice. |
+| Stereo in the engine | Engine readers reach channels only through `monoAt` and a per-frame stereo read, never `channels[1]` directly. Mono-only playback again would be one change in each helper. |
+| Old and new audio tracks' `Track in` | The default is one constant where audio tracks are made (`NEW_AUDIO_TRACK_STEREO`). Old tracks are whatever their files say. |
+| Files with more than two channels | One function, `keepChannels(decoded)`, in `audio/decode-audio.ts`. |
+| The format edits write | One constant, `EDIT_WAV_BIT_DEPTH`. Readers take any WAV, so changing it later only affects new edits; old files stay valid. |
+| Budgets, cleanup age, room factor | One module of constants in `app` (`sample-budgets.ts`). Tests import the constants, not the numbers. Cleanup can be switched off there. |
+| The pyramid's base and step | Constants inside `core/sample`. Nothing outside reads levels; drawing goes through `columnsFor`. |
+| Processes and curves | A registry: each process is one entry (id, title, settings, `apply`, `remap`), each curve one row of `FADE_CURVES`. The toolbar, menus and palette are built from it. Adding or dropping one is one entry. |
+| The crossfade's default, snap, ruler mode | Settings in `wave-editor-store`, per browser, not in the project. Changing a default touches nobody's files. |
+| Space and the view keys | Rows in round 10's key table, so the user can already change them. |
+| Lane renderers (waveform, later spectrogram) | One interface; the waveform is its first implementation. |
+| The split into 11a, 11b, 11c | Each part lands green and is usable alone, so the order can change or a part can stop early. |
+
+**What is hard to change later**, said plainly so it is decided with open eyes:
+
+* **Files already written.** Projects saved after 11b name edit-made ids, and their float WAV bytes sit in IndexedDB and
+  in exported packages. A later scheme must keep loading them.
+* **Format v11.** Once files are saved as v11, they stay readable forever: fields can be added, not taken away.
+* **Stereo audio already heard.** A track switched to stereo sounds different if the engine goes back to mono.
+
 ## Decisions to sign off
+
+Signed off 2026-10-29: every row as proposed. § Built to change says how each can be revisited.
 
 | Question | Proposed | Alternative |
 |---|---|---|
