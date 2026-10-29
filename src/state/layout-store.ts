@@ -29,6 +29,11 @@ export interface LayoutDriver {
   /** Select the view's tab, showing its region first if that is hidden. */
   reveal(id: ViewId): void
   setRegionVisible(region: RegionId, visible: boolean): void
+  /**
+   * Maximize the tab group holding `view`, or restore it if it is maximized; without a view, flexlayout's active
+   * group. A view in a sidebar has no group to maximize.
+   */
+  toggleMaximize(view: ViewId | undefined): void
   /** Replace the layout with the default one. */
   reset(): void
   /** Replace the layout with the one saved under this name. */
@@ -44,6 +49,8 @@ interface LayoutState extends LayoutSnapshot {
   toggleMainView(): void
   /** Hide or show the panel or a sidebar. The editor area is always shown. */
   toggleRegion(region: RegionId): void
+  /** Maximize or restore the group holding a view (the focused one), else the active group. Needs the shell. */
+  toggleMaximize(view?: ViewId): void
   resetLayout(): void
   /** Replace the layout with one saved under a name (per browser, with `saveLayoutAs`). */
   loadLayout(name: string): void
@@ -121,6 +128,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return { hiddenRegions, visible: visibleOf(state.groups, hiddenRegions) }
     })
   },
+  // The mirror knows no maximized group; without a driver there is nothing to fill.
+  toggleMaximize: (view) => driver?.toggleMaximize(view),
   resetLayout: () => {
     if (driver) return driver.reset()
     set(DEFAULT_LAYOUT)

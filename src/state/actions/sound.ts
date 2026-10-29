@@ -55,6 +55,7 @@ export const soundActions: readonly Action<SoundSubject>[] = [
   renameAction('sound', exists),
   {
     id: 'sound.duplicate',
+    verb: 'duplicate',
     title: 'Duplicate',
     group: 'edit',
     applies: exists,
@@ -62,6 +63,7 @@ export const soundActions: readonly Action<SoundSubject>[] = [
   },
   {
     id: 'sound.delete',
+    verb: 'delete',
     title: 'Delete',
     group: 'delete',
     danger: true,

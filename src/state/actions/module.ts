@@ -20,6 +20,7 @@ export const moduleActions: readonly Action<ModuleSubject>[] = [
   },
   {
     id: 'module.delete',
+    verb: 'delete',
     // A module still in use can't go; the entry says why.
     title: (subject) => (uses(subject) > 0 ? 'Delete — remove or unlink every use first' : 'Delete'),
     group: 'delete',

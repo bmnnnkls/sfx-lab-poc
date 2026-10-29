@@ -93,6 +93,7 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
   renameAction('library-item', live),
   {
     id: 'library-item.duplicate',
+    verb: 'duplicate',
     title: 'Duplicate',
     group: 'edit',
     applies: live,
@@ -129,6 +130,7 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
   },
   {
     id: 'library-item.trash',
+    verb: 'delete',
     title: 'Trash',
     group: 'delete',
     danger: true,
@@ -176,6 +178,7 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
   },
   {
     id: 'library-folder.trash',
+    verb: 'delete',
     title: 'Trash',
     group: 'delete',
     danger: true,

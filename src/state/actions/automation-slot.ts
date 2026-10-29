@@ -50,6 +50,7 @@ export const automationSlotActions: readonly Action<SlotSubject>[] = [
   },
   {
     id: 'automation-slot.copy',
+    verb: 'copy',
     title: 'Copy',
     group: 'clipboard',
     applies: exists,
@@ -57,6 +58,7 @@ export const automationSlotActions: readonly Action<SlotSubject>[] = [
   },
   {
     id: 'automation-slot.paste',
+    verb: 'paste',
     title: 'Paste',
     group: 'clipboard',
     applies: (subject) => !exists(subject),
@@ -68,6 +70,7 @@ export const automationSlotActions: readonly Action<SlotSubject>[] = [
   },
   {
     id: 'automation-slot.delete',
+    verb: 'delete',
     title: 'Delete',
     group: 'delete',
     danger: true,

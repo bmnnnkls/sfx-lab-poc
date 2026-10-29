@@ -539,3 +539,24 @@ Signed off 2026-10-29: every row as proposed.
 ## Changes made while implementing
 
 What turned out different from the design above, step by step.
+
+* **Step 1: the view commands are built in `state` from `ui`'s titles:** `viewCommands(titles)` makes the 13
+  *Show …* commands from a `Record<ViewId, string>`, and `ui/commands/registry.ts` passes `viewTitles`. `state` has no
+  view titles, and copying them would drift.
+* **Step 1: the region names moved to `state`** (`REGION_NAMES`), since the toggles' labels (*Hide panel*) are a state
+  command's. `TOGGLED_REGIONS` in `ui/layout/regions.ts` reads them; the glyphs stay there.
+* **Step 1: `Command` gained `bindable`** (false for *Load layout*, whose choices are names) and `canRunCommand`;
+  `runCommand` takes a `report`, as `runAction` does. `ActionChoice` gained `tooltip`, for an example's tagline.
+* **Step 1: the edit commands apply only when the focus has an action for the verb that applies and is enabled**
+  (`verbTarget`). So ⌘V with an empty clipboard, or ⌘C on a thing that can't be copied, is left to the browser.
+* **Step 1: `runVerb` walks the focus subjects** innermost first and runs the first action with the verb that applies
+  and is enabled. Paste on a graph's selected nodes pastes on the canvas around them.
+* **Step 1: the *Rename* verb is set once, in `renameAction`,** so every kind with *Rename* has it; that is the table's
+  ✓ column exactly.
+* **Step 1: `selectionSubjects` skips a selected region that is gone,** as it does a session clip, and falls back to its
+  track.
+* **Step 1: `subjectName`** gives an unnamed scene *Scene 2*, an empty slot *Bass, Scene 2*, an automation cell *Master
+  automation, Scene 1*, a lane *Bass lane*, a single node its title (*Filter*), a control its target's label, a pin
+  *Lead instrument*, and the kind's word (*Track*, *Clip*) for a thing that is gone.
+* **Step 1: `toggleMaximize` runs flexlayout's own action through the driver's `intercept`,** so a collapsed panel
+  expands first exactly as for the button.

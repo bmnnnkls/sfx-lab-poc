@@ -74,6 +74,7 @@ export const clipActions: readonly Action<ClipSubject>[] = [
   renameAction('clip'),
   {
     id: 'clip.duplicate',
+    verb: 'duplicate',
     title: 'Duplicate to empty slot',
     group: 'edit',
     enabled: ({ trackId }) => {
@@ -93,12 +94,14 @@ export const clipActions: readonly Action<ClipSubject>[] = [
   },
   {
     id: 'clip.copy',
+    verb: 'copy',
     title: 'Copy',
     group: 'clipboard',
     run: ({ trackId, clipId }) => copyClip(trackId, clipId),
   },
   {
     id: 'clip.cut',
+    verb: 'cut',
     title: 'Cut',
     group: 'clipboard',
     run: (subject) => {
@@ -108,6 +111,7 @@ export const clipActions: readonly Action<ClipSubject>[] = [
   },
   {
     id: 'clip.delete',
+    verb: 'delete',
     title: 'Delete',
     group: 'delete',
     danger: true,

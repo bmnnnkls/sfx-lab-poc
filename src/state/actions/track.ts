@@ -124,6 +124,7 @@ export const trackActions: readonly Action<TrackSubject>[] = [
   renameAction('track'),
   {
     id: 'track.duplicate',
+    verb: 'duplicate',
     title: 'Duplicate',
     group: 'edit',
     enabled: () => project().tracks.length < MAX_TRACKS,
@@ -182,6 +183,7 @@ export const trackActions: readonly Action<TrackSubject>[] = [
   },
   {
     id: 'track.delete',
+    verb: 'delete',
     title: 'Delete',
     group: 'delete',
     danger: true,

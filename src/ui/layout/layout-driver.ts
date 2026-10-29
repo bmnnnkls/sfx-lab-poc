@@ -184,6 +184,16 @@ export class FlexLayoutDriver implements LayoutDriver {
     this.sync()
   }
 
+  toggleMaximize(view: ViewId | undefined): void {
+    const node = view === undefined ? undefined : this.model.getNodeById(view)
+    if (view !== undefined && !(node instanceof TabNode)) return
+    const group = node ? node.getParent() : this.model.getActiveTabset() ?? this.model.getMaximizedTabset()
+    if (!(group instanceof TabSetNode)) return
+    // As for flexlayout's button: a maximized group keeps its maximum height, so a collapsed panel expands first.
+    this.model.doAction(this.intercept(Actions.maximizeToggle(group.getId())))
+    this.sync()
+  }
+
   reset(): void {
     this.shell.reset()
   }

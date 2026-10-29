@@ -66,6 +66,7 @@ export const pinActions: readonly Action<PinSubject>[] = [
   move(1),
   {
     id: 'pin.unpin',
+    verb: 'delete',
     title: 'Unpin',
     group: 'delete',
     applies: (subject) => pinOf(subject) !== undefined,

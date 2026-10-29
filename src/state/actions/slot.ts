@@ -54,6 +54,7 @@ export const slotActions: readonly Action<SlotSubject>[] = [
   },
   {
     id: 'slot.paste',
+    verb: 'paste',
     title: 'Paste',
     group: 'clipboard',
     applies: isEmpty,

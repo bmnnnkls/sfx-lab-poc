@@ -34,6 +34,7 @@ export const regionActions: readonly Action<RegionSubject>[] = [
   },
   {
     id: 'region.duplicate',
+    verb: 'duplicate',
     title: 'Duplicate',
     group: 'edit',
     run: (subject) => {
@@ -52,6 +53,7 @@ export const regionActions: readonly Action<RegionSubject>[] = [
   },
   {
     id: 'region.copy',
+    verb: 'copy',
     title: 'Copy',
     group: 'clipboard',
     run: (subject) => {
@@ -61,6 +63,7 @@ export const regionActions: readonly Action<RegionSubject>[] = [
   },
   {
     id: 'region.delete',
+    verb: 'delete',
     title: 'Delete',
     group: 'delete',
     danger: true,

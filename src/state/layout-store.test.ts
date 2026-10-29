@@ -16,7 +16,7 @@ afterEach(() => {
 
 /** A driver that records its calls, as the shell would receive them. */
 const recordingDriver = () => {
-  const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), reset: vi.fn(), load: vi.fn(), saveAs: vi.fn() }
+  const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), toggleMaximize: vi.fn(), reset: vi.fn(), load: vi.fn(), saveAs: vi.fn() }
   detach = layout().attachDriver(driver)
   return driver
 }
@@ -102,6 +102,17 @@ describe('toggleMainView', () => {
 })
 
 describe('layout store with a driver', () => {
+  it('forwards toggleMaximize with the view, or none, and does nothing without a driver', () => {
+    const before = layout()
+    layout().toggleMaximize('mixer')
+    expect(layout()).toBe(before)
+    const driver = recordingDriver()
+    layout().toggleMaximize('mixer')
+    expect(driver.toggleMaximize).toHaveBeenCalledWith('mixer')
+    layout().toggleMaximize()
+    expect(driver.toggleMaximize).toHaveBeenLastCalledWith(undefined)
+  })
+
   it('forwards revealView, toggleRegion, resetLayout and named layouts to the driver and leaves the mirror to sync', () => {
     const driver = recordingDriver()
     layout().revealView('mixer')

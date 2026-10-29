@@ -46,11 +46,21 @@ export interface ActionChoice {
   readonly id: string
   readonly title: string
   readonly enabled?: boolean
+  /** What the choice is, when its title doesn't say enough (an example's tagline). */
+  readonly tooltip?: string
 }
 
+/** What an edit key does to the focused thing: Delete, ⌘D, ⌘C, ⌘X, ⌘V and F2. */
+export type Verb = 'delete' | 'duplicate' | 'copy' | 'cut' | 'paste' | 'rename'
+
 export interface Action<S extends Subject = Subject> {
-  /** 'clip.duplicate': round 10's command ids. */
+  /** 'clip.duplicate': stable, and what the palette and a test know an action by. */
   readonly id: string
+  /**
+   * The edit key that runs it on the focused thing (`runVerb`). At most one action of a kind per verb. Left off the
+   * deletes that remove more than the thing itself (*Delete group and tracks*, *Clear this track*).
+   */
+  readonly verb?: Verb
   readonly title: string | ((subject: S, context: ActionContext) => string)
   /** Entries are drawn in groups, with a separator between groups: open, edit, clipboard, delete. */
   readonly group: 'open' | 'edit' | 'clipboard' | 'delete'
