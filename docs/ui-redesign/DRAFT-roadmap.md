@@ -256,6 +256,13 @@ it is. Pinned panels stack vertically.
 
 ## Round 10: commands and keys
 
+**Planned** 2026-10-29; see the [plan](PLAN-round-10-commands-and-keys.md), waiting for sign-off. Its inventory changes
+the outline below: subject actions stay in round 5's lists and the registry reads them, adding only what has no
+subject; keys act on the *focus subject* (what the keyboard focus is on), the palette also on the selection; graph
+delete and duplicate come as verbs (*delete*, *duplicate*, *copy*, *cut*, *paste*, *rename*) that every kind can
+name; maximize gets a store action; the File menu is rebuilt as a shared menu; the four layout presets are new; the
+region keys are ⌃⌘B, ⌃⌘J and ⌃⇧⌘B (Ctrl+Alt elsewhere), since VS Code's are browser keys.
+
 * A **command registry**: every view, region toggle, layout, preset and common action, with an id and a title. It is
   built on round 5's action lists.
 * A **command palette** (⌘⇧P / ⌘K), built on the matching already in the patcher's QuickAdd.
@@ -336,5 +343,6 @@ Deliberately last, so it restyles a stable structure.
 | A group's output: picked, or following the nesting | **Settled in round 8's plan:** following the nesting (nearest enclosing bus, else the master), no picker | round 8 |
 | Automation of a group's controls | **Settled in round 8's plan:** not in round 8; on the arrangement's lanes (round 12) | round 8 |
 | Pinned panels: saved with the project or per browser, and undone or not | **Settled in round 9's plan:** with the project, as view edits that undo doesn't change (round 7's rule for collapse and hide) | round 9 |
+| Key overrides: saved with the project or per browser | **Proposed in round 10's plan:** per browser (`sfxlab:keybindings`), like layouts | round 10 |
 | Wave editor: destructive edits vs. derived samples | destructive with undo, original kept until project save | round 11 SPEC |
 | Stereo samples throughout the engine, or only in the editor | throughout (needed for the wave editor to be honest) | round 11 SPEC |
