@@ -3,6 +3,7 @@ import { removeTrack } from './edit'
 import { groupChain, groupsById, withoutGroups } from './group-membership'
 import { busGroups } from './group-routing'
 import { hasMixLoop } from './mix-order'
+import { withPinsOf } from './pins'
 import type { GroupColour, Project, Track, TrackGroup } from './types'
 
 /** The most groups a project has, and how deep they nest (a top-level group is one level). */
@@ -391,10 +392,12 @@ export const showAllTracks = (project: Project): Project => updateTracks(project
 
 /**
  * `restored` (a project undo or redo brings back) with what `current` shows: the collapsed flag of every group and the
- * hidden flag of every track that both have. Those are view fields, which undo doesn't change. `restored` itself when
- * nothing differs.
+ * hidden flag of every track that both have, and the pins (`withPinsOf`). Those are view fields, which undo doesn't
+ * change. `restored` itself when nothing differs.
  */
-export const withViewOf = (restored: Project, current: Project): Project => {
+export const withViewOf = (restored: Project, current: Project): Project => withPinsOf(withFlagsOf(restored, current), current)
+
+const withFlagsOf = (restored: Project, current: Project): Project => {
   const groups = new Map((current.groups ?? []).map((group) => [group.id, group]))
   const tracks = new Map(current.tracks.map((track) => [track.id, track]))
   const shown = updateTracks(restored, (track) => {

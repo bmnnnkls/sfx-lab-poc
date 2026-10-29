@@ -371,3 +371,20 @@ Signed off 2026-10-29: every row as proposed.
 ## Changes made while implementing
 
 What turned out different from the design above, step by step.
+
+* **Step 1: `livePins` is memoized on the master too,** not only on `pins`, `tracks` and `groups`: each entry carries
+  its graph (`LivePin`: the pin, its key and its patch), and the master's graph lives in `master`. `pins.ts` also has
+  `isPinned` and `canPin`, which the actions use.
+* **Step 1: the master's pin through undo.** `withPinsOf` (in `pins.ts`, called by `withViewOf`) brings back a restored
+  pin whose owner the current project lacks. Every project has a master, so by that rule undoing *New project* would
+  have lost the old project's master pin. The master now counts as the current project's only when the two share a
+  track; otherwise the restored project is another document (*New*, *Import*, *Restore*) and its master pin comes back.
+  Redoing *New project* still keeps the current pins, so the old project's master pin shows on the new one, as the
+  design's rule says.
+* **Step 1: `sanitizePins(raw, project, warn)` takes the project read so far,** after `repairGroupOrder`, since
+  `pinnedGraph` needs it. A group's or the master's pin of a graph other than `fx` is malformed (warned), not missing.
+  A pin dropped as missing doesn't count toward the cap. The warnings: `Pinned panel 2: dropped a pin that names no
+  graph`, `… dropped a second pin of the same panel`, and `Only the first 16 pinned panels were kept`.
+* **Step 1: the fixture was written by a throwaway test from a built project:** the demo with Bass in a bus group
+  (*Low end*), and pins of Lead's instrument and notes, Pad's instrument, the bus (collapsed) and the master; then Pad
+  was removed.

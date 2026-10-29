@@ -185,6 +185,21 @@ export {
   setGroupSoloed,
   setGroupVolume,
 } from './group-bus'
+export {
+  MAX_PINS,
+  type LivePin,
+  type PanelPin,
+  canPin,
+  isPinned,
+  livePins,
+  movePin,
+  pinKey,
+  pinPanel,
+  pinTarget,
+  pinnedGraph,
+  setPinCollapsed,
+  unpinPanel,
+} from './pins'
 export { duplicateTrack } from './track-duplicate'
 export { copyNodes, pasteNodes, type CopiedNodes } from './node-copy'
 export { duplicateScene, insertScene, removeScene } from './scenes'

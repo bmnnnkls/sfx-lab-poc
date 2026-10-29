@@ -1,0 +1,807 @@
+{
+  "format": "sfx-lab-project",
+  "version": 10,
+  "project": {
+    "name": "Pinned panels",
+    "samples": [],
+    "modules": [],
+    "master": {
+      "fx": {
+        "nodes": [
+          {
+            "id": "node_xeow1w5j",
+            "type": "masterIn",
+            "x": 20,
+            "y": 40,
+            "params": {}
+          },
+          {
+            "id": "node_v6eptagr",
+            "type": "trackOut",
+            "x": 620,
+            "y": 40,
+            "params": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "wire_3b57ix4z",
+            "from": {
+              "node": "node_xeow1w5j",
+              "port": "out"
+            },
+            "to": {
+              "node": "node_v6eptagr",
+              "port": "in"
+            }
+          }
+        ]
+      }
+    },
+    "tempo": 110,
+    "sceneCount": 4,
+    "tracks": [
+      {
+        "kind": "instrument",
+        "id": "track_dwlqjshd",
+        "name": "Bass",
+        "volume": 0.8,
+        "fx": {
+          "nodes": [
+            {
+              "id": "node_9j0k6y5e",
+              "type": "trackIn",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_gbtzt837",
+              "type": "trackOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_7890jwhv",
+              "from": {
+                "node": "node_9j0k6y5e",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_gbtzt837",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "sends": {},
+        "voices": 8,
+        "patch": {
+          "nodes": [
+            {
+              "id": "node_5boo89e4",
+              "type": "note",
+              "x": 20,
+              "y": 120,
+              "params": {}
+            },
+            {
+              "id": "node_bbwyd5n5",
+              "type": "oscillator",
+              "x": 220,
+              "y": 40,
+              "params": {
+                "waveform": 1,
+                "frequency": 220,
+                "detune": 0,
+                "pitchAmount": 2
+              }
+            },
+            {
+              "id": "node_7928lv48",
+              "type": "filter",
+              "x": 420,
+              "y": 40,
+              "params": {
+                "mode": 0,
+                "cutoff": 700,
+                "resonance": 0.707,
+                "cvAmount": 2,
+                "keyTrack": 0,
+                "gain": 0,
+                "slope": 0
+              }
+            },
+            {
+              "id": "node_26l33gz6",
+              "type": "envelope",
+              "x": 220,
+              "y": 260,
+              "params": {
+                "attack": 0.01,
+                "decay": 0.15,
+                "sustain": 0.6,
+                "release": 0.25
+              }
+            },
+            {
+              "id": "node_00wac78j",
+              "type": "gain",
+              "x": 620,
+              "y": 120,
+              "params": {
+                "gain": 0.3
+              }
+            },
+            {
+              "id": "node_8d8rey6w",
+              "type": "delay",
+              "x": 820,
+              "y": 120,
+              "params": {
+                "time": 0.3,
+                "feedback": 0.4,
+                "mix": 0.35,
+                "sync": 0,
+                "division": 0
+              }
+            },
+            {
+              "id": "node_mdxlp8o4",
+              "type": "output",
+              "x": 1020,
+              "y": 150,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_h9eikcef",
+              "from": {
+                "node": "node_5boo89e4",
+                "port": "frequency"
+              },
+              "to": {
+                "node": "node_bbwyd5n5",
+                "port": "freq"
+              }
+            },
+            {
+              "id": "wire_e8b8pn6s",
+              "from": {
+                "node": "node_5boo89e4",
+                "port": "gate"
+              },
+              "to": {
+                "node": "node_26l33gz6",
+                "port": "gate"
+              }
+            },
+            {
+              "id": "wire_v3vqt9vx",
+              "from": {
+                "node": "node_bbwyd5n5",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_7928lv48",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_3d9by1ll",
+              "from": {
+                "node": "node_7928lv48",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_00wac78j",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_jpwu2qpl",
+              "from": {
+                "node": "node_26l33gz6",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_00wac78j",
+                "port": "cv"
+              }
+            },
+            {
+              "id": "wire_iev7r0rj",
+              "from": {
+                "node": "node_00wac78j",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_8d8rey6w",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_tkgymktv",
+              "from": {
+                "node": "node_8d8rey6w",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_mdxlp8o4",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "noteGraph": {
+          "nodes": [
+            {
+              "id": "node_b44fb6i7",
+              "type": "clipNotes",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_vt1zb05s",
+              "type": "noteOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_oca1c0cc",
+              "from": {
+                "node": "node_b44fb6i7",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_vt1zb05s",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "clips": [
+          {
+            "id": "clip_ywnhnpwk",
+            "name": "Root",
+            "lengthBeats": 4,
+            "notes": [
+              {
+                "id": "note_rrgd5pwa",
+                "pitch": 36,
+                "start": 0,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_i07q22d7",
+                "pitch": 36,
+                "start": 1,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_gdxjhxbs",
+                "pitch": 43,
+                "start": 1.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_j7wuglkl",
+                "pitch": 36,
+                "start": 2,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_2al5whov",
+                "pitch": 39,
+                "start": 3,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_imauv9b4",
+                "pitch": 41,
+                "start": 3.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              }
+            ]
+          },
+          {
+            "id": "clip_9ah66qv1",
+            "name": "Walk",
+            "lengthBeats": 4,
+            "notes": [
+              {
+                "id": "note_t3n4hef5",
+                "pitch": 36,
+                "start": 0,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_0yz3k46w",
+                "pitch": 38,
+                "start": 0.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_jhzbuluh",
+                "pitch": 39,
+                "start": 1,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_f230331h",
+                "pitch": 41,
+                "start": 1.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_somdfq3c",
+                "pitch": 43,
+                "start": 2,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_ds15jbc5",
+                "pitch": 41,
+                "start": 2.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_msktdd90",
+                "pitch": 39,
+                "start": 3,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_e34ixeku",
+                "pitch": 38,
+                "start": 3.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              }
+            ]
+          },
+          null,
+          null
+        ],
+        "groupId": "group_ukx52l0m"
+      },
+      {
+        "kind": "instrument",
+        "id": "track_jrim48ar",
+        "name": "Lead",
+        "volume": 0.8,
+        "fx": {
+          "nodes": [
+            {
+              "id": "node_cchv742h",
+              "type": "trackIn",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_gtm145pk",
+              "type": "trackOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_bxappba0",
+              "from": {
+                "node": "node_cchv742h",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_gtm145pk",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "sends": {},
+        "voices": 8,
+        "patch": {
+          "nodes": [
+            {
+              "id": "node_ag2bc90s",
+              "type": "note",
+              "x": 20,
+              "y": 120,
+              "params": {}
+            },
+            {
+              "id": "node_6xp6pyw1",
+              "type": "oscillator",
+              "x": 220,
+              "y": 40,
+              "params": {
+                "waveform": 2,
+                "frequency": 220,
+                "detune": 0,
+                "pitchAmount": 2
+              }
+            },
+            {
+              "id": "node_ra9t76o4",
+              "type": "filter",
+              "x": 420,
+              "y": 40,
+              "params": {
+                "mode": 0,
+                "cutoff": 2000,
+                "resonance": 0.707,
+                "cvAmount": 2,
+                "keyTrack": 0,
+                "gain": 0,
+                "slope": 0
+              }
+            },
+            {
+              "id": "node_l116rxhw",
+              "type": "envelope",
+              "x": 220,
+              "y": 260,
+              "params": {
+                "attack": 0.01,
+                "decay": 0.15,
+                "sustain": 0.6,
+                "release": 0.25
+              }
+            },
+            {
+              "id": "node_1sh1si92",
+              "type": "gain",
+              "x": 620,
+              "y": 120,
+              "params": {
+                "gain": 0.3
+              }
+            },
+            {
+              "id": "node_sztfo28i",
+              "type": "delay",
+              "x": 820,
+              "y": 120,
+              "params": {
+                "time": 0.3,
+                "feedback": 0.4,
+                "mix": 0.35,
+                "sync": 0,
+                "division": 0
+              }
+            },
+            {
+              "id": "node_e9ng09x7",
+              "type": "output",
+              "x": 1020,
+              "y": 150,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_cz5f1359",
+              "from": {
+                "node": "node_ag2bc90s",
+                "port": "frequency"
+              },
+              "to": {
+                "node": "node_6xp6pyw1",
+                "port": "freq"
+              }
+            },
+            {
+              "id": "wire_p1j1imtx",
+              "from": {
+                "node": "node_ag2bc90s",
+                "port": "gate"
+              },
+              "to": {
+                "node": "node_l116rxhw",
+                "port": "gate"
+              }
+            },
+            {
+              "id": "wire_j5n4yswk",
+              "from": {
+                "node": "node_6xp6pyw1",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_ra9t76o4",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_71omwssm",
+              "from": {
+                "node": "node_ra9t76o4",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_1sh1si92",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_s05lpu2c",
+              "from": {
+                "node": "node_l116rxhw",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_1sh1si92",
+                "port": "cv"
+              }
+            },
+            {
+              "id": "wire_9yudzxyk",
+              "from": {
+                "node": "node_1sh1si92",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_sztfo28i",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_zxisux7c",
+              "from": {
+                "node": "node_sztfo28i",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_e9ng09x7",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "noteGraph": {
+          "nodes": [
+            {
+              "id": "node_1ep2yvb9",
+              "type": "clipNotes",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_24vab61c",
+              "type": "noteOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_6y11y8b1",
+              "from": {
+                "node": "node_1ep2yvb9",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_24vab61c",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "clips": [
+          {
+            "id": "clip_3n69a8x8",
+            "name": "Arp",
+            "lengthBeats": 4,
+            "notes": [
+              {
+                "id": "note_jvbav9rq",
+                "pitch": 60,
+                "start": 0,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_2qeaa69a",
+                "pitch": 63,
+                "start": 0.5,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_rxxsjysy",
+                "pitch": 67,
+                "start": 1,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_7mj9vldu",
+                "pitch": 72,
+                "start": 1.5,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_6pga6p9x",
+                "pitch": 67,
+                "start": 2,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_0uh14ihv",
+                "pitch": 63,
+                "start": 2.5,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_kobld17q",
+                "pitch": 60,
+                "start": 3,
+                "duration": 0.3,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_qixsc50s",
+                "pitch": 63,
+                "start": 3.5,
+                "duration": 0.3,
+                "velocity": 0.9
+              }
+            ]
+          },
+          null,
+          {
+            "id": "clip_too9a6g7",
+            "name": "Hook",
+            "lengthBeats": 4,
+            "notes": [
+              {
+                "id": "note_ds9sf901",
+                "pitch": 72,
+                "start": 0,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_wf1zttti",
+                "pitch": 70,
+                "start": 1,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_mebd2dko",
+                "pitch": 67,
+                "start": 1.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_5v9ya5ze",
+                "pitch": 63,
+                "start": 2.5,
+                "duration": 0.4,
+                "velocity": 0.9
+              },
+              {
+                "id": "note_kz3q6m0w",
+                "pitch": 67,
+                "start": 3,
+                "duration": 0.4,
+                "velocity": 0.9
+              }
+            ]
+          },
+          null
+        ]
+      }
+    ],
+    "groups": [
+      {
+        "id": "group_ukx52l0m",
+        "name": "Low end",
+        "colour": "red",
+        "bus": {
+          "volume": 1,
+          "fx": {
+            "nodes": [
+              {
+                "id": "node_sv4h2l3x",
+                "type": "groupIn",
+                "x": 20,
+                "y": 40,
+                "params": {}
+              },
+              {
+                "id": "node_q5bmdxm8",
+                "type": "trackOut",
+                "x": 620,
+                "y": 40,
+                "params": {}
+              }
+            ],
+            "connections": [
+              {
+                "id": "wire_3qke4j7y",
+                "from": {
+                  "node": "node_sv4h2l3x",
+                  "port": "out"
+                },
+                "to": {
+                  "node": "node_q5bmdxm8",
+                  "port": "in"
+                }
+              }
+            ]
+          },
+          "sends": {}
+        }
+      }
+    ],
+    "pins": [
+      {
+        "owner": {
+          "kind": "track",
+          "trackId": "track_jrim48ar"
+        },
+        "graph": "patch"
+      },
+      {
+        "owner": {
+          "kind": "track",
+          "trackId": "track_jrim48ar"
+        },
+        "graph": "notes"
+      },
+      {
+        "owner": {
+          "kind": "track",
+          "trackId": "track_88k54kr1"
+        },
+        "graph": "patch"
+      },
+      {
+        "owner": {
+          "kind": "group",
+          "groupId": "group_ukx52l0m"
+        },
+        "graph": "fx",
+        "collapsed": true
+      },
+      {
+        "owner": {
+          "kind": "master"
+        },
+        "graph": "fx"
+      }
+    ]
+  }
+}
