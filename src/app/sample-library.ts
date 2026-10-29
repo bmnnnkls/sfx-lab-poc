@@ -1,10 +1,12 @@
 import { type AudioHost, decodeAudio } from '@audio'
 import {
   EDIT_WAV_BIT_DEPTH,
+  type PeakPyramid,
   type SampleAudio,
   type SampleData,
   type SampleEdit,
   type SampleInfo,
+  afterEdit,
   applySampleEdit,
   buildPeakPyramid,
   bytesKeyOf,
@@ -12,10 +14,24 @@ import {
   createDemoSamples,
   encodeWavChannels,
   frameCount,
+  originOf,
   sampleEditEntry,
+  sampleRemap,
+  savedFrameCount,
 } from '@core'
-import { type SampleLibrary, usePersistenceStore, useProjectStore, useSampleStore, useSelectionStore, useWaveAudioStore } from '@state'
-import { type SampleStorage, sha256Hex } from '@storage'
+import {
+  type SampleLibrary,
+  type WaveAudio,
+  usePersistenceStore,
+  useProjectStore,
+  useSampleStore,
+  useSelectionStore,
+  useWaveAudioStore,
+  useWaveEditorStore,
+  waveViewOf,
+} from '@state'
+import { type SampleEditLog, type SampleStorage, StorageFullError, createMemorySampleEditLog, freeBytes, sha256Hex } from '@storage'
+import { ROOM_FACTOR } from './sample-budgets'
 
 /** Enough detail for the large clip waveform; thumbnails simply sample it more coarsely. */
 const PEAK_BUCKETS = 800
@@ -38,13 +54,28 @@ export interface SampleLibraryService extends SampleLibrary {
   connect(): () => void
 }
 
+/** What the service needs besides storage and the engine; tests stand in for each. */
+export interface SampleLibraryOptions {
+  /** Where the ids of files edits wrote are noted, for cleanup. */
+  readonly edits?: SampleEditLog
+  /** How many bytes the site may still store, or null when the browser doesn't say. */
+  readonly freeBytes?: () => Promise<number | null>
+  readonly now?: () => number
+}
+
+const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
+const copyAudio = (audio: SampleAudio): SampleAudio => ({ sampleRate: audio.sampleRate, channels: audio.channels.map((channel) => channel.slice()) })
+
 /**
  * Bridges three places a sample lives: the project (metadata), storage (original bytes) and
  * the audio engine (decoded floats). Everything here is keyed by the sample's content hash.
  */
-export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): SampleLibraryService => {
+export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, options: SampleLibraryOptions = {}): SampleLibraryService => {
   const view = () => useSampleStore.getState()
   const notify = usePersistenceStore.getState().notify
+  const edits = options.edits ?? createMemorySampleEditLog()
+  const room = options.freeBytes ?? freeBytes
+  const now = options.now ?? Date.now
 
   const inEngine = new Set<string>()
   const loading = new Map<string, Promise<void>>()
@@ -102,10 +133,33 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
       const audio = bytes ? (await decodeAudio(bytes)).audio : null
       // Another sample may have been opened meanwhile; that one's load wins.
       if (useWaveAudioStore.getState().loading !== sampleId) return
-      useWaveAudioStore.getState().setCurrent(audio && { sampleId, audio, pyramid: buildPeakPyramid(audio) })
+      useWaveAudioStore.getState().setCurrent(audio && { sampleId, viewKey: originOf(info), audio, pyramid: buildPeakPyramid(audio) })
     } catch {
       if (useWaveAudioStore.getState().loading === sampleId) useWaveAudioStore.getState().setCurrent(null)
     }
+  }
+
+  /**
+   * When the open sample's id leaves the project (an undo or redo of an edit, say), the editor follows the sample with
+   * the same origin, if there is one, first in library order; its view, kept by origin, comes with it. A selection past
+   * the new end is clamped. With none, the editor shows its empty state, as for a removed sample.
+   */
+  const follow = (previous: readonly SampleInfo[]) => {
+    const sampleId = useSelectionStore.getState().sampleId
+    const { samples } = useProjectStore.getState().project
+    if (sampleId === null || samples.some((sample) => sample.id === sampleId)) return
+    const was = previous.find((sample) => sample.id === sampleId)
+    const next = was && samples.find((sample) => originOf(sample) === originOf(was))
+    if (!next) return
+    clampView(originOf(next), savedFrameCount(next))
+    useSelectionStore.getState().selectSample(next.id)
+  }
+
+  const clampView = (key: string, frames: number) => {
+    const store = useWaveEditorStore.getState()
+    const { selection, cursor } = waveViewOf(store.views, key)
+    if (cursor > frames) store.setView(key, { cursor: frames })
+    if (selection && selection.to > frames) store.select(key, { ...selection, to: frames })
   }
 
   const syncWithProject = () => {
@@ -140,6 +194,8 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
       bytes: bytes.length,
     }
     if (!(await storage.has(bytesKeyOf(info)))) await storage.put(bytesKeyOf(info), bytes)
+    // Imported wins: bytes a user brings in are never cleaned up, even if an edit wrote them first.
+    await edits.forget(bytesKeyOf(info))
 
     const known = useProjectStore.getState().project.samples.some((sample) => sample.id === id)
     if (!inEngine.has(id)) deliver(id, decoded)
@@ -148,23 +204,61 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
     return { name, known }
   }
 
-  /**
-   * Applies an edit to a sample's audio and adds the result as a copy: encoded as WAV (`EDIT_WAV_BIT_DEPTH`, one or two
-   * channels) and hashed like any import.
-   */
-  const editSample = async (sampleId: string, edit: SampleEdit) => {
-    const info = useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
-    if (!info) return
-    // The open sample's working copy, or the stored bytes decoded again.
+  /** The audio an edit starts from: the working copy when it is this sample's, else the stored bytes decoded. */
+  const audioOf = async (info: SampleInfo): Promise<{ audio: SampleAudio; pyramid: PeakPyramid | null } | null> => {
     const working = useWaveAudioStore.getState().current
-    const open = working?.sampleId === sampleId ? working.audio : null
-    const bytes = open ? null : await storage.get(bytesKeyOf(info))
-    if (!open && !bytes) {
+    if (working?.sampleId === info.id) return { audio: working.audio, pyramid: working.pyramid }
+    const bytes = await storage.get(bytesKeyOf(info))
+    return bytes ? { audio: (await decodeAudio(bytes)).audio, pyramid: null } : null
+  }
+
+  /** Stores an edit's file and notes it as edit-made; false (with a toast) when there isn't room. */
+  const store = async (info: SampleInfo, wav: Uint8Array): Promise<boolean> => {
+    const key = bytesKeyOf(info)
+    if (await storage.has(key)) return true
+    const free = await room()
+    if (free !== null && free < ROOM_FACTOR * wav.length) {
+      notify('error', `Not enough browser storage for the edit: it needs ${megabytes(ROOM_FACTOR * wav.length)} free, and ${megabytes(free)} is.`)
+      return false
+    }
+    try {
+      await storage.put(key, wav)
+      await edits.note(key, now())
+      return true
+    } catch (error) {
+      notify('error', error instanceof StorageFullError ? `The edit was not saved: ${error.message}` : `The edit could not be stored: ${describe(error)}`)
+      return false
+    }
+  }
+
+  /** The editor moves onto the result: its working copy, its id, and the selection and cursor the edit leaves. */
+  const moveEditor = (from: { info: SampleInfo; audio: SampleAudio }, to: WaveAudio, edit: SampleEdit) => {
+    useWaveAudioStore.getState().setCurrent(to)
+    const store = useWaveEditorStore.getState()
+    const old = waveViewOf(store.views, originOf(from.info))
+    if (to.viewKey !== originOf(from.info)) store.setView(to.viewKey, old)
+    const after = afterEdit(edit, frameCount(from.audio))
+    if (after !== 'keep') {
+      const frames = frameCount(to.audio)
+      const channels = old.selection?.channels ?? 'both'
+      store.select(to.viewKey, after.selection && { ...after.selection, channels })
+      store.setView(to.viewKey, { cursor: Math.min(after.cursor, frames) })
+    }
+    clampView(to.viewKey, frameCount(to.audio))
+  }
+
+  /**
+   * Applies an edit to a sample (see `SampleLibrary.editSample`): read the audio, apply, encode as WAV
+   * (`EDIT_WAV_BIT_DEPTH`), hash, check there is room, store and note the file, give the engine a copy, then commit, if
+   * the sample is still in the project. Each refusal leaves the project as it was.
+   */
+  const runEdit = async (info: SampleInfo, edit: SampleEdit, asCopy: boolean) => {
+    const source = await audioOf(info)
+    if (!source) {
       notify('error', `The audio of "${info.name}" is missing; import the file again to edit it.`)
       return
     }
-    const source = open ?? (await decodeAudio(bytes!)).audio
-    const audio = applySampleEdit(source, edit)
+    const audio = applySampleEdit(source.audio, edit)
     const frames = frameCount(audio)
     if (frames === 0) {
       notify('error', 'Nothing left after the edit')
@@ -172,12 +266,16 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
     }
     const wav = encodeWavChannels(audio.channels, audio.sampleRate, EDIT_WAV_BIT_DEPTH)
     const id = await sha256Hex(wav)
-    const name = `${info.name} (${sampleEditEntry(edit.kind).suffix})`.slice(0, 60)
-    if (useProjectStore.getState().project.samples.some((sample) => sample.id === id)) {
+    if (id === info.id) {
+      notify('info', 'Nothing changed')
+      return
+    }
+    const name = asCopy ? `${info.name} (${sampleEditEntry(edit.kind).suffix})`.slice(0, 60) : info.name
+    if (asCopy && useProjectStore.getState().project.samples.some((sample) => sample.id === id)) {
       notify('info', `"${name}" is already in the library`)
       return
     }
-    const copy: SampleInfo = {
+    const result: SampleInfo = {
       id,
       name,
       extension: 'wav',
@@ -186,9 +284,52 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
       channels: audio.channels.length,
       bytes: wav.length,
     }
-    if (!(await storage.has(bytesKeyOf(copy)))) await storage.put(bytesKeyOf(copy), wav)
-    useProjectStore.getState().addSamples([copy])
-    notify('info', `Added "${name}" to the library`)
+    if (!(await store(result, wav))) return
+    // The engine has the new audio before anything points at it; the main thread keeps its own.
+    if (!inEngine.has(id)) deliver(id, { audio: copyAudio(audio) })
+
+    const project = useProjectStore.getState().project
+    if (!project.samples.some((sample) => sample.id === info.id)) {
+      notify('warning', `"${info.name}" left the project while it was being edited; the edit was dropped.`)
+      return
+    }
+    const open = useSelectionStore.getState().sampleId === info.id
+    const working = (key: string, sampleId: string): WaveAudio => ({ sampleId, viewKey: key, audio, pyramid: buildPeakPyramid(audio) })
+
+    if (asCopy) {
+      // Added while the editor still shows the original, then opened with its working copy in place: nothing decodes.
+      useProjectStore.getState().addSamples([result])
+      if (open) moveEditor({ info, audio: source.audio }, working(id, id), edit)
+      if (open) useSelectionStore.getState().selectSample(id)
+      notify('info', `Added "${name}" to the library`)
+      return
+    }
+
+    const merged = project.samples.find((sample) => sample.id === id)
+    // The editor's working copy moves first, so following the sample to its new id finds it and decodes nothing.
+    if (open) moveEditor({ info, audio: source.audio }, working(merged ? originOf(merged) : originOf(info), id), edit)
+    const report = useProjectStore.getState().replaceSample(info.id, result, sampleRemap(edit, frameCount(source.audio), frames))
+    if (open) useSelectionStore.getState().selectSample(id)
+    if (report.merged) notify('info', `Already in the library as "${report.merged.name}"; its uses now point there.`)
+    if (report.emptiedTrims > 0) {
+      const count = report.emptiedTrims
+      notify('warning', `${count} ${count === 1 ? 'clip was' : 'clips were'} trimmed to audio the edit removed.`)
+    }
+  }
+
+  const editSample = async (sampleId: string, edit: SampleEdit, asCopy: boolean) => {
+    const busy = useWaveAudioStore.getState()
+    if (busy.editing !== null) return
+    const info = useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
+    if (!info) return
+    busy.setEditing(sampleId)
+    try {
+      await runEdit(info, edit, asCopy)
+    } catch (error) {
+      notify('error', `The edit failed: ${describe(error)}`)
+    } finally {
+      useWaveAudioStore.getState().setEditing(null)
+    }
   }
 
   /** Adds several files, then tells the user once (not once per file). */
@@ -235,7 +376,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
     },
     stopPreview: () => host.send({ type: 'sample/stopPreview' }),
 
-    editSample: (sampleId, edit) => editSample(sampleId, edit),
+    editSample: (sampleId, edit, { asCopy }) => editSample(sampleId, edit, asCopy),
 
     connect: () => {
       syncWithProject()
@@ -243,6 +384,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
       const unsubscribeProject = useProjectStore.subscribe((state, previous) => {
         if (state.project.samples === previous.project.samples) return
         syncWithProject()
+        follow(previous.project.samples)
         void openAudio()
       })
       const unsubscribeSelection = useSelectionStore.subscribe((state, previous) => {

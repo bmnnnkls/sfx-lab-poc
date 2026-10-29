@@ -3,7 +3,7 @@ import { createLibraryStorage, createMemoryLibraryStorage, createMemorySampleSto
 import { createMidiInput } from './midi-input'
 import { AudioHost } from '@audio'
 import type { EngineControls, ProjectFiles } from '@state'
-import { ProjectStorage, resolveBrowserStore, resolveSampleStorage } from '@storage'
+import { ProjectStorage, createMemorySampleEditLog, resolveBrowserStore, resolveSampleEditLog, resolveSampleStorage } from '@storage'
 import { createEngineControls } from './engine-controls'
 import { createProjectFiles } from './project-files'
 import { restoreSavedProject } from './restore-project'
@@ -31,7 +31,8 @@ export const createServices = (): Services => {
   const memoryBlobs = new Map<string, Uint8Array>()
   const sampleStorage = typeof indexedDB === 'undefined' ? createMemorySampleStorage(memoryBlobs) : resolveSampleStorage()
   const library = createDeferredPersonalLibrary(typeof indexedDB === 'undefined' ? createMemoryLibraryStorage(memoryBlobs) : createLibraryStorage(), sampleStorage)
-  const sampleLibrary = createSampleLibrary(sampleStorage, host)
+  const sampleEdits = typeof indexedDB === 'undefined' ? createMemorySampleEditLog() : resolveSampleEditLog()
+  const sampleLibrary = createSampleLibrary(sampleStorage, host, { edits: sampleEdits })
   const projectFiles = createProjectFiles(storage, sampleStorage, engineControls)
   const midi = createMidiInput(engineControls, undefined, () => { void host.start() })
   return { library, host, storage, persistent, engineControls: { ...engineControls, stop: () => { midi.releaseNotes(); engineControls.stop() }, panic: midi.panic }, projectFiles, sampleLibrary, midi }

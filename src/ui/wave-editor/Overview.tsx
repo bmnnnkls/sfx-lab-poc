@@ -14,7 +14,7 @@ const EDGE_PX = 6
  * arrow keys, Page Up and Down, Home and End scroll.
  */
 export const Overview = ({ wave, detail }: { wave: WaveAudio; detail: RefObject<HTMLDivElement | null> }) => {
-  const { sampleId, audio, pyramid } = wave
+  const { viewKey, audio, pyramid } = wave
   const frames = frameCount(audio)
   const strip = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -69,7 +69,7 @@ export const Overview = ({ wave, detail }: { wave: WaveAudio; detail: RefObject<
     }
     schedule()
     const unsubscribe = useWaveEditorStore.subscribe((state, previous) => {
-      if (state.views[sampleId] !== previous.views[sampleId]) requestAnimationFrame(place)
+      if (state.views[viewKey] !== previous.views[viewKey]) requestAnimationFrame(place)
     })
     const observer = new ResizeObserver(schedule)
     if (strip.current) observer.observe(strip.current)
@@ -79,13 +79,13 @@ export const Overview = ({ wave, detail }: { wave: WaveAudio; detail: RefObject<
       observer.disconnect()
       if (request) cancelAnimationFrame(request)
     }
-  }, [wave, audio, pyramid, frames, sampleId, detail])
+  }, [wave, audio, pyramid, frames, viewKey, detail])
 
   const show = (startFrame: number, framesPerPixel?: number) => {
     const store = useWaveEditorStore.getState()
     const view = currentView(detail.current, wave)
     const next = clampView({ startFrame, framesPerPixel: framesPerPixel ?? view.framesPerPixel, width: view.width }, frames)
-    store.setView(sampleId, { startFrame: next.startFrame, framesPerPixel: next.framesPerPixel })
+    store.setView(viewKey, { startFrame: next.startFrame, framesPerPixel: next.framesPerPixel })
   }
 
   const frameAtPointer = (event: React.PointerEvent) => (event.clientX - (strip.current?.getBoundingClientRect().left ?? 0)) * scale()

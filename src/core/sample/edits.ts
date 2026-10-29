@@ -100,6 +100,12 @@ export interface SampleEditContext {
   readonly selection: FrameRange | null
 }
 
+/**
+ * Where the editor's selection and cursor go once an edit lands, in output frames: `keep` leaves them (a process), or a
+ * new selection (none, or what was inserted) and cursor.
+ */
+export type SampleEditAfter = 'keep' | { readonly selection: FrameRange | null; readonly cursor: number }
+
 /** One edit the editor offers. The toolbar, and later menus and the palette, are built from `SAMPLE_EDITS`. */
 export interface SampleEditEntry {
   readonly kind: SampleEditKind
@@ -117,6 +123,8 @@ export interface SampleEditEntry {
    * edits that change the length. The pyramid update redraws just these.
    */
   readonly changed: (edit: SampleEdit, frames: number, sampleRate: number) => FrameRange
+  /** The selection and cursor after the edit, in a sample that had `frames` frames. */
+  readonly after: (edit: SampleEdit, frames: number) => SampleEditAfter
 }
 
 const withSelection = (make: (range: FrameRange) => SampleEdit) => ({ selection }: SampleEditContext) =>
@@ -127,6 +135,7 @@ const rangeOf = (edit: SampleEdit, frames: number): FrameRange =>
   'range' in edit ? clampTo(frames, edit.range) : { from: 0, to: frames }
 
 const whole = (_edit: SampleEdit, frames: number): FrameRange => ({ from: 0, to: frames })
+const keep = (): SampleEditAfter => 'keep'
 
 /** The edits, in toolbar order. Adding or dropping one is one entry. */
 export const SAMPLE_EDITS: readonly SampleEditEntry[] = [
@@ -136,6 +145,7 @@ export const SAMPLE_EDITS: readonly SampleEditEntry[] = [
     create: () => ({ kind: 'normalize' }),
     remap: () => identityMap,
     changed: whole,
+    after: keep,
   },
   {
     kind: 'reverse', title: 'Reverse', suffix: 'reversed', needsSelection: false,
@@ -143,6 +153,7 @@ export const SAMPLE_EDITS: readonly SampleEditEntry[] = [
     create: () => ({ kind: 'reverse' }),
     remap: (_edit, frames) => mirrorMap(0, frames),
     changed: whole,
+    after: keep,
   },
   {
     kind: 'keep', title: 'Keep selection', suffix: 'cut', needsSelection: true,
@@ -156,6 +167,7 @@ export const SAMPLE_EDITS: readonly SampleEditEntry[] = [
       const { from, to } = rangeOf(edit, frames)
       return { from: 0, to: to - from }
     },
+    after: () => ({ selection: null, cursor: 0 }),
   },
   {
     kind: 'delete', title: 'Delete selection', suffix: 'edited', needsSelection: true,
@@ -169,6 +181,7 @@ export const SAMPLE_EDITS: readonly SampleEditEntry[] = [
       const { from, to } = rangeOf(edit, frames)
       return { from, to: frames - (to - from) }
     },
+    after: (edit, frames) => ({ selection: null, cursor: rangeOf(edit, frames).from }),
   },
   {
     kind: 'fade-in', title: 'Fade in', suffix: 'fade in', needsSelection: false,
@@ -176,6 +189,7 @@ export const SAMPLE_EDITS: readonly SampleEditEntry[] = [
     create: () => ({ kind: 'fade-in', seconds: CLICK_FADE_SECONDS }),
     remap: () => identityMap,
     changed: (edit, frames, sampleRate) => ({ from: 0, to: fadeFramesOf(sampleRate, frames, edit.kind === 'fade-in' ? edit.seconds : 0) }),
+    after: keep,
   },
   {
     kind: 'fade-out', title: 'Fade out', suffix: 'fade out', needsSelection: false,
@@ -183,6 +197,7 @@ export const SAMPLE_EDITS: readonly SampleEditEntry[] = [
     create: () => ({ kind: 'fade-out', seconds: CLICK_FADE_SECONDS }),
     remap: () => identityMap,
     changed: (edit, frames, sampleRate) => ({ from: frames - fadeFramesOf(sampleRate, frames, edit.kind === 'fade-out' ? edit.seconds : 0), to: frames }),
+    after: keep,
   },
 ]
 
@@ -211,3 +226,6 @@ export const sampleRemap = (edit: SampleEdit, fromFrames: number, toFrames: numb
 /** The output frames `edit` changes in a sample of `frames` frames at `sampleRate`. */
 export const changedFrames = (edit: SampleEdit, frames: number, sampleRate: number): FrameRange =>
   sampleEditEntry(edit.kind).changed(edit, frames, sampleRate)
+
+/** Where the editor's selection and cursor go after `edit` of a sample of `frames` frames. */
+export const afterEdit = (edit: SampleEdit, frames: number): SampleEditAfter => sampleEditEntry(edit.kind).after(edit, frames)

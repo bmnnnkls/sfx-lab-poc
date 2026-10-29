@@ -13,6 +13,8 @@ export {
   type SampleEditContext,
   type SampleEditEntry,
   type SampleEditKind,
+  type SampleEditAfter,
+  afterEdit,
   applySampleEdit,
   changedFrames,
   remapFrame,

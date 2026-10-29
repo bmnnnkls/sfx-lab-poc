@@ -24,11 +24,11 @@ export interface WaveEditorView {
 export const DEFAULT_WAVE_VIEW: WaveEditorView = { framesPerPixel: null, startFrame: 0, cursor: 0, selection: null }
 
 interface WaveEditorState {
-  /** By sample id. */
+  /** By the sample's origin (`originOf`), so a view follows its sample through edits, undo and redo. */
   readonly views: Readonly<Record<string, WaveEditorView>>
-  setView(sampleId: string, change: Partial<WaveEditorView>): void
+  setView(key: string, change: Partial<WaveEditorView>): void
   /** Sets the selection: ordered, and none when it is empty. */
-  select(sampleId: string, selection: WaveSelection | null): void
+  select(key: string, selection: WaveSelection | null): void
 }
 
 /**
@@ -51,6 +51,6 @@ export const useWaveEditorStore = create<WaveEditorState>((set) => ({
     }),
 }))
 
-/** One sample's view, or the default for a sample not looked at yet. */
-export const waveViewOf = (views: Readonly<Record<string, WaveEditorView>>, sampleId: string): WaveEditorView =>
-  views[sampleId] ?? DEFAULT_WAVE_VIEW
+/** One sample's view, by its origin, or the default for a sample not looked at yet. */
+export const waveViewOf = (views: Readonly<Record<string, WaveEditorView>>, key: string): WaveEditorView =>
+  views[key] ?? DEFAULT_WAVE_VIEW

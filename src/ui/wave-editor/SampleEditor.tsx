@@ -1,6 +1,6 @@
-import { SAMPLE_EDITS, type SampleEditEntry, type SampleInfo, frameCount, tempoFromName } from '@core'
+import { SAMPLE_EDITS, type SampleEditEntry, type SampleInfo, frameCount, originOf, tempoFromName } from '@core'
 import { useProjectStore, useSampleLibrary, useStatusStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { useStoredState } from '../shared/use-stored-state'
 import { currentView } from './current-view'
 import { DetailView } from './DetailView'
@@ -21,14 +21,16 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
   const library = useSampleLibrary()
   const wave = useWaveAudioStore((state) => (state.current?.sampleId === sample.id ? state.current : null))
   const failed = useWaveAudioStore((state) => state.current === null && state.loading === null)
-  const selection = useWaveEditorStore((state) => waveViewOf(state.views, sample.id).selection)
-  const cursor = useWaveEditorStore((state) => waveViewOf(state.views, sample.id).cursor)
+  const key = originOf(sample)
+  const selection = useWaveEditorStore((state) => waveViewOf(state.views, key).selection)
+  const cursor = useWaveEditorStore((state) => waveViewOf(state.views, key).cursor)
   const previewing = useStatusStore((state) => state.status?.preview?.sampleId === sample.id)
   const projectTempo = useProjectStore((state) => state.project.tempo)
   const [ruler, setRuler] = useStoredState('sfxlab:wave-ruler', 'time', isRulerMode)
   const [rulerTempo, setRulerTempo] = useStoredState('sfxlab:wave-ruler-tempo', 'project', isRulerTempo)
   const [loop, setLoop] = useStoredState('sfxlab:wave-loop', false, isBoolean)
-  const [busy, setBusy] = useState(false)
+  const [copies, setCopies] = useStoredState('sfxlab:wave-edit-copies', false, isBoolean)
+  const busy = useWaveAudioStore((state) => state.editing !== null)
   const detail = useRef<HTMLDivElement>(null)
 
   const sampleTempo = tempoFromName(sample.name)
@@ -38,8 +40,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
   const apply = (entry: SampleEditEntry) => {
     const edit = entry.create({ selection })
     if (!edit) return
-    setBusy(true)
-    void library.editSample(sample.id, edit, { asCopy: true }).finally(() => setBusy(false))
+    void library.editSample(sample.id, edit, { asCopy: copies })
   }
 
   const play = () => {
@@ -51,10 +52,10 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
     if (!wave) return
     const frames = frameCount(wave.audio)
     const store = useWaveEditorStore.getState()
-    if (!range) return store.setView(sample.id, { framesPerPixel: null, startFrame: 0 })
+    if (!range) return store.setView(key, { framesPerPixel: null, startFrame: 0 })
     const width = currentView(detail.current, wave).width
     const next = zoomTo(range.from, range.to, width, frames)
-    store.setView(sample.id, { framesPerPixel: next.framesPerPixel, startFrame: next.startFrame })
+    store.setView(key, { framesPerPixel: next.framesPerPixel, startFrame: next.startFrame })
   }
 
   return (
@@ -68,10 +69,22 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
           Loop
         </button>
         {SAMPLE_EDITS.map((entry) => (
-          <button key={entry.kind} onClick={() => apply(entry)} disabled={busy || (entry.needsSelection && !selection)} title={entry.tooltip}>
+          <button
+            key={entry.kind}
+            onClick={() => apply(entry)}
+            disabled={busy || (entry.needsSelection && !selection)}
+            title={busy ? 'An edit is running' : entry.needsSelection && !selection ? `${entry.tooltip} (select a part first)` : entry.tooltip}
+          >
             {entry.title}
           </button>
         ))}
+        <button
+          aria-pressed={copies}
+          onClick={() => setCopies(!copies)}
+          title={copies ? 'Each edit adds a new sample and leaves this one as it is' : 'Edits change this sample everywhere it is used; turn on to make a new sample instead'}
+        >
+          Edits make copies
+        </button>
         <button onClick={() => zoom(selection)} disabled={!wave || !selection} title="Zoom to the selection">
           Zoom to selection
         </button>

@@ -10,16 +10,17 @@ export interface SampleLibrary {
   preview(sampleId: string, range?: PreviewRange): void
   stopPreview(): void
   /**
-   * Applies `edit` to a sample. With `asCopy` (the only way in 11a) the result is a new library sample, "name (suffix)",
-   * and the original stays untouched; the copy is a normal library sample (undoable with the project). Everything that
-   * edits a sample calls this, never the steps inside it.
+   * Applies `edit` to a sample. In place (`asCopy: false`), the result is a new file and every use of the sample moves
+   * onto it in one undo step; with `asCopy`, it is a new library sample, "name (suffix)", and the original stays as it
+   * was. One edit runs at a time (`useWaveAudioStore.editing`). Everything that edits a sample calls this, never the
+   * steps inside it.
    */
   editSample(sampleId: string, edit: SampleEdit, options: SampleEditOptions): Promise<void>
 }
 
-/** How an edit lands. 11b adds editing in place (`asCopy: false`) behind the same call. */
+/** How an edit lands: in place, or as a new library sample (the editor's *Edits make copies*). */
 export interface SampleEditOptions {
-  readonly asCopy: true
+  readonly asCopy: boolean
 }
 
 const SampleLibraryContext = createContext<SampleLibrary | null>(null)

@@ -29,7 +29,7 @@ const channelsAt = (element: HTMLElement, clientY: number, stereo: boolean): Wav
  * cursor changes. `data-draw` says which band of `columnsFor` is drawn.
  */
 export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<HTMLDivElement | null> }) => {
-  const { sampleId, audio, pyramid } = wave
+  const { viewKey, audio, pyramid } = wave
   const frames = frameCount(audio)
   const stereo = audio.channels.length > 1
   const lanes = useRef<Array<WaveLaneHandle | null>>([])
@@ -46,7 +46,7 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
       const view = currentView(element, wave)
       const columns = columnsFor(view, pyramid, audio)
       element.dataset.draw = columns.kind
-      const { cursor, selection } = waveViewOf(useWaveEditorStore.getState().views, sampleId)
+      const { cursor, selection } = waveViewOf(useWaveEditorStore.getState().views, viewKey)
       lanes.current.forEach((lane, channel) => {
         const covers = selection && (selection.channels === 'both' || selection.channels === (channel === 0 ? 'left' : 'right'))
         lane?.draw(laneColumns(columns, channel, view), {
@@ -60,7 +60,7 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
     }
     schedule()
     const unsubscribe = useWaveEditorStore.subscribe((state, previous) => {
-      if (state.views[sampleId] !== previous.views[sampleId]) schedule()
+      if (state.views[viewKey] !== previous.views[viewKey]) schedule()
     })
     const observer = new ResizeObserver(schedule)
     if (frame.current) observer.observe(frame.current)
@@ -69,7 +69,7 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
       observer.disconnect()
       if (request) cancelAnimationFrame(request)
     }
-  }, [wave, audio, pyramid, sampleId, frame])
+  }, [wave, audio, pyramid, viewKey, frame])
 
   // The wheel scrolls; with ⌘ or Ctrl (and a trackpad pinch, which arrives as one) it zooms around the pointer.
   useEffect(() => {
@@ -82,16 +82,16 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
       if (event.ctrlKey || event.metaKey) {
         const x = event.clientX - element.getBoundingClientRect().left
         const next = zoomAround(view, WHEEL_ZOOM ** (event.deltaY / 100), x, frames)
-        store.setView(sampleId, { framesPerPixel: next.framesPerPixel, startFrame: next.startFrame })
+        store.setView(viewKey, { framesPerPixel: next.framesPerPixel, startFrame: next.startFrame })
       } else {
         const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
-        const next = resolveView({ ...waveViewOf(store.views, sampleId), framesPerPixel: view.framesPerPixel, startFrame: view.startFrame + delta * view.framesPerPixel }, frames, view.width)
-        store.setView(sampleId, { framesPerPixel: next.framesPerPixel, startFrame: next.startFrame })
+        const next = resolveView({ ...waveViewOf(store.views, viewKey), framesPerPixel: view.framesPerPixel, startFrame: view.startFrame + delta * view.framesPerPixel }, frames, view.width)
+        store.setView(viewKey, { framesPerPixel: next.framesPerPixel, startFrame: next.startFrame })
       }
     }
     element.addEventListener('wheel', onWheel, { passive: false })
     return () => element.removeEventListener('wheel', onWheel)
-  }, [wave, sampleId, frames, frame])
+  }, [wave, viewKey, frames, frame])
 
   const frameOf = (event: React.PointerEvent<HTMLDivElement>) =>
     frameAt(currentView(event.currentTarget, wave), event.clientX - event.currentTarget.getBoundingClientRect().left, frames)
@@ -105,12 +105,12 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
         if (event.button !== 0) return
         const store = useWaveEditorStore.getState()
         const at = frameOf(event)
-        const { selection } = waveViewOf(store.views, sampleId)
+        const { selection } = waveViewOf(store.views, viewKey)
         // Shift extends the selection from its far end.
         const anchor = event.shiftKey && selection ? (Math.abs(at - selection.from) > Math.abs(at - selection.to) ? selection.from : selection.to) : at
         const channels = event.shiftKey && selection ? selection.channels : channelsAt(event.currentTarget, event.clientY, stereo)
         drag.current = { anchor, startX: event.clientX, channels, moved: event.shiftKey && selection !== null }
-        if (drag.current.moved) store.select(sampleId, { from: anchor, to: at, channels })
+        if (drag.current.moved) store.select(viewKey, { from: anchor, to: at, channels })
         event.currentTarget.setPointerCapture(event.pointerId)
       }}
       onPointerMove={(event) => {
@@ -118,7 +118,7 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
         if (!current) return
         if (!current.moved && Math.abs(event.clientX - current.startX) < DRAG_PX) return
         current.moved = true
-        useWaveEditorStore.getState().select(sampleId, { from: current.anchor, to: frameOf(event), channels: current.channels })
+        useWaveEditorStore.getState().select(viewKey, { from: current.anchor, to: frameOf(event), channels: current.channels })
       }}
       onPointerUp={(event) => {
         const current = drag.current
@@ -126,8 +126,8 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
         if (current && !current.moved) {
           const store = useWaveEditorStore.getState()
-          store.select(sampleId, null)
-          store.setView(sampleId, { cursor: current.anchor })
+          store.select(viewKey, null)
+          store.setView(viewKey, { cursor: current.anchor })
         }
       }}
       onPointerCancel={() => {

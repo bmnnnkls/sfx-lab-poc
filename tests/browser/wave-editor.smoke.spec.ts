@@ -161,3 +161,31 @@ test('a stereo sample opens with a lane per channel, zooms to single samples, se
   await openView(page, 'Wave editor')
   await expect(status).toHaveText(selected!)
 })
+
+test('an edit in place survives a reload, and the clip that played the sample plays the edited one', async ({ page }) => {
+  await page.goto('/?starter')
+  const samples = await openView(page, 'Samples')
+  await samples.getByRole('button', { name: 'Add demo samples', exact: true }).click()
+  await expect(samples.locator('[data-status="ready"]')).toHaveCount(5)
+  const kick = samples.getByRole('listitem').filter({ hasText: 'Demo Kick' })
+  await kick.getByRole('button', { name: 'New audio track', exact: true }).click()
+  await kick.getByRole('button', { name: '✎', exact: true }).click()
+  const wave = viewRoot(page, 'Wave editor')
+  await expect(wave.getByTestId('sample-editor')).toContainText('Demo Kick')
+  await wave.getByRole('button', { name: 'Reverse', exact: true }).click()
+
+  type Saved = { samples: Array<{ id: string; name: string; origin?: string }>; tracks: Array<{ kind: string; clips: Array<{ sampleId?: string } | null> }> }
+  const saved = () => page.evaluate(() => (JSON.parse(localStorage.getItem('sfxlab:project') ?? '{"project":{"samples":[],"tracks":[]}}') as { project: Saved }).project)
+  const edited = async () => (await saved()).samples.find((sample) => sample.name === 'Demo Kick' && sample.origin)
+  await expect.poll(edited).toBeTruthy()
+  const { id } = (await edited())!
+
+  await page.reload()
+  const after = await openView(page, 'Samples')
+  // The edited file was stored before the project named it, so every sample loads.
+  await expect(after.locator('[data-status="ready"]')).toHaveCount(5)
+  const project = await saved()
+  expect(project.samples.filter((sample) => sample.name === 'Demo Kick').map((sample) => sample.id)).toEqual([id])
+  const clips = project.tracks.filter((track) => track.kind === 'audio').flatMap((track) => track.clips).filter((clip) => clip !== null)
+  expect(clips.map((clip) => clip.sampleId)).toEqual([id])
+})

@@ -8,7 +8,7 @@ import styles from './WaveEditor.module.css'
 /** Time or bars and beats over the detail, redrawn with it (not by React) when the view moves. */
 export const Ruler = ({ wave, detail, mode, bpm }: { wave: WaveAudio; detail: RefObject<HTMLDivElement | null>; mode: RulerMode; bpm: number }) => {
   const canvas = useRef<HTMLCanvasElement>(null)
-  const { sampleId, audio } = wave
+  const { viewKey, audio } = wave
 
   useEffect(() => {
     let request = 0
@@ -37,7 +37,7 @@ export const Ruler = ({ wave, detail, mode, bpm }: { wave: WaveAudio; detail: Re
     }
     schedule()
     const unsubscribe = useWaveEditorStore.subscribe((state, previous) => {
-      if (state.views[sampleId] !== previous.views[sampleId]) schedule()
+      if (state.views[viewKey] !== previous.views[viewKey]) schedule()
     })
     const observer = new ResizeObserver(schedule)
     if (canvas.current) observer.observe(canvas.current)
@@ -46,7 +46,7 @@ export const Ruler = ({ wave, detail, mode, bpm }: { wave: WaveAudio; detail: Re
       observer.disconnect()
       if (request) cancelAnimationFrame(request)
     }
-  }, [wave, audio, sampleId, detail, mode, bpm])
+  }, [wave, audio, viewKey, detail, mode, bpm])
 
   return <canvas ref={canvas} className={styles.ruler} data-ruler={mode} aria-label={mode === 'time' ? 'Time ruler' : 'Beats ruler'} role="img" />
 }
