@@ -640,3 +640,12 @@ What turned out different from the design above, step by step.
   other: a reset or another preset takes it away.
 * **Step 6: the menus name the presets by their own word** (*Compose*, *Mix*), above the named layouts; the palette
   and the shortcuts dialog say *Compose layout*. The palette's *Load layout* case, left from step 4, came here.
+* **Step 7: *Change* replaces the command's keys with the one recorded** (`replaceKeys`), so the old key stops working,
+  as the spec asks; *Remove* takes all its keys off. A command that can't be bound (*Load layout*, *Delete layout*)
+  isn't listed. The recorder listens on `window` in the capture phase and stops the key there, so the dispatcher never
+  sees it; Escape cancels, and the dialog's own Escape waits until recording is over.
+* **Step 7: the notes.** A refused key says "The browser keeps ⌘T: it opens a new tab." (an alert); a used key
+  "⌘D is also the browser's Bookmark; here it runs this command instead."; a moved key "⌃⌘B was Toggle primary
+  sidebar's." Firefox is told by its user agent, for ⇧⌘P.
+* **Step 7: `VIEW_KEYS` lists 15 rows** (where, what, keys), drawn with `keyLabel`, under *In the views*, only while
+  nothing is searched. Page Up and Page Down got names on Apple too.

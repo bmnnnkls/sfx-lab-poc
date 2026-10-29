@@ -41,6 +41,32 @@ export const DEFAULT_KEYS: readonly KeyRow[] = [
   { command: 'edit.rename', key: 'f2' },
 ]
 
+/** A key that stays in its view, listed read only in the shortcuts dialog. */
+export interface ViewKey {
+  readonly where: string
+  readonly what: string
+  readonly keys: readonly Key[]
+}
+
+/** The view-local keys: they act on what only their view knows (the note selection, the tree's active row), and run first. */
+export const VIEW_KEYS: readonly ViewKey[] = [
+  { where: 'Piano roll', what: 'Select all, copy, cut, paste, duplicate notes', keys: ['mod+a', 'mod+c', 'mod+x', 'mod+v', 'mod+d'] },
+  { where: 'Piano roll', what: 'Delete notes', keys: ['delete', 'backspace'] },
+  { where: 'Piano roll', what: 'Quantize notes', keys: ['q'] },
+  { where: 'Piano roll', what: 'Move notes (Shift: an octave)', keys: ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'] },
+  { where: 'Piano roll', what: 'Clear the selection', keys: ['escape'] },
+  { where: 'Automation editor', what: 'Select all, copy, cut, paste points', keys: ['mod+a', 'mod+c', 'mod+x', 'mod+v'] },
+  { where: 'Automation editor', what: 'Delete points', keys: ['delete', 'backspace'] },
+  { where: 'Graph canvas', what: 'Add a node at the pointer', keys: ['shift+a'] },
+  { where: 'Add a node', what: 'Choose, pick, go up, close', keys: ['arrowup', 'arrowdown', 'enter', 'backspace', 'escape'] },
+  { where: 'Trees (Tracks, Library)', what: 'Move, open and close rows, act on a row', keys: ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'home', 'end', 'enter', 'space'] },
+  { where: 'Tracks', what: 'Move a track or group up or down', keys: ['alt+arrowup', 'alt+arrowdown'] },
+  { where: 'Knobs, faders, pads', what: 'Change the value', keys: ['arrowup', 'arrowdown', 'pageup', 'pagedown'] },
+  { where: 'Switches', what: 'Press (a momentary switch while held)', keys: ['space', 'enter'] },
+  { where: 'Anything with a menu', what: 'Open its menu', keys: ['shift+f10'] },
+  { where: 'Fields', what: 'Keep, or go back to the old text', keys: ['enter', 'escape'] },
+]
+
 /** A key in effect: a command, its key on this platform and where it works. */
 export interface Binding {
   readonly command: string
@@ -92,6 +118,10 @@ export const assignKey = (defaults: readonly KeyRow[], overrides: KeyOverrides, 
   if (holder) next[holder] = keysOf(bindings, holder).filter((candidate) => candidate !== key)
   return { overrides: next, ...(holder && { moved: holder }) }
 }
+
+/** Sets a command's one key (*Change*), taking it off the command of the same scope that had it. */
+export const replaceKeys = (defaults: readonly KeyRow[], overrides: KeyOverrides, apple: boolean, command: string, key: Key): { overrides: KeyOverrides; moved?: string } =>
+  assignKey(defaults, { ...overrides, [command]: [] }, apple, command, key)
 
 /** Takes one key off a command. */
 export const removeKey = (defaults: readonly KeyRow[], overrides: KeyOverrides, apple: boolean, command: string, key: Key): KeyOverrides => ({

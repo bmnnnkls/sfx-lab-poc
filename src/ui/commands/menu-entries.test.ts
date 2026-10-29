@@ -55,9 +55,9 @@ describe('menus from commands', () => {
   it('build View: the palette, every view under Show, the regions, maximize and the layouts', () => {
     const entries = menuEntriesOf(VIEW_MENU, context, keys)
     expect(labels(entries)).toEqual([
-      'Show all commands', '—', 'Show', '—', 'Show primary sidebar', 'Hide panel', 'Show secondary sidebar', 'Maximize or restore group', '—', 'Layouts',
+      'Show all commands', 'Keyboard shortcuts', '—', 'Show', '—', 'Show primary sidebar', 'Hide panel', 'Show secondary sidebar', 'Maximize or restore group', '—', 'Layouts',
     ])
-    expect(labels((entries[2] as MenuSubmenu).entries)).toContain('Mixer')
-    expect((entries[2] as MenuSubmenu).entries).toHaveLength(13)
+    expect(labels((entries[3] as MenuSubmenu).entries)).toContain('Mixer')
+    expect((entries[3] as MenuSubmenu).entries).toHaveLength(13)
   })
 })

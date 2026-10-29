@@ -6,6 +6,7 @@ export type HostDialog =
   | { readonly kind: 'palette'; readonly context: CommandContext; readonly returnTo: HTMLElement | null }
   | { readonly kind: 'save-layout' }
   | { readonly kind: 'export-audio' }
+  | { readonly kind: 'shortcuts' }
 
 let open: HostDialog | null = null
 const listeners = new Set<() => void>()

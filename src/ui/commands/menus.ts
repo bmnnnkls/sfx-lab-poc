@@ -35,6 +35,7 @@ export const LAYOUT_MENU: readonly CommandMenuItem[] = [...REGIONS, SEPARATOR, .
 /** View, after File: the palette, every view, the regions and the layouts. */
 export const VIEW_MENU: readonly CommandMenuItem[] = [
   'palette.show',
+  'help.shortcuts',
   SEPARATOR,
   { submenu: 'Show', items: (Object.keys(viewTitles) as ViewId[]).map((view) => ({ command: `view.show.${view}`, label: viewTitles[view] })) },
   SEPARATOR,

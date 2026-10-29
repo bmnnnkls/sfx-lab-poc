@@ -7,6 +7,7 @@ import { useActionContext } from '../shared/menu'
 import { type Binding, bindingsOf, DEFAULT_KEYS, type KeyOverrides, keysOf, loadOverrides, saveOverrides } from './keybindings'
 import { IS_APPLE, keyLabel } from './keys'
 import { CommandPalette } from './CommandPalette'
+import { KeyboardShortcuts } from './KeyboardShortcuts'
 import { showDialog, useOpenDialog } from './dialogs'
 import { attachLayoutNames, layoutNamesChanged, useLayoutNames } from './layout-names'
 import { type CommandServices, useKeybindings } from './use-keybindings'
@@ -67,6 +68,8 @@ const HostDialogs = () => {
       return <SaveLayoutDialog names={names} onSave={saveLayout} onClose={close} />
     case 'export-audio':
       return <ExportAudioDialog onClose={close} />
+    case 'shortcuts':
+      return <KeyboardShortcuts onClose={close} />
     default:
       return null
   }

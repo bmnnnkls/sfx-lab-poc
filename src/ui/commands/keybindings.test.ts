@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   assignKey, bindingsOf, DEFAULT_KEYS, keptKeyReason, KEYBINDINGS_KEY, keysOf, type KeyRow, loadOverrides, parseOverrides, removeKey,
-  resetKeys, saveOverrides, scopeOf, serializeOverrides, usedKeyWarning,
+  replaceKeys, resetKeys, saveOverrides, scopeOf, serializeOverrides, usedKeyWarning, VIEW_KEYS,
 } from './keybindings'
 import { normalizeKey } from './keys'
 import { COMMANDS } from './registry'
@@ -25,6 +25,10 @@ describe('the default table', () => {
       const bindings = bindingsOf(DEFAULT_KEYS, {}, apple)
       expect(new Set(bindings.map((binding) => `${binding.scope} ${binding.key}`)).size).toBe(bindings.length)
     }
+  })
+
+  it('lists the view keys as keys', () => {
+    for (const row of VIEW_KEYS) for (const key of row.keys) expect(normalizeKey(key), key).toBe(key)
   })
 
   it('binds nothing a browser keeps', () => {
@@ -62,6 +66,13 @@ describe('changing keys', () => {
     expect(moved).toBe('b')
     expect(overrides).toEqual({ a: ['ctrl+mod+b', 'f9'], b: ['ctrl+mod+j'] })
     expect(keysOf(bindingsOf(ROWS, overrides, true), 'b')).toEqual(['ctrl+mod+j'])
+  })
+
+  it('changes a command to one key, taking it off the command that had it', () => {
+    const { overrides, moved } = replaceKeys(ROWS, {}, true, 'b', 'ctrl+mod+b')
+    expect(moved).toBe('a')
+    expect(overrides).toEqual({ a: [], b: ['ctrl+mod+b'] })
+    expect(replaceKeys(ROWS, {}, true, 'a', 'alt+p')).toEqual({ overrides: { a: ['alt+p'] } })
   })
 
   it("doesn't move a key across scopes", () => {

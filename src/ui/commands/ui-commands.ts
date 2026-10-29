@@ -74,6 +74,13 @@ export const UI_COMMANDS: readonly Command[] = [
     },
   },
   {
+    id: 'help.shortcuts',
+    category: 'Help',
+    title: 'Keyboard shortcuts',
+    takesFocus: true,
+    run: () => showDialog({ kind: 'shortcuts' }),
+  },
+  {
     id: 'file.export-audio',
     category: 'File',
     title: 'Export audio (WAV)…',
