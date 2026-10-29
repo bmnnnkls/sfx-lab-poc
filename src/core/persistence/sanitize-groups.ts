@@ -1,6 +1,10 @@
-import { GROUP_COLOURS, MAX_GROUP_DEPTH, NAME_LIMITS, type GroupColour, type Project, type Track, type TrackGroup, normalizeTrackGroups } from '../project'
+import { type ModuleLibrary, createDefaultGroupGraph } from '../patch'
+import { GROUP_COLOURS, MAX_GROUP_DEPTH, NAME_LIMITS, type GroupBus, type GroupColour, type Project, type Track, type TrackGroup, normalizeTrackGroups } from '../project'
+import { clamp } from '../shared'
 import { LIMITS } from './format'
-import { type Warn, asList, isRecord, nonEmptyText } from './raw'
+import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
+import { sanitizePatch } from './sanitize-patch'
+import { readSends } from './sanitize-sends'
 
 /** `value` without `key`. */
 const without = <T extends object>(value: T, key: string): T => {
@@ -9,12 +13,32 @@ const without = <T extends object>(value: T, key: string): T => {
 }
 
 /**
+ * A group's bus from untrusted data: the fader clamped (anything else is 1), pan finite and clamped, the graph through
+ * `sanitizePatch` (none: the default, silently, as a track's) and the sends through `readSends`. Unknown fields go.
+ */
+const sanitizeBus = (raw: Record<string, unknown>, name: string, sampleIds: ReadonlySet<string>, modules: ModuleLibrary, warn: Warn): GroupBus => {
+  const pan = clamp(finiteNumber(raw.pan, 0), -1, 1)
+  return {
+    volume: clamp(finiteNumber(raw.volume, 1), 0, 1),
+    ...(pan !== 0 && { pan }),
+    fx: isRecord(raw.fx) ? sanitizePatch(raw.fx, `Group "${name}" effects`, sampleIds, modules, warn) : createDefaultGroupGraph(),
+    sends: readSends(raw.sends),
+  }
+}
+
+/**
  * Reads `groups` and repairs what tracks say about them, each with a warning: a group without a usable id (or with a
  * track's or another group's) goes; an unknown colour becomes the first; a parent that is missing, closes a cycle or
  * nests past `MAX_GROUP_DEPTH` is cleared, so the group moves to the top level; a track's group that is missing, or on a
- * return, is cleared.
+ * return, is cleared. Mute and solo count only as a real `true`; a bus keeps only the fields it knows.
  */
-export const sanitizeGroups = (raw: unknown, tracks: readonly Track[], warn: Warn): { tracks: Track[]; groups?: TrackGroup[] } => {
+export const sanitizeGroups = (
+  raw: unknown,
+  tracks: readonly Track[],
+  sampleIds: ReadonlySet<string>,
+  modules: ModuleLibrary,
+  warn: Warn,
+): { tracks: Track[]; groups?: TrackGroup[] } => {
   const list = asList(raw)
   if (list.length > LIMITS.groups) warn(`Only the first ${LIMITS.groups} track groups were kept`)
   const trackIds = new Set(tracks.map((track) => track.id))
@@ -33,6 +57,9 @@ export const sanitizeGroups = (raw: unknown, tracks: readonly Track[], warn: War
       colour,
       ...(entry.collapsed === true && { collapsed: true }),
       ...(typeof entry.parentId === 'string' && { parentId: entry.parentId }),
+      ...(entry.muted === true && { muted: true }),
+      ...(entry.soloed === true && { soloed: true }),
+      ...(isRecord(entry.bus) && { bus: sanitizeBus(entry.bus, name, sampleIds, modules, warn) }),
     })
   }
 
