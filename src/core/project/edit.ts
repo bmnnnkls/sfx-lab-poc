@@ -87,12 +87,18 @@ export const createTrack = (
   clips: Array.from({ length: sceneCount }, () => null),
 })
 
+/**
+ * Whether a new audio track's `Track in` runs in stereo, so a stereo sample plays in stereo. Tracks already in a file keep
+ * what their file says (before 11a, mono).
+ */
+export const NEW_AUDIO_TRACK_STEREO = true
+
 export const createAudioTrack = (name: string, sceneCount: number): AudioTrack => ({
   kind: 'audio',
   id: createId('track'),
   name,
   volume: 0.8,
-  fx: createDefaultFxGraph(),
+  fx: createDefaultFxGraph(NEW_AUDIO_TRACK_STEREO),
   sends: {},
   clips: Array.from({ length: sceneCount }, () => null),
 })

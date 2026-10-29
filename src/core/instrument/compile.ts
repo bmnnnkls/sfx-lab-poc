@@ -122,8 +122,9 @@ export const compileStage = (
     const lifted = node.stereo === true && definition.stereoCapable === true
     const ports: { inputs: readonly PortSpec[]; outputs: readonly PortSpec[] } = lifted ? stereoPorts(definition) : definition
 
-    const copies = Array.from({ length: lifted ? 2 : 1 }, () => {
+    const copies = Array.from({ length: lifted ? 2 : 1 }, (_, channel) => {
       const dsp = definition.create(sampleRate, voiceSalt)
+      if (lifted) dsp.setChannel?.(channel === 0 ? 0 : 1)
       for (const [paramId, value] of Object.entries(node.params)) dsp.setParam(paramId, value)
       if (node.sampleId !== undefined) dsp.setSample?.(node.sampleId)
       if (node.trackId !== undefined) dsp.setTrack?.(node.trackId)

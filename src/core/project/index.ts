@@ -66,6 +66,7 @@ export {
   addSamples,
   addTrack,
   createAudioTrack,
+  NEW_AUDIO_TRACK_STEREO,
   createClip,
   createReturnTrack,
   createTrack,

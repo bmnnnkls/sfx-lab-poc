@@ -1,6 +1,6 @@
-import { DEFAULT_TEMPO } from '../dsp'
+import { DEFAULT_TEMPO, RIGHT, STEREO_FRAMES } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
-import { type Patch, audioSources, sendTargets } from '../patch'
+import { type Patch, audioSources, sendTargets, trackInIsStereo } from '../patch'
 import type { ArrangementClip, AudioClip, SendLevels } from '../project'
 import { type SampleLookup, frameCount } from '../sample'
 import { AudioClipLauncher, type AudioEvent, type LauncherStatus } from '../session'
@@ -44,8 +44,14 @@ export class AudioTrackRuntime implements PlayableTrack {
   private sources: string[]
   /** The send knobs as pairs of (return track id, level), post-fader. */
   private sendList: ReadonlyArray<readonly [string, number]> = []
-  /** The clip audio of the current stretch, before the insert graph. */
-  private readonly scratch = new Float32Array(MAX_BLOCK_FRAMES)
+  /**
+   * The clip audio of the current stretch, before the insert graph. Mono (today's math, bit for bit) while the graph's
+   * `Track in` is mono; planar stereo (`STEREO_FRAMES`, left then right) once it runs in stereo.
+   */
+  private scratch: Float32Array
+  private stereo: boolean
+  /** The stereo path's audio as one signal for the track's tap (the average of its channels). */
+  private readonly tapScratch = new Float32Array(MAX_BLOCK_FRAMES)
   private tempo = DEFAULT_TEMPO
 
   constructor(
@@ -62,6 +68,8 @@ export class AudioTrackRuntime implements PlayableTrack {
     this.fx = new FxGraph(fx, sampleRate, samples)
     this.targets = sendTargets(fx)
     this.sources = audioSources(fx)
+    this.stereo = trackInIsStereo(fx)
+    this.scratch = new Float32Array(this.stereo ? STEREO_FRAMES : MAX_BLOCK_FRAMES)
   }
 
   readouts(): Readonly<Record<string, number>> {
@@ -77,6 +85,11 @@ export class AudioTrackRuntime implements PlayableTrack {
     this.fx = new FxGraph(fx, this.sampleRate, this.samples, this.tempo)
     this.targets = sendTargets(fx)
     this.sources = audioSources(fx)
+    const stereo = trackInIsStereo(fx)
+    if (stereo !== this.stereo) {
+      this.stereo = stereo
+      this.scratch = new Float32Array(stereo ? STEREO_FRAMES : MAX_BLOCK_FRAMES)
+    }
   }
 
   setSends(sends: SendLevels): void {
@@ -197,6 +210,7 @@ export class AudioTrackRuntime implements PlayableTrack {
   /** The clip audio goes through the insert graph (which keeps ringing after the clip ends), then the fader. */
   mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, { timing, sends, taps }: MixContext): void {
     this.scratch.fill(0, 0, frames)
+    if (this.stereo) this.scratch.fill(0, RIGHT, RIGHT + frames)
     if (this.tail) {
       const alive = this.mixVoice(this.tail.voice, frames, timing, this.tail)
       this.tail.framesLeft -= frames
@@ -205,12 +219,19 @@ export class AudioTrackRuntime implements PlayableTrack {
     const remaining = this.framesUntilEnd(timing)
     if (this.playing && !this.mixVoice(this.playing, frames, timing)) this.finishClip(timing.beat + Math.min(frames, remaining) * timing.beatsPerSample)
 
-    taps.write(this.trackId, 0, this.scratch, frames)
+    taps.write(this.trackId, 0, this.stereo ? this.monoOfScratch(frames) : this.scratch, frames)
     const gate = this.strip.sendsTo(sends)
     const signal = this.fx.process(this.scratch, frames, { sends: gate, taps })
     taps.write(this.trackId, 1, signal, frames)
     this.strip.mixInto(left, right, offset, frames, signal)
     for (const [returnId, level] of this.sendList) this.strip.send(gate, returnId, signal, level, frames)
+  }
+
+  /** The stereo scratch as one signal, for what listens to the track's sound before its effects. */
+  private monoOfScratch(frames: number): Float32Array {
+    const { scratch, tapScratch } = this
+    for (let i = 0; i < frames; i++) tapScratch[i] = ((scratch[i] ?? 0) + (scratch[RIGHT + i] ?? 0)) / 2
+    return tapScratch
   }
 
   /** Adds `frames` of `voice` to the scratch buffer. Returns false once the clip has finished (a non-looping pass ended). */
@@ -251,8 +272,13 @@ export class AudioTrackRuntime implements PlayableTrack {
         if (remaining <= 0) return false
         level *= remaining / tail.total
       }
-      const value = readRegion(sample, 'mono', position, region, clip.loop) * level
-      this.scratch[i] = (this.scratch[i] ?? 0) + value
+      // The position and level are worked out once; the stereo path reads both channels there.
+      if (this.stereo) {
+        this.scratch[i] = (this.scratch[i] ?? 0) + readRegion(sample, 0, position, region, clip.loop) * level
+        this.scratch[RIGHT + i] = (this.scratch[RIGHT + i] ?? 0) + readRegion(sample, 1, position, region, clip.loop) * level
+      } else {
+        this.scratch[i] = (this.scratch[i] ?? 0) + readRegion(sample, 'mono', position, region, clip.loop) * level
+      }
     }
     return true
   }
