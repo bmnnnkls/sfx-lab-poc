@@ -7,8 +7,8 @@ import styles from './WaveEditor.module.css'
 const MAX_CHOICES = 8
 
 /**
- * The wave editor: the selected sample's waveform and its edits. ✎ on a sample opens it here (`openSampleEditor`);
- * *Close* clears the selection. Round 11 replaces the inside; the view and its entry points stay.
+ * The wave editor: the open sample's overview, ruler and lanes, and its edits. ✎ on a sample opens it here
+ * (`openSampleEditor`); *Close* clears the selection.
  */
 export const WaveEditorView = () => {
   const samples = useProjectStore((state) => state.project.samples)

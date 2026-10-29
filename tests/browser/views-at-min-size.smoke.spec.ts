@@ -122,8 +122,8 @@ const CASES: readonly Case[] = [
       await expect(editButtons(samples).first()).toBeEnabled()
       await root.getByRole('button', { name: /^Demo / }).first().click()
     },
-    // The waveform scrolls sideways inside its own scroller.
-    controls: (root) => [root.getByRole('button', { name: 'Close', exact: true }), root.locator('[data-scroll]')],
+    // The overview is the waveform's scrollbar: the detail view doesn't scroll natively.
+    controls: (root) => [root.getByRole('button', { name: 'Close', exact: true }), root.getByRole('scrollbar', { name: 'Waveform position' })],
   },
   {
     title: 'Mixer',

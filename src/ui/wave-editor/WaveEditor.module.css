@@ -1,7 +1,7 @@
-/* The sample editor: a toolbar of edits over a zoomable waveform. */
+/* The sample editor: a toolbar, the overview (the scrollbar), the ruler, a lane per channel and a status line. */
 .editor {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto 48px 18px minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
 }
@@ -10,57 +10,122 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.editorToolbar button[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.overview {
+  position: relative;
+  border-bottom: 1px solid var(--border);
+  touch-action: none;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.overview:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.overviewCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.overviewBox {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  cursor: grab;
+}
+
+.ruler {
+  display: block;
+  width: 100%;
+  height: 18px;
   border-bottom: 1px solid var(--border);
 }
 
-.editorHint {
-  margin: 0;
-  padding: 8px 12px;
-  color: var(--text-dim);
-  font-size: 11px;
-}
-
-.zoom {
-  display: flex;
-  align-items: center;
-}
-
-.zoom input[type='range'] {
-  width: 110px;
-}
-
-.waveformFrame {
-  min-height: 0;
-  overflow: hidden;
-}
-
-.waveformScroll {
-  height: 100%;
-  overflow: auto;
-}
-
-.waveformBody {
+.detail {
   position: relative;
-  height: 100%;
-  min-height: 150px;
-}
-
-.waveformCanvas {
-  display: block;
-  height: 150px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   touch-action: none;
   cursor: crosshair;
+  --wave-selection: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
-.selection {
+.lane {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.lane + .lane {
+  border-top: 1px solid var(--border);
+}
+
+.laneCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.laneLabel {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  color: var(--text-dim);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.playhead {
   position: absolute;
   top: 0;
-  height: 150px;
-  background: color-mix(in srgb, var(--accent) 25%, transparent);
-  border-inline: 1px solid var(--accent);
+  bottom: 0;
+  width: 1px;
+  background: var(--text);
   pointer-events: none;
+}
+
+.loading {
+  grid-row: 2 / 5;
+  margin: 0;
+  padding: 12px;
+  color: var(--text-dim);
+}
+
+.statusLine {
+  margin: 0;
+  padding: 4px 12px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The empty state: what to open, and how to get samples. */

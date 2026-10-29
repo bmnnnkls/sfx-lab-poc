@@ -29,6 +29,14 @@ export {
 } from './persistence-store'
 export { useSampleStore, type SampleStatus } from './sample-store'
 export { type WaveAudio, useWaveAudioStore } from './wave-audio-store'
+export {
+  DEFAULT_WAVE_VIEW,
+  type WaveChannels,
+  type WaveEditorView,
+  type WaveSelection,
+  useWaveEditorStore,
+  waveViewOf,
+} from './wave-editor-store'
 export { SampleLibraryProvider, useSampleLibrary, type SampleEditOptions, type SampleLibrary } from './sample-library'
 export { EngineControlsProvider, useEngineControls, type EngineControls } from './engine-controls'
 export { ProjectFilesProvider, useProjectFiles, type ProjectFiles } from './project-files'
