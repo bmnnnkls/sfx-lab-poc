@@ -1,5 +1,17 @@
 import { type AudioHost, decodeAudio } from '@audio'
-import { type SampleAudio, type SampleData, type SampleInfo, computePeaks, createDemoSamples, encodeWav, toMono } from '@core'
+import {
+  EDIT_WAV_BIT_DEPTH,
+  type SampleAudio,
+  type SampleData,
+  type SampleEdit,
+  type SampleInfo,
+  applySampleEdit,
+  computePeaks,
+  createDemoSamples,
+  encodeWavChannels,
+  frameCount,
+  sampleEditEntry,
+} from '@core'
 import { type SampleLibrary, usePersistenceStore, useProjectStore, useSampleStore } from '@state'
 import { type SampleStorage, sha256Hex } from '@storage'
 
@@ -109,8 +121,11 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
     return { name, known }
   }
 
-  /** Adds a derived copy of a sample: decoded, transformed, re-encoded as WAV and hashed like any import. */
-  const derive = async (sampleId: string, suffix: string, transform: (mono: Float32Array) => Float32Array) => {
+  /**
+   * Applies an edit to a sample's audio and adds the result as a copy: encoded as WAV (`EDIT_WAV_BIT_DEPTH`, one or two
+   * channels) and hashed like any import.
+   */
+  const editSample = async (sampleId: string, edit: SampleEdit) => {
     const info = useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
     if (!info) return
     const bytes = await storage.get(sampleId)
@@ -118,16 +133,15 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
       notify('error', `The audio of "${info.name}" is missing; import the file again to edit it.`)
       return
     }
-    const decoded = await decodeAudio(bytes)
-    const mono = transform(toMono(decoded.audio.channels))
-    if (mono.length === 0) {
+    const audio = applySampleEdit((await decodeAudio(bytes)).audio, edit)
+    const frames = frameCount(audio)
+    if (frames === 0) {
       notify('error', 'Nothing left after the edit')
       return
     }
-    const { sampleRate } = decoded.audio
-    const wav = encodeWav(mono, sampleRate)
+    const wav = encodeWavChannels(audio.channels, audio.sampleRate, EDIT_WAV_BIT_DEPTH)
     const id = await sha256Hex(wav)
-    const name = `${info.name} (${suffix})`.slice(0, 60)
+    const name = `${info.name} (${sampleEditEntry(edit.kind).suffix})`.slice(0, 60)
     if (useProjectStore.getState().project.samples.some((sample) => sample.id === id)) {
       notify('info', `"${name}" is already in the library`)
       return
@@ -138,9 +152,9 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
         id,
         name,
         extension: 'wav',
-        durationSeconds: mono.length / sampleRate,
-        sampleRate,
-        channels: 1,
+        durationSeconds: frames / audio.sampleRate,
+        sampleRate: audio.sampleRate,
+        channels: audio.channels.length,
         bytes: wav.length,
       },
     ])
@@ -191,7 +205,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
     },
     stopPreview: () => host.send({ type: 'sample/stopPreview' }),
 
-    deriveSample: (sampleId, suffix, transform) => derive(sampleId, suffix, transform),
+    editSample: (sampleId, edit) => editSample(sampleId, edit),
 
     connect: () => {
       syncWithProject()

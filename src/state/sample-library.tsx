@@ -1,3 +1,4 @@
+import type { SampleEdit } from '@core'
 import { createContext, useContext } from 'react'
 
 /** Importing and auditioning samples. Implemented in `app/`, consumed by `ui/`. */
@@ -8,11 +9,16 @@ export interface SampleLibrary {
   preview(sampleId: string): void
   stopPreview(): void
   /**
-   * Adds a derived copy of a sample ("name (suffix)") built by `transform` on its decoded mono data:
-   * normalize, reverse, trim and similar edits. The original stays untouched; the copy is a normal
-   * library sample (undoable with the project).
+   * Applies `edit` to a sample. With `asCopy` (the only way in 11a) the result is a new library sample, "name (suffix)",
+   * and the original stays untouched; the copy is a normal library sample (undoable with the project). Everything that
+   * edits a sample calls this, never the steps inside it.
    */
-  deriveSample(sampleId: string, suffix: string, transform: (mono: Float32Array) => Float32Array): Promise<void>
+  editSample(sampleId: string, edit: SampleEdit, options: SampleEditOptions): Promise<void>
+}
+
+/** How an edit lands. 11b adds editing in place (`asCopy: false`) behind the same call. */
+export interface SampleEditOptions {
+  readonly asCopy: true
 }
 
 const SampleLibraryContext = createContext<SampleLibrary | null>(null)

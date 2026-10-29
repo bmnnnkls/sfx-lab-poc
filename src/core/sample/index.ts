@@ -4,5 +4,15 @@ export { type SampleChannel, channelAt, frameCount, monoAt } from './channels'
 export { SampleBank } from './sample-bank'
 export { computePeaks, toMono } from './audio-math'
 export { type WavBitDepth, encodeWav, encodeWavChannels } from './wav'
-export { deleteSampleRegion, fadeIn, fadeOut, keepSampleRegion, normalizeSample, reverseSample } from './edit'
+export {
+  EDIT_WAV_BIT_DEPTH,
+  type FrameRange,
+  SAMPLE_EDITS,
+  type SampleEdit,
+  type SampleEditContext,
+  type SampleEditEntry,
+  type SampleEditKind,
+  applySampleEdit,
+  sampleEditEntry,
+} from './edits'
 export { createDemoSamples, type DemoSample } from './demo-samples'
