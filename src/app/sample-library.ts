@@ -230,9 +230,9 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
         })),
       ),
 
-    preview: (sampleId) => {
+    preview: (sampleId, range) => {
       void host.start()
-      host.send({ type: 'sample/preview', sampleId })
+      host.send({ type: 'sample/preview', sampleId, ...range })
     },
     stopPreview: () => host.send({ type: 'sample/stopPreview' }),
 

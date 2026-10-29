@@ -1,4 +1,4 @@
-import type { SampleEdit } from '@core'
+import type { PreviewRange, SampleEdit } from '@core'
 import { createContext, useContext } from 'react'
 
 /** Importing and auditioning samples. Implemented in `app/`, consumed by `ui/`. */
@@ -6,7 +6,8 @@ export interface SampleLibrary {
   importFiles(files: readonly File[]): Promise<void>
   /** Adds a few synthesised one-shots (kick, snare, hat, pluck) so the sampler can be tried instantly. */
   addDemoSamples(): Promise<void>
-  preview(sampleId: string): void
+  /** Auditions a sample: the whole of it, or frames `from` up to `to`, once or looping. */
+  preview(sampleId: string, range?: PreviewRange): void
   stopPreview(): void
   /**
    * Applies `edit` to a sample. With `asCopy` (the only way in 11a) the result is a new library sample, "name (suffix)",
