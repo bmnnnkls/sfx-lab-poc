@@ -1,6 +1,6 @@
 # Round 11a: stereo and the pyramid
 
-Status: **plan, for sign-off.** Written 2026-10-29. Part of the [UI redesign](README.md). Carries out the first of
+Status: **plan, signed off** 2026-10-29, decisions as proposed. Written 2026-10-29. Part of the [UI redesign](README.md). Carries out the first of
 the three parts in the signed-off [round 11 spec](SPEC-round-11-wave-editor.md) (§ Suggested split), from a second
 inventory of the code it touches, taken on `imp/jovial-fermat-5ae301` at `be367c6` (round 10 done and the spec
 signed off, neither merged into `feat/ui-redesign` yet). The spec's decisions are settled and not repeated here; this
@@ -263,6 +263,8 @@ Each step lands green: `npm test`, `npm run typecheck`, `npm run test:smoke`.
   that renders, and the lanes should not render React while the preview plays.
 
 ## Decisions to sign off
+
+Signed off 2026-10-29: every row as proposed.
 
 | Question | Proposed | Alternative |
 |---|---|---|
