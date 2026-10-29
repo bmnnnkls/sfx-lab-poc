@@ -761,6 +761,12 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
     keywords: ['input', 'start', 'bus', 'mix', 'final'],
     outputs: { out: 'The mix, in stereo.' },
   },
+  groupIn: {
+    category: 'Routing',
+    description: 'The start of a group bus: its tracks after their faders, summed, in stereo.',
+    keywords: ['input', 'start', 'bus', 'group', 'sum'],
+    outputs: { out: 'The sum of the group\'s tracks, in stereo.' },
+  },
   send: {
     category: 'Routing',
     description: 'Sends a copy of the sound to a return track, so one reverb or delay can serve many tracks.',

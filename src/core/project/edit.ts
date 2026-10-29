@@ -15,7 +15,7 @@ import { clamp, createId } from '../shared'
 import { createNote, notesEqual, shiftedCopies, trimNotesToLength } from './note-edit'
 import { clampAudioClip, createAudioClip } from './audio-clip'
 import { type ClipRef, editClipAt } from './clip-ref'
-import { pruneGroups } from './group-membership'
+import { mapBuses, mapBusGraphs, pruneGroups } from './group-membership'
 import { mixesAfter } from './mix-order'
 import { MAX_CLIP_BEATS, MIN_CLIP_BEATS } from './limits'
 import type { AudioClip, AudioTrack, Clip, InstrumentTrack, MasterBus, Note, Project, ReturnTrack, Track } from './types'
@@ -112,11 +112,19 @@ export const addTrack = (project: Project, track: Track): Project => ({
 })
 
 /**
- * Removes a track, and what other tracks pointed at it: "notes from this track" inputs of note graphs and the return a
- * Send node sends to (also inside modules). A group it leaves empty goes too. Undo restores all of it.
+ * Removes a track, and what other tracks and buses pointed at it: "notes from this track" inputs of note graphs, the
+ * return a Send node or a send knob sends to and the track a Track audio node takes (also inside modules). A group it
+ * leaves empty goes too. Undo restores all of it.
  */
 export const removeTrack = (project: Project, trackId: string): Project => pruneGroups({
   ...project,
+  ...(project.groups && {
+    groups: mapBuses(project.groups, (bus) => {
+      const fx = clearTrackReferences(bus.fx, trackId)
+      const sends = trackId in bus.sends ? withoutKey(bus.sends, trackId) : bus.sends
+      return fx === bus.fx && sends === bus.sends ? bus : { ...bus, fx, sends }
+    }),
+  }),
   ...(project.controlValues && { controlValues: project.controlValues.filter((entry) => !removedControlReference(entry.target, trackId)) }),
   ...(project.midiMappings && { midiMappings: project.midiMappings.filter((entry) => !removedControlReference(entry.target, trackId)) }),
   master: mapMasterFx(project.master, (fx) => clearTrackReferences(fx, trackId)),
@@ -280,6 +288,7 @@ export const addSamples = (project: Project, samples: readonly SampleInfo[]): Pr
  */
 export const removeSample = (project: Project, sampleId: string): Project => ({
   ...project,
+  ...(project.groups && { groups: mapBusGraphs(project.groups, (fx) => clearSampleReferences(fx, sampleId)) }),
   master: mapMasterFx(project.master, (fx) => clearSampleReferences(fx, sampleId)),
   samples: project.samples.filter((sample) => sample.id !== sampleId),
   ...(project.sampleBindings && { sampleBindings: project.sampleBindings.map(b => b.sampleId === sampleId ? { ...b, sampleId: null } : b) }),

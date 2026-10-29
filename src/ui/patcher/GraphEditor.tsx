@@ -1,4 +1,5 @@
 import {
+  GROUP_IN_TYPE,
   MASTER_IN_TYPE,
   controlTargetForGraphParam,
   RETURN_IN_TYPE,
@@ -62,12 +63,16 @@ const TOP_LEVEL: readonly string[] = []
 type View = 'graph' | 'panel'
 const isView = (value: unknown): value is View => value === 'graph' || value === 'panel'
 
-/** Where an insert graph starts: a return track at Return in, the master at Master in, every other track at Track in. */
-const START: Record<Track['kind'] | 'master', string> = {
+/**
+ * Where an insert graph starts: a return track at Return in, the master at Master in, a group bus at Group in, every
+ * other track at Track in.
+ */
+const START: Record<Track['kind'] | 'master' | 'group', string> = {
   instrument: TRACK_IN_TYPE,
   audio: TRACK_IN_TYPE,
   return: RETURN_IN_TYPE,
   master: MASTER_IN_TYPE,
+  group: GROUP_IN_TYPE,
 }
 const STARTS = new Set(Object.values(START))
 

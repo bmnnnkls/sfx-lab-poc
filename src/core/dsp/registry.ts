@@ -20,7 +20,7 @@ import { panNode } from './nodes/pan.node'
 import { perlinNode } from './nodes/perlin.node'
 import { pingPongNode } from './nodes/ping-pong.node'
 import { randomNode } from './nodes/random.node'
-import { masterInNode, returnInNode } from './nodes/return-in.node'
+import { groupInNode, masterInNode, returnInNode } from './nodes/return-in.node'
 import { reverbNode } from './nodes/reverb.node'
 import { sendNode } from './nodes/send.node'
 import { samplerNode } from './nodes/sampler.node'
@@ -71,6 +71,7 @@ const plainDefinitions: readonly NodeDefinition[] = [
   monoSumNode,
   returnInNode,
   masterInNode,
+  groupInNode,
   sendNode,
   trackAudioNode,
   controlNode,

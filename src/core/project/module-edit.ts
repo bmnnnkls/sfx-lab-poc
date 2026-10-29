@@ -11,22 +11,25 @@ import {
   expandModuleUse,
 } from '../patch'
 import { mapMasterFx, mapModules, setTrackPatch, updateInstrument, updateTrack } from './edit'
+import { mapBusGraphs } from './group-membership'
 import type { Project } from './types'
 
 /**
  * Where a patch lives: an instrument track's sound patch (`graph` absent or 'patch'), a track's insert graph
  * (`graph: 'fx'`, every kind of track), an instrument track's note graph (`graph: 'notes'`), the master bus's graph
- * (`{ master: true }`), or a module's inside.
+ * (`{ master: true }`), a group bus's graph (`{ groupId }`), or a module's inside.
  */
 export type TrackGraph = 'patch' | 'fx' | 'notes'
 
 export type PatchTarget =
   | { readonly trackId: string; readonly graph?: TrackGraph }
   | { readonly master: true }
+  | { readonly groupId: string }
   | { readonly moduleId: string }
 
 export const patchAt = (project: Project, target: PatchTarget): Patch | undefined => {
   if ('master' in target) return project.master.fx
+  if ('groupId' in target) return project.groups?.find((group) => group.id === target.groupId)?.bus?.fx
   if ('trackId' in target) {
     const track = project.tracks.find((candidate) => candidate.id === target.trackId)
     if (target.graph === 'fx') return track?.fx
@@ -67,13 +70,18 @@ export const reconcileModules = (project: Project): Project => {
   })
   const tracksSame = tracks.every((track, index) => track === project.tracks[index])
   const master = mapMasterFx(project.master, (fx) => tidy(fx, modules))
-  return modules === project.modules && tracksSame && master === project.master
+  const groups = mapBusGraphs(project.groups, (fx) => tidy(fx, modules))
+  return modules === project.modules && tracksSame && master === project.master && groups === project.groups
     ? project
-    : { ...project, modules, master, ...(tracksSame ? {} : { tracks }) }
+    : { ...project, modules, master, ...(tracksSame ? {} : { tracks }), ...(groups && { groups }) }
 }
 
 const setPatchAt = (project: Project, target: PatchTarget, patch: Patch): Project => {
   if ('master' in target) return reconcileModules({ ...project, master: { ...project.master, fx: patch } })
+  if ('groupId' in target) {
+    const groups = project.groups?.map((group) => (group.id === target.groupId && group.bus && group.bus.fx !== patch ? { ...group, bus: { ...group.bus, fx: patch } } : group))
+    return groups?.some((group, index) => group !== project.groups![index]) ? reconcileModules({ ...project, groups }) : project
+  }
   if ('trackId' in target) {
     return reconcileModules(
       target.graph === 'fx'
@@ -159,21 +167,23 @@ export const unlinkModuleNode = (project: Project, target: PatchTarget, nodeId: 
   return setPatchAt(remapped, target, expanded)
 }
 
-/** Everything that uses a module directly: how many times, and in which tracks and modules. */
+/** Everything that uses a module directly: how many times, and in which tracks, buses and modules. */
 export const moduleUsage = (project: Project, moduleId: string) => {
   const count = (patch: Patch) => patch.nodes.filter((node) => node.moduleId === moduleId).length
   const inTrack = (track: Project['tracks'][number]) =>
     count(track.fx) + (track.kind === 'instrument' ? count(track.patch) + count(track.noteGraph) : 0)
   const tracks = project.tracks.filter((track) => inTrack(track) > 0)
   const modules = project.modules.filter((module) => module.id !== moduleId && count(module.patch) > 0)
+  const groups = (project.groups ?? []).filter((group) => group.bus && count(group.bus.fx) > 0)
   const onMaster = count(project.master.fx)
   const uses =
     tracks.reduce((sum, track) => sum + inTrack(track), 0) +
+    groups.reduce((sum, group) => sum + count(group.bus!.fx), 0) +
     modules.reduce((sum, module) => sum + count(module.patch), 0) +
     onMaster
   return {
     uses,
-    tracks: [...tracks.map((track) => track.name), ...(onMaster > 0 ? ['Master'] : [])],
+    tracks: [...tracks.map((track) => track.name), ...groups.map((group) => `Group ${group.name}`), ...(onMaster > 0 ? ['Master'] : [])],
     modules: modules.map((module) => module.name),
   }
 }

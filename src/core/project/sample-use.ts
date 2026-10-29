@@ -4,7 +4,7 @@ import type { Project } from './types'
 
 /**
  * The library samples the project actually plays: those of its audio clips (session and arrangement) and of the sampler
- * nodes in any patch (instruments, insert graphs, the master, modules). In first-use order, each once. A bounce decodes
+ * nodes in any patch (instruments, insert graphs, buses, the master, modules). In first-use order, each once. A bounce decodes
  * just these, not the whole library.
  */
 export const usedSampleIds = (project: Project): string[] => {
@@ -13,6 +13,7 @@ export const usedSampleIds = (project: Project): string[] => {
     for (const node of patch.nodes) if (node.sampleId !== undefined) found.add(node.sampleId)
   }
   fromPatch(project.master.fx)
+  for (const group of project.groups ?? []) if (group.bus) fromPatch(group.bus.fx)
   for (const module of project.modules) fromPatch(module.patch)
   for (const track of project.tracks) {
     fromPatch(track.fx)

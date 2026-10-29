@@ -146,7 +146,7 @@ export interface MasterBus {
 export type GroupColour = 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink'
 
 /**
- * A folder of instrument and audio tracks (from round 8, optionally a summing bus). Its tracks, nested groups' included,
+ * A folder of instrument and audio tracks, optionally a summing bus. Its tracks, nested groups' included,
  * sit together in `Project.tracks`, and it is drawn where its first track is, so a group always has a track.
  */
 export interface TrackGroup {
@@ -158,6 +158,27 @@ export interface TrackGroup {
   readonly collapsed?: boolean
   /** The group it is nested in; absent = the top level. */
   readonly parentId?: string
+  /** Silences its members, nested groups' included, everywhere they are heard; absent = false. */
+  readonly muted?: boolean
+  /** Solos its members and its bus (see ARCHITECTURE.md, "Mixer"); absent = false. */
+  readonly soloed?: boolean
+  /** Sums its members after their faders, instead of sending them to the master; absent = a folder. */
+  readonly bus?: GroupBus
+}
+
+/**
+ * What a group that sums its tracks has after them, as a track has after its instrument. Its output is the nearest
+ * enclosing group with a bus, or the master.
+ */
+export interface GroupBus {
+  /** 0..1, as a track's. */
+  readonly volume: number
+  /** -1..1; absent = the centre. */
+  readonly pan?: number
+  /** `Group in` -> effects -> `Track out`, in stereo. */
+  readonly fx: Patch
+  /** Post-fader, as a track's knobs. */
+  readonly sends: SendLevels
 }
 
 /** The saveable document. Everything the user authors lives here. */
