@@ -15,4 +15,5 @@ export {
   applySampleEdit,
   sampleEditEntry,
 } from './edits'
+export { type PeakPyramid, type WaveColumns, type WaveDraw, type WaveView, buildPeakPyramid, columnsFor, waveDrawFor } from './pyramid'
 export { createDemoSamples, type DemoSample } from './demo-samples'

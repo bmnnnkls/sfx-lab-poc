@@ -6,13 +6,14 @@ import {
   type SampleEdit,
   type SampleInfo,
   applySampleEdit,
+  buildPeakPyramid,
   computePeaks,
   createDemoSamples,
   encodeWavChannels,
   frameCount,
   sampleEditEntry,
 } from '@core'
-import { type SampleLibrary, usePersistenceStore, useProjectStore, useSampleStore } from '@state'
+import { type SampleLibrary, usePersistenceStore, useProjectStore, useSampleStore, useSelectionStore, useWaveAudioStore } from '@state'
 import { type SampleStorage, sha256Hex } from '@storage'
 
 /** Enough detail for the large clip waveform; thumbnails simply sample it more coarsely. */
@@ -80,6 +81,32 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
     return task
   }
 
+  /**
+   * The working copy: the decoded audio of the sample open in the Wave editor, and its peak pyramid, on the main thread
+   * (the engine's copy was transferred). Decoded again from storage when the editor opens a sample; dropped when it
+   * closes, or when the project no longer has the sample.
+   */
+  const openAudio = async () => {
+    const sampleId = useSelectionStore.getState().sampleId
+    const waveAudio = useWaveAudioStore.getState()
+    const wanted = sampleId !== null && useProjectStore.getState().project.samples.some((sample) => sample.id === sampleId)
+    if (!wanted) {
+      if (waveAudio.current || waveAudio.loading) waveAudio.setCurrent(null)
+      return
+    }
+    if (waveAudio.current?.sampleId === sampleId || waveAudio.loading === sampleId) return
+    waveAudio.setLoading(sampleId)
+    try {
+      const bytes = await storage.get(sampleId)
+      const audio = bytes ? (await decodeAudio(bytes)).audio : null
+      // Another sample may have been opened meanwhile; that one's load wins.
+      if (useWaveAudioStore.getState().loading !== sampleId) return
+      useWaveAudioStore.getState().setCurrent(audio && { sampleId, audio, pyramid: buildPeakPyramid(audio) })
+    } catch {
+      if (useWaveAudioStore.getState().loading === sampleId) useWaveAudioStore.getState().setCurrent(null)
+    }
+  }
+
   const syncWithProject = () => {
     const { samples } = useProjectStore.getState().project
     const wanted = new Set(samples.map((sample) => sample.id))
@@ -128,12 +155,16 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
   const editSample = async (sampleId: string, edit: SampleEdit) => {
     const info = useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
     if (!info) return
-    const bytes = await storage.get(sampleId)
-    if (!bytes) {
+    // The open sample's working copy, or the stored bytes decoded again.
+    const working = useWaveAudioStore.getState().current
+    const open = working?.sampleId === sampleId ? working.audio : null
+    const bytes = open ? null : await storage.get(sampleId)
+    if (!open && !bytes) {
       notify('error', `The audio of "${info.name}" is missing; import the file again to edit it.`)
       return
     }
-    const audio = applySampleEdit((await decodeAudio(bytes)).audio, edit)
+    const source = open ?? (await decodeAudio(bytes!)).audio
+    const audio = applySampleEdit(source, edit)
     const frames = frameCount(audio)
     if (frames === 0) {
       notify('error', 'Nothing left after the edit')
@@ -209,9 +240,19 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost): Sa
 
     connect: () => {
       syncWithProject()
-      return useProjectStore.subscribe((state, previous) => {
-        if (state.project.samples !== previous.project.samples) syncWithProject()
+      void openAudio()
+      const unsubscribeProject = useProjectStore.subscribe((state, previous) => {
+        if (state.project.samples === previous.project.samples) return
+        syncWithProject()
+        void openAudio()
       })
+      const unsubscribeSelection = useSelectionStore.subscribe((state, previous) => {
+        if (state.sampleId !== previous.sampleId) void openAudio()
+      })
+      return () => {
+        unsubscribeProject()
+        unsubscribeSelection()
+      }
     },
   }
 }

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { type SampleInfo, createEmptyProject, encodeWavChannels } from '@core'
-import { useProjectStore } from '@state'
+import { useProjectStore, useSelectionStore, useWaveAudioStore } from '@state'
 import { createMemorySampleStorage, sha256Hex } from '@storage'
 import type { AudioHost } from '@audio'
 import { createSampleLibrary } from './sample-library'
@@ -43,7 +43,17 @@ const setup = async () => {
   return { storage, info, library: createSampleLibrary(storage, host) }
 }
 
-beforeEach(() => useProjectStore.getState().resetProject(createEmptyProject()))
+beforeEach(() => {
+  useProjectStore.getState().resetProject(createEmptyProject())
+  useSelectionStore.getState().selectSample(null)
+  useWaveAudioStore.getState().setCurrent(null)
+})
+
+/** Resolves once the working copy has settled. */
+const settled = () => new Promise<void>((resolve) => {
+  const check = () => (useWaveAudioStore.getState().loading === null ? resolve() : setTimeout(check, 1))
+  check()
+})
 
 describe('editing a sample as a copy', () => {
   it('adds a new library entry with both channels, stored as 32-bit float that decodes to the same floats', async () => {
@@ -76,5 +86,40 @@ describe('editing a sample as a copy', () => {
     await library.editSample(info.id, { kind: 'normalize' }, { asCopy: true })
     await library.editSample(info.id, { kind: 'normalize' }, { asCopy: true })
     expect(useProjectStore.getState().project.samples).toHaveLength(2)
+  })
+})
+
+describe('the working copy', () => {
+  it('is decoded with its pyramid when the editor opens a sample, and dropped when it closes or the sample leaves', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    const current = useWaveAudioStore.getState().current
+    expect(current?.sampleId).toBe(info.id)
+    expect(current?.audio.channels.map((channel) => Array.from(channel))).toEqual([Array.from(LEFT), Array.from(RIGHT)])
+    expect(current?.pyramid.frames).toBe(480)
+
+    useSelectionStore.getState().selectSample(null)
+    await settled()
+    expect(useWaveAudioStore.getState().current).toBeNull()
+
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    useProjectStore.getState().resetProject(createEmptyProject())
+    await settled()
+    expect(useWaveAudioStore.getState().current).toBeNull()
+    disconnect()
+  })
+
+  it('is what an edit of the open sample reads, without the stored bytes', async () => {
+    const { storage, info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    await storage.delete(info.id)
+    await library.editSample(info.id, { kind: 'reverse' }, { asCopy: true })
+    expect(useProjectStore.getState().project.samples.map((sample) => sample.name)).toEqual(['Loop', 'Loop (reversed)'])
+    disconnect()
   })
 })
