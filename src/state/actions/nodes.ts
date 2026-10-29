@@ -95,9 +95,10 @@ export const nodeActions: readonly Action<NodesSubject>[] = [
     applies: (subject) => !!single(subject)?.moduleId,
     run: (subject) => useProjectStore.getState().unlinkModule(editTargetOf(subject), subject.nodeIds[0]!),
   },
-  { id: 'nodes.copy', title: 'Copy', group: 'clipboard', applies: copyable, run: copy },
+  { id: 'nodes.copy', verb: 'copy', title: 'Copy', group: 'clipboard', applies: copyable, run: copy },
   {
     id: 'nodes.cut',
+    verb: 'cut',
     title: 'Cut',
     group: 'clipboard',
     applies: copyable,
@@ -109,6 +110,7 @@ export const nodeActions: readonly Action<NodesSubject>[] = [
   },
   {
     id: 'nodes.duplicate',
+    verb: 'duplicate',
     title: 'Duplicate',
     group: 'clipboard',
     applies: copyable,
@@ -122,6 +124,7 @@ export const nodeActions: readonly Action<NodesSubject>[] = [
   },
   {
     id: 'nodes.delete',
+    verb: 'delete',
     title: 'Delete',
     group: 'delete',
     danger: true,
@@ -155,6 +158,7 @@ export const canvasActions: readonly Action<CanvasSubject>[] = [
   },
   {
     id: 'canvas.paste',
+    verb: 'paste',
     title: 'Paste',
     group: 'clipboard',
     enabled: (subject) => {

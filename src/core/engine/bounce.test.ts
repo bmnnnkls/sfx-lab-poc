@@ -190,7 +190,7 @@ describe('renderProject', () => {
 
   it('renders a sampler of a known buffer, and an audio clip, from the samples it is given', () => {
     const data = Float32Array.from({ length: RATE }, (_, i) => 0.5 * Math.sin((2 * Math.PI * 330 * i) / RATE))
-    const sample: SampleData = { id: 'a'.repeat(64), sampleRate: RATE, data }
+    const sample: SampleData = { id: 'a'.repeat(64), sampleRate: RATE, channels: [data] }
     const info: SampleInfo = { id: sample.id, name: 'tone', extension: 'wav', durationSeconds: 1, sampleRate: RATE, channels: 1, bytes: 0 }
 
     const clip = createClip('hit', 4, [createNote(60, 0, 1, 1)])
@@ -240,7 +240,7 @@ describe('renderProject', () => {
 describe('the end of the last bar', () => {
   it('starts nothing after it: the loop point is not a note on the last sample', () => {
     // A 0.1 s block of constant level, played as a one-shot: a stray note at the loop point would leave 0.1 s of it in the tail.
-    const hit: SampleData = { id: 'b'.repeat(64), sampleRate: RATE, data: new Float32Array(RATE / 10).fill(0.5) }
+    const hit: SampleData = { id: 'b'.repeat(64), sampleRate: RATE, channels: [new Float32Array(RATE / 10).fill(0.5)] }
     const clip = createClip('hit', 4, [createNote(60, 0, 1, 1)])
     const track = createTrack('Hit', 4, createSamplerPatch(hit.id))
     for (const tempo of [120, 97, 133, 61, 45]) {

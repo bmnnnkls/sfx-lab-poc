@@ -24,7 +24,7 @@ export {
 } from './module-types'
 export { type NodeDomain, type NodeShape, describeNode, findModule, kindsConnect, moduleDomain, resolveSpec } from './node-shape'
 export { createDefaultNoteGraph } from './default-note-graph'
-export { createDefaultFxGraph } from './default-fx-graph'
+export { createDefaultFxGraph, trackInIsStereo } from './default-fx-graph'
 export { createDefaultReturnGraph } from './default-return-graph'
 export { createDefaultMasterGraph } from './default-master-graph'
 export { createDefaultGroupGraph } from './default-group-graph'
@@ -74,6 +74,7 @@ export {
   setNodeStereo,
   clearTrackReferences,
   clearSampleReferences,
+  replaceSampleReferences,
 } from './edit'
 export { isDownstream, topologicalOrder } from './graph'
 export {

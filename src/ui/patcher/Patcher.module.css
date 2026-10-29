@@ -53,6 +53,8 @@
 }
 
 .scroller[data-hand-tool='true'] { cursor: grab; }
+.scroller:focus { outline: none; }
+.scroller:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* A canvas a drag of ours is over: it would land there, or it can't. */
 .scroller[data-drop='accept'] { outline: 2px dashed var(--accent); outline-offset: -2px; }
 .scroller[data-drop='refuse'] { outline: 1px dashed var(--text-dim); outline-offset: -1px; }
@@ -200,9 +202,15 @@
 
 .samplePicker {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-content: center;
   gap: 4px;
   padding: 4px 10px;
+}
+
+/* The picker and Edit share a row; the waveform takes the next. */
+.samplePicker > :last-child {
+  grid-column: 1 / -1;
 }
 
 .selected {
@@ -424,6 +432,12 @@
 }
 
 .viewSwitch button[aria-pressed='true'] {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.pinToggle[aria-pressed='true'] {
   color: var(--bg);
   background: var(--accent);
   border-color: var(--accent);

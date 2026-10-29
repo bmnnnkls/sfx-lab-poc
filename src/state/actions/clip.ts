@@ -1,9 +1,9 @@
 import { type ArrangementClip, type AudioClip, type Clip, arrangementEnd, commit, copySessionClip } from '@core'
 import { useAutomationEditor } from '../automation-store'
-import { openClip } from '../navigation'
+import { openClip, openSampleEditor } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { useStatusStore } from '../status-store'
-import { sessionClipOf, trackOf } from './lookup'
+import { project, sessionClipOf, trackOf } from './lookup'
 import { clipClipboard } from './clipboards'
 import { renameAction } from './rename'
 import type { Action, SubjectOf } from './types'
@@ -46,6 +46,19 @@ const deleteClip = ({ trackId, clipId }: ClipSubject) => {
   else store.deleteClip(trackId, found.scene)
 }
 
+/** The audio clip a subject names, if it is one. */
+const audioClipOf = ({ trackId, clipId }: ClipSubject): AudioClip | undefined => {
+  const clip = sessionClipOf(trackId, clipId)?.clip
+  return clip && 'sampleId' in clip ? clip : undefined
+}
+
+/** Opens an audio clip's sample in the Wave editor, at the part it plays. Shared by session clips and regions. */
+export const editSampleOf = (clip: AudioClip | undefined) => {
+  if (clip) openSampleEditor(clip.sampleId, { start: clip.start, end: clip.end })
+}
+
+export const sampleInLibrary = (clip: AudioClip | undefined): boolean => !!clip && project().samples.some((sample) => sample.id === clip.sampleId)
+
 const playing = ({ trackId, clipId }: ClipSubject) => useStatusStore.getState().status?.tracks[trackId]?.playingClipId === clipId
 
 /** A session clip, MIDI or audio. */
@@ -63,6 +76,15 @@ export const clipActions: readonly Action<ClipSubject>[] = [
     run: ({ trackId, clipId }) => openClip(trackId, clipId),
   },
   {
+    id: 'clip.edit-sample',
+    title: 'Edit sample',
+    group: 'open',
+    tooltip: (subject) => (sampleInLibrary(audioClipOf(subject)) ? 'Open the sample in the Wave editor, at the part this clip plays' : 'The sample is no longer in the library'),
+    applies: ({ trackId }) => trackOf(trackId)?.kind === 'audio',
+    enabled: (subject) => sampleInLibrary(audioClipOf(subject)),
+    run: (subject) => editSampleOf(audioClipOf(subject)),
+  },
+  {
     id: 'clip.edit-automation',
     title: 'Edit automation',
     group: 'open',
@@ -74,6 +96,7 @@ export const clipActions: readonly Action<ClipSubject>[] = [
   renameAction('clip'),
   {
     id: 'clip.duplicate',
+    verb: 'duplicate',
     title: 'Duplicate to empty slot',
     group: 'edit',
     enabled: ({ trackId }) => {
@@ -93,12 +116,14 @@ export const clipActions: readonly Action<ClipSubject>[] = [
   },
   {
     id: 'clip.copy',
+    verb: 'copy',
     title: 'Copy',
     group: 'clipboard',
     run: ({ trackId, clipId }) => copyClip(trackId, clipId),
   },
   {
     id: 'clip.cut',
+    verb: 'cut',
     title: 'Cut',
     group: 'clipboard',
     run: (subject) => {
@@ -108,6 +133,7 @@ export const clipActions: readonly Action<ClipSubject>[] = [
   },
   {
     id: 'clip.delete',
+    verb: 'delete',
     title: 'Delete',
     group: 'delete',
     danger: true,

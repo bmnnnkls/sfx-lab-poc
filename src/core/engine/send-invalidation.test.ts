@@ -37,7 +37,7 @@ describe('send membership and gain ownership', () => {
     const graph = noteGraphFrom([{ id: 'in', type: 'returnIn' }, { id: 'pan', type: 'pan', params: { pan: -1 } }, { id: 'out', type: 'trackOut' }], ['in.out>pan.in', 'pan.out>out.in'])
     e.apply({ type: 'track/add', kind: 'return', trackId: 'r', fx: graph, volume: 1 })
     const fx = noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 'out', type: 'trackOut' }], ['in.out>out.in'])
-    e.apply({ type: 'sample/add', sample: { id: 's', sampleRate: 8000, data: new Float32Array(8000).fill(0.1) } })
+    e.apply({ type: 'sample/add', sample: { id: 's', sampleRate: 8000, channels: [new Float32Array(8000).fill(0.1)] } })
     const target = { kind: 'mixer' as const, owner: { kind: 'track' as const, trackId: 'a' }, control: 'send' as const, returnId: 'r' }
     const clip = { id: 'c', name: 'C', sampleId: 's', lengthBeats: 2, loop: true, warp: 'off' as const, gain: 1, start: 0, end: 1, fadeIn: 0, fadeOut: 0, automation: [{ id: 'l', target, enabled: true, points: [{ id: 'p', beat: 0, value: 0, interpolation: 'linear' as const }, { id: 'q', beat: 2, value: 1, interpolation: 'linear' as const }] }] }
     e.apply({ type: 'track/add', kind: 'audio', trackId: 'a', clips: [clip], fx, volume: 1 })

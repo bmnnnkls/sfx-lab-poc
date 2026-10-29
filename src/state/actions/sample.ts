@@ -56,6 +56,7 @@ export const sampleActions: readonly Action<SampleSubject>[] = [
   },
   {
     id: 'sample.remove',
+    verb: 'delete',
     title: 'Remove from project',
     group: 'delete',
     danger: true,

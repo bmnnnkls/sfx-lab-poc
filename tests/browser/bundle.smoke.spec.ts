@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { captureLibraryAsset, emptyLibrary, saveLibraryFolder, parseProject } from '../../src/core'
 import { stageLibraryBundle, exportLibraryBundle, importProject } from '../../src/storage'
 import { samplePresetProject } from './preset-project'
-import { test, expect, expectSaved, openView } from './fixtures'
+import { test, expect, expectSaved, openView, openFileMenu } from './fixtures'
 
 /** A folder's row in the library's tree, named by the folder and its item count. */
 const folderName = (name: string) => new RegExp(`^${name}(, \\d+ items?)?$`)
@@ -51,8 +51,8 @@ test('bundle review/cancel/export/import into fresh and conflicting libraries su
   await panel.getByRole('button', { name: 'Trash folder and contents', exact: true }).click()
   await page.reload()
   expect(await page.evaluate(() => localStorage.getItem('sfxlab:project'))).toBe(saved)
-  await page.getByText('File', { exact: true }).click()
-  const [projectDownload] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export to file…', exact: true }).click()])
+  await openFileMenu(page)
+  const [projectDownload] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'Export to file…', exact: true }).click()])
   const packagePath = testInfo.outputPath('independent.sfxlab'); await projectDownload.saveAs(packagePath)
   const projectRoundtrip = await importProject(await readFile(packagePath))
   expect(projectRoundtrip.ok && projectRoundtrip.project).toEqual(parsed.ok && parsed.project)

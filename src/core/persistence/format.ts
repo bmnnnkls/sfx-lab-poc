@@ -1,15 +1,16 @@
-import { MAX_GROUPS, MAX_PATCH_NODES, MAX_SCENES, MAX_TRACKS } from '../project'
+import { MAX_GROUPS, MAX_PATCH_NODES, MAX_PINS, MAX_SCENES, MAX_TRACKS } from '../project'
 
 /** Identifies our files so the importer can reject anything else with a clear message. */
 export const FORMAT = 'sfx-lab-project'
 
 /** Bump when the saved shape changes, and add a step to `migrations.ts`. */
-export const CURRENT_VERSION = 10
+export const CURRENT_VERSION = 11
 
 /** Hard caps so a malformed or hostile file cannot make the app allocate without bound. */
 export const LIMITS = {
   tracks: MAX_TRACKS,
   groups: MAX_GROUPS,
+  pins: MAX_PINS,
   scenes: MAX_SCENES,
   samples: 256,
   modules: 128,

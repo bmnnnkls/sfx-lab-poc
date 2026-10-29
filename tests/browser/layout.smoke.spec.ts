@@ -24,6 +24,24 @@ test('Sounds starts in the secondary sidebar, collapsed, and opens 300 px wide',
   await expect(toggle).toHaveAttribute('aria-pressed', 'true')
 })
 
+test('Pinned starts beside Sounds, and a layout saved without it gets it there', async ({ page }) => {
+  await page.goto('/?starter')
+  await expect(page.getByRole('tab', { name: 'Pinned', exact: true })).toBeVisible()
+  await openView(page, 'Sounds')
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('sfxlab:layout'))).toContain('"pinned"')
+  // As a layout saved before round 9 has it: no Pinned anywhere.
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('sfxlab:layout')!)
+    for (const border of stored.model.borders) border.children = border.children.filter((tab: { id: string }) => tab.id !== 'pinned')
+    localStorage.setItem('sfxlab:layout', JSON.stringify(stored))
+  })
+  await page.reload()
+  const session = (await viewRoot(page, 'Session').boundingBox())!
+  const pinned = (await (await openView(page, 'Pinned')).boundingBox())!
+  expect(pinned.x).toBeGreaterThan(session.x + session.width / 2)
+  await expect(viewRoot(page, 'Pinned').getByText(/Nothing is pinned/)).toBeVisible()
+})
+
 /** Choose an entry in the status bar's Layout menu. */
 const layoutMenu = async (page: import('@playwright/test').Page, entry: string) => {
   await page.getByRole('contentinfo').getByRole('button', { name: 'Layout', exact: true }).click()
@@ -98,7 +116,7 @@ for (const [name, saved] of [
   await page.goto('/?starter')
   await expect(viewRoot(page, 'Session')).toBeVisible()
   await expect(viewRoot(page, 'Instrument')).toBeVisible()
-  await expect(page.getByRole('tab')).toHaveCount(12)
+  await expect(page.getByRole('tab')).toHaveCount(13)
 })
 
 test("the toggles in the panel's strip hide and show the panel and each sidebar", async ({ page }) => {
@@ -262,23 +280,23 @@ test('the editor area and the panel maximize inside the window, and restore', as
   const panelToggle = tabStrip(page, 'Instrument').getByRole('button', { name: 'Panel', exact: true })
   const before = (await session.boundingBox())!.height
 
-  await tabStrip(page, 'Session').getByRole('button', { name: 'Maximize', exact: true }).click()
+  await tabStrip(page, 'Session').getByRole('button', { name: /^Maximize/ }).click()
   await expect(instrument).toBeHidden()
   await expect.poll(async () => (await session.boundingBox())!.height).toBeGreaterThan(before + 300)
-  const restore = tabStrip(page, 'Session').getByRole('button', { name: 'Restore', exact: true })
+  const restore = tabStrip(page, 'Session').getByRole('button', { name: /^Restore/ })
   await expect(restore).toHaveAttribute('aria-pressed', 'true')
   await restore.click()
   await expect(instrument).toBeVisible()
   await expect(panelToggle).toHaveAttribute('aria-pressed', 'true')
 
   // With the panel's strip off screen, the layout menu shows the panel, restoring the editor area.
-  await tabStrip(page, 'Session').getByRole('button', { name: 'Maximize', exact: true }).click()
+  await tabStrip(page, 'Session').getByRole('button', { name: /^Maximize/ }).click()
   await expect(instrument).toBeHidden()
   await layoutMenu(page, 'Show panel')
   await expect(instrument).toBeVisible()
   await expect(session).toBeVisible()
 
-  await tabStrip(page, 'Instrument').getByRole('button', { name: 'Maximize', exact: true }).click()
+  await tabStrip(page, 'Instrument').getByRole('button', { name: /^Maximize/ }).click()
   await expect(session).toBeHidden()
   await expect.poll(async () => (await instrument.boundingBox())!.height).toBeGreaterThan(before + 300)
   // Showing a view elsewhere restores the layout.
@@ -293,7 +311,7 @@ test('the editor area and the panel maximize inside the window, and restore', as
   await strip.dblclick({ position: { x: box.width / 2, y: box.height / 2 } })
   await expect(instrument).toBeVisible()
   await expect(session).toBeHidden()
-  await strip.getByRole('button', { name: 'Restore', exact: true }).click()
+  await strip.getByRole('button', { name: /^Restore/ }).click()
   await expect(session).toBeVisible()
 })
 
@@ -446,4 +464,36 @@ test('in a window smaller than the minimums, the groups shrink beside open sideb
   // Below its minimum a view scrolls inside its own root.
   const session = viewRoot(page, 'Session')
   expect(await session.evaluate((root) => root.scrollWidth > root.clientWidth)).toBe(true)
+})
+
+test('View ▸ Show ▸ Mixer shows the Mixer, and the View menu and the tooltips name the keys', async ({ page }) => {
+  await page.goto('/?starter')
+  const apple = process.platform === 'darwin'
+  await expect(tabStrip(page, 'Session').getByRole('button', { name: /^Maximize/ })).toHaveAttribute('title', `Maximize (${apple ? '⌃⌘M' : 'Ctrl+Alt+M'})`)
+  await expect(tabStrip(page, 'Instrument').getByRole('button', { name: 'Panel', exact: true })).toHaveAttribute('title', `Toggle panel (${apple ? '⌃⌘J' : 'Ctrl+Alt+J'})`)
+  await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveAttribute('title', `Undo (${apple ? '⌘Z' : 'Ctrl+Z'})`)
+  await expect(viewRoot(page, 'Mixer')).toBeHidden()
+  await page.getByRole('banner').getByRole('button', { name: 'View', exact: true }).click()
+  await expect(page.getByRole('menuitem', { name: 'Hide panel', exact: true })).toContainText(apple ? '⌃⌘J' : 'Ctrl+Alt+J')
+  // Into the submenu with the keyboard (a jump of the mouse closes a submenu).
+  await page.getByRole('menuitem', { name: 'Show', exact: true }).focus()
+  await page.keyboard.press('ArrowRight')
+  await page.getByRole('menu').last().getByRole('menuitem', { name: 'Mixer', exact: true }).click()
+  await expect(viewRoot(page, 'Mixer')).toBeVisible()
+})
+
+test('the built-in layouts load from the status bar: Mix fills the editor area with the Mixer, Sound design splits it', async ({ page }) => {
+  await page.goto('/?starter')
+  await layoutMenu(page, 'Mix')
+  await expect(viewRoot(page, 'Mixer')).toBeVisible()
+  await expect(viewRoot(page, 'Instrument')).toBeHidden()
+  await expect(tabStrip(page, 'Mixer').getByRole('tab', { name: 'Session', exact: true })).toBeVisible()
+  await layoutMenu(page, 'Sound design')
+  await expect(viewRoot(page, 'Wave editor')).toBeVisible()
+  await expect(viewRoot(page, 'Instrument')).toBeVisible()
+  await expect(viewRoot(page, 'Effects')).toBeVisible()
+  await expect(viewRoot(page, 'Sounds')).toBeVisible()
+  // A loaded preset is the layout from then on: a reload keeps it.
+  await page.reload()
+  await expect(viewRoot(page, 'Sounds')).toBeVisible()
 })

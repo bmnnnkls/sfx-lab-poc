@@ -34,10 +34,13 @@ interface GraphViewState {
   readonly moduleInterface: boolean
   /** The node picker asked for from a menu, for the graph editor showing that graph to open. */
   readonly addRequest: AddRequest | null
+  /** A pin (by `pinKey`) for the Pinned view to scroll into view and focus. */
+  readonly pinRequest: string | null
   setViewport(canvas: string, viewport: GraphViewport): void
   setPath(graph: string, path: readonly string[]): void
   toggleModuleInterface(): void
   requestAdd(request: AddRequest | null): void
+  requestPin(key: string | null): void
 }
 
 /**
@@ -52,6 +55,8 @@ export const useGraphViewStore = create<GraphViewState>((set) => ({
   setPath: (graph, path) => set((state) => ({ paths: { ...state.paths, [graph]: path } })),
   moduleInterface: true,
   addRequest: null,
+  pinRequest: null,
   toggleModuleInterface: () => set((state) => ({ moduleInterface: !state.moduleInterface })),
   requestAdd: (addRequest) => set({ addRequest }),
+  requestPin: (pinRequest) => set({ pinRequest }),
 }))

@@ -46,6 +46,7 @@ export const laneActions: readonly Action<LaneSubject>[] = [
   },
   {
     id: 'lane.paste',
+    verb: 'paste',
     title: 'Paste',
     group: 'clipboard',
     enabled: ({ trackId }) => {

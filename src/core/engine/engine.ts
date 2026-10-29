@@ -243,7 +243,7 @@ export class Engine {
         break
       case 'sample/preview': {
         const sample = this.samples.get(command.sampleId)
-        if (sample) this.preview.start(sample)
+        if (sample) this.preview.start(sample, command)
         break
       }
       case 'sample/stopPreview':
@@ -306,7 +306,8 @@ export class Engine {
     }
     const masterReadouts = this.master.readouts()
     if (Object.keys(masterReadouts).length > 0) readouts.master = masterReadouts
-    return { tempo: this.transport.tempo, masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, readouts, tracks }
+    const preview = this.preview.position()
+    return { tempo: this.transport.tempo, masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, beat: this.transport.positionBeats, peak, peaks, readouts, tracks, ...(preview && { preview }) }
   }
 
   /** Structural edits cancel the affected track and every transitive note reader, without touching unrelated tracks. */

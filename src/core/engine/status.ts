@@ -23,4 +23,11 @@ export interface EngineStatus {
    */
   readonly readouts: Readonly<Record<string, Readonly<Record<string, number>>>>
   readonly tracks: Readonly<Record<string, LauncherStatus>>
+  /** The sample being auditioned and the frame it has reached; absent while nothing is. */
+  readonly preview?: PreviewStatus
+}
+
+export interface PreviewStatus {
+  readonly sampleId: string
+  readonly frame: number
 }

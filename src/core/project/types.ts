@@ -208,6 +208,8 @@ export interface Project {
   readonly tracks: readonly Track[]
   /** Folders of tracks; absent in a project without groups. Their own order means nothing. */
   readonly groups?: readonly TrackGroup[]
+  /** The front panels the Pinned view shows, top to bottom; absent when none are. A view field, as a group's collapse. */
+  readonly pins?: readonly import('./pins').PanelPin[]
   /**
    * The arrangement: copies of session clips placed on a timeline, per track. Absent in projects nobody has
    * arranged in (old files), so no format-version bump was needed.

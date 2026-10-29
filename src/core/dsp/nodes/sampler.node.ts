@@ -1,3 +1,4 @@
+import { frameCount, monoAt } from '../../sample'
 import { centsToRatio, midiToFrequency } from '../../shared'
 import { Params } from '../params'
 import type { DspNode, NodeDefinition, ParamSpec, ProcessContext } from '../types'
@@ -42,8 +43,7 @@ class Sampler implements DspNode {
   ): void {
     if (!out) return
     const sample = this.sampleId === null ? undefined : samples.get(this.sampleId)
-    const data = sample?.data
-    const length = data?.length ?? 0
+    const length = sample ? frameCount(sample) : 0
     const mode = MODES[Math.round(this.params.get('mode'))] ?? 'one-shot'
     const rootFrequency = midiToFrequency(this.params.get('root'))
     const tune = centsToRatio(this.params.get('tune'))
@@ -62,7 +62,7 @@ class Sampler implements DspNode {
       if (!gateOn && this.gateWasOn && mode !== 'one-shot') this.releasing = true
       this.gateWasOn = gateOn
 
-      if (!this.playing || !data) {
+      if (!this.playing || !sample) {
         out[i] = 0
         continue
       }
@@ -71,8 +71,8 @@ class Sampler implements DspNode {
       const fraction = this.position - index
       const looping = mode === 'loop' && !this.releasing
       const nextIndex = index + 1 < length ? index + 1 : looping ? loopStart : -1
-      const a = data[index] ?? 0
-      const b = nextIndex >= 0 ? (data[nextIndex] ?? 0) : 0
+      const a = monoAt(sample, index)
+      const b = nextIndex >= 0 ? monoAt(sample, nextIndex) : 0
       out[i] = (a + (b - a) * fraction) * this.fade
 
       const frequency = frequencyIn ? (frequencyIn[i] ?? rootFrequency) : rootFrequency

@@ -1,6 +1,6 @@
 import { serializeProject, parseProject } from '../../src/core'
 import { samplePresetProject } from './preset-project'
-import { test, expect, expectSaved, openView, viewRoot } from './fixtures'
+import { test, expect, expectSaved, openExample, openView, viewRoot } from './fixtures'
 
 /** A folder's row in the library's tree, named by the folder and its item count. */
 const folderName = (name: string) => new RegExp(`^${name}(, \\d+ items?)?$`)
@@ -73,8 +73,7 @@ test('isolated previews close their audio context on navigation, including cance
     }
   })
   await page.goto('/')
-  await page.getByText('File', { exact: true }).click()
-  await page.getByRole('button', { name: /^Starter/ }).click()
+  await openExample(page, 'Starter')
   await openView(page, 'Library')
   const panel = page.getByRole('region', { name: 'Personal library' })
   await panel.getByLabel('Library name', { exact: true }).fill('Preview synth')
@@ -117,7 +116,7 @@ test('an older open database connection blocks upgrade visibly, then preserves i
   await panel.getByRole('button', { name: 'Refresh', exact: true }).click()
   await expect(panel.getByRole('status')).toContainText('Library saved')
   const bytes = await page.evaluate(() => new Promise<number[]>((resolve, reject) => {
-    const r = indexedDB.open('sfxlab', 2)
+    const r = indexedDB.open('sfxlab', 3)
     r.onsuccess = () => { const q = r.result.transaction('samples').objectStore('samples').get('retained'); q.onsuccess = () => { resolve(Array.from(q.result as Uint8Array)); r.result.close() }; q.onerror = () => reject(q.error) }
     r.onerror = () => reject(r.error)
   }))

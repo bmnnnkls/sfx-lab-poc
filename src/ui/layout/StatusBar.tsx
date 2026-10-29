@@ -1,49 +1,19 @@
-import { useLayoutStore, useStatusStore } from '@state'
-import { useState } from 'react'
+import { useStatusStore } from '@state'
+import { useCommandEntries } from '../commands/menu-entries'
+import { LAYOUT_MENU } from '../commands/menus'
 import { SaveIndicator } from '../file-menu/SaveIndicator'
-import { type MenuEntry, PopupMenu } from '../shared/menu'
-import { TOGGLED_REGIONS } from './regions'
-import { SaveLayoutDialog } from './SaveLayoutDialog'
+import { PopupMenu } from '../shared/menu'
 import styles from './StatusBar.module.css'
-import type { LayoutPersistence } from './use-layout-persistence'
+
+const layoutEntries = () => useCommandEntries(LAYOUT_MENU)
 
 /**
- * The strip under the layout: an audio failure, whether the project is saved, and the layout menu: the region
- * toggles, the layouts saved under a name (load, save, delete) and *Reset layout*.
+ * The strip under the layout: an audio failure, whether the project is saved, and the layout menu, built from the
+ * same commands as *View ▸ Layouts*: the region toggles, the layouts saved under a name (load, save, delete) and
+ * *Reset layout*.
  */
-export const StatusBar = ({ persistence }: { persistence: LayoutPersistence }) => {
+export const StatusBar = () => {
   const audioFailure = useStatusStore((state) => state.audioFailure)
-  const hiddenRegions = useLayoutStore((state) => state.hiddenRegions)
-  const { toggleRegion, resetLayout, loadLayout, saveLayoutAs } = useLayoutStore.getState()
-  // Only this menu changes the saved names, so it reads them once and after each change.
-  const [names, setNames] = useState(() => persistence.names())
-  const [saving, setSaving] = useState(false)
-
-  const entries: MenuEntry[] = [
-    ...TOGGLED_REGIONS.map(({ id, name }) => ({
-      label: `${hiddenRegions.includes(id) ? 'Show' : 'Hide'} ${name.toLowerCase()}`,
-      onSelect: () => toggleRegion(id),
-    })),
-    { kind: 'separator' },
-    ...names.map((name) => ({ label: name, onSelect: () => loadLayout(name) })),
-    { label: 'Save layout as…', onSelect: () => setSaving(true) },
-    ...(names.length > 0
-      ? [{
-          kind: 'submenu' as const,
-          label: 'Delete…',
-          entries: names.map((name) => ({
-            label: name,
-            danger: true,
-            onSelect: () => {
-              persistence.deleteNamed(name)
-              setNames(persistence.names())
-            },
-          })),
-        }]
-      : []),
-    { kind: 'separator' },
-    { label: 'Reset layout', onSelect: resetLayout },
-  ]
 
   return (
     <footer className={styles.bar}>
@@ -54,21 +24,11 @@ export const StatusBar = ({ persistence }: { persistence: LayoutPersistence }) =
       )}
       <span className={styles.spacer} />
       <SaveIndicator />
-      <PopupMenu entries={entries}>
+      <PopupMenu entries={layoutEntries}>
         <button className={styles.menu} aria-label="Layout">
           Layout ▾
         </button>
       </PopupMenu>
-      {saving && (
-        <SaveLayoutDialog
-          names={names}
-          onSave={(name) => {
-            saveLayoutAs(name)
-            setNames(persistence.names())
-          }}
-          onClose={() => setSaving(false)}
-        />
-      )}
     </footer>
   )
 }

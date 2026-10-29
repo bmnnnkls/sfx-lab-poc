@@ -39,7 +39,8 @@ export const MenuEntries = ({ entries, parts }: { entries: readonly MenuEntry[];
           onSelect={entry.onSelect}
         >
           <span>{entry.label}</span>
-          {entry.shortcut && <span className={styles.shortcut}>{entry.shortcut}</span>}
+          {/* Shown, not part of the entry's name, so the name stays what the entry does. */}
+          {entry.shortcut && <span className={styles.shortcut} aria-hidden="true">{entry.shortcut}</span>}
         </parts.Item>
       ),
     )}

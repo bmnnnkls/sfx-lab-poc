@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { captureLibraryAsset, createEmptyProject, emptyLibrary, saveLibraryFolder, trashLibraryEntry } from '@core'
 import { createLibraryStorage, createMemoryLibraryStorage } from './library-storage'
 import { createIndexedDbSampleStorage } from './sample-storage'
+import { LIBRARY_DATABASE_VERSION } from './library-database'
 const name = () => `library-${crypto.randomUUID()}`
 const opened = (name: string, version: number, upgrade?: (db: IDBDatabase) => void): Promise<IDBDatabase> => new Promise((resolve, reject) => {
   const r = indexedDB.open(name, version); r.onupgradeneeded = () => upgrade?.(r.result); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error)
@@ -86,7 +87,7 @@ describe('atomic catalog and sample storage', () => {
     db.close()
     const storage = createLibraryStorage(dbName), upgraded = await storage.read()
     expect(upgraded.version).toBe(2)
-    const check = await opened(dbName, 2)
+    const check = await opened(dbName, LIBRARY_DATABASE_VERSION)
     expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('pre-signature-v2'); r.onsuccess = () => resolve(r.result) })).toEqual(legacy)
     expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('current'); r.onsuccess = () => resolve(r.result) })).toEqual(upgraded)
     expect(upgraded.folders).toEqual(legacy.folders)
@@ -107,7 +108,7 @@ describe('atomic catalog and sample storage', () => {
       return put.call(this, value, key)
     })
     try { await expect(createLibraryStorage(dbName).read()).rejects.toThrow(/quota/) } finally { spy.mockRestore() }
-    const check = await opened(dbName, 2)
+    const check = await opened(dbName, LIBRARY_DATABASE_VERSION)
     expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('current'); r.onsuccess = () => resolve(r.result) })).toEqual(legacy)
     expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('pre-signature-v2'); r.onsuccess = () => resolve(r.result) })).toBeUndefined()
     check.close()
@@ -131,7 +132,7 @@ describe('atomic catalog and sample storage', () => {
       const pending = createLibraryStorage(dbName).update(c => saveLibraryFolder(c, 'After', null, 'after'), new Map([['interrupted', Uint8Array.of(9)]]))
       await expect(pending).rejects.toThrow(/interrupted/)
     } finally { spy.mockRestore() }
-    const check = await opened(dbName, 2)
+    const check = await opened(dbName, LIBRARY_DATABASE_VERSION)
     expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('current'); r.onsuccess = () => resolve(r.result) })).toEqual(legacy)
     expect(await new Promise(resolve => { const r = check.transaction('catalog').objectStore('catalog').get('pre-signature-v2'); r.onsuccess = () => resolve(r.result) })).toBeUndefined()
     expect(await new Promise(resolve => { const r = check.transaction('samples').objectStore('samples').get('interrupted'); r.onsuccess = () => resolve(r.result) })).toBeUndefined()
@@ -140,7 +141,7 @@ describe('atomic catalog and sample storage', () => {
   it('closes catalog and sample connections when another tab upgrades', async () => {
     const dbName = name(), library = createLibraryStorage(dbName), samples = createIndexedDbSampleStorage(dbName)
     await library.read(); await samples.put('keep', Uint8Array.of(9))
-    const next = await opened(dbName, 3)
+    const next = await opened(dbName, LIBRARY_DATABASE_VERSION + 1)
     expect(next.objectStoreNames.contains('samples')).toBe(true)
     expect(next.objectStoreNames.contains('catalog')).toBe(true)
     next.close()

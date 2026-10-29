@@ -1,0 +1,66 @@
+/* At the top middle of the window, over everything; 520 px wide, or the window less 32 px when narrower. */
+.palette {
+  position: fixed;
+  z-index: 70;
+  top: 48px;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  width: min(520px, calc(100% - 32px));
+  max-height: 420px;
+  transform: translateX(-50%);
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.field {
+  margin: 8px;
+  padding: 6px 8px;
+}
+
+.empty {
+  padding: 0 12px 8px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.list {
+  margin: 0;
+  padding: 0 4px 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.row[aria-disabled='true'] {
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.active {
+  background: var(--accent-soft);
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.key {
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 11px;
+}

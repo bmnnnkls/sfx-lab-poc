@@ -23,6 +23,8 @@ export interface LayoutShell {
   reset(): void
   /** Replace the model with the layout saved under this name. */
   load(name: string): void
+  /** Replace the model with a built-in layout. */
+  loadPreset(id: string): void
   /** Save the current model under this name. */
   saveAs(name: string): void
 }
@@ -184,12 +186,26 @@ export class FlexLayoutDriver implements LayoutDriver {
     this.sync()
   }
 
+  toggleMaximize(view: ViewId | undefined): void {
+    const node = view === undefined ? undefined : this.model.getNodeById(view)
+    if (view !== undefined && !(node instanceof TabNode)) return
+    const group = node ? node.getParent() : this.model.getActiveTabset() ?? this.model.getMaximizedTabset()
+    if (!(group instanceof TabSetNode)) return
+    // As for flexlayout's button: a maximized group keeps its maximum height, so a collapsed panel expands first.
+    this.model.doAction(this.intercept(Actions.maximizeToggle(group.getId())))
+    this.sync()
+  }
+
   reset(): void {
     this.shell.reset()
   }
 
   load(name: string): void {
     this.shell.load(name)
+  }
+
+  loadPreset(id: string): void {
+    this.shell.loadPreset(id)
   }
 
   saveAs(name: string): void {

@@ -5,7 +5,7 @@ import { noteGraphFrom } from '../patch'
 import { diffProject } from '../sync'
 import { Engine } from './engine'
 const RATE = 8000
-const sample: SampleData = { id: 'sample', sampleRate: RATE, data: new Float32Array(8000).fill(1) }
+const sample: SampleData = { id: 'sample', sampleRate: RATE, channels: [new Float32Array(8000).fill(1)] }
 const info: SampleInfo = { id: 'sample', name: 'Constant', sampleRate: RATE, extension: 'wav', channels: 1, bytes: 16044, durationSeconds: 1 }
 const projectOf = (loop: boolean, warp: 'repitch' | 'off' = 'repitch'): Project => {
   const p = createEmptyProject(), track = { ...createAudioTrack('Audio', 4), id: 'a', volume: 0.2 }

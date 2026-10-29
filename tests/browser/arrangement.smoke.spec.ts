@@ -1,5 +1,5 @@
-import type { Locator } from '@playwright/test'
-import { test, expect, openView, viewRoot } from './fixtures'
+import type { Locator, Page } from '@playwright/test'
+import { test, expect, openView, viewRoot, openFileMenu } from './fixtures'
 
 /** Runs a lane menu's *Add clip* ▸ entry for a clip, from the menu just opened. */
 const addClip = async (page: import('@playwright/test').Page, name: string) => {
@@ -106,8 +106,8 @@ test('the arrangement bounces to a WAV', async ({ page }) => {
   await addClip(page, 'Root')
   await expect(arrangement.getByTestId('arrangement-region')).toHaveCount(1)
 
-  await page.getByText('File', { exact: true }).click()
-  await page.getByRole('button', { name: 'Export audio (WAV)…', exact: true }).click()
+  await openFileMenu(page)
+  await page.getByRole('menuitem', { name: 'Export audio (WAV)…', exact: true }).click()
   // The timeline has something on it, so the Arrangement scope is offered and defaults to its length
   // (the placed region spans beats 5 to 9: 2.25 bars).
   const scope = page.getByRole('radio', { name: 'Arrangement', exact: true })
@@ -121,21 +121,45 @@ test('the arrangement bounces to a WAV', async ({ page }) => {
   expect(download.suggestedFilename()).toMatch(/\.wav$/)
 })
 
-test('the sample editor derives a reversed copy without touching the original', async ({ page }) => {
+/** The saved project's samples, as autosave last wrote them. */
+const savedSamples = (page: Page) =>
+  page.evaluate(() => (JSON.parse(localStorage.getItem('sfxlab:project') ?? '{"project":{"samples":[]}}') as { project: { samples: Array<{ id: string; name: string; origin?: string }> } }).project.samples)
+
+const openDemoKick = async (page: Page) => {
   await page.goto('/?starter')
   const samples = await openView(page, 'Samples')
   await page.getByRole('button', { name: 'Add demo samples', exact: true }).click()
   await expect(samples.locator('[data-status="ready"]')).toHaveCount(5)
   await expect(page.getByRole('listitem')).toHaveCount(5)
-
   await page.getByRole('listitem').filter({ hasText: 'Demo Kick' }).getByRole('button', { name: '✎', exact: true }).click()
   const wave = viewRoot(page, 'Wave editor')
   await expect(wave.getByTestId('sample-editor')).toBeVisible()
+  return wave
+}
+
+test('the sample editor reverses the sample in place, and undo brings it back', async ({ page }) => {
+  const wave = await openDemoKick(page)
+  await expect.poll(async () => (await savedSamples(page)).length).toBe(5)
+  const kick = (await savedSamples(page)).find((sample) => sample.name === 'Demo Kick')!
   await wave.getByRole('button', { name: 'Reverse', exact: true }).click()
-  await wave.getByRole('button', { name: 'Close', exact: true }).click()
-  // The derived copy joins the library; the original is still there, untouched.
+  // The same entry, now a new file that remembers the first version; no copy joins the library.
+  await expect.poll(async () => (await savedSamples(page)).find((sample) => sample.name === 'Demo Kick')?.origin).toBe(kick.id)
+  await expect(page.getByRole('listitem')).toHaveCount(5)
+  await expect(wave.getByTestId('sample-editor')).toBeVisible()
+  await page.getByRole('button', { name: 'Undo', exact: true }).first().click()
+  await expect.poll(async () => (await savedSamples(page)).find((sample) => sample.name === 'Demo Kick')).toEqual(kick)
+  await expect(wave.getByTestId('sample-editor')).toBeVisible()
+})
+
+test('with Edits make copies on, the sample editor derives a reversed copy and opens it', async ({ page }) => {
+  const wave = await openDemoKick(page)
+  await wave.getByRole('button', { name: 'Edits make copies', exact: true }).click()
+  await expect(wave.getByRole('button', { name: 'Edits make copies', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await wave.getByRole('button', { name: 'Reverse', exact: true }).click()
+  // The copy joins the library and opens; the original is still there, untouched.
   await expect(page.getByRole('listitem')).toHaveCount(6)
   await expect(page.getByRole('listitem').filter({ hasText: 'Demo Kick (reversed)' })).toHaveCount(1)
+  await expect(wave.getByText('Demo Kick (reversed)', { exact: true })).toBeVisible()
   // Undo removes the derived copy from the project (the original stays).
   await page.getByRole('button', { name: 'Undo', exact: true }).first().click()
   await expect(page.getByRole('listitem')).toHaveCount(5)

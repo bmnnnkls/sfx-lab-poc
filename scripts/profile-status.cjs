@@ -14,18 +14,22 @@
 //   groups  Session and Arrangement side by side, Mixer in the panel, the Tracks view open: Lead in an expanded group
 //           that sums to a bus, Pad in a collapsed one, Bass hidden; scene 1 plays, so the hidden track sounds. Needs
 //           round 8 (round 7 without the bus).
+//   pinned  The editor setup, after an L knob and a switch were added to Lead's instrument panel, and Lead's instrument,
+//           Lead's effects and the master's effects were pinned, with the Pinned view showing. Needs round 9.
+//   wave    The demo drum loop open in the Wave editor, Mixer in the panel, the transport stopped and the loop's preview
+//           looping from its start, so the editor's playhead runs. Needs round 11a.
 //
 // Prints one JSON object per build. Each figure is a per-second average over the measured seconds.
 const { chromium } = require('@playwright/test')
 
 const [devUrl, previewUrl, secondsArg, setupArg] = process.argv.slice(2)
 if (!devUrl || !previewUrl) {
-  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four|groups]')
+  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four|groups|pinned|wave]')
   process.exit(2)
 }
 const SECONDS = Number(secondsArg ?? 10)
 const SETUP = setupArg ?? 'editor'
-const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume']
+const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume', 'PinnedView', 'PinnedPanel', 'PanelView', 'ControlCell', 'CommandHost', 'HostDialogs', 'CommandPalette', 'SampleEditor', 'Overview', 'Ruler', 'DetailView', 'WaveLane', 'WavePlayhead', 'EditToolbar', 'EditSettings']
 
 // A stub React DevTools hook: React then runs in profiling mode (dev build) and reports every commit.
 const hook = () => {
@@ -86,6 +90,37 @@ const dock = async (page, title, target, fx, fy) => {
   await page.waitForTimeout(300)
 }
 
+/** Runs an entry of a thing's menu, through submenus when given more than one. */
+const fromMenu = async (page, target, ...entries) => {
+  await target.click({ button: 'right' })
+  for (const entry of entries) await page.getByRole('menuitem', { name: entry, exact: true }).click()
+}
+
+/** An L knob and a switch on Lead's instrument panel, then Lead's instrument and effects and the master's effects pinned. */
+const pinPanels = async (page) => {
+  await show(page, 'Session')
+  const session = page.locator('[data-view="session"]')
+  const lead = session.getByRole('button', { name: 'Lead', exact: true })
+  await lead.click()
+  await show(page, 'Instrument')
+  const instrument = page.locator('[data-view="instrument"]')
+  await instrument.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Panel', exact: true }).click()
+  await instrument.getByRole('button', { name: 'Edit panel', exact: true }).click()
+  const form = instrument.getByRole('form', { name: 'Add a control' })
+  for (const kind of ['knob', 'switch']) {
+    await form.getByLabel('Control type', { exact: true }).selectOption(kind)
+    await form.getByRole('button', { name: 'Add', exact: true }).click()
+  }
+  const resize = instrument.locator('[data-kind="knob"] [aria-label^="Resize "]').last()
+  await resize.click()
+  await resize.click()
+  await instrument.getByRole('button', { name: 'Done', exact: true }).click()
+  await fromMenu(page, lead, 'Pin panel', 'Instrument')
+  await fromMenu(page, lead, 'Pin panel', 'Effects')
+  await fromMenu(page, session.getByRole('button', { name: 'Master', exact: true }), 'Pin effects panel')
+  await show(page, 'Arrangement')
+}
+
 const setUp = async (page, url) => {
   await page.goto(`${url}/?starter`)
   await show(page, 'Arrangement')
@@ -130,7 +165,19 @@ const setUp = async (page, url) => {
     await page.getByRole('button', { name: 'Hide Bass', exact: true }).click()
     await show(page, 'Mixer')
     await page.getByRole('button', { name: 'Launch scene 1', exact: true }).click()
+  } else if (SETUP === 'wave') {
+    await show(page, 'Samples')
+    await page.locator('[data-view="samples"]').getByRole('button', { name: 'Add demo samples', exact: true }).click()
+    const loop = page.locator('[data-view="samples"]').getByRole('listitem').filter({ hasText: 'Demo Drum Loop' })
+    await loop.locator('[data-status="ready"]').waitFor()
+    await loop.getByRole('button', { name: '✎', exact: true }).click()
+    const wave = page.locator('[data-view="wave"]')
+    await wave.getByTestId('wave-detail').waitFor()
+    await show(page, 'Mixer')
+    await wave.getByRole('button', { name: 'Loop', exact: true }).click()
+    await wave.getByRole('button', { name: 'Play from cursor', exact: true }).click()
   } else {
+    if (SETUP === 'pinned') await pinPanels(page)
     await show(page, 'Mixer')
     await page.getByRole('button', { name: 'Play arrangement', exact: true }).click()
   }
@@ -147,6 +194,7 @@ const main = async () => {
     await setUp(page, devUrl)
     const visible = await page.evaluate(() => [...document.querySelectorAll('[data-view]')].filter((view) => view.checkVisibility()).map((view) => view.dataset.view))
     const busStrips = await page.locator('[data-view="mixer"] section[aria-label$=" bus"]').count()
+    const pins = await page.locator('[data-view="pinned"] section[aria-label]').count()
     await page.evaluate(() => { window.__profile.recording = true })
     await page.waitForTimeout(SECONDS * 1000)
     const stats = await page.evaluate(() => { window.__profile.recording = false; return window.__profile })
@@ -156,6 +204,7 @@ const main = async () => {
       setup: SETUP,
       visible,
       busStrips,
+      pins,
       commitsPerSecond: +(stats.commits / SECONDS).toFixed(1),
       renderMsPerSecond: +(stats.renderMs / SECONDS).toFixed(1),
       componentRendersPerSecond: Math.round(stats.rendered / SECONDS),

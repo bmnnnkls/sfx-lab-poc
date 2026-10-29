@@ -3,7 +3,7 @@ import { create } from 'zustand'
 /** Every view the workbench can show. The ids are stable: layouts are saved by them. */
 export type ViewId =
   | 'session' | 'arrangement' | 'wave'
-  | 'instrument' | 'effects' | 'notes' | 'clip' | 'mixer' | 'samples' | 'sounds' | 'library' | 'tracks'
+  | 'instrument' | 'effects' | 'notes' | 'clip' | 'mixer' | 'samples' | 'sounds' | 'library' | 'tracks' | 'pinned'
 
 /** Where a view can sit: the editor area in the middle, the panel below it, and a sidebar on either side. */
 export type RegionId = 'editor' | 'panel' | 'primary' | 'secondary'
@@ -29,10 +29,17 @@ export interface LayoutDriver {
   /** Select the view's tab, showing its region first if that is hidden. */
   reveal(id: ViewId): void
   setRegionVisible(region: RegionId, visible: boolean): void
+  /**
+   * Maximize the tab group holding `view`, or restore it if it is maximized; without a view, flexlayout's active
+   * group. A view in a sidebar has no group to maximize.
+   */
+  toggleMaximize(view: ViewId | undefined): void
   /** Replace the layout with the default one. */
   reset(): void
   /** Replace the layout with the one saved under this name. */
   load(name: string): void
+  /** Replace the layout with a built-in one, by its id (the shell knows them). */
+  loadPreset(id: string): void
   /** Save the layout under this name, replacing one of the same name. */
   saveAs(name: string): void
 }
@@ -44,11 +51,15 @@ interface LayoutState extends LayoutSnapshot {
   toggleMainView(): void
   /** Hide or show the panel or a sidebar. The editor area is always shown. */
   toggleRegion(region: RegionId): void
+  /** Maximize or restore the group holding a view (the focused one), else the active group. Needs the shell. */
+  toggleMaximize(view?: ViewId): void
   resetLayout(): void
   /** Replace the layout with one saved under a name (per browser, with `saveLayoutAs`). */
   loadLayout(name: string): void
   /** Save the layout under a name, replacing one of the same name. */
   saveLayoutAs(name: string): void
+  /** Replace the layout with a built-in one: *Compose*, *Arrange*, *Sound design*, *Mix*. */
+  loadPreset(id: string): void
   /** Shell only. Returns the detach function. */
   attachDriver(driver: LayoutDriver): () => void
   /** Shell only: mirror the layout after each change to it. */
@@ -66,14 +77,14 @@ const DEFAULT_GROUPS: readonly GroupState[] = [
   { id: 'editor', region: 'editor', views: [...MAIN_VIEWS, 'wave'], active: 'session' },
   { id: 'panel', region: 'panel', views: PANEL_VIEWS, active: 'instrument' },
   { id: 'border_left', region: 'primary', views: ['samples', 'library', 'tracks'], active: 'samples' },
-  { id: 'border_right', region: 'secondary', views: ['sounds'], active: 'sounds' },
+  { id: 'border_right', region: 'secondary', views: ['sounds', 'pinned'], active: 'sounds' },
 ]
 const DEFAULT_HIDDEN: readonly RegionId[] = ['primary', 'secondary']
 
 /**
  * The default layout, in the spirit of VS Code: Session, Arrangement and the wave editor over the editors and the
- * Mixer in the panel; Samples and Library in the primary sidebar and Sounds in the secondary one, both collapsed to
- * their strips.
+ * Mixer in the panel; Samples, Library and Tracks in the primary sidebar and Sounds and Pinned in the secondary one, both
+ * collapsed to their strips.
  */
 export const DEFAULT_LAYOUT: LayoutSnapshot = {
   groups: DEFAULT_GROUPS,
@@ -121,6 +132,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return { hiddenRegions, visible: visibleOf(state.groups, hiddenRegions) }
     })
   },
+  // The mirror knows no maximized group; without a driver there is nothing to fill.
+  toggleMaximize: (view) => driver?.toggleMaximize(view),
   resetLayout: () => {
     if (driver) return driver.reset()
     set(DEFAULT_LAYOUT)
@@ -128,6 +141,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   // Named layouts live with the shell's model; without a driver there is nothing to save or load.
   loadLayout: (name) => driver?.load(name),
   saveLayoutAs: (name) => driver?.saveAs(name),
+  loadPreset: (id) => driver?.loadPreset(id),
   attachDriver: (next) => {
     driver = next
     return () => {

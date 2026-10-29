@@ -35,7 +35,7 @@ describe('the group menu with buses', () => {
   })
 
   it('offers a bus Open effects and Remove bus, which says it discards the effects', () => {
-    expect(titles('Drums')).toEqual(['Collapse', 'Open effects', 'Rename', 'Remove bus', 'Mute', 'Solo', 'Colour', 'Move up', 'Move down', 'Hide tracks', 'Ungroup', 'Delete group and tracks'])
+    expect(titles('Drums')).toEqual(['Collapse', 'Open effects', 'Pin effects panel', 'Rename', 'Remove bus', 'Mute', 'Solo', 'Colour', 'Move up', 'Move down', 'Hide tracks', 'Ungroup', 'Delete group and tracks'])
     expect(items('Drums').find((item) => item.id === 'group.bus')!.tooltip).toMatch(/discard the bus's effects/)
   })
 

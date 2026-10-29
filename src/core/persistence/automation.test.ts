@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { CURRENT_VERSION } from './format'
 import { describe, expect, it } from 'vitest'
 import { parseProject, serializeProject } from './project-file'
 const fixture = readFileSync(new URL('./fixtures/v4-automation.sfxlab.json', import.meta.url), 'utf8')
@@ -9,7 +10,7 @@ describe('v4 saved automation', () => {
     expect(result.warnings).toEqual([])
     const track = result.project.tracks[0]!
     expect(track.kind !== 'return' && track.clips[0]?.automation).toHaveLength(2)
-    expect(JSON.parse(serializeProject(result.project)).version).toBe(10)
+    expect(JSON.parse(serializeProject(result.project)).version).toBe(CURRENT_VERSION)
     expect(read(serializeProject(result.project)).project).toEqual(result.project)
   })
   it('explicitly drops unknown automation fields in v1/v2/v3 files', () => {

@@ -28,7 +28,7 @@ const audioEngine = (fx: Patch) => {
   const engine = new Engine(SAMPLE_RATE)
   const data = Float32Array.from({ length: 4 * BEAT }, (_, i) => 0.1 * Math.sin((2 * Math.PI * 2000 * i) / SAMPLE_RATE))
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
-  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, data } })
+  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, channels: [data] } })
   engine.apply({ type: 'track/add', kind: 'audio', trackId: 'a', fx, clips: [audioClip()], volume: 1 })
   engine.apply({ type: 'clip/launch', trackId: 'a', clipId: 'clip' })
   return engine

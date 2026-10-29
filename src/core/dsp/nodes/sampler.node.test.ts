@@ -12,7 +12,7 @@ const bankWithRamp = (sampleRate = SAMPLE_RATE) => {
   bank.set({
     id: 'ramp',
     sampleRate,
-    data: Float32Array.from({ length: RAMP_LENGTH }, (_, i) => i / RAMP_LENGTH),
+    channels: [Float32Array.from({ length: RAMP_LENGTH }, (_, i) => i / RAMP_LENGTH)],
   })
   return bank
 }

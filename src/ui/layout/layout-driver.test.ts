@@ -8,7 +8,7 @@ const PANEL_VIEWS = ['instrument', 'effects', 'notes', 'clip', 'mixer']
 
 const driverFor = (json: IJsonModel = defaultLayout()) => {
   const published: LayoutSnapshot[] = []
-  const shell = { reset: vi.fn(), load: vi.fn(), saveAs: vi.fn() }
+  const shell = { reset: vi.fn(), load: vi.fn(), loadPreset: vi.fn(), saveAs: vi.fn() }
   const driver = new FlexLayoutDriver(Model.fromJson(json), (snapshot) => published.push(snapshot), shell)
   return { driver, model: driver.model, published, shell, last: () => published[published.length - 1]! }
 }
@@ -30,7 +30,7 @@ describe('FlexLayoutDriver', () => {
         { id: 'editor', region: 'editor', views: ['session', 'arrangement', 'wave'], active: 'session' },
         { id: 'panel', region: 'panel', views: PANEL_VIEWS, active: 'instrument' },
         { id: 'border_left', region: 'primary', views: ['samples', 'library', 'tracks'], active: 'samples' },
-        { id: 'border_right', region: 'secondary', views: ['sounds'], active: 'sounds' },
+        { id: 'border_right', region: 'secondary', views: ['sounds', 'pinned'], active: 'sounds' },
       ],
       visible: ['session', 'instrument'],
       hiddenRegions: ['primary', 'secondary'],
@@ -244,6 +244,35 @@ describe('FlexLayoutDriver', () => {
     expect(last().visible).toEqual(['arrangement'])
   })
 
+  it("maximizes and restores a view's group: an editor group, the panel (expanding it first), not a sidebar view", () => {
+    const { driver, model, last } = driverFor()
+    model.doAction(Actions.moveNode('mixer', 'editor', DockLocation.RIGHT, -1))
+    driver.toggleMaximize('mixer')
+    const mixerGroup = (model.getNodeById('mixer') as TabNode).getParent()
+    expect(model.getMaximizedTabset()).toBe(mixerGroup)
+    expect(last().visible).toEqual(['mixer'])
+    driver.toggleMaximize('mixer')
+    expect(model.getMaximizedTabset()).toBeUndefined()
+    driver.setRegionVisible('panel', false)
+    driver.toggleMaximize('notes')
+    expect(model.getMaximizedTabset()).toBe(panel(model))
+    expect(collapsed(model)).toBe(false)
+    expect(last()).toMatchObject({ visible: ['instrument'], hiddenRegions: ['primary', 'secondary'] })
+    driver.toggleMaximize('notes')
+    // A view in a sidebar has no group to fill.
+    driver.toggleMaximize('samples')
+    expect(model.getMaximizedTabset()).toBeUndefined()
+  })
+
+  it("maximizes flexlayout's active group when no view is given", () => {
+    const { driver, model } = driverFor()
+    model.doAction(Actions.setActiveTabset('panel'))
+    driver.toggleMaximize(undefined)
+    expect(model.getMaximizedTabset()).toBe(panel(model))
+    driver.toggleMaximize(undefined)
+    expect(model.getMaximizedTabset()).toBeUndefined()
+  })
+
   it('adds a view missing from the layout to its default region', () => {
     const json = defaultLayout()
     panelJson(json).children = panelJson(json).children!.filter((tab) => tab.id !== 'mixer')
@@ -277,6 +306,8 @@ describe('FlexLayoutDriver', () => {
     driver.reset()
     driver.saveAs('Mix')
     driver.load('Mix')
+    driver.loadPreset('mix')
+    expect(shell.loadPreset).toHaveBeenCalledWith('mix')
     expect(shell.reset).toHaveBeenCalledOnce()
     expect(shell.saveAs).toHaveBeenCalledWith('Mix')
     expect(shell.load).toHaveBeenCalledWith('Mix')

@@ -12,7 +12,8 @@ import {
   regionFraction,
   sessionClipRef,
 } from '@core'
-import { useProjectStore } from '@state'
+import { type Subject, runAction, useProjectStore } from '@state'
+import { useActionContext } from '../shared/menu'
 import toolbar from '../clip-editor/ClipEditor.module.css'
 import { LengthField } from '../clip-editor/LengthField'
 import styles from './AudioClipEditor.module.css'
@@ -62,6 +63,12 @@ export const AudioClipEditor = ({ track, clip, clipRef, where }: { track: AudioT
   const sample = samples.find((candidate) => candidate.id === clip.sampleId)
   const ref = clipRef ?? sessionClipRef(track.id, clip.id)
   const change = (changes: Parameters<typeof update>[1]) => update(ref, changes)
+  const context = useActionContext()
+  // The clip's own action, so the button, the menus and the palette open the sample the same way.
+  const editSample = (): void => {
+    const subject: Subject = ref.kind === 'region' ? { kind: 'region', regionId: ref.regionId } : { kind: 'clip', trackId: ref.trackId, clipId: ref.clipId }
+    void runAction(ref.kind === 'region' ? 'region.edit-sample' : 'clip.edit-sample', subject, context)
+  }
 
   return (
     <div className={toolbar.editor} data-clip-editor>
@@ -81,6 +88,9 @@ export const AudioClipEditor = ({ track, clip, clipRef, where }: { track: AudioT
             ))}
           </select>
         </label>
+        <button onClick={editSample} disabled={!sample} title={sample ? 'Open the sample in the Wave editor, at the part this clip plays' : 'The sample is no longer in the library'}>
+          Edit sample
+        </button>
 
         <label className={toolbar.field} title="Re-pitch speeds the clip up or down to fit its length at the project tempo, so it stays in time. Off plays it at its original speed.">
           Warp

@@ -1,4 +1,4 @@
-import type { ControlOwner, ControlTarget, PatchTarget } from '@core'
+import type { ControlOwner, ControlTarget, PatchTarget, TrackGraph } from '@core'
 import type { EngineControls } from '../engine-controls'
 import type { ViewId } from '../layout-store'
 import type { PersonalLibrary } from '../library'
@@ -24,6 +24,7 @@ export type Subject =
   | { readonly kind: 'lane'; readonly trackId: string; readonly beat: number }
   | { readonly kind: 'control'; readonly targets: readonly ControlTarget[] }
   | { readonly kind: 'sound'; readonly soundId: string; readonly preset: boolean }
+  | { readonly kind: 'pin'; readonly owner: ControlOwner; readonly graph: TrackGraph } // a front panel in the Pinned view
 
 export type SubjectKind = Subject['kind']
 export type SubjectOf<K extends SubjectKind> = Extract<Subject, { kind: K }>
@@ -45,11 +46,21 @@ export interface ActionChoice {
   readonly id: string
   readonly title: string
   readonly enabled?: boolean
+  /** What the choice is, when its title doesn't say enough (an example's tagline). */
+  readonly tooltip?: string
 }
 
+/** What an edit key does to the focused thing: Delete, ⌘D, ⌘C, ⌘X, ⌘V and F2. */
+export type Verb = 'delete' | 'duplicate' | 'copy' | 'cut' | 'paste' | 'rename'
+
 export interface Action<S extends Subject = Subject> {
-  /** 'clip.duplicate': round 10's command ids. */
+  /** 'clip.duplicate': stable, and what the palette and a test know an action by. */
   readonly id: string
+  /**
+   * The edit key that runs it on the focused thing (`runVerb`). At most one action of a kind per verb. Left off the
+   * deletes that remove more than the thing itself (*Delete group and tracks*, *Clear this track*).
+   */
+  readonly verb?: Verb
   readonly title: string | ((subject: S, context: ActionContext) => string)
   /** Entries are drawn in groups, with a separator between groups: open, edit, clipboard, delete. */
   readonly group: 'open' | 'edit' | 'clipboard' | 'delete'
@@ -64,10 +75,11 @@ export interface Action<S extends Subject = Subject> {
   enabled?(subject: S, context: ActionContext): boolean
   /**
    * For an action that asks which one: what it can be run on. Drawn as a submenu under the title, or with `inline`
-   * as one entry per choice, titled by the choice. `run` gets the chosen id.
+   * as one entry per choice, titled by the choice. `run` gets the chosen id. `inline` can depend on the subject (a
+   * track with one graph to pin has one entry).
    */
   choices?(subject: S, context: ActionContext): readonly ActionChoice[]
-  readonly inline?: boolean
+  readonly inline?: boolean | ((subject: S, context: ActionContext) => boolean)
   /** An asynchronous action resolves with a message to show, or throws one. */
   run(subject: S, context: ActionContext, choice?: string): void | Promise<string | void>
 }

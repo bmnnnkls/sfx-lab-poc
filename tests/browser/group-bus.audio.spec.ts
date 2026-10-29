@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { test, expect, expectSound, openView } from './fixtures'
+import { test, expect, expectSound, openView, openFileMenu } from './fixtures'
 import { installAudioTap, listen } from './audio-tap'
 
 /*
@@ -196,8 +196,8 @@ test('the live output with buses matches the offline scene export', async ({ pag
   await expect.poll(() => page.evaluate(() => window.__busSamples?.length ?? 0)).toBeGreaterThan(4096)
   await page.getByRole('button', { name: 'Stop', exact: true }).first().click()
   const rate = await page.evaluate(() => new AudioContext().sampleRate)
-  await page.getByText('File', { exact: true }).click()
-  await page.getByRole('button', { name: 'Export audio (WAV)…', exact: true }).click()
+  await openFileMenu(page)
+  await page.getByRole('menuitem', { name: 'Export audio (WAV)…', exact: true }).click()
   await page.getByLabel('Tail (seconds)').fill('0')
   await page.getByLabel('Sample rate').selectOption(String(rate))
   await page.getByLabel('Bit depth').selectOption('32')

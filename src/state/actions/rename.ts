@@ -31,6 +31,7 @@ export const startRename = (subject: Subject, context: ActionContext): void => {
 /** The *Rename* entry of a kind's menu. */
 export const renameAction = <K extends SubjectKind>(kind: K, applies?: (subject: SubjectOf<K>) => boolean): Action<SubjectOf<K>> => ({
   id: `${kind}.rename`,
+  verb: 'rename',
   title: 'Rename',
   group: 'edit',
   takesFocus: true,

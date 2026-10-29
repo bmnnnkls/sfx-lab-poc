@@ -1,6 +1,5 @@
 import { MAX_AUTOMATION_POINTS, resizeAutomation, doubleAutomation } from '../automation'
 import {
-  clearSampleReferences,
   clearTrackReferences,
   createDefaultFxGraph,
   createDefaultMasterGraph,
@@ -15,7 +14,7 @@ import { clamp, createId } from '../shared'
 import { createNote, notesEqual, shiftedCopies, trimNotesToLength } from './note-edit'
 import { clampAudioClip, createAudioClip } from './audio-clip'
 import { type ClipRef, editClipAt } from './clip-ref'
-import { mapBuses, mapBusGraphs, pruneGroups } from './group-membership'
+import { mapBuses, pruneGroups } from './group-membership'
 import { mixesAfter } from './mix-order'
 import { MAX_CLIP_BEATS, MIN_CLIP_BEATS } from './limits'
 import type { AudioClip, AudioTrack, Clip, InstrumentTrack, MasterBus, Note, Project, ReturnTrack, Track } from './types'
@@ -87,12 +86,18 @@ export const createTrack = (
   clips: Array.from({ length: sceneCount }, () => null),
 })
 
+/**
+ * Whether a new audio track's `Track in` runs in stereo, so a stereo sample plays in stereo. Tracks already in a file keep
+ * what their file says (before 11a, mono).
+ */
+export const NEW_AUDIO_TRACK_STEREO = true
+
 export const createAudioTrack = (name: string, sceneCount: number): AudioTrack => ({
   kind: 'audio',
   id: createId('track'),
   name,
   volume: 0.8,
-  fx: createDefaultFxGraph(),
+  fx: createDefaultFxGraph(NEW_AUDIO_TRACK_STEREO),
   sends: {},
   clips: Array.from({ length: sceneCount }, () => null),
 })
@@ -286,29 +291,6 @@ export const addSamples = (project: Project, samples: readonly SampleInfo[]): Pr
  * Removes a sample from the library together with whatever played it: sampler nodes are cleared and audio
  * clips using it are removed (undo restores everything).
  */
-export const removeSample = (project: Project, sampleId: string): Project => ({
-  ...project,
-  ...(project.groups && { groups: mapBusGraphs(project.groups, (fx) => clearSampleReferences(fx, sampleId)) }),
-  master: mapMasterFx(project.master, (fx) => clearSampleReferences(fx, sampleId)),
-  samples: project.samples.filter((sample) => sample.id !== sampleId),
-  ...(project.sampleBindings && { sampleBindings: project.sampleBindings.map(b => b.sampleId === sampleId ? { ...b, sampleId: null } : b) }),
-  modules: mapModules(project.modules, (module) => {
-    const patch = clearSampleReferences(module.patch, sampleId)
-    return patch === module.patch ? module : { ...module, patch }
-  }),
-  tracks: project.tracks.map((track): Track => {
-    const fx = clearSampleReferences(track.fx, sampleId)
-    const base = fx === track.fx ? track : { ...track, fx }
-    if (base.kind === 'return') return base
-    if (base.kind === 'audio') {
-      const clips = base.clips.map((clip) => (clip?.sampleId === sampleId ? null : clip))
-      return clips.some((clip, index) => clip !== base.clips[index]) ? { ...base, clips } : base
-    }
-    const patch = clearSampleReferences(base.patch, sampleId)
-    return patch === base.patch ? base : { ...base, patch }
-  }),
-})
-
 const SAMPLER_NOTE = 60
 
 /** A ready-to-play track: a sampler loaded with `sample` and a one-bar clip that triggers it. */

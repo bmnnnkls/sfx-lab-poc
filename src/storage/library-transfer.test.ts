@@ -251,7 +251,7 @@ describe('hostile library archives', () => {
     let cursor = v.getUint32(end + 16, true)
     while (cursor < end) {
       const nameLength = v.getUint16(cursor + 28, true), offset = v.getUint32(cursor + 42, true)
-      if (nameLength !== 'manifest.json'.length) { v.setUint32(cursor + 24, 32 * 1024 * 1024, true); v.setUint32(offset + 22, 32 * 1024 * 1024, true) }
+      if (nameLength !== 'manifest.json'.length) { v.setUint32(cursor + 24, LIBRARY_ARCHIVE_LIMITS.entry, true); v.setUint32(offset + 22, LIBRARY_ARCHIVE_LIMITS.entry, true) }
       cursor += 46 + nameLength
     }
     await expect(stageLibraryBundle(b)).rejects.toThrow(/expanded byte limit/)

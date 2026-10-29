@@ -42,6 +42,9 @@ import {
   redo,
   removeArrangementClip,
   removeSample,
+  replaceSample,
+  type SampleRemap,
+  type SampleReplaceReport,
   removeTrack,
   pasteSessionClip,
   setClipAt,
@@ -80,6 +83,11 @@ import {
   showAllTracks,
   ungroup,
   withViewOf,
+  type PanelPin,
+  movePin,
+  pinPanel,
+  setPinCollapsed,
+  unpinPanel,
 } from '@core'
 import { create } from 'zustand'
 import type { ArrangementChanges, AudioClip } from '@core'
@@ -127,6 +135,12 @@ interface ProjectActions {
   setTrackHidden(trackId: string, hidden: boolean): void
   setGroupHidden(groupId: string, hidden: boolean): void
   showAllTracks(): void
+  /** Pins a graph's front panel at the bottom of the Pinned view, unless it is pinned or there are 16. A view edit. */
+  pinPanel(pin: Pick<PanelPin, 'owner' | 'graph'>): void
+  /** Pins are named by `pinKey`. View edits, as pinning. */
+  unpinPanel(key: string): void
+  movePin(key: string, direction: -1 | 1): void
+  setPinCollapsed(key: string, collapsed: boolean): void
   /** Renames a session clip; an empty name keeps the old one. */
   setClipName(trackId: string, clipId: string, name: string): void
   /** Names a scene; an empty name clears it. */
@@ -150,6 +164,11 @@ interface ProjectActions {
   setTrackSend(trackId: string, returnId: string, level: number): void
   addSamples(samples: readonly SampleInfo[]): void
   removeSample(sampleId: string): void
+  /**
+   * Moves every use of a sample onto the result of an edit (see `replaceSample`), as one undo step. Returns what it did
+   * besides, for the caller to tell the user.
+   */
+  replaceSample(fromId: string, to: SampleInfo, remap: SampleRemap): SampleReplaceReport
   /** Adds a track with a sampler playing `sample`, plus a clip that triggers it. */
   addSamplerTrack(sample: SampleInfo): void
   /** Adds an audio track with a looping clip of `sample` in the first scene. */
@@ -330,6 +349,10 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     setTrackHidden: (trackId, hidden) => editView((project) => setTrackHidden(project, trackId, hidden)),
     setGroupHidden: (groupId, hidden) => editView((project) => setGroupHidden(project, groupId, hidden)),
     showAllTracks: () => editView(showAllTracks),
+    pinPanel: (pin) => editView((project) => pinPanel(project, pin)),
+    unpinPanel: (key) => editView((project) => unpinPanel(project, key)),
+    movePin: (key, direction) => editView((project) => movePin(project, key, direction)),
+    setPinCollapsed: (key, collapsed) => editView((project) => setPinCollapsed(project, key, collapsed)),
     setClipName: (trackId, clipId, name) => edit((project) => setClipName(project, trackId, clipId, name)),
     setSceneName: (scene, name) => edit((project) => setSceneName(project, scene, name)),
     insertScene: (at) => edit((project) => insertScene(project, at)),
@@ -349,6 +372,11 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     addSamples: (samples) => edit((project) => addSamples(project, samples)),
     removeSample: (sampleId) => edit((project) => removeSample(project, sampleId)),
+    replaceSample: (fromId, to, remap) => {
+      const result = replaceSample(get().project, fromId, to, remap)
+      if (result.project !== get().project) edit(() => result.project)
+      return result.report
+    },
     addSamplerTrack: (sample) => edit((project) => addSamplerTrack(project, sample)),
     addAudioTrackFromSample: (sample) => edit((project) => addAudioTrackWithClip(project, sample)),
     deleteAudioClip: (trackId, scene) => edit((project) => setAudioClipAt(project, trackId, scene, null)),

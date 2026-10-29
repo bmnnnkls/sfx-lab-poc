@@ -6,6 +6,7 @@ export {
   type ProjectState,
 } from './project-store'
 export { useSelectionStore } from './selection-store'
+export { sameItems, useProjectSelect } from './project-select'
 export { canvasKey, graphKey, livePath, useGraphViewStore, type GraphViewport } from './graph-view-store'
 export {
   useLayoutStore,
@@ -27,7 +28,16 @@ export {
   type SaveState,
 } from './persistence-store'
 export { useSampleStore, type SampleStatus } from './sample-store'
-export { SampleLibraryProvider, useSampleLibrary, type SampleLibrary } from './sample-library'
+export { type WaveAudio, useWaveAudioStore } from './wave-audio-store'
+export {
+  DEFAULT_WAVE_VIEW,
+  type WaveChannels,
+  type WaveEditorView,
+  type WaveSelection,
+  useWaveEditorStore,
+  waveViewOf,
+} from './wave-editor-store'
+export { SampleLibraryProvider, useSampleLibrary, type SampleEditOptions, type SampleLibrary } from './sample-library'
 export { EngineControlsProvider, useEngineControls, type EngineControls } from './engine-controls'
 export { ProjectFilesProvider, useProjectFiles, type ProjectFiles } from './project-files'
 export { useControlStore } from './control-store'
@@ -39,6 +49,7 @@ export * from './actions'
 export { useRenameStore, sameSubject, type Renaming } from './rename-store'
 export { useLibraryStore } from './library-store'
 export { createClipboard, subscribeToClipboards, useClipboard, type Clipboard } from './clipboard'
+export { audioClipboard, copyWaveSelection } from './audio-clipboard'
 
 export { editAutomationSlot, editOwnerAutomation } from './automation-store'
 
@@ -47,3 +58,5 @@ export * from './preset-actions'
 
 export * from './library'
 export * from './actions/drops'
+
+export * from './commands'

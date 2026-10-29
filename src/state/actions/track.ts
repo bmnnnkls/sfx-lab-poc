@@ -1,10 +1,11 @@
-import { type ControlTarget, MAX_TRACKS, canGroupTrack, canMoveTrack, trackRows } from '@core'
-import { openTrackView } from '../navigation'
+import { type ControlTarget, MAX_PINS, MAX_TRACKS, type TrackGraph, canGroupTrack, canMoveTrack, canPin, isPinned, pinKey, trackRows } from '@core'
+import { openTrackView, revealPin } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { useSelectionStore } from '../selection-store'
 import { showAutomation } from './control'
 import { moveAction } from './group'
 import { project, trackOf } from './lookup'
+import { GRAPH_TITLES, graphChoices, pinLimitNote } from './pin'
 import { renameAction } from './rename'
 import type { Action, ActionChoice, SubjectOf } from './types'
 
@@ -35,6 +36,16 @@ const groupChoices = ({ trackId }: TrackSubject): ActionChoice[] => {
 /** The top-level group a track is in. */
 const outermostGroup = (trackId: string) =>
   trackRows(project()).find((row) => row.kind === 'group' && row.depth === 0 && row.trackIds.includes(trackId))
+
+/** The graphs of a track that have a front panel: an instrument's three, an audio or return track's effects. */
+const graphsOf = ({ trackId }: TrackSubject): readonly TrackGraph[] => {
+  const kind = trackOf(trackId)?.kind
+  return kind === 'instrument' ? ['patch', 'fx', 'notes'] : kind ? ['fx'] : []
+}
+const pinOf = (trackId: string, graph: TrackGraph) => ({ owner: { kind: 'track' as const, trackId }, graph })
+const unpinned = (subject: TrackSubject) => graphsOf(subject).filter((graph) => !isPinned(project(), pinOf(subject.trackId, graph)))
+const pinned = (subject: TrackSubject) => graphsOf(subject).filter((graph) => isPinned(project(), pinOf(subject.trackId, graph)))
+const isGraph = (subject: TrackSubject, choice: string | undefined): choice is TrackGraph => graphsOf(subject).includes(choice as TrackGraph)
 
 const volume = (trackId: string): ControlTarget => ({ kind: 'mixer', owner: { kind: 'track', trackId }, control: 'volume' })
 
@@ -69,6 +80,36 @@ export const trackActions: readonly Action<TrackSubject>[] = [
     run: ({ trackId }) => openTrackView(trackId, 'notes'),
   },
   {
+    id: 'track.pin',
+    title: () => `Pin panel${pinLimitNote()}`,
+    group: 'open',
+    applies: (subject) => unpinned(subject).length > 0,
+    enabled: () => (project().pins?.length ?? 0) < MAX_PINS,
+    // An audio or return track has one panel: one entry, *Pin effects panel*.
+    choices: (subject) =>
+      graphsOf(subject).length === 1
+        ? [{ id: 'fx', title: `Pin effects panel${pinLimitNote()}` }]
+        : graphChoices(graphsOf(subject), (graph) => canPin(project(), pinOf(subject.trackId, graph))),
+    inline: (subject) => graphsOf(subject).length === 1,
+    run: (subject, _context, choice) => {
+      if (isGraph(subject, choice)) revealPin(pinOf(subject.trackId, choice))
+    },
+  },
+  {
+    id: 'track.unpin',
+    title: 'Unpin panel',
+    group: 'open',
+    applies: (subject) => pinned(subject).length > 0,
+    choices: (subject) => {
+      const graphs = pinned(subject)
+      return graphs.length === 1 ? [{ id: graphs[0]!, title: `Unpin ${GRAPH_TITLES[graphs[0]!].toLowerCase()} panel` }] : graphChoices(graphs, () => true)
+    },
+    inline: (subject) => pinned(subject).length === 1,
+    run: (subject, _context, choice) => {
+      if (isGraph(subject, choice)) useProjectStore.getState().unpinPanel(pinKey(pinOf(subject.trackId, choice)))
+    },
+  },
+  {
     id: 'track.show-automation',
     title: 'Show automation',
     group: 'open',
@@ -83,6 +124,7 @@ export const trackActions: readonly Action<TrackSubject>[] = [
   renameAction('track'),
   {
     id: 'track.duplicate',
+    verb: 'duplicate',
     title: 'Duplicate',
     group: 'edit',
     enabled: () => project().tracks.length < MAX_TRACKS,
@@ -141,6 +183,7 @@ export const trackActions: readonly Action<TrackSubject>[] = [
   },
   {
     id: 'track.delete',
+    verb: 'delete',
     title: 'Delete',
     group: 'delete',
     danger: true,

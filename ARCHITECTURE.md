@@ -535,8 +535,9 @@ work in it unchanged (a module whose ports are `signal` goes anywhere sound goes
 
 ## Stereo
 
-Instruments and samples are mono; stereo starts in the insert graph, so a pan, a wide reverb or a ping-pong delay can
-sit on any track. It reuses the typed-port machinery the note graph introduced.
+Instruments are mono; stereo starts in the insert graph, so a pan, a wide reverb or a ping-pong delay can sit on any
+track. Samples keep one or two channels (round 11a, below), and an audio track hands both to its insert graph once its
+`Track in` runs in stereo. It reuses the typed-port machinery the note graph introduced.
 
 * **Port kind `stereo`**, beside `signal` and `notes`. A `signal` output may feed a `stereo` input (it is heard in both
   channels); a `stereo` output never feeds a `signal` input, the way back is the explicit *Mono sum* node. Modules inherit
@@ -564,6 +565,17 @@ sit on any track. It reuses the typed-port machinery the note graph introduced.
   (the graph is rebuilt), a knob is still a `setParam`.
 * **Decision for later.** A return track starts from a stereo source (its sends are stereo), so it will have its own
   `Return in` node rather than reuse the mono `Track in`; then mono effects on a return need the L R switch, as expected.
+* **Stereo samples on audio tracks** (round 11a). `Track in` is `stereoCapable`, so it has the L R switch. A lifted copy
+  of a node is told its channel through the optional `DspNode.setChannel(0 | 1)`, which the compiler calls on each copy;
+  `Track in` is the first source that needs it (it reads `ProcessContext.input`, not its inputs). In stereo each copy
+  reads its half of a planar stereo input, and a mono input is heard in both; in mono it reads a mono input as it is and a
+  stereo one as the average. The audio track runtime picks one of **two paths** from `trackInIsStereo(fx)` when its graph
+  is built: **mono**, today's math on `monoAt` into a mono scratch, so a track saved before 11a (no `stereo` flag) sounds
+  bit for bit as it did; **stereo**, a planar `STEREO_FRAMES` scratch, the read position, fade and level worked out once
+  per frame and both channels read there (`readRegion(sample, channel, …)`). The track's tap 0 stays one signal, the
+  average of the halves. **New audio tracks start in stereo** (`NEW_AUDIO_TRACK_STEREO` in `core/project`, the one place
+  that decides); instrument tracks keep a mono `Track in`. `engine/old-projects.test.ts` holds the bounce hashes of
+  both examples and a project with a stereo file, taken before 11a changed the engine.
 
 ## Return tracks and sends
 
@@ -846,9 +858,57 @@ remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`):
   (drag handle, move, size, sideways for a slider, hide, delete, rename = the node's name); hidden controls are listed in a tray with a
   *Show* button each, and the property editor has *Show on panel* and *Size* for a control node. `PanelView` is the grid, the Play / Edit
   toggle and the add form.
+* **Fitted spans.** A control wider than the board takes the columns there are (`fitSpan` in `panel-values.ts`): a knob
+  stays square, so its rows shrink with it; a pad's rows shrink in proportion, never under two; anything else keeps its
+  rows. `PanelView` counts the board's columns with a `ResizeObserver` (`boardColumns`: its width inside the padding,
+  the 104 px minimum and the gap) and passes them to each `ControlCell`. Every panel does it: at the Instrument view's
+  480 px minimum the board has four columns, so only panels under about 360 px wide change, and a 280 px one never
+  scrolls sideways.
+* **Variants.** `PanelView variant="pinned"` is play only: no bar, so no *Edit panel*, add form, hidden tray or cell
+  tools; the board is as tall as its controls and doesn't scroll (the Pinned view does); an empty one says "No
+  controls yet." with *Open* (`onOpen`). `editor`, the default, is the panel above.
+* **What it reads.** `PanelView` reads its controls' base values through `useProjectSelect` (`state/project-select.ts`),
+  a selector with an equality that re-renders only when its value changes; `EffectiveValue` reads its target's
+  resolution and MIDI mapping the same way. So a knob turned in one panel re-renders that panel and any other showing
+  the same graph, not every panel on screen.
 * **Limits.** Layout is an ordered flow with sizes, not free positioning; a panel belongs to one graph (no combined instrument +
   effects panel, and the controls inside a module are not yet shown on the panel of the graph that uses it: step 7); no selector for
   enum parameters yet; no automation, meters or per-control ranges beyond a control's own (see `docs/TASKS.md`).
+
+### Pinned panels
+
+A front panel can be played from the Pinned view while the editors show something else (round 9).
+
+* **The model** (`core/project/pins.ts`). A pin is `PanelPin { owner: ControlOwner, graph: TrackGraph, collapsed? }`: a
+  track's instrument, effects or notes, a group bus's effects, or the master's effects (a group or the master has only
+  `fx`). `Project.pins` lists them top to bottom, absent when there are none, at most `MAX_PINS` (16). `pinKey` is
+  `<owner id or master>:<graph>`, as `graphKey` writes it; two pins with one key are one pin. `pinTarget` names the
+  graph as the store's patch edits do, and `pinnedGraph` finds it (`patchAt`), or nothing when it is gone.
+* **Liveness.** Nothing that removes a track or a bus touches pins. A pin whose graph is gone (a removed track, *Remove
+  bus*, *Ungroup*, a deleted group) is kept and not shown: `livePins(project)` is the pins whose graph exists, each with
+  its key and graph, the same list while `pins`, `tracks`, `groups` and the master are. Undo brings the graph back, and
+  the pin shows again where it was. A track's copy isn't pinned.
+* **Edits and undo.** `pinPanel`, `unpinPanel`, `movePin` (one place among the shown pins, so a hidden one never stalls
+  a move) and `setPinCollapsed` return the same project when nothing changes. They are **view edits**, as a group's
+  collapse: the store applies them through `editView`, saved but not undo steps. `withViewOf` gives a project undo or
+  redo brings back the current pins, plus its own pins of owners the current project lacks (`withPinsOf`); the master
+  counts as the current project's only when the two share a track, so undoing *New project* brings the old project's
+  pins back, the master's included. A bus switched off and on again is a new bus on the same group, and its old pin shows
+  again on it.
+* **The file.** Version 10 still: `sanitizePins` reads `pins` after the tracks and groups. A malformed pin, a repeated
+  key and anything past 16 go with a warning; a pin whose graph is missing goes silently, since a project saved with an
+  unshown pin is normal. Older builds drop `pins` as an unknown field.
+* **The view** (`ui/pinned/`). `PinnedView` draws the live pins' keys as a list; each `PinnedPanel` reads its own pin,
+  title (`pinTitle`: *Bass instrument*, *Drums effects*, *Master effects*) and group colour, so a knob in one pin
+  doesn't re-render the others. A pin is a `section` named by its title: a header (twisty, title, *Open*, ×; its menu is
+  the pin's actions, a double-click on the title opens the editor) over `PanelView variant="pinned"` with the editor's
+  scope (`<owner id>:<graph>`, so undo keys merge alike), `readoutTrack` and an `edit` through `editPatch(pinTarget(pin))`.
+  Turning a pinned knob is the same control gesture as in the editor: one undo step, MIDI learn, live indicators.
+* **Pinning** is offered by the track, group (with a bus) and master menus, and by the *Pin* toggle in the toolbar of
+  Instrument, Effects and Notes (not inside a module). Pinning runs `revealPin`: it pins, reveals the Pinned view and
+  posts a one-shot `pinRequest` in the graph-view store, which the view answers by scrolling the pin into view and
+  focusing its header. Unpinning leaves the layout alone. *Open* runs `openPinnedEditor`: it selects the owner and
+  reveals its editor in the Graph or Panel mode that editor was in.
 
 ## Control nodes, parameter sockets and the global stage
 
@@ -1180,16 +1240,18 @@ right-clicked; what can be done to it lives in `state/actions/`.
 * **Subjects.** What was right-clicked is a `Subject`: a small value with a `kind` and ids, never a component or a DOM
   element. The kinds: `track` (instrument, audio and return tracks), `group` (a group of tracks), `master`, `clip` (a session clip), `slot` (an
   empty session cell), `automation-slot`, `scene`, `sample`, `library-item`, `library-folder`, `nodes`, `canvas`,
-  `module`, `region`, `lane`, `control` (a panel control or a mixer value) and `sound` (a snapshot or preset). `nodes`
+  `module`, `region`, `lane`, `control` (a panel control or a mixer value), `sound` (a snapshot or preset) and `pin` (a
+  pinned front panel: an owner and a graph). `nodes`
   is the selection when the right-clicked card is selected, otherwise that card alone. `nodes` and `canvas` name the
   track's (or the master's) graph as `target` and the modules opened from there as `path`; the nodes are in the last
   module of `path` (`editTargetOf`). `canvas` and `lane` carry where the click landed, which is where *Paste* and *Add*
   put things; the view sets it from the trigger's own `onContextMenu`, which runs before the menu opens.
-* **Actions.** One file per kind exports its list of `Action`s: an `id` (`clip.duplicate`, round 10's command ids), a
+* **Actions.** One file per kind exports its list of `Action`s: an `id` (`clip.duplicate`, stable: the palette lists it), a
   `title` (text, or a function of the subject), a `group` (open, edit, clipboard, delete: a separator between groups),
   `danger`, `applies` (hidden when false: *Stop* on a return), `enabled` (shown but disabled: *Paste* with an empty
   clipboard) and `run`. An action that asks which one has `choices` (a lane's session clips, an empty audio slot's
-  samples, an XY pad's axes), drawn as a submenu or, with `inline`, one entry per choice. An action that moves the
+  samples, an XY pad's axes), drawn as a submenu or, with `inline` (which can depend on the subject), one entry per
+  choice. An action that moves the
   focus to a field of its own says `takesFocus`. `actionsFor(subject)` returns the kind's list; nothing else picks
   actions. `describeActions(subject, context)` is what a menu shows now, and unit tests call it too.
 * **`ActionContext`** carries what actions can't import: the services that are React contexts (`EngineControls`,
@@ -1202,6 +1264,15 @@ right-clicked; what can be done to it lives in `state/actions/`.
   undo. An asynchronous action (the library's, the sounds') resolves with a message or throws; `runAction` reports it
   to the toasts (`usePersistenceStore.notify`), or to `report` (the Library's and Sounds' status lines, from their own
   buttons), and returns a promise that settles after.
+* **Verbs.** An action can name the edit key that runs it on the focused thing: `verb` is `delete`, `duplicate`,
+  `copy`, `cut`, `paste` or `rename`, at most one action of a kind per verb (a unit test checks it). Every kind's
+  *Rename* has `rename` (set in `renameAction`); the deletes that remove more than the thing itself (*Delete group and
+  tracks*, *Clear this track*) have none. `runVerb(verb, subjects, context)` runs the innermost subject's action with
+  that verb if it applies and is enabled, and says whether it ran one; only Paste walks out to the first subject that
+  takes a paste (the graph's selected nodes paste on the canvas around them). `verbTarget` says what would run.
+* **Names.** `subjectName(subject)` names a subject for the palette: the track's, group's, clip's, scene's (*Scene
+  2* when unnamed), sample's or region's name, *Master*, *2 nodes* or a single node's title, a control's target label,
+  *Lead instrument* for a pin, and the kind's word (*Track*) for a thing that is gone.
 * **Buttons run actions too.** ×, ✎, ■, M and S, the sample row's buttons, the Library's details and folder buttons,
   the Sounds rows, a card's *Edit* and *Unlink*, the toolbar's *Group into module* and the module bar's buttons call
   `runAction` with the same subject, so a button and its menu entry share one implementation. Two exceptions keep the
@@ -1212,6 +1283,13 @@ right-clicked; what can be done to it lives in `state/actions/`.
   nothing. What a menu needs from a view lives in a store: the
   graph editor's open sub-patch and module-interface toggle and its *Add node…* request (`graph-view-store`), and the
   Library's catalog and open folder (`library-store`).
+
+* **Pins.** A pin's menu is *Open* (tooltip "Open the full editor"), *Collapse* / *Expand*, *Move up*, *Move down*
+  (disabled at the ends) and *Unpin* (not `danger`: nothing is lost); its header's buttons run them. The `open` group of
+  a track gains *Pin panel ▸ Instrument, Effects, Notes* (inline *Pin effects panel* on an audio or return track; a
+  pinned one disabled; hidden when all are pinned) and *Unpin panel ▸* (inline when one is pinned, *Unpin notes
+  panel*); a bus's and the master's gain *Pin effects panel* / *Unpin effects panel*, after the *Open …* entries. At 16
+  pins *Pin* is disabled, titled "… — 16 panels are pinned". Actions in `state/actions/pin.ts`.
 
 ### Menus
 
@@ -1236,8 +1314,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
   regions are focusable for that, and carry their menus. Checked in Chromium; Firefox and Safari were not checked.
 * **Focus after a rename.** Radix returns the focus to the trigger as a menu closes. `ActionMenu` prevents that after
   an action that `takesFocus` (an in-place rename, *Add node…*).
-* **Popups stay.** The *+* add-track popup, the empty audio slot's *+* and the *Layout* menu are menus of a place, not
-  of a thing. The empty audio slot's *+* runs the same *Add audio clip* action as its right-click submenu.
+* **Popups stay.** The *+* add-track popup, the empty audio slot's *+*, File, View and the *Layout* menu are menus of
+  a place, not of a thing. File, View and *Layout* are built from commands (§ Commands and keys). The empty audio slot's *+* runs the same *Add audio clip* action as its right-click submenu.
 * **View-local menus stay local.** The piano roll's (it acts on the note selection and the hover beat) and an input
   port's (*Create knob* needs `GraphEditor`'s `createControl`) build their entries through `ContextMenu`. The rule in
   `tests/architecture.test.ts`: outside `ui/shared/menu`, only `PianoRoll`, `GraphEditor` and `NodeView` may import
@@ -1331,6 +1409,78 @@ track opens its volume lane, in the selected (or first) clip, or a return's slot
   row, and resets to the first scene when its row goes. Clips that are playing keep playing: the launcher knows them
   by id.
 * `MAX_TRACKS`, `MAX_SCENES` and `MAX_PATCH_NODES` live in `core/project`; the file format's `LIMITS` reads them.
+
+## Commands and keys
+
+Everything the app can do from a menu can be found by name and run from the keyboard. Subject actions stay in
+`state/actions/`; commands are what has no subject.
+
+* **Commands** (`state/commands/`). A `Command` has a stable `id` (`view.show.mixer`, `layout.toggle.panel`: key
+  overrides are saved by it), a `category` (View, Layout, File, Transport, Track, Edit, Help), a `title` (*Toggle
+  panel*) and a `label` for now (*Hide panel*), `applies`, `enabled`, `choices` (one palette row each), `danger`,
+  `takesFocus`, `repeat` (a held key runs it again: undo and redo), `palette: false` (the edit verbs) and `bindable:
+  false` (*Load layout*, whose choices are names). `runCommand` runs nothing that doesn't apply or isn't enabled and
+  reports like `runAction`. `CommandContext` is an `ActionContext` with the project's `files` and `focus`, the
+  subjects the keyboard focus is on. `STATE_COMMANDS` holds those that need only `state` (regions, maximize, reset,
+  files, examples, transport, Touch, undo, adding tracks, the edit verbs); `viewCommands(viewTitles)` makes the 13
+  *Show …* commands; `ui/commands/ui-commands.ts` has those that move the DOM focus or open dialogs (F6's, the palette,
+  the shortcuts, *Save layout as…*, *Export audio*, the presets, the named layouts). `ui/commands/registry.ts` joins
+  them into `COMMANDS`.
+* **Subjects for keys.** `ActionMenu` records its subject on its trigger (a `WeakMap` in
+  `ui/shared/menu/focus-subjects.ts`); `focusSubjects(element)` walks up from the focused element and returns the
+  subjects around it, innermost first. A view can give an element subjects of its own with `useFocusSubjects(ref,
+  read)`, in place of its menu's: the graph canvas (focusable, focused by a press on it or a card) gives its selected
+  `nodes` and the `canvas` at the pointer, or the middle of what shows. **Keys use the focus subjects only**, so Delete
+  never removes something selected long ago in another view. `selectionSubjects()` (`state/commands`) gives the
+  selected region, else the selected session clip (each while it exists), else the group, master or track, and the
+  selected sample; only the palette uses it.
+* **Keys** (`ui/commands/keys.ts`, `keybindings.ts`, pure and tested as tables). A key is a string, modifiers then the
+  key: `mod+shift+z`, `ctrl+mod+b`, `f6`, `space`. `mod` is ⌘ on Apple and Ctrl elsewhere, `ctrl` is ⌃ on Apple, `meta`
+  the Windows key elsewhere. `keyOf(event, apple)` takes letters and digits from `event.key` when it is a Latin one,
+  else from `event.code` (⌥B is "∫", AltGr and other layouts change the key, not the code); a Mac's ⌫ is `delete` and
+  ⌦ `forwarddelete`. `keyLabel` draws "⌃⇧⌘B" on Apple, "Ctrl+Alt+Shift+B" elsewhere. `DEFAULT_KEYS` is the table:
+  ⌘K and ⇧⌘P the palette; ⌘Z, ⇧⌘Z, ⌘Y; Tab (and Shift+Tab) Session and Arrangement; F6 and ⇧F6; ⌃⌘B, ⌃⌘J and ⌃⇧⌘B the
+  regions, ⌃⌘M maximize (Ctrl+Alt elsewhere); Space play or stop; ⌫ ⌦ (Delete, Backspace), ⌘D, ⌘C, ⌘X, ⌘V and F2 the
+  verbs.
+* **Scopes,** three: `text` works everywhere (the palette, F6); `outside-text`, the default, not in a text entry (a
+  text-like input, textarea, select or contenteditable); `workspace` also not in the chrome (a tab, a splitter, the
+  activity bar, the region toggles, a group's buttons, dialogs) and not on an element that uses Space or Enter itself
+  (a button, link, checkbox, switch, option, menu or tree item): Tab and Space.
+* **The dispatcher** (`useKeybindings`, mounted once by `CommandHost`). One `keydown` listener on `window` in the
+  bubble phase, so a view's own handler runs first (the piano roll's ⌘D). It ignores prevented and composing events,
+  finds the commands bound to the key whose scope holds, runs the first that applies and is enabled with the focused
+  view as `origin` and its subjects as `focus`, and prevents the browser's handling only then: ⌘C with nothing focused
+  that copies is the browser's. A repeat runs only a command that allows it, and is swallowed otherwise.
+* **Overrides** are saved per browser under `sfxlab:keybindings` as `{ version: 1, keys: { [commandId]: string[] } }`,
+  each changed command's full list (`[]` for none). Anything unreadable is ignored; an unknown id is kept.
+  `bindingsOf(defaults, overrides, apple)` gives the table in effect; a key set on one command moves off any other of
+  the same scope (`assignKey`, `replaceKeys`). Keys a browser keeps (⌘N, ⌘T, ⌘W, ⌘Q, ⇧⌘N, ⇧⌘T, ⇧⌘W, ⌘Tab, ⌘1 to ⌘9,
+  Firefox's ⇧⌘P) are refused when recording; keys it uses (⌘F, ⌘L, ⌘R, ⌘P, ⌘S, ⌘D, ⌘O, ⌘H, ⌘M) are warned about.
+* **`CommandHost`** wraps the workspace: the bindings (read once, saved on each change), the listener, the services
+  the commands run with, and `useKeyLabel(id)` and `withKey(text, label)` for tooltips ("Undo (⌘Z)", "Toggle panel
+  (⌃⌘J)", flexlayout's *Maximize*, Session's and Arrangement's tabs). It renders only when the bindings change; its
+  `HostDialogs` owns which of the palette, *Save layout*, *Export audio* and *Keyboard shortcuts* is open
+  (`showDialog` in `ui/commands/dialogs.ts`).
+* **The palette** (`CommandPalette`, behaviour in `palette-model.ts`, rows in `palette-rows.ts`). A combobox owning a
+  listbox at the top middle of the window. Rows: the commands that apply ("*Category: label*", one per choice: *Load
+  layout: Mix*), then `describeActions` for the focus subjects and then the selection subjects not already listed
+  ("*Bass: Duplicate*", a test keeps them equal), a disabled row dimmed. Matching is QuickAdd's (`ui/shared/
+  search-match.ts`: `norm` and `tierOf` over a label and further texts); ties go to the commands run recently (the last
+  8, in memory), then commands before actions. With nothing typed: recent commands, the subjects' actions, then every
+  command by category. Closing gives the focus back where it was (a menu's button, when opened from a menu), except
+  after an action that takes it; its key again closes it.
+* **Menus from commands.** `menuEntriesOf(items, context, keyOf)` turns a list of command ids, ids with a label or inline
+  choices, submenus and separators into `MenuEntry`s, each with its key (drawn, `aria-hidden`, not part of its name).
+  `useCommandEntries` builds them while a `PopupMenu` is open, following the stores. File (`FILE_MENU`), View
+  (`VIEW_MENU`: the palette, the shortcuts, *Show ▸* every view, the region toggles, maximize, *Layouts ▸*) and the
+  status bar's *Layout* (`LAYOUT_MENU`) are lists in `ui/commands/menus.ts`.
+* **Keyboard shortcuts** (`KeyboardShortcuts`, a `<dialog>`): a search, then every bindable command by category with its
+  keys, *Change* (records the next key, Escape cancels; it replaces the command's keys), *Remove* and *Reset*; *Reset
+  all*. A refused key says why, a used key warns, a moved key names the command that lost it. `VIEW_KEYS` lists the
+  view-local keys read only: the piano roll's, the automation editor's, QuickAdd's, the trees', the controls',
+  Shift+A and Shift+F10. They stay in their views and run first.
+* **Not checked by hand.** Whether Chrome, Firefox and Safari leave every default to the page was not tried with a
+  real keyboard; Playwright's keys reach the page whatever a browser would do. See the round-10 plan.
 
 ## Drag and drop
 
@@ -1432,6 +1582,18 @@ applying something that changes nothing adds no undo step (`setClipNotes` keeps 
 * UI: ↶ ↷ buttons in the transport bar and `Ctrl/⌘+Z`, `Ctrl/⌘+Shift+Z`, `Ctrl/⌘+Y` (ignored inside text fields,
   which keep the browser's own undo).
 * **To make a new continuous control undoable as one step**, pass a stable merge key to its store action.
+* **Sample bytes are not in history** (round 11b). An edit in place stores a new file before the project names it, and
+  files are only added, never changed, so undo needs nothing but the old `SampleInfo`: its bytes are still stored. Two
+  caches make undo and redo of an edit (or of *Remove*) instant, each within a budget in `app/sample-budgets.ts`:
+  * **the working copies** (`app/working-copies.ts`): recent decoded working copies the Wave editor let go of, least
+    recently used out first past `WORKING_COPY_CACHE_BYTES` (128 MB). Opening a sample and an edit's read look there
+    before decoding;
+  * **engine keep-alive** (`keepAlive` in `app/sample-library.ts`): a sample the present project doesn't use stays in the
+    engine while any history entry (`past`, `present`, `future`) names it, so undo plays it at once; the first to leave
+    goes first once such audio passes `ENGINE_KEEP_ALIVE_BYTES` (128 MB); one no entry names gets `sample/remove` at
+    once. It runs on every history change (a commit can drop the redo future without touching the present's samples)
+    and reads only the `samples` arrays, each once, since entries share them. Past the budget, undo reloads the sample
+    from storage and its uses are silent for that moment.
 
 ## Saving, loading, import/export
 
@@ -1454,6 +1616,15 @@ applying something that changes nothing adds no undo step (`setClipNotes` keeps 
   it saves the outgoing project to a **one-slot backup**, stops the transport, resets selection, then swaps.
   *File → Restore previous* swaps back (and the slot then holds what you just left).
 * If browser storage is unavailable (private mode), the app keeps working in memory and says so.
+* **Files edits wrote are cleaned up** (round 11b, `app/sample-cleanup.ts`). The `sample-edits` store (`sfxlab` database
+  version 3, `storage/sample-edit-log.ts`) notes the id and time of each file an in-place edit or a copy wrote. Once per
+  start, `EDIT_CLEANUP_DELAY_MS` after it and when the browser is idle, and only with persistent storage and
+  `EDIT_CLEANUP_ENABLED`, each noted file older than `EDIT_CLEANUP_AGE_MS` (a day) loses its bytes and its note unless
+  something names it: the raw text of any project slot (`ProjectStorage.slotTexts`: current, backup, corrupt,
+  pre-signature; a text search for the id, so an unreadable slot still protects its samples), the library catalog, or
+  this tab's history. Imported files are never noted (importing bytes an edit wrote forgets the note), and bytes from
+  a project package or a library bundle aren't noted, so neither is ever deleted. A second tab's undo of an edit older
+  than a day can find its file gone; the sample then shows *audio missing*.
 * Ids are random (`createId`), so ids from saved projects never collide with new ones.
 
 ## Exporting audio (the offline bounce)
@@ -1516,23 +1687,46 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   original speed), *Start*, *Tune*. It compensates for the sample's own sample rate, interpolates linearly, and
   fades out in 10 ms on release to avoid clicks. Its sample is a node-level reference (`PatchNode.sampleId`, chosen
   with a picker in the property editor), not a numeric param.
-* **Three homes for one sample**, all keyed by the **SHA-256 of the original file** (so importing the same file
-  twice is a no-op, and ids can't collide):
+* **Three homes for one sample**, all keyed by the **SHA-256 of the file** (so importing the same file twice is a
+  no-op, and ids can't collide). Everything that turns a `SampleInfo` into stored bytes (the loader, an edit's read,
+  the bounce, the project package's writer and reader, the library bundle and preview) asks **`bytesKeyOf(info)`**
+  (`core/sample/marks.ts`), which returns the id: a later scheme with stable ids changes that and `replaceSample` only:
   1. **Project** — `Project.samples: SampleInfo[]` (name, duration, …) is the library. Saved, undoable, tiny.
   2. **Storage** — the original bytes in IndexedDB (`storage/sample-storage.ts`), written once at import.
      Autosave only ever writes the small project JSON.
-  3. **Engine** — decoded **mono** float data in `SampleBank` (`core/sample`), delivered by a
-     `sample/add` command whose buffer is *transferred* to the worklet, not copied.
+  3. **Engine** — decoded float data in `SampleBank` (`core/sample`), **one or two channels** (`SampleData` is
+     `{ id, sampleRate, channels }`), delivered by a `sample/add` command whose channel buffers are each *transferred*
+     to the worklet, not copied.
 * **Flow** (`app/sample-library.ts`): import/drop → hash → decode (`audio/decode-audio.ts`, via
-  `OfflineAudioContext`, so no user gesture is needed) → store bytes → add to project → send to engine. On startup and
+  `OfflineAudioContext`, so no user gesture is needed; `keepChannels` keeps one or two channels and averages more into
+  one) → store bytes → add to project → send to engine. On startup and
   whenever `project.samples` changes it loads any sample the engine lacks from storage. Removing a sample from
-  the project clears the nodes that used it (undo restores both) but keeps the bytes, so undo and re-import work.
+  the project clears every use of it (undo restores them) but keeps the bytes, so undo and re-import work; the engine
+  keeps the audio while history names it (§ Undo / redo).
+* **Where a sample is used** (round 11b, `core/project/sample-uses.ts`). `SAMPLE_USES` lists the places, one visitor
+  each (`collect`, `replace`, `remove`, and whether the sample `plays` from there): the master's, buses' and modules'
+  patches; tracks (insert graph, instrument and session audio clips, one visitor so samples are listed track by track);
+  arrangement audio regions; sample bindings; presets' bindings; asset revisions (their `sampleIds` and the samplers in
+  their payloads). `usedSampleIds` (the visitors that play), `projectSampleDependencies` (all of them), `removeSample`
+  and `replaceSample` are built from it, so a new place is added once. `removeSample` clears samplers, removes the
+  session clips and arrangement regions that play the sample, silences bindings, and leaves presets and revisions naming
+  it (a recall then reports it missing).
+* **`replaceSample(project, fromId, to, remap)`** moves every use onto an edit's result: the library entry is replaced
+  where it is, with the old name, `origin: originOf(old)`, and markers and regions through the remap (a marker whose
+  frame is gone is dropped, a region clipped and dropped when empty); samplers, bindings, presets and revisions point at
+  `to.id` (asset signatures ignore samples, so none changes); clips' and regions' trims go through the remap so they
+  play the audio they played, and one the edit emptied keeps `MIN_REGION` where it started (`report.emptiedTrims`). A
+  result already in the library is merged into (`report.merged`). The sampler's *Start* param is a param, so it isn't
+  remapped. A visitor with nothing to change returns the same object; `diffProject` then sends only the commands a
+  changed reference needs (`track/setSample`, `track/setAudioClips`, `arrangement/set`).
 * **Missing audio is not fatal.** A sample listed in the project but absent from storage (cleared browser data,
   plain-JSON import on another machine) shows *audio missing*, plays silence, and is restored by importing the
   original file again (same hash).
 * **Engine side:** a sampler node looks samples up at process time (`ProcessContext.samples`), so samples that
   arrive after the instrument was built, or are swapped (`track/setSample`), take effect without a rebuild.
-  `sample/preview` auditions a sample straight to the master; `EngineStatus.peak` drives the output meter.
+  `sample/preview` auditions a sample straight to the master, each channel to its side: the whole sample, or frames
+  `from` up to `to`, once or looping (`loop`). While it plays, `EngineStatus.preview` is `{ sampleId, frame }`, and it is
+  absent otherwise, so nothing else changes. `EngineStatus.peak` drives the output meter.
 * **Project files with samples** (`storage/project-transfer.ts`): a project with no samples exports as plain
   `name.sfxlab.json`. With samples it exports as a zip, `name.sfxlab`: `project.json` (the same envelope as
   always) + `samples/<sha256>.<ext>` holding the **original bytes** (no re-encoding; WAV is deflated, compressed
@@ -1540,7 +1734,20 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   trusting it, ignores unexpected entries, caps inflated entry size, then runs the usual `parseProject`.
   Missing/corrupt samples become warnings, not failures.
 * **Persistence of the new fields:** `samples` and `sampleId` are optional with safe defaults (a reference to a
-  sample not in the library is dropped with a warning), so no format-version bump was needed.
+  sample not in the library is dropped with a warning), so no format-version bump was needed. Format v11 (round 11a)
+  added a sample's origin, markers and regions; `MIGRATIONS[10]` is the identity.
+* **Reading channels** (round 11a, `core/sample/channels.ts`). Engine code reaches a sample's audio only through
+  `frameCount`, `monoAt` (the one channel, or the average of two with `toMono`'s exact arithmetic, so a stereo file reads
+  the bits the old mixdown gave) and `channelAt` (one channel; a mono sample is the same in both). The sampler node and a
+  mono `Track in` path read `monoAt`; the stereo path, the preview and the library's sample preview read `channelAt`.
+  Playing everything as mono again would be a change in these helpers alone. Thumbnails (`computePeaks`, 800 buckets)
+  take the loudest of the channels.
+* **Origin, markers and regions** (format v11). `SampleInfo` may carry `origin` (the first version's id; `originOf`
+  reads `origin ?? id`), `markers` (`{ id, frame, name }`) and `regions` (`{ id, from, to, name }`), in frames.
+  `sanitizeSamples` keeps them when well formed (whole frames inside `durationSeconds × sampleRate`, `from < to`, names
+  of at most 60 characters, at most 256 of each, unique ids) and drops the rest with a warning. 11a only defines and
+  keeps them; 11b remaps them through edits and 11c gives them a UI. The personal library keeps them with a captured
+  sample.
 * **Add a sample-playing node:** set `usesSample: true` on its definition; the property editor shows the picker and the
   engine calls `setSample` on it.
 
@@ -1644,26 +1851,102 @@ switches views like in Ableton.
 
 ## The sample editor
 
-An editor for one library sample in the **Wave editor** view (`ui/wave-editor/`; ✎ on a row of Samples opens it):
-a zoomable waveform with a draggable selection and one-click edits. With no sample open the view offers the
-project's samples (up to eight, then *Show samples*) and *Import samples…*. `core/sample/edit.ts` holds the pure transforms (tested); the result of an edit is
-always a **new** library sample, so the original stays untouched.
+An editor for one library sample in the **Wave editor** view (`ui/wave-editor/`; ✎ on a row of Samples opens it). With
+no sample open the view offers the project's samples (up to eight, then *Show samples*) and *Import samples…*. Round 11a
+rebuilt the inside; round 11b made edits change the sample in place.
 
-* **Transforms.** `normalizeSample` (peak to just under full scale, silence left silent), `reverseSample`,
-  `keepSampleRegion` / `deleteSampleRegion` (the selection as fractions), `fadeIn` / `fadeOut` (sample-rate aware,
-  capped at half the length).
-* **Derivation.** `SampleLibrary.deriveSample(id, suffix, transform)` (`app/sample-library.ts`): the stored bytes
-  are decoded, transformed, re-encoded as mono 16-bit WAV and hashed like any import — so a derived copy is a
-  normal library sample keyed by the SHA-256 of its bytes. Importing the same edit twice is a no-op; the copy
-  travels with project packages; undoing the project edit removes the copy but never the original (bytes stay in
-  IndexedDB, as with any removed sample).
-* **UI.** The waveform is drawn from the sample's peak thumbnails (one value per bucket), zoomed by pixels per
-  bucket; drag to select a part. Normalize, Reverse, Keep selection, Delete selection and 10 ms fades run the
-  transform and add the result to the library; ▶ auditions.
-* **Target.** The sample being edited is `useSelectionStore.sampleId` (`openSampleEditor(id)` / `selectSample(null)`),
-  not component state, so the editor stays open across tab switches and closes on *Close* or a replaced project.
-* **Not in the prototype.** Destructive in-place editing of a sample, stereo samples, and the granular stage
-  (a granular sampler over the loaded buffer is the planned next step).
+* **Ways in** (round 11b). ✎ on a sample, the palette's *Open in wave editor*, `clip.edit-sample` and
+  `region.edit-sample` (*Edit sample*, on audio clips and regions, enabled while the sample is in the library; the audio
+  clip editor's *Edit sample* button runs them), and *Edit* beside the sampler's picker (the sample the picker shows,
+  a preset's binding included). `openSampleEditor(id, range?)` selects the sample and reveals the view; with a clip's trim
+  (fractions) it calls the view store's `reveal`, which selects that part in frames and sets `zoomPending`, which the
+  editor consumes once with a zoom to the selection when it has its width and the audio.
+* **The working copy** (`app/sample-library.ts`). When the editor opens a sample (`useSelectionStore.sampleId`), the
+  service takes it from the working copies (§ Undo / redo) or decodes it from storage, builds its peak pyramid and puts
+  both in `state/wave-audio-store.ts` (`{ sampleId, viewKey, audio, pyramid } | null`, plus `loading` and `editing`).
+  The engine has its own copy. A working copy the editor lets go of goes into the working copies. Memory: one copy of
+  the open sample, at most 46 MB (120 s stereo), plus the cache's budget.
+* **The pyramid** (`core/sample/pyramid.ts`). `buildPeakPyramid(audio)`: level 0 holds a min and a max per channel for
+  every 64 frames; each next level halves the count until a level has at most 512 buckets. A full build of 120 s of
+  stereo takes about 12 to 20 ms in Chromium, so it runs at once on the main thread. After an edit,
+  **`updatePeakPyramid(pyramid, audio, changed)`** copies the buckets wholly outside the frames the edit changed
+  (`changedFrames`) and computes the rest, equal to a full build bucket for bucket: a fade at the end of 120 s stereo
+  takes 0.2 ms, an edit at the start (which moves everything after it) a full build. **`columnsFor(view, pyramid, audio)`** is
+  its only reader and the one drawing rule: from 64 frames per pixel up, min and max from the finest level whose bucket
+  fits in a column (`peaks`); from 1 to 64, min and max read from the audio (`frames`); under 1, the sample points
+  (`points`), with dots from 8 px per frame. The base and the step are private constants there.
+* **View state** (`state/wave-editor-store.ts`), in memory, keyed by the sample's **origin** (`originOf`), so a view
+  follows its sample through edits, undo and redo: `framesPerPixel` (null: fit the whole sample), `startFrame`, `cursor`,
+  `selection` (`{ from, to, channels: 'both' | 'left' | 'right' }`, frames) and `zoomPending`. Not saved with the project
+  and not undone, so it survives tab switches until reload. When the open sample's id leaves the project (an undo or
+  redo of an edit), the service opens the sample with the same origin, first in library order, and clamps a selection
+  past its end; with none, the view shows its empty state, as for a removed sample. The ruler's mode (time or beats), its
+  tempo (the project's or the one in the sample's name, `tempoFromName`) and the preview's Loop are per browser
+  (`useStoredState`: `sfxlab:wave-ruler`, `sfxlab:wave-ruler-tempo`, `sfxlab:wave-loop`).
+* **The view.** `SampleEditor` is the frame: a toolbar that wraps (the edits on a line of their own that scrolls
+  sideways where it doesn't fit, `EditToolbar`), the `Overview`, the `Ruler`, the `DetailView` and a
+  status line (cursor, or the selection and its length). The **overview** (48 px) is the whole sample from `columnsFor`;
+  its box is what the detail shows, and it **is the scrollbar** (`role="scrollbar"`, focusable: arrows, Page Up and
+  Down, Home and End): drag the box to scroll, its edges to zoom, click elsewhere to centre there. A native scroller
+  can't be wide enough at full zoom. The **ruler** shows m:ss.mmm (frames under one frame per pixel) or bars and beats in
+  4/4 from frame 0 (`ruler-ticks.ts`, labels at least 72 px apart). The **detail** has one `WaveLane` per channel, each a
+  canvas the size of its box times `devicePixelRatio`; `data-draw` on it says which band is drawn.
+* **Drawing without React.** Zoom and scroll write to the store; the detail, the overview's box and the ruler subscribe
+  to the store directly and redraw in an animation frame (and on resize). React renders only when the sample, the
+  selection or the cursor changes. A lane is drawn by a **lane renderer** (`(context, columns, size, colors) => void`,
+  `lane-renderers.ts`); the waveform is the only one, a spectrogram would be a second.
+* **Gestures.** Drag to select; on a stereo sample a drag starting in the top quarter of the left lane selects the left
+  channel only, in the bottom quarter of the right lane the right only. Shift extends from the far end. A click sets the
+  cursor. ⌘ or Ctrl with the wheel (and a trackpad pinch) zooms around the pointer, from the whole sample to 32 px per
+  frame; the wheel scrolls. *Zoom to selection* and *Zoom to fit* are buttons.
+* **Preview.** ▶ plays the selection, or from the cursor to the end, looping with *Loop*; ■ stops. The playhead
+  (`WavePlayhead`) is a leaf that selects `status.preview` only. A preview may play while the transport plays; it is mixed
+  into the master.
+* **Edits as data** (`core/sample/edits.ts`). `SampleEdit` is a union, one kind per edit, and `SAMPLE_EDITS` a record
+  by kind: each entry has its title, tooltip, suffix (for a copy's name), `group` (`process`, `structure`,
+  `clipboard`), `settings` (numeric fields and toggles for a popover), `variants` (*Fade in* and *Fade out* are one kind),
+  `channels` (`both` for edits that change the length), `needsSelection`, `needsClipboard`, `takesFadeCurve`, and
+  `create(context, variant)`, `apply(audio, edit)`, `remap(edit, frames)`, `changed(edit, frames)` and
+  `after(edit, frames)`. `applySampleEdit`, `remapFrame`, `remapRange`, `sampleRemap`, `changedFrames` and `afterEdit`
+  dispatch through it; nothing else switches on the kind, and the toolbar is built from it.
+  * **Processes** keep the length and work on the selection (or the whole sample) and its channels: `gain` (−48 to
+    +24 dB), `fade` (in or out, with a curve from `FADE_CURVES`: linear, equal power, slow start, fast start, S-curve;
+    out uses `g(1 − t)`), `normalize` (a target peak, −0.1 dBFS by default, linked or per channel; a peak under −100 dB
+    is left alone), `reverse`, `silence` and `dc-offset`. Gain, silence and DC offset **ramp** in and out over the
+    crossfade length at edges inside the sample, inside the range, so audio outside it never changes. A one-channel
+    reverse moves no positions. A result past full scale is kept (float WAV holds it), with a warning.
+  * **Structure edits** need both channels of a stereo selection: `delete` (joins the parts around the selection),
+    `crop` (keeps it; no join, so no crossfade), `insert` (*Insert silence…* at the cursor) and `replace` (*Paste*, over
+    the selection, or an empty range at the cursor). **Crossfades** (`core/sample/crossfade.ts`) are centred on each
+    join: the outgoing part continues into its handle while it fades out, the incoming starts early from its handle
+    while it fades in, so the result has exactly the expected length. A delete's handles are the deleted audio; a
+    paste's are the clipboard's and the audio around the cursor. A side with less to borrow fades over what there is;
+    0 ms is the plain cut, bit for bit. The length (0 to 100 ms, 5 ms by default) and curve (linear or equal power) are
+    the toolbar's, per browser (`sfxlab:wave-crossfade`); the fade curve is `sfxlab:wave-fade-curve`, a popover's last
+    values `sfxlab:wave-edit-settings`.
+  * **Remapping**: each kind's `remap` is one of four shapes in `core/sample/remap.ts` (identity, a splice, a crop, a
+    mirror), which say where a position is now (`frame`), where a range's start moves forward to (`start`) and where a
+    range is (`range`, start forward, end backward, null when nothing is left). `replaceSample` takes them with the old
+    and new lengths (`SampleRemap`).
+* **The audio clipboard** (`state/audio-clipboard.ts`, a `createClipboard`): the copied channels and up to
+  `CLIPBOARD_HANDLE_SECONDS` (50 ms, half the longest crossfade) of audio on each side. A copy from one channel holds
+  that channel alone; a mono copy pastes into both channels of a stereo sample, a stereo copy into a mono one as its
+  average (`monoAt`). *Copy* isn't an edit; *Cut* is *Copy*, then the delete, one undo step. Not the OS clipboard.
+* **The in-place flow** (`SampleLibrary.editSample(id, edit, { asCopy })`, the one call). One edit runs at a time
+  (`useWaveAudioStore.editing`; the toolbar is disabled meanwhile). It reads the working copy (or the working copies, or
+  decodes the stored bytes), applies the edit, refuses an empty result and one that changes nothing ("Nothing changed",
+  same hash), encodes `EDIT_WAV_BIT_DEPTH` (32-bit float) WAV, hashes it, refuses the edit when the site's free
+  storage (`freeBytes`, `navigator.storage.estimate()`) is under `ROOM_FACTOR` (2) times the file or the write hits the
+  quota (`StorageFullError`), stores and notes the file, sends the engine `sample/add` with a **copy** of the audio,
+  then commits, if the sample is still in the project (an undo meanwhile drops the edit, its file left to cleanup):
+  in place, `replaceSample` as one undo step, with a toast for a merge and for emptied trims; with *Edits make copies*
+  (per browser, `sfxlab:wave-edit-copies`, off), a new sample "name (suffix)" with no origin, which the editor opens.
+  The editor moves first: the old working copy goes to the cache, the new one (its pyramid updated) becomes current,
+  the selected id changes, and the entry's `after` sets the selection and cursor (processes keep them; delete leaves
+  the cursor at the join; crop selects nothing; insert and paste select what they inserted). `encodeWav` (mono 16-bit)
+  stays for the demo samples, whose ids are hashes of its bytes.
+* **Not yet.** Markers, regions, snap, *Revert to original*, the sample-selection focus subject and its keys (11c);
+  previewing a process before applying it; the spectrogram; the granular stage.
 
 ## Example projects (`core/examples`)
 
@@ -1734,7 +2017,9 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
     secondary sidebars are flexlayout's left and right borders and run the full height, from the transport bar to
     the status bar (flexlayout spans top and bottom borders across the sidebars, which is why the panel isn't one).
     By default the panel holds Instrument, Effects, Notes, Clip and Mixer; Samples, Library and Tracks start in the
-    primary sidebar and Sounds in the secondary one, both collapsed to their strips; sidebars open 300 px wide. A border
+    primary sidebar and Sounds and Pinned in the secondary one, both collapsed to their strips; sidebars open 300 px
+    wide. Layouts saved before Pinned existed get it in their secondary sidebar by the missing-view repair, so the
+    layout version stayed 2. A border
     shows one tab at a time. Views can be dragged between all of them; tabs
     can't be closed, so every view is always somewhere.
   * **Collapsing.** Clicking the open tab of a sidebar or the panel collapses it to its tab strip; clicking a tab
@@ -1742,7 +2027,9 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
     maximum) and keeps its weight, so it expands to the height it had. A panel split sideways collapses with the
     groups beside it (they share a row); one with nothing above or below it doesn't collapse. flexlayout ignores
     clicks on a group's open tab, so `Workbench` catches them first and calls the driver's `clickTab`.
-  * **Maximize.** Every tab group has flexlayout's maximize button (*Maximize* / *Restore*), and double-clicking a
+  * **Maximize.** Every tab group has flexlayout's maximize button (*Maximize* / *Restore*, with the key), ⌃⌘M (Ctrl+Alt+M
+    elsewhere) does it for the group the focus is in (`toggleMaximize(view)` on the store and the driver; flexlayout's
+    active group with no view; nothing for a sidebar view), and double-clicking a
     tab strip does the same: the group fills the main layout, the sidebars stay. The panel counts as hidden while
     another group is maximized; showing a view elsewhere, or the panel, restores the layout. Not the browser's
     Fullscreen API, which would hide every Radix menu and tooltip (they render into `document.body`).
@@ -1752,16 +2039,19 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   * **Region toggles** (`RegionToggles`): primary sidebar ◧, panel ⬓ and secondary sidebar ◨, at the right end of
     the panel's tab strip before its maximize button (`onRenderTabSet`). The panel's own toggle collapses it to
     that strip. **Status bar** (`contentinfo`): the audio-failure alert, `SaveIndicator`, and a *Layout* menu with
-    the same toggles, the named layouts and *Reset layout*: the route when the panel's strip is off screen.
+    the same toggles, the built-in and named layouts and *Reset layout*, from the commands: the route when the panel's
+    strip is off screen.
   * **Activity bar** (`nav` "Views"): Session, Arrangement, Wave editor, Library and Tracks, each marked while it shows. A
     button shows its view wherever it is docked; on a sidebar's open view it hides that sidebar instead.
-  * **Keyboard.** Tabs follow the tab pattern and splitters are focusable separators (flexlayout's). F6 and
-    Shift+F6 move the focus between the tab groups that show, the panel and sidebars included (`group-focus.ts`;
-    flexlayout's own key skips borders). Tab toggles Session and Arrangement, except in form fields and the chrome:
-    a tab, a splitter, the activity bar, the region toggles, a tab group's buttons and dialogs.
+  * **Keyboard.** Every global key goes through the dispatcher (§ Commands and keys). ⌃⌘B, ⌃⌘J and ⌃⇧⌘B (Ctrl+Alt
+    elsewhere) toggle the primary sidebar, the panel and the secondary sidebar. Tabs follow the tab pattern and
+    splitters are focusable separators (flexlayout's). F6 and Shift+F6 move the focus between the tab groups that
+    show, the panel and sidebars included (`group-focus.ts`; flexlayout's own key skips borders). Tab toggles Session
+    and Arrangement (the `workspace` scope): not in fields, the chrome (a tab, a splitter, the activity bar, the region
+    toggles, a tab group's buttons, dialogs) or on a button, link or other element that uses Space or Enter.
 * **Minimum sizes.** `viewMinSizes` in `ui/layout/view-titles.ts` (also `minSize` in the registry): 480 × 240 for the
   editors (Session, Arrangement, Wave editor, Instrument, Effects, Notes, Clip), 280 × 200 for the tool views
-  (Samples, Sounds, Library, Tracks, Mixer). `viewTab` puts them on each tab as flexlayout's `minWidth` and `minHeight`, so
+  (Samples, Sounds, Library, Tracks, Pinned, Mixer). `viewTab` puts them on each tab as flexlayout's `minWidth` and `minHeight`, so
   saved layouts get them too; a tab group takes its largest tab's, a sidebar its open tab's (and at least
   `MIN_SIDEBAR_SIZE`). Sashes and keyboard steps stop there. flexlayout raises a group's maximum to its minimum, so
   the driver (`keepMinimumHeights`, on every sync) clears the minimum height of the tabs a collapsed panel squeezes
@@ -1802,9 +2092,9 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   `visible` and `hiddenRegions` (a collapsed sidebar or panel counts as hidden). `revealView(id)` shows a view
   wherever it is docked (opening a collapsed region and restoring a maximized group first), `toggleMainView()`
   shows whichever of Session and Arrangement isn't showing (nothing when both are), `toggleRegion`, `resetLayout`,
-  `saveLayoutAs(name)` and `loadLayout(name)`. With a driver attached the actions go to it and the shell mirrors the model
-  back through `sync` after each change; without one (unit tests, before the shell mounts) they update the mirror
-  directly. Read `visible` to know whether a view shows.
+  `saveLayoutAs(name)`, `loadLayout(name)`, `loadPreset(id)` and `toggleMaximize(view?)`. With a driver attached the
+  actions go to it and the shell mirrors the model back through `sync` after each change; without one (unit tests,
+  before the shell mounts) they update the mirror directly, and named layouts, presets and maximize do nothing. Read `visible` to know whether a view shows.
 * **Persistence** (`ui/layout/layout-storage.ts`, `use-layout-persistence.ts`). The whole layout, every group's
   open tab included, is saved per browser under `sfxlab:layout` as `{ version: 2, model }`, 250 ms after the last
   change, and read once before the first render. `parseStoredLayout` rejects anything that isn't JSON, an unknown
@@ -1816,6 +2106,12 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   weight against 1000 px, and a collapsed, hidden or empty border a collapsed panel. A browser without a saved
   layout gets one from the old `sfxlab:main-view` and `sfxlab:editor-height`. *Reset layout* saves the default.
   Replacing the project doesn't touch the layout.
+* **Built-in layouts** (`presetLayout(id)` in `ui/layout/default-layout.ts`), above the named ones and made from the
+  default, so every view is in each once: *Compose* (Session, the panel on Clip), *Arrange* (Arrangement, the panel on
+  Mixer), *Sound design* (the editor area split: the Wave editor beside Instrument in group `editor-instrument`; the
+  panel on Effects; the secondary sidebar open on Sounds) and *Mix* (Mixer in the editor area, the panel collapsed).
+  `loadPreset(id)` on the store, the driver and the shell replaces the layout, as loading a named layout does. They
+  can't be deleted or saved over; a named layout may share a preset's name.
 * **Named layouts** (`ui/layout/named-layouts.ts`). *Save layout as…* in the *Layout* menu asks for a name (a name
   in use asks again before replacing) and saves the model under `sfxlab:layouts` as
   `{ version: 2, layouts: { [name]: model } }`. The menu lists the names to load, the way *Reset layout* loads the
@@ -1832,14 +2128,18 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
   in Clip), `openTrackView(trackId, view)`
   (the fx / notes badges, *New sampler track*), `openMasterEffects`, `openAutomationSlot`, `openSampleEditor` (✎ on
   a sample: the Wave editor, `ui/wave-editor/`, whose *Close* clears the selection; the Samples view always shows
-  its list). Code
+  its list), `revealPin` (pins a panel, reveals Pinned and asks it to scroll to the pin) and `openPinnedEditor` (a
+  pin's owner and its editor). Code
   that wants to show something calls an intent; code that only selects calls the `select*` action.
 * **View registry** (`ui/layout/views.ts`): `Record<ViewId, { title, tooltip?, component }>`. A view takes no props
   and reads its data from the stores. The titles and tooltips live apart in `ui/layout/view-titles.ts`, which
   imports no components, so a view can use another view's title without an import cycle and the layout can name
   its tabs without loading the views. Adding a `ViewId` without a registry entry fails the typecheck.
 * **Every empty state offers its action**, in a row that wraps under the text at the view's minimum size: *Add
-  instrument track*, a track's clips, *Open effects*, *Save asset + presets*, *Show session*.
+  instrument track*, a track's clips, *Open effects*, *Save asset + presets*, *Show session*, and Pinned's *Pin Bass
+  instrument* (the selected owner's panels).
+* **The Pinned view** (`pinned`, title *Pinned*, a tool view) holds every pin, stacked, since a sidebar shows one tab
+  at a time and a view can't be open twice. See § Front panel, Pinned panels.
 * **A view never names another view in its text.** An empty state or menu that would say "in the Samples tab"
   offers an action instead (*Import samples…*, *Open effects*, *Show session*) that calls `revealView` or an intent,
   because the other view may be docked anywhere, or already visible. Where a label must name a view, it takes the
@@ -1865,6 +2165,18 @@ regions without knowing where they are docked (the [UI redesign](docs/ui-redesig
 * Commands and status are plain serialisable data so they can cross the worklet boundary.
 
 ## Common changes
+
+**Add a command** — one that needs only `state` goes in `STATE_COMMANDS` (`state/commands/state-commands.ts`), one
+that opens a dialog, moves the DOM focus or reads `ui`'s data in `UI_COMMANDS` (`ui/commands/ui-commands.ts`). Give it
+a stable id (keys are saved by it), a category and a title; `label` when a menu should say something else now. It shows
+in the palette and the shortcuts dialog at once; add it to a list in `ui/commands/menus.ts` to put it in a menu. An
+action on a thing is not a command: add it to its kind's list in `state/actions/`, with a `verb` if an edit key should
+run it.
+
+**Add a key** — a row in `DEFAULT_KEYS` (`ui/commands/keybindings.ts`): the command, the key (`mod+alt+x`), the Apple
+key if it differs (`ctrl+mod+x`), and a scope if not `outside-text`. Never a key a browser keeps; check the new key by
+hand in Chrome, Firefox and Safari, since a test's keys reach the page whatever the browser would do. Tooltips take it
+from `useKeyLabel`.
 
 **Add a DSP node** — create `core/dsp/nodes/<name>.node.ts` exporting a `NodeDefinition`, add it to
 `core/dsp/registry.ts` (add its words to `node-docs.ts` or the completeness test fails; every numeric parameter then has a socket automatically; `paramSockets: false` opts out, `global: true` lets it run in the global stage; an elementwise math node is a few lines with `mathNode`). Set `shared: true` if it is an effect whose state must outlive individual notes (reverb,
@@ -1897,12 +2209,16 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 * One clip plays per track. Polyphony has simple voice stealing and no unison, glide or legato modes.
 * Audio clips have no time-stretch (only re-pitch or original speed), no loop crossfade (a loop whose ends don't
   match will click unless you add fades) and no recording. Trim is non-destructive but there are no separate loop
-  points inside the region. Audio clips are mono (they are duplicated to both channels, or panned in the insert graph).
+  points inside the region. An audio clip plays its sample's two channels when its track's `Track in` is in stereo (new
+  audio tracks); tracks saved before round 11a play the mono average until switched.
 * The piano roll assumes 4/4 for the ruler and its clipboard is not shared with the OS clipboard. Groove tools are
   destructive edits (undoable), not a reusable groove pool; swing and quantize use the toolbar grid, which has no
   triplet options yet.
-* Samples are mono (stereo is mixed down), at most 120 s / 32 MB per file, (trimming is per clip, not per sample).
-  Bytes stay in IndexedDB after a sample is removed from a project (so undo works); there is no cleanup yet.
+* Samples keep one or two channels (more are averaged to one); instruments, the sampler included, play them mono. At
+  most 120 s / 32 MB per imported file. Sample edits write 32-bit float WAV (a 120 s stereo edit is 46 MB, so dragging
+  that file back in from disk is refused by the import cap). Files edits wrote are cleaned up a day after nothing names
+  them; imported bytes stay in IndexedDB after a sample is removed from a project (so undo works), with no cleanup yet.
+  The engine and the main thread each keep up to 128 MB of decoded audio for undo.
   `decodeAudioData` resamples to 48 kHz, and the sample's reported rate is that decoded rate.
 * Sample hashing needs a secure context (https or localhost).
 * A node's stage is decided by its type (`shared`) and wiring; there is no per-node override.
@@ -1917,7 +2233,7 @@ test file for what it claims, and render it (`renderProject`) to hear whether it
 
 ## Natural next steps
 
-1. Unused-sample cleanup, loop points inside a clip, 2. stems and batch export for the bounce,
+1. Cleanup of unused imported samples, loop points inside a clip, 2. stems and batch export for the bounce,
 3. MIDI hardware verification and later performance features, 4. more nodes (band-limited oscillators, chorus / stereo modulation effects),
 5. WASM DSP nodes (Faust/RNBO).
 

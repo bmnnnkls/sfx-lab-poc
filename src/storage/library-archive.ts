@@ -3,7 +3,8 @@ import { Inflate } from 'fflate'
 export const LIBRARY_ARCHIVE_LIMITS = {
   compressed: 128 * 1024 * 1024,
   expanded: 256 * 1024 * 1024,
-  entry: 32 * 1024 * 1024,
+  /** One sample: 64 MiB, the project package's cap, so a 120 s stereo float WAV (46 MB) fits. */
+  entry: 64 * 1024 * 1024,
   manifest: 8 * 1024 * 1024,
   entries: 4097,
 } as const

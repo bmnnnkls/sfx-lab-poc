@@ -55,7 +55,7 @@ describe('track groups in files', () => {
 
   it('saves a project without groups without them, as version 10', () => {
     const text = serializeProject(createDemoProject())
-    expect(JSON.parse(text).version).toBe(10)
+    expect(JSON.parse(text).version).toBe(CURRENT_VERSION)
     expect(text).not.toContain('"groups"')
     expect(text).not.toContain('"hidden"')
   })

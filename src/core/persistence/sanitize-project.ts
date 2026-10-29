@@ -25,6 +25,7 @@ import { sanitizeClip } from './sanitize-clip'
 import { repairGroupOrder, sanitizeGroups } from './sanitize-groups'
 import { repairTrackReferences } from './sanitize-track-references'
 import { sanitizeModules } from './sanitize-modules'
+import { sanitizePins } from './sanitize-pins'
 import { sanitizePatch } from './sanitize-patch'
 import { sanitizeSamples } from './sanitize-samples'
 import { readSends, repairSendLevels } from './sanitize-sends'
@@ -155,7 +156,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
   const controlValues = sanitizeControlValues(raw.controlValues, warn)
   const midiMappings = sanitizeMidiMappings(raw.midiMappings, warn)
   const arrangement = sanitizeArrangement(raw.arrangement, new Set(tracks.map((track) => track.id)), sampleIds, warn)
-  return repairGroupOrder({
+  const project = repairGroupOrder({
     ...sanitizePresetFields(raw, sampleIds, warn),
     ...(libraryOrigins && { libraryOrigins }),
     ...(controlValues && { controlValues }),
@@ -179,4 +180,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     tracks,
     ...(groups && { groups }),
   }, warn)
+  // Read last: a pin is kept only when its graph is in what was read.
+  const pins = sanitizePins(raw.pins, project, warn)
+  return pins ? { ...project, pins } : project
 }

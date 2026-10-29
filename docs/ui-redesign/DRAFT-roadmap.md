@@ -229,6 +229,18 @@ group gets what a track has after its instrument.
 
 ## Round 9: pinned panels
 
+**Done** 2026-10-29; see the [plan](PLAN-round-9-pinned-panels.md), signed off as proposed. Its inventory changes the
+outline below: round 4 left no narrow front panel, so wide controls are capped at the columns a panel has, in every
+panel; a pin is an owner and a graph, so a bus's effects (round 8), the master's and a track's notes can be pinned too;
+pins are view edits, not undone, so a pin whose graph is gone is kept unshown (undo shows it again) instead of being
+dropped; a pin is play only; `PanelView`'s subscription narrows, for several panels on screen; the layout needs no
+version bump.
+
+What moved while it ran: the narrower subscription is a hook in `state` (`useProjectSelect`), since `ui` can't import
+zustand, and `EffectiveValue` was narrowed with it, or every control's feedback re-rendered on any edit; undoing *New
+project* brings back the old project's master pin too; an action's `inline` can depend on the subject, and a track whose
+panels are all pinned doesn't offer *Pin*. The manual pass, Firefox and Safari were not done.
+
 Pin a track's front panel (its knobs, sliders and pads) into the secondary sidebar as a copy; the original stays where
 it is. Pinned panels stack vertically.
 
@@ -244,6 +256,20 @@ it is. Pinned panels stack vertically.
 
 ## Round 10: commands and keys
 
+**Done** 2026-10-29; see the [plan](PLAN-round-10-commands-and-keys.md), signed off as proposed. Its inventory changes
+the outline below: subject actions stay in round 5's lists and the registry reads them, adding only what has no
+subject; keys act on the *focus subject* (what the keyboard focus is on), the palette also on the selection; graph
+delete and duplicate come as verbs (*delete*, *duplicate*, *copy*, *cut*, *paste*, *rename*) that every kind can
+name; maximize gets a store action; the File menu is rebuilt as a shared menu; the four layout presets are new; the
+region keys are ⌃⌘B, ⌃⌘J and ⌃⇧⌘B (Ctrl+Alt elsewhere), since VS Code's are browser keys.
+
+What moved while it ran: only Paste walks out from the focused thing; every other verb is the innermost thing's, so
+Delete on a fader in a mixer strip leaves the track; the graph canvas became focusable and gives its own subjects; the
+view commands are made in `state` from `ui`'s titles, and the region names moved to `state`; a menu's key is shown but
+not part of the entry's name; *Maximize* and Session's and Arrangement's tab tooltips read the key in effect; presets
+load through the layout store like named layouts. Not done: the keys were not checked by hand in Chrome, Firefox or
+Safari (Firefox isn't installed on the machine), and the manual pass.
+
 * A **command registry**: every view, region toggle, layout, preset and common action, with an id and a title. It is
   built on round 5's action lists.
 * A **command palette** (⌘⇧P / ⌘K), built on the matching already in the patcher's QuickAdd.
@@ -253,6 +279,16 @@ it is. Pinned panels stack vertically.
 * Menus (File, View) generated from the same registry.
 
 ## Round 11: wave editor
+
+**Spec signed off** 2026-10-29; see the [spec](SPEC-round-11-wave-editor.md). It splits the round into 11a (stereo and
+the pyramid), 11b (in-place edits) and 11c (markers, regions and keys), and keeps every decision behind one seam so it
+can be changed later. **11a is done** 2026-10-29; see its [plan](PLAN-round-11a-stereo-and-the-pyramid.md), signed off as
+proposed: samples are stereo through the engine (old projects bit for bit the same), format v11, edits as data, the peak
+pyramid and the new view. **11b is done** 2026-10-29; see its [plan](PLAN-round-11b-in-place-edits.md), signed off as
+proposed: edits change the sample in place with one undo step (trims, markers and regions remapped), undo is instant
+within the caches' budgets, edit-made files are cleaned up, and the editor has the six processes, cut, copy, paste,
+delete, crop and insert silence with crossfades, and ways in from clips, regions and the sampler. 11c (markers, regions
+and keys) is next, with its own plan. The outline below is what the spec started from.
 
 The biggest single piece, mostly beyond the UI. It needs its own SPEC before planning. Round 3 already gives it its
 view, its activity-bar button and its entry points; this round replaces what is inside.
@@ -323,5 +359,7 @@ Deliberately last, so it restyles a stable structure.
 | Hidden tracks: saved with the project or per browser | **Settled in round 7:** with the project, outside undo | round 7 |
 | A group's output: picked, or following the nesting | **Settled in round 8's plan:** following the nesting (nearest enclosing bus, else the master), no picker | round 8 |
 | Automation of a group's controls | **Settled in round 8's plan:** not in round 8; on the arrangement's lanes (round 12) | round 8 |
-| Wave editor: destructive edits vs. derived samples | destructive with undo, original kept until project save | round 11 SPEC |
-| Stereo samples throughout the engine, or only in the editor | throughout (needed for the wave editor to be honest) | round 11 SPEC |
+| Pinned panels: saved with the project or per browser, and undone or not | **Settled in round 9's plan:** with the project, as view edits that undo doesn't change (round 7's rule for collapse and hide) | round 9 |
+| Key overrides: saved with the project or per browser | **Settled in round 10's plan:** per browser (`sfxlab:keybindings`), like layouts | round 10 |
+| Wave editor: destructive edits vs. derived samples | **Settled in round 11's [spec](SPEC-round-11-wave-editor.md):** in place with undo; an edit writes a new file and moves every use onto it; bytes are never changed, only added | round 11 SPEC |
+| Stereo samples throughout the engine, or only in the editor | **Settled in round 11's spec:** throughout, instruments staying mono; old audio tracks sound the same | round 11 SPEC |

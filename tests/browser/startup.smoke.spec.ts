@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { importProject } from '../../src/storage'
-import { test, expect } from './fixtures'
+import { test, expect, openFileMenu } from './fixtures'
 
 test('audio startup failure stays visible while editing, undo/autosave and project export remain available', async ({ page }) => {
   await page.addInitScript(() => {
@@ -44,10 +44,10 @@ test('audio startup failure stays visible while editing, undo/autosave and proje
   await expect(name).toHaveValue('CR2 recovery edit')
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('sfxlab:project') ?? 'null')?.project.name)).toBe('CR2 recovery edit')
 
-  await page.getByText('File', { exact: true }).click()
+  await openFileMenu(page)
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export to file…', exact: true }).click(),
+    page.getByRole('menuitem', { name: 'Export to file…', exact: true }).click(),
   ])
   expect(download.suggestedFilename()).toMatch(/\.sfxlab(?:\.json)?$/)
   const exportPath = await download.path()

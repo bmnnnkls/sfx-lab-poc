@@ -28,7 +28,15 @@ export {
   type ArrangementChanges,
   type ArrangementClip,
 } from './arrangement-clip'
-export { usedSampleIds, projectSampleDependencies } from './sample-use'
+export {
+  SAMPLE_USES,
+  type SampleReplaceReport,
+  type SampleUse,
+  projectSampleDependencies,
+  removeSample,
+  replaceSample,
+  usedSampleIds,
+} from './sample-uses'
 export {
   DEFAULT_FADE_SECONDS,
   MAX_FADE_SECONDS,
@@ -66,10 +74,10 @@ export {
   addSamples,
   addTrack,
   createAudioTrack,
+  NEW_AUDIO_TRACK_STEREO,
   createClip,
   createReturnTrack,
   createTrack,
-  removeSample,
   removeTrack,
   doubleClip,
   setAudioClipAt,
@@ -185,6 +193,21 @@ export {
   setGroupSoloed,
   setGroupVolume,
 } from './group-bus'
+export {
+  MAX_PINS,
+  type LivePin,
+  type PanelPin,
+  canPin,
+  isPinned,
+  livePins,
+  movePin,
+  pinKey,
+  pinPanel,
+  pinTarget,
+  pinnedGraph,
+  setPinCollapsed,
+  unpinPanel,
+} from './pins'
 export { duplicateTrack } from './track-duplicate'
 export { copyNodes, pasteNodes, type CopiedNodes } from './node-copy'
 export { duplicateScene, insertScene, removeScene } from './scenes'

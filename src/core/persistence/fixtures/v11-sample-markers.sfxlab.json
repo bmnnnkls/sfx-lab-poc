@@ -1,0 +1,131 @@
+{
+  "format": "sfx-lab-project",
+  "version": 11,
+  "project": {
+    "name": "Sample markers",
+    "tempo": 120,
+    "sceneCount": 1,
+    "samples": [
+      {
+        "id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name": "Stereo loop 120 BPM",
+        "extension": "wav",
+        "durationSeconds": 2,
+        "sampleRate": 48000,
+        "channels": 2,
+        "bytes": 768044,
+        "origin": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "markers": [
+          {
+            "id": "marker-1",
+            "frame": 0,
+            "name": "Start"
+          },
+          {
+            "id": "marker-2",
+            "frame": 48000,
+            "name": "Beat 3"
+          }
+        ],
+        "regions": [
+          {
+            "id": "region-1",
+            "from": 24000,
+            "to": 72000,
+            "name": "Middle"
+          }
+        ]
+      }
+    ],
+    "modules": [],
+    "master": {
+      "fx": {
+        "nodes": [
+          {
+            "id": "node_go9gjsdf",
+            "type": "masterIn",
+            "x": 20,
+            "y": 40,
+            "params": {}
+          },
+          {
+            "id": "node_euznjq1s",
+            "type": "trackOut",
+            "x": 620,
+            "y": 40,
+            "params": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "wire_p1ayslon",
+            "from": {
+              "node": "node_go9gjsdf",
+              "port": "out"
+            },
+            "to": {
+              "node": "node_euznjq1s",
+              "port": "in"
+            }
+          }
+        ]
+      }
+    },
+    "tracks": [
+      {
+        "kind": "audio",
+        "id": "track_a4eai2nm",
+        "name": "Stereo loop 120 BPM",
+        "volume": 0.8,
+        "fx": {
+          "nodes": [
+            {
+              "id": "node_cs30p2es",
+              "type": "trackIn",
+              "x": 20,
+              "y": 40,
+              "params": {},
+              "stereo": true
+            },
+            {
+              "id": "node_rwacyxjy",
+              "type": "trackOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_esrk4tdr",
+              "from": {
+                "node": "node_cs30p2es",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_rwacyxjy",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "sends": {},
+        "clips": [
+          {
+            "id": "audio_hdny7hza",
+            "name": "Stereo loop 120 BPM",
+            "sampleId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "lengthBeats": 4,
+            "loop": true,
+            "warp": "repitch",
+            "gain": 1,
+            "start": 0,
+            "end": 1,
+            "fadeIn": 0.002,
+            "fadeOut": 0.002
+          }
+        ]
+      }
+    ]
+  }
+}

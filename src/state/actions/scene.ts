@@ -33,6 +33,7 @@ export const sceneActions: readonly Action<SceneSubject>[] = [
   },
   {
     id: 'scene.duplicate',
+    verb: 'duplicate',
     title: 'Duplicate',
     group: 'edit',
     enabled: roomForOne,
@@ -43,6 +44,7 @@ export const sceneActions: readonly Action<SceneSubject>[] = [
   },
   {
     id: 'scene.delete',
+    verb: 'delete',
     title: 'Delete',
     group: 'delete',
     danger: true,

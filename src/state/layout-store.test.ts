@@ -16,7 +16,7 @@ afterEach(() => {
 
 /** A driver that records its calls, as the shell would receive them. */
 const recordingDriver = () => {
-  const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), reset: vi.fn(), load: vi.fn(), saveAs: vi.fn() }
+  const driver: LayoutDriver = { reveal: vi.fn(), setRegionVisible: vi.fn(), toggleMaximize: vi.fn(), reset: vi.fn(), load: vi.fn(), loadPreset: vi.fn(), saveAs: vi.fn() }
   detach = layout().attachDriver(driver)
   return driver
 }
@@ -24,12 +24,12 @@ const recordingDriver = () => {
 const group = (id: string, region: RegionId, views: readonly ViewId[], current: ViewId): GroupState => ({ id, region, views, active: current })
 
 describe('layout store without a driver', () => {
-  it('starts on the default layout: session above, instrument below, samples, library and sounds in hidden sidebars', () => {
+  it('starts on the default layout: session above, instrument below, samples, library and tracks, and sounds and pinned, in hidden sidebars', () => {
     expect(layout().groups).toEqual([
       group('editor', 'editor', ['session', 'arrangement', 'wave'], 'session'),
       group('panel', 'panel', ['instrument', 'effects', 'notes', 'clip', 'mixer'], 'instrument'),
       group('border_left', 'primary', ['samples', 'library', 'tracks'], 'samples'),
-      group('border_right', 'secondary', ['sounds'], 'sounds'),
+      group('border_right', 'secondary', ['sounds', 'pinned'], 'sounds'),
     ])
     expect(layout().visible).toEqual(['session', 'instrument'])
     expect(layout().hiddenRegions).toEqual(['primary', 'secondary'])
@@ -102,6 +102,17 @@ describe('toggleMainView', () => {
 })
 
 describe('layout store with a driver', () => {
+  it('forwards toggleMaximize with the view, or none, and does nothing without a driver', () => {
+    const before = layout()
+    layout().toggleMaximize('mixer')
+    expect(layout()).toBe(before)
+    const driver = recordingDriver()
+    layout().toggleMaximize('mixer')
+    expect(driver.toggleMaximize).toHaveBeenCalledWith('mixer')
+    layout().toggleMaximize()
+    expect(driver.toggleMaximize).toHaveBeenLastCalledWith(undefined)
+  })
+
   it('forwards revealView, toggleRegion, resetLayout and named layouts to the driver and leaves the mirror to sync', () => {
     const driver = recordingDriver()
     layout().revealView('mixer')
@@ -117,6 +128,8 @@ describe('layout store with a driver', () => {
     expect(driver.saveAs).toHaveBeenCalledWith('Mix')
     layout().loadLayout('Mix')
     expect(driver.load).toHaveBeenCalledWith('Mix')
+    layout().loadPreset('mix')
+    expect(driver.loadPreset).toHaveBeenCalledWith('mix')
   })
 
   it('toggles the main view from the mirror the driver syncs', () => {

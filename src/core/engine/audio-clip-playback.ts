@@ -1,9 +1,15 @@
+import { type SampleAudio, type SampleChannel, channelAt, frameCount, monoAt } from '../sample'
+
+/** What a read takes from a sample: its mono value (the one channel, or the average of two), or one channel. */
+export type ReadChannel = 'mono' | SampleChannel
+
 /** The slice of a sample that plays, in (fractional) sample frames. */
 export interface Region {
   readonly startPos: number
   readonly endPos: number
 }
 
+/** The region of `start`..`end` (fractions) in a sample of `sampleLength` frames (`frameCount`). */
 export const regionOf = (start: number, end: number, sampleLength: number): Region => {
   const startPos = start * sampleLength
   return { startPos, endPos: Math.max(startPos + 1, end * sampleLength) }
@@ -28,17 +34,20 @@ export const repitchPosition = (
   return region.startPos + (phase / lengthBeats) * (region.endPos - region.startPos)
 }
 
+const valueAt = (sample: SampleAudio, channel: ReadChannel, index: number): number =>
+  channel === 'mono' ? monoAt(sample, index) : channelAt(sample, channel, index)
+
 /**
- * Linearly interpolated sample value at a fractional `position` inside `region`. At the end of the region it
+ * Linearly interpolated value of `channel` at a fractional `position` inside `region`. At the end of the region it
  * blends towards the region's start when looping (so loop seams are continuous) or towards silence otherwise.
  */
-export const readRegion = (data: Float32Array, position: number, region: Region, loop: boolean): number => {
+export const readRegion = (sample: SampleAudio, channel: ReadChannel, position: number, region: Region, loop: boolean): number => {
   const index = Math.floor(position)
   const fraction = position - index
-  const endIndex = Math.min(data.length, Math.ceil(region.endPos))
+  const endIndex = Math.min(frameCount(sample), Math.ceil(region.endPos))
   const next = index + 1 < endIndex ? index + 1 : loop ? Math.floor(region.startPos) : -1
-  const a = data[index] ?? 0
-  const b = next >= 0 ? (data[next] ?? 0) : 0
+  const a = valueAt(sample, channel, index)
+  const b = next >= 0 ? valueAt(sample, channel, next) : 0
   return a + (b - a) * fraction
 }
 

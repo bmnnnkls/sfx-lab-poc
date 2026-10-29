@@ -73,6 +73,11 @@ A first visit opens on **Low Light**, and **File → Examples** loads either of 
    Use **File → Export / Import** to move projects as `.sfxlab.json` files, and **File → Restore previous**
    to swap back after a replace (import / new / demo).
    **Undo / redo** with ↶ ↷ or `Ctrl/⌘+Z` / `Ctrl/⌘+Shift+Z`: dragging a slider or node is a single step.
+   **⌘K** (Ctrl+K) opens the **command palette**: type to find any command, or what can be done to what is focused or
+   selected (*Bass: Duplicate*). **Space** plays and stops; **Delete**, **⌘D**, **⌘C**, **⌘X**, **⌘V** and **F2**
+   act on the focused thing, a graph's selected nodes included; ⌃⌘B, ⌃⌘J and ⌃⇧⌘B (Ctrl+Alt elsewhere) toggle the
+   sidebars and the panel. **View → Keyboard shortcuts** lists every key and changes it, per browser; **View → Layouts**
+   has four built-in layouts (*Compose*, *Arrange*, *Sound design*, *Mix*).
    **File → Export audio (WAV)…** renders the open clip or a scene offline to a stereo WAV (16-bit or 32-bit float, 44.1 or 48 kHz) named after the project:
    choose the bars, a tail so reverbs and delays are not cut, and whether to normalize to -1 dBFS. The same project always gives the same file.
 4. Open the **Samples** tab: **Add demo samples** (or import/drag in your own audio), press ▶ to audition, and

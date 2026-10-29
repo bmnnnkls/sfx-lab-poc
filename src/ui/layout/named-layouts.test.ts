@@ -58,6 +58,7 @@ describe('named layouts', () => {
     expect(panel).toMatchObject({ selected: 1, weight: 40 })
     expect(panel.children!.slice(0, 2).map((t) => t.id)).toEqual(['instrument', 'mixer'])
     expect(tabSets(old.layout).find((group) => group.id === 'editor')!.children!.map((t) => t.id)).toEqual(['session', 'arrangement', 'wave'])
+    expect(old.borders!.find((border) => border.location === 'right')!.children!.map((t) => t.id)).toEqual(['sounds', 'pinned'])
     // Saving another layout rewrites the old one at today's version.
     const rewritten = JSON.parse(withNamedLayout(raw, 'New', defaultLayout()))
     expect(rewritten.version).toBe(2)

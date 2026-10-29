@@ -21,13 +21,17 @@ import {
   setPanelShow,
   spotBelow,
 } from '@core'
-import { useMemo, useState } from 'react'
-import { useProjectStore } from '@state'
+import { useLayoutEffect, useMemo, useState } from 'react'
+import { sameItems, useProjectSelect } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
 import { AddControl, type AddDraft } from './AddControl'
 import { ControlCell, type ParamChange } from './ControlCell'
+import { boardColumns } from './panel-values'
 import styles from './panel.module.css'
+
+/** The narrowest a board column gets, as `.board`'s `minmax` says. */
+const COLUMN_MIN = 104
 
 interface PanelViewProps {
   patch: Patch
@@ -40,6 +44,28 @@ interface PanelViewProps {
   readoutTrack?: string
   /** Applies a change to the patch being shown (one undo step per merge key). */
   edit(change: (patch: Patch, modules: ModuleLibrary) => Patch, mergeKey?: string): void
+  /** `pinned`: play only, as tall as its controls, for the Pinned view. `editor` by default. */
+  variant?: 'editor' | 'pinned'
+  /** Pinned: what the empty state's *Open* does (the full editor). */
+  onOpen?(): void
+}
+
+/** How many columns a board has now, measured as it is resized. Unlimited until it is measured. */
+const useBoardColumns = (board: HTMLElement | null): number => {
+  const [columns, setColumns] = useState(Number.POSITIVE_INFINITY)
+  useLayoutEffect(() => {
+    if (!board) return
+    const measure = () => {
+      const style = getComputedStyle(board)
+      const width = board.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+      setColumns(boardColumns(width, COLUMN_MIN, parseFloat(style.columnGap) || 0))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(board)
+    return () => observer.disconnect()
+  }, [board])
+  return columns
 }
 
 /**
@@ -47,21 +73,36 @@ interface PanelViewProps {
  * the controls; *Edit* adds the tools to build and arrange it. A control here IS the node: turning it writes the node's
  * base value through the shared control transaction. Shared-definition edits use the graph editor's edit path.
  */
-export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOwner, controlDomain }: PanelViewProps) => {
+export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOwner, controlDomain, variant = 'editor', onOpen }: PanelViewProps) => {
   const gesture = useControlGesture()
-  const project = useProjectStore((state) => state.project)
+  const pinned = variant === 'pinned'
+  const [board, setBoard] = useState<HTMLDivElement | null>(null)
+  const columns = useBoardColumns(board)
   const controlTarget = (item: PanelItem, paramId: string): ControlTarget | undefined => {
     if (!controlOwner || !controlDomain) return undefined
     const use = item.via && patch.nodes.find((node) => node.id === item.via?.use)
     return { kind: 'graph', owner: controlOwner, domain: controlDomain, path: item.via && use?.moduleId ? [{ nodeId: use.id, moduleId: use.moduleId }] : [], nodeId: item.via?.inner ?? item.node.id, nodeType: item.node.type, paramId }
   }
   const valueParams = (item: PanelItem): readonly string[] => item.kind === 'xy' ? ['x', 'y'] : item.kind === 'switch' ? ['on'] : item.kind === 'selector' ? ['index'] : item.kind === 'knob' || item.kind === 'slider' ? ['value'] : []
-  const [editing, setEditing] = useState(false)
+  const [editingOn, setEditing] = useState(false)
+  const editing = editingOn && !pinned
   const items = useMemo(() => panelItems(patch, modules), [patch, modules])
   const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
   const shown = items.filter((item) => item.shown)
   const hidden = items.filter((item) => !item.shown)
   const ownShown = shown.filter((item) => item.via === undefined)
+  // Each control's base value, read through its target. Only these are read from the project, so an edit to another
+  // graph doesn't re-render this panel.
+  const baseValues = useProjectSelect(
+    (project) => shown.flatMap((item) => valueParams(item).map((param) => {
+      const target = controlTarget(item, param)
+      const resolved = target && resolveControlTarget(project, target)
+      return resolved?.status === 'available' ? resolved.baseValue : undefined
+    })),
+    sameItems,
+  )
+  // Where each shown control's values start in `baseValues`.
+  const offsets = shown.reduce<number[]>((list, _item, index) => [...list, index === 0 ? 0 : list[index - 1]! + valueParams(shown[index - 1]!).length], [])
 
   const set = (item: PanelItem, changes: readonly ParamChange[]) => {
     const changesWithTargets = changes.flatMap((change) => {
@@ -93,13 +134,15 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOw
     })
 
   return (
-    <div {...gesture.events} className={styles.panel} data-testid="front-panel" data-editing={editing || undefined}>
-      <div className={styles.bar}>
-        <button aria-pressed={editing} onClick={() => setEditing((on) => !on)} title={editing ? 'Back to playing' : 'Add, remove and arrange controls'}>
-          {editing ? 'Done' : 'Edit panel'}
-        </button>
-        {editing && <AddControl patch={patch} modules={modules} onAdd={add} />}
-      </div>
+    <div {...gesture.events} className={styles.panel} data-testid="front-panel" data-editing={editing || undefined} data-variant={variant}>
+      {!pinned && (
+        <div className={styles.bar}>
+          <button aria-pressed={editing} onClick={() => setEditing((on) => !on)} title={editing ? 'Back to playing' : 'Add, remove and arrange controls'}>
+            {editing ? 'Done' : 'Edit panel'}
+          </button>
+          {editing && <AddControl patch={patch} modules={modules} onAdd={add} />}
+        </div>
+      )}
       {editing && hidden.length > 0 && (
         <div className={styles.hiddenTray} role="group" aria-label="Hidden controls">
           <span className={styles.hint}>Hidden:</span>
@@ -110,7 +153,12 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOw
           ))}
         </div>
       )}
-      {shown.length === 0 ? (
+      {shown.length === 0 && pinned ? (
+        <div className={styles.empty}>
+          <p>No controls yet.</p>
+          {onOpen && <button onClick={onOpen} title="Open the full editor">Open</button>}
+        </div>
+      ) : shown.length === 0 ? (
         <div className={styles.empty}>
           <p>{items.length === 0 ? 'This patch has no controls yet.' : 'Every control is hidden.'}</p>
           <p>
@@ -119,8 +167,8 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOw
           </p>
         </div>
       ) : (
-        <div className={styles.board} role="group" aria-label="Front panel">
-          {shown.map((item) => {
+        <div ref={setBoard} className={styles.board} role="group" aria-label="Front panel">
+          {shown.map((item, shownIndex) => {
             const id = item.node.id
             const position = items.indexOf(item)
             const ownIndex = ownShown.indexOf(item)
@@ -130,11 +178,10 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOw
                 midiTargets={valueParams(item).flatMap((param) => { const target = controlTarget(item, param); return target ? [target] : [] })}
                 item={(() => {
                   const params = { ...item.node.params }
-                  for (const param of valueParams(item)) {
-                    const target = controlTarget(item, param)
-                    const resolved = target && resolveControlTarget(project, target)
-                    if (resolved?.status === 'available') params[param] = resolved.baseValue
-                  }
+                  valueParams(item).forEach((param, index) => {
+                    const value = baseValues[offsets[shownIndex]! + index]
+                    if (value !== undefined) params[param] = value
+                  })
                   return { ...item, node: { ...item.node, params } }
                 })()}
                 feedback={valueParams(item).map((param) => {
@@ -145,6 +192,7 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOw
                 title={item.title ?? titles.get(id) ?? item.node.type}
                 editing={editing}
                 readoutTrack={readoutTrack}
+                columns={columns}
                 first={ownIndex === 0}
                 last={ownIndex === ownShown.length - 1}
                 onSet={(changes) => set(item, changes)}

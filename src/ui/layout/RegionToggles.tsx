@@ -1,5 +1,6 @@
-import { useLayoutStore } from '@state'
+import { type RegionId, useLayoutStore } from '@state'
 import type { SyntheticEvent } from 'react'
+import { useKeyLabel, withKey } from '../commands/CommandHost'
 import { TOGGLED_REGIONS } from './regions'
 import styles from './RegionToggles.module.css'
 
@@ -14,10 +15,15 @@ const stop = (event: SyntheticEvent) => event.stopPropagation()
 export const RegionToggles = () => {
   const hiddenRegions = useLayoutStore((state) => state.hiddenRegions)
   const { toggleRegion } = useLayoutStore.getState()
+  const keys: Partial<Record<RegionId, string | undefined>> = {
+    primary: useKeyLabel('layout.toggle.primary'),
+    panel: useKeyLabel('layout.toggle.panel'),
+    secondary: useKeyLabel('layout.toggle.secondary'),
+  }
   return (
     <span className={styles.toggles} data-region-toggles onPointerDown={stop} onDoubleClick={stop} onDragStart={(event) => event.preventDefault()}>
       {TOGGLED_REGIONS.map(({ id, name, glyph }) => (
-        <button key={id} onClick={() => toggleRegion(id)} aria-pressed={!hiddenRegions.includes(id)} aria-label={name} title={`Toggle ${name.toLowerCase()}`}>
+        <button key={id} onClick={() => toggleRegion(id)} aria-pressed={!hiddenRegions.includes(id)} aria-label={name} title={withKey(`Toggle ${name.toLowerCase()}`, keys[id])}>
           {glyph}
         </button>
       ))}

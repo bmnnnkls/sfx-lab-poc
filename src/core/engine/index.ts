@@ -1,6 +1,6 @@
 export { Engine } from './engine'
 export type { EngineCommand } from './commands'
-export type { EngineStatus } from './status'
+export type { EngineStatus, PreviewStatus } from './status'
 export { ArrangementPlayer, ArrangementNotes, ArrangementAudio } from './arrangement-player'
 export { heardNotes, type HeardNote } from './heard-notes'
 export {
@@ -24,3 +24,4 @@ export {
   type ResolvedBounceOptions,
 } from './bounce'
 export type { LiveNoteAddress } from './live-notes'
+export type { PreviewRange } from './sample-preview'

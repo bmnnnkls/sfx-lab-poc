@@ -2,6 +2,7 @@ import { GROUP_COLOURS, type GroupColour, type TrackItem, findGroup, neighbourPl
 import { openGroupEffects } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { project } from './lookup'
+import { effectsPinAction } from './pin'
 import { renameAction } from './rename'
 import type { Action, SubjectOf } from './types'
 
@@ -50,6 +51,7 @@ export const groupActions: readonly Action<GroupSubject>[] = [
     applies: (subject) => groupOf(subject)?.bus !== undefined,
     run: (subject) => openGroupEffects(subject.groupId),
   },
+  effectsPinAction<GroupSubject>('group.pin', ({ groupId }) => ({ owner: { kind: 'group', groupId }, graph: 'fx' }), (subject) => groupOf(subject)?.bus !== undefined),
   renameAction('group', (subject) => groupOf(subject) !== undefined),
   {
     id: 'group.bus',

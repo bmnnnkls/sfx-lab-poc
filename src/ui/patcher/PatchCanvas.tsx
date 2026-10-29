@@ -15,7 +15,7 @@ import { type Subject, useGraphViewStore, useProjectStore } from '@state'
 import { type PointerEvent, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
 import { useDropTarget } from '../shared/drag'
-import { ActionMenu, type MenuEntry } from '../shared/menu'
+import { ActionMenu, type MenuEntry, useFocusSubjects } from '../shared/menu'
 import type { ParamChange } from '../panel/ControlWidget'
 import { NodeView } from './NodeView'
 import { nodeTitles } from '@core'
@@ -129,11 +129,12 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
   const [pending, setPending] = useState<{ from: PortRef; pointer: Point } | null>(null)
   const [box, setBox] = useState<Box | null>(null)
 
+  const visibleCenter = (): Point => {
+    const view = scroller.current
+    return view ? canvasPoint({ x: view.clientWidth / 2, y: view.clientHeight / 2 }, viewRef.current) : { x: 300, y: 200 }
+  }
   useImperativeHandle(handle, () => ({
-    visibleCenter: () => {
-      const view = scroller.current
-      return view ? canvasPoint({ x: view.clientWidth / 2, y: view.clientHeight / 2 }, viewRef.current) : { x: 300, y: 200 }
-    },
+    visibleCenter,
     clientPoint: (at) => {
       const bounds = scroller.current?.getBoundingClientRect()
       const { x, y, zoom } = viewRef.current
@@ -263,6 +264,19 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
     return { kind: 'canvas', target: graph.target, path: graph.path, at: { x: Math.round(point.x), y: Math.round(point.y) } }
   })
 
+  // With the focus on the canvas, the edit keys act on the selection, and Paste on the canvas at the pointer (or the
+  // middle of what shows).
+  useFocusSubjects(scroller, () => {
+    const at = pointer.current.over ? pointer.current.canvas : visibleCenter()
+    const canvas: Subject = { kind: 'canvas', target: graph.target, path: graph.path, at: { x: Math.round(at.x), y: Math.round(at.y) } }
+    return selected.size > 0 ? [nodesSubject([...selected]), canvas] : [canvas]
+  })
+  // A press on the canvas or a card focuses the canvas, unless it lands on something focusable of its own (a field).
+  const focusCanvas = (event: PointerEvent) => {
+    const holder = event.target instanceof Element ? event.target.closest('input, select, textarea, button, a[href], [tabindex], [contenteditable="true"]') : null
+    if (holder === null || holder === scroller.current) scroller.current?.focus({ preventScroll: true })
+  }
+
   const isBackground = (target: EventTarget | null) => target instanceof HTMLElement &&
     (target === scroller.current || target.dataset.testid === 'patch-surface')
 
@@ -284,7 +298,11 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
         }}
         onPointerEnter={() => (pointer.current.over = true)}
         onPointerLeave={() => (pointer.current.over = false)}
+        tabIndex={0}
+        role="group"
+        aria-label="Graph canvas"
         onPointerDownCapture={(event) => {
+          focusCanvas(event)
           if (event.button !== 1 && !(handTool && event.button === 0)) return
           event.preventDefault()
           event.stopPropagation()

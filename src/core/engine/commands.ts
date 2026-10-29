@@ -122,7 +122,11 @@ export type EngineCommand =
     }
   | { readonly type: 'sample/add'; readonly sample: SampleData }
   | { readonly type: 'sample/remove'; readonly sampleId: string }
-  | { readonly type: 'sample/preview'; readonly sampleId: string }
+  /**
+   * Auditions a sample straight to the master: the whole sample, or frames `from` up to `to`, once or (`loop`) until
+   * stopped. Its position is reported in `EngineStatus.preview`.
+   */
+  | { readonly type: 'sample/preview'; readonly sampleId: string; readonly from?: number; readonly to?: number; readonly loop?: boolean }
   | { readonly type: 'sample/stopPreview' }
   | { readonly type: 'clip/launch'; readonly trackId: string; readonly clipId: string }
   /** Every track's clip in that scene; with `trackIds`, only those tracks' (a collapsed group's cell). */
