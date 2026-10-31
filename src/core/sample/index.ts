@@ -3,7 +3,7 @@ export { SAMPLE_MARK_LIMITS, bytesKeyOf, originOf, savedFrameCount } from './mar
 export { type FrameMap, type SampleRemap, cropMap, identityMap, mirrorMap, spliceMap } from './remap'
 export { type SampleChannel, channelAt, decodedBytes, frameCount, monoAt } from './channels'
 export { SampleBank } from './sample-bank'
-export { computePeaks, toMono } from './audio-math'
+export { computePeaks, selectionLevels, toMono, type Levels } from './audio-math'
 export { type WavBitDepth, encodeWav, encodeWavChannels } from './wav'
 export {
   type Crossfade,
