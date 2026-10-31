@@ -38,6 +38,8 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **Two browser-test runs at once collide**: they share port 4173 and `test-results/`, so one can't start its server
   or loses its trace files ("ENOENT … .trace"), which reads like a failed test. Run them one after the other.
   *(round 11c-2)*
+* **A spec that imports from another spec runs that spec's tests too.** Put shared helpers in a plain module
+  (`marked-sample.ts`, `preset-project.ts`). *(round 11c-3)*
 
 ## Browsers and the DOM
 
@@ -67,6 +69,11 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   Mark such an entry `takesFocus`. *(rounds 5, 11c-1)*
 * **`ActionMenu` draws no menu without a subject.** A trigger whose subject depends on the pointer (the mark lane)
   always needs one, or a right-click there opens nothing. *(round 11c-2)*
+* **Two panes asking for one sample in the same tick decode it twice**, since each pane's `loading` is its own and
+  neither holds a copy yet. `openAudio` waits on one decode per sample (`decodeWorking`). *(round 11c-3)*
+* **A second pane without a sample of its own follows the first,** so whatever moves the first moves it too. Code
+  that must move only the first (an edit with *Edits make copies* from it) sets the second's `sampleId` first.
+  *(round 11c-3)*
 * **A drag snaps to what it moves.** Snap targets include the dragged mark's own position, a frame behind the pointer,
   so it sticks there. Targets are named and a drag leaves out its own (`snapFrame`'s `ignore`). *(round 11c-2)*
 * **flexlayout 0.x minor versions break.** It is pinned and imported only from `ui/layout/`, and the architecture test

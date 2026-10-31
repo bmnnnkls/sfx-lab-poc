@@ -101,7 +101,7 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   are kept in frame order and regions in `from` order. An add takes an id (`createMarkId`), so the caller knows it.
   `updateSampleMarks(project, sampleId, change)` applies one to the library entry; the project store's
   `editSampleMarks(sampleId, change, mergeKey?)` makes it one undo step, and a drag passes one merge key throughout
-  (`marker:<origin>:<id>`, `region:<origin>:<id>:<edge>`, `loop:<origin>:<edge>`).
+  (`marker:<view key>:<id>`, `region:<view key>:<id>:<edge>`, `loop:<view key>:<edge>`).
 * **Add a sample-playing node:** set `usesSample: true` on its definition; the property editor shows the picker and the
   engine calls `setSample` on it.
 
@@ -114,14 +114,25 @@ rebuilt the inside; round 11b made edits change the sample in place.
 * **Ways in** (round 11b). ✎ on a sample, the palette's *Open in wave editor*, `clip.edit-sample` and
   `region.edit-sample` (*Edit sample*, on audio clips and regions, enabled while the sample is in the library; the audio
   clip editor's *Edit sample* button runs them), and *Edit* beside the sampler's picker (the sample the picker shows,
-  a preset's binding included). `openSampleEditor(id, range?)` selects the sample and reveals the view; with a clip's trim
-  (fractions) it calls the view store's `reveal`, which selects that part in frames and sets `zoomPending`, which the
-  editor consumes once with a zoom to the selection when it has its width and the audio.
-* **The working copy** (`app/sample-library.ts`). When the editor opens a sample (`useSelectionStore.sampleId`), the
-  service takes it from the working copies (§ Undo / redo) or decodes it from storage, builds its peak pyramid and puts
-  both in `state/wave-audio-store.ts` (`{ sampleId, viewKey, audio, pyramid } | null`, plus `loading` and `editing`).
-  The engine has its own copy. A working copy the editor lets go of goes into the working copies. Memory: one copy of
-  the open sample, at most 46 MB (120 s stereo), plus the cache's budget.
+  a preset's binding included). `openSampleEditor(id, range?)` selects the sample, which the first pane shows, and
+  reveals the view; with a clip's trim (fractions) it calls the view store's `reveal` on the first pane's view, which
+  selects that part in frames and sets `zoomTo`, which the editor consumes once with a zoom to the selection when it
+  has its width and the audio.
+* **Panes** (`state/wave-panes.ts`). The editor has a first pane (`main`) and, with *View ▾ → Second pane*, a second
+  (`second`) under it. `paneSampleId(pane)` says which sample each shows: the first, the editor's
+  (`useSelectionStore.sampleId`); the second, its own (`useWavePanesStore.second.sampleId`) if the project has it,
+  else the first's (null: the first's, following it). The second pane's state (`{ open, sampleId, share }`, `share`
+  the first pane's part of the height) is per browser under `sfxlab:wave-second-pane`, restored and saved by
+  `useWavePanesStorage` in `ui`; `active`, the pane pressed or focused last, isn't, and closing the second pane makes
+  the first active. A **`WaveAt`** (`{ sampleId, pane }`) is which sample in which pane: the editor's subjects and the
+  working copies are each one, and the helpers below take one.
+* **The working copies** (`app/sample-library.ts`). Each pane has one: the decoded audio of the sample it shows and
+  its peak pyramid, in `state/wave-audio-store.ts` (`panes: { main, second }`, each `{ sampleId, pane, viewKey, audio,
+  pyramid } | null`, plus `loading` per pane and one `editing`). `openAudio(pane)` shares another pane's copy of the
+  same sample (the same `audio` and `pyramid`, nothing decoded), else takes one from the cache of working copies (§ Undo
+  / redo), else decodes it from storage once however many panes ask (`decodeWorking`) and builds the pyramid. The
+  engine has its own copy. A copy no pane holds any more goes into the cache. Memory: one copy per sample shown, at most
+  46 MB each (120 s stereo), so two panes on one sample cost one, on two samples two, plus the cache's budget.
 * **The pyramid** (`core/sample/pyramid.ts`). `buildPeakPyramid(audio)`: level 0 holds a min and a max per channel for
   every 64 frames; each next level halves the count until a level has at most 512 buckets. A full build of 120 s of
   stereo takes about 12 to 20 ms in Chromium, so it runs at once on the main thread. After an edit,
@@ -131,17 +142,19 @@ rebuilt the inside; round 11b made edits change the sample in place.
   its only reader and the one drawing rule: from 64 frames per pixel up, min and max from the finest level whose bucket
   fits in a column (`peaks`); from 1 to 64, min and max read from the audio (`frames`); under 1, the sample points
   (`points`), with dots from 8 px per frame. The base and the step are private constants there.
-* **View state** (`state/wave-editor-store.ts`), in memory, keyed by the sample's **origin** (`originOf`), so a view
-  follows its sample through edits, undo and redo: `framesPerPixel` (null: fit the whole sample), `startFrame`, `cursor`,
+* **View state** (`state/wave-editor-store.ts`), in memory, keyed by **pane and origin** (`waveViewKey(pane,
+  originOf(sample))`, `main:<origin>`, `second:<origin>`), so a view follows its sample through edits, undo and redo,
+  and two panes on one sample keep their own: `framesPerPixel` (null: fit the whole sample), `startFrame`, `cursor`,
   `selection` (`{ from, to, channels: 'both' | 'left' | 'right' }`, frames), `zoomTo` and `asking`. Not saved with the
   project and not undone, so it survives tab switches until reload. **Zooms are asked for**, since only the editor knows
   its width: `zoom(key, range | 'fit')` (buttons, menu entries, keys) and `reveal` (entry points) set `zoomTo`, and the
   editor does it once it has a width and the audio (`takeZoom` reads and clears it; `resolveZoom` in
   `wave-geometry.ts`). `ask(key, kind | null)` opens an edit's settings popover (`asking`), under the toolbar, from a
-  button, a menu entry or the palette alike. When the open sample's id leaves the project (an undo or redo of an edit),
-  the service opens the sample with the same origin, first in library order, and clamps a selection past its end; with
-  none, the view shows its empty state, as for a removed sample. The ruler's mode (time or beats) and its tempo (the
-  project's or the one in the sample's name, `tempoFromName`) are per browser (`useStoredState`: `sfxlab:wave-ruler`,
+  button, a menu entry or the palette alike. When the sample a pane is set to show leaves the project (an undo or redo
+  of an edit), the service points the pane at the sample with the same origin, first in library order; with none, the
+  first pane shows the view's empty state, as for a removed sample, and the second the first pane's sample. Every
+  pane's selection past its sample's end is clamped. The ruler's mode (time or beats) and its tempo (the
+  project's or the one in each pane's sample's name, `tempoFromName`, `rulerBpm`) are per browser (`useStoredState`: `sfxlab:wave-ruler`,
   `sfxlab:wave-ruler-tempo`).
 * **The edit settings** (`state/wave-edit-settings.ts`, `useWaveEditSettings`): *Edits make copies*, the crossfade,
   the fade curve last used, each popover's last values, the preview's *Loop*, and the two snaps (`snap: { beats, zero
@@ -150,15 +163,16 @@ rebuilt the inside; round 11b made edits change the sample in place.
   and saves each change, under `sfxlab:wave-edit-copies`, `sfxlab:wave-crossfade`, `sfxlab:wave-fade-curve`,
   `sfxlab:wave-edit-settings`, `sfxlab:wave-loop` and `sfxlab:wave-snap`. `restore` takes each field that is valid and keeps the default
   for the rest; a popover value saved as `null` (an emptied field) is dropped, so the edit takes that field's default.
-* **One path for every edit** (`state/wave-edits.ts`). `openWave(sampleId)` reads a sample with its working copy and
-  view; `waveEditFacts` is what decides (an edit running, the audio loaded, the selection, something copied, the
+* **One path for every edit** (`state/wave-edits.ts`). `openWave(at)` reads a sample with a pane's working copy (when
+  it holds that sample) and the pane's view; `waveEditFacts` is what decides (an edit running, the audio loaded, the selection, something copied, the
   channels); `waveEditBlocked(entry, facts)` says why an edit can't run now ("Select both channels to delete"), and
   `waveCopyBlocked` and `waveCutBlocked` Copy's and Cut's (Copy runs while an edit runs); `waveEditContext` builds the
-  `SampleEditContext`; `runWaveEdit(library, sampleId, kind, { variant, values, curve })` checks, remembers the values
-  and the curve, and calls `editSample`; `copyWave` and `cutWave` fill the clipboard. `state/wave-view.ts` has
+  `SampleEditContext`; `runWaveEdit(library, at, kind, { variant, values, curve })` checks, remembers the values
+  and the curve, and calls `editSample` with the pane; `copyWave` and `cutWave` fill the clipboard. `state/wave-view.ts` has
   `toggleWavePreview` (▶) and `selectAllWave`. The toolbar, the menus, the palette and the keys all call these.
-* **The view.** `SampleEditor` is the frame: the toolbar, the `Overview`, the `Ruler`, the `MarkLane`, the `DetailView`
-  with a level scale beside each lane, and the status bar. The **toolbar** is one line of groups, separated by a hairline, that
+* **The view.** `SampleEditor` is the frame: the toolbar over one `WavePane`, or two. A pane is the `Overview`, the
+  `Ruler`, the `MarkLane`, the `DetailView` with a level scale beside each lane, and the status bar, for its sample at
+  its own view; a press or focus in it makes it active. The **toolbar** acts on the active pane and is one line of groups, separated by a hairline, that
   wraps a whole group at a time: ▶ (■ while playing) and *Loop*; *Cut*, *Copy*, *Paste*, *Delete*, *Crop*
   (`EditToolbar`, its `TOOLBAR_EDITS`); *Process ▾* and *View ▾*; the sample's name (truncated, with a tooltip),
   length, rate and *mono* / *stereo* as quiet text; ⚙ (*Editor settings*: the crossfade's length and curve and *Edits
@@ -179,8 +193,18 @@ rebuilt the inside; round 11b made edits change the sample in place.
   can't be wide enough at full zoom. The **ruler** shows m:ss.mmm (frames under one frame per pixel) or bars and beats in
   4/4 from frame 0 (`ruler-ticks.ts`, labels at least 72 px apart). The **detail** has one `WaveLane` per channel, each a
   canvas the size of its box times `devicePixelRatio`; `data-draw` on it says which band is drawn. It is focusable
-  (`role="group"`, *Waveform lanes*), takes the focus on any press, and is the `sample-selection` subject's
+  (`role="group"`, *Waveform lanes*), takes the focus on any press, and is its pane's `sample-selection` subject's
   `ActionMenu` trigger.
+* **Two panes.** With the second pane open, each pane has a title row: its sample's name as a menu of the project's
+  samples (the second's starting with *Same as the first pane*; picking one in the first opens it as ✎ does), its
+  length, rate and channels, and, on the second, × (*Close the second pane*); the toolbar's facts hide. The active pane
+  has the accent outline. A **splitter** between them (`PaneSplitter`, 4 px like the docking shell's, a `separator`, so
+  Tab passes it as chrome) sets `share`: a drag, ↑ and ↓ by 5 %, a double-click for half; `clampShare` keeps each pane
+  at its minimum (its rows besides the lanes, and 24 px of lanes, `LANES_MIN_PX`), and when the two minimums don't fit
+  they share what there is in proportion. Under 300 px of the view's height the overviews fold to 12 px strips (the
+  view's box only, still a scrollbar), the mark lanes fold as always, the title rows lose their facts and the status
+  bars go. Copy in one pane and paste in the other: the clipboard is the editor's. A preview's playhead shows in every
+  pane showing the previewed sample.
 * **Drawing without React.** Zoom and scroll write to the store; the detail, the overview's box, the ruler and the mark
   lane subscribe to the store directly and redraw in an animation frame (and on resize); the detail also redraws when
   the project's samples change, for the marks' lines. React renders only when the sample, the selection or the cursor
@@ -189,7 +213,7 @@ rebuilt the inside; round 11b made edits change the sample in place.
   (`waveformRenderer`) is the only one, a spectrogram would be a second. Its scale marks 0, −6 and −12 dB above and
   below the middle and −∞ on it (`levelMarks(height)`: a label only 11 px or more below the last). Each gutter is its
   own canvas (`LaneScale`), drawn on mount and on resize, never on zoom or scroll.
-* **The right-click menu** is the **`sample-selection`** subject's (`{ kind: 'sample-selection', sampleId }`,
+* **The right-click menu** is the **`sample-selection`** subject's (`{ kind: 'sample-selection', sampleId, pane }`,
   "Selection in *name*", `state/actions/sample-selection.ts`): *Cut*, *Copy*, *Paste*, *Delete*, *Crop* (one group,
   `clipboard`, as on the toolbar) · the processes (`process`, built from the registry by `processActions`, so a new
   process is an action, a *Process ▾* entry and a palette row with no other change), then, after a separator
@@ -225,7 +249,8 @@ rebuilt the inside; round 11b made edits change the sample in place.
   around the pointer, from the whole sample to 32 px per frame (`WHEEL_ZOOM`, 1.25 a notch); the wheel scrolls; a
   *Wheel zooms* setting would branch in the one wheel handler.
 * **Marks** (markers, regions and the loop). Three subjects, each with its menu, verbs and palette rows:
-  **`sample-marker`** (`{ sampleId, markerId }`, "*Hit* in *Kick*"): *Go to* (the cursor there, no selection, the view
+  **`sample-marker`** (`{ sampleId, pane, markerId }`, "*Hit* in *Kick*"; each mark subject carries the pane its
+  menu was opened in, which *Go to*, *Select* and the zooms act on): *Go to* (the cursor there, no selection, the view
   scrolled by the least that shows it: the `{ show }` zoom request), *Rename*, *Delete*; **`sample-region`**: *Select*,
   *Rename*, *Delete*, *Set loop from region*, *Play* (looping with the preview's *Loop*), *Zoom to region*;
   **`sample-loop`** ("Loop in *Kick*"): *Select*, *Clear loop* (verb `delete`), *Play loop* (always looping), *Zoom to
@@ -260,13 +285,14 @@ rebuilt the inside; round 11b made edits change the sample in place.
   **lineage** (`lineageAfter`): the first edit of a sample with no origin keeps the original's facts (`extension`,
   `bytes`, `channels`, `durationSeconds`, `sampleRate`, which the project loses once the edit replaces the entry), and
   every edit appends its step; a step is a few numbers, so the chain isn't capped. A sample with an origin and no
-  lineage (edited before lineages existed) can't revert. **`SampleLibrary.revertSample(sampleId)`**, beside
+  lineage (edited before lineages existed) can't revert. **`SampleLibrary.revertSample(sampleId, pane)`**, beside
   `editSample` and under the same one-at-a-time rule, reads the origin's bytes (gone: a toast, "The original of *name*
   is missing; import the file again"), decodes them, sends `sample/add`, and, if the sample is still in the project,
   `replaceSample(project, id, originalInfo(info), revertRemap(info, frames))` as one undo step: the inverse steps, last
   first, from the present length to the decoded original's, so trims, markers, regions and the loop go back exactly,
-  and ones only in pasted or inserted audio go as any edit takes audio that is gone. The editor keeps its view (the
-  key is the origin), the cursor goes where it was in the original, and the selection goes. *Revert to original* is
+  and ones only in pasted or inserted audio go as any edit takes audio that is gone. Each pane showing the sample keeps
+  its view (the key is the origin's); in the pane it was asked from the cursor goes where it was in the original and
+  the selection goes, and another pane moves along as after an edit. *Revert to original* is
   disabled with the reason while an edit runs, on an original ("This is the original") and without a lineage ("Edited
   before Revert was possible"). Decoding is nearly all of it: 45 ms for 120 s of stereo in Chromium.
 * **Preview.** ▶ (or P, or *Play selection*) plays the selection, or from the cursor to the end, looping with *Loop*;
@@ -302,7 +328,7 @@ rebuilt the inside; round 11b made edits change the sample in place.
   `CLIPBOARD_HANDLE_SECONDS` (50 ms, half the longest crossfade) of audio on each side. A copy from one channel holds
   that channel alone; a mono copy pastes into both channels of a stereo sample, a stereo copy into a mono one as its
   average (`monoAt`). *Copy* isn't an edit; *Cut* is *Copy*, then the delete, one undo step. Not the OS clipboard.
-* **The in-place flow** (`SampleLibrary.editSample(id, edit, { asCopy })`, the one call). One edit runs at a time
+* **The in-place flow** (`SampleLibrary.editSample(id, edit, { asCopy, pane })`, the one call). One edit runs at a time
   (`useWaveAudioStore.editing`; the toolbar is disabled meanwhile). It reads the working copy (or the working copies, or
   decodes the stored bytes), applies the edit, refuses an empty result and one that changes nothing ("Nothing changed",
   same hash), encodes `EDIT_WAV_BIT_DEPTH` (32-bit float) WAV, hashes it, refuses the edit when the site's free
@@ -310,10 +336,13 @@ rebuilt the inside; round 11b made edits change the sample in place.
   quota (`StorageFullError`), stores and notes the file, sends the engine `sample/add` with a **copy** of the audio,
   then commits, if the sample is still in the project (an undo meanwhile drops the edit, its file left to cleanup):
   in place, `replaceSample` as one undo step, with a toast for a merge and for emptied trims; with *Edits make copies*
-  (off by default), a new sample "name (suffix)" with no origin, which the editor opens.
-  The editor moves first: the old working copy goes to the cache, the new one (its pyramid updated) becomes current,
-  the selected id changes, and the entry's `after` sets the selection and cursor (processes keep them; delete leaves
-  the cursor at the join; crop selects nothing; insert and paste select what they inserted). `encodeWav` (mono 16-bit)
+  (off by default), a new sample "name (suffix)" with no origin, which the pane the edit was asked from opens (a second
+  pane showing the first's sample keeps the original: its `sampleId` is set to it).
+  The panes showing the sample move first, sharing the new working copy (its pyramid updated once): the pane the edit
+  was asked from takes the entry's `after` for its selection and cursor (processes keep them; delete leaves the cursor
+  at the join; crop selects nothing; insert and paste select what they inserted); another pane on the sample keeps
+  looking at the same audio, its cursor, scroll and selection put through the edit's map (`moveAlong`; a selection whose
+  audio is gone goes). Then the panes' sample ids change. `encodeWav` (mono 16-bit)
   stays for the demo samples, whose ids are hashes of its bytes.
-* **Not yet.** A second pane, whose subject gains a `pane`; previewing a process before applying it; a crossfaded loop
-  and a loop finder; the spectrogram; the granular stage.
+* **Not yet.** Linked scrolling between the panes, and a third; previewing a process before applying it; a crossfaded
+  loop and a loop finder; the spectrogram; the granular stage.

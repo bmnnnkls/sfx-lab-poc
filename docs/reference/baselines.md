@@ -30,6 +30,10 @@ render 0 times.
 Round 11c-2 (2026-10-31, `f8b3560`, load average 4 to 6), `wave` only, its setup adding two markers, a region and the
 loop: 56 component renders and 12.6 script ms a second; `MarkLane` renders 0 times.
 
+Round 11c-3 (2026-10-31, `3ac4f0d`, load average 3.5 to 4.5): `wave` 56 component renders and 12.8 script ms a second;
+`wave-split` (the second pane open on the playing sample) 85 and 11.6, `WavePlayhead` 58 (one per pane, at the status
+rate); `WavePane`, `PaneTitle` and `PaneSplitter` render 0 times.
+
 Earlier tables: [round 2](../archive/ui-redesign/PLAN-round-2-shell.md#changes-made-while-implementing) (the
 first, with base comparisons), [round 11a](../archive/ui-redesign/PLAN-round-11a-stereo-and-the-pyramid.md#changes-made-while-implementing),
 [round 11b](../archive/ui-redesign/PLAN-round-11b-in-place-edits.md#changes-made-while-implementing).
@@ -64,6 +68,16 @@ the dev server's modules, median of 7 runs after 2 warm-ups, load average 4 to 6
 | `decodeAudio` of the original alone (16-bit WAV) | 43.7 ms |
 | `nearestZeroCrossing` at the widest zoom (46,080 frames either way), on a sine | under 0.001 ms |
 | the same on a constant (no crossing: the whole reach read) | 0.22 ms |
+
+Opening the second pane, round 11c-3 step 5 (2026-10-31, `3ac4f0d`), Chromium 156 (Playwright's) on the dev server's
+modules without the app, load average 3.5 to 4.5, `scripts/measure-second-pane.cjs`, from the call to the pane's
+working copy:
+
+| 120 s stereo, 48 kHz | Time |
+|---|---:|
+| on another sample than the first pane's (read, decode, pyramid), median of 3 | 66.7 ms |
+| the same, the first run | 107.8 ms |
+| on the first pane's sample (shared: nothing decoded) | 0 ms |
 
 | In-place edit flow, stereo | apply | encode | hash | store | total |
 |---|---:|---:|---:|---:|---:|

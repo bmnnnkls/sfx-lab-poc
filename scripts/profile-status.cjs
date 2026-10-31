@@ -19,18 +19,20 @@
 //   wave    The demo drum loop open in the Wave editor, Mixer in the panel, the transport stopped and the loop's preview
 //           looping from its start, so the editor's playhead runs. Two markers, a region and the loop are set first
 //           (M, R and L), so the mark lane has something to draw. Needs round 11a (the marks, round 11c-2).
+//   wave-split  The wave setup with the second pane open on the same sample (View ▾ → Second pane), so two playheads
+//           run. Needs round 11c-3.
 //
 // Prints one JSON object per build. Each figure is a per-second average over the measured seconds.
 const { chromium } = require('@playwright/test')
 
 const [devUrl, previewUrl, secondsArg, setupArg] = process.argv.slice(2)
 if (!devUrl || !previewUrl) {
-  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four|groups|pinned|wave]')
+  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four|groups|pinned|wave|wave-split]')
   process.exit(2)
 }
 const SECONDS = Number(secondsArg ?? 10)
 const SETUP = setupArg ?? 'editor'
-const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume', 'PinnedView', 'PinnedPanel', 'PanelView', 'ControlCell', 'CommandHost', 'HostDialogs', 'CommandPalette', 'SampleEditor', 'Overview', 'Ruler', 'DetailView', 'WaveLane', 'WavePlayhead', 'EditToolbar', 'EditSettings', 'ProcessMenu', 'ViewMenu', 'EditorSettings', 'WaveStatus', 'LaneScale', 'MarkLane']
+const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume', 'PinnedView', 'PinnedPanel', 'PanelView', 'ControlCell', 'CommandHost', 'HostDialogs', 'CommandPalette', 'SampleEditor', 'Overview', 'Ruler', 'DetailView', 'WaveLane', 'WavePlayhead', 'EditToolbar', 'EditSettings', 'ProcessMenu', 'ViewMenu', 'EditorSettings', 'WaveStatus', 'LaneScale', 'MarkLane', 'WavePane', 'PaneTitle', 'PaneSplitter']
 
 // A stub React DevTools hook: React then runs in profiling mode (dev build) and reports every commit.
 const hook = () => {
@@ -166,7 +168,7 @@ const setUp = async (page, url) => {
     await page.getByRole('button', { name: 'Hide Bass', exact: true }).click()
     await show(page, 'Mixer')
     await page.getByRole('button', { name: 'Launch scene 1', exact: true }).click()
-  } else if (SETUP === 'wave') {
+  } else if (SETUP === 'wave' || SETUP === 'wave-split') {
     await show(page, 'Samples')
     await page.locator('[data-view="samples"]').getByRole('button', { name: 'Add demo samples', exact: true }).click()
     const loop = page.locator('[data-view="samples"]').getByRole('listitem').filter({ hasText: 'Demo Drum Loop' })
@@ -189,6 +191,14 @@ const setUp = async (page, url) => {
     await page.keyboard.press('r')
     await page.keyboard.press('l')
     await page.mouse.click(box.x + 1, y)
+    if (SETUP === 'wave-split') {
+      await wave.getByRole('button', { name: 'View', exact: true }).click()
+      await page.getByRole('menuitemcheckbox', { name: 'Second pane', exact: true }).click()
+      await wave.getByTestId('wave-pane-second').getByTestId('wave-detail').waitFor()
+      // The first pane, smaller now, active again, so ▶ plays from its cursor at the start.
+      const first = await wave.getByTestId('wave-pane-main').getByTestId('wave-detail').boundingBox()
+      await page.mouse.click(first.x + 1, first.y + first.height / 2)
+    }
     await show(page, 'Mixer')
     await wave.getByRole('button', { name: 'Loop', exact: true }).click()
     await wave.getByRole('button', { name: 'Play from cursor', exact: true }).click()

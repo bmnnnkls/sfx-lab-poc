@@ -164,9 +164,10 @@ right-clicked; what can be done to it lives in `state/actions/`.
   element. The kinds: `track` (instrument, audio and return tracks), `group` (a group of tracks), `master`, `clip` (a session clip), `slot` (an
   empty session cell), `automation-slot`, `scene`, `sample`, `library-item`, `library-folder`, `nodes`, `canvas`,
   `module`, `region`, `lane`, `control` (a panel control or a mixer value), `sound` (a snapshot or preset), `pin` (a
-  pinned front panel: an owner and a graph), `sample-selection` (the Wave editor's lanes: the open sample's
-  selection, cursor and clipboard, read from the stores), and `sample-marker`, `sample-region` and `sample-loop` (a
-  marker, a region or the loop in the Wave editor's mark lane, set from what the pointer is on). `nodes`
+  pinned front panel: an owner and a graph), `sample-selection` (a Wave editor pane's lanes: its sample's
+  selection and cursor in that pane, and the clipboard, read from the stores), and `sample-marker`, `sample-region` and
+  `sample-loop` (a marker, a region or the loop in a pane's mark lane, set from what the pointer is on). The four carry
+  the `pane` (`main` or `second`) they were opened in, and act on that pane's view. `nodes`
   is the selection when the right-clicked card is selected, otherwise that card alone. `nodes` and `canvas` name the
   track's (or the master's) graph as `target` and the modules opened from there as `path`; the nodes are in the last
   module of `path` (`editTargetOf`). `canvas` and `lane` carry where the click landed, which is where *Paste* and *Add*

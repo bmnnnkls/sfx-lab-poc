@@ -4,17 +4,12 @@ Open work only. Each item has an ID so it can be referred to ("V1, E2"). When an
 describe the result in [`architecture/`](architecture/). Ideas that nobody has committed to are in [IDEAS.md](IDEAS.md);
 the order of the big pieces is in [STATUS.md](STATUS.md#now-and-next).
 
-Reconciled with the code on 2026-10-31 (`feat/ui-redesign` after round 11c, part 2). This replaces `docs/TASKS.md`.
+Reconciled with the code on 2026-10-31 (`feat/ui-redesign` after round 11c, part 3). This replaces `docs/TASKS.md`.
 
 ## UI redesign
 
 Planned round by round. Each round gets a plan in [`active/`](active/) before it starts.
 
-- **U1 Round 11c, part 3: a second pane** in the wave editor
-  ([handling and spectrum spec](active/SPEC-wave-editor-handling-and-spectrum.md), signed off;
-  [plan](active/PLAN-round-11c-3-second-pane.md), signed off, not started). It adds a `pane` to the wave editor's
-  subjects and the view key. Parts 1 (handling) and 2 (markers, regions, snap, *Revert to original*,
-  loop points) are done.
 - **U9 Round 11d: the spectrogram and spectral edits** in the wave editor
   ([spec](active/SPEC-wave-editor-handling-and-spectrum.md), signed off): the FFT core (idea H1), a spectrum
   pyramid computed in a worker, time-and-frequency selection, band gain and keep band.
@@ -54,13 +49,16 @@ Things that shipped without the check their plan asked for.
   is busy, because it times tempo edits from the page.
 - **V8 Commit the measuring scripts** that rounds 4 and 11b used (`measure.cjs`, the in-place flow timing). Only
   `scripts/profile-status.cjs`, `scripts/measure-selection-levels.cjs` (round 11c-1) and
-  `scripts/measure-revert-and-zero.cjs` (round 11c-2) are in the repository.
+  `scripts/measure-revert-and-zero.cjs` (round 11c-2) and `scripts/measure-second-pane.cjs` (round 11c-3) are in the
+  repository.
 - **V9 Demo release**: a short human listening pass on `main`, then tag the verified commit.
-- **V10 Hand pass for the wave editor's handling** (rounds 11c-1 and 11c-2), in Chrome, and Firefox and Safari once V3
+- **V10 Hand pass for the wave editor's handling** (rounds 11c-1 to 11c-3), in Chrome, and Firefox and Safari once V3
   is done: every view key (M, R, L, `[` `]` among them, and Shift with a bracket on a non-US layout) and the edit keys
   with the focus on the lanes, on the mark lane, on the toolbar and in the project name field; middle-drag with a
   mouse; edge drags, marker, region and loop drags and auto-scroll on a trackpad; Alt held during a drag with snapping
-  on; rename in place in the mark lane; the folded mark lane under 300 px; the right-click menu with Shift+F10.
+  on; rename in place in the mark lane; the folded mark lane under 300 px; the right-click menu with Shift+F10; with
+  two panes, copying from one sample into another, the splitter on a trackpad, which pane the toolbar and keys act on,
+  and both panes under 300 px.
 
 ## Performance
 

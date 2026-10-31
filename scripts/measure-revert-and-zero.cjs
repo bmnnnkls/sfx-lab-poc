@@ -43,7 +43,7 @@ const main = async () => {
     const info = { id, name: 'Long', extension: 'wav', durationSeconds: 120, sampleRate: rate, channels: 2, bytes: bytes.length }
     useProjectStore.getState().resetProject({ ...core.createEmptyProject(), samples: [info] })
     const library = createSampleLibrary(storage, { send: () => {} }, { freeBytes: async () => null })
-    await library.editSample(id, { kind: 'reverse', range: { from: 0, to: frames }, channels: 'both' }, { asCopy: false })
+    await library.editSample(id, { kind: 'reverse', range: { from: 0, to: frames }, channels: 'both' }, { asCopy: false, pane: 'main' })
     const edited = useProjectStore.getState().project.samples[0]
     if (!edited.lineage) throw new Error('The edit did not land')
 
@@ -51,7 +51,7 @@ const main = async () => {
     for (let run = 0; run < 6; run++) {
       if (run > 0) useProjectStore.getState().undo()
       const start = performance.now()
-      await library.revertSample(useProjectStore.getState().project.samples[0].id)
+      await library.revertSample(useProjectStore.getState().project.samples[0].id, 'main')
       revertRuns.push(performance.now() - start)
       if (useProjectStore.getState().project.samples[0].id !== id) throw new Error('The revert did not land')
     }

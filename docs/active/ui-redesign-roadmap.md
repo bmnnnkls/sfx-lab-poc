@@ -1,7 +1,7 @@
 ---
 status: active
 date: 2026-10-29
-note: "Rounds 1-11b and 11c parts 1 and 2 (handling; markers and regions) are done; 11c part 3 (a second pane) is next, then 11d (the spectrum), 12 (arrangement editor) and 13 (visual refresh)."
+note: "Rounds 1-11c are done; 11d (the spectrum) is next, then 12 (arrangement editor) and 13 (visual refresh)."
 ---
 # UI redesign roadmap (draft)
 
@@ -299,8 +299,11 @@ its [plan](../archive/ui-redesign/PLAN-round-11c-1-handling.md), signed off as p
 right-click menu and edit keys through a `sample-selection` subject, view keys, middle-drag, edge drags, auto-scroll, a
 status bar with peak and RMS, and a level scale. **11c part 2, markers and regions, is done** 2026-10-31; see its
 [plan](../archive/ui-redesign/PLAN-round-11c-2-markers-and-regions.md): markers, regions and the loop in a mark lane,
-snap, *Revert to original* through a lineage of position maps, the sampler's loop points, and format v12. A second pane
-(part 3) is next; its [plan](PLAN-round-11c-3-second-pane.md) is signed off. The outline below is what the spec started from.
+snap, *Revert to original* through a lineage of position maps, the sampler's loop points, and format v12. **11c part 3,
+a second pane, is done** 2026-10-31; see its [plan](../archive/ui-redesign/PLAN-round-11c-3-second-pane.md), signed off
+as proposed: views keyed by pane and origin, the editor's subjects carrying their pane, a working copy per pane (shared
+on one sample), edits moving every pane on their sample, one toolbar on the active pane, title rows and a splitter. The
+spectrum (11d) is next. The outline below is what the spec started from.
 
 The biggest single piece, mostly beyond the UI. It needs its own SPEC before planning. Round 3 already gives it its
 view, its activity-bar button and its entry points; this round replaces what is inside.

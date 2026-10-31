@@ -18,7 +18,9 @@ scenarios not yet migrated are listed in [browser-checks](../browser-checks/READ
 A change that must leave a DSP node's output as it was is checked against a hash taken from the old code: render many
 cases (every mode, odd speeds, release, retrigger), hash the floats, check the old file out to read the hash, and keep
 it in the test (`sampler.node.test.ts`). Browser tests that need a position the UI doesn't print (the cursor's frame)
-put a marker there and read the saved project (`wave-marks.smoke.spec.ts`).
+put a marker there and read the saved project (`wave-marks.smoke.spec.ts`). A measuring script that drives the
+stores itself on the dev server's page stubs the app's entry (`page.route` on `/src/main.tsx`, a regex since Vite adds
+`?t=`), so the app's own services don't answer the same stores (`scripts/measure-second-pane.cjs`).
 
 Unit tests sit beside the code. Two repository-wide tests guard structure: `tests/architecture.test.ts` (the layering
 in [overview](../architecture/overview.md#layers) and the package allow-list) and `tests/status-subscriptions.test.ts`

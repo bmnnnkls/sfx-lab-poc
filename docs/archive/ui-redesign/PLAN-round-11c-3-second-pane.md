@@ -1,12 +1,14 @@
 ---
-status: active
+status: done
 date: 2026-10-31
-note: "Plan signed off 2026-10-31 as proposed; not started. Part 3 of the handling-and-spectrum spec: a second pane in the wave editor."
+shipped_in: architecture/samples-and-wave-editor.md
+note: "Part 3 of the handling-and-spectrum spec: a second pane in the wave editor. The hand pass in browsers is BACKLOG V10."
 ---
 # Round 11c, part 3: a second pane
 
-Status: **plan, signed off** 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the [UI redesign](ui-redesign-roadmap.md). Carries
-out part 3 of the signed-off [handling and spectrum spec](SPEC-wave-editor-handling-and-spectrum.md) (§ 6, § Suggested
+Status: **done** 2026-10-31; plan signed off 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the
+[UI redesign](README.md). Carries out part 3 of the signed-off [handling and spectrum
+spec](../../active/SPEC-wave-editor-handling-and-spectrum.md) (§ 6, § Suggested
 split): a second pane under the first, showing the same sample at its own place or another sample, for navigating and
 for copying from one into the other. The inventory was taken on `feat/ui-redesign` at `2d94ad4` (round 11c parts 1
 and 2 done). The spec's decisions are settled and not repeated here; this plan adds the ones it leaves open, in
@@ -197,7 +199,7 @@ so `npm run test:audio` runs only at the end.
    `views-at-min-size` with two panes.
 5. **Docs and the profile.** `architecture/samples-and-wave-editor.md` (panes, view keys, two working copies, the
    other pane after an edit), `architecture/workbench.md` (the subjects' pane), `reference/formats-and-versions.md`
-   (`sfxlab:wave-second-pane`); the notes sorted per [doc-workflow](../dev/doc-workflow.md); STATUS and BACKLOG; the
+   (`sfxlab:wave-second-pane`); the notes sorted per [doc-workflow](../../dev/doc-workflow.md); STATUS and BACKLOG; the
    profile; the plan to `archive/ui-redesign/`. The spec stays in `active/` for 11d.
 
 ## Behavior changes
@@ -280,3 +282,19 @@ the toolbar's reading of the active pane can only be tried with two, so they lan
   pane's starts with *Same as the first pane*.
 * The spec helpers for the marked test file moved from `wave-marks.smoke.spec.ts` to `tests/browser/marked-sample.ts`:
   a spec can't import another spec's file without running its tests.
+
+**Step 5 (docs, the profile and the measures).**
+
+* **Profile** (`3ac4f0d`, load average 3.5 to 4.5): `wave` holds at **56** component renders and 12.8 script ms a
+  second. `wave-split`, a new setup with the second pane open on the playing sample: **85** and 11.6 ms, `WavePlayhead`
+  58 (two at the status rate), so exactly 56 + 29, at the plan's bound rather than under it; `WavePane`, `PaneTitle` and
+  `PaneSplitter` render 0 times.
+* **Opening the second pane** (`scripts/measure-second-pane.cjs`): on another 120 s stereo sample **66.7 ms** (median
+  of 3, each a sample not opened before; the first 107.8 ms), decoding and building its pyramid; on the first pane's
+  sample **0 ms**, sharing its copy (the script checks the two panes hold the same audio).
+* The measure runs on the dev server's page with the app's entry stubbed (`page.route`, a regex, since Vite asks for
+  `main.tsx?t=…`): with the app running, its own sample library answers the same stores, finds none of the script's
+  samples in its storage and empties the pane the script waits for.
+* `scripts/measure-revert-and-zero.cjs` (round 11c-2) passes the pane that `editSample` and `revertSample` now take.
+* The smoke run of steps 3 and 4 had one failure, the known flake V6 (`library.smoke.spec.ts`, the isolated preview
+  case reading the saved project before the autosave); that file passed three runs alone.
