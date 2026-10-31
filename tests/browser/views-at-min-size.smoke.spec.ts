@@ -57,6 +57,14 @@ const removeEveryTrack = async (page: Page) => {
 /** ✎ on each sample in Samples. */
 const editButtons = (root: Locator) => root.locator('button[title^="Open in the wave editor"]')
 
+/** Adds the demo samples in Samples and opens the first in the Wave editor. */
+const openDemoSample = async (page: Page, root: Locator) => {
+  const samples = await openView(page, 'Samples')
+  await samples.getByRole('button', { name: 'Add demo samples', exact: true }).click()
+  await expect(editButtons(samples).first()).toBeEnabled()
+  await root.getByRole('button', { name: /^Demo / }).first().click()
+}
+
 const CASES: readonly Case[] = [
   {
     title: 'Session',
@@ -116,12 +124,7 @@ const CASES: readonly Case[] = [
     title: 'Wave editor',
     state: 'a sample open',
     min: EDITOR,
-    prepare: async (page, root) => {
-      const samples = await openView(page, 'Samples')
-      await samples.getByRole('button', { name: 'Add demo samples', exact: true }).click()
-      await expect(editButtons(samples).first()).toBeEnabled()
-      await root.getByRole('button', { name: /^Demo / }).first().click()
-    },
+    prepare: openDemoSample,
     // The overview is the waveform's scrollbar: the detail view doesn't scroll natively.
     // The toolbar wraps a whole group at a time: every group shows, the last one too.
     controls: (root) => [
@@ -138,6 +141,28 @@ const CASES: readonly Case[] = [
       if (height < 300) expect(lane).toBeLessThan(10)
       else expect(lane).toBeGreaterThanOrEqual(20)
     },
+  },
+  {
+    title: 'Wave editor',
+    state: 'two panes',
+    min: EDITOR,
+    prepare: async (page, root) => {
+      await openDemoSample(page, root)
+      await root.getByRole('button', { name: 'View', exact: true }).click()
+      await page.getByRole('menuitemcheckbox', { name: 'Second pane', exact: true }).click()
+      await expect(root.getByTestId('wave-pane-second')).toBeVisible()
+    },
+    // Both panes keep their scrollbar, mark lane and lanes; under 300 px of height they fold to fit.
+    controls: (root) => [
+      root.getByRole('button', { name: 'Close sample', exact: true }),
+      root.getByRole('button', { name: 'Crop', exact: true }),
+      ...['main', 'second'].flatMap((pane) => {
+        const inPane = root.getByTestId(`wave-pane-${pane}`)
+        return [inPane.getByRole('scrollbar', { name: 'Waveform position' }), inPane.getByTestId('mark-lane'), inPane.getByTestId('wave-detail')]
+      }),
+      root.getByRole('separator', { name: 'Resize the panes', exact: true }),
+      root.getByRole('button', { name: 'Close the second pane', exact: true }),
+    ],
   },
   {
     title: 'Mixer',

@@ -265,3 +265,18 @@ Signed off 2026-10-31: every row as proposed.
 * `follow` clamps every pane's view to its sample's length on any change of the project's samples, not only when a pane
   followed a sample; a second pane whose own sample left the project with no successor keeps that id (so a redo brings
   it back) and shows the first pane's sample meanwhile.
+
+**Steps 3 and 4 (the pane, and the second pane), one commit.** `WavePane` was written for two panes from the start, and
+the toolbar's reading of the active pane can only be tried with two, so they landed together.
+
+* **Lanes keep 24 px, not 32, and under 300 px of height two panes also hide their status bars.** At 480 × 240 the
+  toolbar takes about 60 px; two panes with title rows, 12 px overviews, rulers, folded mark lanes, 32 px lanes and
+  status bars needed about 226 px of the 180 left. The splitter's clamp uses the same 24 px (`LANES_MIN_PX`), and
+  measures the rest of each pane's minimum from the pane itself.
+* **The splitter is 4 px,** the docking shell's (`--flexlayout-splitter-size`), not 5.
+* **Each pane's ruler counts its own sample's tempo** when *Tempo from the name* is on (`rulerBpm`); *View ▾* names the
+  active pane's.
+* The title rows' buttons are 18 px high; the sample menu's entries are checkable, the shown one checked, and the second
+  pane's starts with *Same as the first pane*.
+* The spec helpers for the marked test file moved from `wave-marks.smoke.spec.ts` to `tests/browser/marked-sample.ts`:
+  a spec can't import another spec's file without running its tests.

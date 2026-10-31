@@ -2,6 +2,7 @@ import { openSampleEditor, useLayoutStore, useProjectStore, useSampleLibrary, us
 import { useRef } from 'react'
 import { SampleEditor } from './SampleEditor'
 import { useWaveEditSettingsStorage } from './use-wave-edit-settings-storage'
+import { useWavePanesStorage } from './use-wave-panes-storage'
 import styles from './WaveEditor.module.css'
 
 /** How many of the project's samples the empty state offers before it points to the full list. */
@@ -13,6 +14,7 @@ const MAX_CHOICES = 8
  */
 export const WaveEditorView = () => {
   useWaveEditSettingsStorage()
+  useWavePanesStorage()
   const samples = useProjectStore((state) => state.project.samples)
   const sampleId = useSelectionStore((state) => state.sampleId)
   const selectSample = useSelectionStore((state) => state.selectSample)

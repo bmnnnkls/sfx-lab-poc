@@ -1,21 +1,116 @@
 /*
- * The sample editor: a toolbar, the overview (the scrollbar), the ruler, the mark lane, a lane per channel and a status
- * bar. The first column is the lanes' level scales and the mark lane's name; the overview, the ruler and the mark lane
- * line up with the lanes in the second.
+ * The sample editor: a toolbar over one pane, or two. A pane is the overview (the scrollbar), the ruler, the mark lane,
+ * a lane per channel and a status bar. Its first column is the lanes' level scales and the mark lane's name; the
+ * overview, the ruler and the mark lane line up with the lanes in the second.
  */
 .editor {
   --scale-width: 28px;
-  display: grid;
-  grid-template-columns: var(--scale-width) minmax(0, 1fr);
-  grid-template-rows: auto 48px 18px auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
+}
+
+.panes {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pane {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: var(--scale-width) minmax(0, 1fr);
+  grid-template-rows: 48px 18px auto minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+/* Two panes: each with a title row, its lanes kept at 24 px or more; the active one, which the toolbar acts on, in the accent. */
+.split .pane {
+  grid-template-rows: auto 48px 18px auto minmax(24px, 1fr) auto;
+  min-height: min-content;
+}
+
+.split .pane.active {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.paneTitle {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.paneTitle button {
+  height: 18px;
+  padding: 0 6px;
+  line-height: 16px;
+}
+
+.paneSample {
+  display: inline-flex;
+  gap: 4px;
+  min-width: 0;
+  max-width: 50%;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.paneFacts {
+  display: inline-flex;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Between the panes, drawn like the docking shell's splitters. */
+.splitter {
+  flex: none;
+  height: 4px;
+  background: var(--border);
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.splitter:hover,
+.splitter:focus-visible {
+  background: var(--accent);
+  outline: none;
+}
+
+/* Two panes in a short editor: the overviews fold to strips that still scroll, the title rows to the name, and the status bars go. */
+@container view (height < 300px) {
+  .split .pane {
+    grid-template-rows: auto 12px 18px auto minmax(24px, 1fr);
+  }
+
+  .split .statusBar {
+    display: none;
+  }
+
+  .split .overviewCanvas {
+    visibility: hidden;
+  }
+
+  .split .paneFacts {
+    display: none;
+  }
 }
 
 /* One line of groups, separated by a hairline; it wraps a whole group at a time. */
 .editorToolbar {
   position: relative;
-  grid-column: 1 / -1;
+  z-index: 1;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -280,7 +375,7 @@
 
 .loading {
   grid-column: 1 / -1;
-  grid-row: 2 / 5;
+  grid-row: span 4;
   margin: 0;
   padding: 12px;
   color: var(--text-dim);

@@ -1,12 +1,12 @@
-import { type Subject, useWaveEditSettings } from '@state'
+import { type Subject, useWaveEditSettings, useWavePanesStore } from '@state'
 import { type MenuEntry, PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import type { RulerMode, RulerTempo } from './ruler-ticks'
 
 const ZOOMS = new Set(['sample-selection.zoom-selection', 'sample-selection.zoom-fit'])
 
 /**
- * *View ▾*: the zooms (the subject's actions, as in the right-click menu), the ruler's mode, the tempo its beats count
- * at, and the two snaps, each checked when in effect.
+ * *View ▾*: the zooms (the subject's actions, as in the right-click menu), the second pane, the ruler's mode, the tempo
+ * its beats count at, and the two snaps, each checked when in effect.
  */
 export const ViewMenu = ({
   subject,
@@ -27,8 +27,16 @@ export const ViewMenu = ({
 }) => {
   const context = useActionContext()
   const snap = useWaveEditSettings((state) => state.snap)
+  const split = useWavePanesStore((state) => state.second.open)
   const fromName = tempo === 'sample' && sampleTempo !== null
   const settings: readonly MenuEntry[] = [
+    { kind: 'separator' },
+    {
+      label: 'Second pane',
+      checked: split,
+      tooltip: 'Show another place of this sample, or another sample, under this one; copy in one and paste in the other',
+      onSelect: () => useWavePanesStore.getState().setSecond({ open: !split }),
+    },
     { kind: 'separator' },
     { label: 'Time', checked: ruler === 'time', tooltip: 'The ruler counts minutes and seconds', onSelect: () => onRuler('time') },
     { label: 'Beats', checked: ruler === 'beats', tooltip: 'The ruler counts bars and beats', onSelect: () => onRuler('beats') },
