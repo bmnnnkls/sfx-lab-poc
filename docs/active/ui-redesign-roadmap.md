@@ -1,7 +1,7 @@
 ---
 status: active
-date: 2026-10-29
-note: "Rounds 1-11 are done (11d, the spectrum, in two parts: the spectrogram and spectral edits); 12 (arrangement editor) and 13 (visual refresh) are next."
+date: 2026-11-01
+note: "Rounds 1-11 are done (11d, the spectrum, in two parts: the spectrogram and spectral edits); 12 (arrangement editor) has a spec waiting for sign-off; 13 (visual refresh) comes after."
 ---
 # UI redesign roadmap (draft)
 
@@ -333,6 +333,14 @@ view, its activity-bar button and its entry points; this round replaces what is 
 * **Link:** the granular sampler (TASKS: sample editor stage 2) shares this view.
 
 ## Round 12: arrangement editor
+
+**Spec written** 2026-11-01, waiting for sign-off; see the [spec](SPEC-round-12-arrangement-editor.md). Its inventory
+changes the outline below: opening a region in Clip and in the wave editor exists already (Clip lacks a region's
+playhead and lanes); there is nothing for a per-track arm to arm, since touch is the only recording, so headers get M, S
+and a lanes twisty; timeline automation is a new holder per owner, in song beats, so returns, the master and group buses
+get rows; a loop needs the engine's transport, not only the view. It splits the round into 12a (headers and the timeline
+frame), 12b (markers and the loop, format v13), 12c (automation on the timeline, groups included) and 12d (touch
+recording into the arrangement). The outline below is what the spec started from.
 
 Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACKLOG.md).
 

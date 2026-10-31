@@ -39,7 +39,10 @@ selects a frequency band, and *Band gain…* and *Keep band* change only that ba
 two ([archive/ui-redesign](archive/ui-redesign/README.md)).
 
 1. **Round 12: the arrangement editor.** Track headers, automation lanes on the timeline (groups too), recording into
-   the arrangement. Outline in [active/ui-redesign-roadmap.md](active/ui-redesign-roadmap.md#round-12-arrangement-editor).
+   the arrangement. Outline in [active/ui-redesign-roadmap.md](active/ui-redesign-roadmap.md#round-12-arrangement-editor);
+   the [spec](active/SPEC-round-12-arrangement-editor.md) (2026-11-01) is waiting for sign-off. It splits the round into
+   12a (headers and the timeline frame), 12b (markers and the loop), 12c (automation on the timeline) and 12d (touch
+   recording into the arrangement).
 2. **Round 13: visual refresh and themes.**
 3. **Merge `feat/ui-redesign` into `main`.** Decide whether this happens before round 12, and clear the verification
    debt first ([BACKLOG](BACKLOG.md#verification-debt)).
