@@ -267,19 +267,24 @@ export interface SampleReplaceReport {
   readonly emptiedTrims: number
 }
 
+// Marks stay in order (`sample-marks.ts`): a reverse turns a stretch of them around.
 const remapMarkers = (markers: readonly SampleMarker[], remap: SampleRemap): SampleMarker[] =>
-  markers.flatMap((marker) => {
-    const frame = remap.frame(marker.frame)
-    return frame === null ? [] : [{ ...marker, frame: Math.max(0, Math.min(remap.toFrames, frame)) }]
-  })
+  markers
+    .flatMap((marker) => {
+      const frame = remap.frame(marker.frame)
+      return frame === null ? [] : [{ ...marker, frame: Math.max(0, Math.min(remap.toFrames, frame)) }]
+    })
+    .sort((a, b) => a.frame - b.frame)
 
 const remapRegions = (regions: readonly SampleRegion[], remap: SampleRemap): SampleRegion[] =>
-  regions.flatMap((region) => {
-    const range = remap.range(region)
-    if (!range) return []
-    const [from, to] = [Math.max(0, range.from), Math.min(remap.toFrames, range.to)]
-    return to > from ? [{ ...region, from, to }] : []
-  })
+  regions
+    .flatMap((region) => {
+      const range = remap.range(region)
+      if (!range) return []
+      const [from, to] = [Math.max(0, range.from), Math.min(remap.toFrames, range.to)]
+      return to > from ? [{ ...region, from, to }] : []
+    })
+    .sort((a, b) => a.from - b.from || a.to - b.to)
 
 const remapLoop = (loop: SampleLoop, remap: SampleRemap): SampleLoop | undefined => remapRegions([{ ...loop, id: 'loop', name: '' }], remap).map(({ from, to }) => ({ from, to }))[0]
 

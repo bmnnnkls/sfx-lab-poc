@@ -130,10 +130,10 @@ describe('replaceSample', () => {
     const once = replaceSample(everyPlace(), OLD.id, NEW, remapOf(DELETE, 800)).project
     const twice = replaceSample(once, NEW.id, info('c'), sampleRemap({ kind: 'reverse', range: { from: 0, to: 800 }, channels: 'both' }, 800, 800)).project
     expect(twice.samples[1]).toMatchObject({ id: info('c').id, origin: OLD.id, name: OLD.name })
-    // Reverse mirrors the markers.
+    // Reverse mirrors the markers, which stay in frame order.
     expect(twice.samples[1]!.markers).toEqual([
-      { id: 'm1', frame: 700, name: 'Before' },
       { id: 'm3', frame: 200, name: 'After' },
+      { id: 'm1', frame: 700, name: 'Before' },
     ])
   })
 

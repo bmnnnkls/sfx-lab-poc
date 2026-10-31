@@ -18,7 +18,9 @@ import {
   frameCount,
   originOf,
   editSuffix,
+  originalInfo,
   peakOfRange,
+  revertRemap,
   sampleRemap,
   savedFrameCount,
   updatePeakPyramid,
@@ -399,6 +401,56 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     }
   }
 
+  /**
+   * *Revert to original* (see `SampleLibrary.revertSample`): read the origin's bytes, decode them, give the engine the
+   * audio, then `replaceSample` onto the original through `revertRemap`, if the sample is still in the project.
+   */
+  const runRevert = async (info: SampleInfo) => {
+    const original = originalInfo(info)
+    if (!original) return
+    const bytes = await storage.get(bytesKeyOf(original))
+    if (!bytes) {
+      notify('error', `The original of "${info.name}" is missing; import the file again.`)
+      return
+    }
+    const { audio } = await decodeAudio(bytes)
+    if (!inEngine.has(original.id)) deliver(original.id, { audio: copyAudio(audio) })
+    if (!useProjectStore.getState().project.samples.some((sample) => sample.id === info.id)) {
+      notify('warning', `"${info.name}" left the project while it was being reverted; the revert was dropped.`)
+      return
+    }
+    const frames = frameCount(audio)
+    const remap = revertRemap(info, frames)!
+    const open = useSelectionStore.getState().sampleId === info.id
+    if (open) {
+      // The view is the origin's already; the cursor goes where it was in the original, and the selection goes.
+      const key = originOf(info)
+      useWaveAudioStore.getState().setCurrent({ sampleId: original.id, viewKey: key, audio, pyramid: buildPeakPyramid(audio) })
+      const store = useWaveEditorStore.getState()
+      store.select(key, null)
+      store.setView(key, { cursor: Math.max(0, Math.min(frames, Math.round(remap.start(waveViewOf(store.views, key).cursor)))) })
+      clampView(key, frames)
+    }
+    const report = useProjectStore.getState().replaceSample(info.id, original, remap)
+    if (open) useSelectionStore.getState().selectSample(original.id)
+    if (report.merged) notify('info', `Already in the library as "${report.merged.name}"; its uses now point there.`)
+  }
+
+  const revertSample = async (sampleId: string) => {
+    const busy = useWaveAudioStore.getState()
+    if (busy.editing !== null) return
+    const info = useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
+    if (!info) return
+    busy.setEditing(sampleId)
+    try {
+      await runRevert(info)
+    } catch (error) {
+      notify('error', `The revert failed: ${describe(error)}`)
+    } finally {
+      useWaveAudioStore.getState().setEditing(null)
+    }
+  }
+
   /** Adds several files, then tells the user once (not once per file). */
   const ingestAll = async (items: ReadonlyArray<{ bytes: () => Promise<Uint8Array>; fileName: string }>) => {
     const added: string[] = []
@@ -444,6 +496,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     stopPreview: () => host.send({ type: 'sample/stopPreview' }),
 
     editSample: (sampleId, edit, { asCopy }) => editSample(sampleId, edit, asCopy),
+    revertSample,
 
     connect: () => {
       loadPresent()

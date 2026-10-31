@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { type SampleEdit, type SampleInfo, createAudioClip, decodedBytes, createAudioTrack, createEmptyProject, encodeWavChannels, originOf } from '@core'
+import { type SampleEdit, type SampleInfo, addMarker, addRegion, copyAudioRange, createArrangementClip, createAudioClip, decodedBytes, createAudioTrack, createEmptyProject, encodeWavChannels, originOf, setLoop } from '@core'
 import { audioClipboard, copyWaveSelection, usePersistenceStore, useProjectStore, useSelectionStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
 import { type SampleStorage, StorageFullError, createMemorySampleEditLog, createMemorySampleStorage, sha256Hex } from '@storage'
 import { type AudioHost, decodeAudio } from '@audio'
@@ -439,5 +439,88 @@ describe('the audio clipboard', () => {
     expect(samples()).toEqual([info])
     expect(audioClipboard.get()).not.toBeNull()
     disconnect()
+  })
+})
+
+describe('Revert to original', () => {
+  const BUTT = { frames: 0, curve: 'linear' } as const
+  const edit = async (library: ReturnType<typeof createSampleLibrary>, change: SampleEdit) => {
+    await library.editSample(samples()[0]!.id, change, { asCopy: false })
+  }
+  /** The sample marked, and played by an arrangement region trimmed to 200 to 260 of its 480 frames. */
+  const marked = async () => {
+    const setUp = await setup()
+    let info = addMarker(addMarker(setUp.info, 50, 'A', 'a'), 300, 'B', 'b')
+    info = setLoop(addRegion(info, { from: 200, to: 260 }, 'R', 'r'), { from: 210, to: 250 })
+    const track = createAudioTrack('Audio', 4)
+    const clip = { ...createAudioClip(info, 120), start: 200 / 480, end: 260 / 480 }
+    useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [info], tracks: [track], arrangement: [createArrangementClip(track.id, 0, clip)] })
+    return { ...setUp, info }
+  }
+  const trim = () => {
+    const content = useProjectStore.getState().project.arrangement![0]!.content as { start: number; end: number; sampleId: string }
+    return { sampleId: content.sampleId, start: content.start * 480, end: content.end * 480 }
+  }
+
+  it('after a delete, a crop, a paste and a reverse puts trims, markers, regions and the loop back, in one undo step', async () => {
+    const { info, library } = await marked()
+    await edit(library, { kind: 'delete', range: { from: 100, to: 150 }, crossfade: BUTT })
+    await edit(library, { kind: 'crop', range: { from: 20, to: 420 } })
+    await edit(library, { kind: 'replace', range: { from: 0, to: 10 }, insert: copyAudioRange({ sampleRate: 48000, channels: [LEFT, RIGHT] }, { from: 300, to: 330 }, [0, 1]), crossfade: BUTT })
+    await edit(library, REVERSE)
+    const edited = samples()[0]!
+    expect(edited.lineage!.steps).toHaveLength(4)
+    expect(edited.markers!.map((marker) => marker.frame)).toEqual([170, 370])
+
+    const steps = useProjectStore.getState().history.past.length
+    await library.revertSample(edited.id)
+    const reverted = samples()[0]!
+    expect(useProjectStore.getState().history.past.length).toBe(steps + 1)
+    expect(reverted).toEqual({ ...info, markers: info.markers, regions: info.regions, loop: info.loop })
+    expect(reverted).not.toHaveProperty('origin')
+    expect(trim().sampleId).toBe(info.id)
+    expect(trim().start).toBeCloseTo(200, 9)
+    expect(trim().end).toBeCloseTo(260, 9)
+    // The engine has the original's audio.
+    expect(vi.mocked(host.send).mock.calls.some(([command]) => (command as { type: string; sample?: { id: string } }).type === 'sample/add' && (command as { sample: { id: string } }).sample.id === info.id)).toBe(true)
+
+    useProjectStore.getState().undo()
+    expect(samples()[0]).toEqual(edited)
+  })
+
+  it('moves the editor onto the original: the same view, the cursor where it was in it, no selection', async () => {
+    const { info, library } = await marked()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    await edit(library, { kind: 'delete', range: { from: 100, to: 150 }, crossfade: BUTT })
+    useWaveEditorStore.getState().setView(originOf(info), { cursor: 250 })
+    useWaveEditorStore.getState().select(originOf(info), { from: 10, to: 20, channels: 'both' })
+    await library.revertSample(samples()[0]!.id)
+    expect(useSelectionStore.getState().sampleId).toBe(info.id)
+    expect(useWaveAudioStore.getState().current).toMatchObject({ sampleId: info.id, viewKey: originOf(info) })
+    expect(waveViewOf(useWaveEditorStore.getState().views, originOf(info))).toMatchObject({ cursor: 300, selection: null })
+  })
+
+  it("refuses when the original's bytes are gone, and leaves the project as it was", async () => {
+    const { info, storage, library } = await marked()
+    await edit(library, REVERSE)
+    await storage.delete(info.id)
+    const before = useProjectStore.getState().project
+    await library.revertSample(samples()[0]!.id)
+    expect(useProjectStore.getState().project).toBe(before)
+    expect(lastNotice()).toBe('The original of "Loop" is missing; import the file again.')
+  })
+
+  it("does nothing for a sample that is its own origin, or one edited before a revert was possible", async () => {
+    const { info, library } = await marked()
+    const before = useProjectStore.getState().project
+    await library.revertSample(info.id)
+    expect(useProjectStore.getState().project).toBe(before)
+    await edit(library, REVERSE)
+    const { lineage: _lineage, ...noChain } = samples()[0]!
+    useProjectStore.getState().resetProject({ ...useProjectStore.getState().project, samples: [noChain] })
+    const unchained = useProjectStore.getState().project
+    await library.revertSample(noChain.id)
+    expect(useProjectStore.getState().project).toBe(unchained)
   })
 })

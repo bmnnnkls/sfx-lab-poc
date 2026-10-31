@@ -22,7 +22,7 @@ export const useActionEntries = (subject: Subject, context: ActionContext, only:
   const entries: MenuEntry[] = []
   let group: string | undefined
   for (const item of describe()) {
-    if (group !== undefined && item.group !== group) entries.push({ kind: 'separator' })
+    if (entries.length > 0 && (item.group !== group || item.separated)) entries.push({ kind: 'separator' })
     group = item.group
     const run = (choice?: string) => void runAction(item.id, subject, context, { choice })
     if (!item.choices) {

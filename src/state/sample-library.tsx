@@ -16,6 +16,12 @@ export interface SampleLibrary {
    * steps inside it.
    */
   editSample(sampleId: string, edit: SampleEdit, options: SampleEditOptions): Promise<void>
+  /**
+   * *Revert to original*: every use of an edited sample points at its first version again, in one undo step, with clips'
+   * trims, markers, regions and the loop moved back to where they were in it (`revertRemap`). It runs as an edit does
+   * (one at a time) and refuses, with a toast, when the original's bytes are gone.
+   */
+  revertSample(sampleId: string): Promise<void>
 }
 
 /** How an edit lands: in place, or as a new library sample (the editor's *Edits make copies*). */

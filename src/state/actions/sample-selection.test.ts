@@ -43,7 +43,7 @@ describe('the sample-selection actions', () => {
     open(both)
     expect(describeActions(subject, fakeContext()).map((item) => `${item.group}: ${item.title}`)).toEqual([
       'clipboard: Cut', 'clipboard: Copy', 'clipboard: Paste', 'clipboard: Delete', 'clipboard: Crop',
-      'process: Gain…', 'process: Fade in', 'process: Fade out', 'process: Normalize…', 'process: Reverse', 'process: Silence', 'process: Remove DC offset', 'process: Insert silence…',
+      'process: Gain…', 'process: Fade in', 'process: Fade out', 'process: Normalize…', 'process: Reverse', 'process: Silence', 'process: Remove DC offset', 'process: Insert silence…', 'process: Revert to original',
       'marks: Add marker', 'marks: Make region', 'marks: Set loop',
       'view: Select all', 'view: Zoom to selection', 'view: Zoom to fit', 'view: Play selection',
     ])
@@ -58,7 +58,10 @@ describe('the sample-selection actions', () => {
     expect(processActions().map((action) => action.title)).toEqual([...fromRegistry, SAMPLE_EDITS.insert.title])
     // The toolbar's Process ▾ is this group of the subject's actions.
     open(both)
-    expect(describeActions(subject, fakeContext()).filter((item) => item.group === 'process').map((item) => item.title)).toEqual([...fromRegistry, SAMPLE_EDITS.insert.title])
+    // Then *Revert to original*, set apart by a separator.
+    const process = describeActions(subject, fakeContext()).filter((item) => item.group === 'process')
+    expect(process.map((item) => item.title)).toEqual([...fromRegistry, SAMPLE_EDITS.insert.title, 'Revert to original'])
+    expect(process.map((item) => item.separated)).toEqual([...fromRegistry.map(() => false), false, true])
   })
 
   it('are enabled, or say why not, with and without a selection, a clipboard, both channels and a running edit', () => {

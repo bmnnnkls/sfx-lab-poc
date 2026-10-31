@@ -364,3 +364,12 @@ Signed off 2026-10-31: every row as proposed.
   editing helpers the actions, keys and lane share are in `state/wave-marks.ts`.
 * **Step 2: the snap settings are one field,** `snap: { beats, zero }`, saved under the one key `sfxlab:wave-snap`; a
   saved value missing either is refused as a whole.
+* **Step 3: "under a separator" is `Action.separated`.** Separators only came between groups, so an action can now ask
+  for one before it inside its group; `useActionEntries` draws it, in the right-click menu and *Process ▾* alike.
+  `waveRevertBlocked` and `revertWave` (`state/wave-edits.ts`) are what the action calls; the reasons are "An edit is
+  running", "This is the original" and "Edited before Revert was possible".
+* **Step 3: the editor after a revert** keeps its view (the key is the origin, which the original is), puts the cursor
+  where it was in the original (`remap.start`), and clears the selection. `revertRemap(info, toFrames)` takes the
+  decoded original's length, so a rounding in `durationSeconds` can't put the trims off.
+* **Step 3: remapped marks are re-sorted.** A reverse turned a stretch of markers around, so `replaceSample` sorts the
+  remapped markers and regions, keeping the order `sample-marks.ts` promises.

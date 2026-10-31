@@ -32,10 +32,11 @@ export const originalInfo = (info: SampleInfo): SampleInfo | null =>
 
 /**
  * Where positions of the present version are in the original: each step's inverse, the last first, from the present
- * length to the original's. Positions in audio only a later version has go as any edit takes audio that is gone.
+ * length to the original's (`toFrames`, the decoded original's length when the caller has it). Positions in audio only
+ * a later version has go as any edit takes audio that is gone.
  */
-export const revertRemap = (info: SampleInfo): SampleRemap | null => {
+export const revertRemap = (info: SampleInfo, toFrames?: number): SampleRemap | null => {
   if (revertBlocked(info) !== null) return null
   const steps = info.lineage!.steps.map(inverseStep).reverse()
-  return remapOfSteps(steps, savedFrameCount(info), savedFrameCount(info.lineage!.original))
+  return remapOfSteps(steps, savedFrameCount(info), toFrames ?? savedFrameCount(info.lineage!.original))
 }

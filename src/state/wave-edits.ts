@@ -6,6 +6,7 @@ import {
   type SampleInfo,
   frameCount,
   originOf,
+  revertBlocked,
   sampleEditEntry,
   savedFrameCount,
 } from '@core'
@@ -133,4 +134,14 @@ export const cutWave = (library: SampleLibrary, sampleId: string): Promise<void>
   if (!open || waveCutBlocked(waveEditFacts(open.sample, open.wave, open.view.selection)) !== null) return undefined
   copyWave(sampleId)
   return runWaveEdit(library, sampleId, 'delete')
+}
+
+/** Why *Revert to original* can't run on a sample now, or null. */
+export const waveRevertBlocked = (sample: SampleInfo, busy = useWaveAudioStore.getState().editing !== null): string | null =>
+  busy ? 'An edit is running' : revertBlocked(sample)
+
+/** *Revert to original*, unless it can't run now. Resolves when it has landed or failed. */
+export const revertWave = (library: SampleLibrary, sampleId: string): Promise<void> | undefined => {
+  const open = openWave(sampleId)
+  return open && waveRevertBlocked(open.sample) === null ? library.revertSample(sampleId) : undefined
 }

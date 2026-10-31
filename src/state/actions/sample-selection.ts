@@ -5,12 +5,14 @@ import {
   copyWave,
   cutWave,
   openWave,
+  revertWave,
   runWaveEdit,
   waveCopyBlocked,
   waveCutBlocked,
   type WaveEditFacts,
   waveEditBlocked,
   waveEditFacts,
+  waveRevertBlocked,
 } from '../wave-edits'
 import { useWaveEditorStore } from '../wave-editor-store'
 import { type WaveMarkKind, addWaveMarker, makeWaveRegion, markerAtCursor, setWaveLoop, waveMarkBlocked } from '../wave-marks'
@@ -88,6 +90,10 @@ const hasSelection = (subject: SelectionSubject) => !!openWave(subject.sampleId)
 const loaded = (subject: SelectionSubject) => !!openWave(subject.sampleId)?.wave
 
 const cutBlocked = blockedBy(waveCutBlocked)
+const revertReason = ({ sampleId }: SelectionSubject): string | null => {
+  const open = openWave(sampleId)
+  return open ? waveRevertBlocked(open.sample) : 'The sample is gone'
+}
 const copyBlocked = blockedBy(waveCopyBlocked)
 
 /** *Add marker*, *Make region* or *Set loop*: disabled, with the reason, when it can't be added now. */
@@ -126,6 +132,15 @@ const actions: readonly Action<SelectionSubject>[] = [
   structureAction('delete', 'delete'),
   structureAction('crop', undefined),
   ...processActions(),
+  {
+    id: 'sample-selection.revert',
+    title: 'Revert to original',
+    group: 'process',
+    separated: true,
+    tooltip: (subject) => revertReason(subject) ?? "Point every use back at the sample's first version; clips, markers, regions and the loop go back where they were",
+    enabled: (subject) => revertReason(subject) === null,
+    run: ({ sampleId }, { samples }) => revertWave(samples, sampleId),
+  },
   markAction('marker', 'Add marker', 'Put a marker at the cursor', (sampleId) => void addWaveMarker(sampleId)),
   markAction('region', 'Make region', 'Save the selection as a named region', (sampleId) => void makeWaveRegion(sampleId)),
   markAction('loop', 'Set loop', "Make the selection the sample's loop, which a sampler in loop mode repeats", (sampleId) => setWaveLoop(sampleId)),

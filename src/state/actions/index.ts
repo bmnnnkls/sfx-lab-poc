@@ -69,6 +69,8 @@ export interface ActionItem {
   readonly title: string
   readonly group: Action['group']
   readonly danger: boolean
+  /** A separator comes before it, inside its group. */
+  readonly separated: boolean
   readonly tooltip?: string
   readonly takesFocus: boolean
   readonly enabled: boolean
@@ -86,6 +88,7 @@ export const describeActions = (subject: Subject, context: ActionContext): reado
       title: typeof action.title === 'string' ? action.title : action.title(subject, context),
       group: action.group,
       danger: !!action.danger,
+      separated: !!action.separated,
       ...(action.tooltip && { tooltip: action.tooltip(subject, context) }),
       takesFocus: !!action.takesFocus,
       enabled: action.enabled?.(subject, context) ?? true,
