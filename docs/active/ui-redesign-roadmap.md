@@ -300,7 +300,7 @@ right-click menu and edit keys through a `sample-selection` subject, view keys, 
 status bar with peak and RMS, and a level scale. **11c part 2, markers and regions, is done** 2026-10-31; see its
 [plan](../archive/ui-redesign/PLAN-round-11c-2-markers-and-regions.md): markers, regions and the loop in a mark lane,
 snap, *Revert to original* through a lineage of position maps, the sampler's loop points, and format v12. A second pane
-(part 3) is next; its [plan](PLAN-round-11c-3-second-pane.md) waits for sign-off. The outline below is what the spec started from.
+(part 3) is next; its [plan](PLAN-round-11c-3-second-pane.md) is signed off. The outline below is what the spec started from.
 
 The biggest single piece, mostly beyond the UI. It needs its own SPEC before planning. Round 3 already gives it its
 view, its activity-bar button and its entry points; this round replaces what is inside.

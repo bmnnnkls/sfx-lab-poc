@@ -12,7 +12,7 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
 
 - **U1 Round 11c, part 3: a second pane** in the wave editor
   ([handling and spectrum spec](active/SPEC-wave-editor-handling-and-spectrum.md), signed off;
-  [plan](active/PLAN-round-11c-3-second-pane.md), waiting for sign-off). It adds a `pane` to the wave editor's
+  [plan](active/PLAN-round-11c-3-second-pane.md), signed off, not started). It adds a `pane` to the wave editor's
   subjects and the view key. Parts 1 (handling) and 2 (markers, regions, snap, *Revert to original*,
   loop points) are done.
 - **U9 Round 11d: the spectrogram and spectral edits** in the wave editor

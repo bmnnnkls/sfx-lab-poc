@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-10-31
-note: "Plan written 2026-10-31, waiting for sign-off. Part 3 of the handling-and-spectrum spec: a second pane in the wave editor."
+note: "Plan signed off 2026-10-31 as proposed; not started. Part 3 of the handling-and-spectrum spec: a second pane in the wave editor."
 ---
 # Round 11c, part 3: a second pane
 
-Status: **plan, waiting for sign-off.** Written 2026-10-31. Part of the [UI redesign](ui-redesign-roadmap.md). Carries
+Status: **plan, signed off** 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the [UI redesign](ui-redesign-roadmap.md). Carries
 out part 3 of the signed-off [handling and spectrum spec](SPEC-wave-editor-handling-and-spectrum.md) (§ 6, § Suggested
 split): a second pane under the first, showing the same sample at its own place or another sample, for navigating and
 for copying from one into the other. The inventory was taken on `feat/ui-redesign` at `2d94ad4` (round 11c parts 1
@@ -222,6 +222,8 @@ so `npm run test:audio` runs only at the end.
   active pane's border in both themes, the small heights.
 
 ## Decisions to sign off
+
+Signed off 2026-10-31: every row as proposed.
 
 | Question | Proposed | Alternative |
 |---|---|---|
