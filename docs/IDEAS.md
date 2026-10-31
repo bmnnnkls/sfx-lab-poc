@@ -62,7 +62,7 @@ transpose, velocity, range split, clip and track notes.
   anything can; see section H.
 * **Nodes see whole sample buffers.** The sampler reads `samples.get(id)` from the context, so a granular node can read any
   position of a loaded sample.
-* **No FFT exists in the code yet.** Everything spectral needs one new pure-core utility first (see H1).
+* **The spectral core exists** (H1, round 11d-1): `core/spectrum` has a real FFT, windows, an STFT and overlap-add, tested in Node. Spectral nodes still need their engine side.
 * **The Switch already is a toggle button.** It outputs 0 or 1 and has a `mode` of `toggle` or `momentary`. What it lacks:
   configurable on/off values and a one-block pulse mode. So A2 and A3 below *extend the Switch*, they are not new nodes.
 * **Stages.** Controls and math on them run once per block in the `global` stage, before voices. An analysis node reads
@@ -223,7 +223,7 @@ TypeScript, then do the effect on the bins. Constraints to design around:
 
 | ID | What | ★ | Cost |
 | --- | --- | --- | --- |
-| H1 | **Spectral core:** FFT (power-of-two, real input), windowing, overlap-add STFT harness, preallocated, with unit tests (round trip, known tones). Everything below builds on it, and so do the accurate versions of C7, C9 and B5. | ★★★ | M |
+| H1 ✓ | **Spectral core:** FFT (power-of-two, real input), windowing, overlap-add STFT harness, preallocated, with unit tests (round trip, known tones). Everything below builds on it, and so do the accurate versions of C7, C9 and B5. | ★★★ | M |
 | H2 | **Spectral delay:** each frequency bin (or band of bins) gets its own delay time and feedback, often set by a curve (e.g. low frequencies short, high long, or a random/Perlin pattern). Controls: time curve, feedback curve, tilt, mix. Delay lines are per bin, in the frame domain. | ★★★ | L |
 | H3 | **Spectral freeze** and spectral blur / smear (average magnitudes over time): drones and pads from any sound. | ★★★ | M |
 | H4 | **Spectral gate / filter:** magnitude threshold per bin, or an arbitrary drawn EQ curve; "robotise" (zero phases) and "whisper" (random phases). | ★★ | M |

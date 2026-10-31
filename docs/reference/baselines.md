@@ -34,6 +34,11 @@ Round 11c-3 (2026-10-31, `3ac4f0d`, load average 3.5 to 4.5): `wave` 56 componen
 `wave-split` (the second pane open on the playing sample) 85 and 11.6, `WavePlayhead` 58 (one per pane, at the status
 rate); `WavePane`, `PaneTitle` and `PaneSplitter` render 0 times.
 
+Round 11d-1 (2026-10-31, `0dc9fd5` and `79c090d`, load average 4 to 6, four interleaved pairs): `wave` 56 component
+renders and 13.9 script ms a second on average (12.9 to 15.4); `wave-spectrum` (the lanes on the spectrogram, filled
+in) 56 and 14.5 (13.1 to 16.0); `wave-split` 85 and 14.8. `DetailView`, `WaveLane` and `LaneScale` render 0 times. A
+single pair varies by ±2 ms.
+
 Earlier tables: [round 2](../archive/ui-redesign/PLAN-round-2-shell.md#changes-made-while-implementing) (the
 first, with base comparisons), [round 11a](../archive/ui-redesign/PLAN-round-11a-stereo-and-the-pyramid.md#changes-made-while-implementing),
 [round 11b](../archive/ui-redesign/PLAN-round-11b-in-place-edits.md#changes-made-while-implementing).
@@ -79,6 +84,21 @@ working copy:
 | the same, the first run | 107.8 ms |
 | on the first pane's sample (shared: nothing decoded) | 0 ms |
 
+The spectrogram, round 11d-1 step 6 (2026-10-31, `79c090d`), Chromium 156 (Playwright's) on the dev server's modules
+without the app, load average 2.6 to 3.3, `scripts/measure-spectrogram.cjs`, FFT 2048, the worker:
+
+| 120 s stereo, 48 kHz | Time |
+|---|---:|
+| from *Spectrogram* to the view's columns (25 s at 600 frames a pixel), median of 3 | 239 ms |
+| from *Spectrogram* to the whole pyramid (45.4 MB) | 930 to 950 ms |
+| the longest main-thread task while it fills (the observer saw a 60 ms test task) | none over 50 ms |
+| one redraw of two 1400 × 300 lanes from the pyramid (`spectrumColumnsFor`, `paintSpectrum` twice) | 11.3 to 11.9 ms |
+| `updateSpectrumPyramid` after a 1 s Gain at 60 s (copying the untouched columns) | 5 to 15 ms |
+| the edit's result refilled after the edit (98 base columns) | 9 to 10 ms |
+| the edit's longest task, spectrogram on / waveform only (P5) | 104 to 130 / 98 to 123 ms |
+| a view's columns on demand at 50 frames a pixel, 1400 px (2100 columns a channel) | 131 to 145 ms |
+| one base column of one channel, main thread | 41 µs |
+
 | In-place edit flow, stereo | apply | encode | hash | store | total |
 |---|---:|---:|---:|---:|---:|
 | 5 s | 0.2 ms | 1.7 ms | 0.9 ms | 1.4 ms | 4.2 ms |
@@ -101,4 +121,5 @@ old projects may sound different.
 
 After the vendor chunk split, the main chunk went from 705.5 kB to 400.1 kB, React 218.8 kB, menu dependencies
 85.8 kB, and the audio worklet 117.8 kB (slice 1, 2026-10). These numbers predate the redesign; measure again before
-using them ([BACKLOG](../BACKLOG.md#performance) P4).
+using them ([BACKLOG](../BACKLOG.md#performance) P4). The spectrum worker is its own chunk, 106.5 kB (round 11d-1,
+2026-10-31): it imports `@core`'s index.

@@ -1,7 +1,7 @@
 # Samples and the wave editor
 
-How samples are stored, decoded and drawn, and the wave editor (in-place edits, the peak pyramid, processes, markers,
-regions and the loop, snap, *Revert to original*).
+How samples are stored, decoded and drawn, and the wave editor (in-place edits, the peak pyramid, the spectrogram,
+processes, markers, regions and the loop, snap, *Revert to original*).
 
 ## Samples
 
@@ -142,6 +142,42 @@ rebuilt the inside; round 11b made edits change the sample in place.
   its only reader and the one drawing rule: from 64 frames per pixel up, min and max from the finest level whose bucket
   fits in a column (`peaks`); from 1 to 64, min and max read from the audio (`frames`); under 1, the sample points
   (`points`), with dots from 8 px per frame. The base and the step are private constants there.
+* **The spectral core** (`core/spectrum/`). `createFft(size)`, a radix-2 real FFT (a complex FFT of half the size, then
+  a split pass), with its tables made once and nothing allocated per call; periodic Hann and Blackman-Harris windows
+  (`windowOf`, made once per kind and size); `createStft({ size, hop, window })`, one column at a time centred on a
+  frame (frames outside the channel read as zero): its spectrum, its levels in dB (a full-scale sine on a bin reads
+  0 dB), its bytes, and `overlapAdd`, which with Hann at a quarter hop gives the signal back within 1e-6. Levels are
+  stored as bytes over −120 to 0 dB (`dbToByte`, `SPECTRUM_DB_FLOOR`). It is pure and runs in Node and in a worker.
+* **The spectrum pyramid** (`core/spectrum/pyramid.ts`). Level 0 has a column per hop, a quarter of the FFT size (512
+  at 2048), its Blackman-Harris window centred on the middle of its hop, a byte per bin per channel; each next level
+  keeps the loudest of two columns per bin until a level has at most 512 columns. The bytes are the same at every FFT
+  size (within 2 %): about 23 MB a channel for 120 s at 48 kHz, 46 MB for stereo. It fills in parts: an empty pyramid
+  (`createSpectrumPyramid`) has a `filled` flag per column at every level; `fillSpectrum` computes base columns and the
+  levels above them, `putSpectrumColumns` writes base columns computed elsewhere (`spectrumColumnBytes`, from a slice
+  of a channel), in any order, ending equal to `buildSpectrumPyramid`. After an edit,
+  **`updateSpectrumPyramid(previous, audio, changed)`** copies the columns whose windows lie wholly outside the changed
+  frames (and the level columns over them) and leaves the rest to fill (`columnsToFill`). `spectrumChunks` orders what
+  is left in chunks of 256 base columns, those over a range of frames first, then outwards. **`spectrumColumnsFor(view,
+  pyramid)`** is the drawing rule: from a hop per pixel up, each pixel column takes the columns it covers from the finest
+  level whose column fits (`levels`); under a hop, the base column under its middle (`stretched`); `pending` while a
+  column in view isn't filled.
+* **The spectra** (`app/wave-spectrum.ts`, `state/wave-spectrum-store.ts`). While the lanes show the spectrogram,
+  each sample a pane shows has a spectrum at the setting's FFT size (`spectra`, by sample id, so two panes on one
+  sample share it), filled in place chunk by chunk by the **spectrum service** (`audio/spectrum.ts`,
+  `spectrumOf(job, onChunk, onDone)`: a module worker, `audio/spectrum-worker.ts`, started on the first job and shared;
+  each chunk is sent with only the frames its windows read, copied and transferred, two chunks in flight per job; the
+  worker keeps nothing between requests; where there is no worker, or it fails, the main thread computes the same
+  chunks, one per task). The pane's view comes first (taken as 2000 px wide, since the stores keep no width). An edit's
+  result carries its source and the changed frames on its working copy (`editedFrom`), so its spectrum starts as the
+  source's updated pyramid and only the columns touching the change are computed. A spectrum goes, and its job stops,
+  when no pane shows the sample, the lanes stop showing the spectrogram, or the FFT size changes; an undo back to a
+  sample computes its spectrum again. Each chunk bumps the spectrum's `version`, which the lanes subscribe to.
+* **Columns on demand** (`core/spectrum/on-demand.ts`). Zoomed in past the hop, a pane's lanes draw the base columns
+  stretched and, once the view has stayed put for a frame, ask for the view's own columns (`spectrumAsk`: one per pixel,
+  at least an eighth of the hop apart, over the view and a quarter of its width on each side) through the store
+  (`asks[pane]`); the spectra service computes them with the same service and answers (`answers[pane]`) if the ask is
+  still the pane's. They are drawn (`onDemandColumnsFor`, `on-demand`) while the view is at the same zoom and within
+  them; a newer ask stops the older one.
 * **View state** (`state/wave-editor-store.ts`), in memory, keyed by **pane and origin** (`waveViewKey(pane,
   originOf(sample))`, `main:<origin>`, `second:<origin>`), so a view follows its sample through edits, undo and redo,
   and two panes on one sample keep their own: `framesPerPixel` (null: fit the whole sample), `startFrame`, `cursor`,
@@ -208,11 +244,25 @@ rebuilt the inside; round 11b made edits change the sample in place.
 * **Drawing without React.** Zoom and scroll write to the store; the detail, the overview's box, the ruler and the mark
   lane subscribe to the store directly and redraw in an animation frame (and on resize); the detail also redraws when
   the project's samples change, for the marks' lines. React renders only when the sample, the selection or the cursor
-  changes, and the mark lane only when the marks do. A lane is drawn by a **lane renderer** (`lane-renderers.ts`), `{ draw(context,
-  columns, size, colors), scale(context, size, colors) }`: `draw` fills the lane, `scale` its gutter. The waveform
-  (`waveformRenderer`) is the only one, a spectrogram would be a second. Its scale marks 0, −6 and −12 dB above and
-  below the middle and −∞ on it (`levelMarks(height)`: a label only 11 px or more below the last). Each gutter is its
-  own canvas (`LaneScale`), drawn on mount and on resize, never on zoom or scroll.
+  changes, and the mark lane only when the marks do.
+* **Lane modes.** *View ▾* sets what every lane of both panes shows (`useWaveEditSettings.lanes`, per browser under
+  `sfxlab:wave-lanes`): *Waveform* (the default), *Spectrogram*, or *Split*, the waveform over the spectrogram (a
+  third, `SPLIT_WAVE_SHARE`, and two thirds). `laneParts(lanes)` gives a lane's parts; `WaveLane` and `LaneScale` draw
+  each through its **lane renderer** (`lane-renderers.ts`, `{ draw(context, data, size, colors), scale(context, size,
+  colors) }`, `LaneRenderers`: `waveform` and `spectrogram`), clipped and moved to the part's box. `DetailView` asks
+  `columnsFor` for the waveform and `spectrumColumnsFor` (or the columns on demand) for the spectrogram, and nothing
+  else knows which mode is on; it sets `data-draw` and `data-spectrum` to what it drew. The selection is a veil under
+  the waveform and over the spectrogram, with a 1 px accent line at each edge there. The waveform's scale marks 0, −6
+  and −12 dB above and below the middle and −∞ on it (`levelMarks(height)`: a label only 11 px or more below the last).
+  The **spectrogram** (`spectrogram.ts`, a renderer per scale, floor and sample rate, `useLaneRenderers`) maps each
+  pixel row to bins on the frequency scale (`binRows`: the loudest of a row's bins, or the nearest where a row is finer
+  than a bin) and each byte to a color through one 256-entry table (`SPECTRUM_COLORS`, from the background through
+  violet and the accent's amber to white), shifted by the floor (`colorLookup`); it paints an `ImageData` at the
+  part's size in CSS pixels and draws it through a scratch canvas with smoothing off. Its scale (`frequencyMarks`)
+  labels 50, 100, 200, 500, 1k, 2k, 5k, 10k and 20k on the log scale (20 Hz to the Nyquist frequency), even kHz steps
+  on the linear one, at least 24 px apart. ⚙ sets the scale (log by default), the FFT size (1024, 2048, 4096) and the
+  floor (−120 to −60 dB, −100 by default), per browser under `sfxlab:wave-spectrum`. Each gutter is its own canvas,
+  drawn on mount, on resize and when the renderers change, never on zoom or scroll. The overview stays the waveform.
 * **The right-click menu** is the **`sample-selection`** subject's (`{ kind: 'sample-selection', sampleId, pane }`,
   "Selection in *name*", `state/actions/sample-selection.ts`): *Cut*, *Copy*, *Paste*, *Delete*, *Crop* (one group,
   `clipboard`, as on the toolbar) · the processes (`process`, built from the registry by `processActions`, so a new
@@ -345,4 +395,5 @@ rebuilt the inside; round 11b made edits change the sample in place.
   audio is gone goes). Then the panes' sample ids change. `encodeWav` (mono 16-bit)
   stays for the demo samples, whose ids are hashes of its bytes.
 * **Not yet.** Linked scrolling between the panes, and a third; previewing a process before applying it; a crossfaded
-  loop and a loop finder; the spectrogram; the granular stage.
+  loop and a loop finder; selecting a frequency band and editing it (round 11d, part 2); frequency zoom; the granular
+  stage.

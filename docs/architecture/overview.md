@@ -29,7 +29,7 @@ third-party packages such as `@radix-ui/…`, so those are checked against the s
 | Layer | Owns | May import |
 |---|---|---|
 | `core` | the document model, DSP, audio engine, scheduling, file format | itself only |
-| `audio` | `AudioContext`, worklet shell, thread protocol, audio-file decoding | `@core` |
+| `audio` | `AudioContext`, worklet shell, thread protocol, audio-file decoding, the spectrum worker and its service | `@core` |
 | `storage` | `localStorage`/IndexedDB adapters, autosaver, project files & packages, hashing | `@core` (+ `fflate`) |
 | `state` | zustand stores, `EngineControls` / `ProjectFiles` interfaces | `@core` |
 | `ui` | React components | `@core`, `@state` (+ `react`, `@radix-ui/react-context-menu`) |

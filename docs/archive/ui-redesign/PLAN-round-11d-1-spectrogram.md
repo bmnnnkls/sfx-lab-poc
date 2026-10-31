@@ -1,12 +1,14 @@
 ---
-status: active
+status: done
 date: 2026-10-31
-note: "Plan signed off 2026-10-31 as proposed; not started. Part 4 of the handling-and-spectrum spec (round 11d, part 1): the spectral core and a read-only spectrogram in the wave editor."
+shipped_in: architecture/samples-and-wave-editor.md
+note: "Part 4 of the handling-and-spectrum spec (round 11d, part 1): the spectral core and a read-only spectrogram. The hand pass is BACKLOG V10; the edit's long task on long samples is P5; part 2 (spectral edits) is U9."
 ---
 # Round 11d, part 1: the spectral core and the spectrogram
 
-Status: **plan, signed off** 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the [UI redesign](ui-redesign-roadmap.md). Carries
-out part 4 of the signed-off [handling and spectrum spec](SPEC-wave-editor-handling-and-spectrum.md) (§ 5, § 7,
+Status: **done** 2026-10-31; plan signed off 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the
+[UI redesign](README.md). Carries out part 4 of the signed-off [handling and spectrum
+spec](../../active/SPEC-wave-editor-handling-and-spectrum.md) (§ 5, § 7,
 § Suggested split): the spectral core (IDEAS H1), a spectrum pyramid computed in a Web Worker, and a spectrogram in the
 lanes, read only. Spectral selection and the band edits (§ 8) are part 2, with a plan of their own once this one has
 landed. The inventory was taken on `feat/ui-redesign` at `9d44a5a` (round 11c done). The spec's decisions are settled
@@ -244,7 +246,7 @@ step must keep.
 6. **Docs, the profile and the measures.** `architecture/samples-and-wave-editor.md` (lane modes, the renderer table,
    the spectrum pyramid, the worker and its jobs, the columns on demand), `architecture/overview.md` if the worker
    changes the layering's picture, `reference/formats-and-versions.md` (the two keys), `reference/baselines.md` (the
-   measures), IDEAS H1 marked done; the notes sorted per [doc-workflow](../dev/doc-workflow.md); STATUS, BACKLOG (U9
+   measures), IDEAS H1 marked done; the notes sorted per [doc-workflow](../../dev/doc-workflow.md); STATUS, BACKLOG (U9
    becomes part 2; V10's hand pass grows); the plan to `archive/ui-redesign/`. The spec stays in `active/` for part 2.
 
 ## Behavior changes
@@ -361,3 +363,20 @@ at a quarter hop; `overlapAdd` scales by the windows' squares summed over a hop,
 * **Profile** (load average 4 to 6, step 5's tree, interleaved): `wave` **56** renders and 13.0, 12.9 and 14.4 script ms
   a second; `wave-spectrum` **56** and 16.0, 13.1 and 15.6; `wave-split` **85** and 14.8. With step 4's pair, `wave`
   averages 13.9 script ms and `wave-spectrum` 14.5 (+4 %), within the plan's 10 %; a single pair varies by ±2 ms.
+
+**Step 6 (docs, the profile and the measures).**
+
+* **The measures** (`scripts/measure-spectrogram.cjs`, `79c090d`, load average 2.6 to 3.3) for 120 s of stereo at
+  48 kHz: the view's columns in **239 ms**, the whole pyramid (45.4 MB) in **930 to 950 ms**, **no main-thread task
+  over 50 ms** while it fills (the script first checks the observer sees a 60 ms task it makes); a redraw of two
+  1400 × 300 lanes 11.3 to 11.9 ms; `updateSpectrumPyramid` after a 1 s Gain 5 to 15 ms, the result refilled (98
+  columns) in 9 to 10 ms; columns on demand for a 1400 px view at 50 frames a pixel in 131 to 145 ms; a base column of
+  one channel 41 µs.
+* **The in-place edit itself has a task of 100 to 130 ms** on 120 s stereo (applying, encoding and hashing), with the
+  spectrogram on or off (98 to 123 ms with the waveform only): it predates this round, and went to BACKLOG P5.
+* The script's own timings ran in one long task with the edit's start, which read at first as a 400 ms task in the
+  edit; it now yields before watching the edit.
+* The profile's figures are in steps 4 and 5; they went to `reference/baselines.md` with the measures.
+* Decisions 55 to 59, gotchas (`putImageData` and the transform; a worker's types; short samples in specs; whole-frame
+  slices), the pixel check and the worker-function technique in `dev/verification.md`, the two storage keys, IDEAS H1
+  marked built, and `architecture/overview.md`'s `audio` row naming the worker.

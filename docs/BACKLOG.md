@@ -10,11 +10,10 @@ Reconciled with the code on 2026-10-31 (`feat/ui-redesign` after round 11c, part
 
 Planned round by round. Each round gets a plan in [`active/`](active/) before it starts.
 
-- **U9 Round 11d: the spectrogram and spectral edits** in the wave editor
-  ([spec](active/SPEC-wave-editor-handling-and-spectrum.md), signed off): the FFT core (idea H1), a spectrum
-  pyramid computed in a worker, time-and-frequency selection, band gain and keep band. In two parts: part 1, the
-  spectral core and a read-only spectrogram, is planned
-  ([plan](active/PLAN-round-11d-1-spectrogram.md), signed off, not started); part 2, band selection and the band edits, is planned after it.
+- **U9 Round 11d, part 2: spectral selection and edits** in the wave editor
+  ([spec](active/SPEC-wave-editor-handling-and-spectrum.md) § 8, signed off): a frequency band on the selection,
+  drawn as a box in the spectrogram, band gain and keep band as added differences. Part 1 (the spectral core and a
+  read-only spectrogram) is done ([plan](archive/ui-redesign/PLAN-round-11d-1-spectrogram.md)).
 - **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline (groups are
   control owners but not automation owners yet), recording into the arrangement (touch recording on the timeline).
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
@@ -60,7 +59,8 @@ Things that shipped without the check their plan asked for.
   mouse; edge drags, marker, region and loop drags and auto-scroll on a trackpad; Alt held during a drag with snapping
   on; rename in place in the mark lane; the folded mark lane under 300 px; the right-click menu with Shift+F10; with
   two panes, copying from one sample into another, the splitter on a trackpad, which pane the toolbar and keys act on,
-  and both panes under 300 px.
+  and both panes under 300 px; the spectrogram (round 11d-1): its colors and frequency scale in both themes, *Split*
+  under 300 px, the fill-in on a long file, zooming in and scrolling on a trackpad (the columns on demand).
 
 ## Performance
 
@@ -75,6 +75,9 @@ Things that shipped without the check their plan asked for.
 - **P3 Profile idle-track inserts and sends and dense automated note graphs** with reproducible measurements. CPU
   figures in old exploration notes are not a benchmark.
 - **P4 Lazy example loading**, measured against the current chunk graph.
+- **P5 The in-place edit of a long sample blocks the main thread**: on 120 s of stereo, one task of 100 to 130 ms
+  (applying the edit, encoding the WAV and hashing it), with the spectrogram on or off (round 11d-1's measure). Move
+  the encode and the hash to a worker, or split them into tasks.
 
 ## Storage
 
