@@ -6,7 +6,7 @@ shipped_in: architecture/samples-and-wave-editor.md
 # Round 11a: stereo and the pyramid
 
 Status: **done** 2026-10-29; plan signed off 2026-10-29, decisions as proposed. Written 2026-10-29. Part of the [UI redesign](README.md). Carries out the first of
-the three parts in the signed-off [round 11 spec](../../active/SPEC-round-11-wave-editor.md) (§ Suggested split), from a second
+the three parts in the signed-off [round 11 spec](SPEC-round-11-wave-editor.md) (§ Suggested split), from a second
 inventory of the code it touches, taken on `imp/jovial-fermat-5ae301` at `be367c6` (round 10 done and the spec
 signed off, neither merged into `feat/ui-redesign` yet). The spec's decisions are settled and not repeated here; this
 plan only adds the ones it raises.
