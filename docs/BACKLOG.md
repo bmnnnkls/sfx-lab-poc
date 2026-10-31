@@ -12,7 +12,9 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
 
 - **U9 Round 11d: the spectrogram and spectral edits** in the wave editor
   ([spec](active/SPEC-wave-editor-handling-and-spectrum.md), signed off): the FFT core (idea H1), a spectrum
-  pyramid computed in a worker, time-and-frequency selection, band gain and keep band.
+  pyramid computed in a worker, time-and-frequency selection, band gain and keep band. In two parts: part 1, the
+  spectral core and a read-only spectrogram, is planned and waiting for sign-off
+  ([plan](active/PLAN-round-11d-1-spectrogram.md)); part 2, band selection and the band edits, is planned after it.
 - **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline (groups are
   control owners but not automation owners yet), recording into the arrangement (touch recording on the timeline).
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
