@@ -36,9 +36,9 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 1. **Round 11c, parts 2 and 3: markers and regions** (with *Revert to original*), **then a second pane** in the wave
    editor. Specified in [active/SPEC-round-11-wave-editor.md](active/SPEC-round-11-wave-editor.md) and
    [active/SPEC-wave-editor-handling-and-spectrum.md](active/SPEC-wave-editor-handling-and-spectrum.md) (signed off
-   2026-10-29), which is followed by round 11d: the spectrogram and spectral edits. Part 2 is planned in
-   [active/PLAN-round-11c-2-markers-and-regions.md](active/PLAN-round-11c-2-markers-and-regions.md), waiting for
-   sign-off; part 3 isn't planned yet. Part 1,
+   2026-10-29), which is followed by round 11d: the spectrogram and spectral edits. Part 2, with the sampler's loop points and format v12, is planned in
+   [active/PLAN-round-11c-2-markers-and-regions.md](active/PLAN-round-11c-2-markers-and-regions.md) (signed off
+   2026-10-31, not started); part 3 isn't planned yet. Part 1,
    handling (a grouped toolbar, the right-click menu, keys, the mouse, a status bar and a level scale), is done
    ([plan](archive/ui-redesign/PLAN-round-11c-1-handling.md), 2026-10-31).
 2. **Round 12: the arrangement editor.** Track headers, automation lanes on the timeline (groups too), recording into

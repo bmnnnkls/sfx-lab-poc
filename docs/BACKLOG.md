@@ -14,8 +14,8 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
   ([spec](active/SPEC-round-11-wave-editor.md), [handling and spectrum](active/SPEC-wave-editor-handling-and-spectrum.md),
   both signed off), including *Revert to original*. 11b left that to 11c because remapping trims back through a chain
   of edits needs the chain, which isn't kept. The second pane adds a `pane` to the `sample-selection` subject and the
-  view key. Part 1, handling, is done; part 2 has a [plan](active/PLAN-round-11c-2-markers-and-regions.md), waiting
-  for sign-off.
+  view key. Part 1, handling, is done; part 2 has a [plan](active/PLAN-round-11c-2-markers-and-regions.md) (signed
+  off, not started), with the sampler's loop points and format v12.
 - **U9 Round 11d: the spectrogram and spectral edits** in the wave editor
   ([spec](active/SPEC-wave-editor-handling-and-spectrum.md), signed off): the FFT core (idea H1), a spectrum
   pyramid computed in a worker, time-and-frequency selection, band gain and keep band.
@@ -29,6 +29,8 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
 - **U6 Grouping several tracks at once**: needs a track multi-selection first.
 - **U7 Track audio from a bus** (sidechain from a drum bus): the picker, repair and cleanup remain.
 - **U8 Preview a wave-editor process before applying it** (a `sample/previewData` command).
+- **U10 A crossfaded sampler loop and a loop finder**: round 11c part 2 plays a sample's loop with a plain wrap; snap
+  to zero crossings is how to set clean points until then.
 
 ## Verification debt
 

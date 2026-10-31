@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-10-31
-note: "Plan written 2026-10-31, waiting for sign-off. Part 2 of the handling-and-spectrum spec: markers, regions, snap, Revert to original and the sampler's loop points; format v12."
+note: "Plan signed off 2026-10-31 as proposed; not started. Part 2 of the handling-and-spectrum spec: markers, regions, snap, Revert to original and the sampler's loop points; format v12."
 ---
 # Round 11c, part 2: markers, regions and loop points
 
-Status: **plan, waiting for sign-off.** Written 2026-10-31, revised the same day: format v12 and loop points in this
+Status: **plan, signed off** 2026-10-31, every decision as proposed. Written 2026-10-31, revised the same day: format v12 and loop points in this
 part (the user: only the two example projects exist, so a version bump and an engine change are fine). Part of the
 [UI redesign](ui-redesign-roadmap.md). Carries out part 2 of the signed-off [handling and spectrum
 spec](SPEC-wave-editor-handling-and-spectrum.md) (§ Suggested split): markers, regions, snap and *Revert to
@@ -313,6 +313,8 @@ in `old-projects.test.ts` must hold at every step; step 4 changes the engine, so
   the folded lane, and listening to a looped sampler.
 
 ## Decisions to sign off
+
+Signed off 2026-10-31: every row as proposed.
 
 | Question | Proposed | Alternative |
 |---|---|---|
