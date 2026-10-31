@@ -323,3 +323,11 @@ Signed off 2026-10-31: every row as proposed.
 * **Step 3: profile.** `profile-status.cjs wave`: 56 component renders a second, as 11b (29 `WavePlayhead`, 27
   `LevelMeter`, 0 for every editor component, the new `ProcessMenu`, `ViewMenu`, `EditorSettings`, `WaveStatus` and
   `LaneScale` added to the watched list). Production build: script 13.8 ms/s, layout 14.2 ms/s, style 12.5 ms/s.
+* **Step 4: the cursor is the moving end of a selection made with the keys.** Shift with an arrow, Home or End moves
+  the end the cursor is on (`from` when the cursor is there, else `to`, which covers a mouse drag, after which the
+  cursor is where the last click left it), keeps the other, and puts the cursor on the moved end. Moving it onto the
+  other end leaves no selection. A column is the view's frames per pixel, rounded, at least one frame. Alt with an
+  arrow moves from the selection's side and clears it, as an arrow does.
+* **Step 4: keys by `keyOf`** (`ui/commands/keys`), so `+` is `plus` or `shift+plus` and `=` is `=`; the handler ignores
+  a held P or Z repeating. Escape without a selection isn't a view key, so it reaches whatever else takes it. The rows
+  in `VIEW_KEYS` are the table's, one per line of it.

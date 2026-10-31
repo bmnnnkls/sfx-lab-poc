@@ -392,3 +392,39 @@ test('Delete with the lanes focused deletes the selection, not while typing a na
   await expect(status).toHaveText(new RegExp(`^Cursor 0:0${Math.floor(selected.from)}\\.`))
   await expect.poll(duration).toBeCloseTo(4 - (selected.to - selected.from), 2)
 })
+
+test('the view keys select with Shift+→, zoom to it with Z, clear it with Escape, and P plays and stops', async ({ page }) => {
+  const { wave, detail, status } = await openStereo(page)
+  const box = (await detail.boundingBox())!
+  const overviewBox = wave.getByRole('scrollbar', { name: 'Waveform position' }).locator('div')
+  await page.mouse.click(box.x + box.width * 0.25, box.y + box.height / 2)
+  await expect(detail).toBeFocused()
+
+  // Ten columns: the fitted view has 4 s across the detail's width.
+  for (let i = 0; i < 10; i++) await page.keyboard.press('Shift+ArrowRight')
+  const selected = await selectionOf(wave)
+  expect(selected.to - selected.from).toBeCloseTo((10 * 4) / box.width, 2)
+
+  const before = (await overviewBox.boundingBox())!.width
+  await page.keyboard.press('z')
+  await expect.poll(async () => (await overviewBox.boundingBox())!.width).toBeLessThan(before / 10)
+  await page.keyboard.press('Shift+Z')
+  await expect.poll(async () => (await overviewBox.boundingBox())!.width).toBeCloseTo(before, 0)
+
+  await page.keyboard.press('Escape')
+  await expect(status).toHaveText(`Cursor 0:${selected.from.toFixed(3).padStart(6, '0')}`)
+
+  await page.keyboard.press('p')
+  await expect(wave.getByTestId('wave-playhead')).toBeVisible()
+  await page.keyboard.press('p')
+  await expect(wave.getByTestId('wave-playhead')).toHaveCount(0)
+})
+
+test('the shortcuts dialog lists the Wave editor keys', async ({ page }) => {
+  await page.goto('/?starter')
+  await page.getByRole('banner').getByRole('button', { name: 'View', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Keyboard shortcuts', exact: true }).click()
+  const views = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true }).getByRole('region', { name: 'In the views' })
+  await expect(views.getByText('Wave editor: Zoom to the selection, zoom to fit', { exact: true })).toBeVisible()
+  await expect(views.getByText('Wave editor: Extend the selection from the cursor', { exact: true })).toBeVisible()
+})

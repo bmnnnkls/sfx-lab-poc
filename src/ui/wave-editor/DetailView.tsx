@@ -1,17 +1,17 @@
 import { columnsFor, frameCount } from '@core'
-import { type Subject, type WaveAudio, type WaveChannels, useStatusStore, useWaveEditorStore, waveViewOf } from '@state'
+import { type Subject, type WaveAudio, type WaveChannels, toggleWavePreview, useSampleLibrary, useStatusStore, useWaveEditorStore, waveViewOf } from '@state'
 import { type RefObject, useEffect, useMemo, useRef } from 'react'
+import { IS_APPLE, keyOf } from '../commands/keys'
 import { ActionMenu } from '../shared/menu'
 import { laneColumns, waveformRenderer } from './lane-renderers'
 import { WaveLane, type WaveLaneHandle } from './WaveLane'
 import { currentView } from './current-view'
-import { coversChannel, frameAt, menuTargetAt, resolveView, xOf, zoomAround } from './wave-geometry'
+import { WHEEL_ZOOM, coversChannel, frameAt, menuTargetAt, resolveView, xOf, zoomAround } from './wave-geometry'
+import { waveKeyAction } from './wave-keys'
 import styles from './WaveEditor.module.css'
 
 /** A press that moves less than this is a click (sets the cursor), not a drag (selects). */
 const DRAG_PX = 3
-/** How much one wheel notch (100 px of delta) zooms. */
-const WHEEL_ZOOM = 1.25
 
 /** Which channels a press selects: on a stereo sample, the top quarter of the left lane is left only, the bottom quarter of the right lane right only. */
 const channelsAt = (element: HTMLElement, clientY: number, stereo: boolean): WaveChannels => {
@@ -47,6 +47,7 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
   const handles = useMemo(() => audio.channels.map((_, index) => (lane: WaveLaneHandle | null) => void (lanes.current[index] = lane)), [audio])
   const drag = useRef<{ anchor: number; startX: number; channels: WaveChannels; moved: boolean } | null>(null)
   const subject = useMemo<Subject>(() => ({ kind: 'sample-selection', sampleId: wave.sampleId }), [wave.sampleId])
+  const library = useSampleLibrary()
 
   // Draws the lanes from the store, at most once per animation frame.
   useEffect(() => {
@@ -124,6 +125,19 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
           if (target === 'keep') return
           store.select(viewKey, null)
           store.setView(viewKey, { cursor: target.cursor })
+        }}
+        onKeyDown={(event) => {
+          // The view keys (`waveKeyAction`); anything else goes on to the global keys and the browser.
+          const key = keyOf(event, IS_APPLE)
+          const store = useWaveEditorStore.getState()
+          const action = key && waveKeyAction(key, waveViewOf(store.views, viewKey), frames, event.currentTarget.clientWidth)
+          if (!action) return
+          event.preventDefault()
+          if (event.repeat && (action.play || action.zoom)) return
+          if (action.selection !== undefined) store.select(viewKey, action.selection)
+          if (action.cursor !== undefined || action.view) store.setView(viewKey, { ...(action.cursor !== undefined && { cursor: action.cursor }), ...action.view })
+          if (action.zoom) store.zoom(viewKey, action.zoom)
+          if (action.play) toggleWavePreview(library, wave.sampleId)
         }}
         onPointerDown={(event) => {
           event.currentTarget.focus({ preventScroll: true })

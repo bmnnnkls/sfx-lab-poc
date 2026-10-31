@@ -1,6 +1,9 @@
 import type { WaveView } from '@core'
 import type { WaveEditorView, WaveSelection, WaveZoom } from '@state'
 
+/** How much one wheel notch (100 px of delta) zooms. */
+export const WHEEL_ZOOM = 1.25
+
 /** The closest zoom: 32 px per frame. */
 export const MIN_FRAMES_PER_PIXEL = 1 / 32
 
