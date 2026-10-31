@@ -39,6 +39,11 @@ renders and 13.9 script ms a second on average (12.9 to 15.4); `wave-spectrum` (
 in) 56 and 14.5 (13.1 to 16.0); `wave-split` 85 and 14.8. `DetailView`, `WaveLane` and `LaneScale` render 0 times. A
 single pair varies by ±2 ms.
 
+Round 11d-2 (2026-10-31, `6d134da`, load average 4 to 5): `wave` 56 and 15.2; `wave-split` 85 and 15.1;
+`wave-spectrum`, its setup now drawing a box in the spectrogram (so ▶ loops the box's time range), 57 and 11.2 to 14.7:
+`WavePlayhead` renders 29 times a second, at the status rate. `DetailView`, `WaveLane`, `WaveStatus` and `LaneScale`
+render 0 times.
+
 Earlier tables: [round 2](../archive/ui-redesign/PLAN-round-2-shell.md#changes-made-while-implementing) (the
 first, with base comparisons), [round 11a](../archive/ui-redesign/PLAN-round-11a-stereo-and-the-pyramid.md#changes-made-while-implementing),
 [round 11b](../archive/ui-redesign/PLAN-round-11b-in-place-edits.md#changes-made-while-implementing).
@@ -99,6 +104,17 @@ without the app, load average 2.6 to 3.3, `scripts/measure-spectrogram.cjs`, FFT
 | a view's columns on demand at 50 frames a pixel, 1400 px (2100 columns a channel) | 131 to 145 ms |
 | one base column of one channel, main thread | 41 µs |
 
+Band gain, round 11d-2 step 5 (2026-10-31, `6d134da`), the same script and setup, load average 3 to 5, two runs: band
+gain (200 Hz to 2 kHz, −12 dB, both channels) through the app, applied in the spectrum worker. The longest task is the
+edit's own encode and hash ([BACKLOG](../BACKLOG.md#performance) P5); the last column is the same edit applied on the
+main thread, one task.
+
+| 120 s stereo, 48 kHz, band gain over | to the result | longest main-thread task | spectrum refilled | on the main thread |
+|---|---:|---:|---:|---:|
+| 1 s | 123 to 125 ms | 107 to 109 ms | 11 to 12 ms | 14 to 16 ms |
+| 10 s | 204 to 227 ms | 108 to 116 ms | 82 ms | 95 to 98 ms |
+| the whole sample | 1.24 to 1.25 s | 95 to 113 ms | 936 to 937 ms | 1.0 s |
+
 | In-place edit flow, stereo | apply | encode | hash | store | total |
 |---|---:|---:|---:|---:|---:|
 | 5 s | 0.2 ms | 1.7 ms | 0.9 ms | 1.4 ms | 4.2 ms |
@@ -122,4 +138,4 @@ old projects may sound different.
 After the vendor chunk split, the main chunk went from 705.5 kB to 400.1 kB, React 218.8 kB, menu dependencies
 85.8 kB, and the audio worklet 117.8 kB (slice 1, 2026-10). These numbers predate the redesign; measure again before
 using them ([BACKLOG](../BACKLOG.md#performance) P4). The spectrum worker is its own chunk, 106.5 kB (round 11d-1,
-2026-10-31): it imports `@core`'s index.
+2026-10-31), 109.6 kB with the band edits (round 11d-2): it imports `@core`'s index.

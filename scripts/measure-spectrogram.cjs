@@ -13,6 +13,11 @@
 //   onDemandMs  A view at 50 frames a pixel, 1400 px wide: from its ask to its answer, median of 5.
 //   columnUs   One base column of one channel at FFT 2048 on the main thread (the worker's cost per column), median
 //              of 5 runs of 2000.
+//   bandGain   Band gain (200 Hz to 2 kHz, −12 dB, both channels) through the app, applied in the worker (round
+//              11d-2), over 1 s and 10 s at 60 s and over the whole sample: resultMs from the call to the result in the
+//              pane, longestTaskMs the longest main-thread task meanwhile (the edit's own encode and hash, P5,
+//              included), refillMs from the result to its spectrum filled again; mainThreadMs the same edit applied on
+//              the main thread (`applyBandEditTo`), what the worker keeps off it.
 // Median of 3 runs for view, full and editRefillMs, each on a sample not opened before.
 //
 // Usage: start the dev server (`npx vite --port 5288`), then `node scripts/measure-spectrogram.cjs http://localhost:5288`.
@@ -71,9 +76,10 @@ const main = async () => {
     }
     const runs = [await sample(1, 'One'), await sample(2, 'Two'), await sample(3, 'Three')]
     useProjectStore.getState().resetProject({ ...core.createEmptyProject(), samples: runs })
-    const library = createSampleLibrary(storage, { send: () => {} }, { freeBytes: async () => null })
+    const spectrumService = createSpectrumService()
+    const library = createSampleLibrary(storage, { send: () => {} }, { freeBytes: async () => null, spectrum: spectrumService })
     library.connect()
-    createWaveSpectra(createSpectrumService()).connect()
+    createWaveSpectra(spectrumService).connect()
 
     const viewFrom = 60 * rate
     const viewTo = viewFrom + 600 * 2000
@@ -160,6 +166,28 @@ const main = async () => {
       }
     }
 
+    // Band gain through the app, in the worker.
+    const bandGain = {}
+    const allFilled = () => useWaveSpectrumStore.getState().spectra[useWaveAudioStore.getState().panes.main.sampleId]?.pyramid.levels[0].filled.every((flag) => flag === 1)
+    await until(allFilled)
+    for (const [label, from, seconds] of [['1s', viewFrom, 1], ['10s', viewFrom, 10], ['whole', 0, 120]]) {
+      const band = { kind: 'band-gain', range: { from, to: from + seconds * rate }, channels: 'both', band: { low: 200, high: 2000 }, db: -12, feather: { frames: 240, octaves: 1 / 6 } }
+      const shownNow = useWaveAudioStore.getState().panes.main
+      const main = performance.now()
+      core.applyBandEditTo(shownNow.audio, band)
+      const mainThreadMs = performance.now() - main
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      longest = 0
+      const start = performance.now()
+      await library.editSample(shownNow.sampleId, band, { asCopy: false, pane: 'main' })
+      const resultMs = performance.now() - start
+      const refillStart = performance.now()
+      await until(allFilled)
+      const refillMs = performance.now() - refillStart
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      bandGain[label] = { resultMs: +resultMs.toFixed(1), longestTaskMs: +longest.toFixed(1), refillMs: +refillMs.toFixed(1), mainThreadMs: +mainThreadMs.toFixed(1) }
+    }
+
     // The cost of a column, on this thread.
     const columns = []
     for (let run = 0; run < 5; run++) {
@@ -182,6 +210,7 @@ const main = async () => {
       refilledColumns: refilled,
       onDemandMs: onDemand.length ? median(onDemand) : null,
       columnUs: median(columns),
+      bandGain,
       spectrumMB: +(core.spectrumBytes(frames, 2, 2048) / 1e6).toFixed(1),
     }
   })

@@ -9,7 +9,7 @@ note: "Part 2 of the handling-and-spectrum spec: markers, regions, snap, Revert 
 Status: **done** 2026-10-31; plan signed off 2026-10-31, every decision as proposed. Written 2026-10-31, revised the same day: format v12 and loop points in this
 part (the user: only the two example projects exist, so a version bump and an engine change are fine). Part of the
 [UI redesign](README.md). Carries out part 2 of the signed-off [handling and spectrum
-spec](../../active/SPEC-wave-editor-handling-and-spectrum.md) (§ Suggested split): markers, regions, snap and *Revert to
+spec](SPEC-wave-editor-handling-and-spectrum.md) (§ Suggested split): markers, regions, snap and *Revert to
 original*, as [round 11's spec](../../active/SPEC-round-11-wave-editor.md) has them (§ Overview, detail and the ruler; § Cursor,
 selection, markers and regions; § In-place edits; § Keys and commands), plus loop points for the sampler, which the
 handling spec allowed "as a region kind if the plan finds it cheap". The inventory was taken on

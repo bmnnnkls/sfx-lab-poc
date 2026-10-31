@@ -1,15 +1,17 @@
 ---
-status: active
+status: done
 date: 2026-10-31
-note: "Plan signed off 2026-10-31 as proposed; not started. Part 5 of the handling-and-spectrum spec (round 11d, part 2): a frequency band on the selection, band gain and keep band."
+shipped_in: architecture/samples-and-wave-editor.md
+note: "Part 5 of the handling-and-spectrum spec (round 11d, part 2): a frequency band on the selection, band gain and keep band, applied in the spectrum worker. The hand pass is BACKLOG V10; the edit's long task on long samples is P5."
 ---
 # Round 11d, part 2: spectral selection and edits
 
-Status: **plan, signed off** 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the [UI redesign](ui-redesign-roadmap.md). Carries
+Status: **done** 2026-10-31; plan signed off 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the
+[UI redesign](README.md). Carries
 out part 5 of the signed-off [handling and spectrum spec](SPEC-wave-editor-handling-and-spectrum.md) (§ 8, § Suggested
 split): a selection with a frequency band, drawn as a box in the spectrogram, and the two spectral edits, band gain and
 keep band, that change only that band. The inventory was taken on `imp/jolly-rhodes-4ca064` at `d82cf25` (round 11d
-part 1 done, [its plan](../archive/ui-redesign/PLAN-round-11d-1-spectrogram.md)). The spec's decisions are settled and
+part 1 done, [its plan](PLAN-round-11d-1-spectrogram.md)). The spec's decisions are settled and
 not repeated here; this plan adds the ones it leaves open, and one where the code asks to read the spec differently
 (Alt, which round 11c-2 gave to snapping), in § Decisions to sign off.
 
@@ -200,7 +202,7 @@ No engine change, so `npm run test:audio` runs only at the end. **Holds** names 
    *Holds:* `wave` 56, `wave-spectrum` 56.
 5. **Docs, the profile and the measures.** `architecture/samples-and-wave-editor.md` (the band, the box, the spectral
    edits, where they run), `architecture/workbench.md` if the subject's actions change shape, the notes sorted per
-   [doc-workflow](../dev/doc-workflow.md); STATUS, BACKLOG (U9 closes; V10 grows); the plan to `archive/ui-redesign/`,
+   [doc-workflow](../../dev/doc-workflow.md); STATUS, BACKLOG (U9 closes; V10 grows); the plan to `archive/ui-redesign/`,
    and **the spec too**, its last part done.
 
 ## Behavior changes
@@ -243,3 +245,46 @@ Signed off 2026-10-31: every row as proposed.
 
 ## Changes made while implementing
 
+* **Step 1. The change is added per frame, not per column.** The plan weighted each STFT column by the time ramp,
+  which would have changed audio up to half a window (21 ms) before and after the range, and nothing at all in a range
+  shorter than the hop that held no column's centre. The edits now filter the range and a window on each side with the
+  band's weights per bin (no time weight in the spectrum), and add the result to each frame of the range with the time
+  ramp (as `EdgeRamp` does, linear). So audio outside the range never changes (bit for bit), the feathers in time lie
+  exactly inside it, `changed` is the range itself (not widened), and an edit reads the range and a window on each
+  side (`bandEditReads`). `applyBandEdit` takes a slice (`BandSlice`: the channels from `offset`, the sample's length
+  and rate) and returns every channel's frames over the range; `applyBandEditTo` is the whole-audio form `apply` uses.
+* **Step 1.** Removing a band from a mix leaves the other tone within 2.6e-6, not the plan's 1e-6 (the resynthesis
+  itself is good to 1e-6 a tone); the tests take 1e-5 there and keep 1e-6 for a tone alone outside the band. Band
+  gain hits −6, −24 and −60 dB, and +6 and +12, within 0.5 dB; *Remove* leaves the tone under −90 dB.
+* **Step 1.** The spectral entries' `needsSelection` is false: `needsBand` gives the reason ("Drag a box in the
+  spectrogram first") without one, and a band is always on a selection.
+* **Step 2.** The toolbar's *Copy* says "Copies the whole time range: the clipboard has no band" too, not only the
+  action. `select` orders a band and drops an empty one (`low === high`), so a box drawn with no height is a time
+  selection.
+* **Step 3. A submenu whose action can't run is disabled, with the reason.** With a band selected, *Fade in* and *Fade
+  out* (submenus of curves) opened with every curve disabled; the same happened while an edit ran. `ActionMenu` now
+  disables the submenu itself (`MenuSubmenu.disabled`, `tooltip`).
+* **Step 3.** The toolbar's tooltip lowercases only the first letter of a reason, since the band's has two sentences.
+* **Step 3.** The frequency at a row past the spectrogram part's bottom is 0 Hz and past its top the Nyquist frequency
+  (`FrequencyScale.hzAt`, from `useLaneRenderers` with `rowOf`), so a box dragged past the bottom of the log scale
+  reaches 0 Hz rather than 20 Hz. The channels follow the lane under the pointer at each move (back on the first lane,
+  one channel again), not once crossed. In the spectrogram a press near a band-less selection's time edge drags that
+  edge, as in the waveform; with a band, only the box's edges drag there (`boxEdgeAt`).
+* **Step 3.** Profile at `a7ac93f`: `wave` 56 and `wave-spectrum` 56 component renders a second, as before.
+* **Step 4.** One spectrum service for the spectra and the library (`app/services.ts`); `SampleLibraryOptions.spectrum`
+  is optional, and without it band edits apply on the main thread (`applySampleEdit`), as the tests that mock `@audio`
+  need. `isBandEdit(edit)` is the registry's group, so `runEdit` doesn't switch on the kind. The protocol's messages
+  carry a `kind` (`columns`, `band-edit`); `replyTo` is the worker's whole job. *Band gain…*'s *Gain* is disabled while
+  *Remove* is on (`EditSetting.offWhen`).
+* **Step 3's smoke run failed two specs** (`library.smoke.spec.ts` isolated previews, and the spectrogram following a
+  delete) while the unit tests ran alongside it; both pass alone three times out of three, and step 4's full run, with
+  nothing beside it, passes.
+* **Step 5. The measures** (`6d134da`, `scripts/measure-spectrogram.cjs`, 120 s stereo at 48 kHz, the lanes on the
+  spectrogram, load average 3 to 5, two runs): band gain (200 Hz to 2 kHz, −12 dB, both channels) through the app, in
+  the worker, over 1 s: 123 to 125 ms to the result, the longest main-thread task 107 to 109 ms, the spectrum refilled
+  in 11 to 12 ms; over 10 s: 204 to 227 ms, 108 to 116 ms, 82 ms; over the whole sample: 1.24 to 1.25 s, 95 to 113 ms,
+  936 to 937 ms. The longest task is the edit's own encode and hash (P5); the same edit applied on the main thread
+  would have been one task of 14 to 16 ms, 95 to 98 ms and 1.0 s. Part 1's measures, run again: unchanged.
+* **Step 5. The profile** (`6d134da`, load average 4 to 5): `wave` 56 component renders a second, `wave-split` 85,
+  `wave-spectrum` (its setup now drawing a box, so ▶ loops the box's time range) 57: `WavePlayhead` 29 at the status
+  rate (29 commits a second), where it was 28. `DetailView`, `WaveLane`, `WaveStatus` and `LaneScale` render 0 times.

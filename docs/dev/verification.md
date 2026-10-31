@@ -23,8 +23,10 @@ stores itself on the dev server's page stubs the app's entry (`page.route` on `/
 `?t=`), so the app's own services don't answer the same stores (`scripts/measure-second-pane.cjs`). What a canvas
 shows is checked by its pixels: `wave-spectrum.smoke.spec.ts` writes a file with a tone in one half, and compares the
 brightness of the lane's canvas at the tone's row and at an empty one, in each half. Code that runs in a worker is a
-plain function the worker calls (`answerSpectrum`), so unit tests and the main-thread fallback run the same code, and
-a service under test takes a fake worker that answers on the next task.
+plain function the worker calls (`replyTo`), so unit tests and the main-thread fallback run the same code, and
+a service under test takes a fake worker that answers on the next task. Code that must give the same floats from a
+slice as from the whole audio (`applyBandEdit`) is compared bit for bit (`Buffer.equals` on the floats' bytes) at
+several offsets, the sample's start and end among them.
 
 Unit tests sit beside the code. Two repository-wide tests guard structure: `tests/architecture.test.ts` (the layering
 in [overview](../architecture/overview.md#layers) and the package allow-list) and `tests/status-subscriptions.test.ts`
