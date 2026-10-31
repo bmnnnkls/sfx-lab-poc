@@ -8,7 +8,7 @@ note: "Waiting for sign-off. Splits round 12 into 12a (headers and the timeline 
 Status: **spec, waiting for sign-off.** Written 2026-11-01 on `feat/ui-redesign` at `5823b9d` (round 11 done). No code
 was changed. Part of the [UI redesign](../archive/ui-redesign/README.md);
 [roadmap § Round 12](ui-redesign-roadmap.md#round-12-arrangement-editor) gives the outline, and
-[BACKLOG](../BACKLOG.md) U2 is the item. It follows the shape of the [round 11 spec](SPEC-round-11-wave-editor.md) and
+[BACKLOG](../BACKLOG.md) U2 is the item. It follows the shape of the [round 11 spec](../archive/ui-redesign/SPEC-round-11-wave-editor.md) and
 the [handling and spectrum spec](../archive/ui-redesign/SPEC-wave-editor-handling-and-spectrum.md).
 
 The round plans take their steps, their browser tests and their verification from here. Where this spec and a plan
