@@ -12,7 +12,7 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
 
 - **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline (groups are
   control owners but not automation owners yet), recording into the arrangement (touch recording on the timeline).
-  [Spec](active/SPEC-round-12-arrangement-editor.md) waiting for sign-off.
+  [Spec](active/SPEC-round-12-arrangement-editor.md) signed off 2026-11-01; 12a to 12d are to plan.
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
   Samples, library samples, several things at once.

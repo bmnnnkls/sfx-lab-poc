@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-11-01
-note: "Waiting for sign-off. Splits round 12 into 12a (headers and the timeline frame), 12b (markers and the loop), 12c (automation lanes on the timeline, groups included) and 12d (touch recording into the arrangement)."
+note: "Signed off 2026-11-01, every decision as proposed. Splits round 12 into 12a (headers and the timeline frame), 12b (markers and the loop), 12c (automation lanes on the timeline, groups included) and 12d (touch recording into the arrangement)."
 ---
 # Round 12: the arrangement editor (spec)
 
-Status: **spec, waiting for sign-off.** Written 2026-11-01 on `feat/ui-redesign` at `5823b9d` (round 11 done). No code
+Status: **spec, signed off** 2026-11-01, every decision as proposed. Round 12 can now be planned, part by part. Written 2026-11-01 on `feat/ui-redesign` at `5823b9d` (round 11 done). No code
 was changed. Part of the [UI redesign](../archive/ui-redesign/README.md);
 [roadmap § Round 12](ui-redesign-roadmap.md#round-12-arrangement-editor) gives the outline, and
 [BACKLOG](../BACKLOG.md) U2 is the item. It follows the shape of the [round 11 spec](../archive/ui-redesign/SPEC-round-11-wave-editor.md) and
@@ -522,6 +522,8 @@ function, and nothing else reads around it.**
 * Showing a timeline lane's value in the mixer and panels as *Read*, with a "touch replaces from here" marker.
 
 ## Decisions to sign off
+
+Signed off 2026-11-01: every row as proposed. § Built to change says how each can be revisited.
 
 | Question | Proposed | Alternative |
 |---|---|---|
