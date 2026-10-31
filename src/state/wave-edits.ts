@@ -39,9 +39,9 @@ export interface OpenWave {
 export const openWave = ({ sampleId, pane }: WaveAt): OpenWave | undefined => {
   const sample = useProjectStore.getState().project.samples.find((candidate) => candidate.id === sampleId)
   if (!sample) return undefined
-  const current = useWaveAudioStore.getState().current
+  const held = useWaveAudioStore.getState().panes[pane]
   const key = waveViewKey(pane, originOf(sample))
-  return { sample, wave: current?.sampleId === sampleId && current.pane === pane ? current : null, key, view: waveViewOf(useWaveEditorStore.getState().views, key) }
+  return { sample, wave: held?.sampleId === sampleId ? held : null, key, view: waveViewOf(useWaveEditorStore.getState().views, key) }
 }
 
 /** What decides whether an edit can run now. */

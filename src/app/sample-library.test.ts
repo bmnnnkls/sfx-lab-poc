@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { type SampleEdit, type SampleInfo, addMarker, addRegion, copyAudioRange, createArrangementClip, createAudioClip, decodedBytes, createAudioTrack, createEmptyProject, encodeWavChannels, originOf, setLoop } from '@core'
-import { audioClipboard, copyWaveSelection, waveViewKey, usePersistenceStore, useProjectStore, useSelectionStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
+import { DEFAULT_SECOND_PANE, NO_WAVE_PANES, useWavePanesStore, audioClipboard, copyWaveSelection, waveViewKey, usePersistenceStore, useProjectStore, useSelectionStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
 import { type SampleStorage, StorageFullError, createMemorySampleEditLog, createMemorySampleStorage, sha256Hex } from '@storage'
 import { type AudioHost, decodeAudio } from '@audio'
 import { ENGINE_KEEP_ALIVE_BYTES, ROOM_FACTOR, WORKING_COPY_CACHE_BYTES } from './sample-budgets'
@@ -61,14 +61,17 @@ const lastNotice = () => usePersistenceStore.getState().notices.at(-1)?.message
 beforeEach(() => {
   useProjectStore.getState().resetProject(createEmptyProject())
   useSelectionStore.getState().selectSample(null)
-  useWaveAudioStore.getState().setCurrent(null)
-  useWaveAudioStore.getState().setEditing(null)
+  useWaveAudioStore.setState({ panes: NO_WAVE_PANES, loading: NO_WAVE_PANES, editing: null })
+  useWavePanesStore.setState({ second: DEFAULT_SECOND_PANE, active: 'main' })
   vi.mocked(host.send).mockClear()
 })
 
 /** Resolves once the working copy has settled. */
 const settled = () => new Promise<void>((resolve) => {
-  const check = () => (useWaveAudioStore.getState().loading === null ? resolve() : setTimeout(check, 1))
+  const check = () => {
+    const { loading } = useWaveAudioStore.getState()
+    return loading.main === null && loading.second === null ? resolve() : setTimeout(check, 1)
+  }
   check()
 })
 
@@ -112,20 +115,20 @@ describe('the working copy', () => {
     const disconnect = library.connect()
     useSelectionStore.getState().selectSample(info.id)
     await settled()
-    const current = useWaveAudioStore.getState().current
+    const current = useWaveAudioStore.getState().panes.main
     expect(current?.sampleId).toBe(info.id)
     expect(current?.audio.channels.map((channel) => Array.from(channel))).toEqual([Array.from(LEFT), Array.from(RIGHT)])
     expect(current?.pyramid.frames).toBe(480)
 
     useSelectionStore.getState().selectSample(null)
     await settled()
-    expect(useWaveAudioStore.getState().current).toBeNull()
+    expect(useWaveAudioStore.getState().panes.main).toBeNull()
 
     useSelectionStore.getState().selectSample(info.id)
     await settled()
     useProjectStore.getState().resetProject(createEmptyProject())
     await settled()
-    expect(useWaveAudioStore.getState().current).toBeNull()
+    expect(useWaveAudioStore.getState().panes.main).toBeNull()
     disconnect()
   })
 
@@ -166,7 +169,7 @@ describe('editing a sample in place', () => {
     await settled()
     await library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
     const sent = vi.mocked(host.send).mock.calls.find(([command]) => command.type === 'sample/add' && command.sample.id === samples()[0]!.id)!
-    const working = useWaveAudioStore.getState().current!
+    const working = useWaveAudioStore.getState().panes.main!
     expect(sent[0].type === 'sample/add' && sent[0].sample.channels[0]).not.toBe(working.audio.channels[0])
     expect(Array.from(working.audio.channels[0]!)).toEqual(Array.from(LEFT).reverse())
     disconnect()
@@ -185,13 +188,13 @@ describe('editing a sample in place', () => {
     const edited = samples()[0]!
     expect(useProjectStore.getState().history.past.length).toBe(past + 1)
     expect(useSelectionStore.getState().sampleId).toBe(edited.id)
-    expect(useWaveAudioStore.getState().current?.sampleId).toBe(edited.id)
+    expect(useWaveAudioStore.getState().panes.main?.sampleId).toBe(edited.id)
 
     useProjectStore.getState().undo()
     expect(samples()).toEqual([info])
     expect(useSelectionStore.getState().sampleId).toBe(info.id)
     await settled()
-    expect(useWaveAudioStore.getState().current?.sampleId).toBe(info.id)
+    expect(useWaveAudioStore.getState().panes.main?.sampleId).toBe(info.id)
 
     useProjectStore.getState().redo()
     expect(useSelectionStore.getState().sampleId).toBe(edited.id)
@@ -298,7 +301,7 @@ describe('editing a sample in place', () => {
     expect(samples().map((sample) => sample.name)).toEqual(['Loop', 'Loop (reversed)'])
     expect(samples()[1]!.origin).toBeUndefined()
     expect(useSelectionStore.getState().sampleId).toBe(samples()[1]!.id)
-    expect(useWaveAudioStore.getState().current?.sampleId).toBe(samples()[1]!.id)
+    expect(useWaveAudioStore.getState().panes.main?.sampleId).toBe(samples()[1]!.id)
     disconnect()
   })
 
@@ -332,7 +335,7 @@ describe('undo and memory', () => {
     for (let round = 0; round < 2; round++) {
       useProjectStore.getState().undo()
       await settled()
-      expect(useWaveAudioStore.getState().current?.sampleId).toBe(info.id)
+      expect(useWaveAudioStore.getState().panes.main?.sampleId).toBe(info.id)
       useProjectStore.getState().redo()
       await settled()
     }
@@ -400,8 +403,146 @@ describe('undo and memory', () => {
     const before = decodes()
     useSelectionStore.getState().selectSample(first.id)
     await settled()
-    expect(useWaveAudioStore.getState().current?.sampleId).toBe(first.id)
+    expect(useWaveAudioStore.getState().panes.main?.sampleId).toBe(first.id)
     expect(decodes()).toBe(before)
+    disconnect()
+  })
+})
+
+describe('two panes', () => {
+  const decodes = () => vi.mocked(decodeAudio).mock.calls.length
+  const BUTT = { frames: 0, curve: 'linear' } as const
+  const second = (info: SampleInfo) => waveViewKey('second', originOf(info))
+  const view = (key: string) => waveViewOf(useWaveEditorStore.getState().views, key)
+  const panes = () => useWaveAudioStore.getState().panes
+  /** Two samples, the first open in the editor and the second pane open on it. */
+  const twoSamples = async () => {
+    const setUp = await setup()
+    const other = await stored(setUp.storage, [RIGHT, LEFT], 'Other')
+    useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [setUp.info, other] })
+    const disconnect = setUp.library.connect()
+    useSelectionStore.getState().selectSample(setUp.info.id)
+    useWavePanesStore.getState().setSecond({ open: true })
+    await settled()
+    return { ...setUp, other, disconnect }
+  }
+
+  it("share one copy on one sample; another sample in the second pane is its own, released to the cache when the pane lets go", async () => {
+    const { info, other, disconnect } = await twoSamples()
+    expect(panes().second).toMatchObject({ sampleId: info.id, pane: 'second', viewKey: second(info) })
+    expect(panes().second!.audio).toBe(panes().main!.audio)
+    expect(panes().second!.pyramid).toBe(panes().main!.pyramid)
+
+    useWavePanesStore.getState().setSecond({ sampleId: other.id })
+    await settled()
+    expect(panes().second?.sampleId).toBe(other.id)
+    expect(panes().second!.audio).not.toBe(panes().main!.audio)
+    useWavePanesStore.getState().setSecond({ open: false })
+    await settled()
+    expect(panes().second).toBeNull()
+    // Kept: opening it again decodes nothing.
+    const before = decodes()
+    useWavePanesStore.getState().setSecond({ open: true })
+    await settled()
+    expect(panes().second?.sampleId).toBe(other.id)
+    expect(decodes()).toBe(before)
+    disconnect()
+  })
+
+  it('decode a sample both panes ask for at once only once', async () => {
+    const { info, library } = await setup()
+    const loaded = decodes()
+    const disconnect = library.connect()
+    // The engine's copy is decoded first, on its own.
+    await vi.waitFor(() => expect(decodes()).toBe(loaded + 1))
+    const before = decodes()
+    useWavePanesStore.getState().setSecond({ open: true })
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    expect(decodes()).toBe(before + 1)
+    expect(panes().second!.audio).toBe(panes().main!.audio)
+    disconnect()
+  })
+
+  it("move both onto an edit's result; the other pane's cursor and selection follow the audio they were on", async () => {
+    const { info, library, disconnect } = await twoSamples()
+    useWaveEditorStore.getState().setView(main(info), { cursor: 10 })
+    useWaveEditorStore.getState().setView(second(info), { cursor: 300 })
+    useWaveEditorStore.getState().select(second(info), { from: 200, to: 260, channels: 'left' })
+    useWaveEditorStore.getState().select(main(info), { from: 100, to: 150, channels: 'both' })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 150 }, crossfade: BUTT }, { asCopy: false, pane: 'main' })
+    const edited = samples()[0]!
+    expect(useSelectionStore.getState().sampleId).toBe(edited.id)
+    expect(panes().main?.sampleId).toBe(edited.id)
+    expect(panes().second?.sampleId).toBe(edited.id)
+    expect(panes().second!.audio).toBe(panes().main!.audio)
+    // The edited pane as after any edit; the other 50 frames left.
+    expect(view(main(edited))).toMatchObject({ cursor: 100, selection: null })
+    expect(view(second(edited))).toMatchObject({ cursor: 250, selection: { from: 150, to: 210, channels: 'left' } })
+
+    // A delete over the other pane's selection drops it.
+    useWaveEditorStore.getState().select(main(edited), { from: 140, to: 220, channels: 'both' })
+    await library.editSample(edited.id, { kind: 'delete', range: { from: 140, to: 220 }, crossfade: BUTT }, { asCopy: false, pane: 'main' })
+    expect(view(second(samples()[0]!)).selection).toBeNull()
+
+    // Undo and redo move both.
+    useProjectStore.getState().undo()
+    await settled()
+    expect([panes().main?.sampleId, panes().second?.sampleId]).toEqual([edited.id, edited.id])
+    disconnect()
+  })
+
+  it('move only the pane an edit was asked from when it makes a copy; the other keeps the original', async () => {
+    const { info, library, disconnect } = await twoSamples()
+    await library.editSample(info.id, REVERSE, { asCopy: true, pane: 'main' })
+    const copy = samples().find((sample) => sample.id !== info.id && sample.name.includes('reversed'))!
+    expect(useSelectionStore.getState().sampleId).toBe(copy.id)
+    expect(useWavePanesStore.getState().second.sampleId).toBe(info.id)
+    expect([panes().main?.sampleId, panes().second?.sampleId]).toEqual([copy.id, info.id])
+
+    // From the second pane, the second moves.
+    await library.editSample(info.id, NORMALIZE, { asCopy: true, pane: 'second' })
+    expect(useSelectionStore.getState().sampleId).toBe(copy.id)
+    expect(panes().second?.sampleId).toBe(useWavePanesStore.getState().second.sampleId)
+    expect(useWavePanesStore.getState().second.sampleId).not.toBe(info.id)
+    disconnect()
+  })
+
+  it("edit from the second pane on another sample, leaving the first pane's alone", async () => {
+    const { info, other, library, disconnect } = await twoSamples()
+    useWavePanesStore.getState().setSecond({ sampleId: other.id })
+    await settled()
+    useWaveEditorStore.getState().select(second(other), { from: 0, to: 100, channels: 'both' })
+    await library.editSample(other.id, REVERSE, { asCopy: false, pane: 'second' })
+    const edited = samples().find((sample) => sample.name === 'Other')!
+    expect(edited.id).not.toBe(other.id)
+    expect(useWavePanesStore.getState().second.sampleId).toBe(edited.id)
+    expect([panes().main?.sampleId, panes().second?.sampleId]).toEqual([info.id, edited.id])
+    disconnect()
+  })
+
+  it("fall back to the first pane's sample when the second's leaves the project", async () => {
+    const { info, other, disconnect } = await twoSamples()
+    useWavePanesStore.getState().setSecond({ sampleId: other.id })
+    await settled()
+    useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [info] })
+    await settled()
+    expect(panes().second?.sampleId).toBe(info.id)
+    expect(panes().second!.audio).toBe(panes().main!.audio)
+    disconnect()
+  })
+
+  it('revert from the second pane: both move to the original; the second loses its selection, the first keeps its own', async () => {
+    const { info, library, disconnect } = await twoSamples()
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 150 }, crossfade: BUTT }, { asCopy: false, pane: 'main' })
+    const edited = samples()[0]!
+    useWaveEditorStore.getState().select(main(edited), { from: 200, to: 260, channels: 'both' })
+    useWaveEditorStore.getState().select(second(edited), { from: 10, to: 20, channels: 'both' })
+    await library.revertSample(edited.id, 'second')
+    expect(samples()[0]!.id).toBe(info.id)
+    expect([panes().main?.sampleId, panes().second?.sampleId]).toEqual([info.id, info.id])
+    expect(view(second(info)).selection).toBeNull()
+    expect(view(main(info)).selection).toMatchObject({ from: 250, to: 310 })
     disconnect()
   })
 })
@@ -412,7 +553,7 @@ describe('the audio clipboard', () => {
     const disconnect = library.connect()
     useSelectionStore.getState().selectSample(info.id)
     await settled()
-    copyWaveSelection(useWaveAudioStore.getState().current!, { from: 100, to: 200, channels: 'right' })
+    copyWaveSelection(useWaveAudioStore.getState().panes.main!, { from: 100, to: 200, channels: 'right' })
     const copy = audioClipboard.get()!
     expect(copy.audio.channels.map((channel) => Array.from(channel))).toEqual([Array.from(RIGHT.subarray(100, 200))])
     expect(copy.handles.before.channels[0]).toHaveLength(100)
@@ -426,7 +567,7 @@ describe('the audio clipboard', () => {
     await settled()
     const butt = { frames: 0, curve: 'linear' } as const
     const past = useProjectStore.getState().history.past.length
-    copyWaveSelection(useWaveAudioStore.getState().current!, { from: 100, to: 200, channels: 'both' })
+    copyWaveSelection(useWaveAudioStore.getState().panes.main!, { from: 100, to: 200, channels: 'both' })
     await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 200 }, crossfade: butt }, { asCopy: false, pane: 'main' })
     expect(useProjectStore.getState().history.past.length).toBe(past + 1)
     expect(samples()[0]!.durationSeconds).toBeCloseTo(380 / 48000, 12)
@@ -499,7 +640,7 @@ describe('Revert to original', () => {
     useWaveEditorStore.getState().select(main(info), { from: 10, to: 20, channels: 'both' })
     await library.revertSample(samples()[0]!.id, 'main')
     expect(useSelectionStore.getState().sampleId).toBe(info.id)
-    expect(useWaveAudioStore.getState().current).toMatchObject({ sampleId: info.id, pane: 'main', viewKey: main(info) })
+    expect(useWaveAudioStore.getState().panes.main).toMatchObject({ sampleId: info.id, pane: 'main', viewKey: main(info) })
     expect(waveViewOf(useWaveEditorStore.getState().views, main(info))).toMatchObject({ cursor: 300, selection: null })
   })
 

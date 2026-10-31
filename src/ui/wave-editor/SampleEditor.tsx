@@ -31,8 +31,8 @@ const formatRate = (rate: number) => `${Number((rate / 1000).toFixed(1))} kHz`
  */
 export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(): void }) => {
   const library = useSampleLibrary()
-  const wave = useWaveAudioStore((state) => (state.current?.sampleId === sample.id && state.current.pane === 'main' ? state.current : null))
-  const failed = useWaveAudioStore((state) => state.current === null && state.loading === null)
+  const wave = useWaveAudioStore((state) => (state.panes.main?.sampleId === sample.id ? state.panes.main : null))
+  const failed = useWaveAudioStore((state) => state.panes.main === null && state.loading.main === null)
   const key = waveViewKey('main', originOf(sample))
   const selection = useWaveEditorStore((state) => waveViewOf(state.views, key).selection)
   const cursor = useWaveEditorStore((state) => waveViewOf(state.views, key).cursor)

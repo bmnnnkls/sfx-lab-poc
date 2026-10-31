@@ -251,3 +251,17 @@ Signed off 2026-10-31: every row as proposed.
   pane (`setSecond({ open: false })`) makes the first active there, so no caller has to.
 * `SampleLibrary.editSample` takes the pane in its options, `revertSample` as a second argument; `app` keys every view
   `main:` and ignores the pane until step 2.
+
+**Step 2 (two working copies).**
+
+* **One decode for two panes.** When both panes ask for a sample not loaded yet (the second pane open on the first's
+  sample at load), they wait on one decode (`decodeWorking`), which builds the pyramid too; the second pane then shares
+  it. Found by the test that counts decodes.
+* **An edit with *Edits make copies* from the first pane, while the second shows the first's sample** (its `sampleId`
+  null), sets the second's `sampleId` to the original before the first moves to the copy; otherwise the second would
+  follow the first onto the copy.
+* **A revert** keeps what it did in the pane it was asked from (the cursor mapped back, the selection cleared); another
+  pane on the sample moves along like after an edit, its selection mapped.
+* `follow` clamps every pane's view to its sample's length on any change of the project's samples, not only when a pane
+  followed a sample; a second pane whose own sample left the project with no successor keeps that id (so a redo brings
+  it back) and shows the first pane's sample meanwhile.

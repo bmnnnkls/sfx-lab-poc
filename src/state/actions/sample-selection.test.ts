@@ -4,7 +4,7 @@ import { audioClipboard } from '../audio-clipboard'
 import { useProjectStore } from '../project-store'
 import { useSampleStore } from '../sample-store'
 import { useStatusStore } from '../status-store'
-import { useWaveAudioStore } from '../wave-audio-store'
+import { NO_WAVE_PANES, useWaveAudioStore } from '../wave-audio-store'
 import { DEFAULT_WAVE_EDIT_SETTINGS, useWaveEditSettings } from '../wave-edit-settings'
 import { type WaveSelection, useWaveEditorStore, waveViewOf } from '../wave-editor-store'
 import { type ActionItem, type Subject, describeActions, processActions, runAction, subjectName, verbTarget } from '.'
@@ -21,7 +21,7 @@ const key = `main:${originOf(stereo)}`
 
 const open = (selection: WaveSelection | null) => {
   const audio = audioOf(2)
-  useWaveAudioStore.setState({ current: { sampleId: stereo.id, pane: 'main', viewKey: key, audio, pyramid: buildPeakPyramid(audio) }, editing: null, loading: null })
+  useWaveAudioStore.setState({ panes: { ...NO_WAVE_PANES, main: { sampleId: stereo.id, pane: 'main', viewKey: key, audio, pyramid: buildPeakPyramid(audio) } }, editing: null, loading: NO_WAVE_PANES })
   useWaveEditorStore.getState().select(key, selection)
   return audio
 }
@@ -32,7 +32,7 @@ const both: WaveSelection = { from: 100, to: 300, channels: 'both' }
 beforeEach(() => {
   useProjectStore.getState().resetProject(addSamples(createDemoProject(), [stereo]))
   useWaveEditorStore.setState({ views: {} })
-  useWaveAudioStore.setState({ current: null, editing: null, loading: null })
+  useWaveAudioStore.setState({ panes: NO_WAVE_PANES, editing: null, loading: NO_WAVE_PANES })
   useWaveEditSettings.setState(DEFAULT_WAVE_EDIT_SETTINGS)
   useSampleStore.setState({ status: { [stereo.id]: 'ready' } })
   useStatusStore.setState({ status: null })

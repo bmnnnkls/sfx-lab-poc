@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { fakeContext } from './actions/test-support'
 import { audioClipboard } from './audio-clipboard'
 import { useProjectStore } from './project-store'
-import { useWaveAudioStore } from './wave-audio-store'
+import { NO_WAVE_PANES, useWaveAudioStore } from './wave-audio-store'
 import { type WaveAt, waveViewKey } from './wave-panes'
 import { DEFAULT_WAVE_EDIT_SETTINGS, useWaveEditSettings } from './wave-edit-settings'
 import { DEFAULT_WAVE_VIEW, type WaveSelection, useWaveEditorStore } from './wave-editor-store'
@@ -24,7 +24,7 @@ const at = (sample: SampleInfo | string): WaveAt => ({ sampleId: typeof sample =
 const open = (sample: SampleInfo, selection: WaveSelection | null = null, cursor = 0) => {
   const audio = audioOf(sample.channels)
   const key = waveViewKey('main', originOf(sample))
-  useWaveAudioStore.setState({ current: { sampleId: sample.id, pane: 'main', viewKey: key, audio, pyramid: buildPeakPyramid(audio) }, editing: null, loading: null })
+  useWaveAudioStore.setState({ panes: { ...NO_WAVE_PANES, main: { sampleId: sample.id, pane: 'main', viewKey: key, audio, pyramid: buildPeakPyramid(audio) } }, editing: null, loading: NO_WAVE_PANES })
   useWaveEditorStore.getState().setView(key, { cursor })
   useWaveEditorStore.getState().select(key, selection)
   return audio
@@ -43,7 +43,7 @@ const facts = (change: Partial<WaveEditFacts> = {}): WaveEditFacts => ({
 beforeEach(() => {
   useProjectStore.getState().resetProject(addSamples(createDemoProject(), [mono, stereo]))
   useWaveEditorStore.setState({ views: {} })
-  useWaveAudioStore.setState({ current: null, editing: null, loading: null })
+  useWaveAudioStore.setState({ panes: NO_WAVE_PANES, editing: null, loading: NO_WAVE_PANES })
   useWaveEditSettings.setState(DEFAULT_WAVE_EDIT_SETTINGS)
   audioClipboard.set(null)
 })

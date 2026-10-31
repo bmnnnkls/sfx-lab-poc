@@ -1,6 +1,7 @@
 import { type AudioHost, decodeAudio } from '@audio'
 import {
   EDIT_WAV_BIT_DEPTH,
+  type FrameMap,
   type PeakPyramid,
   type SampleAudio,
   type SampleData,
@@ -33,7 +34,11 @@ import {
   useSampleStore,
   useSelectionStore,
   useWaveAudioStore,
+  WAVE_PANES,
+  type WavePane,
+  paneSampleId,
   useWaveEditorStore,
+  useWavePanesStore,
   waveViewKey,
   waveViewOf,
 } from '@state'
@@ -129,48 +134,85 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     return task
   }
 
-  /**
-   * The working copy: the decoded audio of the sample open in the Wave editor, and its peak pyramid, on the main thread
-   * (the engine's copy was transferred). Decoded again from storage when the editor opens a sample; dropped when it
-   * closes, or when the project no longer has the sample.
-   */
-  const openAudio = async () => {
-    const sampleId = useSelectionStore.getState().sampleId
-    const waveAudio = useWaveAudioStore.getState()
-    const info = sampleId === null ? undefined : useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
-    if (!info || sampleId === null) {
-      if (waveAudio.current || waveAudio.loading) waveAudio.setCurrent(null)
-      return
-    }
-    if (waveAudio.current?.sampleId === sampleId || waveAudio.loading === sampleId) return
-    const cached = copies.get(sampleId)
-    if (cached) return waveAudio.setCurrent({ ...cached, pane: 'main', viewKey: waveViewKey('main', originOf(info)) })
-    waveAudio.setLoading(sampleId)
-    try {
+  /** A sample's audio and pyramid decoded from storage, once however many panes ask at the same time. */
+  const decoding = new Map<string, Promise<{ audio: SampleAudio; pyramid: PeakPyramid } | null>>()
+  const decodeWorking = (info: SampleInfo) => {
+    const running = decoding.get(info.id)
+    if (running) return running
+    const task = (async () => {
       const bytes = await storage.get(bytesKeyOf(info))
-      const audio = bytes ? (await decodeAudio(bytes)).audio : null
-      // Another sample may have been opened meanwhile; that one's load wins.
-      if (useWaveAudioStore.getState().loading !== sampleId) return
-      useWaveAudioStore.getState().setCurrent(audio && { sampleId, pane: 'main', viewKey: waveViewKey('main', originOf(info)), audio, pyramid: buildPeakPyramid(audio) })
-    } catch {
-      if (useWaveAudioStore.getState().loading === sampleId) useWaveAudioStore.getState().setCurrent(null)
-    }
+      if (!bytes) return null
+      const { audio } = await decodeAudio(bytes)
+      return { audio, pyramid: buildPeakPyramid(audio) }
+    })().finally(() => decoding.delete(info.id))
+    decoding.set(info.id, task)
+    return task
   }
 
+  /** A pane's working copy of `info`, sharing the audio of another copy of the same sample. */
+  const workingFor = (pane: WavePane, info: SampleInfo, from: { audio: SampleAudio; pyramid: PeakPyramid }): WaveAudio => ({
+    sampleId: info.id,
+    pane,
+    viewKey: waveViewKey(pane, originOf(info)),
+    audio: from.audio,
+    pyramid: from.pyramid,
+  })
+
   /**
-   * When the open sample's id leaves the project (an undo or redo of an edit, say), the editor follows the sample with
-   * the same origin, if there is one, first in library order; its view, kept by origin, comes with it. A selection past
-   * the new end is clamped. With none, the editor shows its empty state, as for a removed sample.
+   * A pane's working copy: the decoded audio of the sample it shows (`paneSampleId`), and its peak pyramid, on the main
+   * thread (the engine's copy was transferred). Another pane's copy of the same sample is shared; otherwise one kept in
+   * `copies`, else decoded from storage. Dropped when the pane closes or shows nothing, or the project no longer has
+   * the sample.
+   */
+  const openAudio = async (pane: WavePane) => {
+    const sampleId = paneSampleId(pane)
+    const waveAudio = useWaveAudioStore.getState()
+    const info = sampleId === null ? undefined : useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
+    if (!info) {
+      if (waveAudio.panes[pane] || waveAudio.loading[pane]) waveAudio.setPane(pane, null)
+      return
+    }
+    if (waveAudio.panes[pane]?.sampleId === info.id || waveAudio.loading[pane] === info.id) return
+    const shared = WAVE_PANES.map((other) => waveAudio.panes[other]).find((held) => held?.sampleId === info.id) ?? copies.get(info.id)
+    if (shared) return waveAudio.setPane(pane, workingFor(pane, info, shared))
+    waveAudio.setLoading(pane, info.id)
+    try {
+      const decoded = await decodeWorking(info)
+      // The pane may have been pointed at another sample meanwhile; that one's load wins.
+      if (useWaveAudioStore.getState().loading[pane] !== info.id) return
+      useWaveAudioStore.getState().setPane(pane, decoded && workingFor(pane, info, decoded))
+    } catch {
+      if (useWaveAudioStore.getState().loading[pane] === info.id) useWaveAudioStore.getState().setPane(pane, null)
+    }
+  }
+  const openPanes = () => {
+    for (const pane of WAVE_PANES) void openAudio(pane)
+  }
+
+  /** Points a pane at a sample: the first pane's is the editor's (`selectSample`), the second's its own. */
+  const showInPane = (pane: WavePane, sampleId: string) =>
+    pane === 'main' ? useSelectionStore.getState().selectSample(sampleId) : useWavePanesStore.getState().setSecond({ sampleId })
+
+  /**
+   * When the sample a pane is set to show leaves the project (an undo or redo of an edit, say), the pane follows the
+   * sample with the same origin, if there is one, first in library order; its view, kept by origin, comes with it. With
+   * none, the first pane shows the editor's empty state, as for a removed sample, and the second the first pane's
+   * sample. A selection past a sample's new end is clamped.
    */
   const follow = (previous: readonly SampleInfo[]) => {
-    const sampleId = useSelectionStore.getState().sampleId
     const { samples } = useProjectStore.getState().project
-    if (sampleId === null || samples.some((sample) => sample.id === sampleId)) return
-    const was = previous.find((sample) => sample.id === sampleId)
-    const next = was && samples.find((sample) => originOf(sample) === originOf(was))
-    if (!next) return
-    clampView(waveViewKey('main', originOf(next)), savedFrameCount(next))
-    useSelectionStore.getState().selectSample(next.id)
+    for (const pane of WAVE_PANES) {
+      // The second pane without a sample of its own shows the first's, so follows it.
+      const sampleId = pane === 'main' ? useSelectionStore.getState().sampleId : useWavePanesStore.getState().second.sampleId
+      if (sampleId === null || samples.some((sample) => sample.id === sampleId)) continue
+      const was = previous.find((sample) => sample.id === sampleId)
+      const next = was && samples.find((sample) => originOf(sample) === originOf(was))
+      if (next) showInPane(pane, next.id)
+    }
+    for (const pane of WAVE_PANES) {
+      const info = samples.find((sample) => sample.id === paneSampleId(pane))
+      if (info) clampView(waveViewKey(pane, originOf(info)), savedFrameCount(info))
+    }
   }
 
   const clampView = (key: string, frames: number) => {
@@ -263,10 +305,11 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     return { name, known }
   }
 
-  /** The audio an edit starts from: the working copy when it is this sample's, else the stored bytes decoded. */
+  /** The audio an edit starts from: a pane's working copy when one has this sample, else the stored bytes decoded. */
   const audioOf = async (info: SampleInfo): Promise<{ audio: SampleAudio; pyramid: PeakPyramid | null } | null> => {
-    const working = useWaveAudioStore.getState().current
-    if (working?.sampleId === info.id) return { audio: working.audio, pyramid: working.pyramid }
+    const { panes } = useWaveAudioStore.getState()
+    const working = WAVE_PANES.map((pane) => panes[pane]).find((held) => held?.sampleId === info.id)
+    if (working) return { audio: working.audio, pyramid: working.pyramid }
     const cached = copies.get(info.id)
     if (cached) return { audio: cached.audio, pyramid: cached.pyramid }
     const bytes = await storage.get(bytesKeyOf(info))
@@ -292,9 +335,9 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     }
   }
 
-  /** The editor moves onto the result: its working copy, its id, and the selection and cursor the edit leaves. */
-  const moveEditor = (from: { info: SampleInfo; audio: SampleAudio }, to: WaveAudio, edit: SampleEdit) => {
-    useWaveAudioStore.getState().setCurrent(to)
+  /** The pane an edit was asked from moves onto the result: its working copy, and the selection and cursor the edit leaves. */
+  const moveEdited = (from: { info: SampleInfo; audio: SampleAudio }, to: WaveAudio, edit: SampleEdit) => {
+    useWaveAudioStore.getState().setPane(to.pane, to)
     const store = useWaveEditorStore.getState()
     const fromKey = waveViewKey(to.pane, originOf(from.info))
     const old = waveViewOf(store.views, fromKey)
@@ -310,11 +353,30 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
   }
 
   /**
+   * Another pane showing the changed sample moves onto the result too, still looking at the same audio: its cursor,
+   * scroll and selection go through the change's map (a selection whose audio is gone goes).
+   */
+  const moveAlong = (from: SampleInfo, to: WaveAudio, remap: FrameMap) => {
+    useWaveAudioStore.getState().setPane(to.pane, to)
+    const store = useWaveEditorStore.getState()
+    const old = waveViewOf(store.views, waveViewKey(to.pane, originOf(from)))
+    const frames = frameCount(to.audio)
+    const at = (position: number) => Math.max(0, Math.min(frames, Math.round(remap.start(position))))
+    const range = old.selection && remap.range(old.selection)
+    store.setView(to.viewKey, { ...old, cursor: at(old.cursor), startFrame: at(old.startFrame) })
+    store.select(to.viewKey, range && old.selection && { from: Math.round(range.from), to: Math.round(range.to), channels: old.selection.channels })
+    clampView(to.viewKey, frames)
+  }
+
+  /** The panes showing a sample now. */
+  const panesShowing = (sampleId: string) => WAVE_PANES.filter((pane) => paneSampleId(pane) === sampleId)
+
+  /**
    * Applies an edit to a sample (see `SampleLibrary.editSample`): read the audio, apply, encode as WAV
    * (`EDIT_WAV_BIT_DEPTH`), hash, check there is room, store and note the file, give the engine a copy, then commit, if
    * the sample is still in the project. Each refusal leaves the project as it was.
    */
-  const runEdit = async (info: SampleInfo, edit: SampleEdit, asCopy: boolean) => {
+  const runEdit = async (info: SampleInfo, edit: SampleEdit, asCopy: boolean, pane: WavePane) => {
     const source = await audioOf(info)
     if (!source) {
       notify('error', `The audio of "${info.name}" is missing; import the file again to edit it.`)
@@ -359,27 +421,41 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
       notify('warning', `"${info.name}" left the project while it was being edited; the edit was dropped.`)
       return
     }
-    const open = useSelectionStore.getState().sampleId === info.id
-    // The pyramid redraws only what the edit changed.
-    const pyramid = () =>
-      source.pyramid ? updatePeakPyramid(source.pyramid, audio, changed) : buildPeakPyramid(audio)
-    const working = (origin: string, sampleId: string): WaveAudio => ({ sampleId, pane: 'main', viewKey: waveViewKey('main', origin), audio, pyramid: pyramid() })
+    const showing = panesShowing(info.id)
+    const edited = showing.includes(pane) ? pane : null
+    // The pyramid redraws only what the edit changed; the panes on the sample share it.
+    let made: { audio: SampleAudio; pyramid: PeakPyramid } | null = null
+    const working = (into: WavePane, origin: string): WaveAudio => {
+      made ??= { audio, pyramid: source.pyramid ? updatePeakPyramid(source.pyramid, audio, changed) : buildPeakPyramid(audio) }
+      return { sampleId: id, pane: into, viewKey: waveViewKey(into, origin), ...made }
+    }
+    const from = { info, audio: source.audio }
 
     if (asCopy) {
-      // Added while the editor still shows the original, then opened with its working copy in place: nothing decodes.
+      // Added while the pane still shows the original, then opened with its working copy in place: nothing decodes.
       useProjectStore.getState().addSamples([result])
-      if (open) moveEditor({ info, audio: source.audio }, working(id, id), edit)
-      if (open) useSelectionStore.getState().selectSample(id)
+      if (edited) {
+        // Only the pane the edit was asked from moves to the copy: a second pane showing the first's sample keeps the original.
+        if (edited === 'main' && showing.includes('second') && useWavePanesStore.getState().second.sampleId === null) showInPane('second', info.id)
+        moveEdited(from, working(edited, id), edit)
+        showInPane(edited, id)
+      }
       notify('info', `Added "${name}" to the library`)
       if (clipping) notify('warning', clipping)
       return
     }
 
     const merged = project.samples.find((sample) => sample.id === id)
-    // The editor's working copy moves first, so following the sample to its new id finds it and decodes nothing.
-    if (open) moveEditor({ info, audio: source.audio }, working(merged ? originOf(merged) : originOf(info), id), edit)
-    const report = useProjectStore.getState().replaceSample(info.id, result, sampleRemap(edit, frameCount(source.audio), frames))
-    if (open) useSelectionStore.getState().selectSample(id)
+    const origin = merged ? originOf(merged) : originOf(info)
+    const remap = sampleRemap(edit, frameCount(source.audio), frames)
+    // The panes' working copies move first, so following the sample to its new id finds them and decodes nothing.
+    for (const into of showing) {
+      if (into === edited) moveEdited(from, working(into, origin), edit)
+      else moveAlong(info, working(into, origin), remap)
+    }
+    const report = useProjectStore.getState().replaceSample(info.id, result, remap)
+    // A second pane without a sample of its own follows the first.
+    for (const into of showing) if (into === 'main' || useWavePanesStore.getState().second.sampleId !== null) showInPane(into, id)
     if (report.merged) notify('info', `Already in the library as "${report.merged.name}"; its uses now point there.`)
     if (report.emptiedTrims > 0) {
       const count = report.emptiedTrims
@@ -388,14 +464,14 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     if (clipping) notify('warning', clipping)
   }
 
-  const editSample = async (sampleId: string, edit: SampleEdit, asCopy: boolean) => {
+  const editSample = async (sampleId: string, edit: SampleEdit, asCopy: boolean, pane: WavePane) => {
     const busy = useWaveAudioStore.getState()
     if (busy.editing !== null) return
     const info = useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
     if (!info) return
     busy.setEditing(sampleId)
     try {
-      await runEdit(info, edit, asCopy)
+      await runEdit(info, edit, asCopy, pane)
     } catch (error) {
       notify('error', `The edit failed: ${describe(error)}`)
     } finally {
@@ -407,7 +483,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
    * *Revert to original* (see `SampleLibrary.revertSample`): read the origin's bytes, decode them, give the engine the
    * audio, then `replaceSample` onto the original through `revertRemap`, if the sample is still in the project.
    */
-  const runRevert = async (info: SampleInfo) => {
+  const runRevert = async (info: SampleInfo, pane: WavePane) => {
     const original = originalInfo(info)
     if (!original) return
     const bytes = await storage.get(bytesKeyOf(original))
@@ -423,29 +499,36 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     }
     const frames = frameCount(audio)
     const remap = revertRemap(info, frames)!
-    const open = useSelectionStore.getState().sampleId === info.id
-    if (open) {
-      // The view is the origin's already; the cursor goes where it was in the original, and the selection goes.
-      const key = waveViewKey('main', originOf(info))
-      useWaveAudioStore.getState().setCurrent({ sampleId: original.id, pane: 'main', viewKey: key, audio, pyramid: buildPeakPyramid(audio) })
+    const showing = panesShowing(info.id)
+    const pyramid = showing.length > 0 ? buildPeakPyramid(audio) : null
+    for (const into of showing) {
+      // The view is the origin's already.
+      const key = waveViewKey(into, originOf(info))
+      const to: WaveAudio = { sampleId: original.id, pane: into, viewKey: key, audio, pyramid: pyramid! }
+      if (into !== pane) {
+        moveAlong(info, to, remap)
+        continue
+      }
+      // In the pane it was asked from, the cursor goes where it was in the original, and the selection goes.
+      useWaveAudioStore.getState().setPane(into, to)
       const store = useWaveEditorStore.getState()
       store.select(key, null)
       store.setView(key, { cursor: Math.max(0, Math.min(frames, Math.round(remap.start(waveViewOf(store.views, key).cursor)))) })
       clampView(key, frames)
     }
     const report = useProjectStore.getState().replaceSample(info.id, original, remap)
-    if (open) useSelectionStore.getState().selectSample(original.id)
+    for (const into of showing) if (into === 'main' || useWavePanesStore.getState().second.sampleId !== null) showInPane(into, original.id)
     if (report.merged) notify('info', `Already in the library as "${report.merged.name}"; its uses now point there.`)
   }
 
-  const revertSample = async (sampleId: string) => {
+  const revertSample = async (sampleId: string, pane: WavePane) => {
     const busy = useWaveAudioStore.getState()
     if (busy.editing !== null) return
     const info = useProjectStore.getState().project.samples.find((sample) => sample.id === sampleId)
     if (!info) return
     busy.setEditing(sampleId)
     try {
-      await runRevert(info)
+      await runRevert(info, pane)
     } catch (error) {
       notify('error', `The revert failed: ${describe(error)}`)
     } finally {
@@ -497,32 +580,40 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     },
     stopPreview: () => host.send({ type: 'sample/stopPreview' }),
 
-    editSample: (sampleId, edit, { asCopy }) => editSample(sampleId, edit, asCopy),
+    editSample: (sampleId, edit, { asCopy, pane }) => editSample(sampleId, edit, asCopy, pane),
     revertSample,
 
     connect: () => {
       loadPresent()
       keepAlive()
-      void openAudio()
+      openPanes()
       const unsubscribeProject = useProjectStore.subscribe((state, previous) => {
         if (state.history === previous.history) return
         if (state.project.samples !== previous.project.samples) loadPresent()
         keepAlive()
         if (state.project.samples === previous.project.samples) return
         follow(previous.project.samples)
-        void openAudio()
+        openPanes()
       })
-      // A working copy the editor lets go of is kept for a while.
+      // A working copy no pane holds any more is kept for a while.
       const unsubscribeWave = useWaveAudioStore.subscribe((state, previous) => {
-        if (previous.current && previous.current.sampleId !== state.current?.sampleId) copies.put(previous.current)
+        if (state.panes === previous.panes) return
+        for (const pane of WAVE_PANES) {
+          const was = previous.panes[pane]
+          if (was && !WAVE_PANES.some((other) => state.panes[other]?.sampleId === was.sampleId)) copies.put(was)
+        }
       })
       const unsubscribeSelection = useSelectionStore.subscribe((state, previous) => {
-        if (state.sampleId !== previous.sampleId) void openAudio()
+        if (state.sampleId !== previous.sampleId) openPanes()
+      })
+      const unsubscribePanes = useWavePanesStore.subscribe((state, previous) => {
+        if (state.second.open !== previous.second.open || state.second.sampleId !== previous.second.sampleId) openPanes()
       })
       return () => {
         unsubscribeProject()
         unsubscribeSelection()
         unsubscribeWave()
+        unsubscribePanes()
       }
     },
   }
