@@ -1,12 +1,13 @@
 ---
-status: active
+status: done
 date: 2026-10-31
-note: "Plan signed off 2026-10-31 as proposed; not started. Part 1 of the handling-and-spectrum spec: toolbar, right-click menu, keys, mouse."
+shipped_in: architecture/samples-and-wave-editor.md
+note: "Part 1 of the handling-and-spectrum spec: toolbar, right-click menu, keys, mouse. The hand pass in browsers is BACKLOG V10."
 ---
 # Round 11c, part 1: handling
 
-Status: **plan, signed off** 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the [UI redesign](ui-redesign-roadmap.md). Carries out
-part 1 of the signed-off [handling and spectrum spec](SPEC-wave-editor-handling-and-spectrum.md) (§ Suggested split):
+Status: **done** 2026-10-31; plan signed off 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the [UI redesign](README.md). Carries out
+part 1 of the signed-off [handling and spectrum spec](../../active/SPEC-wave-editor-handling-and-spectrum.md) (§ Suggested split):
 its sections 1 to 4, the grouped toolbar, the right-click menu, the keys and the mouse. The inventory was taken on
 `feat/ui-redesign` at `1780890` (round 11b done). The spec's decisions are settled and not repeated here; this plan only
 adds the ones it raises. Where it differs from the spec, it says so.
@@ -225,7 +226,7 @@ ports). No step changes engine code, so the bounce hashes in `old-projects.test.
    lane's top quarter selects all of the left channel.
 6. **Docs and the profile.** `architecture/samples-and-wave-editor.md` (§ The sample editor: the toolbar, the menu, the
    keys, the gestures, `state/wave-edits.ts`), `architecture/workbench.md` (the subject's row in the actions table);
-   this plan's "Changes made while implementing", sorted per [doc-workflow](../dev/doc-workflow.md); STATUS and
+   this plan's "Changes made while implementing", sorted per [doc-workflow](../../dev/doc-workflow.md); STATUS and
    BACKLOG; the profile.
 
 ## Behavior changes
@@ -338,3 +339,6 @@ Signed off 2026-10-31: every row as proposed.
   store an explicit zoom that would stop it fitting on resize. `autoScrollFrames(distancePx, framesPerPixel, width)`
   takes the width for its cap. On a selection narrower than two `EDGE_PX`, `selectionEdgeAt` picks the nearer edge.
   Shift with a press on an edge extends, as before, rather than dragging the edge.
+* **Step 6: the profile again on the finished round:** `wave` 56 component renders a second (every editor component
+  0), script 15.2 ms/s (13.8 at step 3; script time is noisy, the renders are the signal). Not done: the hand pass in
+  Chrome, Firefox and Safari ([BACKLOG](../../BACKLOG.md) V10); Playwright drove every key and gesture in Chromium.

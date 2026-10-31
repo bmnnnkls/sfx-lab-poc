@@ -53,6 +53,11 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   it. The status store updates about 30 times a second, and `tests/status-subscriptions.test.ts` fails on a `ui`
   component that selects all of it. The project has no such test: with several panels on screen, a knob turn
   re-rendered all of them until `PanelView` selected only its graph. *(rounds 1b, 5, 9)*
+* **An action's id starts with its subject's kind, and a list keeps the group order** (open, edit, clipboard, delete,
+  process, view). The action tests check every list, so a plan's `wave.cut` became `sample-selection.cut`. *(round
+  11c-1)*
+* **A closing menu gives the focus back to its trigger,** taking it from a popover or field its entry just opened.
+  Mark such an entry `takesFocus`. *(rounds 5, 11c-1)*
 * **flexlayout 0.x minor versions break.** It is pinned and imported only from `ui/layout/`, and the architecture test
   enforces both. Upgrade on purpose. *(round 2)*
 * **Old projects must stay bit for bit the same.** Engine changes that touch mixing or decoding are checked against

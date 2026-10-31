@@ -23,6 +23,10 @@ Latest: round 11b (2026-10-29, load average 5 to 8).
 * In `wave`, the only status readers are `WavePlayhead` (29/s, the status rate) and `LevelMeter` (27/s). The editor's
   own components render 0 times.
 
+Round 11c-1 (2026-10-31, load average 4 to 6), `wave` only: 56 component renders and 13.8 to 15.2 script ms a second; the new
+toolbar, status bar and scale components (`ProcessMenu`, `ViewMenu`, `EditorSettings`, `WaveStatus`, `LaneScale`)
+render 0 times.
+
 Earlier tables: [round 2](../archive/ui-redesign/PLAN-round-2-shell.md#changes-made-while-implementing) (the
 first, with base comparisons), [round 11a](../archive/ui-redesign/PLAN-round-11a-stereo-and-the-pyramid.md#changes-made-while-implementing),
 [round 11b](../archive/ui-redesign/PLAN-round-11b-in-place-edits.md#changes-made-while-implementing).
@@ -37,6 +41,15 @@ round 11b step 8 (2026-10-29). The measuring script is not committed ([BACKLOG](
 | `buildPeakPyramid` (full build) | 19.3 ms (11.7 ms in 11a, unloaded) |
 | `updatePeakPyramid`, a fade over the last 0.5 s | 0.2 ms |
 | `updatePeakPyramid`, a delete of the first second (a full rebuild) | 19.5 ms |
+
+`selectionLevels` (the status bar's peak and RMS), round 11c-1 step 3 (2026-10-31), Chromium 156 (Playwright's) on
+the dev server's modules, median of 7 runs after 2 warm-ups, load average 4 to 6, `scripts/measure-selection-levels.cjs`:
+
+| 120 s stereo, 48 kHz | Time |
+|---|---:|
+| `selectionLevels`, the whole of it, stereo | 11.5 ms |
+| `selectionLevels`, the whole of it, one channel | 7.0 ms |
+| `selectionLevels`, a tenth of it, stereo | 1.2 ms |
 
 | In-place edit flow, stereo | apply | encode | hash | store | total |
 |---|---:|---:|---:|---:|---:|

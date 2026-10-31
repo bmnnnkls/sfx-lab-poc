@@ -1,7 +1,7 @@
 ---
 status: active
-date: 2026-10-29
-note: "Signed off 2026-10-29 as proposed. Amends round 11c's keys and adds round 11d (the spectrum); no part is planned yet."
+date: 2026-10-31
+note: "Signed off 2026-10-29 as proposed. Amends round 11c's keys and adds round 11d (the spectrum). Part 1 (handling) done 2026-10-31; parts 2 to 5 are not planned yet."
 ---
 # Wave editor: handling, a second pane and the spectrum (spec)
 

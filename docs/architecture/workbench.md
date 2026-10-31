@@ -163,18 +163,20 @@ right-clicked; what can be done to it lives in `state/actions/`.
 * **Subjects.** What was right-clicked is a `Subject`: a small value with a `kind` and ids, never a component or a DOM
   element. The kinds: `track` (instrument, audio and return tracks), `group` (a group of tracks), `master`, `clip` (a session clip), `slot` (an
   empty session cell), `automation-slot`, `scene`, `sample`, `library-item`, `library-folder`, `nodes`, `canvas`,
-  `module`, `region`, `lane`, `control` (a panel control or a mixer value), `sound` (a snapshot or preset) and `pin` (a
-  pinned front panel: an owner and a graph). `nodes`
+  `module`, `region`, `lane`, `control` (a panel control or a mixer value), `sound` (a snapshot or preset), `pin` (a
+  pinned front panel: an owner and a graph) and `sample-selection` (the Wave editor's lanes: the open sample's
+  selection, cursor and clipboard, read from the stores). `nodes`
   is the selection when the right-clicked card is selected, otherwise that card alone. `nodes` and `canvas` name the
   track's (or the master's) graph as `target` and the modules opened from there as `path`; the nodes are in the last
   module of `path` (`editTargetOf`). `canvas` and `lane` carry where the click landed, which is where *Paste* and *Add*
   put things; the view sets it from the trigger's own `onContextMenu`, which runs before the menu opens.
 * **Actions.** One file per kind exports its list of `Action`s: an `id` (`clip.duplicate`, stable: the palette lists it), a
-  `title` (text, or a function of the subject), a `group` (open, edit, clipboard, delete: a separator between groups),
+  `title` (text, or a function of the subject), a `group` (open, edit, clipboard, delete, process, view: a separator
+  between groups; a list keeps that order),
   `danger`, `applies` (hidden when false: *Stop* on a return), `enabled` (shown but disabled: *Paste* with an empty
   clipboard) and `run`. An action that asks which one has `choices` (a lane's session clips, an empty audio slot's
   samples, an XY pad's axes), drawn as a submenu or, with `inline` (which can depend on the subject), one entry per
-  choice. An action that moves the
+  choice; a choice may be `checked` (a fade's last used curve), drawn as a checkable entry. An action that moves the
   focus to a field of its own says `takesFocus`. `actionsFor(subject)` returns the kind's list; nothing else picks
   actions. `describeActions(subject, context)` is what a menu shows now, and unit tests call it too.
 * **`ActionContext`** carries what actions can't import: the services that are React contexts (`EngineControls`,
@@ -195,7 +197,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
   takes a paste (the graph's selected nodes paste on the canvas around them). `verbTarget` says what would run.
 * **Names.** `subjectName(subject)` names a subject for the palette: the track's, group's, clip's, scene's (*Scene
   2* when unnamed), sample's or region's name, *Master*, *2 nodes* or a single node's title, a control's target label,
-  *Lead instrument* for a pin, and the kind's word (*Track*) for a thing that is gone.
+  *Lead instrument* for a pin, *Selection in Kick* for the Wave editor's lanes, and the kind's word (*Track*) for a
+  thing that is gone.
 * **Buttons run actions too.** ×, ✎, ■, M and S, the sample row's buttons, the Library's details and folder buttons,
   the Sounds rows, a card's *Edit* and *Unlink*, the toolbar's *Group into module* and the module bar's buttons call
   `runAction` with the same subject, so a button and its menu entry share one implementation. Two exceptions keep the
@@ -222,7 +225,10 @@ right-clicked; what can be done to it lives in `state/actions/`.
   keeping the menu inside the window. (Spartan, which was suggested once, is Angular-only.)
 * **`ActionMenu`**: `<ActionMenu subject={…}>{trigger}</ActionMenu>`. It wraps `ContextMenu`, builds the entries from
   `describeActions` and runs the chosen one with `useActionContext()`. With a `null` subject it draws the trigger
-  without a menu.
+  without a menu. Its entries come from `useActionEntries(subject, context, only?)`, which a `PopupMenu` may use for
+  some of a subject's actions: the Wave editor's *Process ▾* and *View ▾* are its `process` group and its zooms.
+* **Checkable entries.** A `MenuAction` with `checked` (true or false) is drawn as a Radix checkbox item
+  (`menuitemcheckbox`) with a ✓ when true, in both kinds of menu.
 * **Entries are built only while the menu is open,** in a component inside the menu's content: `ContextMenu` takes a
   function for `entries` and calls it there. It subscribes to the project, the status, the sample store and every
   clipboard (`subscribeToClipboards`), each through a signature of the entries, so *Paste* and *Restart* are right
@@ -235,8 +241,9 @@ right-clicked; what can be done to it lives in `state/actions/`.
   key itself on the focused trigger (or inside it): it prevents the browser's handling and sends a `contextmenu` from
   the trigger's bottom-left corner. Every trigger is or holds a focusable element; the arrangement lane's name and
   regions are focusable for that, and carry their menus. Checked in Chromium; Firefox and Safari were not checked.
-* **Focus after a rename.** Radix returns the focus to the trigger as a menu closes. `ActionMenu` prevents that after
-  an action that `takesFocus` (an in-place rename, *Add node…*).
+* **Focus after a rename.** Radix returns the focus to the trigger as a menu closes. `ActionMenu` and `PopupMenu`
+  prevent that after an entry that `takesFocus` (an in-place rename, *Add node…*, an edit's settings popover;
+  `notingFocus`).
 * **Popups stay.** The *+* add-track popup, the empty audio slot's *+*, File, View and the *Layout* menu are menus of
   a place, not of a thing. File, View and *Layout* are built from commands (§ Commands and keys). The empty audio slot's *+* runs the same *Add audio clip* action as its right-click submenu.
 * **View-local menus stay local.** The piano roll's (it acts on the note selection and the hover beat) and an input
@@ -266,6 +273,11 @@ right-clicked; what can be done to it lives in `state/actions/`.
 | Lane | | Add clip ▸ the track's session clips, Add audio clip ▸ samples (an audio track) | Paste | Clear this track |
 | Control | | MIDI learn (per axis), Show automation | | |
 | Sound | Recall | Update, Rename, Duplicate | | Delete |
+| Sample selection | | | Cut, Copy, Paste, Delete, Crop | |
+
+The sample selection's menu then has two groups of its own: *Process* (each `process` edit of the registry, *Fade in*
+and *Fade out* with a curve submenu, *Insert silence…*) and *View* (*Select all*, *Zoom to selection*, *Zoom to fit*,
+*Play selection* / *Play from cursor* / *Stop*). Its verbs are `cut`, `copy`, `paste` and `delete`.
 
 *Open* entries are the navigation intents (`openClip`, `openRegion`, `openTrackView`, `openMasterEffects`,
 `openAutomationSlot`, `openSampleEditor`) and `useAutomationEditor.show`: they reveal the view wherever it is docked. *Show automation* on a
@@ -400,8 +412,8 @@ Everything the app can do from a menu can be found by name and run from the keyb
 * **Keyboard shortcuts** (`KeyboardShortcuts`, a `<dialog>`): a search, then every bindable command by category with its
   keys, *Change* (records the next key, Escape cancels; it replaces the command's keys), *Remove* and *Reset*; *Reset
   all*. A refused key says why, a used key warns, a moved key names the command that lost it. `VIEW_KEYS` lists the
-  view-local keys read only: the piano roll's, the automation editor's, QuickAdd's, the trees', the controls',
-  Shift+A and Shift+F10. They stay in their views and run first.
+  view-local keys read only: the piano roll's, the automation editor's, the Wave editor's, QuickAdd's, the trees', the
+  controls', Shift+A and Shift+F10. They stay in their views and run first.
 * **Not checked by hand.** Whether Chrome, Firefox and Safari leave every default to the page was not tried with a
   real keyboard; Playwright's keys reach the page whatever a browser would do. See the round-10 plan.
 

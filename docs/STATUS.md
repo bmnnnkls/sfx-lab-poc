@@ -1,6 +1,6 @@
 # Status
 
-Where the project stands, in one page. Updated 2026-10-29. Update it whenever a round or a piece of work lands
+Where the project stands, in one page. Updated 2026-10-31. Update it whenever a round or a piece of work lands
 (see [dev/doc-workflow.md](dev/doc-workflow.md)).
 
 ## Branches and releases
@@ -8,8 +8,8 @@ Where the project stands, in one page. Updated 2026-10-29. Update it whenever a 
 * **`main`** deploys to GitHub Pages on every push. It holds the performance-and-library work, the compressor and the
   demo-release candidate (project v9 at that point). The demo release has **not been tagged**: the
   human listening pass and the tag are still open ([BACKLOG](BACKLOG.md) V9).
-* **`feat/ui-redesign`** is the working branch for the workbench redesign: rounds 1 to 11b are done on it and it is
-  not merged into `main` yet. It writes project format **v11**, which `main`'s build refuses to open.
+* **`feat/ui-redesign`** is the working branch for the workbench redesign: rounds 1 to 11b and round 11c's first part
+  are done on it and it is not merged into `main` yet. It writes project format **v11**, which `main`'s build refuses to open.
 
 Current file and storage versions are in [reference/formats-and-versions.md](reference/formats-and-versions.md).
 
@@ -25,7 +25,7 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 | Automation (clip, return and master), touch recording | Shipped; no automation on groups yet | [control-and-automation](architecture/control-and-automation.md) |
 | Browser MIDI input and learn | Shipped; physical hardware not verified | [midi](architecture/midi.md) |
 | Arrangement timeline (prototype) | Shipped; the full editor is round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
-| Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades) | Shipped through 11b; markers, regions, keys are 11c | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
+| Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse) | Shipped through 11c part 1; markers, regions and a second pane are 11c parts 2 and 3 | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
 | Snapshots, presets, personal library, `.sfxlib` bundles | Shipped | [library-and-presets](architecture/library-and-presets.md) |
 | Workbench: docking shell, views, layouts, actions, drag and drop, command palette, keys | Shipped (redesign rounds 1–6, 9–10) | [workbench](architecture/workbench.md) |
 | Offline WAV export | Shipped | [audio-export](architecture/audio-export.md) |
@@ -33,12 +33,12 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 
 ## Now and next
 
-1. **Round 11c: markers, regions and keys** in the wave editor, and *Revert to original*. Specified in
-   [active/SPEC-round-11-wave-editor.md](active/SPEC-round-11-wave-editor.md). It still needs its plan.
+1. **Round 11c, parts 2 and 3: markers and regions** (with *Revert to original*), **then a second pane** in the wave
+   editor. Specified in [active/SPEC-round-11-wave-editor.md](active/SPEC-round-11-wave-editor.md) and
    [active/SPEC-wave-editor-handling-and-spectrum.md](active/SPEC-wave-editor-handling-and-spectrum.md) (signed off
-   2026-10-29) splits it into handling (menu, keys, mouse, a grouped toolbar), markers and regions, and a second pane,
-   followed by round 11d: the spectrogram and spectral edits. The first part, handling, is planned in
-   [active/PLAN-round-11c-1-handling.md](active/PLAN-round-11c-1-handling.md) (signed off 2026-10-31, not started).
+   2026-10-29), which is followed by round 11d: the spectrogram and spectral edits. Neither part is planned yet. Part 1,
+   handling (a grouped toolbar, the right-click menu, keys, the mouse, a status bar and a level scale), is done
+   ([plan](archive/ui-redesign/PLAN-round-11c-1-handling.md), 2026-10-31).
 2. **Round 12: the arrangement editor.** Track headers, automation lanes on the timeline (groups too), recording into
    the arrangement. Outline in [active/ui-redesign-roadmap.md](active/ui-redesign-roadmap.md#round-12-arrangement-editor).
 3. **Round 13: visual refresh and themes.**
@@ -65,6 +65,8 @@ Each of these is a backlog item:
 
 * Keyboard shortcuts pressed by hand in Chrome, Firefox and Safari (round 10). Every cell of that round's browser
   table is still "not checked".
+* The wave editor's keys, middle-drag, edge drags, auto-scroll and Shift+F10 menu by hand (round 11c-1); Playwright
+  drove them in Chromium only.
 * Firefox and Safari for anything in the redesign: Safari loading float WAV, stereo MP3, Shift+F10.
 * Manual listening passes for rounds 11a and 11b. The bounce hashes and audio specs stand in for them.
 * Physical MIDI keyboards and controllers.

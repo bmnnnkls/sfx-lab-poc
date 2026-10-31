@@ -1,7 +1,7 @@
 ---
 status: active
 date: 2026-10-29
-note: "11a and 11b are done; 11c (markers, regions and keys) is not started."
+note: "11a and 11b are done; 11c's keys were replaced by the handling spec, whose part 1 is done; markers and regions are not started."
 ---
 # Round 11: wave editor (spec)
 

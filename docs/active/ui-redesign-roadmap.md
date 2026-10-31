@@ -1,7 +1,7 @@
 ---
 status: active
 date: 2026-10-29
-note: "Rounds 1-11b are done; 11c (markers, regions, keys) is next, then 12 (arrangement editor) and 13 (visual refresh)."
+note: "Rounds 1-11b and 11c part 1 (handling) are done; 11c parts 2 and 3 (markers and regions, a second pane) are next, then 11d (the spectrum), 12 (arrangement editor) and 13 (visual refresh)."
 ---
 # UI redesign roadmap (draft)
 
@@ -292,8 +292,13 @@ proposed: samples are stereo through the engine (old projects bit for bit the sa
 pyramid and the new view. **11b is done** 2026-10-29; see its [plan](../archive/ui-redesign/PLAN-round-11b-in-place-edits.md), signed off as
 proposed: edits change the sample in place with one undo step (trims, markers and regions remapped), undo is instant
 within the caches' budgets, edit-made files are cleaned up, and the editor has the six processes, cut, copy, paste,
-delete, crop and insert silence with crossfades, and ways in from clips, regions and the sampler. 11c (markers, regions
-and keys) is next, with its own plan. The outline below is what the spec started from.
+delete, crop and insert silence with crossfades, and ways in from clips, regions and the sampler. A second spec,
+[handling and spectrum](SPEC-wave-editor-handling-and-spectrum.md) (signed off 2026-10-29), splits 11c into handling,
+markers and regions, and a second pane, and adds 11d (the spectrum). **11c part 1, handling, is done** 2026-10-31; see
+its [plan](../archive/ui-redesign/PLAN-round-11c-1-handling.md), signed off as proposed: a grouped toolbar, the
+right-click menu and edit keys through a `sample-selection` subject, view keys, middle-drag, edge drags, auto-scroll, a
+status bar with peak and RMS, and a level scale. Markers and regions (part 2) are next. The outline below is what the
+spec started from.
 
 The biggest single piece, mostly beyond the UI. It needs its own SPEC before planning. Round 3 already gives it its
 view, its activity-bar button and its entry points; this round replaces what is inside.

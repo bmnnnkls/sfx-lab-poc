@@ -104,29 +104,91 @@ rebuilt the inside; round 11b made edits change the sample in place.
   (`points`), with dots from 8 px per frame. The base and the step are private constants there.
 * **View state** (`state/wave-editor-store.ts`), in memory, keyed by the sample's **origin** (`originOf`), so a view
   follows its sample through edits, undo and redo: `framesPerPixel` (null: fit the whole sample), `startFrame`, `cursor`,
-  `selection` (`{ from, to, channels: 'both' | 'left' | 'right' }`, frames) and `zoomPending`. Not saved with the project
-  and not undone, so it survives tab switches until reload. When the open sample's id leaves the project (an undo or
-  redo of an edit), the service opens the sample with the same origin, first in library order, and clamps a selection
-  past its end; with none, the view shows its empty state, as for a removed sample. The ruler's mode (time or beats), its
-  tempo (the project's or the one in the sample's name, `tempoFromName`) and the preview's Loop are per browser
-  (`useStoredState`: `sfxlab:wave-ruler`, `sfxlab:wave-ruler-tempo`, `sfxlab:wave-loop`).
-* **The view.** `SampleEditor` is the frame: a toolbar that wraps (the edits on a line of their own that scrolls
-  sideways where it doesn't fit, `EditToolbar`), the `Overview`, the `Ruler`, the `DetailView` and a
-  status line (cursor, or the selection and its length). The **overview** (48 px) is the whole sample from `columnsFor`;
+  `selection` (`{ from, to, channels: 'both' | 'left' | 'right' }`, frames), `zoomTo` and `asking`. Not saved with the
+  project and not undone, so it survives tab switches until reload. **Zooms are asked for**, since only the editor knows
+  its width: `zoom(key, range | 'fit')` (buttons, menu entries, keys) and `reveal` (entry points) set `zoomTo`, and the
+  editor does it once it has a width and the audio (`takeZoom` reads and clears it; `resolveZoom` in
+  `wave-geometry.ts`). `ask(key, kind | null)` opens an edit's settings popover (`asking`), under the toolbar, from a
+  button, a menu entry or the palette alike. When the open sample's id leaves the project (an undo or redo of an edit),
+  the service opens the sample with the same origin, first in library order, and clamps a selection past its end; with
+  none, the view shows its empty state, as for a removed sample. The ruler's mode (time or beats) and its tempo (the
+  project's or the one in the sample's name, `tempoFromName`) are per browser (`useStoredState`: `sfxlab:wave-ruler`,
+  `sfxlab:wave-ruler-tempo`).
+* **The edit settings** (`state/wave-edit-settings.ts`, `useWaveEditSettings`): *Edits make copies*, the crossfade,
+  the fade curve last used, each popover's last values, and the preview's *Loop*. `state` doesn't touch
+  `localStorage`, so `useWaveEditSettingsStorage` (in `ui/wave-editor`, mounted by the view) restores them once per page
+  and saves each change, under `sfxlab:wave-edit-copies`, `sfxlab:wave-crossfade`, `sfxlab:wave-fade-curve`,
+  `sfxlab:wave-edit-settings` and `sfxlab:wave-loop`. `restore` takes each field that is valid and keeps the default
+  for the rest; a popover value saved as `null` (an emptied field) is dropped, so the edit takes that field's default.
+* **One path for every edit** (`state/wave-edits.ts`). `openWave(sampleId)` reads a sample with its working copy and
+  view; `waveEditFacts` is what decides (an edit running, the audio loaded, the selection, something copied, the
+  channels); `waveEditBlocked(entry, facts)` says why an edit can't run now ("Select both channels to delete"), and
+  `waveCopyBlocked` and `waveCutBlocked` Copy's and Cut's (Copy runs while an edit runs); `waveEditContext` builds the
+  `SampleEditContext`; `runWaveEdit(library, sampleId, kind, { variant, values, curve })` checks, remembers the values
+  and the curve, and calls `editSample`; `copyWave` and `cutWave` fill the clipboard. `state/wave-view.ts` has
+  `toggleWavePreview` (▶) and `selectAllWave`. The toolbar, the menus, the palette and the keys all call these.
+* **The view.** `SampleEditor` is the frame: the toolbar, the `Overview`, the `Ruler`, the `DetailView` with a level
+  scale beside each lane, and the status bar. The **toolbar** is one line of groups, separated by a hairline, that
+  wraps a whole group at a time: ▶ (■ while playing) and *Loop*; *Cut*, *Copy*, *Paste*, *Delete*, *Crop*
+  (`EditToolbar`, its `TOOLBAR_EDITS`); *Process ▾* and *View ▾*; the sample's name (truncated, with a tooltip),
+  length, rate and *mono* / *stereo* as quiet text; ⚙ (*Editor settings*: the crossfade's length and curve and *Edits
+  make copies*, a panel that Escape or a press outside closes) and × (*Close sample*). The glyphs are text until the app
+  has an icon set. **Process ▾** is the `sample-selection` subject's `process` actions (below), so it and the
+  right-click menu can't differ: the `process` entries of `SAMPLE_EDITS`, *Fade in* and *Fade out* each a submenu of
+  the curves (the last used first, checked), then *Insert silence…*. **View ▾** has the subject's two zooms, *Time* /
+  *Beats*, and the tempo the beats count at (*Project tempo*, *Tempo from the name*), checked when in effect. The
+  **status bar** shows the cursor, or the selection's range, length and channels (`data-testid="wave-status"`); the
+  selection's peak and RMS in dBFS (`selectionLevels` in `core/sample/audio-math.ts`, the loudest of its channels, one
+  pass over the audio: 11.5 ms for 120 s of stereo in Chromium), computed once the selection hasn't changed for
+  150 ms, so never during a drag ("…" meanwhile); and, at the right, "Scroll to move · Ctrl/⌘ + scroll to zoom ·
+  Middle-drag to pan". The **level scale** is the editor's first grid column, 28 px: the overview and the ruler sit in
+  the second, lined up with the lanes. The **overview** (48 px) is the whole sample from `columnsFor`;
   its box is what the detail shows, and it **is the scrollbar** (`role="scrollbar"`, focusable: arrows, Page Up and
   Down, Home and End): drag the box to scroll, its edges to zoom, click elsewhere to centre there. A native scroller
   can't be wide enough at full zoom. The **ruler** shows m:ss.mmm (frames under one frame per pixel) or bars and beats in
   4/4 from frame 0 (`ruler-ticks.ts`, labels at least 72 px apart). The **detail** has one `WaveLane` per channel, each a
-  canvas the size of its box times `devicePixelRatio`; `data-draw` on it says which band is drawn.
+  canvas the size of its box times `devicePixelRatio`; `data-draw` on it says which band is drawn. It is focusable
+  (`role="group"`, *Waveform lanes*), takes the focus on any press, and is the `sample-selection` subject's
+  `ActionMenu` trigger.
 * **Drawing without React.** Zoom and scroll write to the store; the detail, the overview's box and the ruler subscribe
   to the store directly and redraw in an animation frame (and on resize). React renders only when the sample, the
-  selection or the cursor changes. A lane is drawn by a **lane renderer** (`(context, columns, size, colors) => void`,
-  `lane-renderers.ts`); the waveform is the only one, a spectrogram would be a second.
-* **Gestures.** Drag to select; on a stereo sample a drag starting in the top quarter of the left lane selects the left
-  channel only, in the bottom quarter of the right lane the right only. Shift extends from the far end. A click sets the
-  cursor. ⌘ or Ctrl with the wheel (and a trackpad pinch) zooms around the pointer, from the whole sample to 32 px per
-  frame; the wheel scrolls. *Zoom to selection* and *Zoom to fit* are buttons.
-* **Preview.** ▶ plays the selection, or from the cursor to the end, looping with *Loop*; ■ stops. The playhead
+  selection or the cursor changes. A lane is drawn by a **lane renderer** (`lane-renderers.ts`), `{ draw(context,
+  columns, size, colors), scale(context, size, colors) }`: `draw` fills the lane, `scale` its gutter. The waveform
+  (`waveformRenderer`) is the only one, a spectrogram would be a second. Its scale marks 0, −6 and −12 dB above and
+  below the middle and −∞ on it (`levelMarks(height)`: a label only 11 px or more below the last). Each gutter is its
+  own canvas (`LaneScale`), drawn on mount and on resize, never on zoom or scroll.
+* **The right-click menu** is the **`sample-selection`** subject's (`{ kind: 'sample-selection', sampleId }`,
+  "Selection in *name*", `state/actions/sample-selection.ts`): *Cut*, *Copy*, *Paste*, *Delete*, *Crop* (one group,
+  `clipboard`, as on the toolbar) · the processes (`process`, built from the registry by `processActions`, so a new
+  process is an action, a *Process ▾* entry and a palette row with no other change) · *Select all*, *Zoom to
+  selection*, *Zoom to fit*, *Play selection* / *Play from cursor* / *Stop* (`view`). An action is disabled with the
+  reason as its tooltip (`waveEditBlocked`); one with settings opens its popover (`ask`) and `takesFocus`, so the
+  closing menu leaves the focus in the popover. What a right-click lands on follows the piano roll
+  (`menuTargetAt(selection, frame, channel)`): inside the selection, on a channel it covers, keeps it; anywhere else
+  clears it and puts the cursor there. Shift+F10 opens it, as everywhere.
+* **Keys.** With the lanes focused, the **edit keys** go through the subject's verbs (`runVerb`): Delete and Backspace
+  delete, ⌘C copies, ⌘X cuts, ⌘V pastes; in a text field they stay the field's. The **view keys** are the lanes' own
+  (`onKeyDown`), listed read only in the shortcuts dialog (`VIEW_KEYS`, *Wave editor*), and one pure function decides
+  what each does, `waveKeyAction(key, view, frames, width)` (`wave-keys.ts`): ⌘A selects all (the channels selected,
+  else both); Escape clears the selection, the cursor at its start; ← → move the cursor a column (at least a frame),
+  or collapse a selection to that side; Alt with them a tenth of the view; Home and End to the ends; Shift with an
+  arrow, Home or End moves the selection's end the cursor is on (the cursor follows it) and keeps the other; + (or =)
+  and − zoom by two wheel notches around the cursor (the middle when it is out of view); Z zooms to the selection,
+  Shift+Z to fit; P plays or stops. A key that moves the cursor out of the view scrolls it by the least that shows it.
+  Space stays the transport's; ⌘0, ⌘+ and ⌘− the browser's.
+* **Gestures** (`useWaveGestures`, `use-wave-gestures.ts`). Drag to select; on a stereo sample a drag starting in the
+  top quarter of the left lane selects the left channel only, in the bottom quarter of the right lane the right only
+  (`channelsAt`). Shift extends from the far end. A click sets the cursor; a double-click selects the whole sample on
+  the channels a drag there would take. Within `EDGE_PX` (4) of a selection's edge, on a channel it covers, the pointer
+  shows a resize cursor and a drag moves that edge (`selectionEdgeAt`; the nearer edge on a narrow selection). A
+  selection dragged past the detail's left or right edge scrolls the view each animation frame by
+  `autoScrollFrames` (a tenth of the distance past it in columns, at most a quarter of the view) and selects to the
+  edge. A middle-drag pans, with a grabbing hand, and leaves the cursor; a fitted view neither pans nor auto-scrolls.
+  The cursor styles are set on the element, not through React. ⌘ or Ctrl with the wheel (and a trackpad pinch) zooms
+  around the pointer, from the whole sample to 32 px per frame (`WHEEL_ZOOM`, 1.25 a notch); the wheel scrolls; a
+  *Wheel zooms* setting would branch in the one wheel handler.
+* **Preview.** ▶ (or P, or *Play selection*) plays the selection, or from the cursor to the end, looping with *Loop*;
+  ■ stops. The playhead
   (`WavePlayhead`) is a leaf that selects `status.preview` only. A preview may play while the transport plays; it is mixed
   into the master.
 * **Edits as data** (`core/sample/edits.ts`). `SampleEdit` is a union, one kind per edit, and `SAMPLE_EDITS` a record
@@ -135,7 +197,7 @@ rebuilt the inside; round 11b made edits change the sample in place.
   `channels` (`both` for edits that change the length), `needsSelection`, `needsClipboard`, `takesFadeCurve`, and
   `create(context, variant)`, `apply(audio, edit)`, `remap(edit, frames)`, `changed(edit, frames)` and
   `after(edit, frames)`. `applySampleEdit`, `remapFrame`, `remapRange`, `sampleRemap`, `changedFrames` and `afterEdit`
-  dispatch through it; nothing else switches on the kind, and the toolbar is built from it.
+  dispatch through it; nothing else switches on the kind, and the toolbar's menus and the actions are built from it.
   * **Processes** keep the length and work on the selection (or the whole sample) and its channels: `gain` (−48 to
     +24 dB), `fade` (in or out, with a curve from `FADE_CURVES`: linear, equal power, slow start, fast start, S-curve;
     out uses `g(1 − t)`), `normalize` (a target peak, −0.1 dBFS by default, linked or per channel; a peak under −100 dB
@@ -149,8 +211,7 @@ rebuilt the inside; round 11b made edits change the sample in place.
     while it fades in, so the result has exactly the expected length. A delete's handles are the deleted audio; a
     paste's are the clipboard's and the audio around the cursor. A side with less to borrow fades over what there is;
     0 ms is the plain cut, bit for bit. The length (0 to 100 ms, 5 ms by default) and curve (linear or equal power) are
-    the toolbar's, per browser (`sfxlab:wave-crossfade`); the fade curve is `sfxlab:wave-fade-curve`, a popover's last
-    values `sfxlab:wave-edit-settings`.
+    set under ⚙ (§ The edit settings).
   * **Remapping**: each kind's `remap` is one of four shapes in `core/sample/remap.ts` (identity, a splice, a crop, a
     mirror), which say where a position is now (`frame`), where a range's start moves forward to (`start`) and where a
     range is (`range`, start forward, end backward, null when nothing is left). `replaceSample` takes them with the old
@@ -167,10 +228,10 @@ rebuilt the inside; round 11b made edits change the sample in place.
   quota (`StorageFullError`), stores and notes the file, sends the engine `sample/add` with a **copy** of the audio,
   then commits, if the sample is still in the project (an undo meanwhile drops the edit, its file left to cleanup):
   in place, `replaceSample` as one undo step, with a toast for a merge and for emptied trims; with *Edits make copies*
-  (per browser, `sfxlab:wave-edit-copies`, off), a new sample "name (suffix)" with no origin, which the editor opens.
+  (off by default), a new sample "name (suffix)" with no origin, which the editor opens.
   The editor moves first: the old working copy goes to the cache, the new one (its pyramid updated) becomes current,
   the selected id changes, and the entry's `after` sets the selection and cursor (processes keep them; delete leaves
   the cursor at the join; crop selects nothing; insert and paste select what they inserted). `encodeWav` (mono 16-bit)
   stays for the demo samples, whose ids are hashes of its bytes.
-* **Not yet.** Markers, regions, snap, *Revert to original*, the sample-selection focus subject and its keys (11c);
-  previewing a process before applying it; the spectrogram; the granular stage.
+* **Not yet.** Markers, regions, snap, *Revert to original* (11c, part 2); a second pane (part 3), whose subject gains a
+  `pane`; previewing a process before applying it; the spectrogram (11d); the granular stage.

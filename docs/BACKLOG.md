@@ -4,17 +4,17 @@ Open work only. Each item has an ID so it can be referred to ("V1, E2"). When an
 describe the result in [`architecture/`](architecture/). Ideas that nobody has committed to are in [IDEAS.md](IDEAS.md);
 the order of the big pieces is in [STATUS.md](STATUS.md#now-and-next).
 
-Reconciled with the code on 2026-10-29 (`feat/ui-redesign` after round 11b). This replaces `docs/TASKS.md`.
+Reconciled with the code on 2026-10-31 (`feat/ui-redesign` after round 11c, part 1). This replaces `docs/TASKS.md`.
 
 ## UI redesign
 
 Planned round by round. Each round gets a plan in [`active/`](active/) before it starts.
 
-- **U1 Round 11c: markers, regions and keys** in the wave editor ([spec](active/SPEC-round-11-wave-editor.md)),
-  including *Revert to original*. 11b left that to 11c because remapping trims back through a chain of edits needs the
-  chain, which isn't kept. A second spec, [handling and spectrum](active/SPEC-wave-editor-handling-and-spectrum.md)
-  (signed off), replaces 11c's keys and splits 11c into handling, markers and regions, and a second pane. Handling has
-  a [plan](active/PLAN-round-11c-1-handling.md) (signed off, not started).
+- **U1 Round 11c, parts 2 and 3: markers and regions, then a second pane** in the wave editor
+  ([spec](active/SPEC-round-11-wave-editor.md), [handling and spectrum](active/SPEC-wave-editor-handling-and-spectrum.md),
+  both signed off), including *Revert to original*. 11b left that to 11c because remapping trims back through a chain
+  of edits needs the chain, which isn't kept. The second pane adds a `pane` to the `sample-selection` subject and the
+  view key. Part 1, handling, is done.
 - **U9 Round 11d: the spectrogram and spectral edits** in the wave editor
   ([spec](active/SPEC-wave-editor-handling-and-spectrum.md), signed off): the FFT core (idea H1), a spectrum
   pyramid computed in a worker, time-and-frequency selection, band gain and keep band.
@@ -51,8 +51,11 @@ Things that shipped without the check their plan asked for.
 - **V7 Load-sensitive audio test**: `tempo.audio.spec.ts`'s ping-pong case fails its tail-level check when the machine
   is busy, because it times tempo edits from the page.
 - **V8 Commit the measuring scripts** that rounds 4 and 11b used (`measure.cjs`, the in-place flow timing). Only
-  `scripts/profile-status.cjs` is in the repository.
+  `scripts/profile-status.cjs` and `scripts/measure-selection-levels.cjs` (round 11c-1) are in the repository.
 - **V9 Demo release**: a short human listening pass on `main`, then tag the verified commit.
+- **V10 Hand pass for the wave editor's handling** (round 11c-1), in Chrome, and Firefox and Safari once V3 is done:
+  every view key and the edit keys with the focus on the lanes, on the toolbar and in the project name field;
+  middle-drag with a mouse; edge drags and auto-scroll on a trackpad; the right-click menu with Shift+F10.
 
 ## Performance
 
