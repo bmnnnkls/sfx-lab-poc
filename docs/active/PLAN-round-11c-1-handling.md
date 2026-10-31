@@ -295,3 +295,31 @@ Signed off 2026-10-31: every row as proposed.
 * **Step 2: the lanes are `role="group"` named *Waveform lanes*,** as the graph canvas is a named group. `menuTargetAt`
   takes the selection, the frame and the lane (`(selection, frame, channel)`): the frame is already resolved from the
   view, so the view isn't an argument.
+* **Step 3: *Process ▾* and *View ▾* are the subject's actions.** `useActionEntries(subject, context, only)` (exported
+  from `ui/shared/menu`, what `ActionMenu` draws) builds them, so the toolbar menus and the right-click menu can't
+  differ: *Process ▾* keeps the `process` group, *View ▾* the two zoom actions, then *Time* / *Beats* and the tempo as
+  checkable entries (the tempo entries are disabled while the ruler counts time). An edit with settings is
+  `takesFocus`, so a closing menu doesn't take the focus back from its popover's first field. The toolbar's buttons
+  are Cut, Copy and one list, `TOOLBAR_EDITS` (Paste, Delete, Crop).
+* **Step 3: the gutter is the editor's first grid column.** The lanes' x is the detail's own, so the level scales
+  (`LaneScale`, one canvas per channel, drawn on mount and resize) sit in a 28 px column beside it, and the overview and
+  the ruler are in the second column, lined up with the lanes. `levelMarks(height)` places the marks and labels a mark
+  only 11 px or more below the last label (a 40 px lane labels 0 and −12).
+* **Step 3: "settled" is 150 ms without a change** (`SETTLE_MS` in `WaveStatus`), not the pointer's release: the store
+  has no drag flag, and a drag changes the selection every frame, so the levels wait for it. "Peak … · RMS …" shows
+  meanwhile. The cursor or selection field keeps `data-testid="wave-status"`; the levels are `wave-levels`.
+* **Step 3: the toolbar's hairlines** are each group's left border; a group that wraps to a new line keeps its hairline
+  at the line's start. ⚙ closes on Escape or a press outside it.
+* **Step 3: measures**, in Chromium 156 (Playwright's) on the dev server's modules, median of 7 runs after 2 warm-ups,
+  three runs alike, load average 4 to 6 (`scripts/measure-selection-levels.cjs`):
+
+  | 120 s, 48 kHz | `selectionLevels` |
+  |---|---|
+  | the whole of it, stereo | 11.5 ms |
+  | the whole of it, one channel | 7.0 ms |
+  | a tenth of it, stereo | 1.2 ms |
+
+  Under the plan's 20 ms, so both levels come from the audio; the pyramid isn't read.
+* **Step 3: profile.** `profile-status.cjs wave`: 56 component renders a second, as 11b (29 `WavePlayhead`, 27
+  `LevelMeter`, 0 for every editor component, the new `ProcessMenu`, `ViewMenu`, `EditorSettings`, `WaveStatus` and
+  `LaneScale` added to the watched list). Production build: script 13.8 ms/s, layout 14.2 ms/s, style 12.5 ms/s.

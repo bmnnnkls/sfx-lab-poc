@@ -17,10 +17,30 @@ export interface LaneColors {
 }
 
 /**
- * Draws one channel into a lane's canvas, in CSS pixels (the canvas is already scaled). The waveform is the only one
- * now; a spectrogram is a second renderer beside it.
+ * How a lane is drawn, in CSS pixels (the canvases are already scaled): `draw` fills the lane with one channel, `scale`
+ * the gutter beside it with the lane's scale. The waveform is the only one now; a spectrogram is a second renderer.
  */
-export type LaneRenderer = (context: CanvasRenderingContext2D, columns: LaneColumns, size: LaneSize, colors: LaneColors) => void
+export interface LaneRenderer {
+  draw(context: CanvasRenderingContext2D, columns: LaneColumns, size: LaneSize, colors: LaneColors): void
+  scale(context: CanvasRenderingContext2D, size: LaneSize, colors: LaneColors): void
+}
+
+/** The level scale's marks, in dB; −∞ is the middle line. */
+const LEVEL_MARKS_DB = [0, -6, -12, -Infinity] as const
+/** A label needs this much room from the one above it. */
+const LABEL_PX = 11
+
+/** Where each level mark is in a lane `height` high: a line above and one below the middle (one at −∞), and a label where there is room. */
+export const levelMarks = (height: number): readonly { readonly ys: readonly number[]; readonly label: string | null }[] => {
+  const middle = height / 2
+  let last = -Infinity
+  return LEVEL_MARKS_DB.map((db) => {
+    const above = middle - 10 ** (db / 20) * middle
+    const room = above - last >= LABEL_PX
+    if (room) last = above
+    return { ys: db === -Infinity ? [middle] : [above, height - above], label: room ? (db === -Infinity ? '−∞' : db === 0 ? '0' : `−${-db}`) : null }
+  })
+}
 
 /** The channel's part of the view's columns. */
 export const laneColumns = (columns: WaveColumns, channel: number, view: WaveView): LaneColumns =>
@@ -29,7 +49,7 @@ export const laneColumns = (columns: WaveColumns, channel: number, view: WaveVie
     : { kind: columns.kind, min: columns.min[channel]!, max: columns.max[channel]! }
 
 /** Min and max as a bar per column, or the sample points joined by a line (with dots when zoomed far in). */
-export const drawWaveform: LaneRenderer = (context, columns, { width, height }, colors) => {
+const drawWaveform: LaneRenderer['draw'] = (context, columns, { width, height }, colors) => {
   const middle = height / 2
   const y = (value: number) => middle - Math.max(-1, Math.min(1, value)) * middle
   context.fillStyle = colors.line
@@ -54,3 +74,17 @@ export const drawWaveform: LaneRenderer = (context, columns, { width, height }, 
   context.stroke()
   if (columns.dots) values.forEach((value, index) => context.fillRect(xAt(index) - 1.5, y(value) - 1.5, 3, 3))
 }
+
+/** The level scale: a tick at the gutter's right edge per mark, mirrored below the middle, labelled where there is room. */
+const drawLevelScale: LaneRenderer['scale'] = (context, { width, height }, colors) => {
+  context.fillStyle = colors.line
+  context.font = '9px system-ui, sans-serif'
+  context.textBaseline = 'middle'
+  context.textAlign = 'right'
+  for (const mark of levelMarks(height)) {
+    for (const y of mark.ys) context.fillRect(width - 4, Math.min(height - 1, Math.max(0, Math.round(y))), 4, 1)
+    if (mark.label) context.fillText(mark.label, width - 6, Math.min(height - 5, Math.max(5, mark.ys[0]!)))
+  }
+}
+
+export const waveformRenderer: LaneRenderer = { draw: drawWaveform, scale: drawLevelScale }

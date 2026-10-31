@@ -1,19 +1,29 @@
-import { type SampleInfo, frameCount, originOf, tempoFromName } from '@core'
-import { type WaveZoom, useProjectStore, useSampleLibrary, useStatusStore, useWaveAudioStore, toggleWavePreview, useWaveEditSettings, useWaveEditorStore, waveViewOf } from '@state'
-import { useEffect, useRef } from 'react'
+import { type SampleInfo, frameCount, originOf, savedFrameCount, tempoFromName } from '@core'
+import { type Subject, toggleWavePreview, useProjectStore, useSampleLibrary, useStatusStore, useWaveAudioStore, useWaveEditSettings, useWaveEditorStore, waveViewOf } from '@state'
+import { useEffect, useMemo, useRef } from 'react'
 import { useStoredState } from '../shared/use-stored-state'
 import { currentView } from './current-view'
 import { DetailView } from './DetailView'
+import { EditorSettings } from './EditorSettings'
 import { EditToolbar } from './EditToolbar'
+import { waveformRenderer } from './lane-renderers'
 import { Overview } from './Overview'
+import { ProcessMenu } from './ProcessMenu'
 import { Ruler } from './Ruler'
 import { formatTime, isRulerMode, isRulerTempo } from './ruler-ticks'
+import { ViewMenu } from './ViewMenu'
 import { resolveZoom } from './wave-geometry'
+import { LaneScale } from './WaveLane'
+import { WaveStatus } from './WaveStatus'
 import styles from './WaveEditor.module.css'
 
+/** A sample rate as the toolbar shows it: "44.1 kHz", "48 kHz". */
+const formatRate = (rate: number) => `${Number((rate / 1000).toFixed(1))} kHz`
+
 /**
- * One library sample in the Wave editor: a toolbar, the overview (which is the scrollbar), the ruler, a lane per channel,
- * and a status line. Drawn from the open sample's working copy (`useWaveAudioStore`); zoom, scroll, cursor and
+ * One library sample in the Wave editor: a toolbar of groups (preview; the edits used most; *Process ▾* and *View ▾*;
+ * the sample's facts; ⚙ and ×) that wraps a whole group at a time, the overview (which is the scrollbar), the ruler, a
+ * lane per channel with its level scale, and a status bar. Drawn from the open sample's working copy (`useWaveAudioStore`); zoom, scroll, cursor and
  * selection live in `useWaveEditorStore`, so they survive tab switches.
  */
 export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(): void }) => {
@@ -35,9 +45,9 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
   const bpm = rulerTempo === 'sample' && sampleTempo !== null ? sampleTempo : projectTempo
   const rate = wave?.audio.sampleRate ?? sample.sampleRate
 
-  const play = () => toggleWavePreview(library, sample.id)
-
-  const zoom = (to: WaveZoom) => useWaveEditorStore.getState().zoom(key, to)
+  const subject = useMemo<Subject>(() => ({ kind: 'sample-selection', sampleId: sample.id }), [sample.id])
+  const channels = wave?.audio.channels.length ?? Math.min(2, sample.channels)
+  const length = (wave ? frameCount(wave.audio) : savedFrameCount(sample)) / rate
 
   // A zoom was asked for (a button, a menu entry, a key, an entry point): do it once the detail has a width and the
   // audio is here.
@@ -58,50 +68,61 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
   return (
     <div className={styles.editor} data-testid="sample-editor">
       <div className={styles.editorToolbar}>
-        <strong className={styles.title}>{sample.name}</strong>
-        <button onClick={play} aria-label={previewing ? 'Stop preview' : selection ? 'Play selection' : 'Play from cursor'} title={previewing ? 'Stop' : selection ? 'Play the selection' : 'Play from the cursor'}>
-          {previewing ? '■' : '▶'}
-        </button>
-        <button aria-pressed={loop} onClick={() => useWaveEditSettings.getState().setLoop(!loop)} title="Loop the preview">
-          Loop
-        </button>
-        <button onClick={() => selection && zoom(selection)} disabled={!wave || !selection} title="Zoom to the selection">
-          Zoom to selection
-        </button>
-        <button onClick={() => zoom('fit')} disabled={!wave} title="Show the whole sample">
-          Zoom to fit
-        </button>
-        <button onClick={() => setRuler(ruler === 'time' ? 'beats' : 'time')} title="Switch the ruler between time and bars and beats">
-          {ruler === 'time' ? 'Time' : 'Beats'}
-        </button>
-        {ruler === 'beats' && (
+        <span className={styles.toolGroup} role="group" aria-label="Preview">
           <button
-            onClick={() => setRulerTempo(rulerTempo === 'project' ? 'sample' : 'project')}
-            disabled={sampleTempo === null}
-            title={sampleTempo === null ? 'The sample has no tempo in its name' : 'Count beats at the project tempo or the tempo in the sample name'}
+            onClick={() => toggleWavePreview(library, sample.id)}
+            aria-label={previewing ? 'Stop preview' : selection ? 'Play selection' : 'Play from cursor'}
+            title={previewing ? 'Stop' : selection ? 'Play the selection' : 'Play from the cursor'}
           >
-            {rulerTempo === 'sample' && sampleTempo !== null ? `Sample ${sampleTempo} BPM` : `Project ${projectTempo} BPM`}
+            {previewing ? '■' : '▶'}
           </button>
-        )}
-        <button onClick={onClose} title="Close this sample">
-          Close
-        </button>
+          <button aria-pressed={loop} onClick={() => useWaveEditSettings.getState().setLoop(!loop)} title="Loop the preview">
+            Loop
+          </button>
+        </span>
         <EditToolbar sample={sample} wave={wave} selection={selection} />
+        <span className={styles.toolGroup} role="group" aria-label="Menus">
+          <ProcessMenu subject={subject} />
+          <ViewMenu
+            subject={subject}
+            ruler={ruler}
+            onRuler={setRuler}
+            tempo={rulerTempo}
+            onTempo={setRulerTempo}
+            projectTempo={projectTempo}
+            sampleTempo={sampleTempo}
+          />
+        </span>
+        <span className={styles.facts} role="group" aria-label="Sample">
+          <strong className={styles.title} title={sample.name}>
+            {sample.name}
+          </strong>
+          <span>{formatTime(length)}</span>
+          <span>{formatRate(rate)}</span>
+          <span>{channels > 1 ? 'stereo' : 'mono'}</span>
+        </span>
+        <span className={`${styles.toolGroup} ${styles.end}`} role="group" aria-label="Editor">
+          <EditorSettings />
+          <button onClick={onClose} aria-label="Close sample" title="Close this sample">
+            ×
+          </button>
+        </span>
       </div>
       {wave ? (
         <>
           <Overview wave={wave} detail={detail} />
           <Ruler wave={wave} detail={detail} mode={ruler} bpm={bpm} />
+          <div className={styles.scales}>
+            {wave.audio.channels.map((_, index) => (
+              <LaneScale key={index} renderer={waveformRenderer} />
+            ))}
+          </div>
           <DetailView wave={wave} frame={detail} />
         </>
       ) : (
         <p className={styles.loading}>{failed ? 'The audio of this sample is missing; import the file again to edit it.' : 'Loading the waveform…'}</p>
       )}
-      <p className={styles.statusLine} data-testid="wave-status">
-        {selection
-          ? `Selection ${formatTime(selection.from / rate)} – ${formatTime(selection.to / rate)} (${formatTime((selection.to - selection.from) / rate)})${selection.channels === 'both' ? '' : `, ${selection.channels} only`}`
-          : `Cursor ${formatTime(cursor / rate)}`}
-      </p>
+      <WaveStatus wave={wave} selection={selection} cursor={cursor} rate={rate} />
     </div>
   )
 }

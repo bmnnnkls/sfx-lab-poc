@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { levelMarks } from './lane-renderers'
 import { DEFAULT_WAVE_VIEW } from '@state'
 import { formatBeat, formatTime, rulerTicks } from './ruler-ticks'
 import { MIN_FRAMES_PER_PIXEL, clampView, frameAt, menuTargetAt, resolveView, resolveZoom, xOf, zoomAround, zoomTo } from './wave-geometry'
@@ -73,5 +74,17 @@ describe('a right-click', () => {
     expect(menuTargetAt(left, 250, 0)).toEqual({ cursor: 250 })
     expect(menuTargetAt(left, 150, 1)).toEqual({ cursor: 150 })
     expect(menuTargetAt(null, 40, 0)).toEqual({ cursor: 40 })
+  })
+})
+
+describe('the level scale', () => {
+  it('marks 0, −6, −12 dB above and below the middle and −∞ on it, labelled where there is room', () => {
+    const marks = levelMarks(200)
+    expect(marks.map((mark) => mark.label)).toEqual(['0', '−6', '−12', '−∞'])
+    expect(marks[0]!.ys).toEqual([0, 200])
+    expect(marks[1]!.ys[0]).toBeCloseTo(100 - 50.1, 1)
+    expect(marks[3]!.ys).toEqual([100])
+    // In a low lane the labels that would touch are left out; the lines stay.
+    expect(levelMarks(40).map((mark) => mark.label)).toEqual(['0', null, '−12', null])
   })
 })

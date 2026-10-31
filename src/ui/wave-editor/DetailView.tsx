@@ -2,7 +2,7 @@ import { columnsFor, frameCount } from '@core'
 import { type Subject, type WaveAudio, type WaveChannels, useStatusStore, useWaveEditorStore, waveViewOf } from '@state'
 import { type RefObject, useEffect, useMemo, useRef } from 'react'
 import { ActionMenu } from '../shared/menu'
-import { drawWaveform, laneColumns } from './lane-renderers'
+import { laneColumns, waveformRenderer } from './lane-renderers'
 import { WaveLane, type WaveLaneHandle } from './WaveLane'
 import { currentView } from './current-view'
 import { coversChannel, frameAt, menuTargetAt, resolveView, xOf, zoomAround } from './wave-geometry'
@@ -160,7 +160,7 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
         }}
       >
         {audio.channels.map((_, index) => (
-          <WaveLane key={index} label={stereo ? (index === 0 ? 'Left' : 'Right') : 'Waveform'} renderer={drawWaveform} handle={handles[index]!} />
+          <WaveLane key={index} label={stereo ? (index === 0 ? 'Left' : 'Right') : 'Waveform'} renderer={waveformRenderer} handle={handles[index]!} />
         ))}
         <WavePlayhead wave={wave} frame={frame} />
       </div>

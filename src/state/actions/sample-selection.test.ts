@@ -55,6 +55,9 @@ describe('the sample-selection actions', () => {
       .filter((entry) => entry.group === 'process')
       .flatMap((entry) => entry.variants?.map((variant) => variant.title) ?? [entry.title])
     expect(processActions().map((action) => action.title)).toEqual([...fromRegistry, SAMPLE_EDITS.insert.title])
+    // The toolbar's Process ▾ is this group of the subject's actions.
+    open(both)
+    expect(describeActions(subject, fakeContext()).filter((item) => item.group === 'process').map((item) => item.title)).toEqual([...fromRegistry, SAMPLE_EDITS.insert.title])
   })
 
   it('are enabled, or say why not, with and without a selection, a clipboard, both channels and a running edit', () => {

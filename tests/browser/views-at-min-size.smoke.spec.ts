@@ -123,7 +123,13 @@ const CASES: readonly Case[] = [
       await root.getByRole('button', { name: /^Demo / }).first().click()
     },
     // The overview is the waveform's scrollbar: the detail view doesn't scroll natively.
-    controls: (root) => [root.getByRole('button', { name: 'Close', exact: true }), root.getByRole('scrollbar', { name: 'Waveform position' })],
+    // The toolbar wraps a whole group at a time: every group shows, the last one too.
+    controls: (root) => [
+      root.getByRole('button', { name: 'Close sample', exact: true }),
+      root.getByRole('button', { name: 'Process', exact: true }),
+      root.getByRole('button', { name: 'Crop', exact: true }),
+      root.getByRole('scrollbar', { name: 'Waveform position' }),
+    ],
   },
   {
     title: 'Mixer',

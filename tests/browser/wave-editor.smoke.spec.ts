@@ -36,7 +36,7 @@ test('✎ on a sample opens it in the Wave editor beside the Samples list, and C
   // The Samples view keeps showing its list.
   await expect(samples.getByRole('listitem')).toHaveCount(5)
 
-  await wave.getByRole('button', { name: 'Close', exact: true }).click()
+  await wave.getByRole('button', { name: 'Close sample', exact: true }).click()
   await expect(wave.getByText('No sample is open.', { exact: true })).toBeVisible()
   await expect(wave.getByTestId('sample-editor')).toHaveCount(0)
 
@@ -135,15 +135,22 @@ test('a stereo sample opens with a lane per channel, zooms to single samples, se
     }).toPass()
   }
   await page.keyboard.up('Control')
-  await wave.getByRole('button', { name: 'Zoom to fit', exact: true }).click()
+  const viewMenu = wave.getByRole('button', { name: 'View', exact: true })
+  await viewMenu.click()
+  await page.getByRole('menuitem', { name: 'Zoom to fit', exact: true }).click()
   await expect(detail).toHaveAttribute('data-draw', 'peaks')
 
-  // The ruler counts beats, at the project's tempo or the one in the sample's name.
-  await wave.getByRole('button', { name: 'Time', exact: true }).click()
+  // The ruler counts beats, at the project's tempo or the one in the sample's name; View ▾ checks what is in effect.
+  await viewMenu.click()
+  await expect(page.getByRole('menuitemcheckbox', { name: 'Time', exact: true })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('menuitemcheckbox', { name: 'Beats', exact: true }).click()
   await expect(wave.locator('[data-ruler]')).toHaveAttribute('data-ruler', 'beats')
-  await wave.getByRole('button', { name: /^Project \d+ BPM$/ }).click()
-  await expect(wave.getByRole('button', { name: 'Sample 98 BPM', exact: true })).toBeVisible()
-  await wave.getByRole('button', { name: 'Beats', exact: true }).click()
+  await viewMenu.click()
+  await page.getByRole('menuitemcheckbox', { name: 'Tempo from the name (98 BPM)', exact: true }).click()
+  await viewMenu.click()
+  await expect(page.getByRole('menuitemcheckbox', { name: 'Tempo from the name (98 BPM)', exact: true })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByRole('menuitemcheckbox', { name: /^Project tempo/ })).toHaveAttribute('aria-checked', 'false')
+  await page.getByRole('menuitemcheckbox', { name: 'Time', exact: true }).click()
   await expect(wave.locator('[data-ruler]')).toHaveAttribute('data-ruler', 'time')
 
   // ▶ plays the selection, looping, with a playhead that moves.
@@ -172,7 +179,8 @@ test('an edit in place survives a reload, and the clip that played the sample pl
   await kick.getByRole('button', { name: '✎', exact: true }).click()
   const wave = viewRoot(page, 'Wave editor')
   await expect(wave.getByTestId('sample-editor')).toContainText('Demo Kick')
-  await wave.getByRole('button', { name: 'Reverse', exact: true }).click()
+  await wave.getByRole('button', { name: 'Process', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Reverse', exact: true }).click()
 
   type Saved = { samples: Array<{ id: string; name: string; origin?: string }>; tracks: Array<{ kind: string; clips: Array<{ sampleId?: string } | null> }> }
   const saved = () => page.evaluate(() => (JSON.parse(localStorage.getItem('sfxlab:project') ?? '{"project":{"samples":[],"tracks":[]}}') as { project: Saved }).project)
@@ -225,7 +233,7 @@ test('a session clip, its region and a sampler open their sample in the Wave edi
   await expect(wave.getByTestId('wave-status')).toContainText('Selection')
   const fromClip = await selectionOf(wave)
   expect(fromClip.from / fromClip.to).toBeCloseTo(start, 1)
-  await wave.getByRole('button', { name: 'Close', exact: true }).click()
+  await wave.getByRole('button', { name: 'Close sample', exact: true }).click()
 
   // A region is a copy of the clip, trim and all; its menu opens the same part.
   await (await openView(page, 'Session')).getByRole('button', { name: '▶ Demo Kick', exact: true }).click({ button: 'right' })
@@ -257,9 +265,12 @@ test('Gain on the left channel of a selection changes only the left lane, and un
   await expect(left).toBeVisible()
   await dragAcross(page, wave.getByTestId('wave-detail'), 0.2, 0.6, 0.05)
   await expect(wave.getByTestId('wave-status')).toContainText('left only')
+  // Once the selection settles, the status bar shows its levels.
+  await expect(wave.getByTestId('wave-levels')).toHaveText(/^Peak −\d+\.\d dBFS · RMS −\d+\.\d dBFS$/)
   const before = { left: await left.screenshot(), right: await right.screenshot() }
 
-  await wave.getByRole('button', { name: 'Gain…', exact: true }).click()
+  await wave.getByRole('button', { name: 'Process', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Gain…', exact: true }).click()
   const dialog = wave.getByRole('dialog', { name: 'Gain' })
   await dialog.getByLabel('Gain', { exact: true }).fill('-6')
   await dialog.getByRole('button', { name: 'Apply', exact: true }).click()

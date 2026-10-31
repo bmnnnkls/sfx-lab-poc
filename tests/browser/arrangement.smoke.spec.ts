@@ -141,7 +141,8 @@ test('the sample editor reverses the sample in place, and undo brings it back', 
   const wave = await openDemoKick(page)
   await expect.poll(async () => (await savedSamples(page)).length).toBe(5)
   const kick = (await savedSamples(page)).find((sample) => sample.name === 'Demo Kick')!
-  await wave.getByRole('button', { name: 'Reverse', exact: true }).click()
+  await wave.getByRole('button', { name: 'Process', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Reverse', exact: true }).click()
   // The same entry, now a new file that remembers the first version; no copy joins the library.
   await expect.poll(async () => (await savedSamples(page)).find((sample) => sample.name === 'Demo Kick')?.origin).toBe(kick.id)
   await expect(page.getByRole('listitem')).toHaveCount(5)
@@ -153,9 +154,12 @@ test('the sample editor reverses the sample in place, and undo brings it back', 
 
 test('with Edits make copies on, the sample editor derives a reversed copy and opens it', async ({ page }) => {
   const wave = await openDemoKick(page)
-  await wave.getByRole('button', { name: 'Edits make copies', exact: true }).click()
-  await expect(wave.getByRole('button', { name: 'Edits make copies', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await wave.getByRole('button', { name: 'Reverse', exact: true }).click()
+  await wave.getByRole('button', { name: 'Editor settings', exact: true }).click()
+  await wave.getByRole('checkbox', { name: 'Edits make copies', exact: true }).check()
+  await page.keyboard.press('Escape')
+  await expect(wave.getByRole('dialog', { name: 'Editor settings' })).toHaveCount(0)
+  await wave.getByRole('button', { name: 'Process', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Reverse', exact: true }).click()
   // The copy joins the library and opens; the original is still there, untouched.
   await expect(page.getByRole('listitem')).toHaveCount(6)
   await expect(page.getByRole('listitem').filter({ hasText: 'Demo Kick (reversed)' })).toHaveCount(1)

@@ -1,31 +1,27 @@
-/* The sample editor: a toolbar, the overview (the scrollbar), the ruler, a lane per channel and a status line. */
+/*
+ * The sample editor: a toolbar, the overview (the scrollbar), the ruler, a lane per channel and a status bar. The
+ * first column is the lanes' level scales; the overview and the ruler line up with the lanes in the second.
+ */
 .editor {
+  --scale-width: 28px;
   display: grid;
+  grid-template-columns: var(--scale-width) minmax(0, 1fr);
   grid-template-rows: auto 48px 18px minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
 }
 
+/* One line of groups, separated by a hairline; it wraps a whole group at a time. */
 .editorToolbar {
   position: relative;
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px 0;
   padding: 6px 12px;
   border-bottom: 1px solid var(--border);
   min-width: 0;
-}
-
-/* The edits: a line of their own under the editor's buttons, scrolling sideways where it doesn't fit. */
-.editRow {
-  display: flex;
-  flex: 1 0 100%;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
 }
 
 /* A run of related buttons. */
@@ -34,6 +30,42 @@
   flex: none;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+}
+
+.editorToolbar > .toolGroup,
+.editorToolbar > .facts {
+  padding: 0 10px;
+  border-left: 1px solid var(--border);
+}
+
+.editorToolbar > :first-child {
+  padding-left: 0;
+  border-left: none;
+}
+
+/* The sample's name, length, rate and channels: quiet text; the name gives way first. */
+.facts {
+  display: inline-flex;
+  flex: 1 1 10em;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 10em;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.facts .title {
+  color: var(--text);
+  font-size: 12px;
+  min-width: 0;
+}
+
+/* ⚙ and ×, at the right end of their line. */
+.end {
+  margin-left: auto;
 }
 
 .settingField,
@@ -47,7 +79,7 @@
   width: 5em;
 }
 
-/* An edit's settings, under the toolbar, over the overview. */
+/* An edit's settings, under the toolbar, over the overview; the editor's settings at the right. */
 .settings {
   position: absolute;
   top: 100%;
@@ -65,6 +97,11 @@
   box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 }
 
+.editorSettings {
+  left: auto;
+  right: 12px;
+}
+
 .title {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -78,6 +115,7 @@
 }
 
 .overview {
+  grid-column: 2;
   position: relative;
   border-bottom: 1px solid var(--border);
   touch-action: none;
@@ -106,6 +144,7 @@
 }
 
 .ruler {
+  grid-column: 2;
   display: block;
   width: 100%;
   height: 18px;
@@ -113,6 +152,7 @@
 }
 
 .detail {
+  grid-column: 2;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -143,6 +183,15 @@
   border-top: 1px solid var(--border);
 }
 
+/* The lanes' level scales, beside them, lane for lane. */
+.scales {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+}
+
 .laneCanvas {
   display: block;
   width: 100%;
@@ -168,22 +217,41 @@
 }
 
 .loading {
+  grid-column: 1 / -1;
   grid-row: 2 / 5;
   margin: 0;
   padding: 12px;
   color: var(--text-dim);
 }
 
-.statusLine {
-  margin: 0;
+.statusBar {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 16px;
   padding: 4px 12px;
   color: var(--text-dim);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   border-top: 1px solid var(--border);
   white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.statusField {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* The gestures, at the right; it gives way first. */
+.statusHint {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
 }
 
 /* The empty state: what to open, and how to get samples. */
