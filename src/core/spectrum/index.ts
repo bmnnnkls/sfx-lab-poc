@@ -24,3 +24,18 @@ export {
   updateSpectrumPyramid,
 } from './pyramid'
 export { type SpectrumAnswered, type SpectrumAsk, askCovers, onDemandColumnsFor, onDemandMinHop, sameAsk, spectrumAsk } from './on-demand'
+export {
+  BAND_EDIT_FFT_SIZE,
+  BAND_FEATHER_OCTAVES,
+  BAND_GAIN_RANGE_DB,
+  type BandEdit,
+  type BandFeather,
+  type BandSlice,
+  type FrequencyBand,
+  applyBandEdit,
+  applyBandEditTo,
+  bandEditChanged,
+  bandEditReads,
+  bandMask,
+  spliceFrames,
+} from './band-edits'

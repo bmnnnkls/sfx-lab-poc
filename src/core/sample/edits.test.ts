@@ -197,7 +197,7 @@ describe('SAMPLE_EDITS', () => {
   })
 
   it('is one entry per kind, each with a title, a tooltip, a suffix and a group', () => {
-    expect(Object.keys(SAMPLE_EDITS)).toEqual(['gain', 'fade', 'normalize', 'reverse', 'silence', 'dc-offset', 'delete', 'crop', 'insert', 'replace'])
+    expect(Object.keys(SAMPLE_EDITS)).toEqual(['gain', 'fade', 'normalize', 'reverse', 'silence', 'dc-offset', 'band-gain', 'keep-band', 'delete', 'crop', 'insert', 'replace'])
     for (const [kind, entry] of Object.entries(SAMPLE_EDITS)) {
       expect(entry.kind).toBe(kind)
       expect(entry.tooltip && entry.suffix && entry.group, kind).toBeTruthy()

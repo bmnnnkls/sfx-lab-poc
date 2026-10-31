@@ -2,6 +2,7 @@ import { frameCount } from './channels'
 import { type AudioCopy, type JoinFade, silenceCopy, spliceAudio } from './crossfade'
 import { type CrossfadeCurve, type FadeCurve, fadeShape } from './fade-curves'
 import { type FrameRange, type RemapStep, type SampleRemap, mapOf, remapOfSteps } from './remap'
+import { BAND_FEATHER_OCTAVES, BAND_GAIN_RANGE_DB, type BandEdit, type FrequencyBand, applyBandEditTo, bandEditChanged } from '../spectrum'
 import type { SampleAudio } from './types'
 import type { WavBitDepth } from './wav'
 
@@ -43,6 +44,7 @@ export type SampleEdit =
   | { readonly kind: 'crop'; readonly range: FrameRange }
   | { readonly kind: 'insert'; readonly at: number; readonly insert: AudioCopy; readonly crossfade: JoinFade }
   | { readonly kind: 'replace'; readonly range: FrameRange; readonly insert: AudioCopy; readonly crossfade: JoinFade }
+  | BandEdit
 
 export type SampleEditKind = SampleEdit['kind']
 type EditOf<K extends SampleEditKind> = Extract<SampleEdit, { kind: K }>
@@ -184,9 +186,10 @@ const fade = (audio: SampleAudio, edit: EditOf<'fade'>): SampleAudio => {
 const reverse = (audio: SampleAudio, edit: EditOf<'reverse'>): SampleAudio =>
   processRange(audio, edit, (data, from, to) => data.subarray(from, to).reverse())
 
-/** A selection in the editor: frames `from` up to `to`, on some channels. */
+/** A selection in the editor: frames `from` up to `to`, on some channels, and a band of frequencies when one is drawn. */
 export interface EditSelection extends FrameRange {
   readonly channels: EditChannels
+  readonly band?: FrequencyBand
 }
 
 /** What the editor knows when it asks for an edit. */
@@ -240,7 +243,7 @@ export interface SampleEditEntry<E extends SampleEdit = SampleEdit> {
   /** Added to the name of a copy: "Kick (reversed)". */
   readonly suffix: string
   /** Where the toolbar puts it. */
-  readonly group: 'process' | 'structure' | 'clipboard'
+  readonly group: 'process' | 'structure' | 'clipboard' | 'spectral'
   /** A popover's fields before it runs; none runs at once. */
   readonly settings: readonly EditSetting[]
   /** Buttons that make the edit different ways (Fade in, Fade out): each passes its id to `create`. One button without. */
@@ -252,6 +255,10 @@ export interface SampleEditEntry<E extends SampleEdit = SampleEdit> {
   readonly needsSelection: boolean
   /** It inserts what was copied (`SampleEditContext.clipboard`), so it can't run with nothing copied. */
   readonly needsClipboard?: boolean
+  /** It runs while the selection has a frequency band; every other edit works on whole frequencies, so a band blocks it. */
+  readonly allowsBand?: boolean
+  /** It works on the selection's band, so it can't run without one. */
+  readonly needsBand?: boolean
   /** The edit to apply, or null when it can't run (no selection). */
   readonly create: (context: SampleEditContext, variant?: string) => E | null
   readonly apply: (audio: SampleAudio, edit: E) => SampleAudio
@@ -303,6 +310,36 @@ const NORMALIZE_SETTINGS: readonly EditSetting[] = [
   { id: 'peakDb', label: 'Peak', kind: 'number', unit: 'dBFS', min: -60, max: 0, step: 0.1, default: NORMALIZE_DEFAULT_DB },
   { id: 'linked', label: 'Same gain for both channels', kind: 'toggle', default: 1 },
 ]
+
+const BAND_GAIN_SETTINGS: readonly EditSetting[] = [
+  { id: 'db', label: 'Gain', kind: 'number', unit: 'dB', min: BAND_GAIN_RANGE_DB.min, max: BAND_GAIN_RANGE_DB.max, step: 0.1, default: -6 },
+  { id: 'remove', label: 'Remove', kind: 'toggle', default: 0 },
+]
+
+/** The selection's box: its time range, channels and band, eased by the crossfade length; null without a band. */
+const boxOf = (context: SampleEditContext) => {
+  const band = context.selection?.band
+  if (!band || !hasSelection(context)) return null
+  return { ...targetOf(context), band, feather: { frames: rampOf(context).frames, octaves: BAND_FEATHER_OCTAVES } }
+}
+
+/** A spectral edit: works on the selection's box and keeps the length. */
+const spectral = <K extends BandEdit['kind']>(
+  entry: Pick<SampleEditEntry<EditOf<K>>, 'kind' | 'title' | 'tooltip' | 'suffix' | 'create'> & Partial<Pick<SampleEditEntry<EditOf<K>>, 'settings'>>,
+): SampleEditEntry<EditOf<K>> => ({
+  group: 'spectral',
+  channels: 'any',
+  // A band is a selection: `needsBand` says why it can't run.
+  needsSelection: false,
+  allowsBand: true,
+  needsBand: true,
+  settings: [],
+  apply: applyBandEditTo,
+  remap: () => null,
+  changed: bandEditChanged,
+  after: keep,
+  ...entry,
+})
 
 /** A process: works on the selection (or the whole sample), on its channels, and keeps the length. */
 const process = <K extends 'gain' | 'fade' | 'normalize' | 'reverse' | 'silence' | 'dc-offset'>(
@@ -392,6 +429,29 @@ export const SAMPLE_EDITS: { readonly [K in SampleEditKind]: SampleEditEntry<Edi
       const { from, to } = clampTo(frameCount(audio), edit.range)
       const means = audio.channels.map((channel) => meanOf(channel, from, to))
       return ramped(audio, edit, (value, channel) => value - means[channel]!)
+    },
+  }),
+  'band-gain': spectral({
+    kind: 'band-gain',
+    title: 'Band gain…',
+    tooltip: "Make the box's frequencies louder or quieter, or remove them, easing in and out at its edges",
+    suffix: 'band gain',
+    settings: BAND_GAIN_SETTINGS,
+    create: (context) => {
+      const box = boxOf(context)
+      if (!box) return null
+      const remove = setting(context, { settings: BAND_GAIN_SETTINGS }, 'remove') !== 0
+      return { kind: 'band-gain', ...box, db: remove ? -Infinity : setting(context, { settings: BAND_GAIN_SETTINGS }, 'db') }
+    },
+  }),
+  'keep-band': spectral({
+    kind: 'keep-band',
+    title: 'Keep band',
+    tooltip: "Remove every frequency outside the box's band, over its time range",
+    suffix: 'band kept',
+    create: (context) => {
+      const box = boxOf(context)
+      return box && { kind: 'keep-band', ...box }
     },
   }),
   delete: {
