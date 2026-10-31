@@ -129,7 +129,15 @@ const CASES: readonly Case[] = [
       root.getByRole('button', { name: 'Process', exact: true }),
       root.getByRole('button', { name: 'Crop', exact: true }),
       root.getByRole('scrollbar', { name: 'Waveform position' }),
+      root.getByTestId('mark-lane'),
     ],
+    // Under 300 px of height the mark lane folds to a strip of ticks.
+    check: async (root) => {
+      const height = (await root.boundingBox())!.height
+      const lane = (await root.getByTestId('mark-lane').boundingBox())!.height
+      if (height < 300) expect(lane).toBeLessThan(10)
+      else expect(lane).toBeGreaterThanOrEqual(20)
+    },
   },
   {
     title: 'Mixer',

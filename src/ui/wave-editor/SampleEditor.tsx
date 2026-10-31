@@ -13,6 +13,8 @@ import { Ruler } from './Ruler'
 import { formatTime, isRulerMode, isRulerTempo } from './ruler-ticks'
 import { ViewMenu } from './ViewMenu'
 import { resolveZoom } from './wave-geometry'
+import { MarkLane } from './MarkLane'
+import { marksOf } from './mark-geometry'
 import { LaneScale } from './WaveLane'
 import { WaveStatus } from './WaveStatus'
 import styles from './WaveEditor.module.css'
@@ -41,6 +43,8 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
   const zoomAsked = useWaveEditorStore((state) => waveViewOf(state.views, key).zoomTo !== undefined)
   const detail = useRef<HTMLDivElement>(null)
 
+  // The marks change only with the sample's marks, so the mark lane renders only then.
+  const marks = useMemo(() => marksOf(sample), [sample.markers, sample.regions, sample.loop])
   const sampleTempo = tempoFromName(sample.name)
   const bpm = rulerTempo === 'sample' && sampleTempo !== null ? sampleTempo : projectTempo
   const rate = wave?.audio.sampleRate ?? sample.sampleRate
@@ -112,6 +116,10 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
         <>
           <Overview wave={wave} detail={detail} />
           <Ruler wave={wave} detail={detail} mode={ruler} bpm={bpm} />
+          <span className={styles.markLabel} aria-hidden="true">
+            Marks
+          </span>
+          <MarkLane wave={wave} detail={detail} marks={marks} />
           <div className={styles.scales}>
             {wave.audio.channels.map((_, index) => (
               <LaneScale key={index} renderer={waveformRenderer} />

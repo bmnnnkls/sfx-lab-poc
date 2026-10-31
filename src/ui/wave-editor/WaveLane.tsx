@@ -2,10 +2,15 @@ import { useCallback, useEffect, useRef } from 'react'
 import type { LaneColumns, LaneRenderer } from './lane-renderers'
 import styles from './WaveEditor.module.css'
 
-/** What a lane shows over its audio: the selection (when it covers this channel) and the cursor, in columns. */
+/**
+ * What a lane shows over its audio, in columns: the selection (when it covers this channel), the cursor, a line at each
+ * marker, and faint lines at region and loop edges.
+ */
 export interface LaneOverlay {
   readonly selection: { readonly from: number; readonly to: number } | null
   readonly cursor: number | null
+  readonly markers: readonly number[]
+  readonly edges: readonly number[]
 }
 
 export interface WaveLaneHandle {
@@ -51,6 +56,14 @@ export const WaveLane = ({ label, renderer, handle }: { label: string; renderer:
             context.fillRect(overlay.selection.from, 0, Math.max(1, overlay.selection.to - overlay.selection.from), height)
           }
           renderer.draw(context, columns, { width, height }, { wave: accent, line: color(element, '--border', '#444') })
+          if (overlay.edges.length > 0 || overlay.markers.length > 0) {
+            context.fillStyle = color(element, '--text-dim', '#888')
+            context.globalAlpha = 0.35
+            for (const x of overlay.edges) context.fillRect(Math.round(x), 0, 1, height)
+            context.globalAlpha = 0.8
+            for (const x of overlay.markers) context.fillRect(Math.round(x), 0, 1, height)
+            context.globalAlpha = 1
+          }
           if (overlay.cursor !== null) {
             context.fillStyle = color(element, '--text', '#fff')
             context.fillRect(Math.round(overlay.cursor), 0, 1, height)

@@ -384,3 +384,13 @@ Signed off 2026-10-31: every row as proposed.
   over another can't keep its loop in the bank; a looped sample that leaves the project gets a null.
 * **Step 4: the audio spec** (`sample-loop.audio.spec.ts`) drives the worklet's commands directly, as
   `held-notes.audio.spec.ts` does: the loop sent before the audio, a held note, then the loop cleared while it is held.
+* **Step 5: over empty lane the menu is the selection's.** `ActionMenu` draws no menu without a subject, so the mark
+  lane's subject is never none: empty lane gives `sample-selection` (its *Add marker*, *Make region*, *Set loop*), with
+  the cursor put at the click unless it is inside the selection, as the lanes do.
+* **Step 5: the mark lane takes the focus on a press,** and its subject is what the press was on, so a mark's Delete
+  and F2 and the palette's rows reach it from the keyboard. A click on a marker puts the cursor there (*Go to*).
+  Its group is named with what it holds ("Marks: 1 marker, 2 regions, a loop"), which the browser tests read.
+* **Step 5: the lines through the lanes** are `LaneOverlay.markers` and `.edges` (`markLines` in `mark-geometry.ts`, with
+  `markAt` and `markEdgeAt`); `DetailView` also redraws when the project's samples change. The mark lane's label is
+  "Marks" in the first column. The loop's colour is the theme's `--play`.
+* **Step 5: M comes with the keys (step 6),** so the step's browser test adds the marker from the right-click menu.

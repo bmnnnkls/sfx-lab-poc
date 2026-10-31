@@ -1,9 +1,10 @@
 import { columnsFor, frameCount } from '@core'
-import { type Subject, type WaveAudio, toggleWavePreview, useSampleLibrary, useStatusStore, useWaveEditorStore, waveViewOf } from '@state'
+import { type Subject, type WaveAudio, openWave, toggleWavePreview, useProjectStore, useSampleLibrary, useStatusStore, useWaveEditorStore, waveViewOf } from '@state'
 import { type RefObject, useEffect, useMemo, useRef } from 'react'
 import { IS_APPLE, keyOf } from '../commands/keys'
 import { ActionMenu } from '../shared/menu'
 import { laneColumns, waveformRenderer } from './lane-renderers'
+import { markLines, marksOf } from './mark-geometry'
 import { WaveLane, type WaveLaneHandle } from './WaveLane'
 import { currentView } from './current-view'
 import { laneAt, useWaveGestures } from './use-wave-gestures'
@@ -41,11 +42,14 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
       const columns = columnsFor(view, pyramid, audio)
       element.dataset.draw = columns.kind
       const { cursor, selection } = waveViewOf(useWaveEditorStore.getState().views, viewKey)
+      const sample = openWave(wave.sampleId)?.sample
+      const lines = sample ? markLines(view, marksOf(sample)) : { markers: [], edges: [] }
       lanes.current.forEach((lane, channel) => {
         const covers = selection && coversChannel(selection, channel)
         lane?.draw(laneColumns(columns, channel, view), {
           selection: covers ? { from: xOf(view, selection.from), to: xOf(view, selection.to) } : null,
           cursor: selection ? null : xOf(view, cursor),
+          ...lines,
         })
       })
     }
@@ -56,10 +60,15 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
     const unsubscribe = useWaveEditorStore.subscribe((state, previous) => {
       if (state.views[viewKey] !== previous.views[viewKey]) schedule()
     })
+    // The marks' lines move with the sample's marks.
+    const unsubscribeMarks = useProjectStore.subscribe((state, previous) => {
+      if (state.project.samples !== previous.project.samples) schedule()
+    })
     const observer = new ResizeObserver(schedule)
     if (frame.current) observer.observe(frame.current)
     return () => {
       unsubscribe()
+      unsubscribeMarks()
       observer.disconnect()
       if (request) cancelAnimationFrame(request)
     }

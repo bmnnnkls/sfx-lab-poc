@@ -1,12 +1,13 @@
 /*
- * The sample editor: a toolbar, the overview (the scrollbar), the ruler, a lane per channel and a status bar. The
- * first column is the lanes' level scales; the overview and the ruler line up with the lanes in the second.
+ * The sample editor: a toolbar, the overview (the scrollbar), the ruler, the mark lane, a lane per channel and a status
+ * bar. The first column is the lanes' level scales and the mark lane's name; the overview, the ruler and the mark lane
+ * line up with the lanes in the second.
  */
 .editor {
   --scale-width: 28px;
   display: grid;
   grid-template-columns: var(--scale-width) minmax(0, 1fr);
-  grid-template-rows: auto 48px 18px minmax(0, 1fr) auto;
+  grid-template-rows: auto 48px 18px auto minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
 }
@@ -149,6 +150,67 @@
   width: 100%;
   height: 18px;
   border-bottom: 1px solid var(--border);
+}
+
+/* The mark lane: regions, the loop and markers, on one canvas. It folds to a strip of ticks when the view is short. */
+.markLabel {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--text-dim);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.markLane {
+  grid-column: 2;
+  position: relative;
+  height: 20px;
+  min-width: 0;
+  border-bottom: 1px solid var(--border);
+  touch-action: none;
+}
+
+.markLane:focus {
+  outline: none;
+}
+
+.markLane:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.markCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.markRename {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 160px;
+  display: flex;
+}
+
+@container view (height < 300px) {
+  .markLane {
+    height: 6px;
+  }
+
+  .markLabel {
+    font-size: 0;
+  }
+
+  .markRename {
+    bottom: auto;
+    height: 20px;
+    z-index: 1;
+  }
 }
 
 .detail {
