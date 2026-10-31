@@ -12,7 +12,7 @@ changed. It follows a request to make the wave editor nicer to work in (a contex
 zooming with the mouse, panning with the middle button), to make its UI more attractive with room for more, to add a
 second waveform for navigating and copying side by side, and to add a frequency view with some editing.
 
-It **amends** [round 11's spec](../../active/SPEC-round-11-wave-editor.md) where they overlap (§ Keys and commands there, and the
+It **amends** [round 11's spec](SPEC-round-11-wave-editor.md) where they overlap (§ Keys and commands there, and the
 order of 11c), and **adds** a round 11d for the spectrum. Where the two disagree, this one wins and says so. The round
 plans take their steps and tests from here.
 

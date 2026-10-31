@@ -1,13 +1,15 @@
 ---
-status: active
+status: done
 date: 2026-10-29
-note: "11a and 11b are done; 11c's keys were replaced by the handling spec, whose part 1 is done; markers and regions are not started."
+shipped_in: architecture/samples-and-wave-editor.md
+note: "Done 2026-10-31: 11a and 11b as planned here; 11c and 11d through the handling-and-spectrum spec, which replaced 11c's keys and added the spectrum."
 ---
 # Round 11: wave editor (spec)
 
-Status: **spec, signed off** 2026-10-29, every decision as proposed, with one request: build it so the decisions can
-be changed later (see § Built to change). Round 11 can now be planned. Written 2026-10-29. Part of the [UI redesign](../archive/ui-redesign/README.md).
-[Roadmap § Round 11](ui-redesign-roadmap.md#round-11-wave-editor) asks for this spec first, because most of the round is
+Status: **done** 2026-10-31 (11a and 11b from this spec; 11c and 11d from the [handling and spectrum
+spec](SPEC-wave-editor-handling-and-spectrum.md)); spec signed off 2026-10-29, every decision as proposed, with one request: build it so the decisions can
+be changed later (see § Built to change). Round 11 can now be planned. Written 2026-10-29. Part of the [UI redesign](README.md).
+[Roadmap § Round 11](../../active/ui-redesign-roadmap.md#round-11-wave-editor) asks for this spec first, because most of the round is
 beyond the UI: the sample model, the engine, storage and undo. It starts from an inventory taken on
 `imp/jovial-fermat-5ae301` at `380d574` (round 10 done, not merged into `feat/ui-redesign` yet). No code was changed.
 
@@ -31,7 +33,7 @@ The Wave editor becomes an editor for the audio itself, in the WaveLab tradition
 
 **Out of scope:**
 
-* the spectrogram (it needs the FFT, H1 in [IDEAS](../IDEAS.md)); this spec only says where it
+* the spectrogram (it needs the FFT, H1 in [IDEAS](../../IDEAS.md)); this spec only says where it
   plugs in;
 * the granular sampler (TASKS: sample editor stage 2); it shares the view later;
 * time-stretch, pitch-shift, resampling to another rate, and effects other than the six processes listed;
@@ -94,7 +96,7 @@ There is no 16 MB limit in the code. These are the limits that exist:
 | An imported file | 32 MB | `MAX_FILE_BYTES`, `app/sample-library.ts` |
 | A decoded sample | 120 s | `MAX_SAMPLE_SECONDS`, `audio/decode-audio.ts` |
 | A sample entry in a project package | 64 MB inflated | `MAX_ENTRY_BYTES`, `storage/project-transfer.ts` |
-| A sample in a library bundle | 32 MiB | [library-bundle.md](../reference/library-bundle.md) |
+| A sample in a library bundle | 32 MiB | [library-bundle.md](../../reference/library-bundle.md) |
 | Samples in a project | 256 | `LIMITS.samples`, `core/persistence/format.ts` |
 | The project JSON | ~5 MB of `localStorage` | ARCHITECTURE § Known POC limits |
 | IndexedDB | the browser's quota for the site | nothing checks it before writing; quota errors are tested in the library storage |
