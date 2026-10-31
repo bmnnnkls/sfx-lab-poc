@@ -16,13 +16,29 @@ export interface WaveEditSettings {
   readonly lastValues: Readonly<Record<string, EditValues>>
   /** The preview loops. */
   readonly loop: boolean
+  /** Pointer gestures snap to the beat grid (while the ruler counts beats) and to zero crossings; both off at first. */
+  readonly snap: WaveSnap
 }
 
-export const DEFAULT_WAVE_EDIT_SETTINGS: WaveEditSettings = { asCopy: false, crossfade: DEFAULT_CROSSFADE, fadeCurve: 'linear', lastValues: {}, loop: false }
+/** What pointer gestures snap to. With either on, they also snap to markers, region edges and the loop's edges. */
+export interface WaveSnap {
+  readonly beats: boolean
+  readonly zero: boolean
+}
+
+export const DEFAULT_WAVE_EDIT_SETTINGS: WaveEditSettings = {
+  asCopy: false,
+  crossfade: DEFAULT_CROSSFADE,
+  fadeCurve: 'linear',
+  lastValues: {},
+  loop: false,
+  snap: { beats: false, zero: false },
+}
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 const isCrossfade = (value: unknown): value is Crossfade =>
   isObject(value) && typeof value.seconds === 'number' && Number.isFinite(value.seconds) && isCrossfadeCurve(value.curve)
+const isSnap = (value: unknown): value is WaveSnap => isObject(value) && typeof value.beats === 'boolean' && typeof value.zero === 'boolean'
 /** Saved popover values: an object per edit kind, keeping its numeric fields (an emptied field was saved as null). */
 const lastValuesOf = (value: unknown): WaveEditSettings['lastValues'] | null =>
   isObject(value) && Object.values(value).every(isObject)
@@ -36,6 +52,7 @@ interface WaveEditSettingsState extends WaveEditSettings {
   setFadeCurve(curve: FadeCurve): void
   setLastValues(kind: string, values: EditValues): void
   setLoop(loop: boolean): void
+  setSnap(change: Partial<WaveSnap>): void
   /** Takes what was saved, field by field: a value that isn't valid keeps the default. */
   restore(saved: { readonly [K in keyof WaveEditSettings]?: unknown }): void
 }
@@ -51,6 +68,7 @@ export const useWaveEditSettings = create<WaveEditSettingsState>((set) => ({
   setFadeCurve: (fadeCurve) => set({ fadeCurve }),
   setLastValues: (kind, values) => set((state) => ({ lastValues: { ...state.lastValues, [kind]: values } })),
   setLoop: (loop) => set({ loop }),
+  setSnap: (change) => set((state) => ({ snap: { ...state.snap, ...change } })),
   restore: (saved) =>
     set({
       asCopy: typeof saved.asCopy === 'boolean' ? saved.asCopy : DEFAULT_WAVE_EDIT_SETTINGS.asCopy,
@@ -58,5 +76,6 @@ export const useWaveEditSettings = create<WaveEditSettingsState>((set) => ({
       fadeCurve: isFadeCurve(saved.fadeCurve) ? saved.fadeCurve : DEFAULT_WAVE_EDIT_SETTINGS.fadeCurve,
       lastValues: lastValuesOf(saved.lastValues) ?? DEFAULT_WAVE_EDIT_SETTINGS.lastValues,
       loop: typeof saved.loop === 'boolean' ? saved.loop : DEFAULT_WAVE_EDIT_SETTINGS.loop,
+      snap: isSnap(saved.snap) ? { beats: saved.snap.beats, zero: saved.snap.zero } : DEFAULT_WAVE_EDIT_SETTINGS.snap,
     }),
 }))

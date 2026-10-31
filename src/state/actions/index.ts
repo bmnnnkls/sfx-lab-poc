@@ -11,6 +11,9 @@ import { canvasActions, nodeActions } from './nodes'
 import { pinActions } from './pin'
 import { regionActions } from './region'
 import { sampleActions } from './sample'
+import { sampleLoopActions } from './sample-loop'
+import { sampleMarkerActions } from './sample-marker'
+import { sampleRegionActions } from './sample-region'
 import { sampleSelectionActions } from './sample-selection'
 import { sceneActions } from './scene'
 import { slotActions } from './slot'
@@ -51,6 +54,9 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   sound: soundActions,
   pin: pinActions,
   'sample-selection': sampleSelectionActions,
+  'sample-marker': sampleMarkerActions,
+  'sample-region': sampleRegionActions,
+  'sample-loop': sampleLoopActions,
 }
 
 /** The actions of a subject's kind, in menu order. Nothing else picks actions. */

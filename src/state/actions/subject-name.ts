@@ -12,6 +12,9 @@ const ownerName = (owner: ControlOwner): string =>
       ? project().groups?.find((group) => group.id === owner.groupId)?.name ?? 'Group'
       : trackOf(owner.trackId)?.name ?? 'Track'
 
+const sampleOf = (sampleId: string) => project().samples?.find((sample) => sample.id === sampleId)
+const sampleName = (sampleId: string) => sampleOf(sampleId)?.name ?? 'sample'
+
 const sceneName = (scene: number): string => project().sceneNames?.[scene] || `Scene ${scene + 1}`
 
 /**
@@ -64,6 +67,12 @@ export const subjectName = (subject: Subject): string => {
     case 'pin':
       return `${ownerName(subject.owner)} ${GRAPH_TITLES[subject.graph].toLowerCase()}`
     case 'sample-selection':
-      return `Selection in ${project().samples?.find((sample) => sample.id === subject.sampleId)?.name ?? 'sample'}`
+      return `Selection in ${sampleName(subject.sampleId)}`
+    case 'sample-marker':
+      return `${sampleOf(subject.sampleId)?.markers?.find((marker) => marker.id === subject.markerId)?.name ?? 'Marker'} in ${sampleName(subject.sampleId)}`
+    case 'sample-region':
+      return `${sampleOf(subject.sampleId)?.regions?.find((region) => region.id === subject.regionId)?.name ?? 'Region'} in ${sampleName(subject.sampleId)}`
+    case 'sample-loop':
+      return `Loop in ${sampleName(subject.sampleId)}`
   }
 }

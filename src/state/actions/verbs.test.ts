@@ -31,7 +31,16 @@ const VERBS: Readonly<Record<SubjectKind, Partial<Record<Verb, string>>>> = {
   control: {},
   sound: { delete: 'sound.delete', duplicate: 'sound.duplicate', rename: 'sound.rename' },
   pin: { delete: 'pin.unpin' },
-  'sample-selection': { cut: 'sample-selection.cut', copy: 'sample-selection.copy', paste: 'sample-selection.paste', delete: 'sample-selection.delete' },
+  'sample-selection': {
+    cut: 'sample-selection.cut',
+    copy: 'sample-selection.copy',
+    paste: 'sample-selection.paste',
+    delete: 'sample-selection.delete',
+    rename: 'sample-selection.rename-marker',
+  },
+  'sample-marker': { delete: 'sample-marker.delete', rename: 'sample-marker.rename' },
+  'sample-region': { delete: 'sample-region.delete', rename: 'sample-region.rename' },
+  'sample-loop': { delete: 'sample-loop.clear' },
 }
 
 /** One subject per kind; the lists don't depend on the ids. */

@@ -351,3 +351,16 @@ Signed off 2026-10-31: every row as proposed.
 * **Step 1: the sanitizer's lineage** must end at the sample's own length (`savedFrameCount`), and needs an origin; else
   it is dropped with a warning ("can't be reverted"). A loop is clamped and rounded, then dropped when empty; markers
   and regions are still dropped when outside, as in v11.
+* **Step 2: the mark actions sit in group order.** Every list keeps `open, edit, clipboard, delete, process, marks,
+  view`, so the plan's listing order changes: a marker is *Go to* (`open`), *Rename*, *Delete*; a region *Select*
+  (`open`), *Rename*, *Delete*, *Set loop from region* (`marks`), *Play*, *Zoom to region* (`view`); the loop *Select*,
+  *Clear loop*, *Play loop*, *Zoom to loop*. A region's *Play* loops with the preview's *Loop*, as ▶ does; *Play loop*
+  always loops; either stops a playing preview.
+* **Step 2: F2 after M is `sample-selection.rename-marker`** (*Rename marker*, verb `rename`, in `marks`), which applies
+  only while the cursor is exactly on a marker: the one M just added, or one `[` `]` stepped to. It starts the marker's
+  rename in place. The ids are made with `createMarkId` (`core`), so *Add marker* knows the one it added.
+* **Step 2: *Go to* asks the editor to show the frame.** `WaveZoom` gains `{ show: frame }`: the editor scrolls by the
+  least that shows it, at the same zoom (`showFrame` in `wave-geometry.ts`; `resolveZoom` takes the stored view). The
+  editing helpers the actions, keys and lane share are in `state/wave-marks.ts`.
+* **Step 2: the snap settings are one field,** `snap: { beats, zero }`, saved under the one key `sfxlab:wave-snap`; a
+  saved value missing either is refused as a whole.

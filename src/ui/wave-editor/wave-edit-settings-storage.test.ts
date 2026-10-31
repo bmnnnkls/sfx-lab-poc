@@ -13,8 +13,8 @@ const SAVED_BY_11B: Readonly<Record<string, string>> = {
 
 const restore = (saved: Readonly<Record<string, string>>) => useWaveEditSettings.getState().restore(readWaveEditSettings((key) => saved[key] ?? null))
 const settings = () => {
-  const { asCopy, crossfade, fadeCurve, lastValues, loop } = useWaveEditSettings.getState()
-  return { asCopy, crossfade, fadeCurve, lastValues, loop }
+  const { asCopy, crossfade, fadeCurve, lastValues, loop, snap } = useWaveEditSettings.getState()
+  return { asCopy, crossfade, fadeCurve, lastValues, loop, snap }
 }
 
 beforeEach(() => useWaveEditSettings.setState(DEFAULT_WAVE_EDIT_SETTINGS))
@@ -29,7 +29,18 @@ describe('the edit settings in storage', () => {
       // A field emptied before Apply was saved as null; it is dropped, so the edit takes its default.
       lastValues: { gain: { db: -6 }, normalize: { peakDb: -1, linked: 0 }, insert: {} },
       loop: true,
+      // Not saved before: off.
+      snap: { beats: false, zero: false },
     })
+  })
+
+  it('reads the snap settings under one key, and refuses a partial or bad one', () => {
+    restore({ 'sfxlab:wave-snap': '{"beats":true,"zero":false}' })
+    expect(settings().snap).toEqual({ beats: true, zero: false })
+    restore({ 'sfxlab:wave-snap': '{"beats":true}' })
+    expect(settings().snap).toEqual(DEFAULT_WAVE_EDIT_SETTINGS.snap)
+    useWaveEditSettings.getState().setSnap({ zero: true })
+    expect(settings().snap).toEqual({ beats: false, zero: true })
   })
 
   it('keeps the defaults for missing, unreadable and bad values, field by field', () => {

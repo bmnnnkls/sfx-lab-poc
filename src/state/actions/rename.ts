@@ -1,4 +1,4 @@
-import { type LibraryCatalog, renameModule, putSnapshot, saveLibraryFolder, saveLibraryItem, setNodeName } from '@core'
+import { type LibraryCatalog, renameMarker, renameModule, putSnapshot, saveLibraryFolder, saveLibraryItem, setNodeName, updateRegion } from '@core'
 import { useLayoutStore, type ViewId } from '../layout-store'
 import { useLibraryStore } from '../library-store'
 import { editPresetProject } from '../preset-actions'
@@ -18,6 +18,8 @@ const HOME: Partial<Record<SubjectKind, ViewId>> = {
   sound: 'sounds',
   module: 'instrument',
   nodes: 'instrument',
+  'sample-marker': 'wave',
+  'sample-region': 'wave',
 }
 
 /** Starts renaming `subject` in place, in the view the menu was opened in, which is shown if it is hidden. */
@@ -64,6 +66,10 @@ export const commitRename = (subject: Subject, typed: string, context: ActionCon
       return store.setSceneName(subject.scene, name)
     case 'sample':
       return store.setSampleName(subject.sampleId, name)
+    case 'sample-marker':
+      return store.editSampleMarks(subject.sampleId, (info) => renameMarker(info, subject.markerId, name))
+    case 'sample-region':
+      return store.editSampleMarks(subject.sampleId, (info) => updateRegion(info, subject.regionId, { name }))
     case 'module':
       return store.updateModule(subject.moduleId, (module) => renameModule(module, name.slice(0, 60)))
     case 'sound':

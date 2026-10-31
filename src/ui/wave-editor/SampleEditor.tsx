@@ -59,7 +59,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
       if (!detail.current?.clientWidth && tries.left-- > 0) return void (frame = requestAnimationFrame(check))
       const store = useWaveEditorStore.getState()
       const asked = store.takeZoom(key)
-      if (asked) store.setView(key, resolveZoom(asked, currentView(detail.current, wave).width, frameCount(wave.audio)))
+      if (asked) store.setView(key, resolveZoom(asked, currentView(detail.current, wave).width, frameCount(wave.audio), waveViewOf(store.views, key)))
     }
     check()
     return () => cancelAnimationFrame(frame)

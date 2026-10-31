@@ -51,7 +51,7 @@ export { useRenameStore, sameSubject, type Renaming } from './rename-store'
 export { useLibraryStore } from './library-store'
 export { createClipboard, subscribeToClipboards, useClipboard, type Clipboard } from './clipboard'
 export { audioClipboard, copyWaveSelection } from './audio-clipboard'
-export { DEFAULT_WAVE_EDIT_SETTINGS, type EditValues, type WaveEditSettings, useWaveEditSettings } from './wave-edit-settings'
+export { DEFAULT_WAVE_EDIT_SETTINGS, type EditValues, type WaveEditSettings, type WaveSnap, useWaveEditSettings } from './wave-edit-settings'
 export * from './wave-edits'
 export * from './wave-view'
 
@@ -64,3 +64,4 @@ export * from './library'
 export * from './actions/drops'
 
 export * from './commands'
+export * from './wave-marks'

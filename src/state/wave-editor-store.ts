@@ -11,8 +11,11 @@ export interface WaveSelection {
   readonly channels: WaveChannels
 }
 
-/** A zoom the editor is asked for: frames `from` to `to` across the width, or the whole sample. */
-export type WaveZoom = FrameRange | 'fit'
+/**
+ * A zoom the editor is asked for: frames `from` to `to` across the width, the whole sample, or a scroll by the least
+ * that shows a frame, at the same zoom (`show`, for *Go to* on a marker).
+ */
+export type WaveZoom = FrameRange | 'fit' | { readonly show: number }
 
 /** How one sample is looked at in the Wave editor. */
 export interface WaveEditorView {

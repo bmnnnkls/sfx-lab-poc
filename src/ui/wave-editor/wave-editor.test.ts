@@ -57,8 +57,16 @@ describe('the ruler', () => {
 
 describe('a zoom asked for', () => {
   it('fits the sample, or shows the range across the width', () => {
-    expect(resolveZoom('fit', 1000, FRAMES)).toEqual({ framesPerPixel: null, startFrame: 0 })
-    expect(resolveZoom({ from: 1000, to: 1500 }, 1000, FRAMES)).toEqual({ framesPerPixel: 0.5, startFrame: 1000 })
+    expect(resolveZoom('fit', 1000, FRAMES, DEFAULT_WAVE_VIEW)).toEqual({ framesPerPixel: null, startFrame: 0 })
+    expect(resolveZoom({ from: 1000, to: 1500 }, 1000, FRAMES, DEFAULT_WAVE_VIEW)).toEqual({ framesPerPixel: 0.5, startFrame: 1000 })
+  })
+
+  it('scrolls by the least that shows a frame, at the same zoom', () => {
+    const zoomed = { ...DEFAULT_WAVE_VIEW, framesPerPixel: 2, startFrame: 1000 }
+    expect(resolveZoom({ show: 1500 }, 1000, FRAMES, zoomed)).toEqual({ framesPerPixel: 2, startFrame: 1000 })
+    expect(resolveZoom({ show: 500 }, 1000, FRAMES, zoomed)).toEqual({ framesPerPixel: 2, startFrame: 500 })
+    expect(resolveZoom({ show: 4000 }, 1000, FRAMES, zoomed)).toEqual({ framesPerPixel: 2, startFrame: 2000 })
+    expect(resolveZoom({ show: 4000 }, 1000, FRAMES, DEFAULT_WAVE_VIEW)).toEqual({ framesPerPixel: null, startFrame: 0 })
   })
 })
 

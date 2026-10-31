@@ -13,7 +13,9 @@ import {
   waveEditFacts,
 } from '../wave-edits'
 import { useWaveEditorStore } from '../wave-editor-store'
+import { type WaveMarkKind, addWaveMarker, makeWaveRegion, markerAtCursor, setWaveLoop, waveMarkBlocked } from '../wave-marks'
 import { isWavePreviewing, selectAllWave, toggleWavePreview } from '../wave-view'
+import { startRename } from './rename'
 import type { Action, ActionChoice, SubjectOf } from './types'
 
 type SelectionSubject = SubjectOf<'sample-selection'>
@@ -88,6 +90,19 @@ const loaded = (subject: SelectionSubject) => !!openWave(subject.sampleId)?.wave
 const cutBlocked = blockedBy(waveCutBlocked)
 const copyBlocked = blockedBy(waveCopyBlocked)
 
+/** *Add marker*, *Make region* or *Set loop*: disabled, with the reason, when it can't be added now. */
+const markAction = (kind: WaveMarkKind, title: string, tooltip: string, run: (sampleId: string) => void): Action<SelectionSubject> => {
+  const blocked = ({ sampleId }: SelectionSubject) => waveMarkBlocked(sampleId, kind)
+  return {
+    id: `sample-selection.${kind === 'marker' ? 'add-marker' : kind === 'region' ? 'make-region' : 'set-loop'}`,
+    title,
+    group: 'marks',
+    tooltip: why(blocked, tooltip),
+    enabled: (subject) => blocked(subject) === null,
+    run: ({ sampleId }) => run(sampleId),
+  }
+}
+
 const actions: readonly Action<SelectionSubject>[] = [
   {
     id: 'sample-selection.cut',
@@ -111,6 +126,22 @@ const actions: readonly Action<SelectionSubject>[] = [
   structureAction('delete', 'delete'),
   structureAction('crop', undefined),
   ...processActions(),
+  markAction('marker', 'Add marker', 'Put a marker at the cursor', (sampleId) => void addWaveMarker(sampleId)),
+  markAction('region', 'Make region', 'Save the selection as a named region', (sampleId) => void makeWaveRegion(sampleId)),
+  markAction('loop', 'Set loop', "Make the selection the sample's loop, which a sampler in loop mode repeats", (sampleId) => setWaveLoop(sampleId)),
+  {
+    // F2 with the lanes focused renames the marker the cursor is on: the one *Add marker* (M) just put there.
+    id: 'sample-selection.rename-marker',
+    verb: 'rename',
+    title: 'Rename marker',
+    group: 'marks',
+    takesFocus: true,
+    applies: ({ sampleId }) => markerAtCursor(sampleId) !== undefined,
+    run: ({ sampleId }, context) => {
+      const marker = markerAtCursor(sampleId)
+      if (marker) startRename({ kind: 'sample-marker', sampleId, markerId: marker.id }, context)
+    },
+  },
   {
     id: 'sample-selection.select-all',
     title: 'Select all',
@@ -154,4 +185,7 @@ const actions: readonly Action<SelectionSubject>[] = [
  * Cut, Copy, Paste and Delete through their verbs; everything runs through `state/wave-edits.ts`, as the toolbar does.
  * The five clipboard and structure edits are one group, as on the toolbar.
  */
-export const sampleSelectionActions: readonly Action<SelectionSubject>[] = actions.map((action) => ({ ...action, applies: inProject }))
+export const sampleSelectionActions: readonly Action<SelectionSubject>[] = actions.map((action) => ({
+  ...action,
+  applies: (subject, context) => inProject(subject) && (action.applies?.(subject, context) ?? true),
+}))

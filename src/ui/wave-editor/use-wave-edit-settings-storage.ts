@@ -8,6 +8,7 @@ export const WAVE_EDIT_SETTING_KEYS: { readonly [K in keyof WaveEditSettings]: s
   fadeCurve: 'sfxlab:wave-fade-curve',
   lastValues: 'sfxlab:wave-edit-settings',
   loop: 'sfxlab:wave-loop',
+  snap: 'sfxlab:wave-snap',
 }
 
 const FIELDS = Object.keys(WAVE_EDIT_SETTING_KEYS) as (keyof WaveEditSettings)[]

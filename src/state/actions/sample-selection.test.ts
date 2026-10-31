@@ -44,6 +44,7 @@ describe('the sample-selection actions', () => {
     expect(describeActions(subject, fakeContext()).map((item) => `${item.group}: ${item.title}`)).toEqual([
       'clipboard: Cut', 'clipboard: Copy', 'clipboard: Paste', 'clipboard: Delete', 'clipboard: Crop',
       'process: Gain…', 'process: Fade in', 'process: Fade out', 'process: Normalize…', 'process: Reverse', 'process: Silence', 'process: Remove DC offset', 'process: Insert silence…',
+      'marks: Add marker', 'marks: Make region', 'marks: Set loop',
       'view: Select all', 'view: Zoom to selection', 'view: Zoom to fit', 'view: Play selection',
     ])
     expect(subjectName(subject)).toBe('Selection in Pad')

@@ -33,10 +33,20 @@ export const zoomTo = (from: number, to: number, width: number, frames: number):
   clampView({ startFrame: from, framesPerPixel: Math.max(1, to - from) / Math.max(1, width), width }, frames)
 
 /** Where a zoom asked for (`useWaveEditorStore.zoom`) leaves the stored view: fitted, or showing the range. */
-export const resolveZoom = (zoom: WaveZoom, width: number, frames: number): Pick<WaveEditorView, 'framesPerPixel' | 'startFrame'> => {
+export const resolveZoom = (zoom: WaveZoom, width: number, frames: number, stored: WaveEditorView): Pick<WaveEditorView, 'framesPerPixel' | 'startFrame'> => {
   if (zoom === 'fit') return { framesPerPixel: null, startFrame: 0 }
+  if ('show' in zoom) return showFrame(stored, zoom.show, width, frames)
   const next = zoomTo(zoom.from, zoom.to, width, frames)
   return { framesPerPixel: next.framesPerPixel, startFrame: next.startFrame }
+}
+
+/** The stored view, scrolled by the least that shows `frame`; a view that shows it already, or fits, is kept. */
+export const showFrame = (stored: WaveEditorView, frame: number, width: number, frames: number): Pick<WaveEditorView, 'framesPerPixel' | 'startFrame'> => {
+  const view = resolveView(stored, frames, width)
+  const x = xOf(view, frame)
+  if (stored.framesPerPixel === null || (x >= 0 && x <= view.width)) return { framesPerPixel: stored.framesPerPixel, startFrame: stored.startFrame }
+  const startFrame = x < 0 ? frame : frame - view.width * view.framesPerPixel
+  return { framesPerPixel: view.framesPerPixel, startFrame: resolveView({ ...stored, startFrame }, frames, width).startFrame }
 }
 
 /** The frame under column `x` (fractional columns are fine), inside the sample. */

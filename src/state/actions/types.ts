@@ -26,6 +26,9 @@ export type Subject =
   | { readonly kind: 'sound'; readonly soundId: string; readonly preset: boolean }
   | { readonly kind: 'pin'; readonly owner: ControlOwner; readonly graph: TrackGraph } // a front panel in the Pinned view
   | { readonly kind: 'sample-selection'; readonly sampleId: string } // the Wave editor's lanes: the open sample's selection and cursor
+  | { readonly kind: 'sample-marker'; readonly sampleId: string; readonly markerId: string } // in the Wave editor's mark lane
+  | { readonly kind: 'sample-region'; readonly sampleId: string; readonly regionId: string }
+  | { readonly kind: 'sample-loop'; readonly sampleId: string }
 
 export type SubjectKind = Subject['kind']
 export type SubjectOf<K extends SubjectKind> = Extract<Subject, { kind: K }>
@@ -65,8 +68,8 @@ export interface Action<S extends Subject = Subject> {
    */
   readonly verb?: Verb
   readonly title: string | ((subject: S, context: ActionContext) => string)
-  /** Entries are drawn in groups, with a separator between groups: open, edit, clipboard, delete, process, view. */
-  readonly group: 'open' | 'edit' | 'clipboard' | 'delete' | 'process' | 'view'
+  /** Entries are drawn in groups, with a separator between groups: open, edit, clipboard, delete, process, marks, view. */
+  readonly group: 'open' | 'edit' | 'clipboard' | 'delete' | 'process' | 'marks' | 'view'
   readonly danger?: boolean
   /** What the entry does, when its title doesn't say enough: drawn as its tooltip. */
   readonly tooltip?: (subject: S, context: ActionContext) => string | undefined

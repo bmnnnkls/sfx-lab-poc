@@ -52,6 +52,7 @@ import {
   setClipName,
   setClipNotes,
   setSampleName,
+  updateSampleMarks,
   setSceneName,
   setTrackName,
   setProjectName,
@@ -169,6 +170,11 @@ interface ProjectActions {
    * besides, for the caller to tell the user.
    */
   replaceSample(fromId: string, to: SampleInfo, remap: SampleRemap): SampleReplaceReport
+  /**
+   * Changes a sample's markers, regions or loop (`addMarker`, `updateRegion`, `setLoop`, …) as one undo step; a drag
+   * passes one `mergeKey` throughout (`marker:<origin>:<id>`), so it is one step.
+   */
+  editSampleMarks(sampleId: string, change: (info: SampleInfo) => SampleInfo, mergeKey?: string): void
   /** Adds a track with a sampler playing `sample`, plus a clip that triggers it. */
   addSamplerTrack(sample: SampleInfo): void
   /** Adds an audio track with a looping clip of `sample` in the first scene. */
@@ -377,6 +383,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       if (result.project !== get().project) edit(() => result.project)
       return result.report
     },
+    editSampleMarks: (sampleId, change, mergeKey) => edit((project) => updateSampleMarks(project, sampleId, change), mergeKey),
     addSamplerTrack: (sample) => edit((project) => addSamplerTrack(project, sample)),
     addAudioTrackFromSample: (sample) => edit((project) => addAudioTrackWithClip(project, sample)),
     deleteAudioClip: (trackId, scene) => edit((project) => setAudioClipAt(project, trackId, scene, null)),

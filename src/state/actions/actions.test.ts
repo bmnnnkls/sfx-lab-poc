@@ -16,7 +16,7 @@ const clipOf = (name: string, scene: number) => track(name).clips[scene]!
 const titles = (subject: Subject) => describeActions(subject, fakeContext()).map((item) => item.title)
 const undoSteps = () => useProjectStore.getState().history.past.length
 
-const ORDER = ['open', 'edit', 'clipboard', 'delete', 'process', 'view']
+const ORDER = ['open', 'edit', 'clipboard', 'delete', 'process', 'marks', 'view']
 /** One subject of every kind; the lists don't depend on the ids. */
 const SUBJECTS: readonly Subject[] = [
   { kind: 'track', trackId: '' },
@@ -36,6 +36,9 @@ const SUBJECTS: readonly Subject[] = [
   { kind: 'control', targets: [] },
   { kind: 'sound', soundId: '', preset: false },
   { kind: 'sample-selection', sampleId: '' },
+  { kind: 'sample-marker', sampleId: '', markerId: '' },
+  { kind: 'sample-region', sampleId: '', regionId: '' },
+  { kind: 'sample-loop', sampleId: '' },
 ]
 
 beforeEach(() => {
