@@ -4,18 +4,16 @@ Open work only. Each item has an ID so it can be referred to ("V1, E2"). When an
 describe the result in [`architecture/`](architecture/). Ideas that nobody has committed to are in [IDEAS.md](IDEAS.md);
 the order of the big pieces is in [STATUS.md](STATUS.md#now-and-next).
 
-Reconciled with the code on 2026-10-31 (`feat/ui-redesign` after round 11c, part 1). This replaces `docs/TASKS.md`.
+Reconciled with the code on 2026-10-31 (`feat/ui-redesign` after round 11c, part 2). This replaces `docs/TASKS.md`.
 
 ## UI redesign
 
 Planned round by round. Each round gets a plan in [`active/`](active/) before it starts.
 
-- **U1 Round 11c, parts 2 and 3: markers and regions, then a second pane** in the wave editor
-  ([spec](active/SPEC-round-11-wave-editor.md), [handling and spectrum](active/SPEC-wave-editor-handling-and-spectrum.md),
-  both signed off), including *Revert to original*. 11b left that to 11c because remapping trims back through a chain
-  of edits needs the chain, which isn't kept. The second pane adds a `pane` to the `sample-selection` subject and the
-  view key. Part 1, handling, is done; part 2 has a [plan](active/PLAN-round-11c-2-markers-and-regions.md) (signed
-  off, not started), with the sampler's loop points and format v12.
+- **U1 Round 11c, part 3: a second pane** in the wave editor
+  ([handling and spectrum spec](active/SPEC-wave-editor-handling-and-spectrum.md), signed off). It adds a `pane` to the
+  `sample-selection` subject and the view key. Parts 1 (handling) and 2 (markers, regions, snap, *Revert to original*,
+  loop points) are done.
 - **U9 Round 11d: the spectrogram and spectral edits** in the wave editor
   ([spec](active/SPEC-wave-editor-handling-and-spectrum.md), signed off): the FFT core (idea H1), a spectrum
   pyramid computed in a worker, time-and-frequency selection, band gain and keep band.
@@ -44,9 +42,9 @@ Things that shipped without the check their plan asked for.
   (round 5), float WAV copies and stereo MP3 (rounds 11a and 11b).
 - **V3 Make V1 and V2 possible**: install Firefox, and download the Playwright Firefox and WebKit builds that match the
   installed Playwright version.
-- **V4 Listening passes for 11a and 11b**: an old project with a stereo file; reverse used by a clip, a region and a
-  sampler; a delete before a looped clip's trim; cut and paste with 0 and 100 ms crossfades; a 120 s stereo file
-  opened in the UI.
+- **V4 Listening passes for 11a, 11b and 11c-2**: an old project with a stereo file; reverse used by a clip, a region
+  and a sampler; a delete before a looped clip's trim; cut and paste with 0 and 100 ms crossfades; a 120 s stereo file
+  opened in the UI; a sampler in loop mode with a loop set on zero crossings and one not.
 - **V5 Physical MIDI**: a keyboard and a controller, for permission, routing, sustain, disconnect and timing. Simulated
   ports and real-worklet tests exist.
 - **V6 Flaky smoke test**: `library.smoke.spec.ts`, the isolated preview case, reads the saved project right after
@@ -54,11 +52,14 @@ Things that shipped without the check their plan asked for.
 - **V7 Load-sensitive audio test**: `tempo.audio.spec.ts`'s ping-pong case fails its tail-level check when the machine
   is busy, because it times tempo edits from the page.
 - **V8 Commit the measuring scripts** that rounds 4 and 11b used (`measure.cjs`, the in-place flow timing). Only
-  `scripts/profile-status.cjs` and `scripts/measure-selection-levels.cjs` (round 11c-1) are in the repository.
+  `scripts/profile-status.cjs`, `scripts/measure-selection-levels.cjs` (round 11c-1) and
+  `scripts/measure-revert-and-zero.cjs` (round 11c-2) are in the repository.
 - **V9 Demo release**: a short human listening pass on `main`, then tag the verified commit.
-- **V10 Hand pass for the wave editor's handling** (round 11c-1), in Chrome, and Firefox and Safari once V3 is done:
-  every view key and the edit keys with the focus on the lanes, on the toolbar and in the project name field;
-  middle-drag with a mouse; edge drags and auto-scroll on a trackpad; the right-click menu with Shift+F10.
+- **V10 Hand pass for the wave editor's handling** (rounds 11c-1 and 11c-2), in Chrome, and Firefox and Safari once V3
+  is done: every view key (M, R, L, `[` `]` among them, and Shift with a bracket on a non-US layout) and the edit keys
+  with the focus on the lanes, on the mark lane, on the toolbar and in the project name field; middle-drag with a
+  mouse; edge drags, marker, region and loop drags and auto-scroll on a trackpad; Alt held during a drag with snapping
+  on; rename in place in the mark lane; the folded mark lane under 300 px; the right-click menu with Shift+F10.
 
 ## Performance
 

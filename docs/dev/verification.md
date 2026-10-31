@@ -15,6 +15,11 @@ and `viewRoot(page, title)` scopes a locator to one view. The audio project uses
 legacy checks (`audio-tap.ts`) to measure real output through the worklet; it rejects an inactive tap. Legacy
 scenarios not yet migrated are listed in [browser-checks](../browser-checks/README.md) ([BACKLOG](../BACKLOG.md) T1).
 
+A change that must leave a DSP node's output as it was is checked against a hash taken from the old code: render many
+cases (every mode, odd speeds, release, retrigger), hash the floats, check the old file out to read the hash, and keep
+it in the test (`sampler.node.test.ts`). Browser tests that need a position the UI doesn't print (the cursor's frame)
+put a marker there and read the saved project (`wave-marks.smoke.spec.ts`).
+
 Unit tests sit beside the code. Two repository-wide tests guard structure: `tests/architecture.test.ts` (the layering
 in [overview](../architecture/overview.md#layers) and the package allow-list) and `tests/status-subscriptions.test.ts`
 (no `ui` component selects the whole transport status). Format migrations are tested against the committed fixtures

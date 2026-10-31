@@ -17,7 +17,8 @@
 //   pinned  The editor setup, after an L knob and a switch were added to Lead's instrument panel, and Lead's instrument,
 //           Lead's effects and the master's effects were pinned, with the Pinned view showing. Needs round 9.
 //   wave    The demo drum loop open in the Wave editor, Mixer in the panel, the transport stopped and the loop's preview
-//           looping from its start, so the editor's playhead runs. Needs round 11a.
+//           looping from its start, so the editor's playhead runs. Two markers, a region and the loop are set first
+//           (M, R and L), so the mark lane has something to draw. Needs round 11a (the marks, round 11c-2).
 //
 // Prints one JSON object per build. Each figure is a per-second average over the measured seconds.
 const { chromium } = require('@playwright/test')
@@ -29,7 +30,7 @@ if (!devUrl || !previewUrl) {
 }
 const SECONDS = Number(secondsArg ?? 10)
 const SETUP = setupArg ?? 'editor'
-const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume', 'PinnedView', 'PinnedPanel', 'PanelView', 'ControlCell', 'CommandHost', 'HostDialogs', 'CommandPalette', 'SampleEditor', 'Overview', 'Ruler', 'DetailView', 'WaveLane', 'WavePlayhead', 'EditToolbar', 'EditSettings', 'ProcessMenu', 'ViewMenu', 'EditorSettings', 'WaveStatus', 'LaneScale']
+const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume', 'PinnedView', 'PinnedPanel', 'PanelView', 'ControlCell', 'CommandHost', 'HostDialogs', 'CommandPalette', 'SampleEditor', 'Overview', 'Ruler', 'DetailView', 'WaveLane', 'WavePlayhead', 'EditToolbar', 'EditSettings', 'ProcessMenu', 'ViewMenu', 'EditorSettings', 'WaveStatus', 'LaneScale', 'MarkLane']
 
 // A stub React DevTools hook: React then runs in profiling mode (dev build) and reports every commit.
 const hook = () => {
@@ -172,7 +173,22 @@ const setUp = async (page, url) => {
     await loop.locator('[data-status="ready"]').waitFor()
     await loop.getByRole('button', { name: '✎', exact: true }).click()
     const wave = page.locator('[data-view="wave"]')
-    await wave.getByTestId('wave-detail').waitFor()
+    const detail = wave.getByTestId('wave-detail')
+    await detail.waitFor()
+    // A few marks: markers at 30 and 60 %, a region and the loop from 40 to 50 %; then the cursor back at the start.
+    const box = await detail.boundingBox()
+    const y = box.y + box.height / 2
+    for (const at of [0.3, 0.6]) {
+      await page.mouse.click(box.x + box.width * at, y)
+      await page.keyboard.press('m')
+    }
+    await page.mouse.move(box.x + box.width * 0.4, y)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width * 0.5, y, { steps: 4 })
+    await page.mouse.up()
+    await page.keyboard.press('r')
+    await page.keyboard.press('l')
+    await page.mouse.click(box.x + 1, y)
     await show(page, 'Mixer')
     await wave.getByRole('button', { name: 'Loop', exact: true }).click()
     await wave.getByRole('button', { name: 'Play from cursor', exact: true }).click()

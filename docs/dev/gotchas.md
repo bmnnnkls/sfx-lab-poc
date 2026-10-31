@@ -33,6 +33,11 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   *(round 3)*
 * **Fixtures for new format versions**: write them with a throwaway test from a project built in code, then commit the
   JSON and delete the test. *(rounds 8, 9)*
+* **`npx playwright test` serves whatever `dist/` holds.** Its web server is `vite preview`, so a spec run that way
+  tests the last build: run `vite build` first (`npm run test:smoke` does). *(round 11c-2)*
+* **Two browser-test runs at once collide**: they share port 4173 and `test-results/`, so one can't start its server
+  or loses its trace files ("ENOENT … .trace"), which reads like a failed test. Run them one after the other.
+  *(round 11c-2)*
 
 ## Browsers and the DOM
 
@@ -44,6 +49,8 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   "maximize inside the window". *(round 3)*
 * **⌥ and AltGr turn letters into symbols** (⌥B is "∫"). Match keys by `event.key` for Latin letters and digits, and
   by `event.code` otherwise. *(round 10)*
+* **Shift with a bracket is a brace** on most layouts (`event.key` is `{`), so `keyOf` gives `shift+{`. A table that
+  means Shift with `[` takes both. *(round 11c-2)*
 * **A Mac has two delete keys** (⌫ `delete`, ⌦ `forwarddelete`), and `meta` is the Windows key elsewhere. *(round 10)*
 
 ## Architecture
@@ -58,6 +65,10 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   11c-1)*
 * **A closing menu gives the focus back to its trigger,** taking it from a popover or field its entry just opened.
   Mark such an entry `takesFocus`. *(rounds 5, 11c-1)*
+* **`ActionMenu` draws no menu without a subject.** A trigger whose subject depends on the pointer (the mark lane)
+  always needs one, or a right-click there opens nothing. *(round 11c-2)*
+* **A drag snaps to what it moves.** Snap targets include the dragged mark's own position, a frame behind the pointer,
+  so it sticks there. Targets are named and a drag leaves out its own (`snapFrame`'s `ignore`). *(round 11c-2)*
 * **flexlayout 0.x minor versions break.** It is pinned and imported only from `ui/layout/`, and the architecture test
   enforces both. Upgrade on purpose. *(round 2)*
 * **Old projects must stay bit for bit the same.** Engine changes that touch mixing or decoding are checked against

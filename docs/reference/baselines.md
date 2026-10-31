@@ -27,6 +27,9 @@ Round 11c-1 (2026-10-31, load average 4 to 6), `wave` only: 56 component renders
 toolbar, status bar and scale components (`ProcessMenu`, `ViewMenu`, `EditorSettings`, `WaveStatus`, `LaneScale`)
 render 0 times.
 
+Round 11c-2 (2026-10-31, `f8b3560`, load average 4 to 6), `wave` only, its setup adding two markers, a region and the
+loop: 56 component renders and 12.6 script ms a second; `MarkLane` renders 0 times.
+
 Earlier tables: [round 2](../archive/ui-redesign/PLAN-round-2-shell.md#changes-made-while-implementing) (the
 first, with base comparisons), [round 11a](../archive/ui-redesign/PLAN-round-11a-stereo-and-the-pyramid.md#changes-made-while-implementing),
 [round 11b](../archive/ui-redesign/PLAN-round-11b-in-place-edits.md#changes-made-while-implementing).
@@ -50,6 +53,17 @@ the dev server's modules, median of 7 runs after 2 warm-ups, load average 4 to 6
 | `selectionLevels`, the whole of it, stereo | 11.5 ms |
 | `selectionLevels`, the whole of it, one channel | 7.0 ms |
 | `selectionLevels`, a tenth of it, stereo | 1.2 ms |
+
+*Revert to original* and the zero-crossing search, round 11c-2 step 7 (2026-10-31, `f8b3560`), Chromium 156
+(Playwright's) on the dev server's modules, load average 4 to 6, `scripts/measure-revert-and-zero.cjs`:
+
+| 120 s stereo, 48 kHz | Time |
+|---|---:|
+| `revertSample` after one in-place edit (read, decode, commit) | 44.9 ms |
+| the same, the first time (the engine is sent the audio too) | 75.2 ms |
+| `decodeAudio` of the original alone (16-bit WAV) | 43.7 ms |
+| `nearestZeroCrossing` at the widest zoom (46,080 frames either way), on a sine | under 0.001 ms |
+| the same on a constant (no crossing: the whole reach read) | 0.22 ms |
 
 | In-place edit flow, stereo | apply | encode | hash | store | total |
 |---|---:|---:|---:|---:|---:|

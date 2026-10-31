@@ -8,7 +8,7 @@ version changes, update this table in the same commit. How saving and migrations
 
 | What | Version | Constant | Where it's kept |
 |---|---:|---|---|
-| Project file (`.sfxlab.json`, and the project inside a `.sfxlab` package) | **11** | `CURRENT_VERSION` in `core/persistence/format.ts` | `localStorage` `sfxlab:project`, export files |
+| Project file (`.sfxlab.json`, and the project inside a `.sfxlab` package) | **12** | `CURRENT_VERSION` in `core/persistence/format.ts` | `localStorage` `sfxlab:project`, export files |
 | Library bundle manifest (`.sfxlib`) | **2** | `LIBRARY_BUNDLE_VERSION` in `core/library/bundle.ts` | export files ([format](library-bundle.md)) |
 | Library catalog | **2** | `LIBRARY_CATALOG_VERSION` in `core/library/types.ts` | IndexedDB, and inside bundles |
 | Library IndexedDB database | **3** | `LIBRARY_DATABASE_VERSION` in `storage/library-database.ts` | IndexedDB (samples, catalog, edit log) |
@@ -36,6 +36,7 @@ committed fixture in `core/persistence/fixtures/`.
 | 9 | Locale-independent structural signatures (UTF-16 code-unit order) | (signature migration tests) |
 | 10 | Track groups, hidden tracks; later, without a bump: group buses, group mute and solo, pins | `v10-track-groups`, `v10-group-buses`, `v10-pinned-panels` |
 | 11 | A sample's `origin`, `markers` and `regions` (stereo samples, wave editor) | `v11-sample-markers` |
+| 12 | A sample's `loop` (what a sampler in *loop* mode repeats) and `lineage` (the original's facts and each in-place edit's position map, for *Revert to original*) | `v12-sample-lineage` |
 
 Fields added without a bump (as in v10) are dropped silently by builds that predate them. Use that only when the
 file is never worse for losing the field; otherwise bump.
@@ -57,7 +58,7 @@ These are per-browser preferences, not versioned. Each read must tolerate a miss
 
 `sfxlab:main-view`, `sfxlab:editor-height`, `sfxlab:arrangement-zoom`, `sfxlab:welcomed`, `sfxlab:groove`,
 `sfxlab:roll-*` (zoom, velocity, grid, follow, audition), `sfxlab:wave-*` (ruler, ruler-tempo, loop, fade-curve,
-crossfade, edit-settings, edit-copies), `sfxlab:corrupt` (a project that failed to load, kept for recovery),
+crossfade, edit-settings, edit-copies, snap), `sfxlab:corrupt` (a project that failed to load, kept for recovery),
 `sfxlab:probe` (storage availability check).
 
 ## Size limits

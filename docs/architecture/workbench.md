@@ -164,15 +164,16 @@ right-clicked; what can be done to it lives in `state/actions/`.
   element. The kinds: `track` (instrument, audio and return tracks), `group` (a group of tracks), `master`, `clip` (a session clip), `slot` (an
   empty session cell), `automation-slot`, `scene`, `sample`, `library-item`, `library-folder`, `nodes`, `canvas`,
   `module`, `region`, `lane`, `control` (a panel control or a mixer value), `sound` (a snapshot or preset), `pin` (a
-  pinned front panel: an owner and a graph) and `sample-selection` (the Wave editor's lanes: the open sample's
-  selection, cursor and clipboard, read from the stores). `nodes`
+  pinned front panel: an owner and a graph), `sample-selection` (the Wave editor's lanes: the open sample's
+  selection, cursor and clipboard, read from the stores), and `sample-marker`, `sample-region` and `sample-loop` (a
+  marker, a region or the loop in the Wave editor's mark lane, set from what the pointer is on). `nodes`
   is the selection when the right-clicked card is selected, otherwise that card alone. `nodes` and `canvas` name the
   track's (or the master's) graph as `target` and the modules opened from there as `path`; the nodes are in the last
   module of `path` (`editTargetOf`). `canvas` and `lane` carry where the click landed, which is where *Paste* and *Add*
   put things; the view sets it from the trigger's own `onContextMenu`, which runs before the menu opens.
 * **Actions.** One file per kind exports its list of `Action`s: an `id` (`clip.duplicate`, stable: the palette lists it), a
-  `title` (text, or a function of the subject), a `group` (open, edit, clipboard, delete, process, view: a separator
-  between groups; a list keeps that order),
+  `title` (text, or a function of the subject), a `group` (open, edit, clipboard, delete, process, marks, view: a separator
+  between groups; a list keeps that order; `separated` asks for one before an action inside its group),
   `danger`, `applies` (hidden when false: *Stop* on a return), `enabled` (shown but disabled: *Paste* with an empty
   clipboard) and `run`. An action that asks which one has `choices` (a lane's session clips, an empty audio slot's
   samples, an XY pad's axes), drawn as a submenu or, with `inline` (which can depend on the subject), one entry per
@@ -197,7 +198,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
   takes a paste (the graph's selected nodes paste on the canvas around them). `verbTarget` says what would run.
 * **Names.** `subjectName(subject)` names a subject for the palette: the track's, group's, clip's, scene's (*Scene
   2* when unnamed), sample's or region's name, *Master*, *2 nodes* or a single node's title, a control's target label,
-  *Lead instrument* for a pin, *Selection in Kick* for the Wave editor's lanes, and the kind's word (*Track*) for a
+  *Lead instrument* for a pin, *Selection in Kick* for the Wave editor's lanes, *Hit in Kick* for a marker or region
+  and *Loop in Kick* for a sample's loop, and the kind's word (*Track*) for a
   thing that is gone.
 * **Buttons run actions too.** ×, ✎, ■, M and S, the sample row's buttons, the Library's details and folder buttons,
   the Sounds rows, a card's *Edit* and *Unlink*, the toolbar's *Group into module* and the module bar's buttons call

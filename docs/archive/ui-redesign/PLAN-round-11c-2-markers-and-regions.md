@@ -1,15 +1,16 @@
 ---
-status: active
+status: done
 date: 2026-10-31
-note: "Plan signed off 2026-10-31 as proposed; not started. Part 2 of the handling-and-spectrum spec: markers, regions, snap, Revert to original and the sampler's loop points; format v12."
+shipped_in: architecture/samples-and-wave-editor.md
+note: "Part 2 of the handling-and-spectrum spec: markers, regions, snap, Revert to original and the sampler's loop points; format v12. The hand pass in browsers is BACKLOG V10."
 ---
 # Round 11c, part 2: markers, regions and loop points
 
-Status: **plan, signed off** 2026-10-31, every decision as proposed. Written 2026-10-31, revised the same day: format v12 and loop points in this
+Status: **done** 2026-10-31; plan signed off 2026-10-31, every decision as proposed. Written 2026-10-31, revised the same day: format v12 and loop points in this
 part (the user: only the two example projects exist, so a version bump and an engine change are fine). Part of the
-[UI redesign](ui-redesign-roadmap.md). Carries out part 2 of the signed-off [handling and spectrum
-spec](SPEC-wave-editor-handling-and-spectrum.md) (§ Suggested split): markers, regions, snap and *Revert to
-original*, as [round 11's spec](SPEC-round-11-wave-editor.md) has them (§ Overview, detail and the ruler; § Cursor,
+[UI redesign](README.md). Carries out part 2 of the signed-off [handling and spectrum
+spec](../../active/SPEC-wave-editor-handling-and-spectrum.md) (§ Suggested split): markers, regions, snap and *Revert to
+original*, as [round 11's spec](../../active/SPEC-round-11-wave-editor.md) has them (§ Overview, detail and the ruler; § Cursor,
 selection, markers and regions; § In-place edits; § Keys and commands), plus loop points for the sampler, which the
 handling spec allowed "as a region kind if the plan finds it cheap". The inventory was taken on
 `imp/wave-11c-1-handling-85124e` at `abbae05` (round 11c part 1 done, not merged into `feat/ui-redesign` yet). The
@@ -287,7 +288,7 @@ in `old-projects.test.ts` must hold at every step; step 4 changes the engine, so
 7. **Docs and the profile.** `architecture/samples-and-wave-editor.md` (marks, the mark lane, snap, revert, lineage,
    loop points in the sampler), `architecture/workbench.md` (the three subjects, the `marks` group),
    `reference/formats-and-versions.md` (v12, `sfxlab:wave-snap`); the notes sorted per
-   [doc-workflow](../dev/doc-workflow.md); STATUS and BACKLOG; the profile.
+   [doc-workflow](../../dev/doc-workflow.md); STATUS and BACKLOG; the profile.
 
 ## Behavior changes
 
@@ -404,3 +405,24 @@ Signed off 2026-10-31: every row as proposed.
   keys. `[` `]` at the last mark, or with none, aren't view keys. The mark keys are ignored while held, as P and Z are.
 * **Step 6: what the browser tests read.** The cursor's frame isn't shown, so the tests put a marker there (M) and read
   the saved project; the zero-crossing test checks the frame against the test file's own samples.
+* **Step 7: measures**, in Chromium 156 (Playwright's) on the dev server's modules, load average 4 to 6
+  (`scripts/measure-revert-and-zero.cjs`; median of 5 runs after the first for the revert, of 7 after 2 warm-ups for
+  the rest):
+
+  | 120 s stereo, 48 kHz | Time |
+  |---|---:|
+  | `revertSample` after one in-place edit: read, decode, commit (the engine has the audio) | 44.9 ms |
+  | the same, the first time: the engine is sent the audio too | 75.2 ms |
+  | `decodeAudio` of the original alone (16-bit WAV) | 43.7 ms |
+  | `nearestZeroCrossing` at the widest zoom (46,080 frames either way), a crossing near | under 0.001 ms |
+  | the same on a constant: no crossing, the whole reach read | 0.22 ms |
+
+  Decoding is nearly all of a revert; the commit (`replaceSample` through the chain) is about a millisecond. A zero
+  crossing is looked for once per pointer move, so snapping costs nothing a drag would notice.
+* **Step 7: profile.** `profile-status.cjs wave`, its setup now adding two markers, a region and the loop (M, R, L):
+  56 component renders a second, as part 1 (29 `WavePlayhead`, 27 `LevelMeter`, 0 for every editor component and the
+  new `MarkLane`). Production build: script 12.6 ms/s, layout 13.1 ms/s, style 10.7 ms/s.
+* **Not verified:** the hand pass in browsers ([BACKLOG](../../BACKLOG.md) V10): marker, region and loop drags on a
+  trackpad, Alt with a drag, rename in place, the folded lane, and listening to a looped sampler. Playwright drove
+  every gesture and key in Chromium; the looped sampler was checked through the real worklet (`test:audio`) and the
+  bounce, not by ear.

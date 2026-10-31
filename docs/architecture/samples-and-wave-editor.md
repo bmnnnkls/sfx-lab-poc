@@ -1,6 +1,7 @@
 # Samples and the wave editor
 
-How samples are stored, decoded and drawn, and the wave editor (in-place edits, the peak pyramid, processes).
+How samples are stored, decoded and drawn, and the wave editor (in-place edits, the peak pyramid, processes, markers,
+regions and the loop, snap, *Revert to original*).
 
 ## Samples
 
@@ -11,7 +12,14 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   regardless of the gate, `hold` stops when the gate falls, `loop` repeats until it falls), *Root note* (plays at
   original speed), *Start*, *Tune*. It compensates for the sample's own sample rate, interpolates linearly, and
   fades out in 10 ms on release to avoid clicks. Its sample is a node-level reference (`PatchNode.sampleId`, chosen
-  with a picker in the property editor), not a numeric param.
+  with a picker in the property editor), not a numeric param. **In `loop` mode with the sample's loop**
+  (`SampleInfo.loop`, read each block through `SampleLookup.loopOf`), a held voice starts at *Start* as always and, at
+  the loop's end, wraps to the loop's start, interpolating across the wrap; one that started past the loop's end plays
+  to the sample's end first, then wraps to the loop's start. On release it stops looping and fades. A loop longer than
+  the audio is cut to it. `one-shot` and `hold` ignore the loop, and without one the same lines run as always, so a
+  sample without a loop plays bit for bit as before (a test hashes every mode, several speeds, *Start*, release and
+  retrigger against a hash taken from the sampler before loops). There is no crossfade at the wrap: snapping to zero
+  crossings is how to set a clean loop.
 * **Three homes for one sample**, all keyed by the **SHA-256 of the file** (so importing the same file twice is a
   no-op, and ids can't collide). Everything that turns a `SampleInfo` into stored bytes (the loader, an edit's read,
   the bounce, the project package's writer and reader, the library bundle and preview) asks **`bytesKeyOf(info)`**
@@ -37,8 +45,11 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   session clips and arrangement regions that play the sample, silences bindings, and leaves presets and revisions naming
   it (a recall then reports it missing).
 * **`replaceSample(project, fromId, to, remap)`** moves every use onto an edit's result: the library entry is replaced
-  where it is, with the old name, `origin: originOf(old)`, and markers and regions through the remap (a marker whose
-  frame is gone is dropped, a region clipped and dropped when empty); samplers, bindings, presets and revisions point at
+  where it is, with the old name, `origin: originOf(old)`, its lineage with the remap's steps appended (§ Lineage and
+  *Revert to original*), and markers, regions and the loop through the remap (a marker whose frame is gone is dropped,
+  a region or the loop clipped and dropped when empty; the marks stay sorted, since a reverse turns a stretch of them
+  around). A result whose id is the origin's is the original again: it gets no `origin` and no lineage (a revert, or an
+  edit that happens to give the original's bytes back); samplers, bindings, presets and revisions point at
   `to.id` (asset signatures ignore samples, so none changes); clips' and regions' trims go through the remap so they
   play the audio they played, and one the edit emptied keeps `MIN_REGION` where it started (`report.emptiedTrims`). A
   result already in the library is merged into (`report.merged`). The sampler's *Start* param is a param, so it isn't
@@ -48,7 +59,13 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   plain-JSON import on another machine) shows *audio missing*, plays silence, and is restored by importing the
   original file again (same hash).
 * **Engine side:** a sampler node looks samples up at process time (`ProcessContext.samples`), so samples that
-  arrive after the instrument was built, or are swapped (`track/setSample`), take effect without a rebuild.
+  arrive after the instrument was built, or are swapped (`track/setSample`), take effect without a rebuild. **Loops
+  are kept apart from the audio**: `SampleBank.setLoop(id, loop | null)` and `loopOf(id)`, set by `sample/setLoop`
+  (plain data), so a loop may arrive before its sample's audio (a bounce applies `diffProject(null, project)` first and
+  `sample/add` after) and outlives a `sample/add` of the same id. `diffProject` sends it for every sample whose loop
+  differs from the previous project's: every sample's, null included, from nothing (so a project loaded over another
+  can't keep that one's loop), and a null for a looped sample that left. The live engine, a loaded project, undo and
+  the bounce get loops the same way.
   `sample/preview` auditions a sample straight to the master, each channel to its side: the whole sample, or frames
   `from` up to `to`, once or looping (`loop`). While it plays, `EngineStatus.preview` is `{ sampleId, frame }`, and it is
   absent otherwise, so nothing else changes. `EngineStatus.peak` drives the output meter.
@@ -59,20 +76,32 @@ instruments that reuse everything else: MIDI clips, polyphony, envelopes, filter
   trusting it, ignores unexpected entries, caps inflated entry size, then runs the usual `parseProject`.
   Missing/corrupt samples become warnings, not failures.
 * **Persistence of the new fields:** `samples` and `sampleId` are optional with safe defaults (a reference to a
-  sample not in the library is dropped with a warning), so no format-version bump was needed. Format v11 (round 11a)
-  added a sample's origin, markers and regions; `MIGRATIONS[10]` is the identity.
+  sample not in the library is dropped with a warning), so no format-version bump was needed. Format v11 added a
+  sample's origin, markers and regions, and v12 its loop and lineage; `MIGRATIONS[10]` and `MIGRATIONS[11]` are the
+  identity (a v11 sample has no loop and can't revert).
 * **Reading channels** (round 11a, `core/sample/channels.ts`). Engine code reaches a sample's audio only through
   `frameCount`, `monoAt` (the one channel, or the average of two with `toMono`'s exact arithmetic, so a stereo file reads
   the bits the old mixdown gave) and `channelAt` (one channel; a mono sample is the same in both). The sampler node and a
   mono `Track in` path read `monoAt`; the stereo path, the preview and the library's sample preview read `channelAt`.
   Playing everything as mono again would be a change in these helpers alone. Thumbnails (`computePeaks`, 800 buckets)
   take the loudest of the channels.
-* **Origin, markers and regions** (format v11). `SampleInfo` may carry `origin` (the first version's id; `originOf`
-  reads `origin ?? id`), `markers` (`{ id, frame, name }`) and `regions` (`{ id, from, to, name }`), in frames.
-  `sanitizeSamples` keeps them when well formed (whole frames inside `durationSeconds × sampleRate`, `from < to`, names
-  of at most 60 characters, at most 256 of each, unique ids) and drops the rest with a warning. 11a only defines and
-  keeps them; 11b remaps them through edits and 11c gives them a UI. The personal library keeps them with a captured
-  sample.
+* **Origin, marks and lineage.** `SampleInfo` may carry `origin` (the first version's id; `originOf` reads
+  `origin ?? id`), `markers` (`{ id, frame, name }`), `regions` (`{ id, from, to, name }`) and `loop` (`{ from, to }`,
+  one per sample), in frames, and `lineage` (§ Lineage and *Revert to original*). `sanitizeSamples` keeps markers and
+  regions when well formed (whole frames inside `durationSeconds × sampleRate`, `from < to`, names of at most 60
+  characters, at most 256 of each, unique ids) and drops the rest with a warning; it clamps and rounds a loop and drops
+  it when empty; it keeps a lineage only whole (an origin beside it, the original's facts valid, each step inside the
+  length the one before left, ending at the sample's own length), else drops it with a warning that the sample can't
+  revert. The personal library keeps them all with a captured sample.
+* **Editing marks** (`core/sample/sample-marks.ts`): `addMarker`, `moveMarker`, `renameMarker`, `removeMarker`,
+  `addRegion`, `updateRegion`, `removeRegion`, `setLoop` and `moveLoop`, pure, each returning the same `SampleInfo`
+  when nothing changes. Frames are clamped to the saved length and rounded; a region and the loop keep at least a
+  frame (an edge moved alone stops a frame short of the other); at 256 an add does nothing; names are trimmed and cut
+  to 60 characters, and an empty one changes nothing; new ones are *Marker N* and *Region N*, the lowest N free. Markers
+  are kept in frame order and regions in `from` order. An add takes an id (`createMarkId`), so the caller knows it.
+  `updateSampleMarks(project, sampleId, change)` applies one to the library entry; the project store's
+  `editSampleMarks(sampleId, change, mergeKey?)` makes it one undo step, and a drag passes one merge key throughout
+  (`marker:<origin>:<id>`, `region:<origin>:<id>:<edge>`, `loop:<origin>:<edge>`).
 * **Add a sample-playing node:** set `usesSample: true` on its definition; the property editor shows the picker and the
   engine calls `setSample` on it.
 
@@ -115,10 +144,11 @@ rebuilt the inside; round 11b made edits change the sample in place.
   project's or the one in the sample's name, `tempoFromName`) are per browser (`useStoredState`: `sfxlab:wave-ruler`,
   `sfxlab:wave-ruler-tempo`).
 * **The edit settings** (`state/wave-edit-settings.ts`, `useWaveEditSettings`): *Edits make copies*, the crossfade,
-  the fade curve last used, each popover's last values, and the preview's *Loop*. `state` doesn't touch
+  the fade curve last used, each popover's last values, the preview's *Loop*, and the two snaps (`snap: { beats, zero
+  }`, both off at first). `state` doesn't touch
   `localStorage`, so `useWaveEditSettingsStorage` (in `ui/wave-editor`, mounted by the view) restores them once per page
   and saves each change, under `sfxlab:wave-edit-copies`, `sfxlab:wave-crossfade`, `sfxlab:wave-fade-curve`,
-  `sfxlab:wave-edit-settings` and `sfxlab:wave-loop`. `restore` takes each field that is valid and keeps the default
+  `sfxlab:wave-edit-settings`, `sfxlab:wave-loop` and `sfxlab:wave-snap`. `restore` takes each field that is valid and keeps the default
   for the rest; a popover value saved as `null` (an emptied field) is dropped, so the edit takes that field's default.
 * **One path for every edit** (`state/wave-edits.ts`). `openWave(sampleId)` reads a sample with its working copy and
   view; `waveEditFacts` is what decides (an edit running, the audio loaded, the selection, something copied, the
@@ -127,8 +157,8 @@ rebuilt the inside; round 11b made edits change the sample in place.
   `SampleEditContext`; `runWaveEdit(library, sampleId, kind, { variant, values, curve })` checks, remembers the values
   and the curve, and calls `editSample`; `copyWave` and `cutWave` fill the clipboard. `state/wave-view.ts` has
   `toggleWavePreview` (▶) and `selectAllWave`. The toolbar, the menus, the palette and the keys all call these.
-* **The view.** `SampleEditor` is the frame: the toolbar, the `Overview`, the `Ruler`, the `DetailView` with a level
-  scale beside each lane, and the status bar. The **toolbar** is one line of groups, separated by a hairline, that
+* **The view.** `SampleEditor` is the frame: the toolbar, the `Overview`, the `Ruler`, the `MarkLane`, the `DetailView`
+  with a level scale beside each lane, and the status bar. The **toolbar** is one line of groups, separated by a hairline, that
   wraps a whole group at a time: ▶ (■ while playing) and *Loop*; *Cut*, *Copy*, *Paste*, *Delete*, *Crop*
   (`EditToolbar`, its `TOOLBAR_EDITS`); *Process ▾* and *View ▾*; the sample's name (truncated, with a tooltip),
   length, rate and *mono* / *stereo* as quiet text; ⚙ (*Editor settings*: the crossfade's length and curve and *Edits
@@ -136,7 +166,8 @@ rebuilt the inside; round 11b made edits change the sample in place.
   has an icon set. **Process ▾** is the `sample-selection` subject's `process` actions (below), so it and the
   right-click menu can't differ: the `process` entries of `SAMPLE_EDITS`, *Fade in* and *Fade out* each a submenu of
   the curves (the last used first, checked), then *Insert silence…*. **View ▾** has the subject's two zooms, *Time* /
-  *Beats*, and the tempo the beats count at (*Project tempo*, *Tempo from the name*), checked when in effect. The
+  *Beats*, the tempo the beats count at (*Project tempo*, *Tempo from the name*), and *Snap to beats* (disabled while the
+  ruler counts time) and *Snap to zero crossings*, checked when in effect. The
   **status bar** shows the cursor, or the selection's range, length and channels (`data-testid="wave-status"`); the
   selection's peak and RMS in dBFS (`selectionLevels` in `core/sample/audio-math.ts`, the loudest of its channels, one
   pass over the audio: 11.5 ms for 120 s of stereo in Chromium), computed once the selection hasn't changed for
@@ -150,9 +181,10 @@ rebuilt the inside; round 11b made edits change the sample in place.
   canvas the size of its box times `devicePixelRatio`; `data-draw` on it says which band is drawn. It is focusable
   (`role="group"`, *Waveform lanes*), takes the focus on any press, and is the `sample-selection` subject's
   `ActionMenu` trigger.
-* **Drawing without React.** Zoom and scroll write to the store; the detail, the overview's box and the ruler subscribe
-  to the store directly and redraw in an animation frame (and on resize). React renders only when the sample, the
-  selection or the cursor changes. A lane is drawn by a **lane renderer** (`lane-renderers.ts`), `{ draw(context,
+* **Drawing without React.** Zoom and scroll write to the store; the detail, the overview's box, the ruler and the mark
+  lane subscribe to the store directly and redraw in an animation frame (and on resize); the detail also redraws when
+  the project's samples change, for the marks' lines. React renders only when the sample, the selection or the cursor
+  changes, and the mark lane only when the marks do. A lane is drawn by a **lane renderer** (`lane-renderers.ts`), `{ draw(context,
   columns, size, colors), scale(context, size, colors) }`: `draw` fills the lane, `scale` its gutter. The waveform
   (`waveformRenderer`) is the only one, a spectrogram would be a second. Its scale marks 0, −6 and −12 dB above and
   below the middle and −∞ on it (`levelMarks(height)`: a label only 11 px or more below the last). Each gutter is its
@@ -160,8 +192,10 @@ rebuilt the inside; round 11b made edits change the sample in place.
 * **The right-click menu** is the **`sample-selection`** subject's (`{ kind: 'sample-selection', sampleId }`,
   "Selection in *name*", `state/actions/sample-selection.ts`): *Cut*, *Copy*, *Paste*, *Delete*, *Crop* (one group,
   `clipboard`, as on the toolbar) · the processes (`process`, built from the registry by `processActions`, so a new
-  process is an action, a *Process ▾* entry and a palette row with no other change) · *Select all*, *Zoom to
-  selection*, *Zoom to fit*, *Play selection* / *Play from cursor* / *Stop* (`view`). An action is disabled with the
+  process is an action, a *Process ▾* entry and a palette row with no other change), then, after a separator
+  (`Action.separated`), *Revert to original* · *Add marker*, *Make region*, *Set loop* and, while the cursor is exactly
+  on a marker, *Rename marker* (verb `rename`, so F2 renames the marker M just added) (`marks`) · *Select all*, *Zoom
+  to selection*, *Zoom to fit*, *Play selection* / *Play from cursor* / *Stop* (`view`). An action is disabled with the
   reason as its tooltip (`waveEditBlocked`); one with settings opens its popover (`ask`) and `takesFocus`, so the
   closing menu leaves the focus in the popover. What a right-click lands on follows the piano roll
   (`menuTargetAt(selection, frame, channel)`): inside the selection, on a channel it covers, keeps it; anywhere else
@@ -174,12 +208,15 @@ rebuilt the inside; round 11b made edits change the sample in place.
   or collapse a selection to that side; Alt with them a tenth of the view; Home and End to the ends; Shift with an
   arrow, Home or End moves the selection's end the cursor is on (the cursor follows it) and keeps the other; + (or =)
   and − zoom by two wheel notches around the cursor (the middle when it is out of view); Z zooms to the selection,
-  Shift+Z to fit; P plays or stops. A key that moves the cursor out of the view scrolls it by the least that shows it.
+  Shift+Z to fit; P plays or stops; M adds a marker at the cursor, R makes a region and L sets the loop from the
+  selection (the `marks` actions); `[` and `]` move the cursor to the previous or next marker, region edge or loop edge,
+  and with Shift (a brace on most layouts, so both are taken) extend the selection there; at the last mark, or with
+  none, they aren't view keys. A key that moves the cursor out of the view scrolls it by the least that shows it.
   Space stays the transport's; ⌘0, ⌘+ and ⌘− the browser's.
 * **Gestures** (`useWaveGestures`, `use-wave-gestures.ts`). Drag to select; on a stereo sample a drag starting in the
   top quarter of the left lane selects the left channel only, in the bottom quarter of the right lane the right only
-  (`channelsAt`). Shift extends from the far end. A click sets the cursor; a double-click selects the whole sample on
-  the channels a drag there would take. Within `EDGE_PX` (4) of a selection's edge, on a channel it covers, the pointer
+  (`channelsAt`). Shift extends from the far end. A click sets the cursor; a double-click selects the region or loop
+  under it (the innermost, the shortest) or else the whole sample, on the channels a drag there would take. Within `EDGE_PX` (4) of a selection's edge, on a channel it covers, the pointer
   shows a resize cursor and a drag moves that edge (`selectionEdgeAt`; the nearer edge on a narrow selection). A
   selection dragged past the detail's left or right edge scrolls the view each animation frame by
   `autoScrollFrames` (a tenth of the distance past it in columns, at most a quarter of the view) and selects to the
@@ -187,6 +224,51 @@ rebuilt the inside; round 11b made edits change the sample in place.
   The cursor styles are set on the element, not through React. ⌘ or Ctrl with the wheel (and a trackpad pinch) zooms
   around the pointer, from the whole sample to 32 px per frame (`WHEEL_ZOOM`, 1.25 a notch); the wheel scrolls; a
   *Wheel zooms* setting would branch in the one wheel handler.
+* **Marks** (markers, regions and the loop). Three subjects, each with its menu, verbs and palette rows:
+  **`sample-marker`** (`{ sampleId, markerId }`, "*Hit* in *Kick*"): *Go to* (the cursor there, no selection, the view
+  scrolled by the least that shows it: the `{ show }` zoom request), *Rename*, *Delete*; **`sample-region`**: *Select*,
+  *Rename*, *Delete*, *Set loop from region*, *Play* (looping with the preview's *Loop*), *Zoom to region*;
+  **`sample-loop`** ("Loop in *Kick*"): *Select*, *Clear loop* (verb `delete`), *Play loop* (always looping), *Zoom to
+  loop*. `state/wave-marks.ts` holds what the actions, keys and lane share (`addWaveMarker`, `makeWaveRegion`,
+  `setWaveLoop`, `goToWaveFrame`, `selectWaveRange`, `playWaveRange`, `waveMarkBlocked`). The **mark lane**
+  (`MarkLane`, 20 px under the ruler, "Marks" in the first column) draws regions as bands with their names (the one
+  the selection equals in the accent colour), the loop as a band of its own colour (`--play`) with brackets and
+  *Loop*, and markers as flags with their names, on one canvas; markers also draw a line through the lanes and region
+  and loop edges faint ones (`LaneOverlay.markers`, `.edges`, from `markLines`). Under 300 px of the view's height
+  (`@container view`) it folds to 6 px of ticks, and still takes its gestures. It is **one menu trigger** whose subject
+  is what the pointer is on (`markAt`: the marker within 4 px, else the loop at its edge, else the shortest region or
+  loop under it, else the selection, whose menu then acts at the click), set in its own `onContextMenu` and on a press;
+  it takes the focus on a press, so Delete, F2 and the palette reach the mark. **Gestures** (`useMarkGestures`): drag a
+  marker, or a region's or the loop's edge (`markEdgeAt`, within `EDGE_PX`), one undo step per drag, auto-scrolling
+  past the lane's edge as a selection drag does; a click on a region or the loop selects it (the cursor at its start),
+  on a marker puts the cursor there, on empty lane sets the cursor; a double-click on a marker or region renames it in
+  a field over it (`RenameField`). A paste adds no marks: the clipboard holds audio only.
+* **Snap** (`snap.ts`). With *Snap to beats* (while the ruler counts beats) or *Snap to zero crossings* on, a click's
+  cursor, a selection drag's moving end, a selection edge, a marker and a region or loop edge snap to the nearest
+  target within `SNAP_PX` (8) columns: the beat lines at the ruler's present step, the zero crossing nearest the
+  pointer (`nearestZeroCrossing`: where the average of the selected channels is zero or changes sign), and, with either
+  on, every marker and region and loop edge. Alt held turns it off for that gesture; keys don't snap (they move by
+  columns), and *Add marker* puts the marker exactly at the cursor. `waveSnapper(wave, ruler)` is the `WaveSnap` the
+  editor hands `DetailView` and `MarkLane`: it reads the settings, the marks and the ruler (from a ref) when a gesture
+  asks; targets are named, so a drag leaves out what it moves. `snapFrame(frame, snapping, view, ignore)` is the pure
+  rule.
+* **Lineage and *Revert to original*.** Each kind's `remap` returns a **`RemapStep`**, data: `{ kind: 'splice', from,
+  to, inserted }` (delete, insert, paste), `{ kind: 'crop', from, to }` or `{ kind: 'mirror', from, to }` (a reverse of
+  every channel), or null when nothing moves; `mapOf(step)` is the only way to its `FrameMap`, so a map and its data
+  can't disagree, and `inverseStep` undoes one for positions both versions have (a crop's inverse is a shift, a splice
+  at 0). `sampleRemap` gives `replaceSample` a `SampleRemap` carrying its `steps`. An in-place edit records the
+  **lineage** (`lineageAfter`): the first edit of a sample with no origin keeps the original's facts (`extension`,
+  `bytes`, `channels`, `durationSeconds`, `sampleRate`, which the project loses once the edit replaces the entry), and
+  every edit appends its step; a step is a few numbers, so the chain isn't capped. A sample with an origin and no
+  lineage (edited before lineages existed) can't revert. **`SampleLibrary.revertSample(sampleId)`**, beside
+  `editSample` and under the same one-at-a-time rule, reads the origin's bytes (gone: a toast, "The original of *name*
+  is missing; import the file again"), decodes them, sends `sample/add`, and, if the sample is still in the project,
+  `replaceSample(project, id, originalInfo(info), revertRemap(info, frames))` as one undo step: the inverse steps, last
+  first, from the present length to the decoded original's, so trims, markers, regions and the loop go back exactly,
+  and ones only in pasted or inserted audio go as any edit takes audio that is gone. The editor keeps its view (the
+  key is the origin), the cursor goes where it was in the original, and the selection goes. *Revert to original* is
+  disabled with the reason while an edit runs, on an original ("This is the original") and without a lineage ("Edited
+  before Revert was possible"). Decoding is nearly all of it: 45 ms for 120 s of stereo in Chromium.
 * **Preview.** ▶ (or P, or *Play selection*) plays the selection, or from the cursor to the end, looping with *Loop*;
   ■ stops. The playhead
   (`WavePlayhead`) is a leaf that selects `status.preview` only. A preview may play while the transport plays; it is mixed
@@ -212,10 +294,10 @@ rebuilt the inside; round 11b made edits change the sample in place.
     paste's are the clipboard's and the audio around the cursor. A side with less to borrow fades over what there is;
     0 ms is the plain cut, bit for bit. The length (0 to 100 ms, 5 ms by default) and curve (linear or equal power) are
     set under ⚙ (§ The edit settings).
-  * **Remapping**: each kind's `remap` is one of four shapes in `core/sample/remap.ts` (identity, a splice, a crop, a
-    mirror), which say where a position is now (`frame`), where a range's start moves forward to (`start`) and where a
-    range is (`range`, start forward, end backward, null when nothing is left). `replaceSample` takes them with the old
-    and new lengths (`SampleRemap`).
+  * **Remapping**: each kind's `remap` is a `RemapStep` (§ Lineage and *Revert to original*), whose map says where a
+    position is now (`frame`), where a range's start moves forward to (`start`) and where a range is (`range`, start
+    forward, end backward, null when nothing is left). `replaceSample` takes them with the old and new lengths
+    (`SampleRemap`); `composeMaps` runs several in order.
 * **The audio clipboard** (`state/audio-clipboard.ts`, a `createClipboard`): the copied channels and up to
   `CLIPBOARD_HANDLE_SECONDS` (50 ms, half the longest crossfade) of audio on each side. A copy from one channel holds
   that channel alone; a mono copy pastes into both channels of a stereo sample, a stereo copy into a mono one as its
@@ -233,5 +315,5 @@ rebuilt the inside; round 11b made edits change the sample in place.
   the selected id changes, and the entry's `after` sets the selection and cursor (processes keep them; delete leaves
   the cursor at the join; crop selects nothing; insert and paste select what they inserted). `encodeWav` (mono 16-bit)
   stays for the demo samples, whose ids are hashes of its bytes.
-* **Not yet.** Markers, regions, snap, *Revert to original* (11c, part 2); a second pane (part 3), whose subject gains a
-  `pane`; previewing a process before applying it; the spectrogram (11d); the granular stage.
+* **Not yet.** A second pane, whose subject gains a `pane`; previewing a process before applying it; a crossfaded loop
+  and a loop finder; the spectrogram; the granular stage.
