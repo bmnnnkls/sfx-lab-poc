@@ -1,7 +1,7 @@
 ---
 status: active
 date: 2026-10-29
-note: "Rounds 1-11c are done; 11d (the spectrum) is next, its part 1 planned and waiting for sign-off, then 12 (arrangement editor) and 13 (visual refresh)."
+note: "Rounds 1-11c are done; 11d (the spectrum) is next, its part 1 planned and signed off, then 12 (arrangement editor) and 13 (visual refresh)."
 ---
 # UI redesign roadmap (draft)
 
@@ -304,7 +304,7 @@ a second pane, is done** 2026-10-31; see its [plan](../archive/ui-redesign/PLAN-
 as proposed: views keyed by pane and origin, the editor's subjects carrying their pane, a working copy per pane (shared
 on one sample), edits moving every pane on their sample, one toolbar on the active pane, title rows and a splitter. The
 spectrum (11d) is next, in two parts; the [plan of part 1](PLAN-round-11d-1-spectrogram.md) (the spectral core and a
-read-only spectrogram) waits for sign-off. The outline below is what the spec started from.
+read-only spectrogram) is signed off. The outline below is what the spec started from.
 
 The biggest single piece, mostly beyond the UI. It needs its own SPEC before planning. Round 3 already gives it its
 view, its activity-bar button and its entry points; this round replaces what is inside.

@@ -35,8 +35,8 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 
 1. **Round 11d: the spectrogram and spectral edits** in the wave editor, specified in
    [active/SPEC-wave-editor-handling-and-spectrum.md](active/SPEC-wave-editor-handling-and-spectrum.md) (signed off
-   2026-10-29), in two parts. Part 1, the spectral core and a read-only spectrogram, is planned and waiting for
-   sign-off ([plan](active/PLAN-round-11d-1-spectrogram.md)); part 2, band selection and edits, is planned after it.
+   2026-10-29), in two parts. Part 1, the spectral core and a read-only spectrogram, is planned
+   ([plan](active/PLAN-round-11d-1-spectrogram.md), signed off 2026-10-31, not started); part 2, band selection and edits, is planned after it.
    Round 11c is done, in three parts (2026-10-31): handling (a grouped toolbar, the
    right-click menu, keys, the mouse, a status bar and a level scale), markers, regions, snap, *Revert to original* and
    the sampler's loop points with format v12, and a second pane

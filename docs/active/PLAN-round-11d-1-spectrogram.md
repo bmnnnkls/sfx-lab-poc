@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-10-31
-note: "Plan written 2026-10-31, waiting for sign-off. Part 4 of the handling-and-spectrum spec (round 11d, part 1): the spectral core and a read-only spectrogram in the wave editor."
+note: "Plan signed off 2026-10-31 as proposed; not started. Part 4 of the handling-and-spectrum spec (round 11d, part 1): the spectral core and a read-only spectrogram in the wave editor."
 ---
 # Round 11d, part 1: the spectral core and the spectrogram
 
-Status: **plan, waiting for sign-off.** Written 2026-10-31. Part of the [UI redesign](ui-redesign-roadmap.md). Carries
+Status: **plan, signed off** 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the [UI redesign](ui-redesign-roadmap.md). Carries
 out part 4 of the signed-off [handling and spectrum spec](SPEC-wave-editor-handling-and-spectrum.md) (§ 5, § 7,
 § Suggested split): the spectral core (IDEAS H1), a spectrum pyramid computed in a Web Worker, and a spectrogram in the
 lanes, read only. Spectral selection and the band edits (§ 8) are part 2, with a plan of their own once this one has
@@ -271,6 +271,8 @@ step must keep.
   fill-in on a long file, zooming in and scrolling on a trackpad.
 
 ## Decisions to sign off
+
+Signed off 2026-10-31: every row as proposed.
 
 | Question | Proposed | Alternative |
 |---|---|---|
