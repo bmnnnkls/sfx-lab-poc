@@ -1,7 +1,8 @@
 import { frameCount } from '@core'
-import { type WaveAudio, type WaveChannels, useWaveEditorStore, waveViewOf } from '@state'
+import { type WaveAudio, type WaveChannels, openWave, useWaveEditorStore, waveViewOf } from '@state'
 import { type MouseEvent, type PointerEvent, useEffect, useRef } from 'react'
 import { currentView } from './current-view'
+import type { WaveSnap } from './snap'
 import { autoScrollFrames, frameAt, resolveView, selectionEdgeAt } from './wave-geometry'
 
 /** A press that moves less than this is a click (sets the cursor), not a drag (selects). */
@@ -33,6 +34,8 @@ interface Drag {
   moved: boolean
   /** Where the pointer is now, from the detail's left edge. */
   x: number
+  /** Alt is held: the moving end doesn't snap. */
+  alt: boolean
   /** The auto-scroll's animation frame while the pointer is past an edge. */
   scrolling: number
 }
@@ -42,9 +45,9 @@ interface Drag {
  * click sets the cursor, a double-click selects the whole sample on the channels a drag would take, and a middle-drag
  * pans. A selection dragged past the detail's left or right edge scrolls the view, faster the further past it. The
  * pointer shows a resize cursor over a selection's edge and a grabbing hand while panning, set on the element, not
- * through React.
+ * through React. A click's cursor and a drag's moving end snap (`snap`), unless Alt is held.
  */
-export const useWaveGestures = (wave: WaveAudio) => {
+export const useWaveGestures = (wave: WaveAudio, snap: WaveSnap = (frame) => frame) => {
   const { viewKey, audio } = wave
   const frames = frameCount(audio)
   const stereo = audio.channels.length > 1
@@ -58,13 +61,16 @@ export const useWaveGestures = (wave: WaveAudio) => {
   useEffect(() => () => stopScrolling(), [])
 
   const xOfEvent = (event: MouseEvent<HTMLElement>) => event.clientX - event.currentTarget.getBoundingClientRect().left
-  const frameOf = (element: HTMLElement, x: number) => frameAt(currentView(element, wave), x, frames)
+  const frameOf = (element: HTMLElement, x: number, alt = true) => {
+    const view = currentView(element, wave)
+    return snap(frameAt(view, x, frames), view, alt)
+  }
 
   /** Selects from the drag's anchor to the pointer; past an edge, scrolls a step each animation frame and selects to that edge. */
   const follow = (element: HTMLElement) => {
     const current = drag.current
     if (!current) return
-    const select = (x: number) => useWaveEditorStore.getState().select(viewKey, { from: current.anchor, to: frameOf(element, x), channels: current.channels })
+    const select = (x: number) => useWaveEditorStore.getState().select(viewKey, { from: current.anchor, to: frameOf(element, x, current.alt), channels: current.channels })
     const width = element.clientWidth
     const past = current.x < 0 ? current.x : current.x > width ? current.x - width : 0
     if (past === 0) {
@@ -116,17 +122,17 @@ export const useWaveGestures = (wave: WaveAudio) => {
       const store = useWaveEditorStore.getState()
       const element = event.currentTarget
       const x = xOfEvent(event)
-      const at = frameOf(element, x)
+      const at = frameOf(element, x, event.altKey)
       const { selection } = waveViewOf(store.views, viewKey)
       const edge = event.shiftKey ? null : selectionEdgeAt(currentView(element, wave), selection, x, laneAt(element, event.clientY, stereo))
       if (selection && edge) {
         // The other edge stays where it is.
-        drag.current = { anchor: edge === 'from' ? selection.to : selection.from, startX: event.clientX, channels: selection.channels, moved: true, x, scrolling: 0 }
+        drag.current = { anchor: edge === 'from' ? selection.to : selection.from, startX: event.clientX, channels: selection.channels, moved: true, x, alt: event.altKey, scrolling: 0 }
       } else {
         // Shift extends the selection from its far end.
         const anchor = event.shiftKey && selection ? (Math.abs(at - selection.from) > Math.abs(at - selection.to) ? selection.from : selection.to) : at
         const channels = event.shiftKey && selection ? selection.channels : channelsAt(element, event.clientY, stereo)
-        drag.current = { anchor, startX: event.clientX, channels, moved: event.shiftKey && selection !== null, x, scrolling: 0 }
+        drag.current = { anchor, startX: event.clientX, channels, moved: event.shiftKey && selection !== null, x, alt: event.altKey, scrolling: 0 }
         if (drag.current.moved) store.select(viewKey, { from: anchor, to: at, channels })
       }
       element.setPointerCapture(event.pointerId)
@@ -151,6 +157,7 @@ export const useWaveGestures = (wave: WaveAudio) => {
         return
       }
       current.x = xOfEvent(event)
+      current.alt = event.altKey
       if (!current.moved && Math.abs(event.clientX - current.startX) < DRAG_PX) return
       current.moved = true
       follow(element)
@@ -165,9 +172,14 @@ export const useWaveGestures = (wave: WaveAudio) => {
       }
     },
     onPointerCancel: end,
+    // Inside a region or the loop, it selects that (the innermost, the shortest); elsewhere, the whole sample.
     onDoubleClick: (event: MouseEvent<HTMLElement>) => {
       if (event.button !== 0) return
-      useWaveEditorStore.getState().select(viewKey, { from: 0, to: frames, channels: channelsAt(event.currentTarget, event.clientY, stereo) })
+      const at = frameAt(currentView(event.currentTarget, wave), xOfEvent(event), frames)
+      const sample = openWave(wave.sampleId)?.sample
+      const ranges = [...(sample?.regions ?? []), ...(sample?.loop ? [sample.loop] : [])].filter((range) => range.from <= at && at < range.to)
+      const inner = ranges.sort((a, b) => a.to - a.from - (b.to - b.from))[0] ?? { from: 0, to: frames }
+      useWaveEditorStore.getState().select(viewKey, { from: inner.from, to: inner.to, channels: channelsAt(event.currentTarget, event.clientY, stereo) })
     },
   }
 }

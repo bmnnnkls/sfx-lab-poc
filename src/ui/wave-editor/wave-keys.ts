@@ -11,6 +11,8 @@ export interface WaveKeyAction {
   readonly view?: Pick<WaveEditorView, 'framesPerPixel' | 'startFrame'>
   readonly zoom?: WaveZoom
   readonly play?: true
+  /** *Add marker* (M), *Make region* (R) or *Set loop* (L), for the handler to run as the actions. */
+  readonly mark?: 'marker' | 'region' | 'loop'
 }
 
 /** A key zooms by two wheel notches. */
@@ -25,9 +27,10 @@ const VIEW_STEP = 1 / 10
  *
  * The cursor is the moving end of a selection made with the keys: Shift with an arrow, Home or End moves the end the
  * cursor is on (`from` when the cursor is there, else `to`), and the other end stays. A key that moves the cursor out of
- * the view scrolls the view by the least that shows it.
+ * the view scrolls the view by the least that shows it. `[` and `]` step the cursor to the previous or next of `marks`
+ * (every marker, region edge and loop edge, in frames), and with Shift extend the selection there.
  */
-export const waveKeyAction = (key: string, stored: WaveEditorView, frames: number, width: number): WaveKeyAction | null => {
+export const waveKeyAction = (key: string, stored: WaveEditorView, frames: number, width: number, marks: readonly number[] = []): WaveKeyAction | null => {
   const view = resolveView(stored, frames, width)
   const { selection, cursor } = stored
   const column = Math.max(1, Math.round(view.framesPerPixel))
@@ -59,7 +62,36 @@ export const waveKeyAction = (key: string, stored: WaveEditorView, frames: numbe
     return { view: { framesPerPixel: next.framesPerPixel, startFrame: next.startFrame } }
   }
 
+  /** The nearest mark before or after `frame`, or null at the end of them. */
+  const markFrom = (frame: number, direction: -1 | 1): number | null => {
+    let found: number | null = null
+    for (const mark of marks) if ((direction < 0 ? mark < frame : mark > frame) && (found === null || (direction < 0 ? mark > found : mark < found))) found = mark
+    return found
+  }
+  const stepTo = (direction: -1 | 1, extend: boolean): WaveKeyAction | null => {
+    const target = markFrom(extend ? activeEnd : cursor, direction)
+    if (target === null) return null
+    return extend ? extendTo(target) : moveTo(target)
+  }
+
   switch (key) {
+    case '[':
+      return stepTo(-1, false)
+    case ']':
+      return stepTo(1, false)
+    // Shift turns the brackets into braces on many layouts.
+    case 'shift+[':
+    case 'shift+{':
+      return stepTo(-1, true)
+    case 'shift+]':
+    case 'shift+}':
+      return stepTo(1, true)
+    case 'm':
+      return { mark: 'marker' }
+    case 'r':
+      return { mark: 'region' }
+    case 'l':
+      return { mark: 'loop' }
     case 'mod+a':
       return { selection: { from: 0, to: frames, channels: selection?.channels ?? 'both' } }
     case 'escape':

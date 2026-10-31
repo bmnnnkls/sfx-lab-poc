@@ -93,3 +93,37 @@ describe('the view follows the cursor', () => {
     expect(keyed('end', { ...DEFAULT_WAVE_VIEW, cursor: 10 })).toEqual({ selection: null, cursor: FRAMES })
   })
 })
+
+describe('the mark keys', () => {
+  /** A marker at 21,000, a region from 23,000 to 27,000 and the loop from 27,000 to 40,000: the edges in no order. */
+  const MARKS = [27_000, 21_000, 23_000, 27_000, 40_000]
+  const marked = (key: string, view: WaveEditorView, marks: readonly number[] = MARKS) => waveKeyAction(key, view, FRAMES, WIDTH, marks)
+
+  it('[ and ] move the cursor to the previous or next mark, clearing the selection; the view follows', () => {
+    expect(marked(']', at(25_000))).toEqual({ selection: null, cursor: 27_000 })
+    expect(marked('[', at(25_000))).toEqual({ selection: null, cursor: 23_000 })
+    expect(marked('[', at(23_000))).toEqual({ selection: null, cursor: 21_000 })
+    // Past the view's right edge: it scrolls by the least that shows the cursor.
+    expect(marked(']', at(27_000))).toEqual({ selection: null, cursor: 40_000, view: { framesPerPixel: 10, startFrame: 30_000 } })
+  })
+
+  it('with Shift they extend the selection to the mark, as Shift with an arrow does; braces are the same keys', () => {
+    expect(marked('shift+]', at(25_000))).toEqual({ selection: both(25_000, 27_000), cursor: 27_000 })
+    expect(marked('shift+}', at(25_000))).toEqual({ selection: both(25_000, 27_000), cursor: 27_000 })
+    expect(marked('shift+[', at(24_000, both(22_000, 24_000)))).toEqual({ selection: both(22_000, 23_000), cursor: 23_000 })
+    expect(marked('shift+{', at(25_000))).toEqual({ selection: both(23_000, 25_000), cursor: 23_000 })
+  })
+
+  it('at the ends of the marks, or with none, are not view keys', () => {
+    expect(marked('[', at(21_000))).toBeNull()
+    expect(marked(']', at(40_000))).toBeNull()
+    expect(marked(']', at(25_000), [])).toBeNull()
+    expect(marked('shift+[', at(25_000), [])).toBeNull()
+  })
+
+  it('M, R and L ask for a marker, a region and the loop', () => {
+    expect(marked('m', at(25_000))).toEqual({ mark: 'marker' })
+    expect(marked('r', at(25_000))).toEqual({ mark: 'region' })
+    expect(marked('l', at(25_000))).toEqual({ mark: 'loop' })
+  })
+})

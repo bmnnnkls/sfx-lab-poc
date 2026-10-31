@@ -5,6 +5,7 @@ import { ActionMenu, useActionContext } from '../shared/menu'
 import { RenameField } from '../shared/RenameField'
 import { currentView } from './current-view'
 import type { Marks } from './mark-geometry'
+import type { WaveSnap } from './snap'
 import { useMarkGestures } from './use-mark-gestures'
 import { xOf } from './wave-geometry'
 import styles from './WaveEditor.module.css'
@@ -98,11 +99,11 @@ const summaryOf = (marks: Marks) => {
  * it only when the marks change. It is one menu trigger whose subject is what the pointer is on (`markAt`), and takes
  * the focus on a press, so a mark's verbs (Delete, F2) and the palette act on it. A rename shows a field over the mark.
  */
-export const MarkLane = memo(({ wave, detail, marks }: { wave: WaveAudio; detail: RefObject<HTMLDivElement | null>; marks: Marks }) => {
+export const MarkLane = memo(({ wave, detail, marks, snap }: { wave: WaveAudio; detail: RefObject<HTMLDivElement | null>; marks: Marks; snap: WaveSnap }) => {
   const canvas = useRef<HTMLCanvasElement>(null)
   const { viewKey, sampleId } = wave
   const [subject, setSubject] = useState<Subject>({ kind: 'sample-selection', sampleId })
-  const gestures = useMarkGestures(wave, setSubject)
+  const gestures = useMarkGestures(wave, setSubject, snap)
   const context = useActionContext()
   const renaming = useRenameStore((state) => (state.renaming?.origin === context.origin ? state.renaming.subject : null))
 

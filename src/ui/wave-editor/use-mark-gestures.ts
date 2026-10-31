@@ -14,6 +14,7 @@ import { type MouseEvent, type PointerEvent, useEffect, useRef } from 'react'
 import { useActionContext } from '../shared/menu'
 import { currentView } from './current-view'
 import { type MarkEdge, type MarkHit, markAt, markEdgeAt, marksOf } from './mark-geometry'
+import type { WaveSnap } from './snap'
 import { autoScrollFrames, frameAt, resolveView } from './wave-geometry'
 
 /** A press that moves less than this is a click, not a drag. */
@@ -29,6 +30,8 @@ interface Press {
   moved: boolean
   /** Where the pointer is now, from the lane's left edge. */
   x: number
+  /** Alt is held: the grip doesn't snap. */
+  alt: boolean
   /** The auto-scroll's animation frame while the pointer is past an edge. */
   scrolling: number
 }
@@ -48,8 +51,9 @@ export const subjectOfHit = (sampleId: string, hit: MarkHit): Subject =>
  * undo step (its merge key); dragged past the lane's edge, the view scrolls, as a selection drag does. A click on a
  * region or the loop selects it, on a marker puts the cursor there, on empty lane puts the cursor there. A double-click
  * on a marker or region renames it in place. `onSubject` hears what each press is on, for the lane's menu and keys.
+ * A drag and a click on empty lane snap (`snap`; not to what is being moved), unless Alt is held.
  */
-export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) => void) => {
+export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) => void, snap: WaveSnap = (frame) => frame) => {
   const { viewKey, audio, sampleId } = wave
   const frames = frameCount(audio)
   const context = useActionContext()
@@ -66,11 +70,15 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
     return open ? marksOf(open.sample) : { markers: [], regions: [], loop: null }
   }
   const xOfEvent = (event: MouseEvent<HTMLElement>) => event.clientX - event.currentTarget.getBoundingClientRect().left
-  const frameOf = (element: HTMLElement, x: number) => frameAt(currentView(element, wave), x, frames)
+  const frameOf = (element: HTMLElement, x: number, alt = true, ignore?: string) => {
+    const view = currentView(element, wave)
+    return snap(frameAt(view, x, frames), view, alt, ignore)
+  }
+  const keyOfGrip = (grip: NonNullable<Grip>) => (grip.kind === 'marker' ? `marker:${grip.id}` : grip.kind === 'region' ? `region:${grip.id}:${grip.edge}` : `loop:${grip.edge}`)
 
   /** Moves what the press holds to column `x`, as one undo step for the whole drag. */
-  const moveTo = (element: HTMLElement, grip: NonNullable<Grip>, x: number) => {
-    const frame = frameOf(element, x)
+  const moveTo = (element: HTMLElement, grip: NonNullable<Grip>, x: number, alt: boolean) => {
+    const frame = frameOf(element, x, alt, keyOfGrip(grip))
     const store = useProjectStore.getState()
     const edge = grip.kind === 'marker' ? {} : grip.edge === 'from' ? { from: frame } : { to: frame }
     if (grip.kind === 'marker') return store.editSampleMarks(sampleId, (info) => moveMarker(info, grip.id, frame), `marker:${viewKey}:${grip.id}`)
@@ -86,7 +94,7 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
     const width = element.clientWidth
     if (current.x >= 0 && current.x <= width) {
       stopScrolling()
-      return moveTo(element, grip, current.x)
+      return moveTo(element, grip, current.x, current.alt)
     }
     if (current.scrolling) return
     const step = () => {
@@ -102,7 +110,7 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
         const next = resolveView({ ...stored, startFrame: view.startFrame + autoScrollFrames(distance, view.framesPerPixel, view.width) }, frames, view.width)
         store.setView(viewKey, { startFrame: next.startFrame })
       }
-      moveTo(element, grip, distance < 0 ? 0 : view.width)
+      moveTo(element, grip, distance < 0 ? 0 : view.width, true)
       now.scrolling = requestAnimationFrame(step)
     }
     current.scrolling = requestAnimationFrame(step)
@@ -115,7 +123,7 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
   }
 
   /** A click: a region or the loop selects it, a marker or empty lane puts the cursor there. */
-  const click = (element: HTMLElement, hit: MarkHit, x: number) => {
+  const click = (element: HTMLElement, hit: MarkHit, x: number, alt: boolean) => {
     if (hit?.kind === 'region') {
       const region = marks().regions.find((candidate) => candidate.id === hit.id)
       if (region) selectWaveRange(sampleId, region)
@@ -128,7 +136,7 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
     } else {
       const store = useWaveEditorStore.getState()
       store.select(viewKey, null)
-      store.setView(viewKey, { cursor: frameOf(element, x) })
+      store.setView(viewKey, { cursor: frameOf(element, x, alt) })
     }
   }
 
@@ -143,7 +151,7 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
       if (event.button !== 0) return
       // A marker is drawn over the edges, so it is what a press there takes.
       const grip: Grip = hit?.kind === 'marker' ? hit : markEdgeAt(view, marks(), x)
-      press.current = { grip, hit, startX: event.clientX, moved: false, x, scrolling: 0 }
+      press.current = { grip, hit, startX: event.clientX, moved: false, x, alt: event.altKey, scrolling: 0 }
       element.setPointerCapture(event.pointerId)
     },
     onPointerMove: (event: PointerEvent<HTMLElement>) => {
@@ -158,6 +166,7 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
         return
       }
       current.x = xOfEvent(event)
+      current.alt = event.altKey
       if (!current.grip || (!current.moved && Math.abs(event.clientX - current.startX) < DRAG_PX)) return
       current.moved = true
       follow(element)
@@ -165,7 +174,7 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
     onPointerUp: (event: PointerEvent<HTMLElement>) => {
       const current = press.current
       end(event)
-      if (current && !current.moved) click(event.currentTarget, current.hit, current.x)
+      if (current && !current.moved) click(event.currentTarget, current.hit, current.x, event.altKey)
     },
     onPointerCancel: end,
     onDoubleClick: (event: MouseEvent<HTMLElement>) => {

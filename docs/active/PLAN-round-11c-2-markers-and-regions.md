@@ -394,3 +394,13 @@ Signed off 2026-10-31: every row as proposed.
   `markAt` and `markEdgeAt`); `DetailView` also redraws when the project's samples change. The mark lane's label is
   "Marks" in the first column. The loop's colour is the theme's `--play`.
 * **Step 5: M comes with the keys (step 6),** so the step's browser test adds the marker from the right-click menu.
+* **Step 6: snapping is a function the editor hands its gestures.** `waveSnapper(wave, ruler)` (`snap.ts`) gives a
+  `WaveSnap`, `(frame, view, alt, ignore?)`, which `SampleEditor` passes to `DetailView` and `MarkLane`; it reads the
+  settings, the marks and the ruler (from a ref, so a ruler change renders nothing) when a gesture asks. Targets are
+  named (`marker:<id>`, `region:<id>:from`, `loop:to`, `beat`), so a drag leaves out what it moves: a dragged marker
+  would otherwise stick to where it was. `snapFrame(frame, snapping, view, ignore)` is the pure part; a zero crossing
+  is one more candidate, looked for within the reach (`nearestZeroCrossing` on the selection's channels, else both).
+* **Step 6: Shift with a bracket is a brace** on most layouts, so `shift+[` and `shift+{` (and `]`, `}`) are the same
+  keys. `[` `]` at the last mark, or with none, aren't view keys. The mark keys are ignored while held, as P and Z are.
+* **Step 6: what the browser tests read.** The cursor's frame isn't shown, so the tests put a marker there (M) and read
+  the saved project; the zero-crossing test checks the frame against the test file's own samples.

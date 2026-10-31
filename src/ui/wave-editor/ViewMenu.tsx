@@ -1,12 +1,12 @@
-import type { Subject } from '@state'
+import { type Subject, useWaveEditSettings } from '@state'
 import { type MenuEntry, PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import type { RulerMode, RulerTempo } from './ruler-ticks'
 
 const ZOOMS = new Set(['sample-selection.zoom-selection', 'sample-selection.zoom-fit'])
 
 /**
- * *View ▾*: the zooms (the subject's actions, as in the right-click menu), the ruler's mode, and the tempo its beats
- * count at, each checked when in effect.
+ * *View ▾*: the zooms (the subject's actions, as in the right-click menu), the ruler's mode, the tempo its beats count
+ * at, and the two snaps, each checked when in effect.
  */
 export const ViewMenu = ({
   subject,
@@ -26,6 +26,7 @@ export const ViewMenu = ({
   sampleTempo: number | null
 }) => {
   const context = useActionContext()
+  const snap = useWaveEditSettings((state) => state.snap)
   const fromName = tempo === 'sample' && sampleTempo !== null
   const settings: readonly MenuEntry[] = [
     { kind: 'separator' },
@@ -39,6 +40,20 @@ export const ViewMenu = ({
       disabled: ruler !== 'beats' || sampleTempo === null,
       tooltip: sampleTempo === null ? 'The sample has no tempo in its name' : 'Count beats at the tempo in the sample name',
       onSelect: () => onTempo('sample'),
+    },
+    { kind: 'separator' },
+    {
+      label: 'Snap to beats',
+      checked: snap.beats,
+      disabled: ruler !== 'beats',
+      tooltip: ruler === 'beats' ? 'Clicks and drags snap to the beat lines, and to markers, regions and the loop; hold Alt not to' : 'The ruler counts time: switch it to beats',
+      onSelect: () => useWaveEditSettings.getState().setSnap({ beats: !snap.beats }),
+    },
+    {
+      label: 'Snap to zero crossings',
+      checked: snap.zero,
+      tooltip: 'Clicks and drags snap to where the waveform crosses zero, and to markers, regions and the loop; hold Alt not to',
+      onSelect: () => useWaveEditSettings.getState().setSnap({ zero: !snap.zero }),
     },
   ]
   return (

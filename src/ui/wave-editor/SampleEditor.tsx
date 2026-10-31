@@ -11,6 +11,7 @@ import { Overview } from './Overview'
 import { ProcessMenu } from './ProcessMenu'
 import { Ruler } from './Ruler'
 import { formatTime, isRulerMode, isRulerTempo } from './ruler-ticks'
+import { type RulerNow, waveSnapper } from './snap'
 import { ViewMenu } from './ViewMenu'
 import { resolveZoom } from './wave-geometry'
 import { MarkLane } from './MarkLane'
@@ -47,6 +48,10 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
   const marks = useMemo(() => marksOf(sample), [sample.markers, sample.regions, sample.loop])
   const sampleTempo = tempoFromName(sample.name)
   const bpm = rulerTempo === 'sample' && sampleTempo !== null ? sampleTempo : projectTempo
+  // Gestures snap to the beat grid the ruler shows, read when they ask, so a ruler change doesn't render the lanes.
+  const rulerNow = useRef<RulerNow>({ mode: ruler, bpm })
+  rulerNow.current = { mode: ruler, bpm }
+  const snap = useMemo(() => wave && waveSnapper(wave, () => rulerNow.current), [wave])
   const rate = wave?.audio.sampleRate ?? sample.sampleRate
 
   const subject = useMemo<Subject>(() => ({ kind: 'sample-selection', sampleId: sample.id }), [sample.id])
@@ -119,13 +124,13 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
           <span className={styles.markLabel} aria-hidden="true">
             Marks
           </span>
-          <MarkLane wave={wave} detail={detail} marks={marks} />
+          <MarkLane wave={wave} detail={detail} marks={marks} snap={snap!} />
           <div className={styles.scales}>
             {wave.audio.channels.map((_, index) => (
               <LaneScale key={index} renderer={waveformRenderer} />
             ))}
           </div>
-          <DetailView wave={wave} frame={detail} />
+          <DetailView wave={wave} frame={detail} snap={snap!} />
         </>
       ) : (
         <p className={styles.loading}>{failed ? 'The audio of this sample is missing; import the file again to edit it.' : 'Loading the waveform…'}</p>
