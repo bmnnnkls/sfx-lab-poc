@@ -21,7 +21,7 @@ import type { WaveSnap } from './snap'
 import { WaveLane, type WaveLaneHandle } from './WaveLane'
 import { currentView } from './current-view'
 import { useLaneRenderers } from './use-lane-renderers'
-import { laneAt, useWaveGestures } from './use-wave-gestures'
+import { spotAt, useWaveGestures } from './use-wave-gestures'
 import { WHEEL_ZOOM, coversChannel, frameAt, menuTargetAt, resolveView, xOf, zoomAround } from './wave-geometry'
 import { waveKeyAction } from './wave-keys'
 import styles from './WaveEditor.module.css'
@@ -56,11 +56,11 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
   const stereo = audio.channels.length > 1
   const lanes = useRef<Array<WaveLaneHandle | null>>([])
   const handles = useMemo(() => audio.channels.map((_, index) => (lane: WaveLaneHandle | null) => void (lanes.current[index] = lane)), [audio])
-  const gestures = useWaveGestures(wave, snap)
+  const { lanes: mode, parts, renderers, frequencies } = useLaneRenderers(audio.sampleRate)
+  const gestures = useWaveGestures(wave, snap, parts, frequencies)
   const context = useActionContext()
   const subject = useMemo<Subject>(() => ({ kind: 'sample-selection', sampleId: wave.sampleId, pane: wave.pane }), [wave.sampleId, wave.pane])
   const library = useSampleLibrary()
-  const { lanes: mode, parts, renderers } = useLaneRenderers(audio.sampleRate)
 
   // Draws the lanes from the store, at most once per animation frame.
   useEffect(() => {
@@ -98,6 +98,8 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
       if (showsSpectrum) element.dataset.spectrum = !spectral || spectral.pending ? 'pending' : spectral.kind
       else delete element.dataset.spectrum
       const { cursor, selection } = waveViewOf(useWaveEditorStore.getState().views, viewKey)
+      if (selection?.band) element.dataset.band = `${Math.round(selection.band.low)}-${Math.round(selection.band.high)}`
+      else delete element.dataset.band
       const sample = openWave(wave)?.sample
       const lines = sample ? markLines(view, marksOf(sample)) : { markers: [], edges: [] }
       lanes.current.forEach((lane, channel) => {
@@ -107,7 +109,7 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
           ...(showsSpectrum && { spectrogram: spectral && spectrumLaneColumns(spectral, channel) }),
         }
         lane?.draw(data, {
-          selection: covers ? { from: xOf(view, selection.from), to: xOf(view, selection.to) } : null,
+          selection: covers ? { from: xOf(view, selection.from), to: xOf(view, selection.to), band: selection.band ?? null } : null,
           cursor: selection ? null : xOf(view, cursor),
           ...lines,
         })
@@ -177,7 +179,9 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
         onContextMenu={(event) => {
           // Runs before the menu opens: the menu acts on what was clicked.
           const store = useWaveEditorStore.getState()
-          const target = menuTargetAt(waveViewOf(store.views, viewKey).selection, frameOf(event), laneAt(event.currentTarget, event.clientY, stereo))
+          const spot = spotAt(event.currentTarget, event.clientY, stereo, parts)
+          const hz = spot.kind === 'spectrogram' ? frequencies.hzAt(spot.y, spot.height) : null
+          const target = menuTargetAt(waveViewOf(store.views, viewKey).selection, frameOf(event), spot.lane, hz)
           if (target === 'keep') return
           store.select(viewKey, null)
           store.setView(viewKey, { cursor: target.cursor })
@@ -199,7 +203,7 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
         {...gestures}
       >
         {audio.channels.map((_, index) => (
-          <WaveLane key={index} label={stereo ? (index === 0 ? 'Left' : 'Right') : mode === 'spectrogram' ? 'Spectrogram' : 'Waveform'} parts={parts} renderers={renderers} handle={handles[index]!} />
+          <WaveLane key={index} label={stereo ? (index === 0 ? 'Left' : 'Right') : mode === 'spectrogram' ? 'Spectrogram' : 'Waveform'} parts={parts} renderers={renderers} frequencies={frequencies} handle={handles[index]!} />
         ))}
         <WavePlayhead wave={wave} frame={frame} />
       </div>

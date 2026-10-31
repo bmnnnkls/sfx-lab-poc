@@ -1,13 +1,15 @@
+import type { FrequencyBand } from '@core'
 import { useCallback, useEffect, useRef } from 'react'
 import { type LaneData, type LanePart, type LaneRenderers, partBox } from './lane-renderers'
+import type { FrequencyScale } from './use-lane-renderers'
 import styles from './WaveEditor.module.css'
 
 /**
- * What a lane shows over its audio, in columns: the selection (when it covers this channel), the cursor, a line at each
- * marker, and faint lines at region and loop edges.
+ * What a lane shows over its audio, in columns: the selection (when it covers this channel) and its band, the cursor,
+ * a line at each marker, and faint lines at region and loop edges.
  */
 export interface LaneOverlay {
-  readonly selection: { readonly from: number; readonly to: number } | null
+  readonly selection: { readonly from: number; readonly to: number; readonly band: FrequencyBand | null } | null
   readonly cursor: number | null
   readonly markers: readonly number[]
   readonly edges: readonly number[]
@@ -38,9 +40,22 @@ const fitted = (element: HTMLCanvasElement) => {
 /**
  * One channel's lane: a canvas the size of its box times the device pixel ratio, its parts (`laneParts`: the waveform,
  * the spectrogram, or both) each drawn by its renderer when the detail view asks (`handle`), never by React rendering.
- * The selection is a veil under the waveform and over the spectrogram, with a line at each edge there.
+ * The selection is a veil under the waveform and over the spectrogram, with a line at each edge there; a box (a band)
+ * is a veil and an outline over the spectrogram, its rows from `frequencies`, and the time veil under the waveform.
  */
-export const WaveLane = ({ label, parts, renderers, handle }: { label: string; parts: readonly LanePart[]; renderers: LaneRenderers; handle(lane: WaveLaneHandle | null): void }) => {
+export const WaveLane = ({
+  label,
+  parts,
+  renderers,
+  frequencies,
+  handle,
+}: {
+  label: string
+  parts: readonly LanePart[]
+  renderers: LaneRenderers
+  frequencies: FrequencyScale
+  handle(lane: WaveLaneHandle | null): void
+}) => {
   const canvas = useRef<HTMLCanvasElement>(null)
   const attach = useCallback(
     (element: HTMLCanvasElement | null) => {
@@ -53,10 +68,11 @@ export const WaveLane = ({ label, parts, renderers, handle }: { label: string; p
           const { context, width, height } = fit
           const accent = color(element, '--accent', '#f5a524')
           const colors = { wave: accent, line: color(element, '--border', '#444') }
+          const selection = overlay.selection
           const veil = (top: number, partHeight: number) => {
-            if (!overlay.selection) return
+            if (!selection) return
             context.fillStyle = color(element, '--wave-selection', 'rgba(245, 165, 36, 0.25)')
-            context.fillRect(overlay.selection.from, top, Math.max(1, overlay.selection.to - overlay.selection.from), partHeight)
+            context.fillRect(selection.from, top, Math.max(1, selection.to - selection.from), partHeight)
           }
           for (const part of parts) {
             const box = partBox(part, height)
@@ -71,11 +87,18 @@ export const WaveLane = ({ label, parts, renderers, handle }: { label: string; p
               if (data.waveform) renderers.waveform.draw(context, data.waveform, size, colors)
             } else {
               renderers.spectrogram.draw(context, data.spectrogram ?? null, size, colors)
-              veil(0, box.height)
-              if (overlay.selection) {
+              if (selection?.band) {
+                const top = Math.round(frequencies.rowOf(selection.band.high, box.height))
+                const bottom = Math.round(frequencies.rowOf(selection.band.low, box.height))
+                veil(top, Math.max(1, bottom - top))
+                context.strokeStyle = accent
+                context.lineWidth = 1
+                context.strokeRect(Math.round(selection.from) + 0.5, top + 0.5, Math.max(1, Math.round(selection.to) - Math.round(selection.from)), Math.max(1, bottom - top - 1))
+              } else if (selection) {
+                veil(0, box.height)
                 context.fillStyle = accent
-                context.fillRect(Math.round(overlay.selection.from), 0, 1, box.height)
-                context.fillRect(Math.round(overlay.selection.to), 0, 1, box.height)
+                context.fillRect(Math.round(selection.from), 0, 1, box.height)
+                context.fillRect(Math.round(selection.to), 0, 1, box.height)
               }
             }
             context.restore()
@@ -99,7 +122,7 @@ export const WaveLane = ({ label, parts, renderers, handle }: { label: string; p
         },
       })
     },
-    [handle, parts, renderers],
+    [handle, parts, renderers, frequencies],
   )
   return (
     <div className={styles.lane}>

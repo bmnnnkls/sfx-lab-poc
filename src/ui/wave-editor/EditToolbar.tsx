@@ -45,7 +45,7 @@ export const EditToolbar = ({ sample, pane, wave, selection }: { sample: SampleI
 
   const facts = waveEditFacts(sample, wave, selection, busy, clipboard !== null)
   const button = (title: string, tooltip: string, blocked: string | null, run: () => void) => (
-    <button key={title} onClick={run} disabled={blocked !== null} title={blocked ? `${tooltip} (${blocked.toLowerCase()})` : tooltip}>
+    <button key={title} onClick={run} disabled={blocked !== null} title={blocked ? `${tooltip} (${blocked[0]!.toLowerCase()}${blocked.slice(1)})` : tooltip}>
       {title}
     </button>
   )
@@ -55,7 +55,12 @@ export const EditToolbar = ({ sample, pane, wave, selection }: { sample: SampleI
     <>
       <span className={styles.toolGroup} role="group" aria-label="Edit">
         {button('Cut', 'Copy the selection, then delete it', waveCutBlocked(facts), () => void cutWave(library, at))}
-        {button('Copy', 'Copy the selection, with a little of the audio around it for crossfades', waveCopyBlocked(facts), () => copyWave(at))}
+        {button(
+          'Copy',
+          selection?.band ? 'Copies the whole time range: the clipboard has no band' : 'Copy the selection, with a little of the audio around it for crossfades',
+          waveCopyBlocked(facts),
+          () => copyWave(at),
+        )}
         {TOOLBAR_EDITS.map((kind) => {
           const entry = entryOf(kind)
           return button(entry.title, entry.tooltip, waveEditBlocked(entry, facts), () => void runWaveEdit(library, at, kind))

@@ -62,10 +62,14 @@ export const coversChannel = (selection: WaveSelection, channel: number): boolea
 
 /**
  * What a right-click does before the menu opens, so the menu acts on what was clicked: inside the selection, on a
- * channel it covers, it keeps it; anywhere else it clears it and puts the cursor at the frame, as a click would.
+ * channel it covers, it keeps it; anywhere else it clears it and puts the cursor at the frame, as a click would. In the
+ * spectrogram (`hz`, the frequency clicked) a box keeps only inside its band too; in the waveform its time range is.
  */
-export const menuTargetAt = (selection: WaveSelection | null, frame: number, channel: number): 'keep' | { readonly cursor: number } =>
-  selection && frame >= selection.from && frame <= selection.to && coversChannel(selection, channel) ? 'keep' : { cursor: frame }
+export const menuTargetAt = (selection: WaveSelection | null, frame: number, channel: number, hz: number | null = null): 'keep' | { readonly cursor: number } => {
+  const inTime = selection && frame >= selection.from && frame <= selection.to && coversChannel(selection, channel)
+  const inBand = !selection?.band || hz === null || (hz >= selection.band.low && hz <= selection.band.high)
+  return inTime && inBand ? 'keep' : { cursor: frame }
+}
 
 /** A press this close to a selection's edge (in pixels) drags that edge. */
 export const EDGE_PX = 4
@@ -82,6 +86,38 @@ export const selectionEdgeAt = (view: WaveView, selection: WaveSelection | null,
   if (from !== to) return from < to ? 'from' : 'to'
   return x <= (xOf(view, selection.from) + xOf(view, selection.to)) / 2 ? 'from' : 'to'
 }
+
+/** Which of a box's edges a press drags: a time edge, a band edge, or both at a corner. */
+export interface BoxEdge {
+  readonly time: 'from' | 'to' | null
+  readonly band: 'low' | 'high' | null
+}
+
+/**
+ * The edge or corner of a selection's box under the point `x`, `y` (in a spectrogram part, `rowOf` giving a
+ * frequency's row there) on lane `channel`, within `EDGE_PX` of it and of the box; null off it or without a band.
+ */
+export const boxEdgeAt = (view: WaveView, selection: WaveSelection | null, x: number, y: number, channel: number, rowOf: (hz: number) => number): BoxEdge | null => {
+  if (!selection?.band || !coversChannel(selection, channel)) return null
+  const left = xOf(view, selection.from)
+  const right = xOf(view, selection.to)
+  const top = rowOf(selection.band.high)
+  const bottom = rowOf(selection.band.low)
+  if (x < left - EDGE_PX || x > right + EDGE_PX || y < top - EDGE_PX || y > bottom + EDGE_PX) return null
+  const nearer = <T>(a: number, b: number, first: T, second: T, middle: number, at: number): T | null => {
+    const [toA, toB] = [Math.abs(at - a), Math.abs(at - b)]
+    if (Math.min(toA, toB) > EDGE_PX) return null
+    if (toA !== toB) return toA < toB ? first : second
+    return at <= middle ? first : second
+  }
+  const time = nearer(left, right, 'from' as const, 'to' as const, (left + right) / 2, x)
+  const band = nearer(top, bottom, 'high' as const, 'low' as const, (top + bottom) / 2, y)
+  return time || band ? { time, band } : null
+}
+
+/** The pointer over a box's edge: left and right resize in time, top and bottom in frequency, a corner both. */
+export const boxEdgeCursor = ({ time, band }: BoxEdge): string =>
+  !band ? 'ew-resize' : !time ? 'ns-resize' : (time === 'from') === (band === 'high') ? 'nwse-resize' : 'nesw-resize'
 
 /**
  * How far the view scrolls in one animation frame while a selection is dragged `distancePx` past the detail's edge

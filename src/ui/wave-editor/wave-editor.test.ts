@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { levelMarks } from './lane-renderers'
+import { laneParts, levelMarks } from './lane-renderers'
 import { DEFAULT_WAVE_VIEW } from '@state'
 import { formatBeat, formatTime, rulerTicks } from './ruler-ticks'
-import { EDGE_PX, MIN_FRAMES_PER_PIXEL, autoScrollFrames, clampView, frameAt, menuTargetAt, selectionEdgeAt, resolveView, resolveZoom, xOf, zoomAround, zoomTo } from './wave-geometry'
+import { partAt } from './use-wave-gestures'
+import { EDGE_PX, MIN_FRAMES_PER_PIXEL, autoScrollFrames, boxEdgeAt, boxEdgeCursor, clampView, frameAt, menuTargetAt, selectionEdgeAt, resolveView, resolveZoom, xOf, zoomAround, zoomTo } from './wave-geometry'
 
 const FRAMES = 480_000 // 10 s at 48 kHz
 
@@ -116,6 +117,59 @@ describe('a selection edge', () => {
     expect(selectionEdgeAt(view, narrow, 11, 1)).toBe('from')
     expect(selectionEdgeAt(view, narrow, 14, 1)).toBe('to')
     expect(selectionEdgeAt(view, narrow, 12.5, 1)).toBe('from')
+  })
+})
+
+describe('a box', () => {
+  /** 10 frames a column: the box is columns 10 to 30 and rows 20 (2 kHz) to 200 (200 Hz), on a scale of 10 Hz a row from 2.2 kHz at the top. */
+  const view = { startFrame: 0, framesPerPixel: 10, width: 1000 }
+  const box = { from: 100, to: 300, channels: 'left' as const, band: { low: 200, high: 2000 } }
+  const rowOf = (hz: number) => (2200 - hz) / 10
+  const edge = (x: number, y: number, channel = 0) => boxEdgeAt(view, box, x, y, channel, rowOf)
+
+  it('drags its time edges, its band edges and its corners, within EDGE_PX of them and of the box', () => {
+    expect(edge(10, 40)).toEqual({ time: 'from', band: null })
+    expect(edge(30 + EDGE_PX, 40)).toEqual({ time: 'to', band: null })
+    expect(edge(20, 20)).toEqual({ time: null, band: 'high' })
+    expect(edge(20, 200 + EDGE_PX)).toEqual({ time: null, band: 'low' })
+    expect(edge(10, 20)).toEqual({ time: 'from', band: 'high' })
+    expect(edge(31, 199)).toEqual({ time: 'to', band: 'low' })
+    // Inside, outside, beside an edge's line past the box, on a channel it doesn't cover, and without a band.
+    expect(edge(20, 40)).toBeNull()
+    expect(edge(10, 20 - EDGE_PX - 1)).toBeNull()
+    expect(edge(10 - EDGE_PX - 1, 40)).toBeNull()
+    expect(edge(10, 40, 1)).toBeNull()
+    expect(boxEdgeAt(view, { ...box, band: undefined }, 10, 40, 0, rowOf)).toBeNull()
+  })
+
+  it('shows a resize cursor along its edge', () => {
+    expect([
+      boxEdgeCursor({ time: 'from', band: null }),
+      boxEdgeCursor({ time: null, band: 'low' }),
+      boxEdgeCursor({ time: 'from', band: 'high' }),
+      boxEdgeCursor({ time: 'to', band: 'low' }),
+      boxEdgeCursor({ time: 'to', band: 'high' }),
+    ]).toEqual(['ew-resize', 'ns-resize', 'nwse-resize', 'nwse-resize', 'nesw-resize'])
+  })
+
+  it('keeps on a right-click inside it in time and frequency; outside either it moves the cursor', () => {
+    expect(menuTargetAt(box, 150, 0, 1000)).toBe('keep')
+    expect(menuTargetAt(box, 150, 0, 3000)).toEqual({ cursor: 150 })
+    expect(menuTargetAt(box, 150, 0, 100)).toEqual({ cursor: 150 })
+    expect(menuTargetAt(box, 400, 0, 1000)).toEqual({ cursor: 400 })
+    // In the waveform part (no frequency), its time range.
+    expect(menuTargetAt(box, 150, 0)).toBe('keep')
+  })
+})
+
+describe('a lane’s parts', () => {
+  it('say which part a row is in, and the row in it', () => {
+    const split = laneParts('split')
+    expect(partAt(split, 10, 300)).toEqual({ kind: 'waveform', y: 10, height: 100 })
+    expect(partAt(split, 150, 300)).toEqual({ kind: 'spectrogram', y: 50, height: 200 })
+    expect(partAt(split, -5, 300)).toEqual({ kind: 'waveform', y: -5, height: 100 })
+    expect(partAt(split, 320, 300)).toEqual({ kind: 'spectrogram', y: 220, height: 200 })
+    expect(partAt(laneParts('spectrogram'), 10, 300)).toEqual({ kind: 'spectrogram', y: 10, height: 300 })
   })
 })
 

@@ -55,8 +55,8 @@ export const frequencyY = (hz: number, height: number, scale: SpectrumSettings['
   return height * (1 - t)
 }
 
-/** The frequency at the line `y` px from the top. */
-const frequencyAt = (y: number, height: number, scale: SpectrumSettings['scale'], nyquist: number): number => {
+/** The frequency at the line `y` px from the top: `frequencyY` undone. */
+export const frequencyAt = (y: number, height: number, scale: SpectrumSettings['scale'], nyquist: number): number => {
   const t = 1 - y / height
   return scale === 'linear' ? t * nyquist : LOG_SCALE_FROM_HZ * (nyquist / LOG_SCALE_FROM_HZ) ** t
 }

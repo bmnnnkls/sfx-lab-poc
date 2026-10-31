@@ -37,7 +37,7 @@ export const useActionEntries = (subject: Subject, context: ActionContext, only:
         onSelect: () => run(choice.id),
       }))
       if (item.inline) entries.push(...choices)
-      else entries.push({ kind: 'submenu', label: item.title, entries: choices })
+      else entries.push({ kind: 'submenu', label: item.title, entries: choices, disabled: !item.enabled, ...(item.tooltip && { tooltip: item.tooltip }) })
     }
   }
   return entries

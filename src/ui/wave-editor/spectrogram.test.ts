@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { SPLIT_WAVE_SHARE, laneParts, partBox } from './lane-renderers'
-import { SPECTRUM_COLORS, binRows, colorLookup, frequencyMarks, frequencyY, paintSpectrum } from './spectrogram'
+import { SPECTRUM_COLORS, binRows, colorLookup, frequencyAt, frequencyMarks, frequencyY, paintSpectrum } from './spectrogram'
 
 const RATE = 48000
 const BINS = 1025
+
+describe('frequencyAt', () => {
+  it.each(['log', 'linear'] as const)('undoes frequencyY (%s)', (scale) => {
+    for (const hz of [20, 55, 200, 1000, 7777, 24_000]) expect(frequencyAt(frequencyY(hz, 300, scale, RATE / 2), 300, scale, RATE / 2)).toBeCloseTo(hz, 6)
+    for (const y of [0, 1, 150.5, 299]) expect(frequencyY(frequencyAt(y, 300, scale, RATE / 2), 300, scale, RATE / 2)).toBeCloseTo(y, 6)
+  })
+})
 
 describe('binRows', () => {
   it.each(['log', 'linear'] as const)('covers the bins from the bottom of the scale to the top, rising with the row (%s)', (scale) => {

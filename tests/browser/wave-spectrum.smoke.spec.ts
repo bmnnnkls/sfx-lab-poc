@@ -1,10 +1,10 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, expect, openView, viewRoot } from './fixtures'
-import { drag } from './marked-sample'
+import { at, drag } from './marked-sample'
 
 /*
- * The Wave editor's spectrogram (round 11d, part 1): the lane modes in *View ▾*, the spectrogram filling in from the
- * worker, its settings in ⚙, and it following edits and the second pane.
+ * The Wave editor's spectrogram (round 11d): the lane modes in *View ▾*, the spectrogram filling in from the worker, its
+ * settings in ⚙, and it following edits and the second pane; a box drawn in it, and the spectral edits on the box.
  */
 test.use({ viewport: { width: 1400, height: 1000 } })
 
@@ -142,4 +142,66 @@ test('the spectrogram follows a delete and its undo, and the second pane shows a
   await expect(second.getByRole('button', { name: "Second pane's sample: Demo Kick", exact: true })).toBeVisible()
   await expect(second.getByTestId('wave-detail')).toHaveAttribute('data-spectrum', DRAWN)
   await expect(editor.getByTestId('wave-pane-main').getByTestId('wave-detail')).toHaveAttribute('data-spectrum', DRAWN)
+})
+
+/** Drags on an element from one point to another, each as fractions of its width and height, in steps. */
+const dragBetween = async (page: Page, element: Locator, from: [number, number], to: [number, number]) => {
+  const start = await at(element, ...from)
+  const end = await at(element, ...to)
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.down()
+  await page.mouse.move((start.x + end.x) / 2, (start.y + end.y) / 2, { steps: 4 })
+  await page.mouse.move(end.x, end.y, { steps: 4 })
+  await page.mouse.up()
+}
+
+/** The selected band in Hz, from the detail's `data-band`; null without one. */
+const bandOf = async (detail: Locator) => {
+  const band = await detail.getAttribute('data-band')
+  return band ? band.split('-').map(Number) : null
+}
+
+test('a drag in the spectrogram selects a box: only the spectral edits run on it, its corner drags, and Escape drops its band', async ({ page }) => {
+  const { wave, detail } = await openTone(page)
+  await lanes(page, wave, 'Spectrogram')
+  const lane = wave.getByRole('img', { name: 'Spectrogram', exact: true })
+  const status = wave.getByTestId('wave-status')
+  await expect(detail).toHaveAttribute('data-spectrum', DRAWN)
+
+  await dragBetween(page, lane, [0.1, logY(2000)], [0.4, logY(500)])
+  await expect.poll(() => bandOf(detail)).not.toBeNull()
+  const [low, high] = (await bandOf(detail))!
+  expect(low).toBeGreaterThan(450)
+  expect(low).toBeLessThan(550)
+  expect(high).toBeGreaterThan(1800)
+  expect(high).toBeLessThan(2200)
+  await expect(status).toContainText(/\(0:00\.\d{3}\) · \d+ Hz – \d\.\d kHz$/)
+  const cut = wave.getByRole('button', { name: 'Cut', exact: true })
+  await expect(cut).toBeDisabled()
+  await expect(cut).toHaveAttribute('title', /needs a selection without a frequency band\. Press Escape or click the waveform\./)
+  await expect(wave.getByRole('button', { name: 'Copy', exact: true })).toHaveAttribute('title', 'Copies the whole time range: the clipboard has no band')
+
+  // The top-left corner moves the start and the band's top; the end and the bottom stay.
+  const before = await status.textContent()
+  await dragBetween(page, lane, [0.1, logY(2000)], [0.05, logY(4000)])
+  await expect.poll(async () => (await bandOf(detail))![1]).toBeGreaterThan(3600)
+  expect((await bandOf(detail))![0]).toBe(low)
+  expect(await status.textContent()).not.toBe(before)
+
+  // Escape drops the band and keeps the time range: Cut runs again.
+  await detail.focus()
+  await page.keyboard.press('Escape')
+  await expect(detail).not.toHaveAttribute('data-band', /./)
+  await expect(status).toContainText('Selection')
+  await expect(status).not.toContainText('Hz')
+  await expect(cut).toBeEnabled()
+
+  // In Split, a drag in the waveform part selects time only; one in the spectrogram part, a box.
+  await lanes(page, wave, 'Split')
+  const split = wave.getByRole('img', { name: 'Waveform', exact: true })
+  await drag(page, split, 0.5, 0.8, 0.15)
+  await expect(status).toContainText('Selection')
+  await expect(detail).not.toHaveAttribute('data-band', /./)
+  await dragBetween(page, split, [0.2, 0.5], [0.4, 0.8])
+  await expect(detail).toHaveAttribute('data-band', /^\d+-\d+$/)
 })
