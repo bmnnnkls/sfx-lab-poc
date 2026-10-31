@@ -205,3 +205,40 @@ test('a drag in the spectrogram selects a box: only the spectral edits run on it
   await dragBetween(page, split, [0.2, 0.5], [0.4, 0.8])
   await expect(detail).toHaveAttribute('data-band', /^\d+-\d+$/)
 })
+
+test('band gain removes the box’s band in its range, undo brings it back, and keep band removes what is outside it', async ({ page }) => {
+  const { wave, detail } = await openTone(page)
+  await lanes(page, wave, 'Spectrogram')
+  const lane = wave.getByRole('img', { name: 'Spectrogram', exact: true })
+  await expect(detail).toHaveAttribute('data-spectrum', DRAWN)
+  await expect.poll(() => brightness(lane, 0.25, logY(1000))).toBeGreaterThan(300)
+
+  // A box over the tone's row in the first quarter of the sample.
+  await dragBetween(page, lane, [0.05, logY(2000)], [0.3, logY(500)])
+  await expect(detail).toHaveAttribute('data-band', /^\d+-\d+$/)
+  await wave.getByRole('button', { name: 'Process', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Band gain…', exact: true }).click()
+  const settings = wave.getByRole('dialog', { name: 'Band gain' })
+  await settings.getByRole('checkbox', { name: 'Remove' }).check()
+  await expect(settings.getByLabel('Gain', { exact: true })).toBeDisabled()
+  await settings.getByRole('button', { name: 'Apply', exact: true }).click()
+
+  // The row goes dark in the range and stays bright after it; the box is still selected.
+  await expect.poll(() => brightness(lane, 0.2, logY(1000))).toBeLessThan(150)
+  expect(await brightness(lane, 0.4, logY(1000))).toBeGreaterThan(300)
+  await expect(detail).toHaveAttribute('data-band', /^\d+-\d+$/)
+
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(() => brightness(lane, 0.2, logY(1000))).toBeGreaterThan(300)
+
+  // Keep band on a box above the tone: the tone goes in the range.
+  await detail.focus()
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await dragBetween(page, lane, [0.05, logY(16_000)], [0.3, logY(4000)])
+  await expect(detail).toHaveAttribute('data-band', /^\d+-\d+$/)
+  await wave.getByRole('button', { name: 'Process', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Keep band', exact: true }).click()
+  await expect.poll(() => brightness(lane, 0.2, logY(1000))).toBeLessThan(150)
+  expect(await brightness(lane, 0.4, logY(1000))).toBeGreaterThan(300)
+})

@@ -33,6 +33,7 @@ const recording = () => {
       jobs.push(job)
       return inner.spectrumOf(job, onChunk, onDone)
     },
+    applyOf: inner.applyOf,
   }
   return { service, jobs }
 }
@@ -95,11 +96,13 @@ describe('createWaveSpectra', () => {
     expect(spectrum('a')).toBeDefined()
   })
 
-  it('after an edit computes only the columns whose windows touch the change, and ends equal to a build', async () => {
+  it.each<[string, SampleEdit]>([
+    ['a gain', { kind: 'gain', range: { from: 50_000, to: 52_000 }, channels: 'both', db: -6, ramp: { frames: 0, curve: 'linear' } }],
+    ['a band gain', { kind: 'band-gain', range: { from: 50_000, to: 52_000 }, channels: 'both', band: { low: 200, high: 2000 }, db: -24, feather: { frames: 240, octaves: 1 / 6 } }],
+  ])('after %s computes only the columns whose windows touch the change, and ends equal to a build', async (_, edit) => {
     useWaveAudioStore.getState().setPane('main', wave('a', A))
     connect()
     await filled('a')
-    const edit: SampleEdit = { kind: 'gain', range: { from: 50_000, to: 52_000 }, channels: 'both', db: -6, ramp: { frames: 0, curve: 'linear' } }
     const edited = applySampleEdit(A, edit)
     useWaveAudioStore.getState().setPane('main', wave('a2', edited, 'main', { sampleId: 'a', changed: changedFrames(edit, frameCount(A)) }))
     expect(spectrum('a')).toBeUndefined()

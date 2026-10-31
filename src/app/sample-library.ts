@@ -1,4 +1,4 @@
-import { type AudioHost, decodeAudio } from '@audio'
+import { type AudioHost, type SpectrumService, decodeAudio } from '@audio'
 import {
   EDIT_WAV_BIT_DEPTH,
   type FrameMap,
@@ -9,6 +9,7 @@ import {
   type SampleInfo,
   afterEdit,
   applySampleEdit,
+  isBandEdit,
   buildPeakPyramid,
   bytesKeyOf,
   changedFrames,
@@ -76,6 +77,8 @@ export interface SampleLibraryOptions {
   readonly now?: () => number
   /** The caches' budgets in bytes of decoded audio; `sample-budgets.ts` by default. */
   readonly budgets?: { readonly workingCopies?: number; readonly keepAlive?: number }
+  /** Where band edits are applied, off the main thread; without it, on it (`applySampleEdit`). */
+  readonly spectrum?: Pick<SpectrumService, 'applyOf'>
 }
 
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -382,7 +385,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
       notify('error', `The audio of "${info.name}" is missing; import the file again to edit it.`)
       return
     }
-    const audio = applySampleEdit(source.audio, edit)
+    const audio = isBandEdit(edit) && options.spectrum ? await options.spectrum.applyOf(source.audio, edit) : applySampleEdit(source.audio, edit)
     const frames = frameCount(audio)
     if (frames === 0) {
       notify('error', 'Nothing left after the edit')

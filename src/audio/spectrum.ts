@@ -1,5 +1,14 @@
-import { framesRead, spectrumHop } from '@core'
-import { type SpectrumAnswer, type SpectrumRequest, answerSpectrum } from './spectrum-protocol'
+import { type BandEdit, type SampleAudio, bandEditReads, framesRead, spectrumHop, spliceFrames } from '@core'
+import {
+  type BandEditAnswer,
+  type BandEditRequest,
+  type SpectrumAnswer,
+  type SpectrumMessage,
+  type SpectrumReply,
+  type SpectrumRequest,
+  answerBandEdit,
+  answerSpectrum,
+} from './spectrum-protocol'
 
 /** A sample's spectrum to compute: its channels (read, never changed), the FFT size, and the columns in order. */
 export interface SpectrumJob {
@@ -21,6 +30,8 @@ export interface SpectrumChunk {
 export interface SpectrumService {
   /** Computes `job`'s chunks in order, `onChunk` for each, `onDone` after the last; returns a cancel. */
   spectrumOf(job: SpectrumJob, onChunk: (chunk: SpectrumChunk) => void, onDone?: () => void): () => void
+  /** A new `SampleAudio` with a band edit applied (`applyBandEditTo`'s floats), the input left as it is. */
+  applyOf(audio: SampleAudio, edit: BandEdit): Promise<SampleAudio>
 }
 
 /** Chunks a job has at the worker at once: one computing, one waiting, so the worker never idles between them. */
@@ -45,21 +56,37 @@ const startWorker = (): Worker | null => {
 }
 
 /**
- * The spectrum service: a module worker (`spectrum-worker.ts`), started on the first job and shared by every job, each
- * chunk's frames copied and transferred to it. Where there is no worker (Node, the tests) or it fails, the main thread
- * computes the same chunks (`answerSpectrum`), one per task.
+ * The spectrum service: a module worker (`spectrum-worker.ts`), started on the first job and shared by every job and
+ * band edit, each chunk's or edit's frames copied and transferred to it. Where there is no worker (Node, the tests) or it
+ * fails, the main thread computes the same answers (`answerSpectrum`, `answerBandEdit`), one per task.
  */
 export const createSpectrumService = (makeWorker: () => Worker | null = startWorker): SpectrumService => {
   let worker: Worker | null | undefined
   let nextId = 1
   const requests = new Map<number, { running: Running; chunk: { from: number; to: number } }>()
+  const edits = new Map<number, { audio: SampleAudio; edit: BandEdit; resolve: (audio: SampleAudio) => void }>()
 
   const requestOf = (id: number, running: Running, chunk: { from: number; to: number }): { request: SpectrumRequest; transfer: ArrayBuffer[] } => {
     const { channels, fftSize } = running.job
     const hop = running.job.hop ?? spectrumHop(fftSize)
     const read = framesRead({ fftSize, hop, frames: channels[0]?.length ?? 0 }, chunk.from, chunk.to)
     const slices = channels.map((channel) => channel.slice(read.from, Math.max(read.from, read.to)))
-    return { request: { id, fftSize, hop, from: chunk.from, to: chunk.to, offset: read.from, channels: slices }, transfer: slices.map((slice) => slice.buffer) }
+    return { request: { kind: 'columns', id, fftSize, hop, from: chunk.from, to: chunk.to, offset: read.from, channels: slices }, transfer: slices.map((slice) => slice.buffer) }
+  }
+
+  const editRequestOf = (id: number): { request: BandEditRequest; transfer: ArrayBuffer[] } => {
+    const { audio, edit } = edits.get(id)!
+    const frames = audio.channels[0]?.length ?? 0
+    const read = bandEditReads(edit, frames)
+    const slices = audio.channels.map((channel) => channel.slice(read.from, read.to))
+    return { request: { kind: 'band-edit', id, edit, offset: read.from, frames, sampleRate: audio.sampleRate, channels: slices }, transfer: slices.map((slice) => slice.buffer) }
+  }
+
+  const edited = (answer: BandEditAnswer) => {
+    const asked = edits.get(answer.id)
+    if (!asked) return
+    edits.delete(answer.id)
+    asked.resolve(spliceFrames(asked.audio, answer.from, answer.frames))
   }
 
   const answered = (answer: SpectrumAnswer) => {
@@ -73,25 +100,30 @@ export const createSpectrumService = (makeWorker: () => Worker | null = startWor
     pump(running)
   }
 
-  const fallBack = (request: SpectrumRequest) => setTimeout(() => answered(answerSpectrum(request)), 0)
+  const fallBack = (request: SpectrumMessage) =>
+    setTimeout(() => (request.kind === 'band-edit' ? edited(answerBandEdit(request)) : answered(answerSpectrum(request))), 0)
 
-  const send = (id: number) => {
-    const asked = requests.get(id)!
-    const { request, transfer } = requestOf(id, asked.running, asked.chunk)
+  const post = ({ request, transfer }: { request: SpectrumMessage; transfer: ArrayBuffer[] }) => {
     if (worker === undefined) {
       worker = makeWorker()
       if (worker) {
-        worker.onmessage = (event: MessageEvent<SpectrumAnswer>) => answered(event.data)
-        // A worker that fails hands its chunks to the main thread, sliced again (the sent ones were transferred).
+        worker.onmessage = (event: MessageEvent<SpectrumReply>) => (event.data.kind === 'band-edit' ? edited(event.data) : answered(event.data))
+        // A worker that fails hands what it had to the main thread, sliced again (the sent frames were transferred).
         worker.onerror = () => {
           worker?.terminate()
           worker = null
           for (const pending of requests.keys()) fallBack(requestOf(pending, requests.get(pending)!.running, requests.get(pending)!.chunk).request)
+          for (const pending of edits.keys()) fallBack(editRequestOf(pending).request)
         }
       }
     }
     if (worker) worker.postMessage(request, transfer)
     else fallBack(request)
+  }
+
+  const send = (id: number) => {
+    const asked = requests.get(id)!
+    post(requestOf(id, asked.running, asked.chunk))
   }
 
   const pump = (running: Running) => {
@@ -115,5 +147,11 @@ export const createSpectrumService = (makeWorker: () => Worker | null = startWor
         running.cancelled = true
       }
     },
+    applyOf: (audio, edit) =>
+      new Promise((resolve) => {
+        const id = nextId++
+        edits.set(id, { audio, edit, resolve })
+        post(editRequestOf(id))
+      }),
   }
 }

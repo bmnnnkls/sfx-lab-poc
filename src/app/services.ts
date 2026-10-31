@@ -40,8 +40,10 @@ export const createServices = (): Services => {
   const libraryStorage = typeof indexedDB === 'undefined' ? createMemoryLibraryStorage(memoryBlobs) : createLibraryStorage()
   const library = createDeferredPersonalLibrary(libraryStorage, sampleStorage)
   const sampleEdits = typeof indexedDB === 'undefined' ? createMemorySampleEditLog() : resolveSampleEditLog()
-  const sampleLibrary = createSampleLibrary(sampleStorage, host, { edits: sampleEdits })
-  const waveSpectra = createWaveSpectra(createSpectrumService())
+  // One spectrum worker: the spectrogram's columns and the band edits.
+  const spectrum = createSpectrumService()
+  const sampleLibrary = createSampleLibrary(sampleStorage, host, { edits: sampleEdits, spectrum })
+  const waveSpectra = createWaveSpectra(spectrum)
   const projectFiles = createProjectFiles(storage, sampleStorage, engineControls)
   const midi = createMidiInput(engineControls, undefined, () => { void host.start() })
   const cleanUpSamples = () =>

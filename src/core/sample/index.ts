@@ -44,6 +44,7 @@ export {
   changedFrames,
   clampCrossfadeSeconds,
   editSuffix,
+  isBandEdit,
   peakOfRange,
   remapFrame,
   remapRange,

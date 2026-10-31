@@ -219,6 +219,8 @@ export interface EditSetting {
   readonly max?: number
   readonly step?: number
   readonly default: number
+  /** A toggle's id that, while on, makes this field moot (*Remove* over *Gain*): the popover disables it. */
+  readonly offWhen?: string
 }
 
 /**
@@ -312,7 +314,7 @@ const NORMALIZE_SETTINGS: readonly EditSetting[] = [
 ]
 
 const BAND_GAIN_SETTINGS: readonly EditSetting[] = [
-  { id: 'db', label: 'Gain', kind: 'number', unit: 'dB', min: BAND_GAIN_RANGE_DB.min, max: BAND_GAIN_RANGE_DB.max, step: 0.1, default: -6 },
+  { id: 'db', label: 'Gain', kind: 'number', unit: 'dB', min: BAND_GAIN_RANGE_DB.min, max: BAND_GAIN_RANGE_DB.max, step: 0.1, default: -6, offWhen: 'remove' },
   { id: 'remove', label: 'Remove', kind: 'toggle', default: 0 },
 ]
 
@@ -567,6 +569,9 @@ export const sampleEditEntry = <K extends SampleEditKind>(kind: K): SampleEditEn
 
 /** The entry for an edit, typed loosely so one call dispatches any kind. */
 const entryOf = (edit: SampleEdit) => sampleEditEntry(edit.kind) as unknown as SampleEditEntry
+
+/** Whether an edit is a spectral one (a band edit), which may run off the main thread (`SpectrumService.applyOf`). */
+export const isBandEdit = (edit: SampleEdit): edit is BandEdit => entryOf(edit).group === 'spectral'
 
 /** A new `SampleAudio` with `edit` applied; the input is left as it is. */
 export const applySampleEdit = (audio: SampleAudio, edit: SampleEdit): SampleAudio => entryOf(edit).apply(audio, edit)
