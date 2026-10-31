@@ -13,7 +13,8 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
 - **U1 Round 11c: markers, regions and keys** in the wave editor ([spec](active/SPEC-round-11-wave-editor.md)),
   including *Revert to original*. 11b left that to 11c because remapping trims back through a chain of edits needs the
   chain, which isn't kept. A second spec, [handling and spectrum](active/SPEC-wave-editor-handling-and-spectrum.md)
-  (signed off), replaces 11c's keys and splits 11c into handling, markers and regions, and a second pane.
+  (signed off), replaces 11c's keys and splits 11c into handling, markers and regions, and a second pane. Handling has
+  a [plan](active/PLAN-round-11c-1-handling.md) (signed off, not started).
 - **U9 Round 11d: the spectrogram and spectral edits** in the wave editor
   ([spec](active/SPEC-wave-editor-handling-and-spectrum.md), signed off): the FFT core (idea H1), a spectrum
   pyramid computed in a worker, time-and-frequency selection, band gain and keep band.
