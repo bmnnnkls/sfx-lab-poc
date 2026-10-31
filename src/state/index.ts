@@ -53,6 +53,7 @@ export { createClipboard, subscribeToClipboards, useClipboard, type Clipboard } 
 export { audioClipboard, copyWaveSelection } from './audio-clipboard'
 export { DEFAULT_WAVE_EDIT_SETTINGS, type EditValues, type WaveEditSettings, useWaveEditSettings } from './wave-edit-settings'
 export * from './wave-edits'
+export * from './wave-view'
 
 export { editAutomationSlot, editOwnerAutomation } from './automation-store'
 

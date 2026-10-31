@@ -1,12 +1,13 @@
 import { type WaveEditSettings, useWaveEditSettings } from '@state'
 import { useEffect, useState } from 'react'
 
-/** Where each edit setting is saved per browser: the keys the toolbar kept them under before they moved to `state`. */
+/** Where each setting is saved per browser: the keys the toolbar and editor kept them under before they moved to `state`. */
 export const WAVE_EDIT_SETTING_KEYS: { readonly [K in keyof WaveEditSettings]: string } = {
   asCopy: 'sfxlab:wave-edit-copies',
   crossfade: 'sfxlab:wave-crossfade',
   fadeCurve: 'sfxlab:wave-fade-curve',
   lastValues: 'sfxlab:wave-edit-settings',
+  loop: 'sfxlab:wave-loop',
 }
 
 const FIELDS = Object.keys(WAVE_EDIT_SETTING_KEYS) as (keyof WaveEditSettings)[]

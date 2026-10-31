@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_WAVE_VIEW } from '@state'
 import { formatBeat, formatTime, rulerTicks } from './ruler-ticks'
-import { MIN_FRAMES_PER_PIXEL, clampView, frameAt, resolveView, resolveZoom, xOf, zoomAround, zoomTo } from './wave-geometry'
+import { MIN_FRAMES_PER_PIXEL, clampView, frameAt, menuTargetAt, resolveView, resolveZoom, xOf, zoomAround, zoomTo } from './wave-geometry'
 
 const FRAMES = 480_000 // 10 s at 48 kHz
 
@@ -58,5 +58,20 @@ describe('a zoom asked for', () => {
   it('fits the sample, or shows the range across the width', () => {
     expect(resolveZoom('fit', 1000, FRAMES)).toEqual({ framesPerPixel: null, startFrame: 0 })
     expect(resolveZoom({ from: 1000, to: 1500 }, 1000, FRAMES)).toEqual({ framesPerPixel: 0.5, startFrame: 1000 })
+  })
+})
+
+describe('a right-click', () => {
+  const left = { from: 100, to: 200, channels: 'left' as const }
+  it('keeps the selection inside it, on a channel it covers', () => {
+    expect(menuTargetAt(left, 150, 0)).toBe('keep')
+    expect(menuTargetAt({ ...left, channels: 'both' }, 100, 1)).toBe('keep')
+    expect(menuTargetAt({ ...left, channels: 'both' }, 200, 0)).toBe('keep')
+  })
+
+  it('clears it and puts the cursor there anywhere else', () => {
+    expect(menuTargetAt(left, 250, 0)).toEqual({ cursor: 250 })
+    expect(menuTargetAt(left, 150, 1)).toEqual({ cursor: 150 })
+    expect(menuTargetAt(null, 40, 0)).toEqual({ cursor: 40 })
   })
 })

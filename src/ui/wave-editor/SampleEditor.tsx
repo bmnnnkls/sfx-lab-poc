@@ -1,5 +1,5 @@
 import { type SampleInfo, frameCount, originOf, tempoFromName } from '@core'
-import { type WaveZoom, useProjectStore, useSampleLibrary, useStatusStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
+import { type WaveZoom, useProjectStore, useSampleLibrary, useStatusStore, useWaveAudioStore, toggleWavePreview, useWaveEditSettings, useWaveEditorStore, waveViewOf } from '@state'
 import { useEffect, useRef } from 'react'
 import { useStoredState } from '../shared/use-stored-state'
 import { currentView } from './current-view'
@@ -10,8 +10,6 @@ import { Ruler } from './Ruler'
 import { formatTime, isRulerMode, isRulerTempo } from './ruler-ticks'
 import { resolveZoom } from './wave-geometry'
 import styles from './WaveEditor.module.css'
-
-const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean'
 
 /**
  * One library sample in the Wave editor: a toolbar, the overview (which is the scrollbar), the ruler, a lane per channel,
@@ -29,7 +27,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
   const projectTempo = useProjectStore((state) => state.project.tempo)
   const [ruler, setRuler] = useStoredState('sfxlab:wave-ruler', 'time', isRulerMode)
   const [rulerTempo, setRulerTempo] = useStoredState('sfxlab:wave-ruler-tempo', 'project', isRulerTempo)
-  const [loop, setLoop] = useStoredState('sfxlab:wave-loop', false, isBoolean)
+  const loop = useWaveEditSettings((state) => state.loop)
   const zoomAsked = useWaveEditorStore((state) => waveViewOf(state.views, key).zoomTo !== undefined)
   const detail = useRef<HTMLDivElement>(null)
 
@@ -37,10 +35,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
   const bpm = rulerTempo === 'sample' && sampleTempo !== null ? sampleTempo : projectTempo
   const rate = wave?.audio.sampleRate ?? sample.sampleRate
 
-  const play = () => {
-    if (previewing) return library.stopPreview()
-    library.preview(sample.id, selection ? { from: selection.from, to: selection.to, loop } : { from: cursor, loop })
-  }
+  const play = () => toggleWavePreview(library, sample.id)
 
   const zoom = (to: WaveZoom) => useWaveEditorStore.getState().zoom(key, to)
 
@@ -67,7 +62,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
         <button onClick={play} aria-label={previewing ? 'Stop preview' : selection ? 'Play selection' : 'Play from cursor'} title={previewing ? 'Stop' : selection ? 'Play the selection' : 'Play from the cursor'}>
           {previewing ? '■' : '▶'}
         </button>
-        <button aria-pressed={loop} onClick={() => setLoop(!loop)} title="Loop the preview">
+        <button aria-pressed={loop} onClick={() => useWaveEditSettings.getState().setLoop(!loop)} title="Loop the preview">
           Loop
         </button>
         <button onClick={() => selection && zoom(selection)} disabled={!wave || !selection} title="Zoom to the selection">

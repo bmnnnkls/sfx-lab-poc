@@ -8,18 +8,19 @@ const SAVED_BY_11B: Readonly<Record<string, string>> = {
   'sfxlab:wave-crossfade': '{"seconds":0.012,"curve":"equal-power"}',
   'sfxlab:wave-fade-curve': '"s-curve"',
   'sfxlab:wave-edit-settings': '{"gain":{"db":-6},"normalize":{"peakDb":-1,"linked":0},"insert":{"seconds":null}}',
+  'sfxlab:wave-loop': 'true',
 }
 
 const restore = (saved: Readonly<Record<string, string>>) => useWaveEditSettings.getState().restore(readWaveEditSettings((key) => saved[key] ?? null))
 const settings = () => {
-  const { asCopy, crossfade, fadeCurve, lastValues } = useWaveEditSettings.getState()
-  return { asCopy, crossfade, fadeCurve, lastValues }
+  const { asCopy, crossfade, fadeCurve, lastValues, loop } = useWaveEditSettings.getState()
+  return { asCopy, crossfade, fadeCurve, lastValues, loop }
 }
 
 beforeEach(() => useWaveEditSettings.setState(DEFAULT_WAVE_EDIT_SETTINGS))
 
 describe('the edit settings in storage', () => {
-  it('reads the four keys the toolbar saved before', () => {
+  it('reads the keys the toolbar and editor saved before', () => {
     restore(SAVED_BY_11B)
     expect(settings()).toEqual({
       asCopy: true,
@@ -27,6 +28,7 @@ describe('the edit settings in storage', () => {
       fadeCurve: 's-curve',
       // A field emptied before Apply was saved as null; it is dropped, so the edit takes its default.
       lastValues: { gain: { db: -6 }, normalize: { peakDb: -1, linked: 0 }, insert: {} },
+      loop: true,
     })
   })
 

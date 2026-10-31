@@ -315,3 +315,69 @@ test('a cut part pastes at the cursor; the length and the status line agree, and
   await page.getByRole('button', { name: 'Undo', exact: true }).first().click()
   await expect.poll(duration).toBe(4)
 })
+
+/** Imports the stereo test file and opens it in the Wave editor; returns the editor's parts and the saved duration. */
+const openStereo = async (page: Page) => {
+  await page.goto('/?starter')
+  const samples = await openView(page, 'Samples')
+  await samples.getByTestId('sample-input').setInputFiles({ name: 'Stereo.wav', mimeType: 'audio/wav', buffer: stereoWav() })
+  const row = samples.getByRole('listitem').filter({ hasText: 'Stereo' })
+  await expect(row.locator('[data-status="ready"]')).toHaveCount(1)
+  await row.getByRole('button', { name: '✎', exact: true }).click()
+  const wave = viewRoot(page, 'Wave editor')
+  await expect(wave.getByRole('img', { name: 'Left', exact: true })).toBeVisible()
+  const duration = async () =>
+    page.evaluate(() => (JSON.parse(localStorage.getItem('sfxlab:project') ?? '{"project":{"samples":[]}}') as { project: { samples: Array<{ name: string; durationSeconds: number }> } }).project.samples.find((sample) => sample.name === 'Stereo')?.durationSeconds)
+  await expect.poll(duration).toBe(4)
+  return { wave, detail: wave.getByTestId('wave-detail'), status: wave.getByTestId('wave-status'), duration }
+}
+
+test('the right-click menu cuts the selection, ⌘V pastes it at the cursor, and a right-click outside moves the cursor', async ({ page }) => {
+  const { wave, detail, status, duration } = await openStereo(page)
+  await dragAcross(page, detail, 0.2, 0.4)
+  const cut = await selectionOf(wave)
+  const box = (await detail.boundingBox())!
+
+  // Inside the selection: the menu acts on it.
+  await page.mouse.click(box.x + box.width * 0.3, box.y + box.height / 2, { button: 'right' })
+  await page.getByRole('menuitem', { name: 'Cut', exact: true }).click()
+  await expect(status).toHaveText(new RegExp(`^Cursor 0:0${Math.floor(cut.from)}\\.`))
+  await expect.poll(duration).toBeCloseTo(4 - (cut.to - cut.from), 2)
+
+  // A click puts the cursor near the end; ⌘V with the lanes focused pastes there.
+  await page.mouse.click(box.x + box.width * 0.8, box.y + box.height / 2)
+  await expect(detail).toBeFocused()
+  await page.keyboard.press('ControlOrMeta+v')
+  await expect(status).toContainText('Selection')
+  await expect.poll(duration).toBeCloseTo(4, 3)
+
+  // Outside the selection, a right-click clears it and puts the cursor there.
+  await page.mouse.click(box.x + box.width * 0.1, box.y + box.height / 2, { button: 'right' })
+  await expect(status).toHaveText(/^Cursor 0:00\./)
+  await expect(page.getByRole('menuitem', { name: 'Paste', exact: true })).toBeEnabled()
+  await page.keyboard.press('Escape')
+})
+
+test('Delete with the lanes focused deletes the selection, not while typing a name, and the palette lists the edits', async ({ page }) => {
+  const { wave, detail, status, duration } = await openStereo(page)
+  await dragAcross(page, detail, 0.5, 0.75)
+  const selected = await selectionOf(wave)
+
+  // In the project's name, Delete is the field's.
+  await page.getByLabel('Project name', { exact: true }).click()
+  await page.keyboard.press('Delete')
+  await expect(status).toContainText('Selection')
+
+  // With the lanes focused, the palette offers the selection's actions.
+  await detail.focus()
+  await page.keyboard.press('ControlOrMeta+k')
+  const palette = page.getByRole('dialog', { name: 'Commands', exact: true })
+  await page.keyboard.type('gain')
+  await expect(palette.getByRole('option').first()).toHaveText('Selection in Stereo: Gain…')
+  await page.keyboard.press('Escape')
+  await expect(detail).toBeFocused()
+
+  await page.keyboard.press('Delete')
+  await expect(status).toHaveText(new RegExp(`^Cursor 0:0${Math.floor(selected.from)}\\.`))
+  await expect.poll(duration).toBeCloseTo(4 - (selected.to - selected.from), 2)
+})

@@ -11,6 +11,7 @@ import { canvasActions, nodeActions } from './nodes'
 import { pinActions } from './pin'
 import { regionActions } from './region'
 import { sampleActions } from './sample'
+import { sampleSelectionActions } from './sample-selection'
 import { sceneActions } from './scene'
 import { slotActions } from './slot'
 import { soundActions } from './sound'
@@ -28,6 +29,7 @@ export { canPasteClipInSlot, pasteClipInSlot } from './slot'
 export { canRecallPresetOn, recallPresetOn } from './sound'
 export { automationSlotClipboard, clipClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes } from './clipboards'
 export { editTargetOf, graphKeyOf } from './nodes'
+export { processActions } from './sample-selection'
 
 const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = {
   track: trackActions,
@@ -48,6 +50,7 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   control: controlActions,
   sound: soundActions,
   pin: pinActions,
+  'sample-selection': sampleSelectionActions,
 }
 
 /** The actions of a subject's kind, in menu order. Nothing else picks actions. */

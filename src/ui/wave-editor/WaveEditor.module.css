@@ -124,6 +124,15 @@
   --wave-selection: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
+.detail:focus {
+  outline: none;
+}
+
+.detail:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .lane {
   position: relative;
   flex: 1 1 0;

@@ -5,6 +5,7 @@ import styles from './Menu.module.css'
 /** The pieces of a Radix menu that entries are drawn with; context and dropdown menus both provide them. */
 export interface MenuParts {
   Item: ComponentType<{ className?: string; disabled?: boolean; title?: string; onSelect?: () => void; children?: ReactNode }>
+  CheckboxItem: ComponentType<{ className?: string; disabled?: boolean; title?: string; checked?: boolean; onSelect?: () => void; children?: ReactNode }>
   Separator: ComponentType<{ className?: string }>
   Sub: ComponentType<{ children?: ReactNode }>
   SubTrigger: ComponentType<{ className?: string; children?: ReactNode }>
@@ -30,6 +31,18 @@ export const MenuEntries = ({ entries, parts }: { entries: readonly MenuEntry[];
             </parts.SubContent>
           </parts.Portal>
         </parts.Sub>
+      ) : entry.checked !== undefined ? (
+        <parts.CheckboxItem
+          key={`${index}-${entry.label}`}
+          className={`${styles.item} ${styles.checkable}`}
+          disabled={entry.disabled}
+          title={entry.tooltip}
+          checked={entry.checked}
+          onSelect={entry.onSelect}
+        >
+          <span className={styles.check} aria-hidden="true">{entry.checked ? '✓' : ''}</span>
+          <span>{entry.label}</span>
+        </parts.CheckboxItem>
       ) : (
         <parts.Item
           key={`${index}-${entry.label}`}

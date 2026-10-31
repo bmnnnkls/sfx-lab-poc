@@ -269,4 +269,29 @@ Signed off 2026-10-31: every row as proposed.
 
 ## Changes made while implementing
 
-Nothing yet.
+* **Step 1: `zoomTo` replaces `zoomPending`.** The view's `zoomTo` is a `WaveZoom` (a frame range or `'fit'`); `reveal`
+  stores the range it selected, and `takeZoom(key)` reads and clears it, so the editor does it once. `resolveZoom`
+  (`wave-geometry.ts`) turns it into the stored view. The zoom buttons ask through `zoom` too, so they wait for the
+  detail's width like an entry point does.
+* **Step 1: `waveEditFacts(sample, wave, selection, busy?, clipboard?)`** is what `waveEditBlocked` reads, so the toolbar
+  passes the `busy` and clipboard it subscribed to and the actions read them from the stores. `waveCopyBlocked` and
+  `waveCutBlocked` are Copy's and Cut's (Copy isn't an edit: it runs while an edit runs). `runWaveEdit(library,
+  sampleId, kind, { variant, values, curve })` checks the entry is not blocked, remembers the values and the curve, and
+  calls `editSample`; `openWave(sampleId)` reads the sample, its working copy and view.
+* **Step 1: saved popover values.** The toolbar saved an emptied field as `null` (`valueAsNumber` is `NaN`). The store
+  keeps an entry's numeric fields and drops the rest, so the edit takes that field's default, rather than refusing all
+  saved values. `readWaveEditSettings(read)` is the hook's parsing, tested with what 11b saved.
+* **Step 2: the preview's *Loop* moved into the settings store** (`useWaveEditSettings.loop`, the same
+  `sfxlab:wave-loop` key), since *Play selection* is an action and P a key. `toggleWavePreview` and `selectAllWave`
+  (`state/wave-view.ts`) are what ▶, the action and the keys call.
+* **Step 2: action ids start with the subject's kind** (`sample-selection.cut`, not `wave.cut`): the action tests check
+  it for every list. Fades are `sample-selection.fade-in` and `fade-out`.
+* **Step 2: the five clipboard and structure edits are one group, `clipboard`.** The plan put Delete and Crop in `edit`,
+  but every action list is in the group order `open, edit, clipboard, delete` (now `…, process, view`), and Cut, Copy,
+  Paste come first. One group is also what the spec and the toolbar show.
+* **Step 2: checkable menu entries.** "The last used first and marked" needed a mark: `ActionChoice.checked` and
+  `MenuAction.checked` draw a Radix checkbox item with a ✓ (`role="menuitemcheckbox"`), in both menus. *View ▾* uses them
+  for *Time* / *Beats* and the tempo.
+* **Step 2: the lanes are `role="group"` named *Waveform lanes*,** as the graph canvas is a named group. `menuTargetAt`
+  takes the selection, the frame and the lane (`(selection, frame, channel)`): the frame is already resolved from the
+  view, so the view isn't an argument.

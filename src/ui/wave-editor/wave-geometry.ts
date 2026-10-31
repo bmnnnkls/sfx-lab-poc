@@ -1,5 +1,5 @@
 import type { WaveView } from '@core'
-import type { WaveEditorView, WaveZoom } from '@state'
+import type { WaveEditorView, WaveSelection, WaveZoom } from '@state'
 
 /** The closest zoom: 32 px per frame. */
 export const MIN_FRAMES_PER_PIXEL = 1 / 32
@@ -42,3 +42,14 @@ export const frameAt = (view: WaveView, x: number, frames: number): number =>
 
 /** Where a frame is, in columns from the left edge. */
 export const xOf = (view: WaveView, frame: number): number => (frame - view.startFrame) / view.framesPerPixel
+
+/** Whether a selection covers channel `channel` (0 left or mono, 1 right). */
+export const coversChannel = (selection: WaveSelection, channel: number): boolean =>
+  selection.channels === 'both' || selection.channels === (channel === 0 ? 'left' : 'right')
+
+/**
+ * What a right-click does before the menu opens, so the menu acts on what was clicked: inside the selection, on a
+ * channel it covers, it keeps it; anywhere else it clears it and puts the cursor at the frame, as a click would.
+ */
+export const menuTargetAt = (selection: WaveSelection | null, frame: number, channel: number): 'keep' | { readonly cursor: number } =>
+  selection && frame >= selection.from && frame <= selection.to && coversChannel(selection, channel) ? 'keep' : { cursor: frame }

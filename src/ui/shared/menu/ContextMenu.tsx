@@ -4,7 +4,7 @@ import { MenuEntries } from './MenuEntries'
 import type { MenuEntry } from './menu-types'
 import styles from './Menu.module.css'
 
-const PARTS = { Item: Menu.Item, Separator: Menu.Separator, Sub: Menu.Sub, SubTrigger: Menu.SubTrigger, SubContent: Menu.SubContent, Portal: Menu.Portal }
+const PARTS = { Item: Menu.Item, CheckboxItem: Menu.CheckboxItem, Separator: Menu.Separator, Sub: Menu.Sub, SubTrigger: Menu.SubTrigger, SubContent: Menu.SubContent, Portal: Menu.Portal }
 
 interface ContextMenuProps {
   /**

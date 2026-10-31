@@ -63,5 +63,7 @@ export const subjectName = (subject: Subject): string => {
     }
     case 'pin':
       return `${ownerName(subject.owner)} ${GRAPH_TITLES[subject.graph].toLowerCase()}`
+    case 'sample-selection':
+      return `Selection in ${project().samples?.find((sample) => sample.id === subject.sampleId)?.name ?? 'sample'}`
   }
 }

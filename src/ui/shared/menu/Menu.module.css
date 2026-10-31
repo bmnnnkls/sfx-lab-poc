@@ -31,6 +31,16 @@
   pointer-events: none;
 }
 
+.checkable {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.check {
+  width: 12px;
+  color: var(--accent);
+}
+
 .danger {
   color: #ff8a8a;
 }

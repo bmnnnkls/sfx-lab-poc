@@ -4,7 +4,7 @@ import { create } from 'zustand'
 /** The values of an edit's settings popover, by setting id. */
 export type EditValues = Readonly<Record<string, number>>
 
-/** How the Wave editor's edits run, per browser: set once and rarely changed. */
+/** How the Wave editor's edits and preview run, per browser: set once and rarely changed. */
 export interface WaveEditSettings {
   /** *Edits make copies*: each edit adds a new sample instead of changing this one. */
   readonly asCopy: boolean
@@ -14,9 +14,11 @@ export interface WaveEditSettings {
   readonly fadeCurve: FadeCurve
   /** Each edit's popover values as last applied, by edit kind. */
   readonly lastValues: Readonly<Record<string, EditValues>>
+  /** The preview loops. */
+  readonly loop: boolean
 }
 
-export const DEFAULT_WAVE_EDIT_SETTINGS: WaveEditSettings = { asCopy: false, crossfade: DEFAULT_CROSSFADE, fadeCurve: 'linear', lastValues: {} }
+export const DEFAULT_WAVE_EDIT_SETTINGS: WaveEditSettings = { asCopy: false, crossfade: DEFAULT_CROSSFADE, fadeCurve: 'linear', lastValues: {}, loop: false }
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 const isCrossfade = (value: unknown): value is Crossfade =>
@@ -33,12 +35,13 @@ interface WaveEditSettingsState extends WaveEditSettings {
   setCrossfade(crossfade: Crossfade): void
   setFadeCurve(curve: FadeCurve): void
   setLastValues(kind: string, values: EditValues): void
+  setLoop(loop: boolean): void
   /** Takes what was saved, field by field: a value that isn't valid keeps the default. */
   restore(saved: { readonly [K in keyof WaveEditSettings]?: unknown }): void
 }
 
 /**
- * The Wave editor's edit settings. `state` doesn't touch `localStorage`, so `ui` restores them once when the Wave
+ * The Wave editor's edit and preview settings. `state` doesn't touch `localStorage`, so `ui` restores them once when the Wave
  * editor mounts and saves each change (`useWaveEditSettingsStorage`), under the keys the toolbar used before.
  */
 export const useWaveEditSettings = create<WaveEditSettingsState>((set) => ({
@@ -47,11 +50,13 @@ export const useWaveEditSettings = create<WaveEditSettingsState>((set) => ({
   setCrossfade: (crossfade) => set({ crossfade: { ...crossfade, seconds: clampCrossfadeSeconds(crossfade.seconds) } }),
   setFadeCurve: (fadeCurve) => set({ fadeCurve }),
   setLastValues: (kind, values) => set((state) => ({ lastValues: { ...state.lastValues, [kind]: values } })),
+  setLoop: (loop) => set({ loop }),
   restore: (saved) =>
     set({
       asCopy: typeof saved.asCopy === 'boolean' ? saved.asCopy : DEFAULT_WAVE_EDIT_SETTINGS.asCopy,
       crossfade: isCrossfade(saved.crossfade) ? { ...saved.crossfade, seconds: clampCrossfadeSeconds(saved.crossfade.seconds) } : DEFAULT_WAVE_EDIT_SETTINGS.crossfade,
       fadeCurve: isFadeCurve(saved.fadeCurve) ? saved.fadeCurve : DEFAULT_WAVE_EDIT_SETTINGS.fadeCurve,
       lastValues: lastValuesOf(saved.lastValues) ?? DEFAULT_WAVE_EDIT_SETTINGS.lastValues,
+      loop: typeof saved.loop === 'boolean' ? saved.loop : DEFAULT_WAVE_EDIT_SETTINGS.loop,
     }),
 }))

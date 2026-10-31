@@ -1,4 +1,4 @@
-export { ActionMenu } from './ActionMenu'
+export { ActionMenu, useActionEntries } from './ActionMenu'
 export { ViewOriginProvider, useActionContext } from './action-context'
 export { ContextMenu } from './ContextMenu'
 export { PopupMenu } from './PopupMenu'

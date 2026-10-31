@@ -25,6 +25,7 @@ export type Subject =
   | { readonly kind: 'control'; readonly targets: readonly ControlTarget[] }
   | { readonly kind: 'sound'; readonly soundId: string; readonly preset: boolean }
   | { readonly kind: 'pin'; readonly owner: ControlOwner; readonly graph: TrackGraph } // a front panel in the Pinned view
+  | { readonly kind: 'sample-selection'; readonly sampleId: string } // the Wave editor's lanes: the open sample's selection and cursor
 
 export type SubjectKind = Subject['kind']
 export type SubjectOf<K extends SubjectKind> = Extract<Subject, { kind: K }>
@@ -48,6 +49,8 @@ export interface ActionChoice {
   readonly enabled?: boolean
   /** What the choice is, when its title doesn't say enough (an example's tagline). */
   readonly tooltip?: string
+  /** Drawn as a checkable entry, with a check mark when true: the one in effect, or last used (a fade's curve). */
+  readonly checked?: boolean
 }
 
 /** What an edit key does to the focused thing: Delete, ⌘D, ⌘C, ⌘X, ⌘V and F2. */
@@ -62,8 +65,8 @@ export interface Action<S extends Subject = Subject> {
    */
   readonly verb?: Verb
   readonly title: string | ((subject: S, context: ActionContext) => string)
-  /** Entries are drawn in groups, with a separator between groups: open, edit, clipboard, delete. */
-  readonly group: 'open' | 'edit' | 'clipboard' | 'delete'
+  /** Entries are drawn in groups, with a separator between groups: open, edit, clipboard, delete, process, view. */
+  readonly group: 'open' | 'edit' | 'clipboard' | 'delete' | 'process' | 'view'
   readonly danger?: boolean
   /** What the entry does, when its title doesn't say enough: drawn as its tooltip. */
   readonly tooltip?: (subject: S, context: ActionContext) => string | undefined

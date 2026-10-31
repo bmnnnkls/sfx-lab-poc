@@ -31,6 +31,7 @@ const VERBS: Readonly<Record<SubjectKind, Partial<Record<Verb, string>>>> = {
   control: {},
   sound: { delete: 'sound.delete', duplicate: 'sound.duplicate', rename: 'sound.rename' },
   pin: { delete: 'pin.unpin' },
+  'sample-selection': { cut: 'sample-selection.cut', copy: 'sample-selection.copy', paste: 'sample-selection.paste', delete: 'sample-selection.delete' },
 }
 
 /** One subject per kind; the lists don't depend on the ids. */
