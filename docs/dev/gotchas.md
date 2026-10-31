@@ -38,6 +38,11 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **Two browser-test runs at once collide**: they share port 4173 and `test-results/`, so one can't start its server
   or loses its trace files ("ENOENT … .trace"), which reads like a failed test. Run them one after the other.
   *(round 11c-2)*
+* **Short samples draw the spectrogram `stretched` or `on-demand`, not `levels`**: 2 s in a 1300 px lane is under the
+  hop a pixel. Wait for `data-spectrum` to leave `pending`, and check what the spectrogram shows by its pixels (a tone's
+  row brighter than an empty one), not by its kind. *(round 11d-1)*
+* **A slice sent to the worker must hold every frame its columns' windows read** (`framesRead`), in whole frames:
+  `slice` truncates a fraction, which shifts the columns by a frame against the offset. *(round 11d-1)*
 * **A spec that imports from another spec runs that spec's tests too.** Put shared helpers in a plain module
   (`marked-sample.ts`, `preset-project.ts`). *(round 11c-3)*
 
@@ -54,6 +59,11 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **Shift with a bracket is a brace** on most layouts (`event.key` is `{`), so `keyOf` gives `shift+{`. A table that
   means Shift with `[` takes both. *(round 11c-2)*
 * **A Mac has two delete keys** (⌫ `delete`, ⌦ `forwarddelete`), and `meta` is the Windows key elsewhere. *(round 10)*
+* **`putImageData` ignores the canvas's transform and clip.** On a lane scaled to the device pixel ratio and clipped to
+  a part, it lands at device pixels in the corner. Put the image into a scratch canvas and `drawImage` that, which
+  honours both. *(round 11d-1)*
+* **The project's types are the window's** (`lib: DOM`), so a worker file has no `DedicatedWorkerGlobalScope`. Type
+  the part of `self` it uses, as `audio/spectrum-worker.ts` does. *(round 11d-1)*
 
 ## Architecture
 

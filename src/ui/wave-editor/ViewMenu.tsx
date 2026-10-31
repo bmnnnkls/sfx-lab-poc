@@ -1,11 +1,18 @@
-import { type Subject, useWaveEditSettings, useWavePanesStore } from '@state'
+import { type Subject, type WaveLanes, useWaveEditSettings, useWavePanesStore } from '@state'
 import { type MenuEntry, PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import type { RulerMode, RulerTempo } from './ruler-ticks'
 
 const ZOOMS = new Set(['sample-selection.zoom-selection', 'sample-selection.zoom-fit'])
 
+/** The lane modes, as *View ▾* names them. */
+const LANE_ENTRIES: readonly { readonly lanes: WaveLanes; readonly label: string; readonly tooltip: string }[] = [
+  { lanes: 'waveform', label: 'Waveform', tooltip: 'The lanes show the waveform' },
+  { lanes: 'spectrogram', label: 'Spectrogram', tooltip: 'The lanes show the frequencies over time; set the scale and the FFT size in ⚙' },
+  { lanes: 'split', label: 'Split', tooltip: 'The lanes show the waveform over the spectrogram' },
+]
+
 /**
- * *View ▾*: the zooms (the subject's actions, as in the right-click menu), the second pane, the ruler's mode, the tempo
+ * *View ▾*: the zooms (the subject's actions, as in the right-click menu), what the lanes show (both panes), the second pane, the ruler's mode, the tempo
  * its beats count at, and the two snaps, each checked when in effect.
  */
 export const ViewMenu = ({
@@ -28,8 +35,11 @@ export const ViewMenu = ({
   const context = useActionContext()
   const snap = useWaveEditSettings((state) => state.snap)
   const split = useWavePanesStore((state) => state.second.open)
+  const lanes = useWaveEditSettings((state) => state.lanes)
   const fromName = tempo === 'sample' && sampleTempo !== null
   const settings: readonly MenuEntry[] = [
+    { kind: 'separator' },
+    ...LANE_ENTRIES.map((entry) => ({ label: entry.label, checked: lanes === entry.lanes, tooltip: entry.tooltip, onSelect: () => useWaveEditSettings.getState().setLanes(entry.lanes) })),
     { kind: 'separator' },
     {
       label: 'Second pane',
@@ -66,7 +76,7 @@ export const ViewMenu = ({
   ]
   return (
     <PopupMenu entries={() => [...useActionEntries(subject, context, (item) => ZOOMS.has(item.id)), ...settings]}>
-      <button aria-label="View" title="Zoom, and what the ruler counts">
+      <button aria-label="View" title="Zoom, what the lanes show, and what the ruler counts">
         View ▾
       </button>
     </PopupMenu>

@@ -1,4 +1,5 @@
-import type { WaveColumns, WaveView } from '@core'
+import type { SpectrumColumns, WaveColumns, WaveView } from '@core'
+import type { WaveLanes } from '@state'
 
 /** One channel of what the view shows (`columnsFor`), for one lane. */
 export type LaneColumns =
@@ -16,13 +17,66 @@ export interface LaneColors {
   readonly line: string
 }
 
+/** One channel of what the view's spectrum shows (`spectrumColumnsFor`), for one lane. */
+export interface SpectrumLaneColumns {
+  readonly kind: SpectrumColumns['kind']
+  readonly bins: number
+  /** The channel's columns, `bins` bytes each. */
+  readonly data: Uint8Array
+  /** Per pixel column, the columns of `data` it draws, loudest per bin; none where `from === to`. */
+  readonly from: Int32Array
+  readonly to: Int32Array
+}
+
+/** What a lane draws from: the waveform's columns and the spectrum's, each there when the lane mode shows it. */
+export interface LaneData {
+  readonly waveform?: LaneColumns
+  readonly spectrogram?: SpectrumLaneColumns | null
+}
+
 /**
- * How a lane is drawn, in CSS pixels (the canvases are already scaled): `draw` fills the lane with one channel, `scale`
- * the gutter beside it with the lane's scale. The waveform is the only one now; a spectrogram is a second renderer.
+ * How a lane is drawn, in CSS pixels (the canvases are already scaled): `draw` fills its part of the lane with one
+ * channel, `scale` its part of the gutter beside it with the lane's scale.
  */
-export interface LaneRenderer {
-  draw(context: CanvasRenderingContext2D, columns: LaneColumns, size: LaneSize, colors: LaneColors): void
+export interface LaneRenderer<Data> {
+  draw(context: CanvasRenderingContext2D, data: Data, size: LaneSize, colors: LaneColors): void
   scale(context: CanvasRenderingContext2D, size: LaneSize, colors: LaneColors): void
+}
+
+/** The renderer of each kind of lane part. */
+export interface LaneRenderers {
+  readonly waveform: LaneRenderer<LaneColumns>
+  /** Draws nothing but the floor where the spectrum isn't there yet (`null`). */
+  readonly spectrogram: LaneRenderer<SpectrumLaneColumns | null>
+}
+
+export type LanePartKind = keyof LaneRenderers
+
+/** In *Split*, the waveform's part of the lane, over the spectrogram. */
+export const SPLIT_WAVE_SHARE = 1 / 3
+
+/** A part of a lane: what it shows, and where, as parts of the lane's height. */
+export interface LanePart {
+  readonly kind: LanePartKind
+  readonly top: number
+  readonly share: number
+}
+
+/** The parts of every lane in a lane mode. */
+export const laneParts = (lanes: WaveLanes): readonly LanePart[] =>
+  lanes === 'waveform'
+    ? [{ kind: 'waveform', top: 0, share: 1 }]
+    : lanes === 'spectrogram'
+      ? [{ kind: 'spectrogram', top: 0, share: 1 }]
+      : [
+          { kind: 'waveform', top: 0, share: SPLIT_WAVE_SHARE },
+          { kind: 'spectrogram', top: SPLIT_WAVE_SHARE, share: 1 - SPLIT_WAVE_SHARE },
+        ]
+
+/** A part's box in a lane `height` high, in whole pixels. */
+export const partBox = (part: LanePart, height: number): { readonly top: number; readonly height: number } => {
+  const top = Math.round(part.top * height)
+  return { top, height: Math.round((part.top + part.share) * height) - top }
 }
 
 /** The level scale's marks, in dB; −∞ is the middle line. */
@@ -48,8 +102,17 @@ export const laneColumns = (columns: WaveColumns, channel: number, view: WaveVie
     ? { kind: 'points', firstFrame: columns.firstFrame, values: columns.values[channel]!, dots: columns.dots, view }
     : { kind: columns.kind, min: columns.min[channel]!, max: columns.max[channel]! }
 
+/** The channel's part of the view's spectrum. */
+export const spectrumLaneColumns = (columns: SpectrumColumns, channel: number): SpectrumLaneColumns => ({
+  kind: columns.kind,
+  bins: columns.bins,
+  data: columns.data[channel]!,
+  from: columns.from,
+  to: columns.to,
+})
+
 /** Min and max as a bar per column, or the sample points joined by a line (with dots when zoomed far in). */
-const drawWaveform: LaneRenderer['draw'] = (context, columns, { width, height }, colors) => {
+const drawWaveform: LaneRenderer<LaneColumns>['draw'] = (context, columns, { width, height }, colors) => {
   const middle = height / 2
   const y = (value: number) => middle - Math.max(-1, Math.min(1, value)) * middle
   context.fillStyle = colors.line
@@ -76,7 +139,7 @@ const drawWaveform: LaneRenderer['draw'] = (context, columns, { width, height },
 }
 
 /** The level scale: a tick at the gutter's right edge per mark, mirrored below the middle, labelled where there is room. */
-const drawLevelScale: LaneRenderer['scale'] = (context, { width, height }, colors) => {
+const drawLevelScale: LaneRenderer<LaneColumns>['scale'] = (context, { width, height }, colors) => {
   context.fillStyle = colors.line
   context.font = '9px system-ui, sans-serif'
   context.textBaseline = 'middle'
@@ -87,4 +150,4 @@ const drawLevelScale: LaneRenderer['scale'] = (context, { width, height }, color
   }
 }
 
-export const waveformRenderer: LaneRenderer = { draw: drawWaveform, scale: drawLevelScale }
+export const waveformRenderer: LaneRenderer<LaneColumns> = { draw: drawWaveform, scale: drawLevelScale }

@@ -3,7 +3,6 @@ import { type WavePane as Pane, useProjectStore, useSelectionStore, useWaveAudio
 import { type ReactNode, useEffect, useMemo, useRef } from 'react'
 import { currentView } from './current-view'
 import { DetailView } from './DetailView'
-import { waveformRenderer } from './lane-renderers'
 import { MarkLane } from './MarkLane'
 import { marksOf } from './mark-geometry'
 import { Overview } from './Overview'
@@ -13,6 +12,7 @@ import { type RulerNow, waveSnapper } from './snap'
 import { resolveZoom } from './wave-geometry'
 import { LaneScale } from './WaveLane'
 import { WaveStatus } from './WaveStatus'
+import { useLaneRenderers } from './use-lane-renderers'
 import styles from './WaveEditor.module.css'
 
 /** The sample a pane shows, as `paneSampleId` decides, rendered when it changes. */
@@ -73,6 +73,7 @@ export const WavePane = ({
   rulerNow.current = { mode: ruler, bpm }
   const snap = useMemo(() => wave && waveSnapper(wave, () => rulerNow.current), [wave])
   const rate = wave?.audio.sampleRate ?? sample.sampleRate
+  const { parts, renderers } = useLaneRenderers(rate)
 
   // A zoom was asked for (a button, a menu entry, a key, an entry point): do it once the detail has a width and the
   // audio is here.
@@ -107,7 +108,7 @@ export const WavePane = ({
           <MarkLane wave={wave} detail={detail} marks={marks} snap={snap!} />
           <div className={styles.scales}>
             {wave.audio.channels.map((_, index) => (
-              <LaneScale key={index} renderer={waveformRenderer} />
+              <LaneScale key={index} parts={parts} renderers={renderers} />
             ))}
           </div>
           <DetailView wave={wave} frame={detail} snap={snap!} />

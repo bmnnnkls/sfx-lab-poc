@@ -1,7 +1,7 @@
 ---
 status: active
 date: 2026-10-31
-note: "Signed off 2026-10-29 as proposed. Amends round 11c's keys and adds round 11d (the spectrum). Parts 1 (handling) and 2 (markers and regions, with loop points) done 2026-10-31; part 3 (a second pane) done 2026-10-31; parts 4 and 5 (round 11d) are not planned yet."
+note: "Signed off 2026-10-29 as proposed. Amends round 11c's keys and adds round 11d (the spectrum). Parts 1 (handling) and 2 (markers and regions, with loop points) done 2026-10-31; part 3 (a second pane) done 2026-10-31; part 4 (round 11d, part 1: the spectrogram) done 2026-10-31; part 5 (spectral selection and edits) is planned and signed off, not started."
 ---
 # Wave editor: handling, a second pane and the spectrum (spec)
 

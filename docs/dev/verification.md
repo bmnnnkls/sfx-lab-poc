@@ -20,7 +20,11 @@ cases (every mode, odd speeds, release, retrigger), hash the floats, check the o
 it in the test (`sampler.node.test.ts`). Browser tests that need a position the UI doesn't print (the cursor's frame)
 put a marker there and read the saved project (`wave-marks.smoke.spec.ts`). A measuring script that drives the
 stores itself on the dev server's page stubs the app's entry (`page.route` on `/src/main.tsx`, a regex since Vite adds
-`?t=`), so the app's own services don't answer the same stores (`scripts/measure-second-pane.cjs`).
+`?t=`), so the app's own services don't answer the same stores (`scripts/measure-second-pane.cjs`). What a canvas
+shows is checked by its pixels: `wave-spectrum.smoke.spec.ts` writes a file with a tone in one half, and compares the
+brightness of the lane's canvas at the tone's row and at an empty one, in each half. Code that runs in a worker is a
+plain function the worker calls (`answerSpectrum`), so unit tests and the main-thread fallback run the same code, and
+a service under test takes a fake worker that answers on the next task.
 
 Unit tests sit beside the code. Two repository-wide tests guard structure: `tests/architecture.test.ts` (the layering
 in [overview](../architecture/overview.md#layers) and the package allow-list) and `tests/status-subscriptions.test.ts`
@@ -34,5 +38,5 @@ permissions. Only main builds the deployment with its repository base path and p
 Production bundling uses Vite 8's `build.rolldownOptions.output.codeSplitting.groups`: React, React DOM and Scheduler
 form a `react` chunk; Radix and Floating UI form `ui-vendor`. Package-boundary patterns support both path separators.
 These eagerly loaded dependencies have independent content hashes and Vite emits module-preload links; the audio
-worklet is a separate chunk (sizes in [baselines](../reference/baselines.md#bundle)). Total JavaScript transfer is essentially unchanged: the benefit is independent
+worklet and the spectrum worker are separate chunks (sizes in [baselines](../reference/baselines.md#bundle)). Total JavaScript transfer is essentially unchanged: the benefit is independent
 dependency caching and smaller individual chunks, not lazy loading. The default chunk-size warning limit is unchanged.

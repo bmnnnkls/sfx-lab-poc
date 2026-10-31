@@ -13,8 +13,8 @@ const SAVED_BY_11B: Readonly<Record<string, string>> = {
 
 const restore = (saved: Readonly<Record<string, string>>) => useWaveEditSettings.getState().restore(readWaveEditSettings((key) => saved[key] ?? null))
 const settings = () => {
-  const { asCopy, crossfade, fadeCurve, lastValues, loop, snap } = useWaveEditSettings.getState()
-  return { asCopy, crossfade, fadeCurve, lastValues, loop, snap }
+  const { asCopy, crossfade, fadeCurve, lastValues, loop, snap, lanes, spectrum } = useWaveEditSettings.getState()
+  return { asCopy, crossfade, fadeCurve, lastValues, loop, snap, lanes, spectrum }
 }
 
 beforeEach(() => useWaveEditSettings.setState(DEFAULT_WAVE_EDIT_SETTINGS))
@@ -29,8 +29,10 @@ describe('the edit settings in storage', () => {
       // A field emptied before Apply was saved as null; it is dropped, so the edit takes its default.
       lastValues: { gain: { db: -6 }, normalize: { peakDb: -1, linked: 0 }, insert: {} },
       loop: true,
-      // Not saved before: off.
+      // Not saved before: off, and the waveform.
       snap: { beats: false, zero: false },
+      lanes: 'waveform',
+      spectrum: DEFAULT_WAVE_EDIT_SETTINGS.spectrum,
     })
   })
 
@@ -41,6 +43,15 @@ describe('the edit settings in storage', () => {
     expect(settings().snap).toEqual(DEFAULT_WAVE_EDIT_SETTINGS.snap)
     useWaveEditSettings.getState().setSnap({ zero: true })
     expect(settings().snap).toEqual({ beats: false, zero: true })
+  })
+
+  it('reads the lanes and the spectrogram under their keys, and refuses a bad one', () => {
+    restore({ 'sfxlab:wave-lanes': '"split"', 'sfxlab:wave-spectrum': '{"scale":"linear","fftSize":1024,"floorDb":-80}' })
+    expect(settings().lanes).toBe('split')
+    expect(settings().spectrum).toEqual({ scale: 'linear', fftSize: 1024, floorDb: -80 })
+    restore({ 'sfxlab:wave-lanes': '"bars"', 'sfxlab:wave-spectrum': '{"scale":"mel","fftSize":1024,"floorDb":-80}' })
+    expect(settings().lanes).toBe(DEFAULT_WAVE_EDIT_SETTINGS.lanes)
+    expect(settings().spectrum).toEqual(DEFAULT_WAVE_EDIT_SETTINGS.spectrum)
   })
 
   it('keeps the defaults for missing, unreadable and bad values, field by field', () => {

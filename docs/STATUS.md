@@ -8,7 +8,7 @@ Where the project stands, in one page. Updated 2026-10-31. Update it whenever a 
 * **`main`** deploys to GitHub Pages on every push. It holds the performance-and-library work, the compressor and the
   demo-release candidate (project v9 at that point). The demo release has **not been tagged**: the
   human listening pass and the tag are still open ([BACKLOG](BACKLOG.md) V9).
-* **`feat/ui-redesign`** is the working branch for the workbench redesign: rounds 1 to 11c
+* **`feat/ui-redesign`** is the working branch for the workbench redesign: rounds 1 to 11c and part 1 of 11d
   are done on it and it is not merged into `main` yet. It writes project format **v12**, which `main`'s build refuses to open.
 
 Current file and storage versions are in [reference/formats-and-versions.md](reference/formats-and-versions.md).
@@ -25,7 +25,7 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 | Automation (clip, return and master), touch recording | Shipped; no automation on groups yet | [control-and-automation](architecture/control-and-automation.md) |
 | Browser MIDI input and learn | Shipped; physical hardware not verified | [midi](architecture/midi.md) |
 | Arrangement timeline (prototype) | Shipped; the full editor is round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
-| Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse, markers, regions, the sampler's loop, snap, *Revert to original*, a second pane) | Shipped through 11c; the spectrum is 11d | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
+| Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse, markers, regions, the sampler's loop, snap, *Revert to original*, a second pane, a spectrogram) | Shipped through 11d part 1; band selection and spectral edits are 11d part 2 | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
 | Snapshots, presets, personal library, `.sfxlib` bundles | Shipped | [library-and-presets](architecture/library-and-presets.md) |
 | Workbench: docking shell, views, layouts, actions, drag and drop, command palette, keys | Shipped (redesign rounds 1–6, 9–10) | [workbench](architecture/workbench.md) |
 | Offline WAV export | Shipped | [audio-export](architecture/audio-export.md) |
@@ -33,9 +33,13 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 
 ## Now and next
 
-1. **Round 11d: the spectrogram and spectral edits** in the wave editor, specified in
-   [active/SPEC-wave-editor-handling-and-spectrum.md](active/SPEC-wave-editor-handling-and-spectrum.md) (signed off
-   2026-10-29); not planned yet. Round 11c is done, in three parts (2026-10-31): handling (a grouped toolbar, the
+1. **Round 11d, part 2: spectral selection and edits** in the wave editor (a frequency band on the selection, band
+   gain and keep band), specified in
+   [active/SPEC-wave-editor-handling-and-spectrum.md](active/SPEC-wave-editor-handling-and-spectrum.md) (§ 8, signed
+   off 2026-10-29); planned ([plan](active/PLAN-round-11d-2-spectral-edits.md), signed off 2026-10-31, not started). **Part 1 is done** (2026-10-31,
+   [plan](archive/ui-redesign/PLAN-round-11d-1-spectrogram.md)): the spectral core (FFT, windows, STFT and overlap-add), a spectrum
+   pyramid computed in a Web Worker and updated after edits, *Waveform*, *Spectrogram* and *Split* lanes with a
+   frequency scale and settings in ⚙, and columns computed on demand when zoomed in. Round 11c is done, in three parts (2026-10-31): handling (a grouped toolbar, the
    right-click menu, keys, the mouse, a status bar and a level scale), markers, regions, snap, *Revert to original* and
    the sampler's loop points with format v12, and a second pane
    ([part 1](archive/ui-redesign/PLAN-round-11c-1-handling.md),
@@ -68,8 +72,8 @@ Each of these is a backlog item:
 * Keyboard shortcuts pressed by hand in Chrome, Firefox and Safari (round 10). Every cell of that round's browser
   table is still "not checked".
 * The wave editor's keys, middle-drag, edge drags, auto-scroll and Shift+F10 menu by hand (round 11c-1), and its
-  mark drags, Alt with a drag, rename in place and folded mark lane (round 11c-2); Playwright drove them in Chromium
-  only.
+  mark drags, Alt with a drag, rename in place and folded mark lane (round 11c-2), and the spectrogram's colors, scale
+  and fill-in (round 11d-1); Playwright drove them in Chromium only.
 * Firefox and Safari for anything in the redesign: Safari loading float WAV, stereo MP3, Shift+F10.
 * Manual listening passes for rounds 11a and 11b, and a looped sampler (11c-2). The bounce hashes and audio specs stand
   in for them.

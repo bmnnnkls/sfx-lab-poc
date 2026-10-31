@@ -1,7 +1,7 @@
 import { createDeferredPersonalLibrary } from './library-service'
 import { createLibraryStorage, createMemoryLibraryStorage, createMemorySampleStorage } from '@storage'
 import { createMidiInput } from './midi-input'
-import { AudioHost } from '@audio'
+import { AudioHost, createSpectrumService } from '@audio'
 import type { EngineControls, ProjectFiles } from '@state'
 import { ProjectStorage, createMemorySampleEditLog, resolveBrowserStore, resolveSampleEditLog, resolveSampleStorage } from '@storage'
 import { createEngineControls } from './engine-controls'
@@ -9,6 +9,7 @@ import { createProjectFiles } from './project-files'
 import { restoreSavedProject } from './restore-project'
 import { scheduleSampleCleanup } from './sample-cleanup'
 import { type SampleLibraryService, createSampleLibrary } from './sample-library'
+import { type WaveSpectra, createWaveSpectra } from './wave-spectrum'
 import { useProjectStore } from '@state'
 
 export interface Services {
@@ -20,6 +21,8 @@ export interface Services {
   readonly engineControls: EngineControls
   readonly projectFiles: ProjectFiles
   readonly sampleLibrary: SampleLibraryService
+  /** The spectra of the samples the Wave editor shows, while its lanes show the spectrogram. */
+  readonly waveSpectra: WaveSpectra
   /** Schedules the cleanup of files edits wrote that nothing names any more, once; returns a cancel. */
   readonly cleanUpSamples: () => () => void
 }
@@ -38,6 +41,7 @@ export const createServices = (): Services => {
   const library = createDeferredPersonalLibrary(libraryStorage, sampleStorage)
   const sampleEdits = typeof indexedDB === 'undefined' ? createMemorySampleEditLog() : resolveSampleEditLog()
   const sampleLibrary = createSampleLibrary(sampleStorage, host, { edits: sampleEdits })
+  const waveSpectra = createWaveSpectra(createSpectrumService())
   const projectFiles = createProjectFiles(storage, sampleStorage, engineControls)
   const midi = createMidiInput(engineControls, undefined, () => { void host.start() })
   const cleanUpSamples = () =>
@@ -49,5 +53,5 @@ export const createServices = (): Services => {
       history: () => useProjectStore.getState().history,
       now: Date.now,
     })
-  return { cleanUpSamples, library, host, storage, persistent, engineControls: { ...engineControls, stop: () => { midi.releaseNotes(); engineControls.stop() }, panic: midi.panic }, projectFiles, sampleLibrary, midi }
+  return { cleanUpSamples, library, host, waveSpectra, storage, persistent, engineControls: { ...engineControls, stop: () => { midi.releaseNotes(); engineControls.stop() }, panic: midi.panic }, projectFiles, sampleLibrary, midi }
 }

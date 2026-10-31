@@ -58,7 +58,7 @@ These are per-browser preferences, not versioned. Each read must tolerate a miss
 
 `sfxlab:main-view`, `sfxlab:editor-height`, `sfxlab:arrangement-zoom`, `sfxlab:welcomed`, `sfxlab:groove`,
 `sfxlab:roll-*` (zoom, velocity, grid, follow, audition), `sfxlab:wave-*` (ruler, ruler-tempo, loop, fade-curve,
-crossfade, edit-settings, edit-copies, snap, second-pane), `sfxlab:corrupt` (a project that failed to load, kept for recovery),
+crossfade, edit-settings, edit-copies, snap, second-pane, lanes, spectrum), `sfxlab:corrupt` (a project that failed to load, kept for recovery),
 `sfxlab:probe` (storage availability check).
 
 ## Size limits

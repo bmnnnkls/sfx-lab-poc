@@ -144,15 +144,18 @@ const CASES: readonly Case[] = [
   },
   {
     title: 'Wave editor',
-    state: 'two panes',
+    state: 'two panes, split lanes',
     min: EDITOR,
     prepare: async (page, root) => {
       await openDemoSample(page, root)
       await root.getByRole('button', { name: 'View', exact: true }).click()
       await page.getByRole('menuitemcheckbox', { name: 'Second pane', exact: true }).click()
       await expect(root.getByTestId('wave-pane-second')).toBeVisible()
+      await root.getByRole('button', { name: 'View', exact: true }).click()
+      await page.getByRole('menuitemcheckbox', { name: 'Split', exact: true }).click()
+      await expect(root.getByTestId('wave-pane-second').getByTestId('wave-detail')).toHaveAttribute('data-spectrum', /levels|stretched|pending/)
     },
-    // Both panes keep their scrollbar, mark lane and lanes; under 300 px of height they fold to fit.
+    // Both panes keep their scrollbar, mark lane and lanes (the waveform over the spectrogram); under 300 px of height they fold to fit.
     controls: (root) => [
       root.getByRole('button', { name: 'Close sample', exact: true }),
       root.getByRole('button', { name: 'Crop', exact: true }),
