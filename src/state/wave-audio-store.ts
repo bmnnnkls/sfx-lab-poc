@@ -11,6 +11,8 @@ export interface WaveAudio {
   readonly viewKey: string
   readonly audio: SampleAudio
   readonly pyramid: PeakPyramid
+  /** The sample this one was made from by an edit, and the frames the edit changed: what its spectrum is updated from. */
+  readonly editedFrom?: { readonly sampleId: string; readonly changed: { readonly from: number; readonly to: number } }
 }
 
 interface WaveAudioState {

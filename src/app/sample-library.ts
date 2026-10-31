@@ -427,7 +427,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     let made: { audio: SampleAudio; pyramid: PeakPyramid } | null = null
     const working = (into: WavePane, origin: string): WaveAudio => {
       made ??= { audio, pyramid: source.pyramid ? updatePeakPyramid(source.pyramid, audio, changed) : buildPeakPyramid(audio) }
-      return { sampleId: id, pane: into, viewKey: waveViewKey(into, origin), ...made }
+      return { sampleId: id, pane: into, viewKey: waveViewKey(into, origin), ...made, editedFrom: { sampleId: info.id, changed } }
     }
     const from = { info, audio: source.audio }
 
