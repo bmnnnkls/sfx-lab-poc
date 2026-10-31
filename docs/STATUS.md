@@ -35,7 +35,8 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 
 1. **Round 11c, part 3: a second pane** in the wave editor, specified in
    [active/SPEC-wave-editor-handling-and-spectrum.md](active/SPEC-wave-editor-handling-and-spectrum.md) (signed off
-   2026-10-29), which is followed by round 11d: the spectrogram and spectral edits. Part 3 isn't planned yet. Part 1,
+   2026-10-29), which is followed by round 11d: the spectrogram and spectral edits. Part 3 is planned and waiting for
+   sign-off ([plan](active/PLAN-round-11c-3-second-pane.md)). Part 1,
    handling (a grouped toolbar, the right-click menu, keys, the mouse, a status bar and a level scale), and part 2,
    markers, regions, snap, *Revert to original* and the sampler's loop points with format v12, are done
    ([part 1](archive/ui-redesign/PLAN-round-11c-1-handling.md),
