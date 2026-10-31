@@ -1,5 +1,5 @@
 import { type SampleInfo, frameCount, originOf, tempoFromName } from '@core'
-import { useProjectStore, useSampleLibrary, useStatusStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
+import { type WaveZoom, useProjectStore, useSampleLibrary, useStatusStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
 import { useEffect, useRef } from 'react'
 import { useStoredState } from '../shared/use-stored-state'
 import { currentView } from './current-view'
@@ -8,7 +8,7 @@ import { EditToolbar } from './EditToolbar'
 import { Overview } from './Overview'
 import { Ruler } from './Ruler'
 import { formatTime, isRulerMode, isRulerTempo } from './ruler-ticks'
-import { zoomTo } from './wave-geometry'
+import { resolveZoom } from './wave-geometry'
 import styles from './WaveEditor.module.css'
 
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean'
@@ -30,7 +30,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
   const [ruler, setRuler] = useStoredState('sfxlab:wave-ruler', 'time', isRulerMode)
   const [rulerTempo, setRulerTempo] = useStoredState('sfxlab:wave-ruler-tempo', 'project', isRulerTempo)
   const [loop, setLoop] = useStoredState('sfxlab:wave-loop', false, isBoolean)
-  const zoomPending = useWaveEditorStore((state) => waveViewOf(state.views, key).zoomPending === true)
+  const zoomAsked = useWaveEditorStore((state) => waveViewOf(state.views, key).zoomTo !== undefined)
   const detail = useRef<HTMLDivElement>(null)
 
   const sampleTempo = tempoFromName(sample.name)
@@ -42,29 +42,23 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
     library.preview(sample.id, selection ? { from: selection.from, to: selection.to, loop } : { from: cursor, loop })
   }
 
-  const zoom = (range: { from: number; to: number } | null) => {
-    if (!wave) return
-    const frames = frameCount(wave.audio)
-    const store = useWaveEditorStore.getState()
-    if (!range) return store.setView(key, { framesPerPixel: null, startFrame: 0 })
-    const width = currentView(detail.current, wave).width
-    const next = zoomTo(range.from, range.to, width, frames)
-    store.setView(key, { framesPerPixel: next.framesPerPixel, startFrame: next.startFrame })
-  }
+  const zoom = (to: WaveZoom) => useWaveEditorStore.getState().zoom(key, to)
 
-  // An entry point asked to show a part of the sample: zoom to it once the detail has a width and the audio is here.
+  // A zoom was asked for (a button, a menu entry, a key, an entry point): do it once the detail has a width and the
+  // audio is here.
   useEffect(() => {
-    if (!zoomPending || !wave) return
+    if (!zoomAsked || !wave) return
     let frame = 0
     const tries = { left: 30 }
     const check = () => {
       if (!detail.current?.clientWidth && tries.left-- > 0) return void (frame = requestAnimationFrame(check))
-      zoom(waveViewOf(useWaveEditorStore.getState().views, key).selection)
-      useWaveEditorStore.getState().setView(key, { zoomPending: false })
+      const store = useWaveEditorStore.getState()
+      const asked = store.takeZoom(key)
+      if (asked) store.setView(key, resolveZoom(asked, currentView(detail.current, wave).width, frameCount(wave.audio)))
     }
     check()
     return () => cancelAnimationFrame(frame)
-  }, [zoomPending, wave, key])
+  }, [zoomAsked, wave, key])
 
   return (
     <div className={styles.editor} data-testid="sample-editor">
@@ -76,10 +70,10 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
         <button aria-pressed={loop} onClick={() => setLoop(!loop)} title="Loop the preview">
           Loop
         </button>
-        <button onClick={() => zoom(selection)} disabled={!wave || !selection} title="Zoom to the selection">
+        <button onClick={() => selection && zoom(selection)} disabled={!wave || !selection} title="Zoom to the selection">
           Zoom to selection
         </button>
-        <button onClick={() => zoom(null)} disabled={!wave} title="Show the whole sample">
+        <button onClick={() => zoom('fit')} disabled={!wave} title="Show the whole sample">
           Zoom to fit
         </button>
         <button onClick={() => setRuler(ruler === 'time' ? 'beats' : 'time')} title="Switch the ruler between time and bars and beats">
@@ -97,7 +91,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
         <button onClick={onClose} title="Close this sample">
           Close
         </button>
-        <EditToolbar sample={sample} wave={wave} selection={selection} cursor={cursor} />
+        <EditToolbar sample={sample} wave={wave} selection={selection} />
       </div>
       {wave ? (
         <>

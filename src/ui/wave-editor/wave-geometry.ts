@@ -1,5 +1,5 @@
 import type { WaveView } from '@core'
-import type { WaveEditorView } from '@state'
+import type { WaveEditorView, WaveZoom } from '@state'
 
 /** The closest zoom: 32 px per frame. */
 export const MIN_FRAMES_PER_PIXEL = 1 / 32
@@ -28,6 +28,13 @@ export const zoomAround = (view: WaveView, factor: number, x: number, frames: nu
 /** The view that shows frames `from` to `to` across the width. */
 export const zoomTo = (from: number, to: number, width: number, frames: number): WaveView =>
   clampView({ startFrame: from, framesPerPixel: Math.max(1, to - from) / Math.max(1, width), width }, frames)
+
+/** Where a zoom asked for (`useWaveEditorStore.zoom`) leaves the stored view: fitted, or showing the range. */
+export const resolveZoom = (zoom: WaveZoom, width: number, frames: number): Pick<WaveEditorView, 'framesPerPixel' | 'startFrame'> => {
+  if (zoom === 'fit') return { framesPerPixel: null, startFrame: 0 }
+  const next = zoomTo(zoom.from, zoom.to, width, frames)
+  return { framesPerPixel: next.framesPerPixel, startFrame: next.startFrame }
+}
 
 /** The frame under column `x` (fractional columns are fine), inside the sample. */
 export const frameAt = (view: WaveView, x: number, frames: number): number =>

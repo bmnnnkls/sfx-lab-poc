@@ -98,7 +98,7 @@ describe('session clip', () => {
     const frames = savedFrameCount(sample)
     expect(waveViewOf(useWaveEditorStore.getState().views, originOf(sample))).toMatchObject({
       selection: { from: Math.round(frames * 0.25), to: Math.round(frames * 0.5), channels: 'both' },
-      zoomPending: true,
+      zoomTo: { from: Math.round(frames * 0.25), to: Math.round(frames * 0.5) },
     })
     // A clip whose sample left the library can't open it.
     useProjectStore.getState().resetProject({ ...project(), samples: [] })

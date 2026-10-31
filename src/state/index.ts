@@ -34,6 +34,7 @@ export {
   type WaveChannels,
   type WaveEditorView,
   type WaveSelection,
+  type WaveZoom,
   useWaveEditorStore,
   waveViewOf,
 } from './wave-editor-store'
@@ -50,6 +51,8 @@ export { useRenameStore, sameSubject, type Renaming } from './rename-store'
 export { useLibraryStore } from './library-store'
 export { createClipboard, subscribeToClipboards, useClipboard, type Clipboard } from './clipboard'
 export { audioClipboard, copyWaveSelection } from './audio-clipboard'
+export { DEFAULT_WAVE_EDIT_SETTINGS, type EditValues, type WaveEditSettings, useWaveEditSettings } from './wave-edit-settings'
+export * from './wave-edits'
 
 export { editAutomationSlot, editOwnerAutomation } from './automation-store'
 

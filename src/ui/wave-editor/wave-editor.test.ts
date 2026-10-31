@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_WAVE_VIEW } from '@state'
 import { formatBeat, formatTime, rulerTicks } from './ruler-ticks'
-import { MIN_FRAMES_PER_PIXEL, clampView, frameAt, resolveView, xOf, zoomAround, zoomTo } from './wave-geometry'
+import { MIN_FRAMES_PER_PIXEL, clampView, frameAt, resolveView, resolveZoom, xOf, zoomAround, zoomTo } from './wave-geometry'
 
 const FRAMES = 480_000 // 10 s at 48 kHz
 
@@ -51,5 +51,12 @@ describe('the ruler', () => {
     expect(rulerTicks({ startFrame: 0, framesPerPixel: 480, width: 400 }, 48000, 'beats', 120).map((tick) => tick.label)).toEqual(['1.1', '1.3', '2.1', '2.3', '3.1'])
     // 60 BPM: twice as far apart, a label every beat.
     expect(rulerTicks({ startFrame: 0, framesPerPixel: 480, width: 400 }, 48000, 'beats', 60).map((tick) => tick.label)).toEqual(['1.1', '1.2', '1.3', '1.4', '2.1'])
+  })
+})
+
+describe('a zoom asked for', () => {
+  it('fits the sample, or shows the range across the width', () => {
+    expect(resolveZoom('fit', 1000, FRAMES)).toEqual({ framesPerPixel: null, startFrame: 0 })
+    expect(resolveZoom({ from: 1000, to: 1500 }, 1000, FRAMES)).toEqual({ framesPerPixel: 0.5, startFrame: 1000 })
   })
 })

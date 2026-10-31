@@ -30,8 +30,31 @@ describe('reveal', () => {
   it('selects a part, puts the cursor at its start and asks the editor to zoom to it once', () => {
     useWaveEditorStore.getState().reveal('origin', { from: 300, to: 100, channels: 'both' })
     const view = waveViewOf(useWaveEditorStore.getState().views, 'origin')
-    expect(view).toMatchObject({ selection: { from: 100, to: 300, channels: 'both' }, cursor: 100, zoomPending: true })
-    useWaveEditorStore.getState().setView('origin', { zoomPending: false })
-    expect(waveViewOf(useWaveEditorStore.getState().views, 'origin').zoomPending).toBe(false)
+    expect(view).toMatchObject({ selection: { from: 100, to: 300, channels: 'both' }, cursor: 100, zoomTo: { from: 100, to: 300 } })
+    expect(useWaveEditorStore.getState().takeZoom('origin')).toEqual({ from: 100, to: 300 })
+    expect(waveViewOf(useWaveEditorStore.getState().views, 'origin').zoomTo).toBeUndefined()
+  })
+})
+
+describe('zoom', () => {
+  it('asks for a zoom once: the editor takes it, and taking it again finds nothing', () => {
+    useWaveEditorStore.getState().zoom('a', 'fit')
+    expect(view('a').zoomTo).toBe('fit')
+    expect(useWaveEditorStore.getState().takeZoom('a')).toBe('fit')
+    expect(useWaveEditorStore.getState().takeZoom('a')).toBeUndefined()
+    useWaveEditorStore.getState().zoom('a', { from: 10, to: 20 })
+    useWaveEditorStore.getState().zoom('a', { from: 30, to: 40 })
+    expect(useWaveEditorStore.getState().takeZoom('a')).toEqual({ from: 30, to: 40 })
+    expect(useWaveEditorStore.getState().takeZoom('b')).toBeUndefined()
+  })
+})
+
+describe('ask', () => {
+  it("opens and closes an edit's settings popover in the sample's view", () => {
+    useWaveEditorStore.getState().ask('a', 'gain')
+    expect(view('a').asking).toBe('gain')
+    expect(view('b').asking).toBeUndefined()
+    useWaveEditorStore.getState().ask('a', null)
+    expect(view('a').asking).toBeNull()
   })
 })
