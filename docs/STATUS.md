@@ -36,7 +36,7 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 1. **Round 11d, part 2: spectral selection and edits** in the wave editor (a frequency band on the selection, band
    gain and keep band), specified in
    [active/SPEC-wave-editor-handling-and-spectrum.md](active/SPEC-wave-editor-handling-and-spectrum.md) (§ 8, signed
-   off 2026-10-29); planned, waiting for sign-off ([plan](active/PLAN-round-11d-2-spectral-edits.md)). **Part 1 is done** (2026-10-31,
+   off 2026-10-29); planned ([plan](active/PLAN-round-11d-2-spectral-edits.md), signed off 2026-10-31, not started). **Part 1 is done** (2026-10-31,
    [plan](archive/ui-redesign/PLAN-round-11d-1-spectrogram.md)): the spectral core (FFT, windows, STFT and overlap-add), a spectrum
    pyramid computed in a Web Worker and updated after edits, *Waveform*, *Spectrogram* and *Split* lanes with a
    frequency scale and settings in ⚙, and columns computed on demand when zoomed in. Round 11c is done, in three parts (2026-10-31): handling (a grouped toolbar, the

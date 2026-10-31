@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-10-31
-note: "Plan written 2026-10-31, waiting for sign-off. Part 5 of the handling-and-spectrum spec (round 11d, part 2): a frequency band on the selection, band gain and keep band."
+note: "Plan signed off 2026-10-31 as proposed; not started. Part 5 of the handling-and-spectrum spec (round 11d, part 2): a frequency band on the selection, band gain and keep band."
 ---
 # Round 11d, part 2: spectral selection and edits
 
-Status: **plan, waiting for sign-off.** Written 2026-10-31. Part of the [UI redesign](ui-redesign-roadmap.md). Carries
+Status: **plan, signed off** 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the [UI redesign](ui-redesign-roadmap.md). Carries
 out part 5 of the signed-off [handling and spectrum spec](SPEC-wave-editor-handling-and-spectrum.md) (§ 8, § Suggested
 split): a selection with a frequency band, drawn as a box in the spectrogram, and the two spectral edits, band gain and
 keep band, that change only that band. The inventory was taken on `imp/jolly-rhodes-4ca064` at `d82cf25` (round 11d
@@ -224,6 +224,8 @@ No engine change, so `npm run test:audio` runs only at the end. **Holds** names 
   on real material (ringing, the feathers), both themes.
 
 ## Decisions to sign off
+
+Signed off 2026-10-31: every row as proposed.
 
 | Question | Proposed | Alternative |
 |---|---|---|

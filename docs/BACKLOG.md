@@ -12,8 +12,8 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
 
 - **U9 Round 11d, part 2: spectral selection and edits** in the wave editor
   ([spec](active/SPEC-wave-editor-handling-and-spectrum.md) § 8, signed off): a frequency band on the selection,
-  drawn as a box in the spectrogram, band gain and keep band as added differences; planned, waiting for sign-off
-  ([plan](active/PLAN-round-11d-2-spectral-edits.md)). Part 1 (the spectral core and a
+  drawn as a box in the spectrogram, band gain and keep band as added differences; planned
+  ([plan](active/PLAN-round-11d-2-spectral-edits.md), signed off, not started). Part 1 (the spectral core and a
   read-only spectrogram) is done ([plan](archive/ui-redesign/PLAN-round-11d-1-spectrogram.md)).
 - **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline (groups are
   control owners but not automation owners yet), recording into the arrangement (touch recording on the timeline).
