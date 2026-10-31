@@ -23,8 +23,8 @@ import styles from './WaveEditor.module.css'
  * (`waveKeyAction`), and the mouse is `useWaveGestures`.
  */
 /** The frames `[` and `]` step between: every marker, region edge and loop edge of the open sample. */
-const markFrames = (sampleId: string): number[] => {
-  const sample = openWave(sampleId)?.sample
+const markFrames = (wave: WaveAudio): number[] => {
+  const sample = openWave(wave)?.sample
   if (!sample) return []
   const { markers, regions, loop } = marksOf(sample)
   return [...markers.map((marker) => marker.frame), ...regions.flatMap((region) => [region.from, region.to]), ...(loop ? [loop.from, loop.to] : [])]
@@ -40,7 +40,7 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
   const handles = useMemo(() => audio.channels.map((_, index) => (lane: WaveLaneHandle | null) => void (lanes.current[index] = lane)), [audio])
   const gestures = useWaveGestures(wave, snap)
   const context = useActionContext()
-  const subject = useMemo<Subject>(() => ({ kind: 'sample-selection', sampleId: wave.sampleId }), [wave.sampleId])
+  const subject = useMemo<Subject>(() => ({ kind: 'sample-selection', sampleId: wave.sampleId, pane: wave.pane }), [wave.sampleId, wave.pane])
   const library = useSampleLibrary()
 
   // Draws the lanes from the store, at most once per animation frame.
@@ -54,7 +54,7 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
       const columns = columnsFor(view, pyramid, audio)
       element.dataset.draw = columns.kind
       const { cursor, selection } = waveViewOf(useWaveEditorStore.getState().views, viewKey)
-      const sample = openWave(wave.sampleId)?.sample
+      const sample = openWave(wave)?.sample
       const lines = sample ? markLines(view, marksOf(sample)) : { markers: [], edges: [] }
       lanes.current.forEach((lane, channel) => {
         const covers = selection && coversChannel(selection, channel)
@@ -132,14 +132,14 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
           // The view keys (`waveKeyAction`); anything else goes on to the global keys and the browser.
           const key = keyOf(event, IS_APPLE)
           const store = useWaveEditorStore.getState()
-          const action = key && waveKeyAction(key, waveViewOf(store.views, viewKey), frames, event.currentTarget.clientWidth, markFrames(wave.sampleId))
+          const action = key && waveKeyAction(key, waveViewOf(store.views, viewKey), frames, event.currentTarget.clientWidth, markFrames(wave))
           if (!action) return
           event.preventDefault()
           if (event.repeat && (action.play || action.zoom || action.mark)) return
           if (action.selection !== undefined) store.select(viewKey, action.selection)
           if (action.cursor !== undefined || action.view) store.setView(viewKey, { ...(action.cursor !== undefined && { cursor: action.cursor }), ...action.view })
           if (action.zoom) store.zoom(viewKey, action.zoom)
-          if (action.play) toggleWavePreview(library, wave.sampleId)
+          if (action.play) toggleWavePreview(library, wave)
           if (action.mark) void runAction(MARK_ACTIONS[action.mark], subject, context)
         }}
         {...gestures}

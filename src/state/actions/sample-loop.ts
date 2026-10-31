@@ -7,7 +7,7 @@ import type { Action, SubjectOf } from './types'
 
 type LoopSubject = SubjectOf<'sample-loop'>
 
-const loopOf = ({ sampleId }: LoopSubject) => openWave(sampleId)?.sample.loop
+const loopOf = (subject: LoopSubject) => openWave(subject)?.sample.loop
 const exists = (subject: LoopSubject) => loopOf(subject) !== undefined
 
 const actions: readonly Action<LoopSubject>[] = [
@@ -18,7 +18,7 @@ const actions: readonly Action<LoopSubject>[] = [
     tooltip: () => 'Select the loop',
     run: (subject) => {
       const loop = loopOf(subject)
-      if (loop) selectWaveRange(subject.sampleId, loop)
+      if (loop) selectWaveRange(subject, loop)
     },
   },
   {
@@ -44,7 +44,7 @@ const actions: readonly Action<LoopSubject>[] = [
     group: 'view',
     run: (subject) => {
       const loop = loopOf(subject)
-      if (loop) zoomWaveTo(subject.sampleId, loop)
+      if (loop) zoomWaveTo(subject, loop)
     },
   },
 ]

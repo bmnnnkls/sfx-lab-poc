@@ -1,6 +1,7 @@
 import { frameCount, moveLoop, moveMarker, updateRegion } from '@core'
 import {
   type Subject,
+  type WaveAt,
   type WaveAudio,
   goToWaveFrame,
   openWave,
@@ -37,14 +38,14 @@ interface Press {
 }
 
 /** The subject of what the pointer is on, for the lane's menu and keys: the mark, or the selection over empty lane. */
-export const subjectOfHit = (sampleId: string, hit: MarkHit): Subject =>
+export const subjectOfHit = ({ sampleId, pane }: WaveAt, hit: MarkHit): Subject =>
   hit?.kind === 'marker'
-    ? { kind: 'sample-marker', sampleId, markerId: hit.id }
+    ? { kind: 'sample-marker', sampleId, pane, markerId: hit.id }
     : hit?.kind === 'region'
-      ? { kind: 'sample-region', sampleId, regionId: hit.id }
+      ? { kind: 'sample-region', sampleId, pane, regionId: hit.id }
       : hit?.kind === 'loop'
-        ? { kind: 'sample-loop', sampleId }
-        : { kind: 'sample-selection', sampleId }
+        ? { kind: 'sample-loop', sampleId, pane }
+        : { kind: 'sample-selection', sampleId, pane }
 
 /**
  * The mark lane's mouse: drag a marker to move it, or a region's or the loop's edge to move that edge, each drag one
@@ -66,7 +67,7 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
   useEffect(() => () => stopScrolling(), [])
 
   const marks = () => {
-    const open = openWave(sampleId)
+    const open = openWave(wave)
     return open ? marksOf(open.sample) : { markers: [], regions: [], loop: null }
   }
   const xOfEvent = (event: MouseEvent<HTMLElement>) => event.clientX - event.currentTarget.getBoundingClientRect().left
@@ -126,13 +127,13 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
   const click = (element: HTMLElement, hit: MarkHit, x: number, alt: boolean) => {
     if (hit?.kind === 'region') {
       const region = marks().regions.find((candidate) => candidate.id === hit.id)
-      if (region) selectWaveRange(sampleId, region)
+      if (region) selectWaveRange(wave, region)
     } else if (hit?.kind === 'loop') {
       const loop = marks().loop
-      if (loop) selectWaveRange(sampleId, loop)
+      if (loop) selectWaveRange(wave, loop)
     } else if (hit?.kind === 'marker') {
       const marker = marks().markers.find((candidate) => candidate.id === hit.id)
-      if (marker) goToWaveFrame(sampleId, marker.frame)
+      if (marker) goToWaveFrame(wave, marker.frame)
     } else {
       const store = useWaveEditorStore.getState()
       store.select(viewKey, null)
@@ -147,7 +148,7 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
       const x = xOfEvent(event)
       const view = currentView(element, wave)
       const hit = markAt(view, marks(), x)
-      onSubject(subjectOfHit(sampleId, hit))
+      onSubject(subjectOfHit(wave, hit))
       if (event.button !== 0) return
       // A marker is drawn over the edges, so it is what a press there takes.
       const grip: Grip = hit?.kind === 'marker' ? hit : markEdgeAt(view, marks(), x)
@@ -180,12 +181,12 @@ export const useMarkGestures = (wave: WaveAudio, onSubject: (subject: Subject) =
     onDoubleClick: (event: MouseEvent<HTMLElement>) => {
       if (event.button !== 0) return
       const hit = markAt(currentView(event.currentTarget, wave), marks(), xOfEvent(event))
-      if (hit?.kind === 'marker' || hit?.kind === 'region') void runAction(`sample-${hit.kind}.rename`, subjectOfHit(sampleId, hit), context)
+      if (hit?.kind === 'marker' || hit?.kind === 'region') void runAction(`sample-${hit.kind}.rename`, subjectOfHit(wave, hit), context)
     },
     /** The right-click's subject, before the menu opens. */
     onContextMenu: (event: MouseEvent<HTMLElement>) => {
       const hit = markAt(currentView(event.currentTarget, wave), marks(), xOfEvent(event))
-      onSubject(subjectOfHit(sampleId, hit))
+      onSubject(subjectOfHit(wave, hit))
       if (!hit) {
         // Over empty lane the menu is the selection's: it acts at the cursor, put where the click was.
         const store = useWaveEditorStore.getState()

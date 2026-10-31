@@ -14,9 +14,9 @@ const actions: readonly Action<MarkerSubject>[] = [
     title: 'Go to',
     group: 'open',
     tooltip: () => 'Put the cursor at the marker',
-    run: ({ sampleId, markerId }) => {
-      const marker = markerOf(sampleId, markerId)
-      if (marker) goToWaveFrame(sampleId, marker.frame)
+    run: (subject) => {
+      const marker = markerOf(subject.sampleId, subject.markerId)
+      if (marker) goToWaveFrame(subject, marker.frame)
     },
   },
   renameAction('sample-marker'),

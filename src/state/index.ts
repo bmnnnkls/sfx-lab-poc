@@ -29,6 +29,7 @@ export {
 } from './persistence-store'
 export { useSampleStore, type SampleStatus } from './sample-store'
 export { type WaveAudio, useWaveAudioStore } from './wave-audio-store'
+export { DEFAULT_SECOND_PANE, type SecondPane, WAVE_PANES, type WaveAt, type WavePane, paneSampleId, useWavePanesStore, waveViewKey } from './wave-panes'
 export {
   DEFAULT_WAVE_VIEW,
   type WaveChannels,

@@ -16,28 +16,32 @@ import type { SampleLibrary } from './sample-library'
 import { type WaveAudio, useWaveAudioStore } from './wave-audio-store'
 import { type EditValues, useWaveEditSettings } from './wave-edit-settings'
 import { type WaveEditorView, type WaveSelection, useWaveEditorStore, waveViewOf } from './wave-editor-store'
+import { type WaveAt, waveViewKey } from './wave-panes'
 
 /**
  * The Wave editor's edits, for the toolbar, the right-click menu, the palette and the keys alike: what an edit is made
  * from, why it can't run now, and running it through `SampleLibrary.editSample`. Nothing else builds an edit.
  */
 
-/** A library sample as the editor has it: its working copy when that is loaded, and its view. */
+/** A library sample as a pane of the editor has it: the pane's working copy when that is loaded, and the pane's view. */
 export interface OpenWave {
   readonly sample: SampleInfo
   readonly wave: WaveAudio | null
-  /** The view's key (the sample's origin). */
+  /** The view's key (the pane and the sample's origin). */
   readonly key: string
   readonly view: WaveEditorView
 }
 
-/** A sample of the project, with its working copy if it is the one open in the editor; undefined when it is gone. */
-export const openWave = (sampleId: string): OpenWave | undefined => {
+/**
+ * A sample of the project as a pane has it, with the pane's working copy if that is the sample's; undefined when the
+ * sample is gone. `at` is a subject of the editor or a working copy: both say which sample in which pane.
+ */
+export const openWave = ({ sampleId, pane }: WaveAt): OpenWave | undefined => {
   const sample = useProjectStore.getState().project.samples.find((candidate) => candidate.id === sampleId)
   if (!sample) return undefined
   const current = useWaveAudioStore.getState().current
-  const key = originOf(sample)
-  return { sample, wave: current?.sampleId === sampleId ? current : null, key, view: waveViewOf(useWaveEditorStore.getState().views, key) }
+  const key = waveViewKey(pane, originOf(sample))
+  return { sample, wave: current?.sampleId === sampleId && current.pane === pane ? current : null, key, view: waveViewOf(useWaveEditorStore.getState().views, key) }
 }
 
 /** What decides whether an edit can run now. */
@@ -108,32 +112,32 @@ export interface WaveEditOptions {
   readonly curve?: FadeCurve
 }
 
-/** Runs an edit on a sample open in the editor, unless it can't run now. Resolves when the edit has landed or failed. */
-export const runWaveEdit = (library: SampleLibrary, sampleId: string, kind: SampleEditKind, options: WaveEditOptions = {}): Promise<void> | undefined => {
-  const open = openWave(sampleId)
+/** Runs an edit on a sample open in a pane, unless it can't run now. Resolves when the edit has landed or failed. */
+export const runWaveEdit = (library: SampleLibrary, at: WaveAt, kind: SampleEditKind, options: WaveEditOptions = {}): Promise<void> | undefined => {
+  const open = openWave(at)
   const entry = sampleEditEntry(kind) as unknown as SampleEditEntry
   if (!open || waveEditBlocked(entry, waveEditFacts(open.sample, open.wave, open.view.selection)) !== null) return undefined
   const settings = useWaveEditSettings.getState()
   if (options.values) settings.setLastValues(kind, options.values)
   if (options.curve) settings.setFadeCurve(options.curve)
   const edit = entry.create(waveEditContext(open, options.values), options.variant)
-  return edit ? library.editSample(sampleId, edit, { asCopy: useWaveEditSettings.getState().asCopy }) : undefined
+  return edit ? library.editSample(at.sampleId, edit, { asCopy: useWaveEditSettings.getState().asCopy, pane: at.pane }) : undefined
 }
 
 /** *Copy*: the selection to the audio clipboard. Says whether it copied. */
-export const copyWave = (sampleId: string): boolean => {
-  const open = openWave(sampleId)
+export const copyWave = (at: WaveAt): boolean => {
+  const open = openWave(at)
   if (!open?.wave || !open.view.selection) return false
   copyWaveSelection(open.wave, open.view.selection)
   return true
 }
 
 /** *Cut*: Copy, then Delete (one undo step), unless the delete can't run. */
-export const cutWave = (library: SampleLibrary, sampleId: string): Promise<void> | undefined => {
-  const open = openWave(sampleId)
+export const cutWave = (library: SampleLibrary, at: WaveAt): Promise<void> | undefined => {
+  const open = openWave(at)
   if (!open || waveCutBlocked(waveEditFacts(open.sample, open.wave, open.view.selection)) !== null) return undefined
-  copyWave(sampleId)
-  return runWaveEdit(library, sampleId, 'delete')
+  copyWave(at)
+  return runWaveEdit(library, at, 'delete')
 }
 
 /** Why *Revert to original* can't run on a sample now, or null. */
@@ -141,7 +145,7 @@ export const waveRevertBlocked = (sample: SampleInfo, busy = useWaveAudioStore.g
   busy ? 'An edit is running' : revertBlocked(sample)
 
 /** *Revert to original*, unless it can't run now. Resolves when it has landed or failed. */
-export const revertWave = (library: SampleLibrary, sampleId: string): Promise<void> | undefined => {
-  const open = openWave(sampleId)
-  return open && waveRevertBlocked(open.sample) === null ? library.revertSample(sampleId) : undefined
+export const revertWave = (library: SampleLibrary, at: WaveAt): Promise<void> | undefined => {
+  const open = openWave(at)
+  return open && waveRevertBlocked(open.sample) === null ? library.revertSample(at.sampleId, at.pane) : undefined
 }

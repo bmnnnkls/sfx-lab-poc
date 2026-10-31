@@ -16,15 +16,16 @@ const audioOf = (channels: number): SampleAudio => ({
   channels: Array.from({ length: channels }, () => Float32Array.from({ length: 800 }, (_, i) => Math.sin(i / 10) / 2)),
 })
 const stereo: SampleInfo = { id: 'stereo', name: 'Pad', extension: 'wav', durationSeconds: 0.1, sampleRate: RATE, channels: 2, bytes: 1000 }
-const subject: Subject = { kind: 'sample-selection', sampleId: stereo.id }
+const subject: Subject = { kind: 'sample-selection', sampleId: stereo.id, pane: 'main' }
+const key = `main:${originOf(stereo)}`
 
 const open = (selection: WaveSelection | null) => {
   const audio = audioOf(2)
-  useWaveAudioStore.setState({ current: { sampleId: stereo.id, viewKey: originOf(stereo), audio, pyramid: buildPeakPyramid(audio) }, editing: null, loading: null })
-  useWaveEditorStore.getState().select(originOf(stereo), selection)
+  useWaveAudioStore.setState({ current: { sampleId: stereo.id, pane: 'main', viewKey: key, audio, pyramid: buildPeakPyramid(audio) }, editing: null, loading: null })
+  useWaveEditorStore.getState().select(key, selection)
   return audio
 }
-const view = () => waveViewOf(useWaveEditorStore.getState().views, originOf(stereo))
+const view = () => waveViewOf(useWaveEditorStore.getState().views, key)
 const items = (): Readonly<Record<string, ActionItem>> => Object.fromEntries(describeActions(subject, fakeContext()).map((item) => [item.id, item]))
 const both: WaveSelection = { from: 100, to: 300, channels: 'both' }
 
@@ -48,7 +49,7 @@ describe('the sample-selection actions', () => {
       'view: Select all', 'view: Zoom to selection', 'view: Zoom to fit', 'view: Play selection',
     ])
     expect(subjectName(subject)).toBe('Selection in Pad')
-    expect(describeActions({ kind: 'sample-selection', sampleId: 'gone' }, fakeContext())).toEqual([])
+    expect(describeActions({ kind: 'sample-selection', sampleId: 'gone', pane: 'main' }, fakeContext())).toEqual([])
   })
 
   it("build the processes from the registry's process entries, one for one, a fade once per variant", () => {

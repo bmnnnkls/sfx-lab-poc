@@ -101,8 +101,8 @@ const summaryOf = (marks: Marks) => {
  */
 export const MarkLane = memo(({ wave, detail, marks, snap }: { wave: WaveAudio; detail: RefObject<HTMLDivElement | null>; marks: Marks; snap: WaveSnap }) => {
   const canvas = useRef<HTMLCanvasElement>(null)
-  const { viewKey, sampleId } = wave
-  const [subject, setSubject] = useState<Subject>({ kind: 'sample-selection', sampleId })
+  const { viewKey, sampleId, pane } = wave
+  const [subject, setSubject] = useState<Subject>({ kind: 'sample-selection', sampleId, pane })
   const gestures = useMarkGestures(wave, setSubject, snap)
   const context = useActionContext()
   const renaming = useRenameStore((state) => (state.renaming?.origin === context.origin ? state.renaming.subject : null))
@@ -148,16 +148,17 @@ export const MarkLane = memo(({ wave, detail, marks, snap }: { wave: WaveAudio; 
   }, [wave, viewKey, detail, marks])
 
   const named = useMemo(() => {
-    if (renaming?.kind === 'sample-marker' && renaming.sampleId === sampleId) {
+    // A rename shows in the pane it was asked from.
+    if (renaming?.kind === 'sample-marker' && renaming.sampleId === sampleId && renaming.pane === pane) {
       const marker = marks.markers.find((candidate) => candidate.id === renaming.markerId)
       return marker && { subject: renaming, name: marker.name, frame: marker.frame, label: `Name of marker ${marker.name}` }
     }
-    if (renaming?.kind === 'sample-region' && renaming.sampleId === sampleId) {
+    if (renaming?.kind === 'sample-region' && renaming.sampleId === sampleId && renaming.pane === pane) {
       const region = marks.regions.find((candidate) => candidate.id === renaming.regionId)
       return region && { subject: renaming, name: region.name, frame: region.from, label: `Name of region ${region.name}` }
     }
     return undefined
-  }, [renaming, marks, sampleId])
+  }, [renaming, marks, sampleId, pane])
 
   return (
     <ActionMenu subject={subject}>

@@ -34,6 +34,7 @@ import {
   useSelectionStore,
   useWaveAudioStore,
   useWaveEditorStore,
+  waveViewKey,
   waveViewOf,
 } from '@state'
 import { type SampleEditLog, type SampleStorage, StorageFullError, createMemorySampleEditLog, freeBytes, sha256Hex } from '@storage'
@@ -143,14 +144,14 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     }
     if (waveAudio.current?.sampleId === sampleId || waveAudio.loading === sampleId) return
     const cached = copies.get(sampleId)
-    if (cached) return waveAudio.setCurrent({ ...cached, viewKey: originOf(info) })
+    if (cached) return waveAudio.setCurrent({ ...cached, pane: 'main', viewKey: waveViewKey('main', originOf(info)) })
     waveAudio.setLoading(sampleId)
     try {
       const bytes = await storage.get(bytesKeyOf(info))
       const audio = bytes ? (await decodeAudio(bytes)).audio : null
       // Another sample may have been opened meanwhile; that one's load wins.
       if (useWaveAudioStore.getState().loading !== sampleId) return
-      useWaveAudioStore.getState().setCurrent(audio && { sampleId, viewKey: originOf(info), audio, pyramid: buildPeakPyramid(audio) })
+      useWaveAudioStore.getState().setCurrent(audio && { sampleId, pane: 'main', viewKey: waveViewKey('main', originOf(info)), audio, pyramid: buildPeakPyramid(audio) })
     } catch {
       if (useWaveAudioStore.getState().loading === sampleId) useWaveAudioStore.getState().setCurrent(null)
     }
@@ -168,7 +169,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     const was = previous.find((sample) => sample.id === sampleId)
     const next = was && samples.find((sample) => originOf(sample) === originOf(was))
     if (!next) return
-    clampView(originOf(next), savedFrameCount(next))
+    clampView(waveViewKey('main', originOf(next)), savedFrameCount(next))
     useSelectionStore.getState().selectSample(next.id)
   }
 
@@ -295,8 +296,9 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
   const moveEditor = (from: { info: SampleInfo; audio: SampleAudio }, to: WaveAudio, edit: SampleEdit) => {
     useWaveAudioStore.getState().setCurrent(to)
     const store = useWaveEditorStore.getState()
-    const old = waveViewOf(store.views, originOf(from.info))
-    if (to.viewKey !== originOf(from.info)) store.setView(to.viewKey, old)
+    const fromKey = waveViewKey(to.pane, originOf(from.info))
+    const old = waveViewOf(store.views, fromKey)
+    if (to.viewKey !== fromKey) store.setView(to.viewKey, old)
     const after = afterEdit(edit, frameCount(from.audio))
     if (after !== 'keep') {
       const frames = frameCount(to.audio)
@@ -361,7 +363,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     // The pyramid redraws only what the edit changed.
     const pyramid = () =>
       source.pyramid ? updatePeakPyramid(source.pyramid, audio, changed) : buildPeakPyramid(audio)
-    const working = (key: string, sampleId: string): WaveAudio => ({ sampleId, viewKey: key, audio, pyramid: pyramid() })
+    const working = (origin: string, sampleId: string): WaveAudio => ({ sampleId, pane: 'main', viewKey: waveViewKey('main', origin), audio, pyramid: pyramid() })
 
     if (asCopy) {
       // Added while the editor still shows the original, then opened with its working copy in place: nothing decodes.
@@ -424,8 +426,8 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     const open = useSelectionStore.getState().sampleId === info.id
     if (open) {
       // The view is the origin's already; the cursor goes where it was in the original, and the selection goes.
-      const key = originOf(info)
-      useWaveAudioStore.getState().setCurrent({ sampleId: original.id, viewKey: key, audio, pyramid: buildPeakPyramid(audio) })
+      const key = waveViewKey('main', originOf(info))
+      useWaveAudioStore.getState().setCurrent({ sampleId: original.id, pane: 'main', viewKey: key, audio, pyramid: buildPeakPyramid(audio) })
       const store = useWaveEditorStore.getState()
       store.select(key, null)
       store.setView(key, { cursor: Math.max(0, Math.min(frames, Math.round(remap.start(waveViewOf(store.views, key).cursor)))) })

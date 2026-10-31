@@ -176,7 +176,7 @@ export const useWaveGestures = (wave: WaveAudio, snap: WaveSnap = (frame) => fra
     onDoubleClick: (event: MouseEvent<HTMLElement>) => {
       if (event.button !== 0) return
       const at = frameAt(currentView(event.currentTarget, wave), xOfEvent(event), frames)
-      const sample = openWave(wave.sampleId)?.sample
+      const sample = openWave(wave)?.sample
       const ranges = [...(sample?.regions ?? []), ...(sample?.loop ? [sample.loop] : [])].filter((range) => range.from <= at && at < range.to)
       const inner = ranges.sort((a, b) => a.to - a.from - (b.to - b.from))[0] ?? { from: 0, to: frames }
       useWaveEditorStore.getState().select(viewKey, { from: inner.from, to: inner.to, channels: channelsAt(event.currentTarget, event.clientY, stereo) })

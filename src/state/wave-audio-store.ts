@@ -1,10 +1,13 @@
 import type { PeakPyramid, SampleAudio } from '@core'
 import { create } from 'zustand'
+import type { WavePane } from './wave-panes'
 
 /** The decoded audio of the sample open in the Wave editor, and its peak pyramid. */
 export interface WaveAudio {
   readonly sampleId: string
-  /** What the editor's view is kept under (`useWaveEditorStore`): the sample's origin, so it follows edits and undo. */
+  /** The pane that shows it. */
+  readonly pane: WavePane
+  /** What the pane's view is kept under (`useWaveEditorStore`): the pane and the sample's origin (`waveViewKey`), so it follows edits and undo. */
   readonly viewKey: string
   readonly audio: SampleAudio
   readonly pyramid: PeakPyramid

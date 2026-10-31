@@ -3,6 +3,7 @@ import type { EngineControls } from '../engine-controls'
 import type { ViewId } from '../layout-store'
 import type { PersonalLibrary } from '../library'
 import type { SampleLibrary } from '../sample-library'
+import type { WavePane } from '../wave-panes'
 
 /** What was right-clicked: a small value with a kind and ids, never a component or a DOM element. */
 export type Subject =
@@ -25,10 +26,10 @@ export type Subject =
   | { readonly kind: 'control'; readonly targets: readonly ControlTarget[] }
   | { readonly kind: 'sound'; readonly soundId: string; readonly preset: boolean }
   | { readonly kind: 'pin'; readonly owner: ControlOwner; readonly graph: TrackGraph } // a front panel in the Pinned view
-  | { readonly kind: 'sample-selection'; readonly sampleId: string } // the Wave editor's lanes: the open sample's selection and cursor
-  | { readonly kind: 'sample-marker'; readonly sampleId: string; readonly markerId: string } // in the Wave editor's mark lane
-  | { readonly kind: 'sample-region'; readonly sampleId: string; readonly regionId: string }
-  | { readonly kind: 'sample-loop'; readonly sampleId: string }
+  | { readonly kind: 'sample-selection'; readonly sampleId: string; readonly pane: WavePane } // a Wave editor pane's lanes: its selection and cursor
+  | { readonly kind: 'sample-marker'; readonly sampleId: string; readonly pane: WavePane; readonly markerId: string } // in a pane's mark lane
+  | { readonly kind: 'sample-region'; readonly sampleId: string; readonly pane: WavePane; readonly regionId: string }
+  | { readonly kind: 'sample-loop'; readonly sampleId: string; readonly pane: WavePane }
 
 export type SubjectKind = Subject['kind']
 export type SubjectOf<K extends SubjectKind> = Extract<Subject, { kind: K }>

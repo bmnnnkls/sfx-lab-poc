@@ -21,7 +21,7 @@ const actions: readonly Action<RegionSubject>[] = [
     title: 'Select',
     group: 'open',
     tooltip: () => 'Select the region',
-    run: withRegion((region, { sampleId }) => selectWaveRange(sampleId, region)),
+    run: withRegion((region, subject) => selectWaveRange(subject, region)),
   },
   renameAction('sample-region'),
   {
@@ -37,7 +37,7 @@ const actions: readonly Action<RegionSubject>[] = [
     title: 'Set loop from region',
     group: 'marks',
     tooltip: () => "Make the region the sample's loop, which a sampler in loop mode repeats",
-    run: withRegion((region, { sampleId }) => setWaveLoop(sampleId, region)),
+    run: withRegion((region, subject) => setWaveLoop(subject, region)),
   },
   {
     id: 'sample-region.play',
@@ -52,7 +52,7 @@ const actions: readonly Action<RegionSubject>[] = [
     id: 'sample-region.zoom',
     title: 'Zoom to region',
     group: 'view',
-    run: withRegion((region, { sampleId }) => zoomWaveTo(sampleId, region)),
+    run: withRegion((region, subject) => zoomWaveTo(subject, region)),
   },
 ]
 

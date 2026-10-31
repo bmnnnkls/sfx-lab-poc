@@ -1,5 +1,5 @@
 import { type SampleInfo, frameCount, originOf, savedFrameCount, tempoFromName } from '@core'
-import { type Subject, toggleWavePreview, useProjectStore, useSampleLibrary, useStatusStore, useWaveAudioStore, useWaveEditSettings, useWaveEditorStore, waveViewOf } from '@state'
+import { type Subject, type WaveAt, toggleWavePreview, useProjectStore, useSampleLibrary, useStatusStore, useWaveAudioStore, useWaveEditSettings, useWaveEditorStore, waveViewKey, waveViewOf } from '@state'
 import { useEffect, useMemo, useRef } from 'react'
 import { useStoredState } from '../shared/use-stored-state'
 import { currentView } from './current-view'
@@ -31,9 +31,9 @@ const formatRate = (rate: number) => `${Number((rate / 1000).toFixed(1))} kHz`
  */
 export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(): void }) => {
   const library = useSampleLibrary()
-  const wave = useWaveAudioStore((state) => (state.current?.sampleId === sample.id ? state.current : null))
+  const wave = useWaveAudioStore((state) => (state.current?.sampleId === sample.id && state.current.pane === 'main' ? state.current : null))
   const failed = useWaveAudioStore((state) => state.current === null && state.loading === null)
-  const key = originOf(sample)
+  const key = waveViewKey('main', originOf(sample))
   const selection = useWaveEditorStore((state) => waveViewOf(state.views, key).selection)
   const cursor = useWaveEditorStore((state) => waveViewOf(state.views, key).cursor)
   const previewing = useStatusStore((state) => state.status?.preview?.sampleId === sample.id)
@@ -54,7 +54,8 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
   const snap = useMemo(() => wave && waveSnapper(wave, () => rulerNow.current), [wave])
   const rate = wave?.audio.sampleRate ?? sample.sampleRate
 
-  const subject = useMemo<Subject>(() => ({ kind: 'sample-selection', sampleId: sample.id }), [sample.id])
+  const at = useMemo<WaveAt>(() => ({ sampleId: sample.id, pane: 'main' }), [sample.id])
+  const subject = useMemo<Subject>(() => ({ kind: 'sample-selection', ...at }), [at])
   const channels = wave?.audio.channels.length ?? Math.min(2, sample.channels)
   const length = (wave ? frameCount(wave.audio) : savedFrameCount(sample)) / rate
 
@@ -79,7 +80,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
       <div className={styles.editorToolbar}>
         <span className={styles.toolGroup} role="group" aria-label="Preview">
           <button
-            onClick={() => toggleWavePreview(library, sample.id)}
+            onClick={() => toggleWavePreview(library, at)}
             aria-label={previewing ? 'Stop preview' : selection ? 'Play selection' : 'Play from cursor'}
             title={previewing ? 'Stop' : selection ? 'Play the selection' : 'Play from the cursor'}
           >
@@ -89,7 +90,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
             Loop
           </button>
         </span>
-        <EditToolbar sample={sample} wave={wave} selection={selection} />
+        <EditToolbar sample={sample} pane="main" wave={wave} selection={selection} />
         <span className={styles.toolGroup} role="group" aria-label="Menus">
           <ProcessMenu subject={subject} />
           <ViewMenu

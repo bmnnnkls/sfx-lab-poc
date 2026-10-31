@@ -4,6 +4,7 @@ import { fakeContext } from './actions/test-support'
 import { audioClipboard } from './audio-clipboard'
 import { useProjectStore } from './project-store'
 import { useWaveAudioStore } from './wave-audio-store'
+import { type WaveAt, waveViewKey } from './wave-panes'
 import { DEFAULT_WAVE_EDIT_SETTINGS, useWaveEditSettings } from './wave-edit-settings'
 import { DEFAULT_WAVE_VIEW, type WaveSelection, useWaveEditorStore } from './wave-editor-store'
 import { type WaveEditFacts, copyWave, cutWave, openWave, runWaveEdit, waveCopyBlocked, waveCutBlocked, waveEditBlocked, waveEditContext, waveEditFacts } from './wave-edits'
@@ -16,13 +17,16 @@ const audioOf = (channels: number, frames = 800): SampleAudio => ({
 const sampleOf = (id: string, channels: number): SampleInfo => ({ id, name: id, extension: 'wav', durationSeconds: 0.1, sampleRate: RATE, channels, bytes: 1000 })
 const mono = sampleOf('mono', 1)
 const stereo = sampleOf('stereo', 2)
+/** The sample in the first pane. */
+const at = (sample: SampleInfo | string): WaveAt => ({ sampleId: typeof sample === 'string' ? sample : sample.id, pane: 'main' })
 
 /** Opens a sample in the editor: in the project, its working copy loaded, with a selection and cursor. */
 const open = (sample: SampleInfo, selection: WaveSelection | null = null, cursor = 0) => {
   const audio = audioOf(sample.channels)
-  useWaveAudioStore.setState({ current: { sampleId: sample.id, viewKey: originOf(sample), audio, pyramid: buildPeakPyramid(audio) }, editing: null, loading: null })
-  useWaveEditorStore.getState().setView(originOf(sample), { cursor })
-  useWaveEditorStore.getState().select(originOf(sample), selection)
+  const key = waveViewKey('main', originOf(sample))
+  useWaveAudioStore.setState({ current: { sampleId: sample.id, pane: 'main', viewKey: key, audio, pyramid: buildPeakPyramid(audio) }, editing: null, loading: null })
+  useWaveEditorStore.getState().setView(key, { cursor })
+  useWaveEditorStore.getState().select(key, selection)
   return audio
 }
 
@@ -42,6 +46,19 @@ beforeEach(() => {
   useWaveAudioStore.setState({ current: null, editing: null, loading: null })
   useWaveEditSettings.setState(DEFAULT_WAVE_EDIT_SETTINGS)
   audioClipboard.set(null)
+})
+
+describe('openWave', () => {
+  it("gives a pane its own view of a sample, and the working copy only to the pane that holds it", () => {
+    open(stereo, { from: 100, to: 300, channels: 'both' }, 50)
+    const second = openWave({ sampleId: stereo.id, pane: 'second' })!
+    expect(second.key).toBe(`second:${originOf(stereo)}`)
+    expect(second.view).toEqual(DEFAULT_WAVE_VIEW)
+    expect(second.wave).toBeNull()
+    expect(openWave(at(stereo))).toMatchObject({ key: `main:${originOf(stereo)}`, view: { cursor: 50, selection: { from: 100, to: 300 } } })
+    expect(openWave(at(stereo))!.wave).not.toBeNull()
+    expect(openWave(at('gone'))).toBeUndefined()
+  })
 })
 
 describe('waveEditBlocked', () => {
@@ -77,7 +94,7 @@ describe('waveEditContext', () => {
       const audio = open(sample, { from: 100, to: 300, channels: 'both' }, 50)
       useWaveEditSettings.getState().setCrossfade({ seconds: 0.01, curve: 'equal-power' })
       useWaveEditSettings.getState().setFadeCurve('s-curve')
-      expect(waveEditContext(openWave(sample.id)!, { db: -6 })).toEqual({
+      expect(waveEditContext(openWave(at(sample))!, { db: -6 })).toEqual({
         selection: { from: 100, to: 300, channels: 'both' },
         frames: 800,
         sampleRate: RATE,
@@ -104,10 +121,10 @@ describe('running edits', () => {
     open(stereo, { from: 100, to: 300, channels: 'left' })
     useWaveEditSettings.getState().setAsCopy(true)
     const context = fakeContext()
-    await runWaveEdit(context.samples, stereo.id, 'gain', { values: { db: -6 } })
-    await runWaveEdit(context.samples, stereo.id, 'fade', { variant: 'out', curve: 'slow-start' })
+    await runWaveEdit(context.samples, at(stereo), 'gain', { values: { db: -6 } })
+    await runWaveEdit(context.samples, at(stereo), 'fade', { variant: 'out', curve: 'slow-start' })
     expect(context.calls).toHaveLength(2)
-    expect(context.calls[0]).toMatch(/^samples\.editSample\("stereo", \{"kind":"gain","range":\{"from":100,"to":300\},"channels":"left","db":-6,.*\{"asCopy":true\}\)$/)
+    expect(context.calls[0]).toMatch(/^samples\.editSample\("stereo", \{"kind":"gain","range":\{"from":100,"to":300\},"channels":"left","db":-6,.*\{"asCopy":true,"pane":"main"\}\)$/)
     expect(context.calls[1]).toContain('"kind":"fade","range":{"from":100,"to":300},"channels":"left","direction":"out","curve":"slow-start"')
     expect(useWaveEditSettings.getState()).toMatchObject({ fadeCurve: 'slow-start', lastValues: { gain: { db: -6 } } })
   })
@@ -115,23 +132,23 @@ describe('running edits', () => {
   it("runs nothing that can't run now, or on a sample that isn't open", () => {
     open(stereo, { from: 100, to: 300, channels: 'left' })
     const context = fakeContext()
-    expect(runWaveEdit(context.samples, stereo.id, 'delete')).toBeUndefined()
-    expect(runWaveEdit(context.samples, mono.id, 'reverse')).toBeUndefined()
-    expect(runWaveEdit(context.samples, 'gone', 'reverse')).toBeUndefined()
+    expect(runWaveEdit(context.samples, at(stereo), 'delete')).toBeUndefined()
+    expect(runWaveEdit(context.samples, at(mono), 'reverse')).toBeUndefined()
+    expect(runWaveEdit(context.samples, at('gone'), 'reverse')).toBeUndefined()
     useWaveAudioStore.getState().setEditing(stereo.id)
-    expect(runWaveEdit(context.samples, stereo.id, 'reverse')).toBeUndefined()
+    expect(runWaveEdit(context.samples, at(stereo), 'reverse')).toBeUndefined()
     expect(context.calls).toEqual([])
   })
 
   it('copies the selection; Cut copies it, then deletes it', async () => {
     open(stereo)
-    expect(copyWave(stereo.id)).toBe(false)
+    expect(copyWave(at(stereo))).toBe(false)
     open(stereo, { from: 100, to: 300, channels: 'both' })
-    expect(copyWave(stereo.id)).toBe(true)
+    expect(copyWave(at(stereo))).toBe(true)
     expect(audioClipboard.get()?.audio.channels[0]).toHaveLength(200)
     audioClipboard.set(null)
     const context = fakeContext()
-    await cutWave(context.samples, stereo.id)
+    await cutWave(context.samples, at(stereo))
     expect(audioClipboard.get()?.audio.channels).toHaveLength(2)
     expect(context.calls).toHaveLength(1)
     expect(context.calls[0]).toContain('"kind":"delete","range":{"from":100,"to":300}')
@@ -140,7 +157,7 @@ describe('running edits', () => {
   it("cuts nothing, and copies nothing, when the delete can't run", () => {
     open(stereo, { from: 100, to: 300, channels: 'right' })
     const context = fakeContext()
-    expect(cutWave(context.samples, stereo.id)).toBeUndefined()
+    expect(cutWave(context.samples, at(stereo))).toBeUndefined()
     expect(audioClipboard.get()).toBeNull()
     expect(context.calls).toEqual([])
   })

@@ -51,7 +51,7 @@ export interface RulerNow {
 export const waveSnapping = (wave: WaveAudio, view: WaveView, ruler: RulerNow): Snapping | null => {
   const { beats, zero } = useWaveEditSettings.getState().snap
   if (!beats && !zero) return null
-  const sample = openWave(wave.sampleId)?.sample
+  const sample = openWave(wave)?.sample
   const targets: SnapTarget[] = []
   if (sample) {
     const marks = marksOf(sample)

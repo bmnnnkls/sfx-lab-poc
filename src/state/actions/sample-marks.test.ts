@@ -8,12 +8,13 @@ import { fakeContext } from './test-support'
 
 /** 800 frames at 8 kHz. */
 const PAD: SampleInfo = { id: 'pad', name: 'Pad', extension: 'wav', durationSeconds: 0.1, sampleRate: 8000, channels: 2, bytes: 1000 }
-const selection: Subject = { kind: 'sample-selection', sampleId: PAD.id }
+const selection: Subject = { kind: 'sample-selection', sampleId: PAD.id, pane: 'main' }
+const key = `main:${originOf(PAD)}`
 
 const sample = () => useProjectStore.getState().project.samples.find((candidate) => candidate.id === PAD.id)!
-const view = () => waveViewOf(useWaveEditorStore.getState().views, originOf(PAD))
+const view = () => waveViewOf(useWaveEditorStore.getState().views, key)
 const undoSteps = () => useProjectStore.getState().history.past.length
-const select = (range: WaveSelection | null) => useWaveEditorStore.getState().select(originOf(PAD), range)
+const select = (range: WaveSelection | null) => useWaveEditorStore.getState().select(key, range)
 const item = (subject: Subject, id: string) => describeActions(subject, fakeContext()).find((candidate) => candidate.id === id)
 const listed = (subject: Subject) => describeActions(subject, fakeContext()).map((entry) => `${entry.group}: ${entry.title}`)
 const load = (info: SampleInfo = PAD) => useProjectStore.getState().resetProject(addSamples(createDemoProject(), [info]))
@@ -26,7 +27,7 @@ beforeEach(() => {
 
 describe('Add marker, Make region and Set loop', () => {
   it('add a marker at the cursor, one undo step, and F2 then renames it in place', () => {
-    useWaveEditorStore.getState().setView(originOf(PAD), { cursor: 250 })
+    useWaveEditorStore.getState().setView(key, { cursor: 250 })
     const steps = undoSteps()
     runAction('sample-selection.add-marker', selection, fakeContext())
     expect(sample().markers).toEqual([expect.objectContaining({ frame: 250, name: 'Marker 1' })])
@@ -35,9 +36,9 @@ describe('Add marker, Make region and Set loop', () => {
     const context = fakeContext({ origin: 'wave' })
     expect(verbTarget('rename', [selection], context)?.action.id).toBe('sample-selection.rename-marker')
     expect(runVerb('rename', [selection], context)).toBe(true)
-    expect(useRenameStore.getState().renaming).toEqual({ subject: { kind: 'sample-marker', sampleId: PAD.id, markerId: marker.id }, origin: 'wave' })
+    expect(useRenameStore.getState().renaming).toEqual({ subject: { kind: 'sample-marker', sampleId: PAD.id, pane: 'main', markerId: marker.id }, origin: 'wave' })
     // Away from it, F2 has nothing to rename.
-    useWaveEditorStore.getState().setView(originOf(PAD), { cursor: 251 })
+    useWaveEditorStore.getState().setView(key, { cursor: 251 })
     expect(verbTarget('rename', [selection], context)).toBeUndefined()
   })
 
@@ -59,7 +60,7 @@ describe('Add marker, Make region and Set loop', () => {
     expect(item(selection, 'sample-selection.add-marker')).toMatchObject({ enabled: false, tooltip: 'A sample keeps at most 256 markers' })
     expect(item(selection, 'sample-selection.make-region')).toMatchObject({ enabled: false, tooltip: 'A sample keeps at most 256 regions' })
     expect(item(selection, 'sample-selection.set-loop')?.enabled).toBe(true)
-    expect(describeActions({ kind: 'sample-selection', sampleId: 'gone' }, fakeContext())).toEqual([])
+    expect(describeActions({ kind: 'sample-selection', sampleId: 'gone', pane: 'main' }, fakeContext())).toEqual([])
   })
 })
 
@@ -68,7 +69,7 @@ describe('a drag of a mark', () => {
     load({ ...PAD, markers: [{ id: 'm', frame: 100, name: 'Hit' }] })
     const steps = undoSteps()
     const store = useProjectStore.getState()
-    for (const frame of [110, 130, 160, 200]) store.editSampleMarks(PAD.id, (info) => moveMarker(info, 'm', frame), `marker:${originOf(PAD)}:m`)
+    for (const frame of [110, 130, 160, 200]) store.editSampleMarks(PAD.id, (info) => moveMarker(info, 'm', frame), `marker:${key}:m`)
     expect(sample().markers![0]!.frame).toBe(200)
     expect(undoSteps()).toBe(steps + 1)
     useProjectStore.getState().undo()
@@ -81,9 +82,9 @@ describe('the mark subjects', () => {
     { ...PAD, markers: [{ id: 'm', frame: 400, name: 'Hit' }], regions: [{ id: 'r', from: 100, to: 300, name: 'Intro' }] },
     { from: 500, to: 700 },
   )
-  const marker: Subject = { kind: 'sample-marker', sampleId: PAD.id, markerId: 'm' }
-  const region: Subject = { kind: 'sample-region', sampleId: PAD.id, regionId: 'r' }
-  const loop: Subject = { kind: 'sample-loop', sampleId: PAD.id }
+  const marker: Subject = { kind: 'sample-marker', sampleId: PAD.id, pane: 'main', markerId: 'm' }
+  const region: Subject = { kind: 'sample-region', sampleId: PAD.id, pane: 'main', regionId: 'r' }
+  const loop: Subject = { kind: 'sample-loop', sampleId: PAD.id, pane: 'main' }
   beforeEach(() => load(MARKED))
 
   it('list their actions in group order, and are named after the mark and its sample', () => {
@@ -106,6 +107,18 @@ describe('the mark subjects', () => {
     expect(view().zoomTo).toEqual({ from: 500, to: 700 })
     runAction('sample-region.set-loop', region, fakeContext())
     expect(sample().loop).toEqual({ from: 100, to: 300 })
+  })
+
+  it("act on the pane they were invoked from, and leave the other pane's view alone", () => {
+    const second = `second:${originOf(PAD)}`
+    const secondView = () => waveViewOf(useWaveEditorStore.getState().views, second)
+    runAction('sample-marker.go-to', { ...marker, pane: 'second' } as Subject, fakeContext())
+    runAction('sample-region.select', { ...region, pane: 'second' } as Subject, fakeContext())
+    expect(secondView()).toMatchObject({ cursor: 100, selection: { from: 100, to: 300 }, zoomTo: { show: 400 } })
+    expect(view()).toMatchObject({ cursor: 0, selection: null })
+    runAction('sample-loop.zoom', { ...loop, pane: 'second' } as Subject, fakeContext())
+    expect(secondView().zoomTo).toEqual({ from: 500, to: 700 })
+    expect(view().zoomTo).toBeUndefined()
   })
 
   it('play a region with the preview, and the loop looping', () => {

@@ -1,5 +1,6 @@
 import type { PreviewRange, SampleEdit } from '@core'
 import { createContext, useContext } from 'react'
+import type { WavePane } from './wave-panes'
 
 /** Importing and auditioning samples. Implemented in `app/`, consumed by `ui/`. */
 export interface SampleLibrary {
@@ -19,14 +20,16 @@ export interface SampleLibrary {
   /**
    * *Revert to original*: every use of an edited sample points at its first version again, in one undo step, with clips'
    * trims, markers, regions and the loop moved back to where they were in it (`revertRemap`). It runs as an edit does
-   * (one at a time) and refuses, with a toast, when the original's bytes are gone.
+   * (one at a time) and refuses, with a toast, when the original's bytes are gone. `pane` is the one it was asked from.
    */
-  revertSample(sampleId: string): Promise<void>
+  revertSample(sampleId: string, pane: WavePane): Promise<void>
 }
 
 /** How an edit lands: in place, or as a new library sample (the editor's *Edits make copies*). */
 export interface SampleEditOptions {
   readonly asCopy: boolean
+  /** The editor's pane the edit was asked from: it moves onto the result with the selection and cursor the edit leaves. */
+  readonly pane: WavePane
 }
 
 const SampleLibraryContext = createContext<SampleLibrary | null>(null)

@@ -240,3 +240,14 @@ Signed off 2026-10-31: every row as proposed.
 | Linked scrolling and zoom | **Not in this part:** each pane scrolls on its own, which is what navigating between far places asks for | A *Link panes* toggle |
 
 ## Changes made while implementing
+
+**Step 1 (panes in `state`).**
+
+* The helpers take a **`WaveAt`** (`{ sampleId, pane }`) instead of `(sampleId, pane)`: a subject of the editor and a
+  working copy (`WaveAudio` gained `pane`) are both one, so the actions pass their subject and the editor its
+  `WaveAudio`. `openWave` has no default pane: every caller names one, and the typechecker found them all.
+* `markerOf` and `regionOf` read the project's sample, without a pane: a mark is the sample's.
+* `paneSampleId(pane)` (which sample a pane shows) is in `state/wave-panes.ts` beside the store; closing the second
+  pane (`setSecond({ open: false })`) makes the first active there, so no caller has to.
+* `SampleLibrary.editSample` takes the pane in its options, `revertSample` as a second argument; `app` keys every view
+  `main:` and ignores the pane until step 2.

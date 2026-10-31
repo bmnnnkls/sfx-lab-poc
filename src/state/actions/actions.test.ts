@@ -7,6 +7,7 @@ import { useProjectStore } from '../project-store'
 import { useSelectionStore } from '../selection-store'
 import { useStatusStore } from '../status-store'
 import { useWaveEditorStore, waveViewOf } from '../wave-editor-store'
+import { waveViewKey } from '../wave-panes'
 import { actionsFor, describeActions, runAction, type Subject } from '.'
 import { fakeContext, loadDemo } from './test-support'
 
@@ -35,10 +36,10 @@ const SUBJECTS: readonly Subject[] = [
   { kind: 'lane', trackId: '', beat: 0 },
   { kind: 'control', targets: [] },
   { kind: 'sound', soundId: '', preset: false },
-  { kind: 'sample-selection', sampleId: '' },
-  { kind: 'sample-marker', sampleId: '', markerId: '' },
-  { kind: 'sample-region', sampleId: '', regionId: '' },
-  { kind: 'sample-loop', sampleId: '' },
+  { kind: 'sample-selection', sampleId: '', pane: 'main' },
+  { kind: 'sample-marker', sampleId: '', pane: 'main', markerId: '' },
+  { kind: 'sample-region', sampleId: '', pane: 'main', regionId: '' },
+  { kind: 'sample-loop', sampleId: '', pane: 'main' },
 ]
 
 beforeEach(() => {
@@ -100,7 +101,7 @@ describe('session clip', () => {
     expect(useSelectionStore.getState().sampleId).toBe(sample.id)
     expect(useLayoutStore.getState().visible).toContain('wave')
     const frames = savedFrameCount(sample)
-    expect(waveViewOf(useWaveEditorStore.getState().views, originOf(sample))).toMatchObject({
+    expect(waveViewOf(useWaveEditorStore.getState().views, waveViewKey('main', originOf(sample)))).toMatchObject({
       selection: { from: Math.round(frames * 0.25), to: Math.round(frames * 0.5), channels: 'both' },
       zoomTo: { from: Math.round(frames * 0.25), to: Math.round(frames * 0.5) },
     })
@@ -116,7 +117,7 @@ describe('session clip', () => {
     runAction('region.edit-sample', { kind: 'region', regionId: region.id }, fakeContext())
     const sample = project().samples[0]!
     expect(useSelectionStore.getState().sampleId).toBe(sample.id)
-    expect(waveViewOf(useWaveEditorStore.getState().views, originOf(sample)).selection).toMatchObject({ from: Math.round(savedFrameCount(sample) / 2), to: savedFrameCount(sample) })
+    expect(waveViewOf(useWaveEditorStore.getState().views, waveViewKey('main', originOf(sample))).selection).toMatchObject({ from: Math.round(savedFrameCount(sample) / 2), to: savedFrameCount(sample) })
   })
 
   it('launches, or restarts while playing', () => {

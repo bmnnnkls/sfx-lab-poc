@@ -38,7 +38,7 @@ export interface WaveEditorView {
 export const DEFAULT_WAVE_VIEW: WaveEditorView = { framesPerPixel: null, startFrame: 0, cursor: 0, selection: null }
 
 interface WaveEditorState {
-  /** By the sample's origin (`originOf`), so a view follows its sample through edits, undo and redo. */
+  /** By pane and the sample's origin (`waveViewKey`), so a view follows its sample through edits, undo and redo, and two panes on one sample keep their own. */
   readonly views: Readonly<Record<string, WaveEditorView>>
   setView(key: string, change: Partial<WaveEditorView>): void
   /** Sets the selection: ordered, and none when it is empty. */
@@ -54,7 +54,7 @@ interface WaveEditorState {
 }
 
 /**
- * The Wave editor's view of each sample, in memory: zoom, scroll, cursor and selection, so they survive tab switches and
+ * The Wave editor's view of each sample in each pane, in memory: zoom, scroll, cursor and selection, so they survive tab switches and
  * switching samples until reload. Not saved with the project and not undone.
  */
 export const useWaveEditorStore = create<WaveEditorState>((set, get) => ({
@@ -85,6 +85,6 @@ export const useWaveEditorStore = create<WaveEditorState>((set, get) => ({
   ask: (key, kind) => get().setView(key, { asking: kind }),
 }))
 
-/** One sample's view, by its origin, or the default for a sample not looked at yet. */
+/** One pane's view of a sample, by its key, or the default for one not looked at yet. */
 export const waveViewOf = (views: Readonly<Record<string, WaveEditorView>>, key: string): WaveEditorView =>
   views[key] ?? DEFAULT_WAVE_VIEW

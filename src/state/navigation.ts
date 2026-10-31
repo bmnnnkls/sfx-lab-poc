@@ -4,6 +4,7 @@ import { type ViewId, useLayoutStore } from './layout-store'
 import { useProjectStore } from './project-store'
 import { useSelectionStore } from './selection-store'
 import { useWaveEditorStore } from './wave-editor-store'
+import { waveViewKey } from './wave-panes'
 
 /*
  * Selecting something and showing it are separate steps. These intents are for code that wants both:
@@ -80,5 +81,5 @@ export const openSampleEditor = (sampleId: string, range?: { readonly start: num
   const frames = savedFrameCount(info)
   const from = Math.max(0, Math.round(range.start * frames))
   const to = Math.min(frames, Math.round(range.end * frames))
-  if (to > from) useWaveEditorStore.getState().reveal(originOf(info), { from, to, channels: 'both' })
+  if (to > from) useWaveEditorStore.getState().reveal(waveViewKey('main', originOf(info)), { from, to, channels: 'both' })
 }

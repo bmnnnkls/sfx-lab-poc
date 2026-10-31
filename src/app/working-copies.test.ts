@@ -5,7 +5,7 @@ import { createWorkingCopies } from './working-copies'
 
 const copy = (sampleId: string, frames: number): WaveAudio => {
   const audio: SampleAudio = { sampleRate: 48000, channels: [new Float32Array(frames)] }
-  return { sampleId, viewKey: sampleId, audio, pyramid: buildPeakPyramid(audio) }
+  return { sampleId, pane: 'main', viewKey: sampleId, audio, pyramid: buildPeakPyramid(audio) }
 }
 
 describe('the working copies', () => {
