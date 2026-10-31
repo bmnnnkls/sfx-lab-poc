@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { SampleBank } from '../../sample'
+import { midiToFrequency } from '../../shared'
 import { requireNodeDefinition } from '../registry'
 import type { DspNode } from '../types'
 
@@ -110,5 +112,79 @@ describe('sampler node', () => {
     none.setSample?.('ramp')
     none.process(context, [null, null], [out])
     expect(out.every((v) => v === 0)).toBe(true)
+  })
+})
+
+describe('sampler node, with the sample\'s loop', () => {
+  /** Speed 1 exactly (A4 is 440 Hz, which a float holds), so output frame k reads source frame k: the ramp's values come out as they are. */
+  const ROOT = midiToFrequency(69)
+  const looped = (loop: { from: number; to: number } | null, params: Record<string, number> = {}) => {
+    const bank = bankWithRamp()
+    bank.setLoop('ramp', loop)
+    return setup({ mode: 2, root: 69, ...params }, bank)
+  }
+  /** The source frame each output frame read, from the ramp's value. */
+  const framesOf = (out: Float32Array) => Array.from(out, (value) => Math.round(value * RAMP_LENGTH))
+
+  it('repeats exactly the loop\'s frames while held, from Start', () => {
+    const out = looped({ from: 200, to: 300 }).run(700, () => true, ROOT)
+    const expected = Array.from({ length: 700 }, (_, k) => (k < 300 ? k : 200 + ((k - 300) % 100)))
+    expect(framesOf(out)).toEqual(expected)
+    // Exactly the ramp's values: no interpolation at a whole position.
+    expect(out[450]).toBe(Math.fround(250 / RAMP_LENGTH))
+  })
+
+  it('interpolates across the wrap, from the loop\'s last frame to its first', () => {
+    const out = looped({ from: 200, to: 300 }).run(400, () => true, ROOT * 2 ** (0.5 / 12))
+    // Every read is between two frames of the loop, or of the run up to it: never past its end.
+    expect(Math.max(...framesOf(out))).toBeLessThanOrEqual(300)
+    expect(framesOf(out).slice(320).every((frame) => frame >= 199 && frame <= 300)).toBe(true)
+  })
+
+  it('starts past the loop\'s end: plays to the sample\'s end, then wraps to the loop\'s start', () => {
+    const out = looped({ from: 200, to: 300 }, { start: 0.5 }).run(700, () => true, ROOT)
+    const expected = Array.from({ length: 700 }, (_, k) => (k < 500 ? 500 + k : 200 + ((k - 500) % 100)))
+    expect(framesOf(out)).toEqual(expected)
+  })
+
+  it('stops looping on release and fades out', () => {
+    const out = looped({ from: 200, to: 300 }).run(1400, (i) => i < 450, ROOT)
+    // Released at 450 (frame 250 of the loop's second pass): it plays on past the loop's end, fading.
+    expect(framesOf(out.map((value, k) => (k < 450 ? value : 0))).slice(0, 450).at(-1)).toBe(249)
+    expect(out[460]! / (260 / RAMP_LENGTH)).toBeCloseTo(1 - 10 / (0.01 * SAMPLE_RATE), 3)
+    expect(out[460]).toBeGreaterThan(0)
+    expect(out[1000]).toBe(0)
+  })
+
+  it('is ignored by one-shot and hold', () => {
+    for (const mode of [0, 1]) {
+      const plain = setup({ mode, root: 69 }).run(1200, (i) => i < 900, ROOT)
+      const withLoop = looped({ from: 200, to: 300 }, { mode }).run(1200, (i) => i < 900, ROOT)
+      expect(withLoop).toEqual(plain)
+    }
+  })
+
+  it('keeps a loop that reaches past the audio inside it', () => {
+    const out = looped({ from: 900, to: 5000 }).run(1300, () => true, ROOT)
+    expect(framesOf(out).slice(1000, 1200)).toEqual(Array.from({ length: 200 }, (_, k) => 900 + (k % 100)))
+  })
+
+  it('without a loop, plays bit for bit as before loops existed', () => {
+    // Every mode, speeds off the grid, Start, release and retrigger, three kinds of sample; one hash of all the output,
+    // taken with the sampler before loops (`6b6c66b`).
+    const stereo = new SampleBank()
+    stereo.set({ id: 'ramp', sampleRate: 44100, channels: [Float32Array.from({ length: 777 }, (_, i) => Math.sin(i / 9)), Float32Array.from({ length: 777 }, (_, i) => Math.cos(i / 13) * 0.3)] })
+    const banks = [bankWithRamp(), bankWithRamp(44100), stereo]
+    const hash = createHash('sha256')
+    for (const bank of banks) {
+      // A loop on another sample changes nothing.
+      bank.setLoop('other', { from: 1, to: 5 })
+      for (const mode of [0, 1, 2]) for (const start of [0, 0.37]) for (const frequency of [261.6256, 300.1, 523.2511, 130.8128]) {
+        const { run } = setup({ mode, start, root: 60, tune: 7 }, bank)
+        const out = run(3000, (i) => (i >= 5 && i < 1700) || i >= 2100, frequency)
+        hash.update(new Uint8Array(out.buffer))
+      }
+    }
+    expect(hash.digest('hex')).toBe('97f89807f3af6bd11ac2bb48743e0a70f7e076633743e01c8b659449159cc944')
   })
 })

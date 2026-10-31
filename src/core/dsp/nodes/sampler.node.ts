@@ -17,7 +17,8 @@ const PARAMS: readonly ParamSpec[] = [
 /**
  * Plays a library sample, re-pitched so that the `root` note plays it at its original speed.
  * A rising gate triggers it from `start`. one-shot plays to the end whatever the gate does;
- * hold stops when the gate falls; loop repeats (from `start`) until the gate falls.
+ * hold stops when the gate falls; loop repeats until the gate falls: the sample's loop when it has one
+ * (`SampleLookup.loopOf`), else from `start` to the end.
  */
 class Sampler implements DspNode {
   private readonly params = new Params(PARAMS)
@@ -50,6 +51,11 @@ class Sampler implements DspNode {
     const loopStart = Math.floor(this.params.get('start') * length)
     const fadeStep = 1 / (RELEASE_SECONDS * sampleRate)
     const speed = sample ? (tune * sample.sampleRate) / sampleRate : 0
+    // The sample's loop, inside the audio, in *loop* mode only. Without one, everything below is as it always was.
+    const saved = mode === 'loop' && this.sampleId !== null && length > 0 ? samples.loopOf(this.sampleId) : undefined
+    const loopTo = saved ? Math.min(saved.to, length) : 0
+    const loopFrom = saved ? Math.min(saved.from, loopTo - 1) : 0
+    const hasLoop = saved !== undefined && loopFrom >= 0 && loopTo > loopFrom
 
     for (let i = 0; i < frames; i++) {
       const gateOn = (gateIn?.[i] ?? 0) > 0.5
@@ -70,7 +76,11 @@ class Sampler implements DspNode {
       const index = Math.floor(this.position)
       const fraction = this.position - index
       const looping = mode === 'loop' && !this.releasing
-      const nextIndex = index + 1 < length ? index + 1 : looping ? loopStart : -1
+      // With a loop, a held voice wraps at its end to its start; one that started past its end plays to the sample's
+      // end first. Without, it wraps at the sample's end to `start`.
+      const end = hasLoop && this.position < loopTo ? loopTo : length
+      const wrapTo = hasLoop ? loopFrom : loopStart
+      const nextIndex = index + 1 < end ? index + 1 : looping ? wrapTo : index + 1 < length ? index + 1 : -1
       const a = monoAt(sample, index)
       const b = nextIndex >= 0 ? monoAt(sample, nextIndex) : 0
       out[i] = (a + (b - a) * fraction) * this.fade
@@ -78,12 +88,12 @@ class Sampler implements DspNode {
       const frequency = frequencyIn ? (frequencyIn[i] ?? rootFrequency) : rootFrequency
       this.position += (frequency / rootFrequency) * speed
 
-      if (this.position >= length) {
-        if (looping) {
-          this.position = loopStart + ((this.position - length) % Math.max(1, length - loopStart))
-        } else {
-          this.playing = false
-        }
+      if (looping && this.position >= end) {
+        this.position = hasLoop
+          ? loopFrom + ((this.position - end) % (loopTo - loopFrom))
+          : loopStart + ((this.position - length) % Math.max(1, length - loopStart))
+      } else if (this.position >= length) {
+        this.playing = false
       }
       if (this.releasing) {
         this.fade -= fadeStep

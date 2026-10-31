@@ -3,7 +3,7 @@ import type { ControlValue } from '../control'
 import type { LiveNoteAddress } from './live-notes'
 import type { Patch } from '../patch'
 import type { ArrangementClip, AudioClip, Clip, SendLevels } from '../project'
-import type { SampleData } from '../sample'
+import type { SampleData, SampleLoop } from '../sample'
 
 /** Everything the outside world can ask the engine to do. Plain data, safe to post across threads. */
 export type EngineCommand =
@@ -122,6 +122,8 @@ export type EngineCommand =
     }
   | { readonly type: 'sample/add'; readonly sample: SampleData }
   | { readonly type: 'sample/remove'; readonly sampleId: string }
+  /** Sets or clears a sample's loop (`SampleInfo.loop`); it may come before the sample's audio, and outlives it. */
+  | { readonly type: 'sample/setLoop'; readonly sampleId: string; readonly loop: SampleLoop | null }
   /**
    * Auditions a sample straight to the master: the whole sample, or frames `from` up to `to`, once or (`loop`) until
    * stopped. Its position is reported in `EngineStatus.preview`.

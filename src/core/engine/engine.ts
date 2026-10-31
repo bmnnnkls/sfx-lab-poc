@@ -241,6 +241,9 @@ export class Engine {
       case 'sample/remove':
         this.samples.delete(command.sampleId)
         break
+      case 'sample/setLoop':
+        this.samples.setLoop(command.sampleId, command.loop)
+        break
       case 'sample/preview': {
         const sample = this.samples.get(command.sampleId)
         if (sample) this.preview.start(sample, command)

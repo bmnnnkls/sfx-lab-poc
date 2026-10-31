@@ -182,6 +182,25 @@ const addTrackCommand = (track: Track, route: ChannelRoute, modules: ModuleLibra
 }
 
 /** Commands that bring an engine holding `prev` (null = empty) in line with `next`. */
+/**
+ * A `sample/setLoop` for each sample whose loop differs from the previous project's: every sample's from nothing (so a
+ * loaded project clears a loop another left in the bank), and a cleared one for a looped sample that left.
+ */
+const diffLoops = (prev: Project | null, next: Project): EngineCommand[] => {
+  if (prev?.samples === next.samples) return []
+  const before = new Map((prev?.samples ?? []).map((sample) => [sample.id, sample.loop]))
+  const commands: EngineCommand[] = []
+  for (const sample of next.samples) {
+    const was = before.get(sample.id)
+    const loop = sample.loop ?? null
+    if (prev && was?.from === loop?.from && was?.to === loop?.to) continue
+    commands.push({ type: 'sample/setLoop', sampleId: sample.id, loop })
+  }
+  const kept = new Set(next.samples.map((sample) => sample.id))
+  for (const [sampleId, loop] of before) if (loop && !kept.has(sampleId)) commands.push({ type: 'sample/setLoop', sampleId, loop: null })
+  return commands
+}
+
 export const diffProject = (prev: Project | null, next: Project, syncAutomation = true): EngineCommand[] => {
   const automation = syncAutomation ? compileAutomation(next) : []
   const automationChanged = syncAutomation && JSON.stringify(prev && compileAutomation(prev)) !== JSON.stringify(automation)
@@ -237,6 +256,7 @@ export const diffProject = (prev: Project | null, next: Project, syncAutomation 
     if (existing !== group || before !== next.modules) commands.push(...diffBus(existing, group, before, next.modules))
     commands.push(...diffRoute(group.id, prevRoutes.get(group.id) ?? NO_ROUTE, routeOf(group.id)))
   }
+  commands.push(...diffLoops(prev, next))
   // The arrangement is small, so it is pushed whole whenever it changed (edits create new arrays).
   if (prev?.arrangement !== next.arrangement) {
     commands.push({ type: 'arrangement/set', clips: next.arrangement ?? [] })

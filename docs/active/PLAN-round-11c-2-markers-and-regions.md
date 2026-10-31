@@ -373,3 +373,14 @@ Signed off 2026-10-31: every row as proposed.
   decoded original's length, so a rounding in `durationSeconds` can't put the trims off.
 * **Step 3: remapped marks are re-sorted.** A reverse turned a stretch of markers around, so `replaceSample` sorts the
   remapped markers and regions, keeping the order `sample-marks.ts` promises.
+* **Step 4: `loopOf` is a required part of `SampleLookup`,** so the two stand-in lookups (`resolve.ts`,
+  `note-control-graph.ts`) answer it too. The sampler reads it once per block, so a loop sent while a note is held
+  takes effect at once.
+* **Step 4: the sampler with a loop** wraps at the loop's end while the position is before it, else (a voice that
+  started past it) at the sample's end, both to the loop's start, interpolating across the wrap. A saved loop longer
+  than the decoded audio is cut to it. Without a loop the same lines run as before: the "bit for bit" test hashes every
+  mode, four speeds, *Start*, release and retrigger on three samples, a hash taken with the sampler before loops.
+* **Step 4: `diffProject` clears too.** From nothing it sends every sample's loop, null included, so a project loaded
+  over another can't keep its loop in the bank; a looped sample that leaves the project gets a null.
+* **Step 4: the audio spec** (`sample-loop.audio.spec.ts`) drives the worklet's commands directly, as
+  `held-notes.audio.spec.ts` does: the loop sent before the audio, a held note, then the loop cleared while it is held.

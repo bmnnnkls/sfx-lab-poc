@@ -10,7 +10,7 @@ export class NoteControlGraph {
   private readonly context: ProcessContext
   private readonly signature: string
   constructor(patch: Patch, sampleRate: number) {
-    this.context = { frames: 1, sampleRate, note: { frequency: 0, velocity: 0, gate: false, trigger: 0 }, samples: { get: () => undefined } }
+    this.context = { frames: 1, sampleRate, note: { frequency: 0, velocity: 0, gate: false, trigger: 0 }, samples: { get: () => undefined, loopOf: () => undefined } }
     this.signature = structure(patch)
     const nodes = patch.nodes.filter((node) => findNodeDefinition(node.type)?.global === true)
     const ids = new Set(nodes.map((node) => node.id))

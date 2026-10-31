@@ -72,7 +72,9 @@ export interface SampleData extends SampleAudio {
   readonly id: string
 }
 
-/** Read access to decoded samples, as seen by DSP nodes. */
+/** Read access to decoded samples and their loops, as seen by DSP nodes. */
 export interface SampleLookup {
   get(id: string): SampleData | undefined
+  /** The stretch a sampler in *loop* mode repeats, when the sample has one (`SampleInfo.loop`). */
+  loopOf(id: string): SampleLoop | undefined
 }
