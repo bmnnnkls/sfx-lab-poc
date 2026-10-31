@@ -339,4 +339,15 @@ Signed off 2026-10-31: every row as proposed.
 
 ## Changes made while implementing
 
-Nothing yet.
+* **Step 1: `SampleRemap` carries its steps.** `sampleRemap(edit, …)` is `remapOfSteps([step], …)` (`remapStep(edit,
+  frames)` drops an identity), and `replaceSample` appends `remap.steps` to the lineage, so it keeps taking one map.
+  `composeMaps` runs maps in order; the old closures are kept in `remap.test.ts` as the reference the steps are checked
+  against. `lineageAfter`, `revertBlocked`, `originalInfo` and `revertRemap` are in `core/sample/lineage.ts`.
+* **Step 1: a result with the origin's id is the original.** `replaceSample` gives it no `origin` and no `lineage`.
+  That is how a revert drops them, and it is also right when an edit's bytes happen to equal the original's (a reverse
+  of an edit-made sample, twice).
+* **Step 1: the loop's edges move with `moveLoop`,** beside `setLoop`, as a region's do with `updateRegion`. An add takes
+  an optional id, so *Add marker* knows the marker F2 then renames. A rename to an empty name changes nothing.
+* **Step 1: the sanitizer's lineage** must end at the sample's own length (`savedFrameCount`), and needs an origin; else
+  it is dropped with a warning ("can't be reverted"). A loop is clamped and rounded, then dropped when empty; markers
+  and regions are still dropped when outside, as in v11.

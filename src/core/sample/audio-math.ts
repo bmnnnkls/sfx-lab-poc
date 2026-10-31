@@ -61,3 +61,31 @@ export const selectionLevels = (audio: SampleAudio, range: FrameRange, channels:
   }
   return { peak, rms }
 }
+
+/**
+ * The frame nearest `frame`, at most `radius` frames away, where the average of the channels (`both`, or one of a
+ * stereo pair) is zero or changes sign from the frame before; null when there is none. The nearer of two at the same
+ * distance is the earlier.
+ */
+export const nearestZeroCrossing = (audio: SampleAudio, frame: number, channels: 'both' | 'left' | 'right', radius: number): number | null => {
+  const which = audio.channels.length < 2 || channels === 'both' ? audio.channels : [audio.channels[channels === 'left' ? 0 : 1]!]
+  const length = which[0]?.length ?? 0
+  if (length === 0) return null
+  // The sum has the average's sign.
+  const value = which.length === 1 ? (i: number) => which[0]![i]! : (i: number) => which[0]![i]! + which[1]![i]!
+  const crosses = (i: number) => {
+    const here = value(i)
+    if (here === 0) return true
+    if (i === 0) return false
+    const before = value(i - 1)
+    return (before < 0 && here > 0) || (before > 0 && here < 0)
+  }
+  const at = Math.max(0, Math.min(length - 1, Math.round(frame)))
+  const reach = Math.max(0, Math.floor(radius))
+  for (let distance = 0; distance <= reach; distance++) {
+    if (at - distance >= 0 && crosses(at - distance)) return at - distance
+    if (distance > 0 && at + distance < length && crosses(at + distance)) return at + distance
+    if (at - distance < 0 && at + distance >= length) break
+  }
+  return null
+}

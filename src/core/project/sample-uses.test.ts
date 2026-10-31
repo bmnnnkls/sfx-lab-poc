@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSamplerPatch } from '../patch'
 import { type AssetRevision, type ProjectPreset, assetSignature } from '../preset'
-import { type SampleEdit, type SampleInfo, sampleRemap } from '../sample'
+import { type SampleEdit, type SampleInfo, originalInfo, revertBlocked, revertRemap, sampleRemap, setLoop } from '../sample'
 import {
   type AudioClip,
   type AudioTrack,
@@ -230,6 +230,99 @@ describe('replaceSample', () => {
     expect(moved.tracks[0]).toBe(project.tracks[0])
     expect(replaceSample(project, 'nothing', NEW, remapOf(DELETE, 800)).project).toBe(project)
     expect(replaceSample(project, OLD.id, OLD, remapOf(DELETE, 800)).project).toBe(project)
+  })
+})
+
+describe('lineage and revert', () => {
+  const silence = (frames: number) => ({
+    audio: { sampleRate: 1000, channels: [new Float32Array(frames)] },
+    handles: { before: { sampleRate: 1000, channels: [new Float32Array(0)] }, after: { sampleRate: 1000, channels: [new Float32Array(0)] } },
+  })
+  const BUTT = { frames: 0, curve: 'linear' } as const
+  /** Five edits of a 1000-frame sample, each with the length it leaves. */
+  const CHAIN: Array<{ edit: SampleEdit; frames: number }> = [
+    { edit: { kind: 'delete', range: { from: 400, to: 600 }, crossfade: BUTT }, frames: 800 },
+    { edit: { kind: 'insert', at: 50, insert: silence(100), crossfade: BUTT }, frames: 900 },
+    { edit: { kind: 'reverse', range: { from: 0, to: 900 }, channels: 'both' }, frames: 900 },
+    { edit: { kind: 'crop', range: { from: 100, to: 850 } }, frames: 750 },
+    { edit: { kind: 'replace', range: { from: 10, to: 20 }, insert: silence(30), crossfade: BUTT }, frames: 770 },
+  ]
+  const MARKED = setLoop(
+    info('a', {
+      markers: [100, 300, 450, 700, 900, 950].map((frame) => ({ id: `m${frame}`, frame, name: `${frame}` })),
+      regions: [{ id: 'r', from: 650, to: 750, name: 'R' }],
+    }),
+    { from: 120, to: 280 },
+  )
+  const start = (): Project => {
+    const project = everyPlace()
+    return {
+      ...project,
+      samples: [info('z'), MARKED],
+      arrangement: [createArrangementClip(project.tracks[0]!.id, 0, clipOf(MARKED, 0.65, 0.75))],
+    }
+  }
+  /** The project after the chain, and the entry after each edit. */
+  const edited = () => {
+    let project = start()
+    let id = MARKED.id
+    const entries: SampleInfo[] = []
+    CHAIN.forEach(({ edit, frames }, index) => {
+      const before = project.samples[1]!.durationSeconds * 1000
+      const to = info(String.fromCharCode(98 + index), { durationSeconds: frames / 1000 })
+      project = replaceSample(project, id, to, sampleRemap(edit, before, frames)).project
+      id = to.id
+      entries.push(project.samples[1]!)
+    })
+    return { project, entries }
+  }
+
+  it('records the original on the first edit and appends each step after', () => {
+    const { entries } = edited()
+    expect(entries[0]!.lineage).toEqual({
+      original: { extension: 'wav', bytes: 100, channels: 1, durationSeconds: 1, sampleRate: 1000 },
+      steps: [{ kind: 'splice', from: 400, to: 600, inserted: 0 }],
+    })
+    expect(entries.map((entry) => entry.lineage!.steps.length)).toEqual([1, 2, 3, 4, 5])
+    expect(entries[4]!.lineage!.steps[3]).toEqual({ kind: 'crop', from: 100, to: 850 })
+    expect(entries[4]!.loop).toEqual({ from: 440, to: 600 })
+  })
+
+  it('adds no step for an edit that moves nothing, and no lineage to a sample edited before lineages', () => {
+    const gain: SampleEdit = { kind: 'gain', range: { from: 0, to: 1000 }, channels: 'both', db: -3, ramp: BUTT }
+    const once = replaceSample(start(), MARKED.id, info('b'), sampleRemap(gain, 1000, 1000)).project
+    expect(once.samples[1]!.lineage!.steps).toEqual([])
+    const old = { ...start(), samples: [info('z'), { ...MARKED, origin: 'f'.repeat(64) }] }
+    const twice = replaceSample(old, MARKED.id, info('b'), sampleRemap(gain, 1000, 1000)).project
+    expect(twice.samples[1]).not.toHaveProperty('lineage')
+    expect(revertBlocked(twice.samples[1]!)).toBe('Edited before Revert was possible')
+    expect(revertBlocked(MARKED)).toBe('This is the original')
+  })
+
+  it('reverts a chain of five edits: trims, markers, regions and the loop go back where they were', () => {
+    const { project } = edited()
+    const present = project.samples[1]!
+    const original = originalInfo(present)!
+    expect(original).toEqual({ ...info('a'), name: MARKED.name })
+    const reverted = replaceSample(project, present.id, original, revertRemap(present)!).project
+    const entry = reverted.samples[1]!
+    expect(entry.id).toBe(MARKED.id)
+    expect(entry).not.toHaveProperty('origin')
+    expect(entry).not.toHaveProperty('lineage')
+    // 450 was deleted and 950 cropped off; the rest are back exactly.
+    expect(entry.markers!.map((marker) => [marker.id, marker.frame])).toEqual([[`m100`, 100], [`m300`, 300], [`m700`, 700], [`m900`, 900]])
+    expect(entry.regions).toEqual(MARKED.regions)
+    expect(entry.loop).toEqual(MARKED.loop)
+    const clip = reverted.arrangement![0]!.content as AudioClip
+    expect(clip.sampleId).toBe(MARKED.id)
+    expect(clip.start).toBeCloseTo(0.65, 12)
+    expect(clip.end).toBeCloseTo(0.75, 12)
+  })
+
+  it('drops a loop an edit empties', () => {
+    const looped = { ...start(), samples: [info('z'), setLoop(MARKED, { from: 420, to: 580 })] }
+    const moved = replaceSample(looped, MARKED.id, NEW, sampleRemap(CHAIN[0]!.edit, 1000, 800)).project
+    expect(moved.samples[1]).not.toHaveProperty('loop')
   })
 })
 

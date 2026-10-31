@@ -1,6 +1,6 @@
 import { type ModuleDefinition, type Patch, clearSampleReferences, replaceSampleReferences } from '../patch'
 import type { AssetPayload, SampleBinding } from '../preset'
-import { type SampleInfo, type SampleMarker, type SampleRegion, type SampleRemap, originOf } from '../sample'
+import { type SampleInfo, type SampleLoop, type SampleMarker, type SampleRegion, type SampleRemap, lineageAfter, originOf } from '../sample'
 import { MIN_REGION, clampAudioClip } from './audio-clip'
 import { isAudioContent } from './arrangement-clip'
 import { mapMasterFx, mapModules } from './edit'
@@ -281,9 +281,11 @@ const remapRegions = (regions: readonly SampleRegion[], remap: SampleRemap): Sam
     return to > from ? [{ ...region, from, to }] : []
   })
 
+const remapLoop = (loop: SampleLoop, remap: SampleRemap): SampleLoop | undefined => remapRegions([{ ...loop, id: 'loop', name: '' }], remap).map(({ from, to }) => ({ from, to }))[0]
+
 /**
  * Moves every use of sample `fromId` onto `to`, the result of an edit: the library entry is replaced where it is (with
- * the old name, its origin, and its markers and regions remapped), and every sampler, binding, preset, revision, clip and
+ * the old name, its origin, its markers, regions and loop remapped, and its lineage with the remap's steps appended), and every sampler, binding, preset, revision, clip and
  * region points at `to.id`, with clips' and regions' trims through `remap` so they keep playing the audio they played. If
  * `to.id` is already in the library, the edited entry goes and the uses point at that one (`report.merged`). The
  * sampler's *Start* param is left alone: it is a param, not a trim.
@@ -297,12 +299,19 @@ export const replaceSample = (
   const old = project.samples.find((sample) => sample.id === fromId)
   if (!old || to.id === fromId) return { project, report: { merged: null, emptiedTrims: 0 } }
   const merged = project.samples.find((sample) => sample.id === to.id) ?? null
+  // A result with the origin's id is the original again (a revert): no origin, and no lineage to run back.
+  const isOrigin = to.id === originOf(old)
+  const lineage = isOrigin ? undefined : lineageAfter(old, remap.steps)
+  const loop = old.loop && remapLoop(old.loop, remap)
+  const { origin: _origin, lineage: _lineage, loop: _loop, ...result } = to
   const replaced: SampleInfo = {
-    ...to,
+    ...result,
     name: old.name,
-    origin: originOf(old),
+    ...(!isOrigin && { origin: originOf(old) }),
     ...(old.markers && { markers: remapMarkers(old.markers, remap) }),
     ...(old.regions && { regions: remapRegions(old.regions, remap) }),
+    ...(loop && { loop }),
+    ...(lineage && { lineage }),
   }
   const samples = merged ? project.samples.filter((sample) => sample.id !== fromId) : project.samples.map((sample) => (sample.id === fromId ? replaced : sample))
   const count: TrimCount = { emptiedTrims: 0 }

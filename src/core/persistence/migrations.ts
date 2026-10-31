@@ -5,6 +5,8 @@ type Migration = (project: unknown) => unknown
 
 /** `MIGRATIONS[n]` upgrades the `project` payload from format version n to n + 1. */
 const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  // v12 adds a sample's loop and lineage, both optional; a v11 sample has neither, so it plays as before and can't revert.
+  11: (project) => project,
   // v11 adds a sample's origin, markers and regions, all optional; a v10 file has none.
   10: (project) => project,
   // v10 adds track groups and hidden tracks. v9 never interpreted them.

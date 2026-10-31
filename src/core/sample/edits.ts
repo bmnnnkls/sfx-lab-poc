@@ -1,7 +1,7 @@
 import { frameCount } from './channels'
 import { type AudioCopy, type JoinFade, silenceCopy, spliceAudio } from './crossfade'
 import { type CrossfadeCurve, type FadeCurve, fadeShape } from './fade-curves'
-import { type FrameMap, type FrameRange, type SampleRemap, cropMap, identityMap, mirrorMap, spliceMap } from './remap'
+import { type FrameRange, type RemapStep, type SampleRemap, mapOf, remapOfSteps } from './remap'
 import type { SampleAudio } from './types'
 import type { WavBitDepth } from './wav'
 
@@ -255,8 +255,11 @@ export interface SampleEditEntry<E extends SampleEdit = SampleEdit> {
   /** The edit to apply, or null when it can't run (no selection). */
   readonly create: (context: SampleEditContext, variant?: string) => E | null
   readonly apply: (audio: SampleAudio, edit: E) => SampleAudio
-  /** Where the positions of a sample of `frames` frames are after the edit (`remapFrame`, `remapRange`). */
-  readonly remap: (edit: E, frames: number) => FrameMap
+  /**
+   * Where the positions of a sample of `frames` frames are after the edit (`remapFrame`, `remapRange`), as data: the
+   * step, or null when nothing moves.
+   */
+  readonly remap: (edit: E, frames: number) => RemapStep | null
   /** The output frames that differ from the input: to the new end for edits that change the length. */
   readonly changed: (edit: E, frames: number) => FrameRange
   /** The selection and cursor after the edit, in a sample that had `frames` frames. */
@@ -310,7 +313,7 @@ const process = <K extends 'gain' | 'fade' | 'normalize' | 'reverse' | 'silence'
   channels: 'any',
   needsSelection: false,
   settings: [],
-  remap: () => identityMap,
+  remap: () => null,
   changed: rangeChanged,
   after: keep,
   ...entry,
@@ -366,9 +369,9 @@ export const SAMPLE_EDITS: { readonly [K in SampleEditKind]: SampleEditEntry<Edi
     apply: reverse,
     // Positions move only when every channel is reversed: a clip still plays the same part of the sample.
     remap: (edit, frames) => {
-      if (edit.channels !== 'both') return identityMap
+      if (edit.channels !== 'both') return null
       const { from, to } = clampTo(frames, edit.range)
-      return mirrorMap(from, to)
+      return { kind: 'mirror', from, to }
     },
   }),
   silence: process({
@@ -404,7 +407,7 @@ export const SAMPLE_EDITS: { readonly [K in SampleEditKind]: SampleEditEntry<Edi
     apply: (audio, edit) => spliceAudio(audio, edit.range, null, edit.crossfade),
     remap: (edit, frames) => {
       const { from, to } = clampTo(frames, edit.range)
-      return spliceMap(from, to, 0)
+      return { kind: 'splice', from, to, inserted: 0 }
     },
     changed: (edit, frames) => {
       const { from, to } = clampTo(frames, edit.range)
@@ -429,7 +432,7 @@ export const SAMPLE_EDITS: { readonly [K in SampleEditKind]: SampleEditEntry<Edi
     },
     remap: (edit, frames) => {
       const { from, to } = clampTo(frames, edit.range)
-      return cropMap(from, to)
+      return { kind: 'crop', from, to }
     },
     changed: (edit, frames) => {
       const { from, to } = clampTo(frames, edit.range)
@@ -454,7 +457,7 @@ export const SAMPLE_EDITS: { readonly [K in SampleEditKind]: SampleEditEntry<Edi
     apply: (audio, edit) => spliceAudio(audio, { from: edit.at, to: edit.at }, edit.insert, edit.crossfade),
     remap: (edit, frames) => {
       const at = Math.max(0, Math.min(frames, edit.at))
-      return spliceMap(at, at, insertedFrames(edit.insert))
+      return { kind: 'splice', from: at, to: at, inserted: insertedFrames(edit.insert) }
     },
     changed: (edit, frames) => ({ from: changedFrom(Math.min(frames, edit.at), edit.crossfade), to: frames + insertedFrames(edit.insert) }),
     after: (edit, frames) => {
@@ -482,7 +485,7 @@ export const SAMPLE_EDITS: { readonly [K in SampleEditKind]: SampleEditEntry<Edi
     apply: (audio, edit) => spliceAudio(audio, edit.range, edit.insert, edit.crossfade),
     remap: (edit, frames) => {
       const { from, to } = clampTo(frames, edit.range)
-      return spliceMap(from, to, insertedFrames(edit.insert))
+      return { kind: 'splice', from, to, inserted: insertedFrames(edit.insert) }
     },
     changed: (edit, frames) => {
       const { from, to } = clampTo(frames, edit.range)
@@ -510,18 +513,23 @@ export const applySampleEdit = (audio: SampleAudio, edit: SampleEdit): SampleAud
 
 /** Where a position of a sample of `frames` frames is after `edit`, or null when the audio at it is gone. */
 export const remapFrame = (edit: SampleEdit, frames: number, position: number): number | null =>
-  entryOf(edit).remap(edit, frames).frame(position)
+  mapOf(entryOf(edit).remap(edit, frames)).frame(position)
 
 /** A range of a sample of `frames` frames after `edit`: its start mapped forward, its end backward; null when it is gone. */
 export const remapRange = (edit: SampleEdit, frames: number, range: FrameRange): FrameRange | null =>
-  entryOf(edit).remap(edit, frames).range(range)
+  mapOf(entryOf(edit).remap(edit, frames)).range(range)
 
-/** What `replaceSample` needs to move uses onto the edited sample: the map, with the lengths before and after. */
-export const sampleRemap = (edit: SampleEdit, fromFrames: number, toFrames: number): SampleRemap => ({
-  ...entryOf(edit).remap(edit, fromFrames),
-  fromFrames,
-  toFrames,
-})
+/** The step `edit` moves positions by in a sample of `frames` frames, or null when nothing moves. */
+export const remapStep = (edit: SampleEdit, frames: number): RemapStep | null => {
+  const step = entryOf(edit).remap(edit, frames)
+  return step && !mapOf(step).identity ? step : null
+}
+
+/** What `replaceSample` needs to move uses onto the edited sample: the map, with the lengths before and after, and its step. */
+export const sampleRemap = (edit: SampleEdit, fromFrames: number, toFrames: number): SampleRemap => {
+  const step = remapStep(edit, fromFrames)
+  return remapOfSteps(step ? [step] : [], fromFrames, toFrames)
+}
 
 /** The output frames `edit` changes in a sample of `frames` frames. */
 export const changedFrames = (edit: SampleEdit, frames: number): FrameRange => entryOf(edit).changed(edit, frames)

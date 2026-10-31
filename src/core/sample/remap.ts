@@ -26,10 +26,24 @@ export interface FrameMap {
   range(range: FrameRange): FrameRange | null
 }
 
-/** A `FrameMap` with the sample's length before and after the edit, for `replaceSample`. */
+/**
+ * One edit's position map as data: a few numbers, saved on the sample (`SampleInfo.lineage`) so a chain of edits can be
+ * run backwards. `mapOf` is the only way to a `FrameMap`, so a map and its data can't disagree.
+ */
+export type RemapStep =
+  /** `from` up to `to` is replaced by `inserted` frames: a delete (none), an insert (`from == to`) or a paste over a range. */
+  | { readonly kind: 'splice'; readonly from: number; readonly to: number; readonly inserted: number }
+  /** Only `from` up to `to` is kept: a crop. */
+  | { readonly kind: 'crop'; readonly from: number; readonly to: number }
+  /** `from` up to `to` plays backwards: a reverse of every channel. */
+  | { readonly kind: 'mirror'; readonly from: number; readonly to: number }
+
+/** A `FrameMap` with the sample's length before and after the edit, and the steps it is made of, for `replaceSample`. */
 export interface SampleRemap extends FrameMap {
   readonly fromFrames: number
   readonly toFrames: number
+  /** The steps this map runs, in order; none for the identity. An in-place edit appends them to the sample's lineage. */
+  readonly steps: readonly RemapStep[]
 }
 
 const kept = (range: FrameRange): FrameRange | null => (range.to > range.from ? range : null)
@@ -42,8 +56,7 @@ export const identityMap: FrameMap = {
   range: (range) => kept(range),
 }
 
-/** `from` up to `to` is replaced by `inserted` frames: a delete (none), an insert (`from == to`) or a paste over a range. */
-export const spliceMap = (from: number, to: number, inserted: number): FrameMap => {
+const spliceMap = ({ from, to, inserted }: Extract<RemapStep, { kind: 'splice' }>): FrameMap => {
   const shift = inserted - (to - from)
   const start = (position: number) => (position < from ? position : position >= to ? position + shift : from + inserted)
   const end = (position: number) => (position <= from ? position : position >= to ? position + shift : from)
@@ -55,8 +68,7 @@ export const spliceMap = (from: number, to: number, inserted: number): FrameMap 
   }
 }
 
-/** Only `from` up to `to` is kept: a crop. */
-export const cropMap = (from: number, to: number): FrameMap => {
+const cropMap = ({ from, to }: Extract<RemapStep, { kind: 'crop' }>): FrameMap => {
   const clip = (position: number) => Math.min(to, Math.max(from, position)) - from
   return {
     identity: false,
@@ -66,8 +78,8 @@ export const cropMap = (from: number, to: number): FrameMap => {
   }
 }
 
-/** `from` up to `to` plays backwards: positions inside it mirror; a range keeps its ends in order. */
-export const mirrorMap = (from: number, to: number): FrameMap => {
+/** Positions inside the stretch mirror; a range keeps its ends in order. */
+const mirrorMap = ({ from, to }: Extract<RemapStep, { kind: 'mirror' }>): FrameMap => {
   const mirror = (position: number) => (position >= from && position <= to ? from + to - position : position)
   return {
     identity: false,
@@ -79,3 +91,51 @@ export const mirrorMap = (from: number, to: number): FrameMap => {
     },
   }
 }
+
+/** The `FrameMap` a step is; none is the identity. */
+export const mapOf = (step: RemapStep | null): FrameMap => {
+  if (!step) return identityMap
+  switch (step.kind) {
+    case 'splice':
+      return spliceMap(step)
+    case 'crop':
+      return cropMap(step)
+    case 'mirror':
+      return mirrorMap(step)
+  }
+}
+
+/**
+ * The step that undoes `step`'s moves, for positions that exist in both versions: a splice's is the splice back, a
+ * crop's is a shift (a splice at 0 that puts the cropped-off start back), a mirror is its own. Positions only the later
+ * version has (inserted or pasted audio) map as any splice maps audio that is gone.
+ */
+export const inverseStep = (step: RemapStep): RemapStep => {
+  switch (step.kind) {
+    case 'splice':
+      return { kind: 'splice', from: step.from, to: step.from + step.inserted, inserted: step.to - step.from }
+    case 'crop':
+      return { kind: 'splice', from: 0, to: 0, inserted: step.from }
+    case 'mirror':
+      return step
+  }
+}
+
+/** The maps one after another: a position gone in one is gone. */
+export const composeMaps = (maps: readonly FrameMap[]): FrameMap => {
+  if (maps.length === 1) return maps[0]!
+  return {
+    identity: maps.every((map) => map.identity),
+    frame: (position) => maps.reduce<number | null>((at, map) => (at === null ? null : map.frame(at)), position),
+    start: (position) => maps.reduce((at, map) => map.start(at), position),
+    range: (range) => maps.reduce<FrameRange | null>((at, map) => (at === null ? null : map.range(at)), range),
+  }
+}
+
+/** A `SampleRemap` running `steps` in order, from a sample of `fromFrames` frames to one of `toFrames`. */
+export const remapOfSteps = (steps: readonly RemapStep[], fromFrames: number, toFrames: number): SampleRemap => ({
+  ...composeMaps(steps.length === 0 ? [identityMap] : steps.map(mapOf)),
+  fromFrames,
+  toFrames,
+  steps,
+})

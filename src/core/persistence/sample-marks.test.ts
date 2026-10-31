@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { trackInIsStereo } from '../patch'
-import { type SampleInfo, originOf } from '../sample'
+import { type SampleInfo, originOf, revertBlocked } from '../sample'
 import { CURRENT_VERSION } from './format'
 import { parseProject, serializeProject } from './project-file'
 import { sanitizeSamples } from './sanitize-samples'
@@ -36,11 +36,10 @@ describe('format v11: origin, markers and regions on a sample', () => {
     expect(trackInIsStereo(project.tracks[0]!.fx)).toBe(true)
   })
 
-  it('round-trips, and saves as v11', () => {
+  it('round-trips, and saves as the current version', () => {
     const { project } = parseOk(fixture('v11-sample-markers.sfxlab.json'))
     const text = serializeProject(project)
-    expect(CURRENT_VERSION).toBe(11)
-    expect(JSON.parse(text).version).toBe(11)
+    expect(JSON.parse(text).version).toBe(CURRENT_VERSION)
     expect(parseOk(text).project).toEqual(project)
   })
 
@@ -99,5 +98,73 @@ describe('format v11: origin, markers and regions on a sample', () => {
     const catalog = captureLibrarySample(emptyLibrary(), project, project.samples[0]!.id, 'Loop', null)
     expect(catalog.samples).toEqual(project.samples)
     expect(() => validateLibraryPayloads(catalog)).not.toThrow()
+  })
+})
+
+describe('format v12: a sample\'s loop and lineage', () => {
+  const LINEAGE = {
+    original: { extension: 'wav', bytes: 10, channels: 2, durationSeconds: 2.5, sampleRate: 48000 },
+    // 120000 frames, less 24000, cropped to 96000, mirrored.
+    steps: [
+      { kind: 'splice', from: 0, to: 24000, inserted: 0 },
+      { kind: 'crop', from: 0, to: 96000 },
+      { kind: 'mirror', from: 10, to: 20 },
+    ],
+  }
+
+  it('loads the committed fixture without warnings, and it can revert', () => {
+    const { project, warnings } = parseOk(fixture('v12-sample-lineage.sfxlab.json'))
+    expect(warnings).toEqual([])
+    const [sample] = project.samples
+    expect(sample!.loop).toEqual({ from: 24000, to: 60000 })
+    expect(sample!.lineage!.steps).toEqual([{ kind: 'splice', from: 0, to: 6000, inserted: 0 }, { kind: 'mirror', from: 40000, to: 50000 }])
+    expect(revertBlocked(sample!)).toBeNull()
+  })
+
+  it('round-trips, and saves as v12', () => {
+    const { project } = parseOk(fixture('v12-sample-lineage.sfxlab.json'))
+    const text = serializeProject(project)
+    expect(CURRENT_VERSION).toBe(12)
+    expect(JSON.parse(text).version).toBe(12)
+    expect(parseOk(text).project).toEqual(project)
+  })
+
+  it('loads every v11 and older fixture unchanged: no loop or lineage appears', () => {
+    for (const name of ['v1-minimal', 'v6-presets', 'v7-library', 'v10-group-buses', 'v10-track-groups', 'v11-sample-markers']) {
+      const { project } = parseOk(fixture(`${name}.sfxlab.json`))
+      for (const sample of project.samples) expect(Object.keys(sample).filter((key) => ['loop', 'lineage'].includes(key)), name).toEqual([])
+    }
+  })
+
+  it('keeps a good lineage and loop', () => {
+    const { sample, warnings } = sanitize({ origin: 'd'.repeat(64), lineage: LINEAGE, loop: { from: 100, to: 200 } })
+    expect(warnings).toEqual([])
+    expect(sample.lineage).toEqual(LINEAGE)
+    expect(sample.loop).toEqual({ from: 100, to: 200 })
+  })
+
+  it.each([
+    { what: 'without an origin', origin: null, lineage: LINEAGE },
+    { what: 'with a step outside the length before it', lineage: { ...LINEAGE, steps: [{ kind: 'crop', from: 0, to: 120001 }] } },
+    { what: 'ending at another length', lineage: { ...LINEAGE, steps: [] } },
+    { what: 'with an unknown step', lineage: { ...LINEAGE, steps: [...LINEAGE.steps, { kind: 'stretch', from: 0, to: 5 }] } },
+    { what: 'with a fractional step', lineage: { ...LINEAGE, steps: [{ ...LINEAGE.steps[0], inserted: 0.5 }, ...LINEAGE.steps.slice(1)] } },
+    { what: 'with a bad original', lineage: { ...LINEAGE, original: { ...LINEAGE.original, sampleRate: 'fast' } } },
+    { what: 'that is not a record', lineage: 'all of it' },
+  ])('drops a lineage $what, with a warning, and keeps the sample', ({ origin = 'd'.repeat(64), lineage }: { origin?: string | null; lineage: unknown }) => {
+    const { sample, warnings } = sanitize({ origin, lineage })
+    expect(sample).not.toHaveProperty('lineage')
+    expect(sample.id).toBe(base.id)
+    expect(warnings).toContain('Dropped the invalid edit history of "Loop"; it can\'t be reverted')
+  })
+
+  it('clamps a loop to the sample, rounds it, and drops an empty or broken one with a warning', () => {
+    expect(sanitize({ loop: { from: -5, to: 100.4 } }).sample.loop).toEqual({ from: 0, to: 100 })
+    expect(sanitize({ loop: { from: 95000, to: 99000 } }).sample.loop).toEqual({ from: 95000, to: 96000 })
+    for (const loop of [{ from: 5, to: 5 }, { from: 9, to: 2 }, { from: 'a', to: 3 }, [1, 2]]) {
+      const { sample, warnings } = sanitize({ loop })
+      expect(sample).not.toHaveProperty('loop')
+      expect(warnings).toEqual(['Dropped the invalid loop of "Loop"'])
+    }
   })
 })

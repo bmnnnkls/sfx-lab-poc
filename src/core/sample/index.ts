@@ -1,9 +1,23 @@
-export type { SampleAudio, SampleData, SampleInfo, SampleLookup, SampleMarker, SampleRegion } from './types'
+export type { SampleAudio, SampleData, SampleInfo, SampleLineage, SampleLookup, SampleLoop, SampleMarker, SampleOriginal, SampleRegion } from './types'
 export { SAMPLE_MARK_LIMITS, bytesKeyOf, originOf, savedFrameCount } from './marks'
-export { type FrameMap, type SampleRemap, cropMap, identityMap, mirrorMap, spliceMap } from './remap'
+export { type FrameMap, type RemapStep, type SampleRemap, composeMaps, identityMap, inverseStep, mapOf, remapOfSteps } from './remap'
+export { lineageAfter, originalInfo, revertBlocked, revertRemap } from './lineage'
+export {
+  type SampleMarkChange,
+  addMarker,
+  addRegion,
+  createMarkId,
+  moveLoop,
+  moveMarker,
+  removeMarker,
+  removeRegion,
+  renameMarker,
+  setLoop,
+  updateRegion,
+} from './sample-marks'
 export { type SampleChannel, channelAt, decodedBytes, frameCount, monoAt } from './channels'
 export { SampleBank } from './sample-bank'
-export { computePeaks, selectionLevels, toMono, type Levels } from './audio-math'
+export { computePeaks, nearestZeroCrossing, selectionLevels, toMono, type Levels } from './audio-math'
 export { type WavBitDepth, encodeWav, encodeWavChannels } from './wav'
 export {
   type Crossfade,
@@ -33,6 +47,7 @@ export {
   peakOfRange,
   remapFrame,
   remapRange,
+  remapStep,
   sampleEditEntry,
   sampleRemap,
 } from './edits'

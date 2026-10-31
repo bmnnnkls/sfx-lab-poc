@@ -37,6 +37,7 @@ export {
   replaceSample,
   usedSampleIds,
 } from './sample-uses'
+export { updateSampleMarks } from './sample-marks'
 export {
   DEFAULT_FADE_SECONDS,
   MAX_FADE_SECONDS,
