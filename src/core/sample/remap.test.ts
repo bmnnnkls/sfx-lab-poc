@@ -48,6 +48,8 @@ const cases = (range: FrameRange, at: number, inserted: number): Array<{ edit: S
   { edit: { kind: 'reverse', range, channels: 'left' }, old: OLD.identity() },
   { edit: { kind: 'silence', range, channels: 'both', ramp: FADE }, old: OLD.identity() },
   { edit: { kind: 'dc-offset', range, channels: 'both', ramp: FADE }, old: OLD.identity() },
+  { edit: { kind: 'band-gain', range, channels: 'both', band: { low: 100, high: 200 }, db: -6, feather: { frames: 0, octaves: 0 } }, old: OLD.identity() },
+  { edit: { kind: 'keep-band', range, channels: 'left', band: { low: 100, high: 200 }, feather: { frames: 0, octaves: 0 } }, old: OLD.identity() },
   { edit: { kind: 'delete', range, crossfade: FADE }, old: OLD.splice(range.from, range.to, 0) },
   { edit: { kind: 'crop', range }, old: OLD.crop(range.from, range.to) },
   { edit: { kind: 'insert', at, insert: copy(inserted), crossfade: FADE }, old: OLD.splice(at, at, inserted) },

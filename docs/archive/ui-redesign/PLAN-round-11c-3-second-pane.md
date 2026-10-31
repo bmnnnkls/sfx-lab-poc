@@ -8,7 +8,7 @@ note: "Part 3 of the handling-and-spectrum spec: a second pane in the wave edito
 
 Status: **done** 2026-10-31; plan signed off 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the
 [UI redesign](README.md). Carries out part 3 of the signed-off [handling and spectrum
-spec](../../active/SPEC-wave-editor-handling-and-spectrum.md) (§ 6, § Suggested
+spec](SPEC-wave-editor-handling-and-spectrum.md) (§ 6, § Suggested
 split): a second pane under the first, showing the same sample at its own place or another sample, for navigating and
 for copying from one into the other. The inventory was taken on `feat/ui-redesign` at `2d94ad4` (round 11c parts 1
 and 2 done). The spec's decisions are settled and not repeated here; this plan adds the ones it leaves open, in

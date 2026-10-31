@@ -24,6 +24,9 @@ export interface MenuSubmenu {
   readonly kind: 'submenu'
   readonly label: string
   readonly entries: readonly MenuEntry[]
+  /** It can't open now; `tooltip` says why. */
+  readonly disabled?: boolean
+  readonly tooltip?: string
 }
 
 export type MenuEntry = MenuAction | MenuSeparator | MenuSubmenu

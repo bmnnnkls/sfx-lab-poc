@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { type SampleEdit, type SampleInfo, addMarker, addRegion, copyAudioRange, createArrangementClip, createAudioClip, decodedBytes, createAudioTrack, createEmptyProject, encodeWavChannels, originOf, setLoop } from '@core'
+import { type SampleEdit, type SampleInfo, applyBandEditTo, addMarker, addRegion, copyAudioRange, createArrangementClip, createAudioClip, decodedBytes, createAudioTrack, createEmptyProject, encodeWavChannels, originOf, setLoop } from '@core'
 import { DEFAULT_SECOND_PANE, NO_WAVE_PANES, useWavePanesStore, audioClipboard, copyWaveSelection, waveViewKey, usePersistenceStore, useProjectStore, useSelectionStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
 import { type SampleStorage, StorageFullError, createMemorySampleEditLog, createMemorySampleStorage, sha256Hex } from '@storage'
 import { type AudioHost, decodeAudio } from '@audio'
@@ -259,6 +259,41 @@ describe('editing a sample in place', () => {
     expect(await edits.list()).toHaveLength(1)
   })
 
+  it('applies a band edit through the spectrum service, as one undo step that keeps the length, the cursor and the box', async () => {
+    const applied: SampleEdit[] = []
+    const spectrum = { applyOf: vi.fn(async (audio: Parameters<typeof applyBandEditTo>[0], edit: Parameters<typeof applyBandEditTo>[1]) => (applied.push(edit), applyBandEditTo(audio, edit))) }
+    const { info, library } = await setup({ spectrum })
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    const box = { from: 100, to: 400, channels: 'left' as const, band: { low: 500, high: 2000 } }
+    useWaveEditorStore.getState().select(main(info), box)
+    useWaveEditorStore.getState().setView(main(info), { cursor: 50 })
+    const past = useProjectStore.getState().history.past.length
+    const edit: SampleEdit = { kind: 'band-gain', range: { from: 100, to: 400 }, channels: 'left', band: box.band, db: -Infinity, feather: { frames: 0, octaves: 1 / 6 } }
+
+    await library.editSample(info.id, edit, { asCopy: false, pane: 'main' })
+    expect(applied).toEqual([edit])
+    const edited = samples()[0]!
+    expect(edited.id).not.toBe(info.id)
+    expect(edited.durationSeconds).toBe(info.durationSeconds)
+    expect(useProjectStore.getState().history.past.length).toBe(past + 1)
+    expect(waveViewOf(useWaveEditorStore.getState().views, main(edited))).toMatchObject({ cursor: 50, selection: box })
+    // The right channel, and the left outside the range, are as they were.
+    const audio = useWaveAudioStore.getState().panes.main!.audio
+    expect(Array.from(audio.channels[1]!)).toEqual(Array.from(RIGHT))
+    expect(Array.from(audio.channels[0]!.subarray(0, 100))).toEqual(Array.from(LEFT.subarray(0, 100)))
+    expect(Math.max(...audio.channels[0]!.subarray(200, 300).map(Math.abs))).toBeLessThan(Math.max(...LEFT.subarray(200, 300).map(Math.abs)) / 10)
+
+    useProjectStore.getState().undo()
+    expect(samples()).toEqual([info])
+    // At 0 dB the floats are the same: nothing changes.
+    await settled()
+    await library.editSample(info.id, { ...edit, db: 0 }, { asCopy: false, pane: 'main' })
+    expect(lastNotice()).toBe('Nothing changed')
+    disconnect()
+  })
+
   it('says "Nothing changed" for an edit that gives the same file', async () => {
     const storage = createMemorySampleStorage()
     const silent = await stored(storage, [new Float32Array(480)])
@@ -489,6 +524,16 @@ describe('two panes', () => {
     useProjectStore.getState().undo()
     await settled()
     expect([panes().main?.sampleId, panes().second?.sampleId]).toEqual([edited.id, edited.id])
+    disconnect()
+  })
+
+  it("keep the other pane's band as its time range follows the audio", async () => {
+    const { info, library, disconnect } = await twoSamples()
+    const band = { low: 200, high: 2000 }
+    useWaveEditorStore.getState().select(second(info), { from: 200, to: 260, channels: 'left', band })
+    useWaveEditorStore.getState().select(main(info), { from: 100, to: 150, channels: 'both' })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 150 }, crossfade: BUTT }, { asCopy: false, pane: 'main' })
+    expect(view(second(samples()[0]!)).selection).toEqual({ from: 150, to: 210, channels: 'left', band })
     disconnect()
   })
 

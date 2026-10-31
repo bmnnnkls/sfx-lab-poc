@@ -1,16 +1,18 @@
 ---
-status: active
+status: done
 date: 2026-10-31
-note: "Signed off 2026-10-29 as proposed. Amends round 11c's keys and adds round 11d (the spectrum). Parts 1 (handling) and 2 (markers and regions, with loop points) done 2026-10-31; part 3 (a second pane) done 2026-10-31; part 4 (round 11d, part 1: the spectrogram) done 2026-10-31; part 5 (spectral selection and edits) is planned and signed off, not started."
+shipped_in: architecture/samples-and-wave-editor.md
+note: "Signed off 2026-10-29 as proposed. Amends round 11c's keys and adds round 11d (the spectrum). All five parts done 2026-10-31: handling, markers and regions (with loop points), a second pane, the spectrogram, and spectral selection and edits (where round 11d part 2's plan reads Alt differently: it stays 'don't snap')."
 ---
 # Wave editor: handling, a second pane and the spectrum (spec)
 
-Status: **spec, signed off** 2026-10-29, every decision as proposed. Written 2026-10-29 on `feat/ui-redesign` at `eff1ba3` (round 11b done). No code was
+Status: **done** 2026-10-31, all five parts (the plans are beside it); spec signed off 2026-10-29, every decision as
+proposed. Written 2026-10-29 on `feat/ui-redesign` at `eff1ba3` (round 11b done). No code was
 changed. It follows a request to make the wave editor nicer to work in (a context menu, keys for copy, cut and paste,
 zooming with the mouse, panning with the middle button), to make its UI more attractive with room for more, to add a
 second waveform for navigating and copying side by side, and to add a frequency view with some editing.
 
-It **amends** [round 11's spec](SPEC-round-11-wave-editor.md) where they overlap (§ Keys and commands there, and the
+It **amends** [round 11's spec](../../active/SPEC-round-11-wave-editor.md) where they overlap (§ Keys and commands there, and the
 order of 11c), and **adds** a round 11d for the spectrum. Where the two disagree, this one wins and says so. The round
 plans take their steps and tests from here.
 
@@ -46,7 +48,7 @@ After this work:
 ## Inventory
 
 What the editor does now (`src/ui/wave-editor/`, documented in
-[samples-and-wave-editor](../architecture/samples-and-wave-editor.md#the-sample-editor)), and what the rest of the app
+[samples-and-wave-editor](../../architecture/samples-and-wave-editor.md#the-sample-editor)), and what the rest of the app
 does for the same gestures.
 
 ### The editor today
@@ -304,7 +306,7 @@ it.**
 ## Wishes, later
 
 Asked for while writing this: what else would we likely want? Not committed to; each goes to
-[BACKLOG](../BACKLOG.md) or [IDEAS](../IDEAS.md) when this is signed off.
+[BACKLOG](../../BACKLOG.md) or [IDEAS](../../IDEAS.md) when this is signed off.
 
 **The basics:**
 

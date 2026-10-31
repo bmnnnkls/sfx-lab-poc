@@ -1,9 +1,11 @@
 import { frameCount } from '@core'
-import { type WaveAudio, type WaveChannels, openWave, useWaveEditorStore, waveViewOf } from '@state'
+import { type WaveAudio, type WaveChannels, type WaveSelection, openWave, useWaveEditorStore, waveViewOf } from '@state'
 import { type MouseEvent, type PointerEvent, useEffect, useRef } from 'react'
 import { currentView } from './current-view'
+import { type LanePart, type LanePartKind, laneParts, partBox } from './lane-renderers'
 import type { WaveSnap } from './snap'
-import { autoScrollFrames, frameAt, resolveView, selectionEdgeAt } from './wave-geometry'
+import type { FrequencyScale } from './use-lane-renderers'
+import { autoScrollFrames, boxEdgeAt, boxEdgeCursor, frameAt, resolveView, selectionEdgeAt } from './wave-geometry'
 
 /** A press that moves less than this is a click (sets the cursor), not a drag (selects). */
 const DRAG_PX = 3
@@ -26,28 +28,79 @@ export const laneAt = (element: HTMLElement, clientY: number, stereo: boolean): 
   return clientY - box.top < box.height / 2 ? 0 : 1
 }
 
-/** A selection being dragged: from `anchor` to the pointer, which may be past the detail's edge (auto-scroll). */
+/** Where a point is in its lane: the lane, the part of it there, and the row in that part, `height` high. */
+export interface LaneSpot {
+  readonly lane: number
+  readonly kind: LanePartKind
+  readonly y: number
+  readonly height: number
+}
+
+/** The part of a lane `height` px high at row `y` from its top, and the row in it; above the lane the first, below it the last. */
+export const partAt = (parts: readonly LanePart[], y: number, height: number): Omit<LaneSpot, 'lane'> => {
+  let found = { kind: parts[0]!.kind, ...partBox(parts[0]!, height) }
+  for (const part of parts) {
+    const box = partBox(part, height)
+    if (y >= box.top) found = { kind: part.kind, ...box }
+  }
+  return { kind: found.kind, y: y - found.top, height: found.height }
+}
+
+/** The lane's canvas box: the lanes are the detail's canvases, in channel order. */
+const laneBox = (element: HTMLElement, lane: number) => (element.querySelectorAll('canvas')[lane] ?? element).getBoundingClientRect()
+
+/** Where `clientY` is on lane `lane` (the one under it unless given). */
+export const spotAt = (element: HTMLElement, clientY: number, stereo: boolean, parts: readonly LanePart[], lane = laneAt(element, clientY, stereo)): LaneSpot => {
+  const box = laneBox(element, lane)
+  return { lane, ...partAt(parts, clientY - box.top, box.height) }
+}
+
+/** The row of `clientY` in lane `lane`'s spectrogram part, past its edges too; null when the lanes show none. */
+const spectrogramRow = (element: HTMLElement, clientY: number, lane: number, parts: readonly LanePart[]) => {
+  const part = parts.find((candidate) => candidate.kind === 'spectrogram')
+  if (!part) return null
+  const box = laneBox(element, lane)
+  const inPart = partBox(part, box.height)
+  return { y: clientY - box.top - inPart.top, height: inPart.height }
+}
+
+/**
+ * A selection being dragged: `make` is the selection with the moving end at a frame (snapped) and the pointer at
+ * `clientY` (a box's band); the pointer may be past the detail's edge (auto-scroll).
+ */
 interface Drag {
-  readonly anchor: number
+  /** The frame pressed: a click puts the cursor there. */
+  readonly pressed: number
   readonly startX: number
-  readonly channels: WaveChannels
+  readonly make: (frame: number, clientY: number) => WaveSelection
   moved: boolean
-  /** Where the pointer is now, from the detail's left edge. */
+  /** Where the pointer is now, from the detail's left edge, and on the page. */
   x: number
+  clientY: number
   /** Alt is held: the moving end doesn't snap. */
   alt: boolean
   /** The auto-scroll's animation frame while the pointer is past an edge. */
   scrolling: number
 }
 
+const WAVEFORM_ONLY = laneParts('waveform')
+const NO_SCALE: FrequencyScale = { rowOf: () => 0, hzAt: () => 0 }
+
 /**
  * The lanes' mouse: a drag selects (Shift extends from the far end; a press on a selection's edge drags that edge), a
  * click sets the cursor, a double-click selects the whole sample on the channels a drag would take, and a middle-drag
- * pans. A selection dragged past the detail's left or right edge scrolls the view, faster the further past it. The
- * pointer shows a resize cursor over a selection's edge and a grabbing hand while panning, set on the element, not
- * through React. A click's cursor and a drag's moving end snap (`snap`), unless Alt is held.
+ * pans. A drag that starts in a spectrogram part selects a box, in time and frequency, on the lane it starts in (both
+ * once it is on the other); a box's edges and corners drag, and Shift extends it in time. A selection dragged past the
+ * detail's left or right edge scrolls the view, faster the further past it. The pointer shows a resize cursor over a
+ * selection's edge and a grabbing hand while panning, set on the element, not through React. A click's cursor and a
+ * drag's moving end snap (`snap`), unless Alt is held; a band doesn't snap.
  */
-export const useWaveGestures = (wave: WaveAudio, snap: WaveSnap = (frame) => frame) => {
+export const useWaveGestures = (
+  wave: WaveAudio,
+  snap: WaveSnap = (frame) => frame,
+  parts: readonly LanePart[] = WAVEFORM_ONLY,
+  frequencies: FrequencyScale = NO_SCALE,
+) => {
   const { viewKey, audio } = wave
   const frames = frameCount(audio)
   const stereo = audio.channels.length > 1
@@ -70,7 +123,7 @@ export const useWaveGestures = (wave: WaveAudio, snap: WaveSnap = (frame) => fra
   const follow = (element: HTMLElement) => {
     const current = drag.current
     if (!current) return
-    const select = (x: number) => useWaveEditorStore.getState().select(viewKey, { from: current.anchor, to: frameOf(element, x, current.alt), channels: current.channels })
+    const select = (x: number) => useWaveEditorStore.getState().select(viewKey, current.make(frameOf(element, x, current.alt), current.clientY))
     const width = element.clientWidth
     const past = current.x < 0 ? current.x : current.x > width ? current.x - width : 0
     if (past === 0) {
@@ -124,16 +177,55 @@ export const useWaveGestures = (wave: WaveAudio, snap: WaveSnap = (frame) => fra
       const x = xOfEvent(event)
       const at = frameOf(element, x, event.altKey)
       const { selection } = waveViewOf(store.views, viewKey)
-      const edge = event.shiftKey ? null : selectionEdgeAt(currentView(element, wave), selection, x, laneAt(element, event.clientY, stereo))
+      const spot = spotAt(element, event.clientY, stereo, parts)
+      /** The frequency at `clientY` in lane `lane`'s spectrogram. */
+      const hzOf = (clientY: number, lane: number) => {
+        const row = spectrogramRow(element, clientY, lane, parts)
+        return row ? frequencies.hzAt(row.y, row.height) : 0
+      }
+      const start = (make: Drag['make'], moved: boolean) => {
+        drag.current = { pressed: at, startX: event.clientX, make, moved, x, clientY: event.clientY, alt: event.altKey, scrolling: 0 }
+      }
+      const view = currentView(element, wave)
+      // In the spectrogram a box's edges drag; elsewhere, and for a selection without a band, its time edges.
+      const edge = event.shiftKey || !selection
+        ? null
+        : spot.kind === 'spectrogram' && selection.band
+          ? boxEdgeAt(view, selection, x, spot.y, spot.lane, (hz) => frequencies.rowOf(hz, spot.height))
+          : (() => {
+              const time = selectionEdgeAt(view, selection, x, spot.lane)
+              return time && { time, band: null }
+            })()
       if (selection && edge) {
-        // The other edge stays where it is.
-        drag.current = { anchor: edge === 'from' ? selection.to : selection.from, startX: event.clientX, channels: selection.channels, moved: true, x, alt: event.altKey, scrolling: 0 }
+        // The other edges stay where they are.
+        const anchor = edge.time === 'from' ? selection.to : selection.from
+        const band = selection.band
+        const fixedHz = edge.band === 'high' ? band?.low : band?.high
+        start(
+          (frame, clientY) => ({
+            from: edge.time ? anchor : selection.from,
+            to: edge.time ? frame : selection.to,
+            channels: selection.channels,
+            ...(band && { band: edge.band ? { low: fixedHz!, high: hzOf(clientY, spot.lane) } : band }),
+          }),
+          true,
+        )
+      } else if (event.shiftKey && selection) {
+        // Shift extends the selection in time from its far end, keeping its band.
+        const anchor = Math.abs(at - selection.from) > Math.abs(at - selection.to) ? selection.from : selection.to
+        start((frame) => ({ from: anchor, to: frame, channels: selection.channels, ...(selection.band && { band: selection.band }) }), true)
+        store.select(viewKey, drag.current!.make(at, event.clientY))
+      } else if (spot.kind === 'spectrogram') {
+        // A box, on the lane it starts in, or both once the pointer is on the other.
+        const fromHz = frequencies.hzAt(spot.y, spot.height)
+        start((frame, clientY) => {
+          const lane = laneAt(element, clientY, stereo)
+          const channels: WaveChannels = !stereo || lane !== spot.lane ? 'both' : spot.lane === 0 ? 'left' : 'right'
+          return { from: at, to: frame, channels, band: { low: fromHz, high: hzOf(clientY, lane) } }
+        }, false)
       } else {
-        // Shift extends the selection from its far end.
-        const anchor = event.shiftKey && selection ? (Math.abs(at - selection.from) > Math.abs(at - selection.to) ? selection.from : selection.to) : at
-        const channels = event.shiftKey && selection ? selection.channels : channelsAt(element, event.clientY, stereo)
-        drag.current = { anchor, startX: event.clientX, channels, moved: event.shiftKey && selection !== null, x, alt: event.altKey, scrolling: 0 }
-        if (drag.current.moved) store.select(viewKey, { from: anchor, to: at, channels })
+        const channels = channelsAt(element, event.clientY, stereo)
+        start((frame) => ({ from: at, to: frame, channels }), false)
       }
       element.setPointerCapture(event.pointerId)
     },
@@ -150,13 +242,19 @@ export const useWaveGestures = (wave: WaveAudio, snap: WaveSnap = (frame) => fra
       }
       const current = drag.current
       if (!current) {
-        // Over a selection's edge, the pointer says it can be dragged.
+        // Over a selection's edge or a box's, the pointer says it can be dragged.
         const { selection } = waveViewOf(useWaveEditorStore.getState().views, viewKey)
-        const edge = selectionEdgeAt(currentView(element, wave), selection, xOfEvent(event), laneAt(element, event.clientY, stereo))
-        element.style.cursor = edge ? 'ew-resize' : ''
+        const view = currentView(element, wave)
+        const spot = spotAt(element, event.clientY, stereo, parts)
+        const x = xOfEvent(event)
+        if (spot.kind === 'spectrogram' && selection?.band) {
+          const edge = boxEdgeAt(view, selection, x, spot.y, spot.lane, (hz) => frequencies.rowOf(hz, spot.height))
+          element.style.cursor = edge ? boxEdgeCursor(edge) : ''
+        } else element.style.cursor = selectionEdgeAt(view, selection, x, spot.lane) ? 'ew-resize' : ''
         return
       }
       current.x = xOfEvent(event)
+      current.clientY = event.clientY
       current.alt = event.altKey
       if (!current.moved && Math.abs(event.clientX - current.startX) < DRAG_PX) return
       current.moved = true
@@ -168,7 +266,7 @@ export const useWaveGestures = (wave: WaveAudio, snap: WaveSnap = (frame) => fra
       if (current && !current.moved) {
         const store = useWaveEditorStore.getState()
         store.select(viewKey, null)
-        store.setView(viewKey, { cursor: current.anchor })
+        store.setView(viewKey, { cursor: current.pressed })
       }
     },
     onPointerCancel: end,

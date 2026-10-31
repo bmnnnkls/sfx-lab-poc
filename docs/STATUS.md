@@ -8,7 +8,7 @@ Where the project stands, in one page. Updated 2026-10-31. Update it whenever a 
 * **`main`** deploys to GitHub Pages on every push. It holds the performance-and-library work, the compressor and the
   demo-release candidate (project v9 at that point). The demo release has **not been tagged**: the
   human listening pass and the tag are still open ([BACKLOG](BACKLOG.md) V9).
-* **`feat/ui-redesign`** is the working branch for the workbench redesign: rounds 1 to 11c and part 1 of 11d
+* **`feat/ui-redesign`** is the working branch for the workbench redesign: rounds 1 to 11
   are done on it and it is not merged into `main` yet. It writes project format **v12**, which `main`'s build refuses to open.
 
 Current file and storage versions are in [reference/formats-and-versions.md](reference/formats-and-versions.md).
@@ -25,7 +25,7 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 | Automation (clip, return and master), touch recording | Shipped; no automation on groups yet | [control-and-automation](architecture/control-and-automation.md) |
 | Browser MIDI input and learn | Shipped; physical hardware not verified | [midi](architecture/midi.md) |
 | Arrangement timeline (prototype) | Shipped; the full editor is round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
-| Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse, markers, regions, the sampler's loop, snap, *Revert to original*, a second pane, a spectrogram) | Shipped through 11d part 1; band selection and spectral edits are 11d part 2 | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
+| Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse, markers, regions, the sampler's loop, snap, *Revert to original*, a second pane, a spectrogram, band selection and spectral edits) | Shipped (round 11 done) | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
 | Snapshots, presets, personal library, `.sfxlib` bundles | Shipped | [library-and-presets](architecture/library-and-presets.md) |
 | Workbench: docking shell, views, layouts, actions, drag and drop, command palette, keys | Shipped (redesign rounds 1–6, 9–10) | [workbench](architecture/workbench.md) |
 | Offline WAV export | Shipped | [audio-export](architecture/audio-export.md) |
@@ -33,22 +33,15 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 
 ## Now and next
 
-1. **Round 11d, part 2: spectral selection and edits** in the wave editor (a frequency band on the selection, band
-   gain and keep band), specified in
-   [active/SPEC-wave-editor-handling-and-spectrum.md](active/SPEC-wave-editor-handling-and-spectrum.md) (§ 8, signed
-   off 2026-10-29); planned ([plan](active/PLAN-round-11d-2-spectral-edits.md), signed off 2026-10-31, not started). **Part 1 is done** (2026-10-31,
-   [plan](archive/ui-redesign/PLAN-round-11d-1-spectrogram.md)): the spectral core (FFT, windows, STFT and overlap-add), a spectrum
-   pyramid computed in a Web Worker and updated after edits, *Waveform*, *Spectrogram* and *Split* lanes with a
-   frequency scale and settings in ⚙, and columns computed on demand when zoomed in. Round 11c is done, in three parts (2026-10-31): handling (a grouped toolbar, the
-   right-click menu, keys, the mouse, a status bar and a level scale), markers, regions, snap, *Revert to original* and
-   the sampler's loop points with format v12, and a second pane
-   ([part 1](archive/ui-redesign/PLAN-round-11c-1-handling.md),
-   [part 2](archive/ui-redesign/PLAN-round-11c-2-markers-and-regions.md),
-   [part 3](archive/ui-redesign/PLAN-round-11c-3-second-pane.md)).
-2. **Round 12: the arrangement editor.** Track headers, automation lanes on the timeline (groups too), recording into
+Round 11, the wave editor, is done (2026-10-31), the last part being 11d part 2: a box drawn in the spectrogram
+selects a frequency band, and *Band gain…* and *Keep band* change only that band, in the spectrum worker
+([plan](archive/ui-redesign/PLAN-round-11d-2-spectral-edits.md)). Its parts: 11a, 11b, 11c in three parts and 11d in
+two ([archive/ui-redesign](archive/ui-redesign/README.md)).
+
+1. **Round 12: the arrangement editor.** Track headers, automation lanes on the timeline (groups too), recording into
    the arrangement. Outline in [active/ui-redesign-roadmap.md](active/ui-redesign-roadmap.md#round-12-arrangement-editor).
-3. **Round 13: visual refresh and themes.**
-4. **Merge `feat/ui-redesign` into `main`.** Decide whether this happens before round 12, and clear the verification
+2. **Round 13: visual refresh and themes.**
+3. **Merge `feat/ui-redesign` into `main`.** Decide whether this happens before round 12, and clear the verification
    debt first ([BACKLOG](BACKLOG.md#verification-debt)).
 
 Outside the redesign, [active/SPEC-effects-round-2.md](active/SPEC-effects-round-2.md) has parts 1–2 done, and

@@ -178,10 +178,25 @@ rebuilt the inside; round 11b made edits change the sample in place.
   (`asks[pane]`); the spectra service computes them with the same service and answers (`answers[pane]`) if the ask is
   still the pane's. They are drawn (`onDemandColumnsFor`, `on-demand`) while the view is at the same zoom and within
   them; a newer ask stops the older one.
+* **Band edits** (`core/spectrum/band-edits.ts`, the `spectral` entries of `SAMPLE_EDITS`). *Band gain…* (−60 to
+  +12 dB, −6 by default, or *Remove*, −∞; the popover disables *Gain* while *Remove* is on, `EditSetting.offWhen`) and
+  *Keep band* work on the selection's box. They filter the range and a window on each side through a Hann STFT
+  (`BAND_EDIT_FFT_SIZE` 2048, a quarter hop, columns on a grid from frame 0), each bin weighted by `bandMask` (band
+  gain `g − 1` inside the band, keep band `−1` outside it, easing to 0 over `BAND_FEATHER_OCTAVES`, a sixth of an
+  octave, inside the band's edges, a raised cosine on log frequency), and add the result to each frame of the range,
+  eased in and out over the crossfade length at its edges inside the sample. So audio outside the range never changes,
+  a band at 0 dB changes nothing (the same file: "Nothing changed"), the length and every position stay (`remap`
+  null), `changed` is the range, and an edit reads the range and a window on each side (`bandEditReads`).
+  `applyBandEdit(slice, edit)` gives the same floats from any slice holding what it reads as from the whole sample, so
+  the worker, its fallback and `apply` run the same code. The spectrum service's **`applyOf(audio, edit)`** sends the
+  frames read to the spectrum worker (a `band-edit` request) and splices the answer into a copy; `runEdit` uses it for
+  an edit `isBandEdit` says is spectral (the app gives the library the service the spectra use) and `applySampleEdit`
+  for the rest. The encode, hash, store and undo are those of any edit.
 * **View state** (`state/wave-editor-store.ts`), in memory, keyed by **pane and origin** (`waveViewKey(pane,
   originOf(sample))`, `main:<origin>`, `second:<origin>`), so a view follows its sample through edits, undo and redo,
   and two panes on one sample keep their own: `framesPerPixel` (null: fit the whole sample), `startFrame`, `cursor`,
-  `selection` (`{ from, to, channels: 'both' | 'left' | 'right' }`, frames), `zoomTo` and `asking`. Not saved with the
+  `selection` (`{ from, to, channels: 'both' | 'left' | 'right', band? }`, frames, with a band `{ low, high }` in Hz
+  when it is a box drawn in the spectrogram; `select` orders the band and drops an empty one), `zoomTo` and `asking`. Not saved with the
   project and not undone, so it survives tab switches until reload. **Zooms are asked for**, since only the editor knows
   its width: `zoom(key, range | 'fit')` (buttons, menu entries, keys) and `reveal` (entry points) set `zoomTo`, and the
   editor does it once it has a width and the audio (`takeZoom` reads and clears it; `resolveZoom` in
@@ -201,7 +216,9 @@ rebuilt the inside; round 11b made edits change the sample in place.
   for the rest; a popover value saved as `null` (an emptied field) is dropped, so the edit takes that field's default.
 * **One path for every edit** (`state/wave-edits.ts`). `openWave(at)` reads a sample with a pane's working copy (when
   it holds that sample) and the pane's view; `waveEditFacts` is what decides (an edit running, the audio loaded, the selection, something copied, the
-  channels); `waveEditBlocked(entry, facts)` says why an edit can't run now ("Select both channels to delete"), and
+  channels); `waveEditBlocked(entry, facts)` says why an edit can't run now ("Select both channels to delete"; with a band
+  selected, every entry without `allowsBand` "Needs a selection without a frequency band. Press Escape or click the
+  waveform.", and one with `needsBand` without a band "Drag a box in the spectrogram first"), and
   `waveCopyBlocked` and `waveCutBlocked` Copy's and Cut's (Copy runs while an edit runs); `waveEditContext` builds the
   `SampleEditContext`; `runWaveEdit(library, at, kind, { variant, values, curve })` checks, remembers the values
   and the curve, and calls `editSample` with the pane; `copyWave` and `cutWave` fill the clipboard. `state/wave-view.ts` has
@@ -215,11 +232,13 @@ rebuilt the inside; round 11b made edits change the sample in place.
   make copies*, a panel that Escape or a press outside closes) and × (*Close sample*). The glyphs are text until the app
   has an icon set. **Process ▾** is the `sample-selection` subject's `process` actions (below), so it and the
   right-click menu can't differ: the `process` entries of `SAMPLE_EDITS`, *Fade in* and *Fade out* each a submenu of
-  the curves (the last used first, checked), then *Insert silence…*. **View ▾** has the subject's two zooms, *Time* /
+  the curves (the last used first, checked), then *Insert silence…*, then, under a separator, the `spectral` entries,
+  *Band gain…* and *Keep band*. **View ▾** has the subject's two zooms, *Time* /
   *Beats*, the tempo the beats count at (*Project tempo*, *Tempo from the name*), and *Snap to beats* (disabled while the
   ruler counts time) and *Snap to zero crossings*, checked when in effect. The
-  **status bar** shows the cursor, or the selection's range, length and channels (`data-testid="wave-status"`); the
-  selection's peak and RMS in dBFS (`selectionLevels` in `core/sample/audio-math.ts`, the loudest of its channels, one
+  **status bar** shows the cursor, or the selection's range, length, channels and band ("· 200 Hz – 2.0 kHz",
+  `data-testid="wave-status"`); the selection's peak and RMS in dBFS, its time range's even with a band, as their
+  tooltip says (`selectionLevels` in `core/sample/audio-math.ts`, the loudest of its channels, one
   pass over the audio: 11.5 ms for 120 s of stereo in Chromium), computed once the selection hasn't changed for
   150 ms, so never during a drag ("…" meanwhile); and, at the right, "Scroll to move · Ctrl/⌘ + scroll to zoom ·
   Middle-drag to pan". The **level scale** is the editor's first grid column, 28 px: the overview and the ruler sit in
@@ -252,7 +271,9 @@ rebuilt the inside; round 11b made edits change the sample in place.
   colors) }`, `LaneRenderers`: `waveform` and `spectrogram`), clipped and moved to the part's box. `DetailView` asks
   `columnsFor` for the waveform and `spectrumColumnsFor` (or the columns on demand) for the spectrogram, and nothing
   else knows which mode is on; it sets `data-draw` and `data-spectrum` to what it drew. The selection is a veil under
-  the waveform and over the spectrogram, with a 1 px accent line at each edge there. The waveform's scale marks 0, −6
+  the waveform and over the spectrogram, with a 1 px accent line at each edge there. A box (a selection with a band) is
+  a veil and a 1 px accent outline over the spectrogram, its rows from the frequency scale (`FrequencyScale`, from
+  `useLaneRenderers`), and the time veil under the waveform; `data-band` on the detail says the band in Hz. The waveform's scale marks 0, −6
   and −12 dB above and below the middle and −∞ on it (`levelMarks(height)`: a label only 11 px or more below the last).
   The **spectrogram** (`spectrogram.ts`, a renderer per scale, floor and sample rate, `useLaneRenderers`) maps each
   pixel row to bins on the frequency scale (`binRows`: the loudest of a row's bins, or the nearest where a row is finer
@@ -266,21 +287,23 @@ rebuilt the inside; round 11b made edits change the sample in place.
 * **The right-click menu** is the **`sample-selection`** subject's (`{ kind: 'sample-selection', sampleId, pane }`,
   "Selection in *name*", `state/actions/sample-selection.ts`): *Cut*, *Copy*, *Paste*, *Delete*, *Crop* (one group,
   `clipboard`, as on the toolbar) · the processes (`process`, built from the registry by `processActions`, so a new
-  process is an action, a *Process ▾* entry and a palette row with no other change), then, after a separator
+  process is an action, a *Process ▾* entry and a palette row with no other change), the spectral edits after a
+  separator, then, after another
   (`Action.separated`), *Revert to original* · *Add marker*, *Make region*, *Set loop* and, while the cursor is exactly
   on a marker, *Rename marker* (verb `rename`, so F2 renames the marker M just added) (`marks`) · *Select all*, *Zoom
   to selection*, *Zoom to fit*, *Play selection* / *Play from cursor* / *Stop* (`view`). An action is disabled with the
   reason as its tooltip (`waveEditBlocked`); one with settings opens its popover (`ask`) and `takesFocus`, so the
   closing menu leaves the focus in the popover. What a right-click lands on follows the piano roll
-  (`menuTargetAt(selection, frame, channel)`): inside the selection, on a channel it covers, keeps it; anywhere else
-  clears it and puts the cursor there. Shift+F10 opens it, as everywhere.
+  (`menuTargetAt(selection, frame, channel, hz)`): inside the selection, on a channel it covers (and, in the
+  spectrogram, inside a box's band), keeps it; anywhere else clears it and puts the cursor there. Shift+F10 opens it, as everywhere.
 * **Keys.** With the lanes focused, the **edit keys** go through the subject's verbs (`runVerb`): Delete and Backspace
   delete, ⌘C copies, ⌘X cuts, ⌘V pastes; in a text field they stay the field's. The **view keys** are the lanes' own
   (`onKeyDown`), listed read only in the shortcuts dialog (`VIEW_KEYS`, *Wave editor*), and one pure function decides
   what each does, `waveKeyAction(key, view, frames, width)` (`wave-keys.ts`): ⌘A selects all (the channels selected,
-  else both); Escape clears the selection, the cursor at its start; ← → move the cursor a column (at least a frame),
+  else both, without a band); Escape drops a box's band, keeping its time range, or else clears the selection, the
+  cursor at its start; ← → move the cursor a column (at least a frame),
   or collapse a selection to that side; Alt with them a tenth of the view; Home and End to the ends; Shift with an
-  arrow, Home or End moves the selection's end the cursor is on (the cursor follows it) and keeps the other; + (or =)
+  arrow, Home or End moves the selection's end the cursor is on (the cursor follows it) and keeps the other, and a band; + (or =)
   and − zoom by two wheel notches around the cursor (the middle when it is out of view); Z zooms to the selection,
   Shift+Z to fit; P plays or stops; M adds a marker at the cursor, R makes a region and L sets the loop from the
   selection (the `marks` actions); `[` and `]` move the cursor to the previous or next marker, region edge or loop edge,
@@ -289,7 +312,13 @@ rebuilt the inside; round 11b made edits change the sample in place.
   Space stays the transport's; ⌘0, ⌘+ and ⌘− the browser's.
 * **Gestures** (`useWaveGestures`, `use-wave-gestures.ts`). Drag to select; on a stereo sample a drag starting in the
   top quarter of the left lane selects the left channel only, in the bottom quarter of the right lane the right only
-  (`channelsAt`). Shift extends from the far end. A click sets the cursor; a double-click selects the region or loop
+  (`channelsAt`). Shift extends from the far end. A drag that starts in a spectrogram part (the whole lane, or
+  *Split*'s lower two thirds) selects a **box**: time as any drag (snapping, Alt off), the band from the rows (`hzAt`:
+  past the part's bottom 0 Hz, past its top the Nyquist frequency), on the lane it starts in, or both channels while
+  the pointer is on the other lane; a box with no height is a time selection. Within `EDGE_PX` of a box's edge or
+  corner (`boxEdgeAt`) the pointer shows `ew-resize`, `ns-resize` or a diagonal, and a drag moves those edges; Shift
+  extends a box in time, keeping its band. A time-only selection in *Spectrogram* is a box and Escape, or a drag in
+  *Split*'s waveform part. A click sets the cursor; a double-click selects the region or loop
   under it (the innermost, the shortest) or else the whole sample, on the channels a drag there would take. Within `EDGE_PX` (4) of a selection's edge, on a channel it covers, the pointer
   shows a resize cursor and a drag moves that edge (`selectionEdgeAt`; the nearer edge on a narrow selection). A
   selection dragged past the detail's left or right edge scrolls the view each animation frame by
@@ -351,8 +380,8 @@ rebuilt the inside; round 11b made edits change the sample in place.
   into the master.
 * **Edits as data** (`core/sample/edits.ts`). `SampleEdit` is a union, one kind per edit, and `SAMPLE_EDITS` a record
   by kind: each entry has its title, tooltip, suffix (for a copy's name), `group` (`process`, `structure`,
-  `clipboard`), `settings` (numeric fields and toggles for a popover), `variants` (*Fade in* and *Fade out* are one kind),
-  `channels` (`both` for edits that change the length), `needsSelection`, `needsClipboard`, `takesFadeCurve`, and
+  `clipboard`, `spectral`), `settings` (numeric fields and toggles for a popover), `variants` (*Fade in* and *Fade out* are one kind),
+  `channels` (`both` for edits that change the length), `needsSelection`, `needsClipboard`, `allowsBand` and `needsBand` (§ Band edits), `takesFadeCurve`, and
   `create(context, variant)`, `apply(audio, edit)`, `remap(edit, frames)`, `changed(edit, frames)` and
   `after(edit, frames)`. `applySampleEdit`, `remapFrame`, `remapRange`, `sampleRemap`, `changedFrames` and `afterEdit`
   dispatch through it; nothing else switches on the kind, and the toolbar's menus and the actions are built from it.
@@ -395,5 +424,5 @@ rebuilt the inside; round 11b made edits change the sample in place.
   audio is gone goes). Then the panes' sample ids change. `encodeWav` (mono 16-bit)
   stays for the demo samples, whose ids are hashes of its bytes.
 * **Not yet.** Linked scrolling between the panes, and a third; previewing a process before applying it; a crossfaded
-  loop and a loop finder; selecting a frequency band and editing it (round 11d, part 2); frequency zoom; the granular
-  stage.
+  loop and a loop finder; auditioning a band alone, its own levels, snapping its edges, and spectral repair, copy and
+  paste; frequency zoom; the granular stage.

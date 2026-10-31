@@ -177,8 +177,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
   between groups; a list keeps that order; `separated` asks for one before an action inside its group),
   `danger`, `applies` (hidden when false: *Stop* on a return), `enabled` (shown but disabled: *Paste* with an empty
   clipboard) and `run`. An action that asks which one has `choices` (a lane's session clips, an empty audio slot's
-  samples, an XY pad's axes), drawn as a submenu or, with `inline` (which can depend on the subject), one entry per
-  choice; a choice may be `checked` (a fade's last used curve), drawn as a checkable entry. An action that moves the
+  samples, an XY pad's axes), drawn as a submenu (disabled, with the reason, while the action is) or, with `inline`
+  (which can depend on the subject), one entry per choice; a choice may be `checked` (a fade's last used curve), drawn as a checkable entry. An action that moves the
   focus to a field of its own says `takesFocus`. `actionsFor(subject)` returns the kind's list; nothing else picks
   actions. `describeActions(subject, context)` is what a menu shows now, and unit tests call it too.
 * **`ActionContext`** carries what actions can't import: the services that are React contexts (`EngineControls`,

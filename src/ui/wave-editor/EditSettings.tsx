@@ -37,6 +37,7 @@ export const EditSettings = ({
           max={setting.max}
           step={setting.step}
           autoFocus={setting === entry.settings[0]}
+          disabled={setting.offWhen !== undefined && draft[setting.offWhen] !== 0}
           onChange={(event) => setDraft({ ...draft, [setting.id]: event.target.valueAsNumber })}
         />
         {setting.unit && <span>{setting.unit}</span>}

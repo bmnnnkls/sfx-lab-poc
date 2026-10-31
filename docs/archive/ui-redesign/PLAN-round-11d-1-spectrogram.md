@@ -8,7 +8,7 @@ note: "Part 4 of the handling-and-spectrum spec (round 11d, part 1): the spectra
 
 Status: **done** 2026-10-31; plan signed off 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the
 [UI redesign](README.md). Carries out part 4 of the signed-off [handling and spectrum
-spec](../../active/SPEC-wave-editor-handling-and-spectrum.md) (§ 5, § 7,
+spec](SPEC-wave-editor-handling-and-spectrum.md) (§ 5, § 7,
 § Suggested split): the spectral core (IDEAS H1), a spectrum pyramid computed in a Web Worker, and a spectrogram in the
 lanes, read only. Spectral selection and the band edits (§ 8) are part 2, with a plan of their own once this one has
 landed. The inventory was taken on `feat/ui-redesign` at `9d44a5a` (round 11c done). The spec's decisions are settled

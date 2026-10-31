@@ -8,7 +8,7 @@ export interface MenuParts {
   CheckboxItem: ComponentType<{ className?: string; disabled?: boolean; title?: string; checked?: boolean; onSelect?: () => void; children?: ReactNode }>
   Separator: ComponentType<{ className?: string }>
   Sub: ComponentType<{ children?: ReactNode }>
-  SubTrigger: ComponentType<{ className?: string; children?: ReactNode }>
+  SubTrigger: ComponentType<{ className?: string; disabled?: boolean; title?: string; children?: ReactNode }>
   SubContent: ComponentType<{ className?: string; collisionPadding?: number; children?: ReactNode }>
   Portal: ComponentType<{ children?: ReactNode }>
 }
@@ -21,7 +21,7 @@ export const MenuEntries = ({ entries, parts }: { entries: readonly MenuEntry[];
         <parts.Separator key={`separator-${index}`} className={styles.separator} />
       ) : entry.kind === 'submenu' ? (
         <parts.Sub key={`${index}-${entry.label}`}>
-          <parts.SubTrigger className={styles.item}>
+          <parts.SubTrigger className={styles.item} disabled={entry.disabled} title={entry.tooltip}>
             <span>{entry.label}</span>
             <span className={styles.shortcut} aria-hidden="true">▸</span>
           </parts.SubTrigger>

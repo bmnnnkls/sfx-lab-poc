@@ -22,7 +22,7 @@
 //   wave-split  The wave setup with the second pane open on the same sample (View ▾ → Second pane), so two playheads
 //           run. Needs round 11c-3.
 //   wave-spectrum  The wave setup with the lanes on the spectrogram (View ▾ → Spectrogram), filled in before
-//           measuring. Needs round 11d-1.
+//           measuring, and a box selected in it, so its outline is drawn and ▶ loops its time range. Needs round 11d-2.
 //
 // Prints one JSON object per build. Each figure is a per-second average over the measured seconds.
 const { chromium } = require('@playwright/test')
@@ -205,10 +205,16 @@ const setUp = async (page, url) => {
       await wave.getByRole('button', { name: 'View', exact: true }).click()
       await page.getByRole('menuitemcheckbox', { name: 'Spectrogram', exact: true }).click()
       await page.waitForFunction(() => /^(levels|stretched|on-demand)$/.test(document.querySelector('[data-view="wave"] [data-testid="wave-detail"]')?.getAttribute('data-spectrum') ?? ''))
+      const lanes = await detail.first().boundingBox()
+      await page.mouse.move(lanes.x + lanes.width * 0.1, lanes.y + lanes.height * 0.1)
+      await page.mouse.down()
+      await page.mouse.move(lanes.x + lanes.width * 0.9, lanes.y + lanes.height * 0.4, { steps: 4 })
+      await page.mouse.up()
+      await page.waitForFunction(() => document.querySelector('[data-view="wave"] [data-testid="wave-detail"]')?.hasAttribute('data-band'))
     }
     await show(page, 'Mixer')
     await wave.getByRole('button', { name: 'Loop', exact: true }).click()
-    await wave.getByRole('button', { name: 'Play from cursor', exact: true }).click()
+    await wave.getByRole('button', { name: /^Play (from cursor|selection)$/ }).click()
   } else {
     if (SETUP === 'pinned') await pinPanels(page)
     await show(page, 'Mixer')

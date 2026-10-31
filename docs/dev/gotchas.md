@@ -38,6 +38,9 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **Two browser-test runs at once collide**: they share port 4173 and `test-results/`, so one can't start its server
   or loses its trace files ("ENOENT … .trace"), which reads like a failed test. Run them one after the other.
   *(round 11c-2)*
+* **The unit tests beside a smoke run fail its timed specs**: `vitest` starts a worker per file, and specs with bounded
+  waits (the library's isolated previews, the spectrogram following an edit) time out. Don't run anything heavy while
+  the smoke tests run. *(round 11d-2)*
 * **Short samples draw the spectrogram `stretched` or `on-demand`, not `levels`**: 2 s in a 1300 px lane is under the
   hop a pixel. Wait for `data-spectrum` to leave `pending`, and check what the spectrogram shows by its pixels (a tone's
   row brighter than an empty one), not by its kind. *(round 11d-1)*

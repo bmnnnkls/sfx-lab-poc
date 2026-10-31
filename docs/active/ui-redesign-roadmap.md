@@ -1,7 +1,7 @@
 ---
 status: active
 date: 2026-10-29
-note: "Rounds 1-11c are done; 11d (the spectrum) is next, its part 1 (the spectrogram) done, part 2 (spectral edits) planned and signed off, then 12 (arrangement editor) and 13 (visual refresh)."
+note: "Rounds 1-11 are done (11d, the spectrum, in two parts: the spectrogram and spectral edits); 12 (arrangement editor) and 13 (visual refresh) are next."
 ---
 # UI redesign roadmap (draft)
 
@@ -293,7 +293,7 @@ pyramid and the new view. **11b is done** 2026-10-29; see its [plan](../archive/
 proposed: edits change the sample in place with one undo step (trims, markers and regions remapped), undo is instant
 within the caches' budgets, edit-made files are cleaned up, and the editor has the six processes, cut, copy, paste,
 delete, crop and insert silence with crossfades, and ways in from clips, regions and the sampler. A second spec,
-[handling and spectrum](SPEC-wave-editor-handling-and-spectrum.md) (signed off 2026-10-29), splits 11c into handling,
+[handling and spectrum](../archive/ui-redesign/SPEC-wave-editor-handling-and-spectrum.md) (signed off 2026-10-29), splits 11c into handling,
 markers and regions, and a second pane, and adds 11d (the spectrum). **11c part 1, handling, is done** 2026-10-31; see
 its [plan](../archive/ui-redesign/PLAN-round-11c-1-handling.md), signed off as proposed: a grouped toolbar, the
 right-click menu and edit keys through a `sample-selection` subject, view keys, middle-drag, edge drags, auto-scroll, a
@@ -305,7 +305,10 @@ as proposed: views keyed by pane and origin, the editor's subjects carrying thei
 on one sample), edits moving every pane on their sample, one toolbar on the active pane, title rows and a splitter. **11d part 1,
 the spectrogram, is done** 2026-10-31; see its [plan](../archive/ui-redesign/PLAN-round-11d-1-spectrogram.md), signed off as proposed: the
 spectral core, a spectrum pyramid computed in a Web Worker, *Waveform*, *Spectrogram* and *Split* lanes, and columns
-on demand when zoomed in. Part 2, spectral selection and edits, is next; its [plan](PLAN-round-11d-2-spectral-edits.md) is signed off.
+on demand when zoomed in. **11d part 2, spectral selection and edits, is done** 2026-10-31; see its
+[plan](../archive/ui-redesign/PLAN-round-11d-2-spectral-edits.md), signed off as proposed: a box drawn in the spectrogram
+selects a frequency band, and *Band gain…* and *Keep band* filter only that band, in the spectrum worker. Round 11 is
+done.
 The outline below is what the spec started from.
 
 The biggest single piece, mostly beyond the UI. It needs its own SPEC before planning. Round 3 already gives it its

@@ -7,7 +7,7 @@ note: "Part 1 of the handling-and-spectrum spec: toolbar, right-click menu, keys
 # Round 11c, part 1: handling
 
 Status: **done** 2026-10-31; plan signed off 2026-10-31, every decision as proposed. Written 2026-10-31. Part of the [UI redesign](README.md). Carries out
-part 1 of the signed-off [handling and spectrum spec](../../active/SPEC-wave-editor-handling-and-spectrum.md) (§ Suggested split):
+part 1 of the signed-off [handling and spectrum spec](SPEC-wave-editor-handling-and-spectrum.md) (§ Suggested split):
 its sections 1 to 4, the grouped toolbar, the right-click menu, the keys and the mouse. The inventory was taken on
 `feat/ui-redesign` at `1780890` (round 11b done). The spec's decisions are settled and not repeated here; this plan only
 adds the ones it raises. Where it differs from the spec, it says so.
