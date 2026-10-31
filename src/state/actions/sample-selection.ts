@@ -67,15 +67,19 @@ const fadeAction = (variant: { id: string; title: string; tooltip: string }): Ac
     runWaveEdit(samples, subject, 'fade', { variant: variant.id, ...(isFadeCurve(choice) && { curve: choice }) }),
 })
 
+const entriesOf = (group: SampleEditEntry['group']) => (Object.values(SAMPLE_EDITS) as readonly SampleEditEntry[]).filter((entry) => entry.group === group)
+
 /**
  * The processes, built from the registry: each `process` entry of `SAMPLE_EDITS` (a fade once per variant), then
- * *Insert silence…*. A new process is an action, the toolbar's *Process ▾* entry and a palette row with no other change.
+ * *Insert silence…*, then the `spectral` entries under a separator. A new process is an action, the toolbar's *Process ▾*
+ * entry and a palette row with no other change.
  */
 export const processActions = (): readonly Action<SelectionSubject>[] => [
-  ...(Object.values(SAMPLE_EDITS) as readonly SampleEditEntry[])
-    .filter((entry) => entry.group === 'process')
-    .flatMap((entry) => (entry.variants ? entry.variants.map((variant) => (entry.takesFadeCurve ? fadeAction(variant) : editAction(entry.kind, variant))) : [editAction(entry.kind)])),
+  ...entriesOf('process').flatMap((entry) =>
+    entry.variants ? entry.variants.map((variant) => (entry.takesFadeCurve ? fadeAction(variant) : editAction(entry.kind, variant))) : [editAction(entry.kind)],
+  ),
   editAction('insert'),
+  ...entriesOf('spectral').map((entry, index) => ({ ...editAction(entry.kind), ...(index === 0 && { separated: true }) })),
 ]
 
 /** A structure or clipboard edit, run at once. */
@@ -95,6 +99,7 @@ const revertReason = (subject: SelectionSubject): string | null => {
   return open ? waveRevertBlocked(open.sample) : 'The sample is gone'
 }
 const copyBlocked = blockedBy(waveCopyBlocked)
+const hasBand = (subject: SelectionSubject) => !!openWave(subject)?.view.selection?.band
 
 /** *Add marker*, *Make region* or *Set loop*: disabled, with the reason, when it can't be added now. */
 const markAction = (kind: WaveMarkKind, title: string, tooltip: string, run: (subject: SelectionSubject) => void): Action<SelectionSubject> => {
@@ -124,7 +129,9 @@ const actions: readonly Action<SelectionSubject>[] = [
     verb: 'copy',
     title: 'Copy',
     group: 'clipboard',
-    tooltip: why(copyBlocked, 'Copy the selection, with a little of the audio around it for crossfades'),
+    tooltip: (subject) =>
+      copyBlocked(subject) ??
+      (hasBand(subject) ? 'Copies the whole time range: the clipboard has no band' : 'Copy the selection, with a little of the audio around it for crossfades'),
     enabled: (subject) => copyBlocked(subject) === null,
     run: (subject) => void copyWave(subject),
   },

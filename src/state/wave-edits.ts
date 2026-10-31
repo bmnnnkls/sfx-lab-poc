@@ -83,10 +83,15 @@ export const waveEditContext = ({ sample, wave, view }: Pick<OpenWave, 'sample' 
   }
 }
 
+/** Why an edit that works on whole frequencies can't run with a band selected. */
+export const BAND_BLOCKS = 'Needs a selection without a frequency band. Press Escape or click the waveform.'
+
 /** Why an edit can't run now, or null. */
 export const waveEditBlocked = (entry: SampleEditEntry, facts: WaveEditFacts): string | null => {
   if (facts.busy) return 'An edit is running'
   if (!facts.loaded) return 'The audio is not loaded'
+  if (entry.needsBand && !facts.selection?.band) return 'Drag a box in the spectrogram first'
+  if (!entry.allowsBand && facts.selection?.band) return BAND_BLOCKS
   if (entry.needsSelection && !facts.selection) return 'Select a part first'
   if (entry.needsClipboard && !facts.clipboard) return 'Copy some audio first'
   if (entry.channels === 'both' && facts.channelCount > 1 && facts.selection && facts.selection.channels !== 'both') {

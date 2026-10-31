@@ -364,7 +364,7 @@ export const createSampleLibrary = (storage: SampleStorage, host: AudioHost, opt
     const at = (position: number) => Math.max(0, Math.min(frames, Math.round(remap.start(position))))
     const range = old.selection && remap.range(old.selection)
     store.setView(to.viewKey, { ...old, cursor: at(old.cursor), startFrame: at(old.startFrame) })
-    store.select(to.viewKey, range && old.selection && { from: Math.round(range.from), to: Math.round(range.to), channels: old.selection.channels })
+    store.select(to.viewKey, range && old.selection && { ...old.selection, from: Math.round(range.from), to: Math.round(range.to) })
     clampView(to.viewKey, frames)
   }
 

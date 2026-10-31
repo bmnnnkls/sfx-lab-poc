@@ -1,14 +1,18 @@
-import type { FrameRange, SampleEditKind } from '@core'
+import type { FrameRange, FrequencyBand, SampleEditKind } from '@core'
 import { create } from 'zustand'
 
 /** Which channels a selection covers. On a mono sample it is always `both`. */
 export type WaveChannels = 'both' | 'left' | 'right'
 
-/** A selection in frames, from `from` up to (not including) `to`, `from < to`. */
+/**
+ * A selection in frames, from `from` up to (not including) `to`, `from < to`; with a band of frequencies (`low < high`,
+ * in Hz) when it is a box drawn in the spectrogram, which only the spectral edits work on.
+ */
 export interface WaveSelection {
   readonly from: number
   readonly to: number
   readonly channels: WaveChannels
+  readonly band?: FrequencyBand
 }
 
 /**
@@ -41,7 +45,7 @@ interface WaveEditorState {
   /** By pane and the sample's origin (`waveViewKey`), so a view follows its sample through edits, undo and redo, and two panes on one sample keep their own. */
   readonly views: Readonly<Record<string, WaveEditorView>>
   setView(key: string, change: Partial<WaveEditorView>): void
-  /** Sets the selection: ordered, and none when it is empty. */
+  /** Sets the selection: ordered, and none when it is empty; an empty band is dropped. */
   select(key: string, selection: WaveSelection | null): void
   /** Selects a part of a sample and asks the editor to zoom to it, once (an entry point opening a clip's trim). */
   reveal(key: string, selection: WaveSelection): void
@@ -63,10 +67,14 @@ export const useWaveEditorStore = create<WaveEditorState>((set, get) => ({
     set((state) => ({ views: { ...state.views, [sampleId]: { ...(state.views[sampleId] ?? DEFAULT_WAVE_VIEW), ...change } } })),
   select: (sampleId, selection) =>
     set((state) => {
+      const { band, ...time } = selection ?? { band: undefined }
+      const low = band && Math.min(band.low, band.high)
+      const high = band && Math.max(band.low, band.high)
       const ordered = selection && {
-        ...selection,
+        ...(time as WaveSelection),
         from: Math.min(selection.from, selection.to),
         to: Math.max(selection.from, selection.to),
+        ...(low !== undefined && high !== undefined && high > low && { band: { low, high } }),
       }
       const kept = ordered && ordered.to > ordered.from ? ordered : null
       return { views: { ...state.views, [sampleId]: { ...(state.views[sampleId] ?? DEFAULT_WAVE_VIEW), selection: kept } } }

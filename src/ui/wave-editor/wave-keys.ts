@@ -52,7 +52,7 @@ export const waveKeyAction = (key: string, stored: WaveEditorView, frames: numbe
   const extendTo = (frame: number): WaveKeyAction => {
     const anchor = !selection ? cursor : activeEnd === selection.from ? selection.to : selection.from
     const end = clamp(frame)
-    const range = end === anchor ? null : { from: Math.min(anchor, end), to: Math.max(anchor, end), channels: selection?.channels ?? 'both' }
+    const range = end === anchor ? null : { from: Math.min(anchor, end), to: Math.max(anchor, end), channels: selection?.channels ?? 'both', ...(selection?.band && { band: selection.band }) }
     return following({ selection: range, cursor: end })
   }
   /** Zooms around the cursor, or the view's middle when the cursor is outside it. */
@@ -94,7 +94,9 @@ export const waveKeyAction = (key: string, stored: WaveEditorView, frames: numbe
       return { mark: 'loop' }
     case 'mod+a':
       return { selection: { from: 0, to: frames, channels: selection?.channels ?? 'both' } }
+    // The band first, keeping the time range; then the selection.
     case 'escape':
+      if (selection?.band) return { selection: { from: selection.from, to: selection.to, channels: selection.channels } }
       return selection ? { selection: null, cursor: selection.from } : null
     case 'arrowleft':
       return selection ? following({ selection: null, cursor: selection.from }) : moveTo(cursor - column)

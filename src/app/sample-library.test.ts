@@ -492,6 +492,16 @@ describe('two panes', () => {
     disconnect()
   })
 
+  it("keep the other pane's band as its time range follows the audio", async () => {
+    const { info, library, disconnect } = await twoSamples()
+    const band = { low: 200, high: 2000 }
+    useWaveEditorStore.getState().select(second(info), { from: 200, to: 260, channels: 'left', band })
+    useWaveEditorStore.getState().select(main(info), { from: 100, to: 150, channels: 'both' })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 150 }, crossfade: BUTT }, { asCopy: false, pane: 'main' })
+    expect(view(second(samples()[0]!)).selection).toEqual({ from: 150, to: 210, channels: 'left', band })
+    disconnect()
+  })
+
   it('move only the pane an edit was asked from when it makes a copy; the other keeps the original', async () => {
     const { info, library, disconnect } = await twoSamples()
     await library.editSample(info.id, REVERSE, { asCopy: true, pane: 'main' })

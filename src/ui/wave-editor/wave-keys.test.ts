@@ -22,6 +22,13 @@ describe('the view keys', () => {
     expect(keyed('escape', at(25_000))).toBeNull()
   })
 
+  it('Escape drops a band first, keeping the time range; ⌘A drops it; Shift+arrows keep it', () => {
+    const box: WaveSelection = { from: 22_000, to: 24_000, channels: 'left', band: { low: 200, high: 2000 } }
+    expect(keyed('escape', at(25_000, box))).toEqual({ selection: { from: 22_000, to: 24_000, channels: 'left' } })
+    expect(keyed('mod+a', at(25_000, box))).toEqual({ selection: { from: 0, to: FRAMES, channels: 'left' } })
+    expect(keyed('shift+arrowright', at(24_000, box))).toEqual({ selection: { ...box, to: 24_010 }, cursor: 24_010 })
+  })
+
   it('← and → move the cursor a column, inside the sample; with a selection, collapse it to that side', () => {
     expect(keyed('arrowleft', at(25_000))).toEqual({ selection: null, cursor: 24_990 })
     expect(keyed('arrowright', at(25_000))).toEqual({ selection: null, cursor: 25_010 })

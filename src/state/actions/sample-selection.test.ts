@@ -44,7 +44,8 @@ describe('the sample-selection actions', () => {
     open(both)
     expect(describeActions(subject, fakeContext()).map((item) => `${item.group}: ${item.title}`)).toEqual([
       'clipboard: Cut', 'clipboard: Copy', 'clipboard: Paste', 'clipboard: Delete', 'clipboard: Crop',
-      'process: Gain…', 'process: Fade in', 'process: Fade out', 'process: Normalize…', 'process: Reverse', 'process: Silence', 'process: Remove DC offset', 'process: Insert silence…', 'process: Revert to original',
+      'process: Gain…', 'process: Fade in', 'process: Fade out', 'process: Normalize…', 'process: Reverse', 'process: Silence', 'process: Remove DC offset', 'process: Insert silence…',
+      'process: Band gain…', 'process: Keep band', 'process: Revert to original',
       'marks: Add marker', 'marks: Make region', 'marks: Set loop',
       'view: Select all', 'view: Zoom to selection', 'view: Zoom to fit', 'view: Play selection',
     ])
@@ -56,13 +57,15 @@ describe('the sample-selection actions', () => {
     const fromRegistry = (Object.values(SAMPLE_EDITS) as SampleEditEntry[])
       .filter((entry) => entry.group === 'process')
       .flatMap((entry) => entry.variants?.map((variant) => variant.title) ?? [entry.title])
-    expect(processActions().map((action) => action.title)).toEqual([...fromRegistry, SAMPLE_EDITS.insert.title])
+    const spectral = (Object.values(SAMPLE_EDITS) as SampleEditEntry[]).filter((entry) => entry.group === 'spectral').map((entry) => entry.title)
+    expect(spectral).toEqual(['Band gain…', 'Keep band'])
+    expect(processActions().map((action) => action.title)).toEqual([...fromRegistry, SAMPLE_EDITS.insert.title, ...spectral])
     // The toolbar's Process ▾ is this group of the subject's actions.
     open(both)
-    // Then *Revert to original*, set apart by a separator.
+    // The spectral edits, then *Revert to original*, each set apart by a separator.
     const process = describeActions(subject, fakeContext()).filter((item) => item.group === 'process')
-    expect(process.map((item) => item.title)).toEqual([...fromRegistry, SAMPLE_EDITS.insert.title, 'Revert to original'])
-    expect(process.map((item) => item.separated)).toEqual([...fromRegistry.map(() => false), false, true])
+    expect(process.map((item) => item.title)).toEqual([...fromRegistry, SAMPLE_EDITS.insert.title, ...spectral, 'Revert to original'])
+    expect(process.map((item) => item.separated)).toEqual([...fromRegistry.map(() => false), false, true, false, true])
   })
 
   it('are enabled, or say why not, with and without a selection, a clipboard, both channels and a running edit', () => {
@@ -92,6 +95,47 @@ describe('the sample-selection actions', () => {
     useWaveAudioStore.getState().setEditing(stereo.id)
     expect(items()['sample-selection.gain']).toMatchObject({ enabled: false, tooltip: 'An edit is running' })
     expect(items()['sample-selection.copy']?.enabled).toBe(true)
+  })
+
+  it('with a band, run only the spectral edits, Copy the time range, and the marks and the preview on it', () => {
+    const band = { ...both, band: { low: 200, high: 2000 } }
+    const audio = open(null)
+    audioClipboard.set(copyAudioRange(audio, both, [0, 1]))
+    // Without a band the spectral edits say how to make one.
+    for (const id of ['band-gain', 'keep-band']) expect(items()[`sample-selection.${id}`]).toMatchObject({ enabled: false, tooltip: 'Drag a box in the spectrogram first' })
+    open(both)
+    for (const id of ['band-gain', 'keep-band']) expect(items()[`sample-selection.${id}`]).toMatchObject({ enabled: false, tooltip: 'Drag a box in the spectrogram first' })
+
+    open(band)
+    const blocked = 'Needs a selection without a frequency band. Press Escape or click the waveform.'
+    for (const id of ['cut', 'paste', 'delete', 'crop', 'gain', 'fade-in', 'normalize', 'reverse', 'silence', 'dc-offset', 'insert']) {
+      expect(items()[`sample-selection.${id}`], id).toMatchObject({ enabled: false, tooltip: blocked })
+    }
+    expect(items()['sample-selection.band-gain']).toMatchObject({ enabled: true, tooltip: SAMPLE_EDITS['band-gain'].tooltip })
+    expect(items()['sample-selection.keep-band']?.enabled).toBe(true)
+    expect(items()['sample-selection.copy']).toMatchObject({ enabled: true, tooltip: 'Copies the whole time range: the clipboard has no band' })
+    for (const id of ['make-region', 'set-loop', 'zoom-selection', 'play']) expect(items()[`sample-selection.${id}`]?.enabled, id).toBe(true)
+    expect(items()['sample-selection.play']?.title).toBe('Play selection')
+    // One channel's box runs too: the spectral edits work on any channels.
+    open({ ...band, channels: 'left' })
+    expect(items()['sample-selection.band-gain']?.enabled).toBe(true)
+    useWaveAudioStore.getState().setEditing(stereo.id)
+    expect(items()['sample-selection.band-gain']).toMatchObject({ enabled: false, tooltip: 'An edit is running' })
+  })
+
+  it('make a band edit from the box', async () => {
+    open({ ...both, band: { low: 200, high: 2000 } })
+    const context = fakeContext()
+    await runAction('sample-selection.band-gain', subject, context)
+    expect(view().asking).toBe('band-gain')
+    await runAction('sample-selection.keep-band', subject, context)
+    expect(context.calls[0]).toContain('"kind":"keep-band","range":{"from":100,"to":300},"channels":"both","band":{"low":200,"high":2000}')
+  })
+
+  it('select all without the band', () => {
+    open({ ...both, band: { low: 200, high: 2000 } })
+    runAction('sample-selection.select-all', subject, fakeContext())
+    expect(view().selection).toEqual({ from: 0, to: 800, channels: 'both' })
   })
 
   it('open the settings popover for an edit with settings, and run one without at once', async () => {
