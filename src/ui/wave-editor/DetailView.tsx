@@ -1,13 +1,26 @@
-import { columnsFor, frameCount } from '@core'
-import { type Subject, type WaveAudio, openWave, runAction, toggleWavePreview, useProjectStore, useSampleLibrary, useStatusStore, useWaveEditorStore, waveViewOf } from '@state'
+import { columnsFor, frameCount, spectrumColumnsFor } from '@core'
+import {
+  type Subject,
+  type WaveAudio,
+  openWave,
+  runAction,
+  toggleWavePreview,
+  useProjectStore,
+  useSampleLibrary,
+  useStatusStore,
+  useWaveEditorStore,
+  useWaveSpectrumStore,
+  waveViewOf,
+} from '@state'
 import { type RefObject, useEffect, useMemo, useRef } from 'react'
 import { IS_APPLE, keyOf } from '../commands/keys'
 import { ActionMenu, useActionContext } from '../shared/menu'
-import { laneColumns, waveformRenderer } from './lane-renderers'
+import { laneColumns, spectrumLaneColumns } from './lane-renderers'
 import { markLines, marksOf } from './mark-geometry'
 import type { WaveSnap } from './snap'
 import { WaveLane, type WaveLaneHandle } from './WaveLane'
 import { currentView } from './current-view'
+import { useLaneRenderers } from './use-lane-renderers'
 import { laneAt, useWaveGestures } from './use-wave-gestures'
 import { WHEEL_ZOOM, coversChannel, frameAt, menuTargetAt, resolveView, xOf, zoomAround } from './wave-geometry'
 import { waveKeyAction } from './wave-keys'
@@ -16,7 +29,10 @@ import styles from './WaveEditor.module.css'
 /**
  * The lanes, one per channel, with the cursor, the selection and the preview's playhead. Zoom and scroll write to the
  * store and redraw the canvases in an animation frame; React renders only when the sample, the selection or the
- * cursor changes. `data-draw` says which band of `columnsFor` is drawn.
+ * cursor changes. Each lane shows the lane mode's parts (`useLaneRenderers`): the waveform from `columnsFor`, the
+ * spectrogram from `spectrumColumnsFor` over the sample's spectrum (`useWaveSpectrumStore`), which redraws as its
+ * chunks arrive. `data-draw` says which band of `columnsFor` is drawn, `data-spectrum` which of the spectrum's (or
+ * `pending` while its columns in view aren't all there).
  *
  * The lanes take the focus on a press and are the `sample-selection` subject's menu trigger, so the right-click menu,
  * the edit keys (Delete, ⌘C, ⌘X, ⌘V) and the palette act on the selection; the view keys are theirs
@@ -42,6 +58,7 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
   const context = useActionContext()
   const subject = useMemo<Subject>(() => ({ kind: 'sample-selection', sampleId: wave.sampleId, pane: wave.pane }), [wave.sampleId, wave.pane])
   const library = useSampleLibrary()
+  const { lanes: mode, parts, renderers } = useLaneRenderers(audio.sampleRate)
 
   // Draws the lanes from the store, at most once per animation frame.
   useEffect(() => {
@@ -51,14 +68,25 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
       const element = frame.current
       if (!element) return
       const view = currentView(element, wave)
-      const columns = columnsFor(view, pyramid, audio)
-      element.dataset.draw = columns.kind
+      const showsWave = parts.some((part) => part.kind === 'waveform')
+      const showsSpectrum = parts.some((part) => part.kind === 'spectrogram')
+      const columns = showsWave ? columnsFor(view, pyramid, audio) : null
+      if (columns) element.dataset.draw = columns.kind
+      else delete element.dataset.draw
+      const spectrum = showsSpectrum ? useWaveSpectrumStore.getState().spectra[wave.sampleId] : undefined
+      const spectral = spectrum ? spectrumColumnsFor(view, spectrum.pyramid) : null
+      if (showsSpectrum) element.dataset.spectrum = !spectral || spectral.pending ? 'pending' : spectral.kind
+      else delete element.dataset.spectrum
       const { cursor, selection } = waveViewOf(useWaveEditorStore.getState().views, viewKey)
       const sample = openWave(wave)?.sample
       const lines = sample ? markLines(view, marksOf(sample)) : { markers: [], edges: [] }
       lanes.current.forEach((lane, channel) => {
         const covers = selection && coversChannel(selection, channel)
-        lane?.draw(laneColumns(columns, channel, view), {
+        const data = {
+          ...(columns && { waveform: laneColumns(columns, channel, view) }),
+          ...(showsSpectrum && { spectrogram: spectral && spectrumLaneColumns(spectral, channel) }),
+        }
+        lane?.draw(data, {
           selection: covers ? { from: xOf(view, selection.from), to: xOf(view, selection.to) } : null,
           cursor: selection ? null : xOf(view, cursor),
           ...lines,
@@ -76,15 +104,20 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
     const unsubscribeMarks = useProjectStore.subscribe((state, previous) => {
       if (state.project.samples !== previous.project.samples) schedule()
     })
+    // The spectrum fills in chunk by chunk.
+    const unsubscribeSpectrum = useWaveSpectrumStore.subscribe((state, previous) => {
+      if (state.spectra[wave.sampleId] !== previous.spectra[wave.sampleId]) schedule()
+    })
     const observer = new ResizeObserver(schedule)
     if (frame.current) observer.observe(frame.current)
     return () => {
       unsubscribe()
       unsubscribeMarks()
+      unsubscribeSpectrum()
       observer.disconnect()
       if (request) cancelAnimationFrame(request)
     }
-  }, [wave, audio, pyramid, viewKey, frame])
+  }, [wave, audio, pyramid, viewKey, frame, parts, renderers])
 
   // The wheel scrolls; with ⌘ or Ctrl (and a trackpad pinch, which arrives as one) it zooms around the pointer.
   useEffect(() => {
@@ -145,7 +178,7 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
         {...gestures}
       >
         {audio.channels.map((_, index) => (
-          <WaveLane key={index} label={stereo ? (index === 0 ? 'Left' : 'Right') : 'Waveform'} renderer={waveformRenderer} handle={handles[index]!} />
+          <WaveLane key={index} label={stereo ? (index === 0 ? 'Left' : 'Right') : mode === 'spectrogram' ? 'Spectrogram' : 'Waveform'} parts={parts} renderers={renderers} handle={handles[index]!} />
         ))}
         <WavePlayhead wave={wave} frame={frame} />
       </div>

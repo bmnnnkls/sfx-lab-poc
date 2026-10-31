@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { LaneColumns, LaneRenderer } from './lane-renderers'
+import { type LaneData, type LanePart, type LaneRenderers, partBox } from './lane-renderers'
 import styles from './WaveEditor.module.css'
 
 /**
@@ -14,7 +14,7 @@ export interface LaneOverlay {
 }
 
 export interface WaveLaneHandle {
-  draw(columns: LaneColumns, overlay: LaneOverlay): void
+  draw(data: LaneData, overlay: LaneOverlay): void
 }
 
 const color = (element: Element, name: string, fallback: string) => getComputedStyle(element).getPropertyValue(name).trim() || fallback
@@ -36,26 +36,54 @@ const fitted = (element: HTMLCanvasElement) => {
 }
 
 /**
- * One channel's lane: a canvas the size of its box times the device pixel ratio, drawn by `renderer` when the detail
- * view asks (`handle`), never by React rendering.
+ * One channel's lane: a canvas the size of its box times the device pixel ratio, its parts (`laneParts`: the waveform,
+ * the spectrogram, or both) each drawn by its renderer when the detail view asks (`handle`), never by React rendering.
+ * The selection is a veil under the waveform and over the spectrogram, with a line at each edge there.
  */
-export const WaveLane = ({ label, renderer, handle }: { label: string; renderer: LaneRenderer; handle(lane: WaveLaneHandle | null): void }) => {
+export const WaveLane = ({ label, parts, renderers, handle }: { label: string; parts: readonly LanePart[]; renderers: LaneRenderers; handle(lane: WaveLaneHandle | null): void }) => {
   const canvas = useRef<HTMLCanvasElement>(null)
   const attach = useCallback(
     (element: HTMLCanvasElement | null) => {
       canvas.current = element
       if (!element) return handle(null)
       handle({
-        draw: (columns, overlay) => {
+        draw: (data, overlay) => {
           const fit = fitted(element)
           if (!fit) return
           const { context, width, height } = fit
           const accent = color(element, '--accent', '#f5a524')
-          if (overlay.selection) {
+          const colors = { wave: accent, line: color(element, '--border', '#444') }
+          const veil = (top: number, partHeight: number) => {
+            if (!overlay.selection) return
             context.fillStyle = color(element, '--wave-selection', 'rgba(245, 165, 36, 0.25)')
-            context.fillRect(overlay.selection.from, 0, Math.max(1, overlay.selection.to - overlay.selection.from), height)
+            context.fillRect(overlay.selection.from, top, Math.max(1, overlay.selection.to - overlay.selection.from), partHeight)
           }
-          renderer.draw(context, columns, { width, height }, { wave: accent, line: color(element, '--border', '#444') })
+          for (const part of parts) {
+            const box = partBox(part, height)
+            context.save()
+            context.beginPath()
+            context.rect(0, box.top, width, box.height)
+            context.clip()
+            context.translate(0, box.top)
+            const size = { width, height: box.height }
+            if (part.kind === 'waveform') {
+              veil(0, box.height)
+              if (data.waveform) renderers.waveform.draw(context, data.waveform, size, colors)
+            } else {
+              renderers.spectrogram.draw(context, data.spectrogram ?? null, size, colors)
+              veil(0, box.height)
+              if (overlay.selection) {
+                context.fillStyle = accent
+                context.fillRect(Math.round(overlay.selection.from), 0, 1, box.height)
+                context.fillRect(Math.round(overlay.selection.to), 0, 1, box.height)
+              }
+            }
+            context.restore()
+            if (box.top > 0) {
+              context.fillStyle = colors.line
+              context.fillRect(0, box.top, width, 1)
+            }
+          }
           if (overlay.edges.length > 0 || overlay.markers.length > 0) {
             context.fillStyle = color(element, '--text-dim', '#888')
             context.globalAlpha = 0.35
@@ -71,7 +99,7 @@ export const WaveLane = ({ label, renderer, handle }: { label: string; renderer:
         },
       })
     },
-    [handle, renderer],
+    [handle, parts, renderers],
   )
   return (
     <div className={styles.lane}>
@@ -82,10 +110,10 @@ export const WaveLane = ({ label, renderer, handle }: { label: string; renderer:
 }
 
 /**
- * A lane's scale, in the gutter beside it: its own canvas, drawn by the renderer's `scale` when it mounts and when its
- * box changes size, never on zoom or scroll.
+ * A lane's scale, in the gutter beside it: its own canvas, each part's drawn by its renderer's `scale` when it mounts,
+ * when its box changes size and when the renderers change, never on zoom or scroll.
  */
-export const LaneScale = ({ renderer }: { renderer: LaneRenderer }) => {
+export const LaneScale = ({ parts, renderers }: { parts: readonly LanePart[]; renderers: LaneRenderers }) => {
   const canvas = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const element = canvas.current
@@ -94,13 +122,19 @@ export const LaneScale = ({ renderer }: { renderer: LaneRenderer }) => {
       const fit = fitted(element)
       if (!fit) return
       const dim = color(element, '--text-dim', '#888')
-      renderer.scale(fit.context, { width: fit.width, height: fit.height }, { wave: dim, line: dim })
+      for (const part of parts) {
+        const box = partBox(part, fit.height)
+        fit.context.save()
+        fit.context.translate(0, box.top)
+        renderers[part.kind].scale(fit.context, { width: fit.width, height: box.height }, { wave: dim, line: dim })
+        fit.context.restore()
+      }
     }
     draw()
     const observer = new ResizeObserver(draw)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [renderer])
+  }, [parts, renderers])
   return (
     <div className={styles.lane}>
       <canvas ref={canvas} className={styles.laneCanvas} aria-hidden="true" />

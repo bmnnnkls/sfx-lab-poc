@@ -21,13 +21,15 @@
 //           (M, R and L), so the mark lane has something to draw. Needs round 11a (the marks, round 11c-2).
 //   wave-split  The wave setup with the second pane open on the same sample (View ▾ → Second pane), so two playheads
 //           run. Needs round 11c-3.
+//   wave-spectrum  The wave setup with the lanes on the spectrogram (View ▾ → Spectrogram), filled in before
+//           measuring. Needs round 11d-1.
 //
 // Prints one JSON object per build. Each figure is a per-second average over the measured seconds.
 const { chromium } = require('@playwright/test')
 
 const [devUrl, previewUrl, secondsArg, setupArg] = process.argv.slice(2)
 if (!devUrl || !previewUrl) {
-  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four|groups|pinned|wave|wave-split]')
+  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four|groups|pinned|wave|wave-split|wave-spectrum]')
   process.exit(2)
 }
 const SECONDS = Number(secondsArg ?? 10)
@@ -168,7 +170,7 @@ const setUp = async (page, url) => {
     await page.getByRole('button', { name: 'Hide Bass', exact: true }).click()
     await show(page, 'Mixer')
     await page.getByRole('button', { name: 'Launch scene 1', exact: true }).click()
-  } else if (SETUP === 'wave' || SETUP === 'wave-split') {
+  } else if (SETUP === 'wave' || SETUP === 'wave-split' || SETUP === 'wave-spectrum') {
     await show(page, 'Samples')
     await page.locator('[data-view="samples"]').getByRole('button', { name: 'Add demo samples', exact: true }).click()
     const loop = page.locator('[data-view="samples"]').getByRole('listitem').filter({ hasText: 'Demo Drum Loop' })
@@ -198,6 +200,11 @@ const setUp = async (page, url) => {
       // The first pane, smaller now, active again, so ▶ plays from its cursor at the start.
       const first = await wave.getByTestId('wave-pane-main').getByTestId('wave-detail').boundingBox()
       await page.mouse.click(first.x + 1, first.y + first.height / 2)
+    }
+    if (SETUP === 'wave-spectrum') {
+      await wave.getByRole('button', { name: 'View', exact: true }).click()
+      await page.getByRole('menuitemcheckbox', { name: 'Spectrogram', exact: true }).click()
+      await page.waitForFunction(() => /^(levels|stretched|on-demand)$/.test(document.querySelector('[data-view="wave"] [data-testid="wave-detail"]')?.getAttribute('data-spectrum') ?? ''))
     }
     await show(page, 'Mixer')
     await wave.getByRole('button', { name: 'Loop', exact: true }).click()

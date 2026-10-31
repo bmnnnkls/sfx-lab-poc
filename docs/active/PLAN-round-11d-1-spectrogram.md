@@ -291,3 +291,52 @@ Signed off 2026-10-31: every row as proposed.
 
 ## Changes made while implementing
 
+
+**Step 1 (the spectral core).** As planned. The windows are periodic (DFT-even), so Hann overlaps to exactly a constant
+at a quarter hop; `overlapAdd` scales by the windows' squares summed over a hop, which is that constant.
+
+**Step 2 (the spectrum pyramid).**
+
+* **A worker's chunk goes in through `putSpectrumColumns`,** beside `fillSpectrum`: the worker computes base columns
+  (`spectrumColumnBytes`, from a slice of the channel starting at `offset`), the main thread writes them and the levels
+  above them. Each level keeps a `filled` flag per column (both of its columns below filled), so `spectrumColumnsFor`
+  says `pending` without walking the base.
+* `spectrumColumnsFor` gives each pixel column a range of a level's columns (`from`, `to`), drawn loudest per bin, not
+  one column: a pixel between two level hops covers up to two.
+* The sizes differ by up to 2 % between FFT sizes, not 0: the levels stop at 512 columns or fewer, so the top level's
+  rounding differs.
+
+**Step 3 (the worker, the service and the spectra).**
+
+* **The service sends one chunk at a time, with only the frames its windows read** (about a megabyte for stereo), two
+  chunks in flight per job, instead of a copy of the whole working copy up front: no task on the main thread copies more
+  than a chunk, and a cancel only stops sending. The worker keeps nothing; a worker that fails hands its chunks to the
+  main thread, sliced again.
+* **An edit's result finds its source through the working copy:** `WaveAudio.editedFrom` (`{ sampleId, changed }`),
+  set by `runEdit`. `app/wave-spectrum.ts` makes new spectra before it drops old ones, so the result is updated from
+  its source's pyramid in the same store change that takes the source away.
+* **The view's columns first is a guess at the width:** the stores keep no view's width, so the fill puts first the
+  chunks over `startFrame` to `startFrame + 2000 px` at the view's zoom (`VIEW_GUESS_PX`).
+* The worker bundles to 106 kB: it imports `@core`'s index, as every layer does.
+* The build check is the step 4 browser spec (the spectrogram draws from the built worker, and the spec sees the
+  `spectrum-worker` script start), not `bundle.smoke.spec.ts`.
+
+**Step 4 (lane modes and the spectrogram).**
+
+* **A lane draws its parts, not one renderer:** `laneParts(lanes)` gives the waveform, the spectrogram or both with
+  their share of the height, and `WaveLane` and `LaneScale` draw each part through `LaneRenderers` (the waveform's
+  renderer and a spectrogram renderer made per scale, floor and sample rate by `useLaneRenderers`). The veil goes under
+  the waveform and over the spectrogram, with the accent lines there.
+* **The image goes through a small canvas of its own:** `putImageData` ignores the lane's transform and clip, so the
+  renderer paints an `ImageData` at the part's CSS size, puts it into a scratch canvas and draws that with
+  `drawImage` (smoothing off), which honours both.
+* A mono lane is labelled *Spectrogram* while it shows only the spectrogram (and *Waveform* otherwise), as `Left` and
+  `Right` name stereo lanes.
+* **The demo files and the spec's tone are short, so they draw `stretched`**, not `levels`: 2 s in 1300 px is under
+  the hop a pixel. The browser spec takes any drawn state and checks the pixels instead: the 1 kHz row is bright in the
+  tone's half and the 8 kHz row isn't.
+* A reload doesn't reopen the sample (the editor's sample isn't saved); the spec opens it again and finds the mode and
+  the settings kept.
+* **Profile** (load average 5 to 6, at the step 4 tree): `wave` holds at **56** component renders a second, 15.4 script
+  ms; `wave-spectrum`, a new setup with the spectrogram filled in, **56** and 13.2 script ms. `DetailView`, `WaveLane`
+  and `LaneScale` render 0 times while the preview plays.
