@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { levelMarks } from './lane-renderers'
 import { DEFAULT_WAVE_VIEW } from '@state'
 import { formatBeat, formatTime, rulerTicks } from './ruler-ticks'
-import { MIN_FRAMES_PER_PIXEL, clampView, frameAt, menuTargetAt, resolveView, resolveZoom, xOf, zoomAround, zoomTo } from './wave-geometry'
+import { EDGE_PX, MIN_FRAMES_PER_PIXEL, autoScrollFrames, clampView, frameAt, menuTargetAt, selectionEdgeAt, resolveView, resolveZoom, xOf, zoomAround, zoomTo } from './wave-geometry'
 
 const FRAMES = 480_000 // 10 s at 48 kHz
 
@@ -86,5 +86,38 @@ describe('the level scale', () => {
     expect(marks[3]!.ys).toEqual([100])
     // In a low lane the labels that would touch are left out; the lines stay.
     expect(levelMarks(40).map((mark) => mark.label)).toEqual(['0', null, '−12', null])
+  })
+})
+
+describe('a selection edge', () => {
+  /** 10 frames a column from frame 0: the selection's edges are at columns 10 and 30. */
+  const view = { startFrame: 0, framesPerPixel: 10, width: 1000 }
+  const selection = { from: 100, to: 300, channels: 'left' as const }
+  it('is under the pointer within EDGE_PX of it, on a channel the selection covers', () => {
+    expect(selectionEdgeAt(view, selection, 10, 0)).toBe('from')
+    expect(selectionEdgeAt(view, selection, 10 - EDGE_PX, 0)).toBe('from')
+    expect(selectionEdgeAt(view, selection, 30 + EDGE_PX, 0)).toBe('to')
+    expect(selectionEdgeAt(view, selection, 20, 0)).toBeNull()
+    expect(selectionEdgeAt(view, selection, 10 - EDGE_PX - 1, 0)).toBeNull()
+    expect(selectionEdgeAt(view, selection, 10, 1)).toBeNull()
+    expect(selectionEdgeAt(view, null, 10, 0)).toBeNull()
+  })
+
+  it('is the nearer one on a selection narrower than two EDGE_PX', () => {
+    const narrow = { from: 100, to: 150, channels: 'both' as const }
+    expect(selectionEdgeAt(view, narrow, 11, 1)).toBe('from')
+    expect(selectionEdgeAt(view, narrow, 14, 1)).toBe('to')
+    expect(selectionEdgeAt(view, narrow, 12.5, 1)).toBe('from')
+  })
+})
+
+describe('the auto-scroll', () => {
+  it('is none inside, grows with the distance past the edge, and is capped at a quarter of the view', () => {
+    expect(autoScrollFrames(0, 10, 1000)).toBe(0)
+    expect(autoScrollFrames(20, 10, 1000)).toBe(20)
+    expect(autoScrollFrames(-50, 10, 1000)).toBe(-50)
+    expect(autoScrollFrames(100, 10, 1000)).toBeGreaterThan(autoScrollFrames(20, 10, 1000))
+    expect(autoScrollFrames(1e6, 10, 1000)).toBe(2500)
+    expect(autoScrollFrames(-1e6, 10, 1000)).toBe(-2500)
   })
 })

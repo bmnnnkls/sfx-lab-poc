@@ -1,35 +1,15 @@
 import { columnsFor, frameCount } from '@core'
-import { type Subject, type WaveAudio, type WaveChannels, toggleWavePreview, useSampleLibrary, useStatusStore, useWaveEditorStore, waveViewOf } from '@state'
+import { type Subject, type WaveAudio, toggleWavePreview, useSampleLibrary, useStatusStore, useWaveEditorStore, waveViewOf } from '@state'
 import { type RefObject, useEffect, useMemo, useRef } from 'react'
 import { IS_APPLE, keyOf } from '../commands/keys'
 import { ActionMenu } from '../shared/menu'
 import { laneColumns, waveformRenderer } from './lane-renderers'
 import { WaveLane, type WaveLaneHandle } from './WaveLane'
 import { currentView } from './current-view'
+import { laneAt, useWaveGestures } from './use-wave-gestures'
 import { WHEEL_ZOOM, coversChannel, frameAt, menuTargetAt, resolveView, xOf, zoomAround } from './wave-geometry'
 import { waveKeyAction } from './wave-keys'
 import styles from './WaveEditor.module.css'
-
-/** A press that moves less than this is a click (sets the cursor), not a drag (selects). */
-const DRAG_PX = 3
-
-/** Which channels a press selects: on a stereo sample, the top quarter of the left lane is left only, the bottom quarter of the right lane right only. */
-const channelsAt = (element: HTMLElement, clientY: number, stereo: boolean): WaveChannels => {
-  if (!stereo) return 'both'
-  const box = element.getBoundingClientRect()
-  const lane = box.height / 2
-  const y = clientY - box.top
-  if (y < lane / 4) return 'left'
-  if (y > box.height - lane / 4) return 'right'
-  return 'both'
-}
-
-/** The lane under the pointer: 0 (left, or the only one) or 1 (right). */
-const laneAt = (element: HTMLElement, clientY: number, stereo: boolean): number => {
-  if (!stereo) return 0
-  const box = element.getBoundingClientRect()
-  return clientY - box.top < box.height / 2 ? 0 : 1
-}
 
 /**
  * The lanes, one per channel, with the cursor, the selection and the preview's playhead. Zoom and scroll write to the
@@ -37,7 +17,8 @@ const laneAt = (element: HTMLElement, clientY: number, stereo: boolean): number 
  * cursor changes. `data-draw` says which band of `columnsFor` is drawn.
  *
  * The lanes take the focus on a press and are the `sample-selection` subject's menu trigger, so the right-click menu,
- * the edit keys (Delete, ⌘C, ⌘X, ⌘V) and the palette act on the selection.
+ * the edit keys (Delete, ⌘C, ⌘X, ⌘V) and the palette act on the selection; the view keys are theirs
+ * (`waveKeyAction`), and the mouse is `useWaveGestures`.
  */
 export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<HTMLDivElement | null> }) => {
   const { viewKey, audio, pyramid } = wave
@@ -45,7 +26,7 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
   const stereo = audio.channels.length > 1
   const lanes = useRef<Array<WaveLaneHandle | null>>([])
   const handles = useMemo(() => audio.channels.map((_, index) => (lane: WaveLaneHandle | null) => void (lanes.current[index] = lane)), [audio])
-  const drag = useRef<{ anchor: number; startX: number; channels: WaveChannels; moved: boolean } | null>(null)
+  const gestures = useWaveGestures(wave)
   const subject = useMemo<Subject>(() => ({ kind: 'sample-selection', sampleId: wave.sampleId }), [wave.sampleId])
   const library = useSampleLibrary()
 
@@ -139,39 +120,7 @@ export const DetailView = ({ wave, frame }: { wave: WaveAudio; frame: RefObject<
           if (action.zoom) store.zoom(viewKey, action.zoom)
           if (action.play) toggleWavePreview(library, wave.sampleId)
         }}
-        onPointerDown={(event) => {
-          event.currentTarget.focus({ preventScroll: true })
-          if (event.button !== 0) return
-          const store = useWaveEditorStore.getState()
-          const at = frameOf(event)
-          const { selection } = waveViewOf(store.views, viewKey)
-          // Shift extends the selection from its far end.
-          const anchor = event.shiftKey && selection ? (Math.abs(at - selection.from) > Math.abs(at - selection.to) ? selection.from : selection.to) : at
-          const channels = event.shiftKey && selection ? selection.channels : channelsAt(event.currentTarget, event.clientY, stereo)
-          drag.current = { anchor, startX: event.clientX, channels, moved: event.shiftKey && selection !== null }
-          if (drag.current.moved) store.select(viewKey, { from: anchor, to: at, channels })
-          event.currentTarget.setPointerCapture(event.pointerId)
-        }}
-        onPointerMove={(event) => {
-          const current = drag.current
-          if (!current) return
-          if (!current.moved && Math.abs(event.clientX - current.startX) < DRAG_PX) return
-          current.moved = true
-          useWaveEditorStore.getState().select(viewKey, { from: current.anchor, to: frameOf(event), channels: current.channels })
-        }}
-        onPointerUp={(event) => {
-          const current = drag.current
-          drag.current = null
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-          if (current && !current.moved) {
-            const store = useWaveEditorStore.getState()
-            store.select(viewKey, null)
-            store.setView(viewKey, { cursor: current.anchor })
-          }
-        }}
-        onPointerCancel={() => {
-          drag.current = null
-        }}
+        {...gestures}
       >
         {audio.channels.map((_, index) => (
           <WaveLane key={index} label={stereo ? (index === 0 ? 'Left' : 'Right') : 'Waveform'} renderer={waveformRenderer} handle={handles[index]!} />

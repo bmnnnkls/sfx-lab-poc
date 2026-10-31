@@ -331,3 +331,10 @@ Signed off 2026-10-31: every row as proposed.
 * **Step 4: keys by `keyOf`** (`ui/commands/keys`), so `+` is `plus` or `shift+plus` and `=` is `=`; the handler ignores
   a held P or Z repeating. Escape without a selection isn't a view key, so it reaches whatever else takes it. The rows
   in `VIEW_KEYS` are the table's, one per line of it.
+* **Step 5: the gestures moved out of `DetailView`** into `useWaveGestures(wave)` (`use-wave-gestures.ts`, with
+  `channelsAt` and `laneAt`), as the piano roll's are in `use-piano-roll-interaction.ts`; `DetailView` keeps the
+  wheel, the keys and the menu. The focus moves on any button's press, in the capture phase, as the patcher's does.
+* **Step 5: a fitted view neither pans nor auto-scrolls** (it shows the whole sample), so a middle-drag there doesn't
+  store an explicit zoom that would stop it fitting on resize. `autoScrollFrames(distancePx, framesPerPixel, width)`
+  takes the width for its cap. On a selection narrower than two `EDGE_PX`, `selectionEdgeAt` picks the nearer edge.
+  Shift with a press on an edge extends, as before, rather than dragging the edge.

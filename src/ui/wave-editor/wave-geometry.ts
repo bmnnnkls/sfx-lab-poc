@@ -56,3 +56,26 @@ export const coversChannel = (selection: WaveSelection, channel: number): boolea
  */
 export const menuTargetAt = (selection: WaveSelection | null, frame: number, channel: number): 'keep' | { readonly cursor: number } =>
   selection && frame >= selection.from && frame <= selection.to && coversChannel(selection, channel) ? 'keep' : { cursor: frame }
+
+/** A press this close to a selection's edge (in pixels) drags that edge. */
+export const EDGE_PX = 4
+
+/**
+ * The selection's edge under column `x` on lane `channel`, within `EDGE_PX`, on a channel the selection covers; the
+ * nearer one when both are that close (a narrow selection), `from` on a tie left of the middle.
+ */
+export const selectionEdgeAt = (view: WaveView, selection: WaveSelection | null, x: number, channel: number): 'from' | 'to' | null => {
+  if (!selection || !coversChannel(selection, channel)) return null
+  const from = Math.abs(x - xOf(view, selection.from))
+  const to = Math.abs(x - xOf(view, selection.to))
+  if (Math.min(from, to) > EDGE_PX) return null
+  if (from !== to) return from < to ? 'from' : 'to'
+  return x <= (xOf(view, selection.from) + xOf(view, selection.to)) / 2 ? 'from' : 'to'
+}
+
+/**
+ * How far the view scrolls in one animation frame while a selection is dragged `distancePx` past the detail's edge
+ * (negative: past the left one): a tenth of the distance in columns, at most a quarter of the view; none inside.
+ */
+export const autoScrollFrames = (distancePx: number, framesPerPixel: number, width: number): number =>
+  Math.sign(distancePx) * Math.min(Math.abs(distancePx) / 10, width / 4) * framesPerPixel

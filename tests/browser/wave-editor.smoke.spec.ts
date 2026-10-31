@@ -428,3 +428,55 @@ test('the shortcuts dialog lists the Wave editor keys', async ({ page }) => {
   await expect(views.getByText('Wave editor: Zoom to the selection, zoom to fit', { exact: true })).toBeVisible()
   await expect(views.getByText('Wave editor: Extend the selection from the cursor', { exact: true })).toBeVisible()
 })
+
+test('the mouse pans with the middle button, drags a selection edge, scrolls past the edge, and double-clicks to select a channel', async ({ page }) => {
+  const { wave, detail, status } = await openStereo(page)
+  const box = (await detail.boundingBox())!
+  const overviewBox = wave.getByRole('scrollbar', { name: 'Waveform position' }).locator('div')
+  const middle = box.y + box.height / 2
+
+  // A selection's right edge drags; the left edge stays.
+  await dragAcross(page, detail, 0.3, 0.5)
+  const first = await selectionOf(wave)
+  await page.mouse.move(box.x + box.width * 0.5, middle)
+  await expect(detail).toHaveCSS('cursor', 'ew-resize')
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.7, middle, { steps: 5 })
+  await page.mouse.up()
+  const widened = await selectionOf(wave)
+  expect(widened.from).toBe(first.from)
+  expect(widened.to).toBeCloseTo(2.8, 1)
+
+  // Zoomed to a tenth of the sample, a middle-drag to the left moves the view right and leaves the cursor.
+  await page.mouse.click(box.x + box.width * 0.1, middle)
+  await dragAcross(page, detail, 0.1, 0.2)
+  await page.keyboard.press('z')
+  await expect.poll(async () => (await overviewBox.boundingBox())!.width).toBeLessThan(box.width / 5)
+  await page.keyboard.press('Escape')
+  const cursor = await status.textContent()
+  const before = (await overviewBox.boundingBox())!.x
+  await page.mouse.move(box.x + box.width * 0.6, middle)
+  await page.mouse.down({ button: 'middle' })
+  await page.mouse.move(box.x + box.width * 0.2, middle, { steps: 5 })
+  await page.mouse.up({ button: 'middle' })
+  await expect.poll(async () => (await overviewBox.boundingBox())!.x).toBeGreaterThan(before + 5)
+  await expect(status).toHaveText(cursor!)
+
+  // A drag past the right edge scrolls the view and selects to where it shows.
+  const scrollbar = (await wave.getByRole('scrollbar', { name: 'Waveform position' }).boundingBox())!
+  const shown = (await overviewBox.boundingBox())!
+  const scrolled = shown.x
+  const shownEnd = ((shown.x + shown.width - scrollbar.x) / scrollbar.width) * 4
+  await page.mouse.move(box.x + box.width * 0.5, middle)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width + 80, middle, { steps: 5 })
+  await expect.poll(async () => (await overviewBox.boundingBox())!.x).toBeGreaterThan(scrolled + 20)
+  await page.mouse.up()
+  const dragged = await selectionOf(wave)
+  // The selection runs past where the view ended before it scrolled.
+  expect(dragged.to).toBeGreaterThan(shownEnd + 0.05)
+
+  // A double-click in the top quarter of the left lane selects all of the left channel.
+  await page.mouse.dblclick(box.x + box.width * 0.5, box.y + box.height * 0.05)
+  await expect(status).toHaveText('Selection 0:00.000 – 0:04.000 (0:04.000), left only')
+})
