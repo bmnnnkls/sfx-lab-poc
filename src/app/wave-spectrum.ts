@@ -1,6 +1,6 @@
 import type { SpectrumService } from '@audio'
-import { type SpectrumPyramid, createSpectrumPyramid, frameCount, putSpectrumColumns, spectrumChunks, updateSpectrumPyramid } from '@core'
-import { WAVE_PANES, type WaveAudio, showsSpectrum, useWaveAudioStore, useWaveEditSettings, useWaveEditorStore, useWaveSpectrumStore, waveViewOf } from '@state'
+import { SPECTRUM_CHUNK_COLUMNS, type SpectrumAsk, type SpectrumPyramid, createSpectrumPyramid, frameCount, putSpectrumColumns, sameAsk, spectrumChunks, updateSpectrumPyramid } from '@core'
+import { WAVE_PANES, type WaveAudio, type WavePane, showsSpectrum, useWaveAudioStore, useWaveEditSettings, useWaveEditorStore, useWaveSpectrumStore, waveViewOf } from '@state'
 
 /** The stores keep no view's width; the fill takes the view this wide when it puts the view's columns first. */
 const VIEW_GUESS_PX = 2000
@@ -15,9 +15,35 @@ export interface WaveSpectra {
  * spectrum service in chunks, the pane's view first. An edit's result starts from its source's spectrum
  * (`updateSpectrumPyramid`), so only the columns whose windows touch the change are computed again. A spectrum goes,
  * and its job stops, when no pane shows its sample, the lanes stop showing it, or the FFT size changes.
+ *
+ * It also answers each pane's ask for its view's own columns (`useWaveSpectrumStore.ask`, zoomed in past the hop) through
+ * the same service; a newer ask from the pane stops the older one.
  */
 export const createWaveSpectra = (service: SpectrumService): WaveSpectra => {
   const jobs = new Map<string, () => void>()
+  const asking = new Map<WavePane, () => void>()
+
+  /** Computes a pane's ask, and answers it if it is still the pane's when done. */
+  const answer = (pane: WavePane, ask: SpectrumAsk | null) => {
+    asking.get(pane)?.()
+    asking.delete(pane)
+    if (!ask) return
+    const wave = WAVE_PANES.map((other) => useWaveAudioStore.getState().panes[other]).find((held) => held?.sampleId === ask.sampleId)
+    if (!wave) return
+    const bins = ask.fftSize / 2 + 1
+    const bytes = wave.audio.channels.map(() => new Uint8Array(ask.count * bins))
+    const chunks: { from: number; to: number }[] = []
+    for (let at = ask.firstColumn; at < ask.firstColumn + ask.count; at += SPECTRUM_CHUNK_COLUMNS) chunks.push({ from: at, to: Math.min(ask.firstColumn + ask.count, at + SPECTRUM_CHUNK_COLUMNS) })
+    const cancel = service.spectrumOf(
+      { channels: wave.audio.channels, fftSize: ask.fftSize, hop: ask.hop, chunks },
+      (chunk) => chunk.bytes.forEach((part, channel) => bytes[channel]!.set(part, (chunk.from - ask.firstColumn) * bins)),
+      () => {
+        if (asking.get(pane) === cancel) asking.delete(pane)
+        if (sameAsk(useWaveSpectrumStore.getState().asks[pane], ask)) useWaveSpectrumStore.getState().answer(pane, { ...ask, bins, bytes })
+      },
+    )
+    asking.set(pane, cancel)
+  }
 
   const stop = (sampleId: string) => {
     jobs.get(sampleId)?.()
@@ -83,10 +109,16 @@ export const createWaveSpectra = (service: SpectrumService): WaveSpectra => {
       const unsubscribeSettings = useWaveEditSettings.subscribe((state, previous) => {
         if (state.lanes !== previous.lanes || state.spectrum.fftSize !== previous.spectrum.fftSize) sync()
       })
+      const unsubscribeAsks = useWaveSpectrumStore.subscribe((state, previous) => {
+        if (state.asks === previous.asks) return
+        for (const pane of WAVE_PANES) if (state.asks[pane] !== previous.asks[pane]) answer(pane, state.asks[pane])
+      })
       return () => {
         unsubscribeAudio()
         unsubscribeSettings()
+        unsubscribeAsks()
         for (const sampleId of [...jobs.keys()]) stop(sampleId)
+        for (const pane of [...asking.keys()]) answer(pane, null)
       }
     },
   }

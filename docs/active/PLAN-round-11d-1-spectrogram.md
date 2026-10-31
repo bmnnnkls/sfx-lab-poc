@@ -340,3 +340,24 @@ at a quarter hop; `overlapAdd` scales by the windows' squares summed over a hop,
 * **Profile** (load average 5 to 6, at the step 4 tree): `wave` holds at **56** component renders a second, 15.4 script
   ms; `wave-spectrum`, a new setup with the spectrogram filled in, **56** and 13.2 script ms. `DetailView`, `WaveLane`
   and `LaneScale` render 0 times while the preview plays.
+
+**Step 5 (columns on demand).**
+
+* **The ask goes through the store, not `SampleLibrary`:** a pane's lanes set `useWaveSpectrumStore.asks[pane]`
+  (`spectrumAsk`), and `app/wave-spectrum.ts`, which owns the service, answers into `answers[pane]` if the ask is still
+  the pane's. The ui reaches `app` through stores here, as `openAudio` follows the selection, and the spectrum service
+  stays out of the sample library.
+* **An ask covers the view and a quarter of its width on each side,** so a small scroll still draws from it; the lanes
+  ask again only when the answer, or the ask in flight, doesn't cover the view (`askCovers`).
+* **"Settled for a frame" is the view object being the same a frame later:** the ask is made in the next animation
+  frame only if the store's view for the pane hasn't changed. Without that, a long scroll queued an ask a frame at the
+  worker, each one's chunks computed after it was cancelled.
+* **The hop on demand is whole frames** (`max(an eighth of the hop, round(frames per pixel))`), and `framesRead` gives
+  whole frames: a fractional slice start shifted the worker's columns by a frame against the main thread's.
+* Columns on demand take their hop through the same call: `spectrumColumnBytes`, the request and the job gained a
+  `hop` (the pyramid's by default).
+* The demo files and the spec's tone are under the hop a pixel, so the browser spec sees `on-demand` without zooming,
+  then again after a ⌘-wheel zoom.
+* **Profile** (load average 4 to 6, step 5's tree, interleaved): `wave` **56** renders and 13.0, 12.9 and 14.4 script ms
+  a second; `wave-spectrum` **56** and 16.0, 13.1 and 15.6; `wave-split` **85** and 14.8. With step 4's pair, `wave`
+  averages 13.9 script ms and `wave-spectrum` 14.5 (+4 %), within the plan's 10 %; a single pair varies by ±2 ms.

@@ -79,6 +79,16 @@ test('the spectrogram fills in from the worker, shows the tone at its frequency,
   expect(await brightness(lane, 0.25, logY(8000))).toBeLessThan(150)
   expect(await brightness(lane, 0.75, logY(1000))).toBeLessThan(150)
 
+  // The tone's 2 s in a wide lane is under the hop a pixel: the view gets its own columns, and again after a zoom.
+  await expect(detail).toHaveAttribute('data-spectrum', 'on-demand')
+  const box = (await detail.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.keyboard.down('Control')
+  await page.mouse.wheel(0, -300)
+  await page.keyboard.up('Control')
+  await expect(detail).toHaveAttribute('data-spectrum', 'on-demand')
+  await expect.poll(() => brightness(lane, 0.25, logY(1000))).toBeGreaterThan(300)
+
   // Split: the waveform over the spectrogram.
   await lanes(page, wave, 'Split')
   await expect(detail).toHaveAttribute('data-draw', /peaks|frames/)

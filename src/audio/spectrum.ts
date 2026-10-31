@@ -1,10 +1,12 @@
 import { framesRead, spectrumHop } from '@core'
 import { type SpectrumAnswer, type SpectrumRequest, answerSpectrum } from './spectrum-protocol'
 
-/** A sample's spectrum to compute: its channels (read, never changed), the FFT size, and the base columns in order. */
+/** A sample's spectrum to compute: its channels (read, never changed), the FFT size, and the columns in order. */
 export interface SpectrumJob {
   readonly channels: readonly Float32Array[]
   readonly fftSize: number
+  /** Frames between columns: the pyramid's hop (`spectrumHop`) unless a view asks for its own. */
+  readonly hop?: number
   readonly chunks: readonly { readonly from: number; readonly to: number }[]
 }
 
@@ -54,9 +56,10 @@ export const createSpectrumService = (makeWorker: () => Worker | null = startWor
 
   const requestOf = (id: number, running: Running, chunk: { from: number; to: number }): { request: SpectrumRequest; transfer: ArrayBuffer[] } => {
     const { channels, fftSize } = running.job
-    const read = framesRead({ fftSize, hop: spectrumHop(fftSize), frames: channels[0]?.length ?? 0 }, chunk.from, chunk.to)
+    const hop = running.job.hop ?? spectrumHop(fftSize)
+    const read = framesRead({ fftSize, hop, frames: channels[0]?.length ?? 0 }, chunk.from, chunk.to)
     const slices = channels.map((channel) => channel.slice(read.from, Math.max(read.from, read.to)))
-    return { request: { id, fftSize, from: chunk.from, to: chunk.to, offset: read.from, channels: slices }, transfer: slices.map((slice) => slice.buffer) }
+    return { request: { id, fftSize, hop, from: chunk.from, to: chunk.to, offset: read.from, channels: slices }, transfer: slices.map((slice) => slice.buffer) }
   }
 
   const answered = (answer: SpectrumAnswer) => {

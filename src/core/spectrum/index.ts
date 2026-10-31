@@ -23,3 +23,4 @@ export {
   spectrumHop,
   updateSpectrumPyramid,
 } from './pyramid'
+export { type SpectrumAnswered, type SpectrumAsk, askCovers, onDemandColumnsFor, onDemandMinHop, sameAsk, spectrumAsk } from './on-demand'

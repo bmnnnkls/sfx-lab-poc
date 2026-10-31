@@ -1,4 +1,4 @@
-import { columnsFor, frameCount, spectrumColumnsFor } from '@core'
+import { type SpectrumAsk, askCovers, columnsFor, frameCount, onDemandColumnsFor, spectrumAsk, spectrumColumnsFor } from '@core'
 import {
   type Subject,
   type WaveAudio,
@@ -31,8 +31,10 @@ import styles from './WaveEditor.module.css'
  * store and redraw the canvases in an animation frame; React renders only when the sample, the selection or the
  * cursor changes. Each lane shows the lane mode's parts (`useLaneRenderers`): the waveform from `columnsFor`, the
  * spectrogram from `spectrumColumnsFor` over the sample's spectrum (`useWaveSpectrumStore`), which redraws as its
- * chunks arrive. `data-draw` says which band of `columnsFor` is drawn, `data-spectrum` which of the spectrum's (or
- * `pending` while its columns in view aren't all there).
+ * chunks arrive. Zoomed in past the spectrum's hop, the lanes draw its base columns stretched and, once the view has
+ * stayed put for a frame, ask for the view's own columns (`spectrumAsk`), drawn while they cover it. `data-draw` says
+ * which band of `columnsFor` is drawn, `data-spectrum` which of the spectrum's (or `pending` while its columns in view
+ * aren't all there).
  *
  * The lanes take the focus on a press and are the `sample-selection` subject's menu trigger, so the right-click menu,
  * the edit keys (Delete, ⌘C, ⌘X, ⌘V) and the palette act on the selection; the view keys are theirs
@@ -63,6 +65,15 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
   // Draws the lanes from the store, at most once per animation frame.
   useEffect(() => {
     let request = 0
+    let asking = 0
+    /** Asks for `ask` in the next frame, if the view hasn't moved by then. */
+    const askSoon = (ask: SpectrumAsk) => {
+      const at = useWaveEditorStore.getState().views[viewKey]
+      cancelAnimationFrame(asking)
+      asking = requestAnimationFrame(() => {
+        if (useWaveEditorStore.getState().views[viewKey] === at) useWaveSpectrumStore.getState().ask(wave.pane, ask)
+      })
+    }
     const draw = () => {
       request = 0
       const element = frame.current
@@ -73,8 +84,17 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
       const columns = showsWave ? columnsFor(view, pyramid, audio) : null
       if (columns) element.dataset.draw = columns.kind
       else delete element.dataset.draw
-      const spectrum = showsSpectrum ? useWaveSpectrumStore.getState().spectra[wave.sampleId] : undefined
-      const spectral = spectrum ? spectrumColumnsFor(view, spectrum.pyramid) : null
+      const spectra = useWaveSpectrumStore.getState()
+      const spectrum = showsSpectrum ? spectra.spectra[wave.sampleId] : undefined
+      let spectral = null
+      if (spectrum) {
+        const ask = spectrumAsk(view, wave.sampleId, spectrum.fftSize, frames)
+        const answered = spectra.answers[wave.pane]
+        if (ask && answered?.sampleId === wave.sampleId) spectral = onDemandColumnsFor(view, answered, frames)
+        const asked = spectra.asks[wave.pane]
+        if (ask && !spectral && !(asked?.sampleId === wave.sampleId && askCovers(asked, view, frames))) askSoon(ask)
+        spectral ??= spectrumColumnsFor(view, spectrum.pyramid)
+      }
       if (showsSpectrum) element.dataset.spectrum = !spectral || spectral.pending ? 'pending' : spectral.kind
       else delete element.dataset.spectrum
       const { cursor, selection } = waveViewOf(useWaveEditorStore.getState().views, viewKey)
@@ -106,7 +126,7 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
     })
     // The spectrum fills in chunk by chunk.
     const unsubscribeSpectrum = useWaveSpectrumStore.subscribe((state, previous) => {
-      if (state.spectra[wave.sampleId] !== previous.spectra[wave.sampleId]) schedule()
+      if (state.spectra[wave.sampleId] !== previous.spectra[wave.sampleId] || state.answers[wave.pane] !== previous.answers[wave.pane]) schedule()
     })
     const observer = new ResizeObserver(schedule)
     if (frame.current) observer.observe(frame.current)
@@ -116,8 +136,9 @@ export const DetailView = ({ wave, frame, snap }: { wave: WaveAudio; frame: RefO
       unsubscribeSpectrum()
       observer.disconnect()
       if (request) cancelAnimationFrame(request)
+      cancelAnimationFrame(asking)
     }
-  }, [wave, audio, pyramid, viewKey, frame, parts, renderers])
+  }, [wave, audio, pyramid, viewKey, frame, parts, renderers, frames])
 
   // The wheel scrolls; with ⌘ or Ctrl (and a trackpad pinch, which arrives as one) it zooms around the pointer.
   useEffect(() => {

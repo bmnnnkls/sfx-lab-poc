@@ -8,7 +8,9 @@ import { spectrumColumnBytes } from '@core'
 export interface SpectrumRequest {
   readonly id: number
   readonly fftSize: number
-  /** Base columns `from` up to `to`. */
+  /** Frames between columns: the pyramid's hop for base columns, or a view's own. */
+  readonly hop: number
+  /** Columns `from` up to `to`, each centred at `column · hop + hop / 2`. */
   readonly from: number
   readonly to: number
   /** The frame the channels' slices start at. */
@@ -29,5 +31,5 @@ export const answerSpectrum = (request: SpectrumRequest): SpectrumAnswer => ({
   id: request.id,
   from: request.from,
   to: request.to,
-  bytes: request.channels.map((channel) => spectrumColumnBytes(request.fftSize, channel, request.from, request.to, request.offset)),
+  bytes: request.channels.map((channel) => spectrumColumnBytes(request.fftSize, channel, request.from, request.to, request.offset, request.hop)),
 })

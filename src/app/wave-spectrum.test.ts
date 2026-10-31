@@ -1,5 +1,5 @@
 import { type SpectrumJob, type SpectrumService, createSpectrumService } from '@audio'
-import { type SampleAudio, type SampleEdit, type SpectrumPyramid, applySampleEdit, buildPeakPyramid, buildSpectrumPyramid, changedFrames, frameCount } from '@core'
+import { type SampleAudio, type SampleEdit, type SpectrumPyramid, applySampleEdit, buildPeakPyramid, buildSpectrumPyramid, changedFrames, frameCount, sameAsk, spectrumAsk, spectrumColumnBytes } from '@core'
 import { DEFAULT_WAVE_EDIT_SETTINGS, NO_WAVE_PANES, type WaveAudio, type WavePane, useWaveAudioStore, useWaveEditSettings, useWaveEditorStore, useWaveSpectrumStore, waveViewKey } from '@state'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createWaveSpectra } from './wave-spectrum'
@@ -51,7 +51,7 @@ const connect = () => {
 
 beforeEach(() => {
   useWaveAudioStore.setState({ panes: NO_WAVE_PANES, loading: NO_WAVE_PANES, editing: null })
-  useWaveSpectrumStore.setState({ spectra: {} })
+  useWaveSpectrumStore.setState({ spectra: {}, asks: { main: null, second: null }, answers: { main: null, second: null } })
   useWaveEditorStore.setState({ views: {} })
   useWaveEditSettings.getState().restore({})
   useWaveEditSettings.getState().setLanes('spectrogram')
@@ -128,6 +128,45 @@ describe('createWaveSpectra', () => {
     await filled('b')
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(before.levels[0]!.filled.some((flag) => flag === 0)).toBe(true)
+  })
+})
+
+describe('columns on demand', () => {
+  it('answers a pane’s ask with its view’s own columns', async () => {
+    useWaveAudioStore.getState().setPane('main', wave('a', A))
+    connect()
+    const ask = spectrumAsk({ startFrame: 50_000, framesPerPixel: 40, width: 500 }, 'a', 2048, 120_000)!
+    useWaveSpectrumStore.getState().ask('main', ask)
+    await vi.waitFor(() => expect(sameAsk(useWaveSpectrumStore.getState().answers.main, ask)).toBe(true))
+    const answered = useWaveSpectrumStore.getState().answers.main!
+    expect(answered.hop).toBe(64)
+    expect(answered.bytes).toHaveLength(2)
+    const expected = spectrumColumnBytes(2048, A.channels[1]!, ask.firstColumn, ask.firstColumn + ask.count, 0, ask.hop)
+    expect(Buffer.from(answered.bytes[1]!).equals(Buffer.from(expected))).toBe(true)
+  })
+
+  it('stops an ask a newer one replaced, and answers only the newer', async () => {
+    useWaveAudioStore.getState().setPane('main', wave('a', A))
+    connect()
+    const older = spectrumAsk({ startFrame: 10_000, framesPerPixel: 40, width: 500 }, 'a', 2048, 120_000)!
+    const newer = spectrumAsk({ startFrame: 90_000, framesPerPixel: 40, width: 500 }, 'a', 2048, 120_000)!
+    const answers: unknown[] = []
+    const unsubscribe = useWaveSpectrumStore.subscribe((state, previous) => {
+      if (state.answers.main !== previous.answers.main) answers.push(state.answers.main)
+    })
+    useWaveSpectrumStore.getState().ask('main', older)
+    useWaveSpectrumStore.getState().ask('main', newer)
+    await vi.waitFor(() => expect(sameAsk(useWaveSpectrumStore.getState().answers.main, newer)).toBe(true))
+    unsubscribe()
+    expect(answers).toHaveLength(1)
+  })
+
+  it('answers nothing for a sample no pane shows', async () => {
+    useWaveAudioStore.getState().setPane('main', wave('a', A))
+    connect()
+    useWaveSpectrumStore.getState().ask('main', spectrumAsk({ startFrame: 0, framesPerPixel: 40, width: 500 }, 'gone', 2048, 120_000))
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(useWaveSpectrumStore.getState().answers.main).toBeNull()
   })
 })
 

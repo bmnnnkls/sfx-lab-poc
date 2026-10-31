@@ -132,21 +132,23 @@ export const putSpectrumColumns = (pyramid: SpectrumPyramid, from: number, to: n
   }
 }
 
-/** The bytes of base columns `from` up to `to` of `channel` of `audio`, as a worker computes them for `putSpectrumColumns`. */
-export const spectrumColumnBytes = (fftSize: number, channel: Float32Array, from: number, to: number, offset = 0): Uint8Array => {
-  const hop = spectrumHop(fftSize)
+/**
+ * The bytes of columns `from` up to `to` of `channel`, each centred at `column · hop + hop / 2`: base columns (the
+ * default hop) as a worker computes them for `putSpectrumColumns`, or a view's columns on demand at their own hop.
+ */
+export const spectrumColumnBytes = (fftSize: number, channel: Float32Array, from: number, to: number, offset = 0, hop = spectrumHop(fftSize)): Uint8Array => {
   const bins = fftSize / 2 + 1
-  const stft = createStft({ size: fftSize, hop, window: SPECTRUM_WINDOW })
+  const stft = createStft({ size: fftSize, hop: spectrumHop(fftSize), window: SPECTRUM_WINDOW })
   const out = new Uint8Array(Math.max(0, to - from) * bins)
   // `channel` may be a slice of the sample's channel starting at frame `offset`.
   for (let column = from; column < to; column++) stft.bytes(channel, column * hop + hop / 2 - offset, out, (column - from) * bins)
   return out
 }
 
-/** The frames base columns `from` up to `to` read: their windows, clamped to the sample. */
+/** The frames columns `from` up to `to` read (`hop` apart, base columns by default): their windows, clamped to the sample. */
 export const framesRead = (pyramid: Pick<SpectrumPyramid, 'fftSize' | 'hop' | 'frames'>, from: number, to: number): { from: number; to: number } => ({
-  from: Math.max(0, from * pyramid.hop + pyramid.hop / 2 - pyramid.fftSize / 2),
-  to: Math.min(pyramid.frames, (to - 1) * pyramid.hop + pyramid.hop / 2 + pyramid.fftSize / 2),
+  from: Math.max(0, Math.floor(from * pyramid.hop + pyramid.hop / 2 - pyramid.fftSize / 2)),
+  to: Math.min(pyramid.frames, Math.ceil((to - 1) * pyramid.hop + pyramid.hop / 2 + pyramid.fftSize / 2)),
 })
 
 export const buildSpectrumPyramid = (audio: SampleAudio, fftSize: number): SpectrumPyramid => {
@@ -222,11 +224,12 @@ export const spectrumChunks = (pyramid: SpectrumPyramid, around?: { readonly fro
  * What each pixel column of `view` draws, per channel: the columns `from[x]` up to `to[x]` of `data` (`bins` bytes
  * each), loudest per bin; `from[x] === to[x]` outside the sample.
  * * `levels` (a hop and more frames a pixel): from the finest level whose column fits in a pixel column;
- * * `stretched` (under a hop): the base column under the pixel's middle, over several pixels.
+ * * `stretched` (under a hop): the base column under the pixel's middle, over several pixels;
+ * * `on-demand`: the view's own columns (`onDemandColumnsFor`), never from the pyramid.
  * `pending` while a column in view isn't filled yet (it reads as the floor meanwhile).
  */
 export interface SpectrumColumns {
-  readonly kind: 'levels' | 'stretched'
+  readonly kind: 'levels' | 'stretched' | 'on-demand'
   readonly bins: number
   readonly data: readonly Uint8Array[]
   readonly from: Int32Array
