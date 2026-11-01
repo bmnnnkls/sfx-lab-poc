@@ -1,6 +1,7 @@
 import {
   type ArrangementClip,
   MIN_CLIP_BEATS,
+  clipFitsTrack,
   isAudioContent,
 } from '@core'
 import { openRegion, useProjectStore } from '@state'
@@ -26,7 +27,7 @@ interface DragState {
   readonly startX: number
   origin: number
   readonly resizing: boolean
-  /** The lane the pointer is over, or null while it has not left the region's own lane. */
+  /** The lane the pointer is over, or null while it has not left the region's own lane or the lane can't take it. */
   targetLane: string | null
   /** The lane element currently highlighted, so the hint moves with the pointer. */
   hover: Element | null
@@ -73,12 +74,15 @@ export const ArrangementRegion = ({ region, pxPerBeat, selected, onSelect, ...do
     const startBeat = Math.max(0, Math.round((state.origin + (event.clientX - state.startX) / pxPerBeat) * 4) / 4)
     update(region.id, { startBeat }, `arr-move:${region.id}`)
     // Vertical dragging onto another lane highlights the target; the move itself happens on the drop.
+    // A lane of the other kind of track (a MIDI region over an audio track) shows refuse and doesn't take it.
     const lane = laneAt(event.clientX, event.clientY)
-    if ((lane?.dataset.lane ?? null) !== state.targetLane) {
+    if (lane !== state.hover) {
       state.hover?.removeAttribute('data-drag-over')
-      state.targetLane = lane?.dataset.lane ?? null
+      const trackId = lane?.dataset.lane ?? null
+      const fits = trackId !== null && clipFitsTrack(region.content, useProjectStore.getState().project.tracks.find((track) => track.id === trackId))
+      state.targetLane = fits ? trackId : null
       state.hover = lane
-      lane?.setAttribute('data-drag-over', '')
+      lane?.setAttribute('data-drag-over', fits ? 'accept' : 'refuse')
     }
   }
 

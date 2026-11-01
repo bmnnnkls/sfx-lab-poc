@@ -182,6 +182,84 @@ span.name {
   gap: 2px;
 }
 
+.faderRow {
+  flex-shrink: 1;
+}
+
+.mutedStrip .name,
+.mutedStrip .faderRow {
+  opacity: 0.55;
+}
+
+.name {
+  overflow: hidden;
+  text-align: left;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+span.name {
+  padding: 4px 10px;
+}
+
+.kind {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.badges {
+  display: flex;
+  min-height: 22px;
+}
+
+.fxBadge {
+  padding: 1px 6px;
+  font-size: 11px;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.pan,
+.send {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* A send's label (the return's full name) sits above its slider, so a long name is not cut to a few letters. */
+.send {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.pan span {
+  flex: 0 0 26px;
+}
+
+.send span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pan input,
+.send input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+
+.sends {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .buttons {
   display: flex;
   gap: 4px;
