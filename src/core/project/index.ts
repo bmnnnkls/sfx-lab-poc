@@ -21,13 +21,17 @@ export {
   arrangementLoopEnd,
   arrangementOnTrack,
   arrangementOverlaps,
+  clampStartBeat,
   createArrangementClip,
   isAudioContent,
   removeArrangementClip,
+  timelineEnd,
   updateArrangementClip,
   type ArrangementChanges,
   type ArrangementClip,
 } from './arrangement-clip'
+export { arrangementRows, type ArrangementRow } from './arrangement-rows'
+export { MAX_TIMELINE_BEATS } from './limits'
 export {
   SAMPLE_USES,
   type SampleReplaceReport,

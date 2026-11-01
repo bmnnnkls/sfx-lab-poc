@@ -1,7 +1,7 @@
 import { clamp, createId } from '../shared'
 import { clampAudioClip } from './audio-clip'
 import { trimNotesToLength } from './note-edit'
-import { MAX_CLIP_BEATS, MIN_CLIP_BEATS } from './limits'
+import { MAX_CLIP_BEATS, MAX_TIMELINE_BEATS, MIN_CLIP_BEATS } from './limits'
 import type { AudioClip, Clip } from './types'
 
 /**
@@ -48,13 +48,24 @@ export const arrangementLoopEnd = (region: ArrangementClip, regions: readonly Ar
 export const arrangementOverlaps = (region: ArrangementClip, from: number, to: number): boolean =>
   region.startBeat < to && arrangementEnd(region) > from
 
+/** Where a region of `lengthBeats` may start: from 0 to where it ends at the timeline's end (`MAX_TIMELINE_BEATS`). */
+export const clampStartBeat = (startBeat: number, lengthBeats: number): number => clamp(startBeat, 0, MAX_TIMELINE_BEATS - lengthBeats)
+
+/**
+ * Where the timeline's content ends, in beats: the last beat any region sounds (its loop end), 0 with none. The view
+ * draws a few bars past it, and *Zoom to fit* shows up to it.
+ */
+export const timelineEnd = (regions: readonly ArrangementClip[]): number => {
+  let end = 0
+  for (const region of regions) end = Math.max(end, arrangementLoopEnd(region, regions))
+  return end
+}
+
 /** A copy of `content` placed on `trackId`'s timeline at `startBeat`. Fresh ids, same content. */
-export const createArrangementClip = (trackId: string, startBeat: number, content: Clip | AudioClip): ArrangementClip => ({
-  id: createId('arr'),
-  trackId,
-  startBeat: Math.max(0, startBeat),
-  content: isAudioContent(content) ? clampAudioClip(content) : content,
-})
+export const createArrangementClip = (trackId: string, startBeat: number, content: Clip | AudioClip): ArrangementClip => {
+  const placed = isAudioContent(content) ? clampAudioClip(content) : content
+  return { id: createId('arr'), trackId, startBeat: clampStartBeat(startBeat, placed.lengthBeats), content: placed }
+}
 
 /** The regions of one track, in timeline order. */
 export const arrangementOnTrack = (
@@ -82,7 +93,7 @@ export const updateArrangementClip = (
   const next = regions.map((region) => {
     if (region.id !== id) return region
     const content = changes.content ? normalizeContent(changes.content) : region.content
-    const startBeat = Math.max(0, changes.startBeat ?? region.startBeat)
+    const startBeat = clampStartBeat(changes.startBeat ?? region.startBeat, content.lengthBeats)
     const trackId = changes.trackId ?? region.trackId
     const loop = changes.loop ?? region.loop
     if (content === region.content && startBeat === region.startBeat && trackId === region.trackId && loop === region.loop) return region

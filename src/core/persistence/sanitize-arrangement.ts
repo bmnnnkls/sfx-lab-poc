@@ -1,4 +1,4 @@
-import type { ArrangementClip } from '../project'
+import { type ArrangementClip, MAX_TIMELINE_BEATS } from '../project'
 import { createId } from '../shared'
 import { sanitizeAudioClip } from './sanitize-audio-clip'
 import { sanitizeClip } from './sanitize-clip'
@@ -20,6 +20,7 @@ export const sanitizeArrangement = (
   const usedIds = new Set<string>()
   const clips: ArrangementClip[] = []
   let dropped = 0
+  let late = 0
   for (const entry of entries.slice(0, LIMITS.arrangementClips)) {
     if (!isRecord(entry) || typeof entry.trackId !== 'string' || !trackIds.has(entry.trackId)) {
       dropped++
@@ -38,10 +39,15 @@ export const sanitizeArrangement = (
       dropped++
       continue
     }
+    if (startBeat + content.lengthBeats > MAX_TIMELINE_BEATS) {
+      late++
+      continue
+    }
     const id = typeof entry.id === 'string' && !usedIds.has(entry.id) ? entry.id : createId('arr')
     usedIds.add(id)
-    clips.push({ id, trackId: entry.trackId, startBeat, content })
+    clips.push({ id, trackId: entry.trackId, startBeat, content, ...(entry.loop === true && { loop: true }) })
   }
+  if (late > 0) warn(`The arrangement dropped ${late} clip(s) that end past beat ${MAX_TIMELINE_BEATS}, the end of the timeline`)
   if (entries.length > LIMITS.arrangementClips) warn(`Only the first ${LIMITS.arrangementClips} arrangement clips were kept`)
   if (dropped > 0) warn(`The arrangement dropped ${dropped} clip(s) whose track or sample is missing`)
   return clips.length > 0 ? clips : undefined

@@ -163,3 +163,20 @@ describe('the arrangement in the engine', () => {
     expect(engine.status().tracks.loop!.playingClipId).toBe('arr-audio-r-next')
   })
 })
+
+describe('the playback mode in the status', () => {
+  it('says which source the tracks follow', () => {
+    const engine = setup([])
+    expect(engine.status().mode).toBe('session')
+    engine.apply({ type: 'arrangement/play' })
+    expect(engine.status().mode).toBe('arrangement')
+    engine.apply({ type: 'transport/play' })
+    expect(engine.status().mode).toBe('session')
+    engine.apply({ type: 'arrangement/play', fromBeat: 4 })
+    engine.apply({ type: 'clip/launch', trackId: 'synth', clipId: 'clip' })
+    expect(engine.status().mode).toBe('session')
+    engine.apply({ type: 'arrangement/play' })
+    engine.apply({ type: 'scene/launch', scene: 0 })
+    expect(engine.status().mode).toBe('session')
+  })
+})
