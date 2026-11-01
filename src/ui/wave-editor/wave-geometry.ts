@@ -1,36 +1,33 @@
 import type { WaveView } from '@core'
 import type { WaveEditorView, WaveSelection, WaveZoom } from '@state'
+import { type Axis, autoScrollUnits, clampAxis, fitPerPixel, xOf as axisXOf, zoomAxisAround, zoomAxisTo } from '../shared/timeline'
 
-/** How much one wheel notch (100 px of delta) zooms. */
-export const WHEEL_ZOOM = 1.25
+export { WHEEL_ZOOM } from '../shared/timeline'
 
 /** The closest zoom: 32 px per frame. */
 export const MIN_FRAMES_PER_PIXEL = 1 / 32
 
+/** The view as the shared timeline geometry's axis, in frames, and back. */
+const axisOf = (view: WaveView): Axis => ({ start: view.startFrame, perPixel: view.framesPerPixel, width: view.width })
+const viewOf = (axis: Axis): WaveView => ({ startFrame: axis.start, framesPerPixel: axis.perPixel, width: axis.width })
+
 /** The zoom that shows the whole sample in `width` columns (never closer than the closest zoom). */
-export const fitFramesPerPixel = (frames: number, width: number): number => Math.max(MIN_FRAMES_PER_PIXEL, frames / Math.max(1, width))
+export const fitFramesPerPixel = (frames: number, width: number): number => fitPerPixel(frames, width, MIN_FRAMES_PER_PIXEL)
 
 /** The view inside the sample: zoom between the closest and the whole sample, scrolled no further than its ends. */
-export const clampView = (view: WaveView, frames: number): WaveView => {
-  const framesPerPixel = Math.min(fitFramesPerPixel(frames, view.width), Math.max(MIN_FRAMES_PER_PIXEL, view.framesPerPixel))
-  const startFrame = Math.max(0, Math.min(Math.max(0, frames - view.width * framesPerPixel), view.startFrame))
-  return { startFrame, framesPerPixel, width: view.width }
-}
+export const clampView = (view: WaveView, frames: number): WaveView => viewOf(clampAxis(axisOf(view), frames, MIN_FRAMES_PER_PIXEL))
 
 /** What the stored view shows in `width` columns of a sample of `frames` frames (a fitted view fits). */
 export const resolveView = (view: WaveEditorView, frames: number, width: number): WaveView =>
   clampView({ startFrame: view.startFrame, framesPerPixel: view.framesPerPixel ?? fitFramesPerPixel(frames, width), width }, frames)
 
 /** Zooms by `factor` (above 1 out, below 1 in), keeping the frame under column `x` where it is. */
-export const zoomAround = (view: WaveView, factor: number, x: number, frames: number): WaveView => {
-  const anchor = view.startFrame + x * view.framesPerPixel
-  const framesPerPixel = view.framesPerPixel * factor
-  return clampView({ startFrame: anchor - x * framesPerPixel, framesPerPixel, width: view.width }, frames)
-}
+export const zoomAround = (view: WaveView, factor: number, x: number, frames: number): WaveView =>
+  viewOf(zoomAxisAround(axisOf(view), factor, x, frames, MIN_FRAMES_PER_PIXEL))
 
 /** The view that shows frames `from` to `to` across the width. */
 export const zoomTo = (from: number, to: number, width: number, frames: number): WaveView =>
-  clampView({ startFrame: from, framesPerPixel: Math.max(1, to - from) / Math.max(1, width), width }, frames)
+  viewOf(zoomAxisTo(from, from + Math.max(1, to - from), width, frames, MIN_FRAMES_PER_PIXEL))
 
 /** Where a zoom asked for (`useWaveEditorStore.zoom`) leaves the stored view: fitted, or showing the range. */
 export const resolveZoom = (zoom: WaveZoom, width: number, frames: number, stored: WaveEditorView): Pick<WaveEditorView, 'framesPerPixel' | 'startFrame'> => {
@@ -54,7 +51,7 @@ export const frameAt = (view: WaveView, x: number, frames: number): number =>
   Math.max(0, Math.min(frames, Math.round(view.startFrame + x * view.framesPerPixel)))
 
 /** Where a frame is, in columns from the left edge. */
-export const xOf = (view: WaveView, frame: number): number => (frame - view.startFrame) / view.framesPerPixel
+export const xOf = (view: WaveView, frame: number): number => axisXOf(axisOf(view), frame)
 
 /** Whether a selection covers channel `channel` (0 left or mono, 1 right). */
 export const coversChannel = (selection: WaveSelection, channel: number): boolean =>
@@ -124,4 +121,4 @@ export const boxEdgeCursor = ({ time, band }: BoxEdge): string =>
  * (negative: past the left one): a tenth of the distance in columns, at most a quarter of the view; none inside.
  */
 export const autoScrollFrames = (distancePx: number, framesPerPixel: number, width: number): number =>
-  Math.sign(distancePx) * Math.min(Math.abs(distancePx) / 10, width / 4) * framesPerPixel
+  autoScrollUnits(distancePx, framesPerPixel, width)
