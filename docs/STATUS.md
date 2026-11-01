@@ -43,7 +43,7 @@ two ([archive/ui-redesign](archive/ui-redesign/README.md)).
    the [spec](active/SPEC-round-12-arrangement-editor.md) is signed off (2026-11-01, every decision as proposed). It
    splits the round into 12a (headers and the timeline frame), 12b (markers and the loop), 12c (automation on the
    timeline) and 12d (touch recording into the arrangement). The [plan for 12a](active/PLAN-round-12a-timeline-frame.md)
-   is waiting for sign-off.
+   is signed off (2026-11-01, as proposed) and ready to build.
 2. **Round 13: visual refresh and themes.**
 3. **Merge `feat/ui-redesign` into `main`.** Decide whether this happens before round 12, and clear the verification
    debt first ([BACKLOG](BACKLOG.md#verification-debt)).

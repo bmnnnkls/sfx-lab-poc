@@ -341,7 +341,7 @@ and a lanes twisty; timeline automation is a new holder per owner, in song beats
 get rows; a loop needs the engine's transport, not only the view. It splits the round into 12a (headers and the timeline
 frame), 12b (markers and the loop, format v13), 12c (automation on the timeline, groups included) and 12d (touch
 recording into the arrangement). **12a's [plan](PLAN-round-12a-timeline-frame.md)** (headers, zoom, snap, a position,
-follow, view keys, the geometry shared with the wave editor) is waiting for sign-off. The outline below is what the spec
+follow, view keys, the geometry shared with the wave editor) is signed off as proposed and ready to build. The outline below is what the spec
 started from.
 
 Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACKLOG.md).

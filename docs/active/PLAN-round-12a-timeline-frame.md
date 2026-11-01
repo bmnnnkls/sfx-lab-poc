@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-11-01
-note: "Part 1 of the round 12 spec: headers beside the lanes, zoom, snap, a position, follow, view keys, and the timeline geometry shared with the wave editor. Waiting for sign-off."
+note: "Part 1 of the round 12 spec: headers beside the lanes, zoom, snap, a position, follow, view keys, and the timeline geometry shared with the wave editor. Signed off 2026-11-01, every decision as proposed."
 ---
 # Round 12a: the timeline frame
 
-Status: **plan, waiting for sign-off.** Written 2026-11-01. Part of the [UI redesign](../archive/ui-redesign/README.md).
+Status: **plan, signed off** 2026-11-01, every decision as proposed. Written 2026-11-01. Part of the [UI redesign](../archive/ui-redesign/README.md).
 Carries out part 1 of the signed-off [round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
 § 1, the timeline frame and the headers, and the two fixes its inventory found. The inventory was taken on
 `feat/ui-redesign` at `49804e9` (round 11 done, its spec archived). The spec's decisions are settled and not repeated
@@ -369,6 +369,8 @@ ports). Step 2 changes the engine's status and step 6 the transport's use, so th
   region and in the project name field. What isn't done goes to BACKLOG V2 and V10's kind of item.
 
 ## Decisions to sign off
+
+Signed off 2026-11-01: every row as proposed.
 
 | Question | Proposed | Alternative |
 |---|---|---|
