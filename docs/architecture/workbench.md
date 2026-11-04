@@ -69,9 +69,13 @@ regions without knowing where they are docked (the [UI redesign](../archive/ui-r
   badges; Arrangement's toolbar wraps and its names narrow; graph editors below 720 px show the property editor
   (and a module's interface) as a drawer over the canvas, opened by *Properties* or a double-click on a node, with
   Notes' heard notes under the canvas below 640 px; Clip's hint shortens, its velocity lane shrinks when short and
-  the automation lanes become a `<select>`; Samples' rows take two lines; Library's folders are a tree
+  the automation lanes become a `<select>`; Samples' rows take two lines and, under 300 px of height, the drop hint
+  goes; Library's folders are a tree
   (`FolderTree`, the WAI-ARIA tree pattern) in three, two or one columns, the narrowest showing the open folder's
   path and its folders until *All folders*.
+* **One font everywhere.** Inter is bundled (`@fontsource-variable/inter`, imported in `main.tsx`), so text measures
+  the same on every platform and these layouts wrap the same on a Linux CI runner as on a Mac. The first render
+  waits for it (at most a second); the fallbacks in `theme.css` only cover glyphs Inter lacks (✎, ▶).
 * **Keep-alive** (`ui/layout/ViewHost.tsx`). flexlayout renders a tab the first time it is shown and keeps it;
   `ViewTab` follows the tab's `visibility` event into `ViewHost`, which wraps the view in
   `<Activity mode={visible ? 'visible' : 'hidden'}>`. A collapsed panel keeps its open tab selected, so `ViewTab`

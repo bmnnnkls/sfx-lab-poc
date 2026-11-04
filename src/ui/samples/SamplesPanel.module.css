@@ -65,6 +65,13 @@
   }
 }
 
+/* Below 300 px of height the hint gives its line to the list; dropping files still works. */
+@container view (height < 300px) {
+  .hint {
+    display: none;
+  }
+}
+
 /*
  * Below 700 px, where the actions would leave the name a sliver, a row takes two lines: a waveform (narrower in a
  * narrow view) and the name, then the actions.
