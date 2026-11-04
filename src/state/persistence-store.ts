@@ -9,6 +9,14 @@ export interface Notice {
   readonly message: string
   /** Extra lines, e.g. each thing an import had to repair. */
   readonly details: readonly string[]
+  /** One button the notice offers (*Show*), kept in memory only. */
+  readonly action?: NoticeAction
+}
+
+/** A notice's button: running it dismisses the notice. */
+export interface NoticeAction {
+  readonly label: string
+  run(): void
 }
 
 interface PersistenceState {
@@ -18,7 +26,7 @@ interface PersistenceState {
   readonly notices: readonly Notice[]
   setSaveState(state: SaveState, error?: string): void
   setHasBackup(hasBackup: boolean): void
-  notify(kind: NoticeKind, message: string, details?: readonly string[]): void
+  notify(kind: NoticeKind, message: string, details?: readonly string[], action?: NoticeAction): void
   dismiss(id: number): void
 }
 
@@ -32,9 +40,9 @@ export const usePersistenceStore = create<PersistenceState>((set) => ({
   notices: [],
   setSaveState: (saveState, error) => set({ saveState, saveError: error ?? null }),
   setHasBackup: (hasBackup) => set({ hasBackup }),
-  notify: (kind, message, details = []) =>
+  notify: (kind, message, details = [], action) =>
     set((state) => ({
-      notices: [...state.notices, { id: nextNoticeId++, kind, message, details }],
+      notices: [...state.notices, { id: nextNoticeId++, kind, message, details, ...(action && { action }) }],
     })),
   dismiss: (id) => set((state) => ({ notices: state.notices.filter((n) => n.id !== id) })),
 }))

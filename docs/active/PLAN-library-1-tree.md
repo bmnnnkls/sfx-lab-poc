@@ -398,3 +398,14 @@ Signed off 2026-11-04: every row as proposed.
 * **Step 1:** moving a trashed entry moves it first and then restores it, so the restore walks the destination's
   path and leaves the old parents in the trash. A trashed sound takes all its presets, since restoring it restores
   them all.
+* **Step 2:** an asynchronous action can resolve with `{ message, action }` (`ActionReport`) as well as a string;
+  `settle` hands the button to `report`, which the toasts draw and a status line leaves out. A toast with a button
+  stays 10 s instead of 5 s, so the button can be reached.
+* **Step 2:** the instrument's entry and the effects-only entry are two actions (`track.save-to-library` with
+  choices, `track.save-effects-to-library`), so neither draws an empty submenu. Group, master, clip and sample
+  entries sit in the `edit` group, after the entries that were there.
+* **Step 2:** `library-store` gained `active` and `reveal` here, since *Show* needs them; step 3 adds the rest. Until
+  step 5, `reveal` also opens the item's folder, so the old view lists it. A save into an open folder that is gone or
+  trashed goes to the top level.
+* **Step 2:** `saveToLibrary(page, subject, choice?)` is in `fixtures.ts` from this step, and the context-menus spec
+  checks the submenu, the disabled *Note effects*, four saves and *Show*.

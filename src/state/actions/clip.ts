@@ -5,6 +5,7 @@ import { useProjectStore } from '../project-store'
 import { useStatusStore } from '../status-store'
 import { project, sessionClipOf, trackOf } from './lookup'
 import { clipClipboard } from './clipboards'
+import { saveToLibrary } from './library-save'
 import { renameAction } from './rename'
 import type { Action, SubjectOf } from './types'
 
@@ -113,6 +114,13 @@ export const clipActions: readonly Action<ClipSubject>[] = [
       const found = sessionClipOf(trackId, clipId)
       if (found) placeOnArrangement(trackId, found.clip)
     },
+  },
+  {
+    id: 'clip.save-to-library',
+    title: 'Save to library',
+    group: 'edit',
+    applies: ({ trackId, clipId }) => !!sessionClipOf(trackId, clipId),
+    run: ({ trackId, clipId }, context) => saveToLibrary({ kind: 'clip', trackId, clipId }, context),
   },
   {
     id: 'clip.copy',

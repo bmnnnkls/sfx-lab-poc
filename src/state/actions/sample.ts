@@ -1,6 +1,7 @@
 import { openClip, openSampleEditor, openTrackView } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { useSampleStore } from '../sample-store'
+import { saveToLibrary } from './library-save'
 import { project } from './lookup'
 import { renameAction } from './rename'
 import type { Action, SubjectOf } from './types'
@@ -53,6 +54,13 @@ export const sampleActions: readonly Action<SampleSubject>[] = [
       const clip = added?.kind === 'audio' ? added.clips[0] : null
       if (added && clip) openClip(added.id, clip.id)
     },
+  },
+  {
+    id: 'sample.add-to-library',
+    title: 'Add to library',
+    group: 'edit',
+    applies: (subject) => !!sampleOf(subject),
+    run: ({ sampleId }, context) => saveToLibrary({ kind: 'sample', sampleId }, context),
   },
   {
     id: 'sample.remove',

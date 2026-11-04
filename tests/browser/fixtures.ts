@@ -174,3 +174,19 @@ export const expectSound = async (page: Page) => {
 export const expectSaved = async (page: Page) => {
   await expect(page.getByText('Saved', { exact: true })).toBeVisible()
 }
+
+/**
+ * Saves something to the library from its menu: *Save to library* (with a choice: *Instrument + notes*, …), *Save
+ * effects to library* or *Add to library*, whichever it offers. Resolves once the toast confirms it.
+ */
+export const saveToLibrary = async (page: Page, subject: Locator, choice?: string) => {
+  await subject.click({ button: 'right' })
+  const entry = page.getByRole('menuitem', { name: /^(Save to library|Save effects to library|Add to library)$/ })
+  if (choice) {
+    // Into the submenu with the keyboard: a jump of the mouse closes a submenu.
+    await entry.focus()
+    await page.keyboard.press('ArrowRight')
+    await page.getByRole('menu').last().getByRole('menuitem', { name: choice, exact: true }).click()
+  } else await entry.click()
+  await expect(page.getByRole('status').filter({ hasText: /^Saved .* to / }).last()).toBeVisible()
+}

@@ -2,6 +2,7 @@ import type { ControlOwner, ControlTarget, PatchTarget, TrackGraph } from '@core
 import type { EngineControls } from '../engine-controls'
 import type { ViewId } from '../layout-store'
 import type { PersonalLibrary } from '../library'
+import type { NoticeAction } from '../persistence-store'
 import type { SampleLibrary } from '../sample-library'
 import type { WavePane } from '../wave-panes'
 
@@ -60,6 +61,12 @@ export interface ActionChoice {
   readonly checked?: boolean
 }
 
+/** What an asynchronous action resolves with: a message, and a button for its toast (*Show*). */
+export interface ActionReport {
+  readonly message: string
+  readonly action?: NoticeAction
+}
+
 /** What an edit key does to the focused thing: Delete, ⌘D, ⌘C, ⌘X, ⌘V and F2. */
 export type Verb = 'delete' | 'duplicate' | 'copy' | 'cut' | 'paste' | 'rename'
 
@@ -93,5 +100,5 @@ export interface Action<S extends Subject = Subject> {
   choices?(subject: S, context: ActionContext): readonly ActionChoice[]
   readonly inline?: boolean | ((subject: S, context: ActionContext) => boolean)
   /** An asynchronous action resolves with a message to show, or throws one. */
-  run(subject: S, context: ActionContext, choice?: string): void | Promise<string | void>
+  run(subject: S, context: ActionContext, choice?: string): void | Promise<string | ActionReport | void>
 }

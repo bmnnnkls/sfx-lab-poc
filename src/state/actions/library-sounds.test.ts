@@ -24,7 +24,7 @@ describe('sample', () => {
   const sample: Subject = { kind: 'sample', sampleId: kick.id }
 
   it('previews and opens only once its audio is ready', () => {
-    expect(titles(sample)).toEqual(['Preview', 'Open in wave editor', 'Rename', 'New sampler track', 'New audio track', 'Remove from project'])
+    expect(titles(sample)).toEqual(['Preview', 'Open in wave editor', 'Rename', 'New sampler track', 'New audio track', 'Add to library', 'Remove from project'])
     expect(describeActions(sample, fakeContext())[0]?.enabled).toBe(false)
     useSampleStore.getState().setStatus(kick.id, 'ready')
     const context = fakeContext()

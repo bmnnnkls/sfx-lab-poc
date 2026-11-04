@@ -90,8 +90,8 @@ describe('session clip', () => {
   it('offers the same entries for MIDI and audio clips, naming the editor, and Edit sample on audio clips', () => {
     const midi: Subject = { kind: 'clip', trackId: track('Bass').id, clipId: clipOf('Bass', 0).id }
     const audio: Subject = { kind: 'clip', trackId: track('Kick').id, clipId: clipOf('Kick', 0).id }
-    expect(titles(midi)).toEqual(['Launch', 'Edit notes', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Copy', 'Cut', 'Delete'])
-    expect(titles(audio)).toEqual(['Launch', 'Edit clip', 'Edit sample', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Copy', 'Cut', 'Delete'])
+    expect(titles(midi)).toEqual(['Launch', 'Edit notes', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Save to library', 'Copy', 'Cut', 'Delete'])
+    expect(titles(audio)).toEqual(['Launch', 'Edit clip', 'Edit sample', 'Edit automation', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Save to library', 'Copy', 'Cut', 'Delete'])
     expect(describeActions(midi, fakeContext()).find((item) => item.id === 'clip.delete')).toMatchObject({ group: 'delete', danger: true })
   })
 

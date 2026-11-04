@@ -4,6 +4,7 @@ import { useProjectStore } from '../project-store'
 import { useSelectionStore } from '../selection-store'
 import { showAutomation } from './control'
 import { moveAction } from './group'
+import { saveEffectsAction, saveToLibrary } from './library-save'
 import { project, trackOf } from './lookup'
 import { GRAPH_TITLES, graphChoices, pinLimitNote } from './pin'
 import { renameAction } from './rename'
@@ -46,6 +47,12 @@ const pinOf = (trackId: string, graph: TrackGraph) => ({ owner: { kind: 'track' 
 const unpinned = (subject: TrackSubject) => graphsOf(subject).filter((graph) => !isPinned(project(), pinOf(subject.trackId, graph)))
 const pinned = (subject: TrackSubject) => graphsOf(subject).filter((graph) => isPinned(project(), pinOf(subject.trackId, graph)))
 const isGraph = (subject: TrackSubject, choice: string | undefined): choice is TrackGraph => graphsOf(subject).includes(choice as TrackGraph)
+
+/** Whether an instrument's note graph has anything between its clips and its instrument. */
+const hasNoteEffects = (trackId: string) => {
+  const track = trackOf(trackId)
+  return track?.kind === 'instrument' && track.noteGraph.nodes.some((node) => node.type !== 'clipNotes' && node.type !== 'noteOut')
+}
 
 const volume = (trackId: string): ControlTarget => ({ kind: 'mixer', owner: { kind: 'track', trackId }, control: 'volume' })
 
@@ -133,6 +140,21 @@ export const trackActions: readonly Action<TrackSubject>[] = [
       if (copy) useSelectionStore.getState().selectTrack(copy)
     },
   },
+  {
+    id: 'track.save-to-library',
+    title: 'Save to library',
+    group: 'edit',
+    applies: (subject) => kindOf(subject) === 'instrument',
+    choices: ({ trackId }) => [
+      { id: 'patch', title: 'Instrument + notes' },
+      { id: 'fx', title: 'Audio effects' },
+      { id: 'notes', title: 'Note effects', enabled: hasNoteEffects(trackId) },
+    ],
+    run: ({ trackId }, context, choice) => {
+      if (choice === 'patch' || choice === 'fx' || choice === 'notes') return saveToLibrary({ kind: 'asset', scope: { owner: { kind: 'track', trackId }, domain: choice } }, context)
+    },
+  },
+  saveEffectsAction<TrackSubject>('track.save-effects-to-library', ({ trackId }) => ({ kind: 'track', trackId }), (subject) => kindOf(subject) === 'audio' || kindOf(subject) === 'return'),
   {
     id: 'track.group',
     title: 'Group',

@@ -20,9 +20,10 @@ import { sceneActions } from './scene'
 import { slotActions } from './slot'
 import { soundActions } from './sound'
 import { trackActions } from './track'
-import type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf } from './types'
+import type { NoticeAction } from '../persistence-store'
+import type { Action, ActionChoice, ActionContext, ActionReport, Subject, SubjectKind, SubjectOf } from './types'
 
-export type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf, Verb } from './types'
+export type { Action, ActionChoice, ActionContext, ActionReport, Subject, SubjectKind, SubjectOf, Verb } from './types'
 export { runVerb, verbTarget } from './verbs'
 export { subjectName } from './subject-name'
 export { duplicateSessionClip, placeOnArrangement } from './clip'
@@ -104,11 +105,14 @@ export const describeActions = (subject: Subject, context: ActionContext): reado
 export interface RunOptions {
   /** For an action with choices: the chosen one's id. */
   readonly choice?: string
-  /** Where an asynchronous action's message or error goes; the toasts by default. */
-  readonly report?: (kind: 'info' | 'error', message: string) => void
+  /**
+   * Where an asynchronous action's message or error goes; the toasts by default. `action` is the toast's button, which
+   * a status line leaves out.
+   */
+  readonly report?: (kind: 'info' | 'error', message: string, action?: NoticeAction) => void
 }
 
-const toToasts = (kind: 'info' | 'error', message: string) => usePersistenceStore.getState().notify(kind, message)
+const toToasts = (kind: 'info' | 'error', message: string, action?: NoticeAction) => usePersistenceStore.getState().notify(kind, message, [], action)
 
 /**
  * Runs an action on a subject, as a menu entry or a button does, unless it doesn't apply or isn't enabled now. An
@@ -132,11 +136,12 @@ export const canRunAction = (id: string, subject: Subject, context: ActionContex
 }
 
 /** Reports what an asynchronous action (or drop) resolves with, or the error it throws; the promise settles after that. */
-export const settle = (result: void | Promise<string | void>, report: RunOptions['report'] = toToasts): void | Promise<void> => {
+export const settle = (result: void | Promise<string | ActionReport | void>, report: RunOptions['report'] = toToasts): void | Promise<void> => {
   if (!result) return
   return result.then(
     (message) => {
-      if (message) report('info', message)
+      if (typeof message === 'string' && message) report('info', message)
+      else if (message && typeof message === 'object') report('info', message.message, message.action)
     },
     (error: unknown) => report('error', error instanceof Error ? error.message : String(error)),
   )
