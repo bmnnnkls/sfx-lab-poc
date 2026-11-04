@@ -7,7 +7,8 @@ export interface PersonalLibrary {
   saveClip(trackId: string, clipId: string, name: string, folderId: string | null): Promise<LibraryCatalog>
   saveSample(sampleId: string, name: string, folderId: string | null): Promise<LibraryCatalog>
   insert(item: LibraryItem, destination: AssetDestination, scene?: number, replaceClip?: boolean): Promise<string>
-  preview(item: LibraryItem): Promise<'started' | 'cancelled'>
+  /** Plays an item in an isolated engine; `onStop` is called once it stops, by ending or by `stopPreview`. */
+  preview(item: LibraryItem, onStop?: () => void): Promise<'started' | 'cancelled'>
   stageBundle(bytes: Uint8Array): Promise<LibraryBundleStage>
   importBundle(stage: LibraryBundleStage): Promise<LibraryCatalog>
   prepareBundle(selection: LibraryBundleSelection, name: string): Promise<LibraryBundleStage>

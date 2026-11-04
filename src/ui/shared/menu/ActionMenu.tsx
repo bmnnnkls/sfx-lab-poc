@@ -34,6 +34,7 @@ export const useActionEntries = (subject: Subject, context: ActionContext, only:
         disabled: !item.enabled || choice.enabled === false,
         takesFocus: item.takesFocus,
         ...(choice.checked !== undefined && { checked: choice.checked }),
+        ...(choice.tooltip && { tooltip: choice.tooltip }),
         onSelect: () => run(choice.id),
       }))
       if (item.inline) entries.push(...choices)

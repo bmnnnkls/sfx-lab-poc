@@ -5,8 +5,11 @@ import { type LibraryStorage, type SampleStorage, stageLibraryBundle, commitLibr
 
 /** All reusable payloads become copies in the document. Catalog edits never enter project history. */
 export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleStorage): PersonalLibrary => {
-  let generation = 0, context: AudioContext | undefined, source: AudioBufferSourceNode | undefined
-  const stopPreview = () => { generation++; if (source?.buffer) source.stop(); source?.disconnect(); source = undefined; if (context && context.state !== 'closed') void context.close(); context = undefined }
+  let generation = 0, context: AudioContext | undefined, source: AudioBufferSourceNode | undefined, onStopped: (() => void) | undefined
+  const stopPreview = () => {
+    generation++; if (source?.buffer) source.stop(); source?.disconnect(); source = undefined; if (context && context.state !== 'closed') void context.close(); context = undefined
+    const stopped = onStopped; onStopped = undefined; stopped?.()
+  }
   const ensureBytes = async (catalog: LibraryCatalog, item: LibraryItem) => {
     for (const id of libraryDependencies(catalog, item).sampleIds) {
       const info = catalog.samples.find(s => s.id === id)
@@ -62,8 +65,9 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
       const result = insertLibraryAsset(project, catalog, item, destination)
       commitProject(result.project); return 'Asset and presets copied into project'
     },
-    preview: async selected => {
+    preview: async (selected, onStop) => {
       stopPreview()
+      onStopped = onStop
       const token = generation
       // Create/resume during the click gesture, before asynchronous storage/decode work.
       const previewContext = new AudioContext(), localSource = previewContext.createBufferSource()

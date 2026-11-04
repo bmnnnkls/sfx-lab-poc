@@ -1,7 +1,7 @@
 import { samplePresetProject } from './preset-project'
 import { exportLibraryBundle } from '../../src/storage'
 import { captureLibraryAsset, emptyLibrary, renderProject, serializeProject, parseProject, saveProjectPreset, editControlBase, type Project } from '../../src/core'
-import { test, expect, expectSaved, openView, viewRoot } from './fixtures'
+import { test, expect, expectSaved, libraryPanel, openView, saveToLibrary, treeRow, viewRoot } from './fixtures'
 import { noteSweepProject, slotSweepProject, sweepProject, sweepTarget } from './automation-project'
 
 declare global { interface Window { __sweepSamples: number[] } }
@@ -63,23 +63,26 @@ test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after tras
     await expectSaved(page)
     if (libraryPreset) {
       await openView(page, 'Library')
-      const panel = page.getByRole('region', { name: 'Personal library' })
+      const panel = libraryPanel(page)
       if (bundlePreset) {
         const catalog = captureLibraryAsset(emptyLibrary(), sampleFixture.recalled, { owner: { kind: 'track', trackId: 'sweep' }, domain: 'patch' }, 'Reusable sampled voice', null)
         const bundle = await exportLibraryBundle(catalog, { itemIds: catalog.items.map(i => i.id) }, 'Audible exchange', async id => sampleFixture.samples.find(s => s.info.id === id)?.bytes)
         await panel.getByLabel('Import library bundle', { exact: true }).setInputFiles({ name: bundle.fileName, mimeType: bundle.mimeType, buffer: Buffer.from(bundle.bytes) })
-        await panel.getByRole('button', { name: 'Import into new folder', exact: true }).click()
-        // The import's folder, in the library's folder tree (named with its item count).
-        await panel.getByRole('treeitem', { name: /^Audible exchange(, \d+ items?)?$/ }).click()
+        await page.getByRole('dialog', { name: 'Bundle review' }).getByRole('button', { name: 'Import', exact: true }).click()
+        // The import's folder, in the library's tree (named with its item count).
+        await treeRow(panel, 'Audible exchange').click()
+        await treeRow(panel, 'Audible exchange').press('ArrowRight')
       } else {
-        await panel.getByLabel('Library name', { exact: true }).fill('Reusable sampled voice')
-        await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
+        await saveToLibrary(page, viewRoot(page, 'Session').getByRole('button', { name: 'Sweep', exact: true }), 'Instrument + notes')
+        await openView(page, 'Library')
       }
-      await panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Reusable sampled voice/ }).click()
-      await panel.getByRole('button', { name: 'Replace selected graph', exact: true }).click()
-      await expect(panel.getByRole('status')).toContainText('copied into project')
-      await panel.getByRole('button', { name: 'Trash item + associated presets', exact: true }).click()
-      await expect(panel.getByLabel('Library items', { exact: true }).getByRole('button')).toHaveCount(0)
+      const voice = treeRow(panel, bundlePreset ? 'Reusable sampled voice' : 'Sweep')
+      await voice.click({ button: 'right' })
+      await page.getByRole('menuitem', { name: 'Replace selected graph', exact: true }).click()
+      await expect(page.getByRole('status').filter({ hasText: 'copied into project' })).toBeVisible()
+      await voice.click({ button: 'right' })
+      await page.getByRole('menuitem', { name: 'Trash', exact: true }).click()
+      await expect(voice).toHaveCount(0)
       await expectSaved(page)
       const saved = parseProject((await page.evaluate(() => localStorage.getItem('sfxlab:project')))!)
       if (!saved.ok) throw new Error(saved.error)

@@ -142,8 +142,8 @@ describe('architecture', () => {
 
   it('drags and drops through ui/shared/drag, except the drags that stay inside one view', () => {
     const dragRoot = join(SRC, 'ui', 'shared', 'drag') + sep
-    // The panel's control reorder, the Samples file drop, and the region toggles, which cancel drags.
-    const allowed = new Set(['ui/panel/ControlCell.tsx', 'ui/samples/SamplesPanel.tsx', 'ui/layout/RegionToggles.tsx'])
+    // The panel's control reorder, the Samples and Library file drops, and the region toggles, which cancel drags.
+    const allowed = new Set(['ui/panel/ControlCell.tsx', 'ui/samples/SamplesPanel.tsx', 'ui/library/LibraryPanel.tsx', 'ui/layout/RegionToggles.tsx'])
     const withoutComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
     const usesDrag = (source: string) => /\bdataTransfer\b|\bdraggable\b|\bonDrag\w*|\bonDrop\b/.test(withoutComments(source))
     const violations = sourceFiles

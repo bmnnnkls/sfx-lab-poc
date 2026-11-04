@@ -428,3 +428,35 @@ Signed off 2026-11-04: every row as proposed.
 * **Step 4:** `useSpringOpen` checks that a drag of ours is still going when its timer fires, and `mergeDragProps`
   (also in `ui/shared/drag/`) runs several sets of drag props on one element, so the tree's rows spread them without
   naming a drag handler and the architecture test stays as it is.
+* **Step 5:** `PersonalLibrary.preview` takes an optional `onStop`, called once the preview stops by ending or by
+  `stopPreview`, so a row's ■ turns back into ▶ when the sound ends. The lazy wrapper (`app/library-service.ts`)
+  passes it on, and calls it for a preview cancelled while the library loads; the library spec caught the wrapper
+  dropping it. The *Preview* action sets `previewing` and counts its runs, so a stopped preview clears ■ only while
+  it is the latest.
+* **Step 5:** when the active row goes to the trash (a menu, Delete, a drag), the Library moves on to the folder it
+  was in, rather than following it into the trash. The tree expands the rows above the active one only when the
+  active row changes (Show, a new folder), so a folder the user closed stays closed.
+* **Step 5:** labels: the header's ⋯ is *Library actions*; ▶ is *Preview Bass* / *Stop preview of Bass*, shown on
+  hover, focus, the active row and while previewing, and only in *My library*; the type filter reads *Instruments*,
+  *Audio effects*, *Note effects*, *Presets*, *MIDI clips*, *Audio clips*, *Samples*; the details' ⋯ is *More for
+  Bass*. Item glyphs: ♪ instrument, ◈ audio effect, ♮ note effect, • preset, ▦ MIDI clip, ▤ audio clip, ∿ sample. The
+  menu keeps *Insert new instrument track* while the button says *Add as new track*.
+* **Step 5:** a disabled main button shows its reason beside it as well as in its tooltip. For effects it names
+  where they fit, from the input their graph starts from (*Select the master*, *Select a bus*, *Select a return
+  track*, *Select a track*).
+* **Step 5:** the details count items as the tree does (presets under their sound aren't items of their own). A
+  dropped file that isn't an `.sfxlib` says so on the status line. *Retry* shows only after the catalog failed to
+  read.
+* **Step 5:** a menu choice's tooltip now reaches its entry (`useActionEntries` dropped it), so a disabled scene says
+  "Bass has a clip there".
+* **Step 5:** the old scene-field case became the clip-scenes case: *Insert into Sweep ▸* lists every scene with the
+  occupied one disabled and its reason, the main button fills the three empty scenes, then reads *Insert into Sweep*,
+  disabled, with "No empty slot". The selection case moved into it (a search keeps the selection; the trash takes it).
+* **Step 5:** near-limit timings (1024 folders, 4096 items, production build in Chromium): a search 28–36 ms, the
+  collapsed tree re-rendered 14–21 ms, opening a folder 14–19 ms; all under the 100 ms threshold, so virtualization
+  stays in phase 7. The script is a case of `library-tree.smoke.spec.ts`; the numbers are in
+  `docs/measurements/library-tree-near-limit.json`.
+* **Step 5:** the app has one (dark) theme; with the browser set to light, the Library looks the same. Checked in the
+  preview at 280 px in the sidebar and docked in the panel at about 760 px.
+* **Step 5:** chunks: main `index` 113.79 kB gzipped (113.72 before the phase), `state` 142.86 kB (140.12),
+  `LibraryPanel` 7.82 kB (5.65). The build is warning-free.

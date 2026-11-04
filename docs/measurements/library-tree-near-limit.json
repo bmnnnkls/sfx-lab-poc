@@ -1,0 +1,33 @@
+{
+  "browser": "156.0.8078.4",
+  "folders": 1024,
+  "items": 4096,
+  "openLibraryMs": 831,
+  "rows": 34,
+  "runs": {
+    "search": [
+      35.800000071525574,
+      31.899999976158142,
+      33.5,
+      27.799999952316284,
+      35.799999952316284
+    ],
+    "clear": [
+      16.800000071525574,
+      20.799999952316284,
+      14.800000071525574,
+      14.700000047683716,
+      14
+    ],
+    "expand": [
+      15.899999976158142,
+      18.5,
+      16.5,
+      14.299999952316284,
+      17.299999952316284
+    ]
+  },
+  "script": "tests/browser/library-tree.smoke.spec.ts, \"records production Chromium timings for a near-limit library\"",
+  "date": "2026-11-05",
+  "note": "Production build (vite preview), Chromium via Playwright. search: typing a query that matches 238 rows; clear: back to the collapsed tree (34 rows), a full re-render from the catalog; expand: one top-level folder. Threshold for virtualization: 100 ms."
+}

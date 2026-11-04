@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { test, expect, dragTo, dragView, openView, viewRoot } from './fixtures'
+import { test, expect, dragTo, dragView, libraryPanel, openView, saveToLibrary, treeRow, viewRoot } from './fixtures'
 
 test('a view tab dragged across the session grid docks as before and changes no slot', async ({ page }) => {
   await page.goto('/?starter')
@@ -216,15 +216,12 @@ test("a library instrument dropped on a session header replaces that track's ins
   await filter.locator('[data-header]').click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
   await expect(filter).toHaveCount(0)
-  await openView(page, 'Library')
-  const panel = page.getByRole('region', { name: 'Personal library' })
-  await panel.getByLabel('Library name', { exact: true }).fill('No filter')
-  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
-  await expect(panel.getByRole('status')).toContainText('Library saved')
+  await saveToLibrary(page, session.getByRole('button', { name: 'Bass', exact: true }), 'Instrument + notes')
   await undo(page)
   await expect(filter).toHaveCount(1)
 
-  const item = panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^No filter/ })
+  await openView(page, 'Library')
+  const item = treeRow(libraryPanel(page), 'Bass')
   await dragTo(page, item, session.getByRole('button', { name: 'Lead', exact: true }))
   await expect(page.getByRole('status').filter({ hasText: 'copied into project' })).toBeVisible()
   await session.getByRole('button', { name: 'Lead', exact: true }).click()
@@ -237,17 +234,13 @@ test("a library instrument dropped on a session header replaces that track's ins
 test('a library MIDI clip dropped on an empty slot is inserted there', async ({ page }) => {
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
-  await session.getByRole('button', { name: 'Edit Root', exact: true }).click()
+  await saveToLibrary(page, session.getByRole('button', { name: '▶ Root', exact: true }))
   await openView(page, 'Library')
-  const panel = page.getByRole('region', { name: 'Personal library' })
-  await panel.getByLabel('Library name', { exact: true }).fill('Riff')
-  await panel.getByRole('button', { name: 'Save selected clip', exact: true }).click()
-  await expect(panel.getByRole('status')).toContainText('Library saved')
-  const item = panel.getByLabel('Library items', { exact: true }).getByRole('button', { name: /^Riff/ })
+  const item = treeRow(libraryPanel(page), 'Root')
   // Lead's second slot is empty, its first holds Arp.
   await dragTo(page, item, slotOf(session, 3, 1, 0), { whileOver: () => expect(slotOf(session, 3, 1, 0)).toHaveAttribute('data-drop', 'refuse') })
   await dragTo(page, item, slotOf(session, 3, 1, 1))
-  await expect(slotOf(session, 3, 1, 1)).toContainText('Riff')
+  await expect(slotOf(session, 3, 1, 1)).toContainText('Root')
   await expect(slotOf(session, 3, 1, 0)).toContainText('Arp')
 })
 

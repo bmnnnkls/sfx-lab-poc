@@ -218,20 +218,19 @@ const CASES: readonly Case[] = [
     title: 'Library',
     state: 'empty',
     min: TOOL_VIEW,
-    // At 280 × 200 the toolbars fill the height, and the empty state is a scroll away.
-    controls: (root, { width, height }) => width && height ? [] : [root.getByLabel('Library item details', { exact: true }).getByRole('button', { name: 'Save asset + presets', exact: true })],
+    controls: (root) => [root.getByLabel('Library details', { exact: true }).getByRole('button', { name: 'Save Bass to library', exact: true })],
   },
   {
     title: 'Library',
     min: TOOL_VIEW,
     prepare: async (_page, root) => {
-      await root.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
-      await expect(root.getByLabel('Library items', { exact: true }).getByRole('button')).not.toHaveCount(0)
+      await root.getByRole('button', { name: 'Save Bass to library', exact: true }).click()
+      await expect(root.getByRole('treeitem', { name: 'Bass', exact: true })).toBeVisible()
     },
-    // At 280 × 200 the toolbars fill the height, and the items are a scroll away.
-    controls: (root, { width, height }) => [
+    controls: (root) => [
       root.getByLabel('Search library', { exact: true }),
-      ...(width && height ? [] : [root.getByLabel('Library items', { exact: true }).getByRole('button').first()]),
+      root.getByRole('button', { name: 'Library actions', exact: true }),
+      root.getByRole('treeitem', { name: 'Bass', exact: true }),
     ],
   },
   {

@@ -1,4 +1,4 @@
-import { test, expect, openView, saveToLibrary, viewRoot } from './fixtures'
+import { test, expect, libraryPanel, openView, saveToLibrary, treeRow, viewRoot } from './fixtures'
 
 /** The entries of the open menu, by name, with separators as '—'. */
 const menuEntries = async (page: import('@playwright/test').Page) =>
@@ -188,36 +188,51 @@ test('an empty audio slot offers its samples from the menu, and automation slots
   await expect(instrument.locator('[data-node]', { hasText: 'Sampler' })).toHaveCount(1)
 })
 
-test('a library item trashes and restores from its menu, and a folder makes one inside', async ({ page }) => {
+test('a library item trashes and restores from its menu, a folder makes one inside, and the roots and Move to have menus of their own', async ({ page }) => {
   await page.goto('/?starter')
+  const session = await openView(page, 'Session')
+  await saveToLibrary(page, session.getByRole('button', { name: 'Bass', exact: true }), 'Instrument + notes')
   await openView(page, 'Library')
-  const panel = page.getByRole('region', { name: 'Personal library' })
-  await panel.getByLabel('Library name', { exact: true }).fill('Synth')
-  await panel.getByRole('button', { name: 'Save asset + presets', exact: true }).first().click()
-  const items = panel.getByLabel('Library items', { exact: true })
-  const synth = items.getByRole('button', { name: /^Synth/ })
-  await synth.click({ button: 'right' })
+  const panel = libraryPanel(page)
+  const bass = treeRow(panel, 'Bass')
+  await bass.click({ button: 'right' })
   expect(await menuEntries(page)).toEqual(['Preview', '—', 'Rename', 'Duplicate', 'Insert new instrument track', 'Replace selected graph', 'Move to▸', 'Export as .sfxlib…', '—', 'Trash'])
   await page.getByRole('menuitem', { name: 'Trash', exact: true }).click()
   await expect(page.getByText('Moved to the trash', { exact: true })).toBeVisible()
-  await expect(synth).toHaveCount(0)
+  await expect(bass).toHaveCount(0)
 
-  await panel.getByRole('button', { name: 'Trash', exact: true }).click()
-  await synth.click({ button: 'right' })
+  await treeRow(panel, 'Trash').click({ button: 'right' })
+  expect(await menuEntries(page)).toEqual(['Restore all'])
+  await page.keyboard.press('Escape')
+  await treeRow(panel, 'Trash').click()
+  await treeRow(panel, 'Trash').press('ArrowRight')
+  await bass.click({ button: 'right' })
   expect(await menuEntries(page)).toEqual(['Restore'])
   await page.getByRole('menuitem', { name: 'Restore', exact: true }).click()
-  await panel.getByRole('button', { name: 'Back to library', exact: true }).click()
-  await expect(synth).toBeVisible()
+  await expect(treeRow(panel, 'My library')).toHaveAttribute('aria-label', 'My library, 1 item')
 
-  await panel.getByLabel('Library name', { exact: true }).fill('Leads')
-  await panel.getByRole('button', { name: 'New folder', exact: true }).click()
-  await panel.getByRole('treeitem', { name: 'Leads', exact: true }).click({ button: 'right' })
+  await treeRow(panel, 'My library').click({ button: 'right' })
+  expect(await menuEntries(page)).toEqual(['New folder', 'Import .sfxlib…', 'Export all…'])
+  await page.getByRole('menuitem', { name: 'New folder', exact: true }).click()
+  await panel.getByRole('textbox', { name: 'Name of New folder', exact: true }).fill('Leads')
+  await page.keyboard.press('Enter')
+  await treeRow(panel, 'Leads').click({ button: 'right' })
+  expect(await menuEntries(page)).toEqual(['Open', '—', 'Rename', 'New folder inside', 'Duplicate', 'Move to▸', 'Export as .sfxlib…', '—', 'Trash'])
   await page.getByRole('menuitem', { name: 'New folder inside', exact: true }).click()
   const field = panel.getByRole('textbox', { name: 'Name of New folder', exact: true })
   await expect(field).toBeFocused()
   await field.pressSequentially('Bright')
   await page.keyboard.press('Enter')
-  await expect(panel.getByRole('treeitem', { name: 'Bright', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(treeRow(panel, 'Bright')).toHaveAttribute('aria-selected', 'true')
+
+  // Move to ▸ names folders by their path, and not the one the item is in.
+  await bass.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Move to', exact: true }).focus()
+  await page.keyboard.press('ArrowRight')
+  expect(await menuEntries(page)).toEqual(['My library', 'Leads', 'Leads / Bright'])
+  await expect(page.getByRole('menu').last().getByRole('menuitem', { name: 'My library', exact: true })).toHaveAttribute('data-disabled', '')
+  await page.getByRole('menu').last().getByRole('menuitem', { name: 'Leads / Bright', exact: true }).click()
+  await expect(treeRow(panel, 'Bright')).toHaveAttribute('aria-label', 'Bright, 1 item')
 })
 
 test('samples and sounds have menus', async ({ page }) => {

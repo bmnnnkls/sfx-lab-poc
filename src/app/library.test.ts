@@ -95,18 +95,37 @@ it('returns explicit cancellation for stale preview success/errors and keeps the
     for (const fail of [false, true]) {
       let resolve!: (c: typeof catalog) => void, reject!: (error: Error) => void, reads = 0
       const library = createPersonalLibrary({ ...storage, read: () => ++reads === 1 ? new Promise((yes, no) => { resolve = yes; reject = no }) : storage.read() }, samples)
-      const a = library.preview(item)
+      const stops: string[] = []
+      const a = library.preview(item, () => stops.push('a'))
       await Promise.resolve(); library.stopPreview()
-      const b = library.preview(item)
+      const b = library.preview(item, () => stops.push('b'))
       expect(await b).toBe('started')
+      // Each preview hears once that it stopped: the first when it was stopped, the second not yet.
+      expect(stops).toEqual(['a'])
       const current = contexts.at(-1)!
       if (fail) reject(new Error('Old read failed')); else resolve(catalog)
       expect(await a).toBe('cancelled')
       expect(current.started).toBe(true); expect(current.state).toBe('running')
       library.stopPreview(); expect(current.state).toBe('closed')
+      expect(stops).toEqual(['a', 'b'])
     }
     const broken = createPersonalLibrary({ ...storage, read: async () => { throw new Error('Current read failed') } }, samples)
     await expect(broken.preview(item)).rejects.toThrow('Current read failed')
     expect(contexts.every(c => c.state === 'closed')).toBe(true)
   } finally { Object.assign(globalThis, { AudioContext: previous }) }
+})
+
+it('the deferred library passes a preview its stop callback, and calls it for a preview cancelled while loading', async () => {
+  const { createDeferredPersonalLibrary } = await import('./library-service')
+  const deferred = createDeferredPersonalLibrary(createMemoryLibraryStorage(), createMemorySampleStorage())
+  const stops: string[] = []
+  const item = { id: 'gone', name: 'Gone', folderId: null, content: { kind: 'sample', sampleId: 's' } } as const
+  const first = deferred.preview(item, () => stops.push('first'))
+  deferred.stopPreview()
+  expect(await first).toBe('cancelled')
+  expect(stops).toEqual(['first'])
+  // Loaded now, the callback reaches the library (here, with no AudioContext, the preview throws), which calls it as it stops.
+  await expect(deferred.preview(item, () => stops.push('second'))).rejects.toThrow()
+  deferred.stopPreview()
+  expect(stops).toEqual(['first', 'second'])
 })

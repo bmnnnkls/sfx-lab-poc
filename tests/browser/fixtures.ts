@@ -190,3 +190,16 @@ export const saveToLibrary = async (page: Page, subject: Locator, choice?: strin
   } else await entry.click()
   await expect(page.getByRole('status').filter({ hasText: /^Saved .* to / }).last()).toBeVisible()
 }
+
+/** The Library view's panel. */
+export const libraryPanel = (page: Page): Locator => page.getByRole('region', { name: 'Personal library' })
+
+/** A row of the Library's tree: an item by its name, a folder or root by its name and item count. */
+export const treeRow = (panel: Locator, name: string): Locator =>
+  panel.getByRole('tree', { name: 'Library' }).getByRole('treeitem', { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(, \\d+ items?)?$`) })
+
+/** Runs an entry of the Library's ⋯ menu in its header. */
+export const libraryMenu = async (panel: Locator, entry: string) => {
+  await panel.getByRole('button', { name: 'Library actions', exact: true }).click()
+  await panel.page().getByRole('menuitem', { name: entry, exact: true }).click()
+}

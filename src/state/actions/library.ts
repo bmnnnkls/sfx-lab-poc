@@ -1,6 +1,6 @@
 import { type ControlOwner, type LibraryBundleSelection, type LibraryCatalog, type LibraryItem, type SnapshotScope, type Track, EFFECT_INPUTS, duplicateLibraryFolder, libraryItemDuplicate, moveLibraryEntry, saveLibraryFolder, trashLibraryEntry } from '@core'
 import { useLayoutStore } from '../layout-store'
-import { useLibraryStore } from '../library-store'
+import { openFolder, useLibraryStore } from '../library-store'
 import { useSelectionStore } from '../selection-store'
 import { project, trackOf } from './lookup'
 import { renameAction, startRename } from './rename'
@@ -139,6 +139,16 @@ const requestExport = (selection: LibraryBundleSelection, name: string) => {
   useLayoutStore.getState().revealView('library')
 }
 
+/** When the active row went to the trash, the Library moves on to `folderId` (null: *My library*). */
+const moveOffTrash = (folderId: string | null) => {
+  const { active, setActive } = useLibraryStore.getState()
+  const trashed = active?.kind === 'folder' ? folderOf({ kind: 'library-folder', folderId: active.id })?.trashed : active?.kind === 'item' ? itemOf({ kind: 'library-item', itemId: active.id })?.trashed : false
+  if (trashed) setActive(folderId === null ? null : { kind: 'folder', id: folderId })
+}
+
+/** Counts the previews started, so a stopped one clears ■ only while it is the latest. */
+let previews = 0
+
 /** An item of the personal library. Its actions are asynchronous and resolve with what they did. */
 export const libraryItemActions: readonly Action<ItemSubject>[] = [
   {
@@ -146,9 +156,19 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     title: 'Preview',
     group: 'open',
     applies: live,
+    // The item's row shows ■ until this preview stops; starting another stops this one first.
     run: async (subject, { library }) => {
       const item = itemOf(subject)
-      if (item && (await library.preview(item)) === 'started') return 'Preview in isolated engine · effects use a test tone'
+      if (!item) return
+      const preview = ++previews
+      useLibraryStore.getState().setPreviewing(item.id)
+      const stopped = () => { if (preview === previews) useLibraryStore.getState().setPreviewing(null) }
+      try {
+        if ((await library.preview(item, stopped)) === 'started') return 'Preview in isolated engine · effects use a test tone'
+      } catch (error) {
+        stopped()
+        throw error
+      }
     },
   },
   renameAction('library-item', live),
@@ -225,10 +245,13 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     group: 'delete',
     danger: true,
     applies: live,
-    // Its presets go with it; the trash keeps their dependencies and sample bytes.
-    run: (subject, context) => {
+    // Its presets go with it; the trash keeps their dependencies and sample bytes. The Library moves on to its folder.
+    run: async (subject, context) => {
       context.library.stopPreview()
-      return editLibrary(context, (value) => trashLibraryEntry(value, subject.itemId), 'Moved to the trash')
+      const folderId = openFolder()
+      const message = await editLibrary(context, (value) => trashLibraryEntry(value, subject.itemId), 'Moved to the trash')
+      moveOffTrash(folderId)
+      return message
     },
   },
   {
@@ -303,8 +326,7 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     applies: liveFolder,
     run: async ({ folderId }, context) => {
       const message = await editLibrary(context, (value) => trashLibraryEntry(value, folderId), 'Moved to the trash with its contents')
-      const { active, setActive } = useLibraryStore.getState()
-      if (active?.kind === 'folder' && active.id === folderId) setActive(null)
+      moveOffTrash(folderOf({ kind: 'library-folder', folderId })?.parentId ?? null)
       return message
     },
   },

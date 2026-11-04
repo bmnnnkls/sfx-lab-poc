@@ -1,34 +1,39 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react'
-import { type LibraryBundleStage, type LibraryBundleSelection, libraryBundleConflicts, type LibraryCatalog, type LibraryItem, type SnapshotScope, browseLibrary, libraryDependencies, saveLibraryFolder, saveLibraryItem } from '@core'
-import { type Subject, commitRename, insertLibraryClipAt, openFolderOf, runAction, useLibraryStore, usePersonalLibrary, useProjectStore, useSelectionStore } from '@state'
-import { useDragSource } from '../shared/drag'
-import { ActionMenu, useActionContext } from '../shared/menu'
-import { InPlaceRename, useRenaming } from '../shared/RenameField'
-import { FolderTree } from './FolderTree'
+import { type LibraryBundleSelection, type LibraryBundleStage, type LibraryCatalog } from '@core'
+import { type LibraryRowRef, type Subject, commitRename, runAction, useLibraryStore, usePersonalLibrary, useSelectionStore } from '@state'
+import { type DragEvent, useEffect, useRef, useState } from 'react'
+import { PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
+import { BundleDialog } from './BundleDialog'
+import { KIND_NAMES, LibraryDetails, primaryOf } from './LibraryDetails'
+import type { LibraryRow } from './library-tree'
+import { LibraryTree, subjectOf } from './LibraryTree'
 import styles from './LibraryPanel.module.css'
 
-/** An item's row: its menu, and it drags onto a track, the master, a canvas or (a clip) an empty slot. */
-const ItemRow = ({ itemId, children }: { itemId: string; children: ReactNode }) => {
-  const subject = { kind: 'library-item', itemId } as const
-  const drag = useDragSource(useRenaming(subject) ? null : subject)
-  return <ActionMenu subject={subject}><div className={styles.itemRow} {...drag}>{children}</div></ActionMenu>
-}
+const BUNDLE_LIMIT = 128 * 1024 * 1024
+/** An `.sfxlib` among the files a drag carries; only those open the review. */
+const isBundleFile = (file: File) => file.name.toLowerCase().endsWith('.sfxlib')
 
+/**
+ * The personal library: a header (search, type filter, ⋯), a status line while there is something to say, the tree,
+ * and the active row's details. Bundles are reviewed in a dialog, opened from a menu or by dropping an `.sfxlib` here.
+ *
+ * The view's own buttons run the library's actions through `run`, which sequences them with an operation token: a
+ * result that comes back after a newer operation started is dropped. Hiding the view drops results and stops the
+ * preview; showing it reads the catalog again.
+ */
 export const LibraryPanel = () => {
-  const library = usePersonalLibrary(), context = useActionContext(), project = useProjectStore(s => s.project), selection = useSelectionStore()
-  const catalog = useLibraryStore(s => s.catalog), setCatalog = useLibraryStore(s => s.setCatalog), folder = useLibraryStore(openFolderOf), [selected, setSelected] = useState('')
-  const [name, setName] = useState('My sound'), [query, setQuery] = useState(''), [kind, setKind] = useState(''), [trash, setTrash] = useState(false)
-  const [domain, setDomain] = useState<'patch' | 'fx' | 'notes'>('patch'), [sampleId, setSampleId] = useState(''), [scene, setScene] = useState(0)
-  const [bundle, setBundle] = useState<{ stage: LibraryBundleStage; exporting: boolean } | null>(null), [partial, setPartial] = useState(false), [checked, setChecked] = useState<string[]>([])
-  const [moveTo, setMoveTo] = useState(''), [message, setMessage] = useState(''), [busy, setBusy] = useState(false)
-  const track = project.tracks.find(t => t.id === selection.trackId) ?? project.tracks[0]
-  // A selected group saves and takes its bus's effects, as the master does.
-  const group = selection.groupId === null ? undefined : project.groups?.find(g => g.id === selection.groupId)
-  const scope: SnapshotScope = { owner: selection.master ? { kind: 'master' } : group ? { kind: 'group', groupId: group.id } : { kind: 'track', trackId: track?.id ?? '' }, domain: selection.master || group ? 'fx' : domain }
-  const item = catalog.items.find(i => i.id === selected), currentFolder = catalog.folders.find(f => f.id === folder)
+  const library = usePersonalLibrary(), context = useActionContext()
+  const catalog = useLibraryStore((s) => s.catalog), setCatalog = useLibraryStore((s) => s.setCatalog)
+  const active = useLibraryStore((s) => s.active), selected = useLibraryStore((s) => s.selected), previewing = useLibraryStore((s) => s.previewing), request = useLibraryStore((s) => s.request)
+  const selection = useSelectionStore()
+  const [query, setQuery] = useState(''), [kind, setKind] = useState('')
+  const [bundle, setBundle] = useState<{ stage: LibraryBundleStage; exporting: boolean } | null>(null)
+  const [message, setMessage] = useState(''), [busy, setBusy] = useState(false), [readFailed, setReadFailed] = useState(false)
+  const [droppingFile, setDroppingFile] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
   const operationId = useRef(0), previewOperation = useRef(false)
   const stopPreview = () => {
     library.stopPreview()
+    useLibraryStore.getState().setPreviewing(null)
     if (previewOperation.current) { operationId.current++; previewOperation.current = false; setBusy(false) }
   }
   const run = async (operation: () => Promise<string | void | false | LibraryCatalog>, preview = false) => {
@@ -40,119 +45,134 @@ export const LibraryPanel = () => {
       if (token !== operationId.current || result === false) return
       const next = result && typeof result !== 'string' ? result : await library.read()
       if (token !== operationId.current) return
-      setCatalog(next); setMessage(typeof result === 'string' ? result : 'Library saved')
+      setCatalog(next); setMessage(typeof result === 'string' ? result : 'Library saved'); setReadFailed(false)
     } catch (error) { if (token === operationId.current) setMessage(error instanceof Error ? error.message : String(error)) }
     finally { if (token === operationId.current) { previewOperation.current = false; setBusy(false) } }
   }
   // Also runs each time the hidden view is shown again. Hiding drops the result of an operation still running (its
   // work finishes in storage) and stops the preview; showing reads the catalog again, which picks that work up.
   useEffect(() => {
-    let active = true
+    let current = true
     const token = operationId.current
-    void library.read().then(value => { if (active && operationId.current === token) setCatalog(value) }).catch(error => { if (active && operationId.current === token) setMessage(String(error)) })
-    return () => { active = false; operationId.current++; previewOperation.current = false; setBusy(false); library.stopPreview() }
+    void library.read().then((value) => { if (current && operationId.current === token) setCatalog(value) }).catch((error) => {
+      if (current && operationId.current === token) { setMessage(error instanceof Error ? error.message : String(error)); setReadFailed(true) }
+    })
+    return () => { current = false; operationId.current++; previewOperation.current = false; setBusy(false); library.stopPreview(); useLibraryStore.getState().setPreviewing(null) }
   }, [library])
-  useEffect(() => { stopPreview() }, [library, query, kind, trash, selection.trackId, selection.master, selection.groupId, selection.clipId])
-  const reviewExport = (selection: LibraryBundleSelection, bundleName: string) => run(async () => {
-    stopPreview(); setBundle(null); setPartial(false)
-    setBundle({ stage: await library.prepareBundle(selection, bundleName), exporting: true })
-    return 'Review bundle dependencies before downloading'
-  })
-  const navigate = (id: string | null) => { stopPreview(); useLibraryStore.getState().setActive(id === null ? null : { kind: 'folder', id }); setSelected('') }
-  // A folder opened from its menu, or one just made inside it, shows nothing selected either.
-  useEffect(() => setSelected(''), [folder])
-  /** Runs one of the library's actions from a button here: busy while it runs, its message on the status line. */
-  const act = (id: string, subject: Subject, preview = false) => void run(async () => {
-    await runAction(id, subject, context, { report: (_kind, text) => setMessage(text) })
+  const activeKey = active ? `${active.kind}:${active.id}` : ''
+  useEffect(() => { stopPreview() }, [library, query, kind, activeKey, selection.trackId, selection.master, selection.groupId, selection.clipId])
+  /** Runs one of the library's actions from here: busy while it runs, its message on the status line. */
+  const act = (id: string, subject: Subject, choice?: string, preview = false) => void run(async () => {
+    await runAction(id, subject, context, { choice, report: (_kind, text) => setMessage(text) })
     return false
   }, preview)
-  const choose = (i: LibraryItem) => { stopPreview(); setSelected(i.id); setName(i.name) }
+  const preview = (row: LibraryRow) => {
+    if (row.kind !== 'item' && row.kind !== 'preset') return
+    if (previewing === row.id) return stopPreview()
+    act('library-item.preview', { kind: 'library-item', itemId: row.id }, undefined, true)
+  }
+  const primary = (row: LibraryRow) => {
+    if (row.kind === 'root' || row.kind === 'folder') return
+    const item = catalog.items.find((candidate) => candidate.id === row.id)
+    if (!item) return
+    const action = primaryOf(catalog, item)
+    if (!action.refusal) act(action.id, subjectOf(row), action.choice)
+    else setMessage(action.refusal)
+  }
+  const reviewExport = (selection: LibraryBundleSelection, name: string) => run(async () => {
+    stopPreview(); setBundle(null)
+    setBundle({ stage: await library.prepareBundle(selection, name), exporting: true })
+    return 'Review the bundle before downloading'
+  })
+  const stage = (file: File) => void run(async () => {
+    stopPreview(); setBundle(null)
+    if (file.size > BUNDLE_LIMIT) throw new Error('Library bundle compressed byte limit exceeded (128 MiB)')
+    setBundle({ stage: await library.stageBundle(new Uint8Array(await file.arrayBuffer())), exporting: false })
+    return 'Review the bundle before importing; the library is unchanged'
+  })
+  // A menu's Export as .sfxlib… or Import .sfxlib…, which only this view can open.
   useEffect(() => {
-    const available = new Set(catalog.items.filter(i => !i.trashed).map(i => i.id))
-    setChecked(ids => ids.filter(id => available.has(id)))
-    if (selected && !catalog.items.some(i => i.id === selected && Boolean(i.trashed) === trash)) setSelected('')
-  }, [catalog, trash, selected])
-  useEffect(() => { setScene(value => Number.isInteger(value) && value >= project.sceneCount ? project.sceneCount - 1 : value) }, [project.sceneCount])
-  const validScene = Number.isInteger(scene) && scene >= 0 && scene < project.sceneCount
-  const visibleItems = browseLibrary(catalog, { ...(query || trash ? {} : { folderId: folder }), query, kind, trash })
-  const hiddenChecked = checked.filter(id => !visibleItems.some(i => i.id === id)).length
-  const dependencies = item && libraryDependencies(catalog, item)
-  const instrumentItem = item?.content.kind === 'instrument' || item?.content.kind === 'preset' && catalog.revisions.find(r => item.content.kind === 'preset' && r.id === item.content.revisionId)?.payload.kind === 'instrument'
-  return <section className={styles.panel} aria-label="Personal library">
-    <div className={styles.toolbar}>
-      <input aria-label="Library name" value={name} maxLength={80} onChange={e => setName(e.target.value)} />
-      <button disabled={busy || trash} onClick={() => void run(() => library.update(c => saveLibraryFolder(c, name, folder)))}>New folder</button>
-      <select aria-label="Library save scope" value={scope.domain} onChange={e => setDomain(e.target.value as typeof domain)}><option value="patch">Instrument + notes</option><option value="fx">Audio effects</option><option value="notes">Note effects</option></select>
-      <button disabled={busy || trash} onClick={() => void run(() => library.saveAsset(scope, name, folder))}>Save asset + presets</button>
-      <button disabled={busy || trash || !selection.clipId} onClick={() => void run(() => library.saveClip(track?.id ?? '', selection.clipId ?? '', name, folder))}>Save selected clip</button>
-      <select aria-label="Project sample to catalog" value={sampleId} onChange={e => setSampleId(e.target.value)}><option value="">Choose sample</option>{project.samples.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
-      <button disabled={busy || trash || !sampleId} onClick={() => void run(() => library.saveSample(sampleId, name, folder))}>Catalog sample</button>
-    </div>
-    <div className={`${styles.toolbar} ${styles.search}`}>
-      <input aria-label="Search library" placeholder="Search all folders" value={query} onChange={e => setQuery(e.target.value)} />
-      <select aria-label="Library type filter" value={kind} onChange={e => setKind(e.target.value)}><option value="">All types</option>{['instrument', 'audio-effect', 'note-effect', 'preset', 'midi-clip', 'audio-clip', 'sample'].map(k => <option key={k}>{k}</option>)}</select>
-      <button onClick={() => { stopPreview(); setTrash(!trash); setSelected('') }}>{trash ? 'Back to library' : 'Trash'}</button>
-      <button disabled={busy} onClick={() => void run(async () => { stopPreview(); return library.read() })}>Refresh</button>
-      <output role="status">{message}</output>
-    </div>
-    <div className={styles.toolbar}>
-      <span>{checked.length} selected · {hiddenChecked} hidden</span><button disabled={!checked.length} onClick={() => setChecked([])}>Clear selection</button>
-      <button disabled={busy || trash || !(checked.length || item)} onClick={() => void reviewExport({ itemIds: checked.length ? checked : [item!.id] }, name)}>Review selected items export</button>
-      <button disabled={busy || trash || !currentFolder} onClick={() => void reviewExport({ folderIds: [currentFolder!.id] }, currentFolder!.name)}>Review folder export</button>
-      <label>Import .sfxlib<input aria-label="Import library bundle" type="file" accept=".sfxlib" disabled={busy} onChange={e => {
-        const file = e.target.files?.[0]; e.target.value = ''; if (!file) return
-        void run(async () => {
-          stopPreview(); setBundle(null); setPartial(false)
-          if (file.size > 128 * 1024 * 1024) throw new Error('Library bundle compressed byte limit exceeded (128 MiB)')
-          const stage = await library.stageBundle(new Uint8Array(await file.arrayBuffer()))
-          setBundle({ stage, exporting: false }); return 'Review bundle before importing; catalog unchanged'
-        })
-      }} /></label>
-    </div>
-    {bundle && <section aria-label="Bundle review">
-      <h3>{bundle.exporting ? 'Export' : 'Import'} {bundle.stage.manifest.name}{bundle.stage.manifest.partial ? ' · PARTIAL' : ''}</h3>
-      <p>{bundle.stage.manifest.catalog.items.length} items · {bundle.stage.manifest.catalog.folders.length} folders · {bundle.stage.manifest.catalog.revisions.length} immutable revisions · {bundle.stage.manifest.catalog.samples.length} samples · {bundle.stage.expandedBytes} expanded bytes</p>
-      <p>{libraryBundleConflicts(catalog, bundle.stage.manifest.catalog)} logical ID conflicts; imports always copy into a new folder named {bundle.stage.manifest.name}. Repeated imports create independent copies; identical sample bytes are shared.</p>
-      <p>{bundle.stage.missing.length} missing sample files. {bundle.stage.missing.join(', ')}</p>
-      <details><summary>Included items and dependencies</summary>
-        {bundle.stage.manifest.catalog.folders.map(f => <p key={f.id}>Folder: {f.name} · parent {f.parentId ?? 'bundle root'}</p>)}
-        {bundle.stage.manifest.catalog.items.map(i => <p key={i.id}>{i.name} · {i.content.kind}{i.content.kind === 'preset' ? ` · asset ${i.content.assetId}` : ''}</p>)}
-        {bundle.stage.manifest.catalog.revisions.map(r => <p key={r.id}>Revision {r.id} · {r.payload.modules.length} nested modules</p>)}
-        {bundle.stage.manifest.catalog.samples.map(s => <p key={s.id}>{s.name} · {s.bytes} bytes · {bundle.stage.blobs.has(s.id) ? 'included' : 'MISSING'}</p>)}
-      </details>
-      {bundle.exporting && bundle.stage.missing.length > 0 && <label><input type="checkbox" checked={partial} onChange={e => setPartial(e.target.checked)} />Explicitly allow a partial export</label>}
-      {bundle.exporting ? <button disabled={busy || bundle.stage.missing.length > 0 && !partial} onClick={() => void run(async () => { const message = await library.exportBundle(bundle.stage, partial); setBundle(null); return message })}>Download .sfxlib</button>
-        : <button disabled={busy || bundle.stage.missing.length > 0} onClick={() => void run(async () => { const result = await library.importBundle(bundle.stage); setBundle(null); setChecked([]); return result })}>Import into new folder</button>}
-      <button disabled={busy} onClick={() => setBundle(null)}>Cancel bundle</button>
-    </section>}
-    <div className={styles.columns}>
-      <aside aria-label="Library folder actions"><FolderTree catalog={catalog} open={folder} onOpen={navigate} onRename={(folderId, typed) => void run(async () => (await commitRename({ kind: 'library-folder', folderId }, typed, context)) ?? false)} />
-        {currentFolder && !trash && <><hr /><strong>{currentFolder.name}</strong><button disabled={busy} onClick={() => runAction('library-folder.rename', { kind: 'library-folder', folderId: currentFolder.id }, context)}>Rename folder</button><button disabled={busy} onClick={() => act('library-folder.trash', { kind: 'library-folder', folderId: currentFolder.id })}>Trash folder and contents</button><button disabled={busy} onClick={() => void run(() => library.update(c => saveLibraryFolder(c, currentFolder.name, moveTo || null, currentFolder.id)))}>Move folder</button></>}
-        <label>Move destination<select aria-label="Move destination" value={moveTo} onChange={e => setMoveTo(e.target.value)}><option value="">Root</option>{catalog.folders.filter(f => !f.trashed).map(f => <option key={f.id} value={f.id}>{f.name} · {f.id.slice(-6)}</option>)}</select></label>
-        {trash && catalog.folders.filter(f => f.trashed).map(f => <ActionMenu key={f.id} subject={{ kind: 'library-folder', folderId: f.id }}><button disabled={busy} onClick={() => act('library-folder.restore', { kind: 'library-folder', folderId: f.id })}>Restore folder {f.name}</button></ActionMenu>)}
-      </aside>
-      <div className={styles.items} aria-label="Library items">{visibleItems.map(i => <ItemRow key={i.id} itemId={i.id}><input aria-label={`Include ${i.name} in bundle`} type="checkbox" checked={checked.includes(i.id)} onChange={e => setChecked(ids => e.target.checked ? [...ids, i.id] : ids.filter(id => id !== i.id))} /><InPlaceRename subject={{ kind: 'library-item', itemId: i.id }} name={i.name} label={`Name of ${i.name}`} onCommit={typed => void run(async () => (await commitRename({ kind: 'library-item', itemId: i.id }, typed, context)) ?? false)}><button className={selected === i.id ? styles.active : ''} onClick={() => choose(i)}><strong>{i.name}</strong><small>{i.content.kind}{i.content.kind === 'preset' ? ` · ${catalog.items.find(a => i.content.kind === 'preset' && a.id === i.content.assetId)?.name ?? 'Unavailable asset'}` : ''}</small></button></InPlaceRename></ItemRow>)}</div>
-      <article aria-label="Library item details">{item && dependencies ? <>
-        <h3>{item.name}</h3><p>{item.content.kind} · {dependencies.modules} modules · {dependencies.presets} presets · {dependencies.sampleIds.length} samples</p>
-        <p>{dependencies.routing}</p>
-        {dependencies.presets > 0 && <section aria-label="Associated presets"><strong>Presets</strong>{catalog.items.filter(i => !i.trashed && i.content.kind === 'preset' && i.content.assetId === item.id).map(preset => <button key={preset.id} onClick={() => choose(preset)}>Select preset {preset.name}</button>)}</section>}
-        {dependencies.sampleIds.map(id => { const sample = catalog.samples.find(s => s.id === id); return <p key={id}>{sample?.name ?? 'Missing metadata'} · {sample?.durationSeconds.toFixed(2)} s · {sample?.sampleRate} Hz · {sample?.bytes} bytes <small>{id}</small></p> })}
-        <p>Destination: {selection.master ? 'Master' : group ? `${group.name}${group.bus ? ' bus' : ' (a folder: sum it to a bus first)'}` : track?.name ?? 'Select a track'}. Replacement changes only the chosen graph; instruments also replace notes and voices. Existing automation/mappings stay and may become unavailable.</p>
-        {!trash ? <>
-          <button disabled={busy} onClick={() => act('library-item.preview', { kind: 'library-item', itemId: item.id }, true)}>Preview</button><button onClick={stopPreview}>Stop preview</button>
-          <button disabled={busy || !instrumentItem} onClick={() => act('library-item.insert-track', { kind: 'library-item', itemId: item.id })}>Insert new instrument track</button>
-          <button disabled={busy || ['audio-clip', 'midi-clip'].includes(item.content.kind)} onClick={() => act('library-item.replace', { kind: 'library-item', itemId: item.id })}>{item.content.kind === 'sample' ? 'Add sample to project' : 'Replace selected graph'}</button>
-          {['audio-clip', 'midi-clip'].includes(item.content.kind) && <><label>Scene <input aria-label="Library destination scene" type="number" min={1} max={project.sceneCount} value={Number.isNaN(scene) ? '' : scene + 1} onChange={e => setScene(e.target.value === '' ? NaN : Number(e.target.value) - 1)} /></label><button disabled={busy || !validScene} onClick={() => void run(() => insertLibraryClipAt(item, scope.owner, scene, context))}>Insert into empty slot</button><button disabled={busy || !validScene} onClick={() => void run(() => library.insert(item, { mode: 'replace', scope }, scene, true))}>Replace clip in slot</button></>}
-          <hr /><button disabled={busy} onClick={() => runAction('library-item.rename', { kind: 'library-item', itemId: item.id }, context)}>Rename item</button>
-          <button disabled={busy} onClick={() => void run(() => library.update(c => saveLibraryItem(c, { ...c.items.find(i => i.id === item.id)!, folderId: moveTo || null })))}>Move item</button>
-          <button disabled={busy} onClick={() => act('library-item.duplicate', { kind: 'library-item', itemId: item.id })}>Duplicate item</button>
-          <button disabled={busy} title="Retains dependencies and all sample bytes. Restore from Trash." onClick={() => act('library-item.trash', { kind: 'library-item', itemId: item.id })}>Trash item + associated presets</button>
-        </> : <button disabled={busy} onClick={() => act('library-item.restore', { kind: 'library-item', itemId: item.id })}>Restore item</button>}
-        <p>Project copies are independent. Trash retains library records and sample bytes; it has no effect on project undo.</p>
-      </> : !trash && !catalog.items.some(i => !i.trashed) ? <div className={styles.empty}>
-        <p>Your library is empty. Save the selected instrument, a clip or a sample to reuse it in other projects.</p>
-        <button disabled={busy} onClick={() => void run(() => library.saveAsset(scope, name, folder))}>Save asset + presets</button>
-      </div> : <p>Select a library item for dependencies, preview and explicit load scope. Save includes nested modules, sample choices and compatible project presets. Duplicate names are allowed.</p>}</article>
-    </div>
-  </section>
+    if (!request) return
+    useLibraryStore.getState().setRequest(null)
+    if (request.kind === 'import') input.current?.click()
+    else void reviewExport(request.selection, request.name)
+  }, [request])
+  // Items that are gone, or in the trash, leave the selection.
+  useEffect(() => {
+    const available = new Set(catalog.items.filter((item) => !item.trashed).map((item) => item.id))
+    if (selected.some((id) => !available.has(id))) useLibraryStore.getState().select(selected.filter((id) => available.has(id)))
+  }, [catalog, selected])
+
+  const activate = (ref: LibraryRowRef, items: readonly string[]) => {
+    useLibraryStore.getState().setActive(ref)
+    useLibraryStore.getState().select(items)
+  }
+  const rename = (subject: Subject, typed: string) => void run(async () => (await commitRename(subject, typed, context)) ?? false)
+  const filesIn = (event: DragEvent) => event.dataTransfer.types.includes('Files')
+
+  return (
+    <section
+      className={`${styles.panel} ${droppingFile ? styles.droppingFile : ''}`}
+      aria-label="Personal library"
+      onDragOver={(event) => {
+        if (!filesIn(event)) return
+        event.preventDefault()
+        setDroppingFile(true)
+      }}
+      onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDroppingFile(false) }}
+      onDrop={(event) => {
+        if (!filesIn(event)) return
+        event.preventDefault()
+        setDroppingFile(false)
+        const file = Array.from(event.dataTransfer.files).find(isBundleFile)
+        if (file) stage(file)
+        else setMessage('Drop an .sfxlib file to import it')
+      }}
+    >
+      <div className={styles.header}>
+        <input className={styles.search} type="search" aria-label="Search library" placeholder="Search" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <select aria-label="Library type filter" value={kind} onChange={(event) => setKind(event.target.value)}>
+          <option value="">All types</option>
+          {(['instrument', 'audio-effect', 'note-effect', 'preset', 'midi-clip', 'audio-clip', 'sample'] as const).map((value) => <option key={value} value={value}>{KIND_NAMES[value] === 'Preset' ? 'Presets' : `${KIND_NAMES[value]}s`}</option>)}
+        </select>
+        <PopupMenu entries={() => [
+          ...useActionEntries({ kind: 'library-root', root: 'mine' }, context),
+          { kind: 'separator' as const },
+          { label: `Export selection…${selected.length > 1 ? ` (${selected.length})` : ''}`, disabled: selected.length === 0 || busy, takesFocus: true, onSelect: () => void reviewExport({ itemIds: selected }, selected.length === 1 ? (catalog.items.find((item) => item.id === selected[0])?.name ?? 'Selection') : 'Selection') },
+        ]}>
+          <button className={styles.more} aria-label="Library actions" title="Library actions">⋯</button>
+        </PopupMenu>
+      </div>
+      {message && (
+        <div className={styles.status}>
+          <output role="status">{message}</output>
+          {readFailed && <button disabled={busy} onClick={() => void run(async () => { stopPreview(); return library.read() })}>Retry</button>}
+        </div>
+      )}
+      <input ref={input} type="file" accept=".sfxlib" hidden aria-label="Import library bundle" disabled={busy} onChange={(event) => {
+        const file = event.target.files?.[0]
+        event.target.value = ''
+        if (file) stage(file)
+      }} />
+      <div className={styles.columns}>
+        <div className={styles.treeColumn}>
+          <LibraryTree catalog={catalog} query={query} kind={kind} active={active} selected={selected} previewing={previewing} onActivate={activate} onPrimary={primary} onPreview={preview} onRename={rename} />
+        </div>
+        <LibraryDetails catalog={catalog} active={active} busy={busy} onRun={act} />
+      </div>
+      {bundle && (
+        <BundleDialog
+          stage={bundle.stage}
+          exporting={bundle.exporting}
+          busy={busy}
+          onCancel={() => setBundle(null)}
+          onConfirm={(partial) => void run(async () => {
+            const result = bundle.exporting ? await library.exportBundle(bundle.stage, partial) : await library.importBundle(bundle.stage)
+            setBundle(null)
+            return result
+          })}
+        />
+      )}
+    </section>
+  )
 }
