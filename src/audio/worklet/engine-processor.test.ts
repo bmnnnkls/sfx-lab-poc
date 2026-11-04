@@ -113,3 +113,33 @@ it('keeps the real engine silent and unadvanced after preparation fails, includi
   expect(l.every(v=>v === 0) && r.every(v=>v === 0)).toBe(true)
   expect(messages).toEqual([{ kind: 'preparation-error', message: 'prime failed' }, { kind: 'preparation-error', message: 'prime failed' }])
 })
+
+it("stamps a loop jump with its own frame's time, so the recording clock follows it", async () => {
+  const messages: WorkletMessage[] = []
+  class Shell {
+    port = { onmessage: (_event: { data: HostMessage }) => {}, postMessage: (message: WorkletMessage) => messages.push(message) }
+  }
+  let Processor: new () => Shell & { process(input: Float32Array[][], output: Float32Array[][]): boolean } = undefined!
+  vi.stubGlobal('sampleRate', 8000); vi.stubGlobal('currentTime', 10)
+  vi.stubGlobal('AudioWorkletProcessor', Shell)
+  vi.stubGlobal('registerProcessor', (_name: string, factory: typeof Processor) => { Processor = factory })
+  await import('./engine-processor')
+  const processor = new Processor(), output = [[new Float32Array(128), new Float32Array(128)]]
+  const send = (command: import('@core').EngineCommand) => processor.port.onmessage({ data: { kind: 'command', command } })
+  processor.port.onmessage({ data: { kind: 'prepare' } })
+  // 120 bpm at 8 kHz: 4000 frames a beat, so the loop's end (0.02) is 80 frames in.
+  send({ type: 'arrangement/setLoop', loop: { from: 0, to: 0.02 } })
+  send({ type: 'arrangement/play', fromBeat: 0 })
+  messages.length = 0
+  processor.process([], output)
+  const clocks = messages.filter((message) => message.kind === 'clock')
+  expect(clocks[0]).toMatchObject({ audioTime: 10, clock: { beat: 0, playing: true } })
+  expect(clocks[1]).toMatchObject({ audioTime: 10.01, clock: { beat: 0, playing: true } })
+  const clock = new RecordingClock()
+  for (const message of messages) {
+    if (message.kind === 'clock') clock.update(message.clock, message.audioTime)
+    else if (message.kind === 'status') clock.update(message.status, message.audioTime!)
+  }
+  expect(clock.beat(10.005)).toBeCloseTo(0.01)
+  expect(clock.beat(10.012)).toBeCloseTo(0.004)
+})

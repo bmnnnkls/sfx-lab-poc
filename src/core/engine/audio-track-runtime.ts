@@ -5,7 +5,7 @@ import type { ArrangementClip, AudioClip, SendLevels } from '../project'
 import { type SampleLookup, frameCount } from '../sample'
 import { AudioClipLauncher, type AudioEvent, type LauncherStatus } from '../session'
 import { ArrangementAudio } from './arrangement-player'
-import { fadeGain, readRegion, regionOf, repitchPosition } from './audio-clip-playback'
+import { fadeGain, joinedPosition, readRegion, regionOf, repitchPosition } from './audio-clip-playback'
 import { ChannelStrip } from './channel-strip'
 import type { MixContext, MixTiming, PlayableTrack, ScheduledAction, PlaybackMode } from './playable-track'
 
@@ -18,9 +18,12 @@ interface Playing {
   startBeat: number
   /**
    * Read position in sample frames, used only by clips that ignore tempo (`warp: 'off'`).
-   * Negative until the first read, when it is set to the start of the clip's region.
+   * Negative until the first read, when it is set to the start of the clip's region, or, for an arrangement region
+   * joined after its start (`joined`), to where the region is at that beat.
    */
   position: number
+  /** Started after its timeline start (a seek or the loop's jump into it), so it reads from mid-region. */
+  joined?: boolean
 }
 
 interface Tail {
@@ -155,6 +158,13 @@ export class AudioTrackRuntime implements PlayableTrack {
     this.launcher.stop()
   }
 
+  /** The arrangement's position jumped: what plays fades out, and the region under the new position starts there. */
+  seekArrangement(): void {
+    this.arrangement.reset()
+    this.fadeOutPlaying()
+    this.playing = null
+  }
+
   reset(): void {
     this.stoppedAt = undefined
     this.launcher.reset()
@@ -199,7 +209,9 @@ export class AudioTrackRuntime implements PlayableTrack {
   private apply(event: AudioEvent): void {
     this.fadeOutPlaying()
     this.stoppedAt = event.kind === 'stop' ? event.beat : undefined
-    this.playing = event.kind === 'start' ? { clip: event.clip, startBeat: event.origin ?? event.beat, position: -1 } : null
+    this.playing = event.kind === 'start'
+      ? { clip: event.clip, startBeat: event.origin ?? event.beat, position: -1, ...(event.origin !== undefined && event.beat > event.origin && { joined: true }) }
+      : null
   }
 
   /** Hands what is sounding over to a short fade-out, so whatever replaces it (or silence) starts without a click. */
@@ -246,7 +258,9 @@ export class AudioTrackRuntime implements PlayableTrack {
     const fadeOutFrames = clip.fadeOut * sample.sampleRate
     const gain = clip.gain
     const nativeSpeed = sample.sampleRate / this.sampleRate
-    if (voice.position < 0) voice.position = region.startPos
+    if (voice.position < 0) voice.position = voice.joined ? joinedPosition(timing.beat - voice.startBeat, nativeSpeed / timing.beatsPerSample, region, clip.loop) : region.startPos
+    // Past a one-shot region's end: nothing left to play.
+    if (voice.position < 0) return false
 
     for (let i = 0; i < frames; i++) {
       let position: number | null

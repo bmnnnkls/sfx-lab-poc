@@ -292,3 +292,26 @@ Signed off 2026-11-04: every row as proposed.
 * **`project-storage.test.ts` pinned the format version** (`toBe(12)`): a bump has to touch it too, as it does
   `sample-marks.test.ts`, which now checks against `CURRENT_VERSION`.
 * `arrangementStops` and `nextArrangementMarker`, which the keys and *Loop to next marker* need, landed with the model.
+
+### Step 2: the engine
+
+* **A seek releases the timeline's notes, not live keys.** The plan said `cancelNotes()` on every instrument track,
+  which also drops a held MIDI key and an audition. The seek cancels by source instead: each track releases the clip
+  notes of every track in its tap component (`clipSource(id)`), so notes reaching it through a tap go too, and a key
+  held while the loop goes round keeps sounding.
+* **The events of a block, not its samples, are cut at the loop.** A block that runs into `to` ends past it by part of
+  a sample; its event range is cut at `to` (`Transport.eventsTo`), or a region starting at `to` would start on the last
+  sample before the jump (a 5 ms tail of it after). The block after the jump starts its events at `from`
+  (`eventsFrom`), though the position carries the overshoot past it, or a note on the loop's first beat would be
+  skipped on every pass after the first. Both have a unit test that fails without them.
+* **An unwarped region joined mid-way now plays in phase** (`joinedPosition`). Before, an arrangement region with
+  `warp: 'off'` that playback joined after its start (a play or seek from inside it) read from the sample's start, so
+  a loop whose start is inside such a region would replay the sample's head on every pass. Session clips are unchanged:
+  they never join mid-way.
+* **The jump's clock packet** carries the transport's `clock()` with the jump's beat, stamped
+  `currentTime + frame / sampleRate`; the status after it agrees, so `RecordingClock` keeps one anchor for it, as the
+  plan expected.
+* **The audio spec drives the engine with raw commands** (a neutral master, its own audio track, 240 BPM so a bar is a
+  second at any rate) and compares each pass with an offline `Engine` render of the bar, as the plan said; driving it
+  from the UI is step 4's.
+

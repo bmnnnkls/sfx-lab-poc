@@ -151,6 +151,8 @@ export class Bounce {
     // The same commands that build the live engine from an empty one: tempo, master graph, every track.
     // `diffProject` carries `arrangement/set`, so the timeline is already in place for that scope.
     for (const command of diffProject(null, project)) this.engine.apply(command)
+    // An export renders the whole timeline once, whatever the loop.
+    this.engine.apply({ type: 'arrangement/setLoop', loop: null })
     for (const sample of samples) this.engine.apply({ type: 'sample/add', sample })
     this.engine.apply(
       scope.kind === 'scene'
