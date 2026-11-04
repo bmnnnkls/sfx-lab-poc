@@ -123,7 +123,9 @@ test('the spectrogram follows a delete and its undo, and the second pane shows a
   // Delete the first half: the tone goes from the left of the lane.
   await drag(page, detail, 0.001, 0.5)
   await page.keyboard.press('Delete')
-  await expect(wave.getByText('0:01.000', { exact: false }).first()).toBeAttached()
+  // The length is left, less the pixel the drag starts in (about 2 ms). Anchored: the selection's readout before the
+  // delete renders ("Selection 0:00.002 – 0:01.000 (…)") holds the same time, and matching it raced the delete.
+  await expect(wave.getByText(/^0:01\.00\d$/).first()).toBeAttached()
   await expect(detail).toHaveAttribute('data-spectrum', DRAWN)
   await expect.poll(() => brightness(lane, 0.25, logY(1000))).toBeLessThan(150)
   await page.getByRole('button', { name: 'Undo', exact: true }).first().click()

@@ -20,7 +20,8 @@
   --group-blue: #539bf5;
   --group-purple: #b083f0;
   --group-pink: #e275ad;
-  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Bundled (main.tsx), so text measures the same on every platform; the rest only cover glyphs Inter lacks. */
+  font-family: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 13px;
   color: var(--text);
   background: var(--bg);

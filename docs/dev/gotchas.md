@@ -54,6 +54,15 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   row brighter than an empty one), not by its kind. *(round 11d-1)*
 * **A slice sent to the worker must hold every frame its columns' windows read** (`framesRead`), in whole frames:
   `slice` truncates a fraction, which shifts the columns by a frame against the offset. *(round 11d-1)*
+* **Layout specs pass on a Mac and fail on CI when the text font isn't bundled.** With `Inter` only named in
+  `theme.css`, macOS drew San Francisco and the Ubuntu runner a wider fallback, so the Samples toolbar wrapped one
+  more line and pushed ✎ out of the view at 280 × 200. Inter is bundled now; a view that fits at its minimum by a
+  pixel or two still has no room for a translation or a zoomed font, so leave some. To check a layout against a wider
+  font locally, inject `font-family: Verdana !important` before the page loads.
+* **A time readout can match before an edit renders.** `getByText('0:01.000', { exact: false })` after a delete
+  matched the selection's own readout ("Selection 0:00.002 – 0:01.000 (…)") until the delete re-rendered, so the
+  spec passed or failed by timing (`wave-spectrum.smoke.spec.ts`, about 1 in 6). Anchor the pattern to the element
+  that shows the result (`/^0:01\.00\d$/`), and allow the pixel a drag starts in.
 * **A spec that imports from another spec runs that spec's tests too.** Put shared helpers in a plain module
   (`marked-sample.ts`, `preset-project.ts`). *(round 11c-3)*
 
