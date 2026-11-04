@@ -338,3 +338,12 @@ Signed off 2026-11-04: every row as proposed.
 * The views-at-min-size spec checks ⟳ *Loop* and the mark lane's corner at the Arrangement's minimum sizes; the
   toolbar's two new buttons still fit.
 
+### Step 5: keys
+
+* **`timelineKeyAction` takes the marks as numbers** (`stops`, from `arrangementStops`) and whether there is a brace
+  (`hasLoop`), and answers `addMarker` and `toggleLoop` for the view to run, so the function stays pure.
+* **A closing menu gives the focus back to its trigger a tick later**: the browser spec focused the timeline right after
+  *Loop to next marker*, the marker took the focus back, and the second L went to it. The spec waits for the marker's
+  focus first (round 5's gotcha, met again).
+* The *Arrangement* row for Z now says it zooms to the loop without a selected region.
+

@@ -9,6 +9,10 @@ export interface TimelineKeyAction {
   readonly zoomBy?: number
   readonly zoomTo?: TimelineZoom
   readonly toggleFollow?: true
+  /** Add a marker at the position. */
+  readonly addMarker?: true
+  /** Turn looping on or off. */
+  readonly toggleLoop?: true
 }
 
 /** What the timeline knows when a key is pressed. */
@@ -20,8 +24,12 @@ export interface TimelineKeyState {
   readonly visibleBeats: number
   /** Where *End* goes: the timeline's content end. */
   readonly end: number
-  /** *Zoom to selection*'s range, with a region selected. */
+  /** *Zoom to selection*'s range: the selected region's, else the loop brace's. */
   readonly selection: TimelineZoom | null
+  /** Where `[` and `]` step: every marker and the loop's edges, in order (`arrangementStops`). */
+  readonly stops: readonly number[]
+  /** There is a loop brace to turn on and off. */
+  readonly hasLoop: boolean
 }
 
 /** A key zooms by two wheel notches. */
@@ -30,7 +38,8 @@ const KEY_ZOOM = WHEEL_ZOOM ** 2
 /**
  * The arrangement's view keys (`VIEW_KEYS`), as one pure function of the key (`keyOf`'s form) and the timeline. Null
  * for a key that isn't one of them, so the global keys and the browser get it. ← and → move the position a grid step (a
- * beat with the grid off), onto the grid; with Alt, a tenth of the view.
+ * beat with the grid off), onto the grid; with Alt, a tenth of the view. `[` and `]` step to the previous or next marker
+ * or loop edge; at the first or last, they are no view key, as in the wave editor.
  */
 export const timelineKeyAction = (key: string, state: TimelineKeyState): TimelineKeyAction | null => {
   const step = state.gridBeats ?? 1
@@ -59,6 +68,18 @@ export const timelineKeyAction = (key: string, state: TimelineKeyState): Timelin
       return { zoomTo: 'fit' }
     case 'f':
       return { toggleFollow: true }
+    case 'm':
+      return { addMarker: true }
+    case 'l':
+      return state.hasLoop ? { toggleLoop: true } : null
+    case '[': {
+      const before = state.stops.filter((beat) => beat < state.position - 1e-9).at(-1)
+      return before === undefined ? null : at(before)
+    }
+    case ']': {
+      const after = state.stops.find((beat) => beat > state.position + 1e-9)
+      return after === undefined ? null : at(after)
+    }
     default:
       return null
   }

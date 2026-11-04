@@ -6,6 +6,7 @@ import {
   type ArrangementClip,
   type ArrangementLoop,
   arrangementContentEnd,
+  arrangementStops,
 } from '@core'
 import { ARRANGEMENT_ZOOM, TIMELINE_GRIDS, type TimelineGrid, gridBeats, playArrangementFromPosition, setArrangementPosition, stopArrangement, toggleArrangementLoop, useArrangementView, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore } from '@state'
 import { type CSSProperties, Fragment, type ReactNode, useRef, useState } from 'react'
@@ -213,6 +214,8 @@ export const ArrangementView = () => {
             visibleBeats: width / view.pxPerBeat,
             end,
             selection,
+            stops: arrangementStops(useProjectStore.getState().project),
+            hasLoop: loop !== undefined,
           })
           if (!action) return
           event.preventDefault()
@@ -229,6 +232,8 @@ export const ArrangementView = () => {
           }
           if (action.zoomTo) view.zoom(action.zoomTo)
           if (action.toggleFollow) view.setFollow(!view.follow || !view.following)
+          if (action.addMarker) useProjectStore.getState().addArrangementMarker(view.position)
+          if (action.toggleLoop) toggleArrangementLoop()
         }}
         onPointerDown={(event) => {
           // A press on the lanes or the ruler (not a region, a header or a button) gives the timeline the keys.

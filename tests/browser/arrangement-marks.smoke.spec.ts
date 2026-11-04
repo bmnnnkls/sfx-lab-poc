@@ -127,3 +127,57 @@ test('Set loop to region puts the brace over it, and a region dragged near a mar
   await dragIn(page, region, { x: 10, y: 20 }, 10.5 * PX - (await left()) + 4)
   expect(await left()).toBeCloseTo(10.5 * PX, 5)
 })
+
+test('M adds a marker at the position, ] and [ step between marks, L turns the loop on, and the palette adds a marker', async ({ page }) => {
+  await page.goto('/?starter')
+  const arrangement = await openView(page, 'Arrangement')
+  await arrangement.getByLabel('Grid').selectOption('bar')
+  const timeline = arrangement.getByLabel('Timeline', { exact: true })
+  const position = arrangement.getByTestId('arrangement-position')
+  const markers = arrangement.getByTestId('arrangement-marker')
+
+  // A press in the mark lane's empty space gives the timeline the keys; M adds at the position, twice.
+  await arrangement.getByTestId('arrangement-marks').click({ position: { x: 4 * PX + 2, y: 10 } })
+  await expect(timeline).toBeFocused()
+  await expect(position).toHaveAttribute('data-beat', '4')
+  await page.keyboard.press('m')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('m')
+  await expect(markers).toHaveCount(2)
+  await expect(markers.nth(1)).toHaveAttribute('data-beat', '12')
+
+  // [ and ] step between them, and stop at the first and the last.
+  await page.keyboard.press('[')
+  await expect(position).toHaveAttribute('data-beat', '4')
+  await page.keyboard.press('[')
+  await expect(position).toHaveAttribute('data-beat', '4')
+  await page.keyboard.press(']')
+  await expect(position).toHaveAttribute('data-beat', '12')
+
+  // L does nothing without a brace; with one, it turns ⟳ Loop on and off.
+  const loop = arrangement.getByRole('button', { name: '⟳ Loop', exact: true })
+  await page.keyboard.press('l')
+  await expect(loop).toBeDisabled()
+  await markers.first().click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Loop to next marker', exact: true }).click()
+  await expect(arrangement.getByTestId('arrangement-loop-brace')).toBeVisible()
+  // The closing menu gives the focus back to the marker first.
+  await expect(markers.first()).toBeFocused()
+  await timeline.focus()
+  await expect(timeline).toBeFocused()
+  await page.keyboard.press('l')
+  await expect(loop).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('l')
+  await expect(loop).toHaveAttribute('aria-pressed', 'false')
+
+  // With the timeline focused at the start, the palette offers the timeline's own actions there.
+  await page.keyboard.press('Home')
+  await page.keyboard.press('ControlOrMeta+k')
+  const palette = page.getByRole('dialog', { name: 'Commands', exact: true })
+  await page.keyboard.type('add marker')
+  await expect(palette.getByRole('option').first()).toHaveText('Timeline at 1.1: Add marker here')
+  await page.keyboard.press('Enter')
+  await expect(markers).toHaveCount(3)
+  await expect(markers.first()).toHaveAttribute('data-beat', '0')
+})
