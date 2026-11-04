@@ -1,0 +1,146 @@
+---
+status: active
+date: 2026-11-04
+note: "Phase 5 of SPEC-library-ux.md (C1): remember how a library sound's IDs were mapped when it was inserted, so library presets recall onto the track and project presets save back into the library sound. Decisions signed off 2026-11-04, including the D11 correction."
+---
+# Library phase 5: the link between a track and its library sound
+
+Phase 5 of [SPEC-library-ux.md](SPEC-library-ux.md) (§ 4.3, D11). It needs [phase 4](PLAN-library-4-sounds.md)'s Sounds
+view. Inventory taken at `9b4f2cd`. Re-check it at the branch tip before step 1.
+
+## Goal
+
+When a library sound is inserted onto a track, the project remembers how its node and module IDs were mapped. While
+the track's graph keeps that structure:
+
+* Sounds shows a **From the library · *Big bass*** section: the library sound's own state and its presets. Clicking
+  one recalls it onto the track as an ordinary recall. The graph isn't replaced, so automation and MIDI mappings stay.
+* ***Save to library*** on a project preset of that track adds it to that library sound as a new preset, instead of
+  making a new sound.
+* When the graph has been rewired, the section says "This sound has changed since it came from the library" and
+  offers nothing. Knob changes don't break the link.
+
+Out of scope: pushing structural changes back to the library sound (linked updates, backlog L3), and links for sounds
+inserted before this phase.
+
+## Inventory
+
+* `copyAsset(payload, owner)` (`core/library/assets.ts:28`) builds `nodes: Map<old, new>` and
+  `modules: Map<old, new>` with `createId`. Interface ports and knobs are mapped **by index** into the copied module
+  (`copied.knobs[knobIndex]`, `copied[direction][index]`). It returns the payload and a `target()` mapper, and the
+  maps are then dropped.
+* `insertLibraryAsset` copies **all** the item's presets, with `copy.target`, into `project.presets` under a new
+  project revision. It records `libraryOrigins: { itemId, revisionId (the library's), trackId?, domain }`.
+* `assetSignature(payload)` includes node and module IDs, so a project copy never matches its library revision.
+* `deleteProjectPreset` prunes revisions no preset references, so a project revision may not outlive its presets.
+  The link therefore can't rely on a project revision ID.
+* **The format precedent:** optional fields with a safe default have shipped without a version bump: group buses,
+  group mute and solo, and pins all stayed at version 10, and scene names never bumped. The sanitizer rebuilds known
+  fields only, so an older build drops an unknown field silently. For a link that only loses the link, which is
+  harmless. `sanitize-library-origins.ts` bounds origins at 4096, with IDs of up to 256 characters.
+* `track.duplicate` runs `duplicateTrack(trackId)` in the project store. Whether it keeps node IDs decides how a
+  duplicate keeps its link. Check this in step 1.
+
+## Design
+
+### The record
+
+`LibraryOrigin` gains two optional fields:
+
+```ts
+interface LibraryLink {
+  /** A stable 64-bit hash (hex) of the inserted graph's assetSignature: the link is live while the owner's graph hashes the same. */
+  readonly shape: string
+  /** Library node id → project node id, and library module id → project module id. Ports and knobs follow by index. */
+  readonly nodes: readonly (readonly [string, string])[]
+  readonly modules: readonly (readonly [string, string])[]
+}
+interface LibraryOrigin { …; readonly owner?: ControlOwner; readonly link?: LibraryLink }
+```
+
+* `owner` generalizes `trackId`, which is kept and still written for older readers, so buses and the master can link
+  too.
+* **Bounds** in the sanitizer: at most 2048 node pairs and 128 module pairs per link, and 16 384 pairs across the
+  file. Pairs past a bound drop the link, with a warning; a link with a malformed pair is dropped. IDs up to 256
+  characters.
+* **No format bump**, following the precedent: a file without links, or one read by an older build, just has no link.
+  A committed fixture, `v13-library-link`, pins that it reads back identical. (This corrects the spec's D11, which
+  assumed format 14.)
+
+### Core functions (`core/library/link.ts`)
+
+* `copyAsset` is refactored to return its maps. `insertLibraryAsset` writes `link` from them, and `shape` from the
+  copied payload's signature.
+* `linkOf(project, owner, domain)`: the latest origin for that owner and domain whose `shape` matches
+  `hash(assetSignature(captureAsset(project, scope)))`. It returns `{ origin, live: true }`, or `{ origin, live: false
+  }` when the shapes differ, or undefined.
+* `presetFromLibrary(project, catalog, link, state)`: translates a library preset's targets through the maps,
+  forward, with ports and knobs by index against the project's module definitions, into a `ProjectPreset` against
+  the owner's current graph. `recallSavedSound` then recalls it. **This needs a recall that takes the shape from the
+  current graph** rather than from a stored revision: `recallPresetState(project, state, scope)`, which checks the
+  shape and then runs the same body as `recallProjectPreset`.
+* `presetToLibrary(project, catalog, link, preset)`: the inverse maps, giving a library preset state for the origin
+  item. It refuses when the library item is gone or trashed.
+* **Duplicating a track copies its origins** onto the new track, composing the maps if `duplicateTrack` renews node
+  IDs. **Removing a track** leaves its origins, as today (informational, and capped).
+
+### Where it shows
+
+* **Sounds**: under *In this project*, a *From the library · Big bass* section with the item itself and its live
+  presets. Click recalls (one undo step, Read and Touch rules unchanged). A dead link shows the one line and no rows.
+  A trashed library item shows "The library sound is in the trash".
+* **A preset row's *Save to library***, with a live link, adds a preset to the origin item and reports "Added *Deep*
+  to *Big bass*". Without one, it falls back to phase 2's single-preset save.
+* **Library details** for an item show "Used on Bass" when the open project links to it. That's informational, with
+  no live update.
+* **Factory** (phase 6) items link the same way.
+
+## Steps
+
+1. **Record and sanitizer.** `LibraryLink`, `owner`, the bounds, the fixture, and the duplicate check. Unit tests:
+   round trip; each bound; malformed pairs; an older-shaped origin still loads.
+2. **Writing links.** The `copyAsset` maps, `insertLibraryAsset` writing the link, and duplicating a track. Unit
+   tests: an inserted instrument, effect and note effect each link with the right shape; a nested module's knobs map
+   by index; a duplicate is linked.
+3. **Using links.** `linkOf`, `presetFromLibrary`, `recallPresetState`, `presetToLibrary`. Unit tests:
+   * recall of a library preset onto an inserted sound equals inserting that preset, values and sample choices both;
+   * a rewire kills the link and a knob change doesn't;
+   * automation lanes and MIDI mappings survive a library recall;
+   * round trip: save a project preset back, re-insert the sound in a fresh project, and recall it.
+4. **The views.** Sounds' library section, the linked *Save to library*, and the details' "Used on". Smoke, in
+   `presets.smoke.spec.ts`:
+   * insert a library sound with two presets, add a third in the library, and recall it from Sounds;
+   * save a project preset back and see it under the item in the Library;
+   * rewire, and the section says it changed.
+
+   Audio: a library recall renders the same as an insert of that preset, within 0.00002, in `automation.audio.spec.ts`.
+5. **Docs.** `library-and-presets.md` (the link), `reference/formats-and-versions.md` (version 13's row notes the
+   optional link, without a bump), and a row in `decisions/README.md` for "no bump" and for the hash-based shape. This
+   plan's notes are sorted.
+
+## Behavior changes
+
+Intended: inserting a library sound records a link; Sounds offers that sound's library presets; saving a project
+preset of a linked sound adds it to the library sound. Files gain optional fields that older builds drop silently.
+Playback, insertion results and independence don't change: the project never reads the library to play.
+
+## Verification
+
+* The usual gates, plus `npm run test:audio` at step 4.
+* Manual:
+  * a Low Light-sized project with ten linked sounds saves and loads with no warnings;
+  * the file size grows by the maps only (record the byte growth);
+  * a project saved here opens in a build from before this phase with no warning.
+
+## Decisions to sign off
+
+Signed off 2026-11-04: every row as proposed.
+
+| Question | Proposed | Notes |
+|---|---|---|
+| Format version | **No bump: optional fields, fixture `v13-library-link`** | **Corrects D11**, which assumed 14. The pins and group-bus precedent, and an older build only loses the link. |
+| What is stored | **Node and module maps; ports and knobs by index** | That's how `copyAsset` maps them; the shape check guarantees the index order. |
+| Liveness | **A stored 64-bit hash of the inserted signature, compared with the current one** | Project revisions can be pruned, so they can't be the anchor. |
+| Owners | **`owner` on origins, `trackId` kept** | Buses and the master link too. |
+| Duplicate track | **Carries the link** | Otherwise duplicating a sound silently loses its library presets. |
+| Old projects | **No link, no repair** | A guessed mapping could recall onto the wrong nodes. |

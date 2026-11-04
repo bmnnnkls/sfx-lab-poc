@@ -282,8 +282,8 @@ To recall a library preset onto an existing track, and to save a project preset 
 from, the project has to remember **how the IDs were mapped** when the sound was inserted:
 
 * At insertion, `copyAsset` returns its node, module and port mapping. The project stores it with the inserted
-  revision, for example as `LibraryOrigin.map` together with the project-side revision ID. That's a **project format
-  bump (13 → 14)**, with the usual sanitizer bounds, a migration and a fixture.
+  revision, as optional fields on `LibraryOrigin`. **No format bump** (D11 as corrected; details in phase 5's plan):
+  the usual sanitizer bounds and a fixture, and an older build only loses the link.
   * *Alternative*: derive the new IDs deterministically from a per-insertion salt stored in the origin, so the map can
     be recomputed and needn't be stored. It's smaller on disk but harder to reason about. Recommend the stored map.
 * A link is **live** while the track's graph still has the inserted revision's signature. Rewiring breaks it, and the
@@ -383,13 +383,17 @@ Limits found in the code:
 
 ## 7. Phasing
 
+Each phase has its own plan (`PLAN-library-1-tree.md` … `PLAN-library-7-polish.md`), and [RUNBOOK-library.md](RUNBOOK-library.md)
+says how they are built. Phase 1 took the context-menu saves from phase 2. Phase 5's plan stores the link without a format
+bump, which corrected D11 (signed off).
+
 | Phase | Work | Depends on |
 |---|---|---|
 | 1 | **Tree and drag and drop**: one tree with items and presets, drag to move, copy and trash, the `library-folder` drop target, header and ⋯, Trash in the tree, compact details with a primary button, bundle review dialog, readable kinds | — |
 | 2 | **Entry points**: *Library* menu, *Save to library* in context menus, dragging tracks, clips, samples and presets into folders, the root menu | 1 for the folder drops; the menus can go in parallel |
 | 3 | **This project root** | 1 |
 | 4 | **Sounds rework**: scoped to the selection, rows as recall targets, morph from rows, saving without a name field | — (parallel to 1) |
-| 5 | **Library link (C1)**: the stored ID map, format 14, library presets in Sounds, *Save to library* into the origin item | 4 |
+| 5 | **Library link (C1)**: the stored ID map (no format bump), library presets in Sounds, *Save to library* into the origin item | 4 |
 | 6 | **Factory library** | 1; better after 5 |
 | 7 | **Polish**: keys (Space, Enter, F2, ⌘X/⌘V), multi-item drag, virtualization if measured slow | 1 |
 
@@ -410,7 +414,7 @@ presets*, *Move destination*, *Include … in bundle*, *Recall preset …*), so 
 | D8 | *This project* root | Yes, grouped by track, read-only, live from the project | **decided** |
 | D9 | Sounds scope | Only what fits the selection; *Show all in project* in ⋯ | **decided** |
 | D10 | Snapshot and preset | Keep both kinds, one list, a kind label and one line of explanation | **decided** |
-| D11 | Library link (C1) | Store the ID map at insertion (format 14); a link breaks on rewiring, not on knob changes | **decided** |
+| D11 | Library link (C1) | Store the ID map at insertion as optional fields, **no format bump** (corrected 2026-11-04 from "format 14", see phase 5's plan); a link breaks on rewiring, not on knob changes | **decided** |
 | D12 | Factory storage | Built from code, read-only, not stored; *Copy to My library* to edit | **decided** |
 | D13 | Factory name | *Factory* (alternatives: *Examples*, *Built-in*, *SFX Lab*) | **decided** |
 | D14 | Kick-duck sounds | Ship them without the duck; sidechain-ready items later | **decided** |
