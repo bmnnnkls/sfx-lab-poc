@@ -28,3 +28,15 @@ export const gridSpacing = (pxPerBeat: number, gridBeats: number | null): { read
   const gridPx = gridBeats !== null && gridBeats * pxPerBeat >= MIN_LINE_PX ? gridBeats * pxPerBeat : barPx
   return { barPx, gridPx }
 }
+
+/** How far in from the left a followed playhead sits after a jump, as a share of the visible width (the piano roll's). */
+const FOLLOW_INSET = 0.15
+/** The playhead counts as leaving on the right this many pixels before the edge. */
+const FOLLOW_MARGIN_PX = 24
+
+/**
+ * Where follow scrolls to for a playhead at content x `x`: nowhere (null) while it is in view, else so it sits 15% in.
+ * `scrollLeft` and `width` are the visible timeline's.
+ */
+export const followScroll = (x: number, scrollLeft: number, width: number): number | null =>
+  x >= scrollLeft && x <= scrollLeft + width - FOLLOW_MARGIN_PX ? null : Math.max(0, x - width * FOLLOW_INSET)

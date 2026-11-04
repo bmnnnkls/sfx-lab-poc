@@ -1,6 +1,6 @@
 import { ARRANGEMENT_ZOOM } from '@state'
 import { describe, expect, it } from 'vitest'
-import { gridSpacing } from './timeline-geometry'
+import { followScroll, gridSpacing } from './timeline-geometry'
 import { minPxPerBeat, zoomFor } from './use-timeline-zoom'
 
 describe('the arrangement zoom', () => {
@@ -31,5 +31,14 @@ describe('the lanes’ lines', () => {
   it('draws every fourth bar when bars are too close', () => {
     expect(gridSpacing(0.5, 1)).toEqual({ barPx: 8, gridPx: 8 })
     expect(gridSpacing(0.1, 1).barPx).toBeCloseTo(6.4)
+  })
+})
+
+describe('follow', () => {
+  it('leaves the view alone while the playhead is in it, else puts the playhead 15% in', () => {
+    expect(followScroll(500, 200, 1000)).toBeNull()
+    expect(followScroll(1190, 200, 1000)).toBe(1190 - 150)
+    expect(followScroll(100, 200, 1000)).toBe(0)
+    expect(followScroll(400, 300, 100)).toBe(385)
   })
 })

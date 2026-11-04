@@ -6,19 +6,20 @@ import {
   type ArrangementClip,
   timelineEnd,
 } from '@core'
-import { ARRANGEMENT_ZOOM, TIMELINE_GRIDS, type TimelineGrid, gridBeats, useArrangementView, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore, useStatusStore } from '@state'
+import { ARRANGEMENT_ZOOM, TIMELINE_GRIDS, type TimelineGrid, gridBeats, playArrangementFromPosition, setArrangementPosition, stopArrangement, useArrangementView, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore } from '@state'
 import { type CSSProperties, Fragment, type ReactNode, useRef, useState } from 'react'
 import { viewTitles } from '../layout/view-titles'
 import { useDropTarget } from '../shared/drag'
 import { ActionMenu } from '../shared/menu'
 import { ArrangementHeader } from './ArrangementHeader'
-import { ArrangementPlayhead } from './ArrangementPlayhead'
+import { ArrangementPlayhead, ArrangementPosition, PositionMark } from './ArrangementPlayhead'
 import { ArrangementRegion } from './ArrangementRegion'
 import { ArrangementRuler } from './ArrangementRuler'
 import { HeaderSplitter } from './HeaderSplitter'
 import { BEATS_PER_BAR, MIN_BARS, TRAILING_BARS } from './timeline-constants'
 import { gridSpacing } from './timeline-geometry'
 import { useArrangementViewStorage } from './use-arrangement-view-storage'
+import { useFollowPause } from './use-follow'
 import { minPxPerBeat, useTimelineZoom } from './use-timeline-zoom'
 import { useElementWidth } from '../shared/use-element-width'
 import styles from './arrangement.module.css'
@@ -104,9 +105,9 @@ export const ArrangementView = () => {
   const minPx = minPxPerBeat(bars * BEATS_PER_BAR, Math.max(1, scrollerWidth - headerWidth))
   const selectedRegion = useProjectStore((state) => state.project.arrangement?.find((region) => region.id === selected))
 
-  // Read when clicked rather than subscribed to, so the timeline doesn't re-render with the transport.
-  const start = () => controls.playArrangement(useStatusStore.getState().status?.playing ? undefined : 0)
-  const stop = () => controls.stop()
+  useFollowPause(scroller)
+  const follow = useArrangementView((state) => state.follow)
+  const following = useArrangementView((state) => state.following)
 
   const style = { '--header-saved': `${headerWidth}px`, '--bar-px': `${barPx}px`, '--grid-px': `${gridPx}px` } as CSSProperties
 
@@ -114,10 +115,10 @@ export const ArrangementView = () => {
     <div className={styles.view} ref={view} style={style} data-testid="arrangement-view">
       <div className={styles.toolbar} title={HINT}>
         <strong>Arrangement</strong>
-        <button onClick={start} aria-label="Play arrangement">
+        <button onClick={() => playArrangementFromPosition(controls)} aria-label="Play arrangement" title="Play the arrangement from the position">
           ▶ Arrangement
         </button>
-        <button onClick={stop} aria-label="Stop">
+        <button onClick={() => stopArrangement(controls)} aria-label="Stop" title="Stop; the position stays (press again to go back to the start)">
           ■
         </button>
         <label className={styles.grid} title="What drops, moves and resizes snap to; Alt held during a drag snaps to nothing">
@@ -153,6 +154,15 @@ export const ArrangementView = () => {
         >
           Zoom to selection
         </button>
+        <button
+          aria-pressed={follow}
+          className={follow && !following ? styles.paused : undefined}
+          data-paused={(follow && !following) || undefined}
+          title={follow && !following ? 'Follow is paused until the next ▶' : 'Follow the playhead (F)'}
+          onClick={() => useArrangementView.getState().setFollow(!follow || !following)}
+        >
+          Follow
+        </button>
         <span className={styles.info}>{HINT}</span>
       </div>
       <div className={styles.scroll} ref={scroller} data-scroll="both">
@@ -161,7 +171,16 @@ export const ArrangementView = () => {
             <div className={styles.corner} data-corner>
               <HeaderSplitter view={view} />
             </div>
-            <div className={styles.ruler} style={{ width }}>
+            <div
+              className={styles.ruler}
+              style={{ width }}
+              title="Click to set where the arrangement plays from (Alt: off the grid)"
+              onPointerDown={(event) => {
+                if (event.button !== 0) return
+                setArrangementPosition(controls, onGrid((event.clientX - event.currentTarget.getBoundingClientRect().left) / pxPerBeat, event.altKey))
+              }}
+            >
+              <PositionMark pxPerBeat={pxPerBeat} />
               <ArrangementRuler scroller={scroller} pxPerBeat={pxPerBeat} headerWidth={headerWidth} />
             </div>
           </div>
@@ -221,7 +240,8 @@ export const ArrangementView = () => {
           })}
           {rows.length > 0 && (
             <div className={styles.overlay} style={{ width }} aria-hidden>
-              <ArrangementPlayhead pxPerBeat={pxPerBeat} />
+              <ArrangementPosition pxPerBeat={pxPerBeat} />
+              <ArrangementPlayhead pxPerBeat={pxPerBeat} scroller={scroller} />
             </div>
           )}
         </div>
