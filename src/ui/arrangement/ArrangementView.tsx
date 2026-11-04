@@ -19,8 +19,10 @@ import { HeaderSplitter } from './HeaderSplitter'
 import { BEATS_PER_BAR, MIN_BARS, TRAILING_BARS } from './timeline-constants'
 import { gridSpacing } from './timeline-geometry'
 import { useArrangementViewStorage } from './use-arrangement-view-storage'
+import { IS_APPLE, keyOf } from '../commands/keys'
+import { timelineKeyAction } from './timeline-keys'
 import { useFollowPause } from './use-follow'
-import { minPxPerBeat, useTimelineZoom } from './use-timeline-zoom'
+import { minPxPerBeat, useTimelineZoom, visibleTimeline } from './use-timeline-zoom'
 import { useElementWidth } from '../shared/use-element-width'
 import styles from './arrangement.module.css'
 
@@ -165,7 +167,48 @@ export const ArrangementView = () => {
         </button>
         <span className={styles.info}>{HINT}</span>
       </div>
-      <div className={styles.scroll} ref={scroller} data-scroll="both">
+      <div
+        className={styles.scroll}
+        ref={scroller}
+        data-scroll="both"
+        tabIndex={0}
+        aria-label="Timeline"
+        onKeyDown={(event) => {
+          // The view keys (`timelineKeyAction`), on the timeline itself; a region, a header's buttons and fields keep theirs.
+          if (event.target !== event.currentTarget) return
+          const key = keyOf(event, IS_APPLE)
+          const element = event.currentTarget
+          const view = useArrangementView.getState()
+          const { width } = visibleTimeline(element)
+          const action = key && timelineKeyAction(key, {
+            position: view.position,
+            gridBeats: gridBeats(view.grid),
+            visibleBeats: width / view.pxPerBeat,
+            end: timelineEnd(arrangement),
+            selection: selectedRegion ? regionZoom(selectedRegion, arrangement) : null,
+          })
+          if (!action) return
+          event.preventDefault()
+          if (action.position !== undefined) {
+            view.setPosition(action.position)
+            // Scrolled by the least that shows it.
+            const x = action.position * view.pxPerBeat
+            if (x < element.scrollLeft) element.scrollLeft = x
+            else if (x > element.scrollLeft + width - 1) element.scrollLeft = x - width + 1
+          }
+          if (action.zoomBy) {
+            const x = view.position * view.pxPerBeat - element.scrollLeft
+            zoomAt(view.pxPerBeat * action.zoomBy, x >= 0 && x <= width ? x : undefined)
+          }
+          if (action.zoomTo) view.zoom(action.zoomTo)
+          if (action.toggleFollow) view.setFollow(!view.follow || !view.following)
+        }}
+        onPointerDown={(event) => {
+          // A press on the lanes or the ruler (not a region, a header or a button) gives the timeline the keys.
+          const target = event.target as Element
+          if (target.closest('[data-lane], [data-testid="arrangement-ruler"]')) event.currentTarget.focus({ preventScroll: true })
+        }}
+      >
         <div className={styles.timeline}>
           <div className={styles.rulerRow}>
             <div className={styles.corner} data-corner>

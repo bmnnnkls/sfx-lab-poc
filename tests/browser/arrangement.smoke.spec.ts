@@ -383,3 +383,52 @@ test('a click in the ruler sets where ▶ plays from, ■ keeps it, and follow k
   await expect(follow).not.toHaveAttribute('data-paused')
   await stop.click()
 })
+
+test('the timeline\'s keys move the position, zoom and follow, and stay out of fields', async ({ page }) => {
+  await page.goto('/?starter')
+  const arrangement = await openView(page, 'Arrangement')
+  const position = arrangement.getByTestId('arrangement-position')
+  const lane = arrangement.locator('[data-lane]').first()
+  await arrangement.getByLabel('Grid').selectOption('beat')
+  // A press on the lanes gives the timeline the keys.
+  await lane.click({ position: { x: 2, y: 20 } })
+  await expect(arrangement.getByLabel('Timeline', { exact: true })).toBeFocused()
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight')
+  await expect(position).toHaveAttribute('data-beat', '4')
+  await page.keyboard.press('Home')
+  await expect(position).toHaveAttribute('data-beat', '0')
+
+  // Z zooms to the selected region (with a bar each side), Shift+Z to fit (from 0 to its end, so wider).
+  await lane.click({ button: 'right', position: { x: 20 * 24, y: 20 } })
+  await addClip(page, 'Root')
+  const region = arrangement.getByTestId('arrangement-region')
+  await region.click()
+  await lane.click({ position: { x: 4, y: 20 } })
+  const width = () => region.evaluate((element) => element.getBoundingClientRect().width)
+  const before = await width()
+  await page.keyboard.press('z')
+  await expect.poll(width).toBeGreaterThan(before * 2)
+  const zoomed = await width()
+  await page.keyboard.press('Shift+Z')
+  await expect.poll(width).toBeLessThan(zoomed / 1.5)
+
+  // F turns follow off and on.
+  const follow = arrangement.getByRole('button', { name: 'Follow', exact: true })
+  await page.keyboard.press('f')
+  await expect(follow).toHaveAttribute('aria-pressed', 'false')
+  await page.keyboard.press('f')
+  await expect(follow).toHaveAttribute('aria-pressed', 'true')
+
+  // In the project name field, → is the field's.
+  await page.keyboard.press('End')
+  const at = await position.getAttribute('data-beat')
+  await page.getByLabel('Project name', { exact: true }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(position).toHaveAttribute('data-beat', at ?? '')
+
+  // The shortcuts dialog lists them.
+  await page.getByRole('banner').getByRole('button', { name: 'View', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Keyboard shortcuts', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true })
+  await expect(dialog.getByText('Follow the playhead, or stop following')).toBeVisible()
+})
