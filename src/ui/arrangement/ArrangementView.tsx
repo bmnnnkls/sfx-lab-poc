@@ -6,7 +6,7 @@ import {
   type ArrangementClip,
   timelineEnd,
 } from '@core'
-import { gridBeats, useArrangementView, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore, useStatusStore } from '@state'
+import { ARRANGEMENT_ZOOM, gridBeats, useArrangementView, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore, useStatusStore } from '@state'
 import { type CSSProperties, Fragment, type ReactNode, useRef, useState } from 'react'
 import { viewTitles } from '../layout/view-titles'
 import { useDropTarget } from '../shared/drag'
@@ -19,9 +19,17 @@ import { HeaderSplitter } from './HeaderSplitter'
 import { BEATS_PER_BAR, MIN_BARS, TRAILING_BARS } from './timeline-constants'
 import { gridSpacing } from './timeline-geometry'
 import { useArrangementViewStorage } from './use-arrangement-view-storage'
+import { minPxPerBeat, useTimelineZoom } from './use-timeline-zoom'
+import { useElementWidth } from '../shared/use-element-width'
 import styles from './arrangement.module.css'
 
 const NO_REGIONS: readonly ArrangementClip[] = []
+
+/** *Zoom to selection* on a region: it and a bar on each side. */
+export const regionZoom = (region: ArrangementClip, regions: readonly ArrangementClip[]) => ({
+  from: Math.max(0, region.startBeat - BEATS_PER_BAR),
+  to: arrangementLoopEnd(region, regions) + BEATS_PER_BAR,
+})
 
 /** Snap to sixteenth beats. */
 const snap = (beats: number): number => Math.round(beats * 4) / 4
@@ -76,10 +84,10 @@ export const ArrangementView = () => {
   const pxPerBeat = useArrangementView((state) => state.pxPerBeat)
   const grid = useArrangementView((state) => state.grid)
   const headerWidth = useArrangementView((state) => state.headerWidth)
-  const view = useRef<HTMLDivElement>(null)
-  const scroller = useRef<HTMLDivElement>(null)
   // The selection store's: a region deleted from its menu (or by undo) is still named there, and shows as nothing.
   const selected = useSelectionStore((state) => state.regionId)
+  const view = useRef<HTMLDivElement>(null)
+  const scroller = useRef<HTMLDivElement>(null)
   /** Where an empty lane was right-clicked, so "add" places the clip there. */
   const [placedAt, setPlacedAt] = useState(0)
 
@@ -87,6 +95,11 @@ export const ArrangementView = () => {
   const bars = Math.max(MIN_BARS, Math.ceil(end / BEATS_PER_BAR) + TRAILING_BARS)
   const width = bars * BEATS_PER_BAR * pxPerBeat
   const { barPx, gridPx } = gridSpacing(pxPerBeat, gridBeats(grid))
+  const zoomAt = useTimelineZoom(scroller, bars * BEATS_PER_BAR, end > 0 ? end : MIN_BARS * BEATS_PER_BAR)
+  // The slider's range: from the whole timeline in the visible width (roughly: the header column taken off) to the closest.
+  const scrollerWidth = useElementWidth(scroller)
+  const minPx = minPxPerBeat(bars * BEATS_PER_BAR, Math.max(1, scrollerWidth - headerWidth))
+  const selectedRegion = useProjectStore((state) => state.project.arrangement?.find((region) => region.id === selected))
 
   // Read when clicked rather than subscribed to, so the timeline doesn't re-render with the transport.
   const start = () => controls.playArrangement(useStatusStore.getState().status?.playing ? undefined : 0)
@@ -104,12 +117,35 @@ export const ArrangementView = () => {
         <button onClick={stop} aria-label="Stop">
           ■
         </button>
+        <label className={styles.zoom} title="Zoom (⌘ or Ctrl with the wheel over the lanes)">
+          <input
+            type="range"
+            aria-label="Zoom"
+            min={Math.log2(minPx)}
+            max={Math.log2(ARRANGEMENT_ZOOM.max)}
+            step={0.01}
+            value={Math.log2(Math.max(minPx, pxPerBeat))}
+            onChange={(event) => zoomAt(2 ** Number(event.target.value))}
+          />
+        </label>
+        <button onClick={() => useArrangementView.getState().zoom('fit')} title="Zoom to fit (Shift+Z)">
+          Zoom to fit
+        </button>
+        <button
+          disabled={!selectedRegion}
+          title={selectedRegion ? 'Zoom to the selected region (Z)' : 'Select a region to zoom to it'}
+          onClick={() => {
+            if (selectedRegion) useArrangementView.getState().zoom(regionZoom(selectedRegion, arrangement))
+          }}
+        >
+          Zoom to selection
+        </button>
         <span className={styles.info}>{HINT}</span>
       </div>
       <div className={styles.scroll} ref={scroller} data-scroll="both">
         <div className={styles.timeline}>
           <div className={styles.rulerRow}>
-            <div className={styles.corner}>
+            <div className={styles.corner} data-corner>
               <HeaderSplitter view={view} />
             </div>
             <div className={styles.ruler} style={{ width }}>

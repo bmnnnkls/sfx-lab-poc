@@ -228,3 +228,72 @@ test('a MIDI region dragged onto an audio lane stays on its own, and the playhea
   await expect(arrangement.getByTestId('arrangement-playhead')).toHaveCount(1)
   await page.getByRole('button', { name: 'Stop', exact: true }).first().click()
 })
+
+/** The beat at a client x over the arrangement's first lane. */
+const beatAt = async (arrangement: Locator, clientX: number) => {
+  const lane = await arrangement.locator('[data-lane]').first().boundingBox()
+  const width = await arrangement.locator('[data-lane]').first().evaluate((element) => element.getBoundingClientRect().width)
+  if (!lane) throw new Error('no lane')
+  // The drawn timeline is 32 bars when it holds little.
+  return ((clientX - lane.x) / width) * 128
+}
+
+test('the timeline zooms around the pointer, to fit and to a region, and pans with the middle button', async ({ page }) => {
+  await page.goto('/?starter')
+  const arrangement = await openView(page, 'Arrangement')
+  const lane = arrangement.locator('[data-lane]').first()
+  const box = await lane.boundingBox()
+  if (!box) throw new Error('no lane')
+  // Bar 9 is beat 32, 768 px in at the default 24 px a beat; at the zoom's default it is on screen.
+  const x = box.x + 32 * 24
+  await page.mouse.move(x, box.y + 20)
+  await page.keyboard.down('Control')
+  await page.mouse.wheel(0, -300)
+  await page.keyboard.up('Control')
+  await expect.poll(() => lane.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(3072)
+  expect(await beatAt(arrangement, x)).toBeCloseTo(32, 0)
+
+  // A region at bar 5, then fit: the timeline's content (to its end) fills the width.
+  await lane.click({ button: 'right', position: { x: 10, y: 20 } })
+  await addClip(page, 'Root')
+  await arrangement.getByRole('button', { name: 'Zoom to fit', exact: true }).click()
+  const region = arrangement.getByTestId('arrangement-region')
+  const scroller = arrangement.locator('[data-scroll]')
+  const view = await scroller.boundingBox()
+  const fitted = await region.boundingBox()
+  expect((fitted?.x ?? 0) + (fitted?.width ?? 0)).toBeLessThanOrEqual((view?.x ?? 0) + (view?.width ?? 0) + 1)
+
+  // To the selected region: it and a bar each side fill the width.
+  await region.click()
+  await arrangement.getByRole('button', { name: 'Zoom to selection', exact: true }).click()
+  await expect.poll(async () => (await region.boundingBox())?.width ?? 0).toBeGreaterThan(((view?.width ?? 0) - 180) / 4)
+
+  // A middle-drag to the left scrolls the timeline right.
+  await scroller.evaluate((element) => void (element.scrollLeft = 0))
+  await page.mouse.move((view?.x ?? 0) + 600, (view?.y ?? 0) + 60)
+  await page.mouse.down({ button: 'middle' })
+  await page.mouse.move((view?.x ?? 0) + 400, (view?.y ?? 0) + 60, { steps: 5 })
+  await page.mouse.up({ button: 'middle' })
+  await expect.poll(() => scroller.evaluate((element) => element.scrollLeft)).toBeGreaterThan(150)
+})
+
+test('a region dragged past the right side scrolls the timeline and lands beyond the old view', async ({ page }) => {
+  await page.goto('/?starter')
+  const arrangement = await openView(page, 'Arrangement')
+  const lane = arrangement.locator('[data-lane]').first()
+  await lane.click({ button: 'right', position: { x: 10, y: 20 } })
+  await addClip(page, 'Root')
+  const region = arrangement.getByTestId('arrangement-region')
+  const scroller = arrangement.locator('[data-scroll]')
+  const view = await scroller.boundingBox()
+  const box = await region.boundingBox()
+  if (!view || !box) throw new Error('no bounds')
+  await page.mouse.move(box.x + 10, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(view.x + view.width - 4, box.y + box.height / 2, { steps: 10 })
+  await expect.poll(() => scroller.evaluate((element) => element.scrollLeft), { timeout: 5_000 }).toBeGreaterThan(300)
+  await page.mouse.up()
+  // Its start is now past what the view showed before the drag.
+  const left = await region.evaluate((element) => parseFloat((element as HTMLElement).style.left))
+  expect(left).toBeGreaterThan(view.width - 180)
+})
