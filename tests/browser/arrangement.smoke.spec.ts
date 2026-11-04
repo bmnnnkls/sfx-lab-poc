@@ -297,3 +297,46 @@ test('a region dragged past the right side scrolls the timeline and lands beyond
   const left = await region.evaluate((element) => parseFloat((element as HTMLElement).style.left))
   expect(left).toBeGreaterThan(view.width - 180)
 })
+
+test('regions snap to the grid and to each other, and Alt snaps to nothing', async ({ page }) => {
+  await page.goto('/?starter')
+  const arrangement = await openView(page, 'Arrangement')
+  const lane = arrangement.locator('[data-lane]').first()
+  const regions = arrangement.getByTestId('arrangement-region')
+  const leftOf = (index: number) => regions.nth(index).evaluate((element) => parseFloat((element as HTMLElement).style.left))
+  /** Drags a region's body by `dx` pixels. */
+  const dragBy = async (index: number, dx: number, alt = false) => {
+    const box = await regions.nth(index).boundingBox()
+    if (!box) throw new Error('no region')
+    await page.mouse.move(box.x + 10, box.y + box.height / 2)
+    if (alt) await page.keyboard.down('Alt')
+    await page.mouse.down()
+    await page.mouse.move(box.x + 10 + dx, box.y + box.height / 2, { steps: 6 })
+    await page.mouse.up()
+    if (alt) await page.keyboard.up('Alt')
+  }
+
+  // With *Bar*, a right-click mid-bar places at the bar, and a drag of a bar and a bit lands on the next bar.
+  await arrangement.getByLabel('Grid').selectOption('bar')
+  await lane.click({ button: 'right', position: { x: 30, y: 20 } })
+  await addClip(page, 'Root')
+  expect(await leftOf(0)).toBe(0)
+  await dragBy(0, 4 * 24 + 20)
+  expect(await leftOf(0)).toBe(4 * 24)
+
+  // With *Off*, a second region dragged near the first's end butts against it.
+  await arrangement.getByLabel('Grid').selectOption('off')
+  await lane.click({ button: 'right', position: { x: 600, y: 20 } })
+  await addClip(page, 'Root')
+  const first = await regions.nth(0).boundingBox()
+  const second = await regions.nth(1).boundingBox()
+  if (!first || !second) throw new Error('no regions')
+  await dragBy(1, first.x + first.width + 5 - second.x)
+  expect(await leftOf(1)).toBeCloseTo((await leftOf(0)) + first.width, 0)
+
+  // With Alt held, it lands where it was dropped.
+  await arrangement.getByLabel('Grid').selectOption('bar')
+  const before = await leftOf(1)
+  await dragBy(1, 50, true)
+  expect(await leftOf(1)).toBeCloseTo(before + 50, 0)
+})

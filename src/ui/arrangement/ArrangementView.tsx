@@ -6,7 +6,7 @@ import {
   type ArrangementClip,
   timelineEnd,
 } from '@core'
-import { ARRANGEMENT_ZOOM, gridBeats, useArrangementView, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore, useStatusStore } from '@state'
+import { ARRANGEMENT_ZOOM, TIMELINE_GRIDS, type TimelineGrid, gridBeats, useArrangementView, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore, useStatusStore } from '@state'
 import { type CSSProperties, Fragment, type ReactNode, useRef, useState } from 'react'
 import { viewTitles } from '../layout/view-titles'
 import { useDropTarget } from '../shared/drag'
@@ -31,8 +31,11 @@ export const regionZoom = (region: ArrangementClip, regions: readonly Arrangemen
   to: arrangementLoopEnd(region, regions) + BEATS_PER_BAR,
 })
 
-/** Snap to sixteenth beats. */
-const snap = (beats: number): number => Math.round(beats * 4) / 4
+/** A beat on the grid as it is set now; with Alt held, or the grid off, where it is. */
+const onGrid = (beats: number, alt: boolean): number => {
+  const step = alt ? null : gridBeats(useArrangementView.getState().grid)
+  return Math.max(0, step === null ? beats : Math.round(beats / step) * step)
+}
 
 /** How to fill the timeline. Shown in the toolbar while it fits, and always its tooltip. */
 const HINT =
@@ -41,7 +44,7 @@ const HINT =
 /** A lane's row: what is dropped on it lands at the snapped beat under the pointer, marked while it is over. */
 const LaneRow = ({ trackId, pxPerBeat, width, children }: { trackId: string; pxPerBeat: number; width: number; children: ReactNode }) => {
   const drop = useDropTarget(
-    (event) => ({ kind: 'lane', trackId, beat: snap(Math.max(0, (event.clientX - event.currentTarget.getBoundingClientRect().left) / pxPerBeat)) }),
+    (event) => ({ kind: 'lane', trackId, beat: onGrid((event.clientX - event.currentTarget.getBoundingClientRect().left) / pxPerBeat, event.altKey) }),
     (event, target) => event.currentTarget.style.setProperty('--drop-at', `${(target.kind === 'lane' ? target.beat : 0) * pxPerBeat}px`),
   )
   return (
@@ -117,6 +120,16 @@ export const ArrangementView = () => {
         <button onClick={stop} aria-label="Stop">
           ■
         </button>
+        <label className={styles.grid} title="What drops, moves and resizes snap to; Alt held during a drag snaps to nothing">
+          Grid
+          <select value={grid} onChange={(event) => useArrangementView.getState().setGrid(event.target.value as TimelineGrid)}>
+            {TIMELINE_GRIDS.map((entry) => (
+              <option key={entry.grid} value={entry.grid}>
+                {entry.title}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className={styles.zoom} title="Zoom (⌘ or Ctrl with the wheel over the lanes)">
           <input
             type="range"
@@ -173,7 +186,7 @@ export const ArrangementView = () => {
                       data-lane={track.id}
                       onContextMenu={(event) => {
                         const rect = event.currentTarget.getBoundingClientRect()
-                        setPlacedAt(snap(Math.max(0, (event.clientX - rect.left) / pxPerBeat)))
+                        setPlacedAt(onGrid((event.clientX - rect.left) / pxPerBeat, event.altKey))
                       }}
                     />
                   </ActionMenu>

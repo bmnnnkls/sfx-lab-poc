@@ -305,9 +305,12 @@
   z-index: 1;
 }
 
-.zoom {
+.zoom,
+.grid {
   display: flex;
   align-items: center;
+  gap: 4px;
+  font-size: 12px;
 }
 
 .zoom input[type='range'] {

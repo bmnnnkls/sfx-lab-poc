@@ -4,10 +4,11 @@ import {
   clipFitsTrack,
   isAudioContent,
 } from '@core'
-import { openRegion, useProjectStore } from '@state'
+import { gridBeats, openRegion, useArrangementView, useProjectStore } from '@state'
 import { useRef } from 'react'
 import { autoScrollUnits } from '../shared/timeline'
 import { WaveformThumb } from '../shared/WaveformThumb'
+import { regionSnapping, snapBeat, snapRegionStart } from './region-snap'
 import { visibleTimeline } from './use-timeline-zoom'
 import styles from './arrangement.module.css'
 
@@ -34,6 +35,8 @@ interface DragState {
   readonly startLeft: number
   /** The pointer, for the auto-scroll's frames. */
   last: { x: number; y: number }
+  /** Alt is held: nothing snaps. */
+  alt: boolean
   /** The auto-scroll's animation frame while it runs. */
   frame: number
   /** The lane the pointer is over, or null while it has not left the region's own lane or the lane can't take it. */
@@ -67,6 +70,7 @@ export const ArrangementRegion = ({ region, pxPerBeat, selected, onSelect, ...do
       scroller,
       startLeft: scroller?.scrollLeft ?? 0,
       last: { x: event.clientX, y: event.clientY },
+      alt: event.altKey,
       frame: 0,
       targetLane: null,
       hover: null,
@@ -80,15 +84,22 @@ export const ArrangementRegion = ({ region, pxPerBeat, selected, onSelect, ...do
     return lane instanceof HTMLElement ? lane : null
   }
 
-  /** The drag at the pointer `x`, `y`: the region's new start or length, and the lane it is over. */
+  /**
+   * The drag at the pointer `x`, `y`: the region's new start or length, and the lane it is over. Its edges snap to the
+   * grid and to other regions' edges; with Alt held, to nothing.
+   */
   const move = (state: DragState, x: number, y: number) => {
     const deltaBeats = (x - state.startX + (state.scroller?.scrollLeft ?? 0) - state.startLeft) / pxPerBeat
+    const axis = { start: 0, perPixel: 1 / pxPerBeat, width: 1 }
+    const snapping = state.alt ? null : regionSnapping(useProjectStore.getState().project.arrangement ?? [], region.id)
+    const grid = state.alt ? null : gridBeats(useArrangementView.getState().grid)
+    const snap = (beat: number) => snapBeat(beat, grid, snapping, axis)
     if (state.resizing) {
-      const lengthBeats = Math.max(MIN_CLIP_BEATS, Math.round((state.origin + deltaBeats) * 4) / 4)
+      const lengthBeats = Math.max(MIN_CLIP_BEATS, snap(region.startBeat + state.origin + deltaBeats) - region.startBeat)
       update(region.id, { content: { ...region.content, lengthBeats } }, `arr-size:${region.id}`)
       return
     }
-    const startBeat = Math.max(0, Math.round((state.origin + deltaBeats) * 4) / 4)
+    const startBeat = snapRegionStart(state.origin + deltaBeats, region.content.lengthBeats, snap)
     update(region.id, { startBeat }, `arr-move:${region.id}`)
     // Vertical dragging onto another lane highlights the target; the move itself happens on the drop.
     // A lane of the other kind of track (a MIDI region over an audio track) shows refuse and doesn't take it.
@@ -132,6 +143,7 @@ export const ArrangementRegion = ({ region, pxPerBeat, selected, onSelect, ...do
     const state = drag.current
     if (!state) return
     state.last = { x: event.clientX, y: event.clientY }
+    state.alt = event.altKey
     move(state, event.clientX, event.clientY)
     autoScroll(state)
   }
