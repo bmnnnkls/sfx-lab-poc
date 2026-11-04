@@ -46,7 +46,7 @@ two ([archive/ui-redesign](archive/ui-redesign/README.md)).
    [plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)): headers beside the lanes with M and S, zoom to 256 px a
    beat, a grid and snap, a position to play from, follow, view keys, and the timeline geometry shared with the wave
    editor. The [plan for 12b](active/PLAN-round-12b-markers-and-loop.md) (markers, the loop brace, the transport looping
-   the arrangement, format v13) is waiting for sign-off.
+   the arrangement, format v13) is signed off (2026-11-04, every decision as proposed) and being built.
 2. **Round 13: visual refresh and themes.**
 3. **Merge `feat/ui-redesign` into `main`.** Decide whether this happens before round 12, and clear the verification
    debt first ([BACKLOG](BACKLOG.md#verification-debt)).

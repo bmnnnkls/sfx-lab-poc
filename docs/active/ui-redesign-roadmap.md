@@ -344,8 +344,8 @@ recording into the arrangement). **12a is done** 2026-11-04; see its [plan](../a
 proposed: headers beside the lanes with M and S, a zoom from the whole song to 256 px a beat, a grid and region-edge
 snap, a position to play from, follow, view keys, and the timeline geometry shared with the wave editor; returns' and
 the master's rows wait for 12c's lanes. **12b's [plan](PLAN-round-12b-markers-and-loop.md)** (markers and a loop brace
-in a mark lane, the transport looping the arrangement, a seek that releases what was sounding, format v13) is waiting
-for sign-off. The outline below is what the spec
+in a mark lane, the transport looping the arrangement, a seek that releases what was sounding, format v13) is signed
+off 2026-11-04, every decision as proposed, and being built. The outline below is what the spec
 started from.
 
 Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACKLOG.md).

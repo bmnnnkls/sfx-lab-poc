@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-11-04
-note: "Part 2 of the round 12 spec: markers and a loop brace in a mark lane, the transport looping the arrangement, a seek that releases what was sounding, format v13. Waiting for sign-off."
+note: "Part 2 of the round 12 spec: markers and a loop brace in a mark lane, the transport looping the arrangement, a seek that releases what was sounding, format v13. Signed off 2026-11-04, every decision as proposed."
 ---
 # Round 12b: markers and the loop
 
-Status: **plan, waiting for sign-off.** Written 2026-11-04. Part of the [UI redesign](../archive/ui-redesign/README.md).
+Status: **plan, signed off 2026-11-04, every decision as proposed.** Written 2026-11-04. Part of the [UI redesign](../archive/ui-redesign/README.md).
 Carries out part 2 of the signed-off [round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
 § 2, markers and the loop brace, and § 5, format v13. The inventory was taken on `imp/hungry-cannon-e8e493` at `c680c55`
 (round 12a done, not merged into `feat/ui-redesign` yet). The spec's decisions are settled and not repeated here; this
@@ -262,6 +262,8 @@ ports). Steps 2 and 4 also run `npm run test:audio`.
   jump. What isn't done joins BACKLOG V11.
 
 ## Decisions to sign off
+
+Signed off 2026-11-04: every row as proposed.
 
 | Question | Proposed | Alternative |
 |---|---|---|
