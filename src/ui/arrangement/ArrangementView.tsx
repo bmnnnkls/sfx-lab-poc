@@ -10,7 +10,7 @@ import { ARRANGEMENT_ZOOM, TIMELINE_GRIDS, type TimelineGrid, gridBeats, playArr
 import { type CSSProperties, Fragment, type ReactNode, useRef, useState } from 'react'
 import { viewTitles } from '../layout/view-titles'
 import { useDropTarget } from '../shared/drag'
-import { ActionMenu } from '../shared/menu'
+import { ActionMenu, useFocusSubjects } from '../shared/menu'
 import { ArrangementHeader } from './ArrangementHeader'
 import { ArrangementPlayhead, ArrangementPosition, PositionMark } from './ArrangementPlayhead'
 import { ArrangementRegion } from './ArrangementRegion'
@@ -108,6 +108,8 @@ export const ArrangementView = () => {
   const selectedRegion = useProjectStore((state) => state.project.arrangement?.find((region) => region.id === selected))
 
   useFollowPause(scroller)
+  // The focused timeline is the timeline at the position: the palette lists *Add marker here* and the loop there.
+  useFocusSubjects(scroller, () => [{ kind: 'arrangement-timeline', beat: useArrangementView.getState().position }])
   const follow = useArrangementView((state) => state.follow)
   const following = useArrangementView((state) => state.following)
 

@@ -30,6 +30,9 @@ export type Subject =
   | { readonly kind: 'sample-marker'; readonly sampleId: string; readonly pane: WavePane; readonly markerId: string } // in a pane's mark lane
   | { readonly kind: 'sample-region'; readonly sampleId: string; readonly pane: WavePane; readonly regionId: string }
   | { readonly kind: 'sample-loop'; readonly sampleId: string; readonly pane: WavePane }
+  | { readonly kind: 'arrangement-marker'; readonly markerId: string } // in the arrangement's mark lane
+  | { readonly kind: 'arrangement-loop' } // the arrangement's loop brace
+  | { readonly kind: 'arrangement-timeline'; readonly beat: number } // the mark lane's empty space, or the focused timeline
 
 export type SubjectKind = Subject['kind']
 export type SubjectOf<K extends SubjectKind> = Extract<Subject, { kind: K }>

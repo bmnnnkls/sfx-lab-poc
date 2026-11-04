@@ -290,7 +290,7 @@ test("a region's menu edits its own copy, or its session source", async ({ page 
   await page.getByRole('menuitem', { name: 'Root', exact: true }).click()
   const region = arrangement.getByTestId('arrangement-region')
   await region.click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Edit', 'Edit session clip', '—', 'Duplicate', 'Loop until next region', '—', 'Copy', '—', 'Delete'])
+  expect(await menuEntries(page)).toEqual(['Edit', 'Edit session clip', '—', 'Duplicate', 'Loop until next region', 'Set loop to region', '—', 'Copy', '—', 'Delete'])
   await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
   const clip = viewRoot(page, 'Clip')
   await expect(clip.getByText(/^Bass \/ Root · arrangement, bar \d+$/)).toBeVisible()

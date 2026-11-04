@@ -315,3 +315,11 @@ Signed off 2026-11-04: every row as proposed.
   second at any rate) and compares each pass with an offline `Engine` render of the bar, as the plan said; driving it
   from the UI is step 4's.
 
+### Step 3: subjects and actions
+
+* **A marker's name in the palette** is *Marker Verse*, as planned, but a default name already says it: *Marker 2*,
+  not *Marker Marker 2* (`markerTitle`, shared with the mark lane's accessible names).
+* ***Zoom to loop*** sits in the `view` group after *Remove loop* (`delete`), since the menus keep the group order;
+  the plan's table listed it before.
+* The context-menus smoke spec pins the region menu's entries, so *Set loop to region* changed it too.
+
