@@ -24,6 +24,9 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **`getByLabel` matches part of a label.** The arrangement's ruler, labelled "Bars and beats", made the export dialog's
   `getByLabel('Bars')` find two elements. Pass `exact: true`, or name things so they don't contain another's label.
   *(round 12a)*
+* **Two drags in quick succession can be one undo step.** History merges edits with the same merge key within 800 ms,
+  and a spec drags faster than a hand: drawing the loop brace and resizing it at once undid together. A gesture that
+  must be its own step uses a key of its own (the mark lane's `arr-loop:<n>`). *(round 12b)*
 * **Playwright's `fill` refuses a range input's value off its step** ("Malformed value") when `min` isn't a whole
   number of steps from it. Move the slider with its keys (Home, End, arrows) instead. *(round 12a)*
 * **Reading the saved project right after loading** can race the autosave and read `null`. This is the known flake in
@@ -91,6 +94,10 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   11c-1)*
 * **A closing menu gives the focus back to its trigger,** taking it from a popover or field its entry just opened.
   Mark such an entry `takesFocus`. *(rounds 5, 11c-1)*
+* **A format bump also touches a test outside `core/persistence`**: `storage/project-storage.test.ts` pins the version
+  it rewrites an old envelope to. *(round 12b)*
+* **An element inside another with the same pointer handlers gets each event twice**, once as it bubbles: the loop
+  brace's edges stop their moves and releases there. *(round 12b)*
 * **`ActionMenu` draws no menu without a subject.** A trigger whose subject depends on the pointer (the mark lane)
   always needs one, or a right-click there opens nothing. *(round 11c-2)*
 * **Two panes asking for one sample in the same tick decode it twice**, since each pane's `loading` is its own and

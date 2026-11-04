@@ -28,6 +28,13 @@ a service under test takes a fake worker that answers on the next task. Code tha
 slice as from the whole audio (`applyBandEdit`) is compared bit for bit (`Buffer.equals` on the floats' bytes) at
 several offsets, the sample's start and end among them.
 
+Sample-accurate timing is tested at a tempo where the edge under test falls between samples (97 BPM at 48 kHz: a
+beat is 29690.72 frames), and at several render sizes (1, 97, 128, 4096), so a rounding that happens to be exact at
+120 BPM can't hide (`arrangement-loop.test.ts`). A check that a guard matters is run once with the guard taken out: the
+test must fail. The arrangement loop's audio spec compares what the worklet plays, captured on the render thread, with
+an offline `Engine` given the same commands, after the jump's 5 ms tail (`arrangement-loop.audio.spec.ts`); at 240 BPM
+a bar is a second, so the passes start on whole samples at any context rate.
+
 Unit tests sit beside the code. Two repository-wide tests guard structure: `tests/architecture.test.ts` (the layering
 in [overview](../architecture/overview.md#layers) and the package allow-list) and `tests/status-subscriptions.test.ts`
 (no `ui` component selects the whole transport status). Format migrations are tested against the committed fixtures

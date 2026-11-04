@@ -1,16 +1,17 @@
 ---
-status: active
+status: done
 date: 2026-11-04
-note: "Part 2 of the round 12 spec: markers and a loop brace in a mark lane, the transport looping the arrangement, a seek that releases what was sounding, format v13. Signed off 2026-11-04, every decision as proposed."
+shipped_in: architecture/clips-and-arrangement.md
+note: "Part 2 of the round 12 spec: markers and a loop brace in a mark lane, the transport looping the arrangement, a seek that releases what was sounding, format v13. Signed off 2026-11-04, every decision as proposed; done 2026-11-04."
 ---
 # Round 12b: markers and the loop
 
-Status: **plan, signed off 2026-11-04, every decision as proposed.** Written 2026-11-04. Part of the [UI redesign](../archive/ui-redesign/README.md).
-Carries out part 2 of the signed-off [round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
+Status: **done** 2026-11-04; the plan was signed off 2026-11-04, every decision as proposed. Written 2026-11-04. Part of the [UI redesign](README.md).
+Carries out part 2 of the signed-off [round 12 spec](../../active/SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
 § 2, markers and the loop brace, and § 5, format v13. The inventory was taken on `imp/hungry-cannon-e8e493` at `c680c55`
 (round 12a done, not merged into `feat/ui-redesign` yet). The spec's decisions are settled and not repeated here; this
 plan only adds the ones it raises. Where it differs from the spec or from
-[12a's plan](../archive/ui-redesign/PLAN-round-12a-timeline-frame.md), it says so.
+[12a's plan](PLAN-round-12a-timeline-frame.md), it says so.
 
 ## Goal
 
@@ -36,7 +37,7 @@ The arrangement can be marked up and looped. After this part:
 
 ## Inventory
 
-What 12b touches, beyond the [spec's inventory](SPEC-round-12-arrangement-editor.md#inventory) and 12a's.
+What 12b touches, beyond the [spec's inventory](../../active/SPEC-round-12-arrangement-editor.md#inventory) and 12a's.
 
 ### The format
 
@@ -236,8 +237,8 @@ ports). Steps 2 and 4 also run `npm run test:audio`.
    lists *Add marker here* with the timeline focused.
 6. **Docs and the profile.** `architecture/clips-and-arrangement.md` (the marks, the loop, the seek),
    `architecture/persistence.md`, `reference/formats-and-versions.md`; this plan's "Changes made while implementing",
-   sorted per [doc-workflow](../dev/doc-workflow.md); STATUS and BACKLOG; the profile in
-   [baselines](../reference/baselines.md).
+   sorted per [doc-workflow](../../dev/doc-workflow.md); STATUS and BACKLOG; the profile in
+   [baselines](../../reference/baselines.md).
 
 ## Behavior changes
 
@@ -346,4 +347,27 @@ Signed off 2026-11-04: every row as proposed.
   *Loop to next marker*, the marker took the focus back, and the second L went to it. The spec waits for the marker's
   focus first (round 5's gotcha, met again).
 * The *Arrangement* row for Z now says it zooms to the loop without a selected region.
+
+### Step 6: docs and the profile
+
+* **The profile** (`6353599`, load average 5 to 7): `editor` 87 component renders a second, `groups` 58, as 12a left
+  them; the new `loop` setup 87. The mark lane renders 0 times. The `loop` setup draws the brace from the bar's end
+  back to its start and clicks a few pixels in on the *Bar* grid: the first marker's flag covers the bar's start, and
+  the header splitter reaches 3 px into the ruler.
+* **Not verified by hand:** drags in the mark lane on a trackpad, rename in place, the brace in both themes, and
+  listening to a loop with held notes and an unwarped region across the jump, in Chrome, Firefox and Safari: added to
+  BACKLOG V11.
+
+### Where the notes went
+
+* Invariants (the seek's scope, the event range cut at the loop's ends, joined unwarped regions, the clock packet, the
+  per-gesture merge keys, the lines under the regions) are in
+  [clips-and-arrangement](../../architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) and
+  [persistence](../../architecture/persistence.md).
+* Decisions 69 to 77 in [decisions](../../decisions/README.md).
+* Gotchas: drags that merge in a spec, the test outside `core/persistence` a bump touches, nested pointer handlers
+  ([gotchas](../../dev/gotchas.md)); testing at a tempo where edges fall between samples
+  ([verification](../../dev/verification.md)).
+* The profile in [baselines](../../reference/baselines.md); the v13 row in
+  [formats and versions](../../reference/formats-and-versions.md); the hand pass in [BACKLOG](../../BACKLOG.md) V11.
 

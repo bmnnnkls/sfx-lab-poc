@@ -49,6 +49,10 @@ Round 12a (2026-11-04, `9ac535f`, load average 9 to 10): `editor` 87 component r
 (87 before: the arrangement's playheads ran while scene 1 played, and now show only in arrangement mode); `wave` 56 and
 11.3, unchanged. `ArrangementView`, `ArrangementRegion` and the headers render 0 times; `ArrangementPlayhead` 29.
 
+Round 12b (2026-11-04, `6353599`, load average 5 to 7): `editor` 87 and 13.5; `groups` 58 and 15.1; `loop`, new (the
+`editor` setup with three markers and a one-bar brace turned on, so the arrangement loops while measured), 87 and
+16.9. `ArrangementMarks` and `ArrangementMarkLines` render 0 times: they subscribe to the project, not the status.
+
 Earlier tables: [round 2](../archive/ui-redesign/PLAN-round-2-shell.md#changes-made-while-implementing) (the
 first, with base comparisons), [round 11a](../archive/ui-redesign/PLAN-round-11a-stereo-and-the-pyramid.md#changes-made-while-implementing),
 [round 11b](../archive/ui-redesign/PLAN-round-11b-in-place-edits.md#changes-made-while-implementing).

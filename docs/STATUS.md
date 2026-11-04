@@ -9,7 +9,7 @@ Where the project stands, in one page. Updated 2026-11-04. Update it whenever a 
   demo-release candidate (project v9 at that point). The demo release has **not been tagged**: the
   human listening pass and the tag are still open ([BACKLOG](BACKLOG.md) V9).
 * **`feat/ui-redesign`** is the working branch for the workbench redesign: rounds 1 to 11
-  are done on it and it is not merged into `main` yet. It writes project format **v12**, which `main`'s build refuses to open.
+  are done on it and it is not merged into `main` yet. It writes project format **v13**, which `main`'s build refuses to open.
 
 Current file and storage versions are in [reference/formats-and-versions.md](reference/formats-and-versions.md).
 
@@ -24,7 +24,7 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 | Track groups, group buses, Tracks tree | Shipped (redesign rounds 7–8) | [tracks-and-groups](architecture/tracks-and-groups.md) |
 | Automation (clip, return and master), touch recording | Shipped; no automation on groups yet | [control-and-automation](architecture/control-and-automation.md) |
 | Browser MIDI input and learn | Shipped; physical hardware not verified | [midi](architecture/midi.md) |
-| Arrangement timeline: headers, zoom, snap, a position, follow, keys | Shipped (round 12a); markers, the loop, automation lanes and recording are the rest of round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
+| Arrangement timeline: headers, zoom, snap, a position, follow, keys, markers, the loop brace and the transport looping it | Shipped (rounds 12a and 12b); automation lanes and recording are the rest of round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
 | Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse, markers, regions, the sampler's loop, snap, *Revert to original*, a second pane, a spectrogram, band selection and spectral edits) | Shipped (round 11 done) | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
 | Snapshots, presets, personal library, `.sfxlib` bundles | Shipped | [library-and-presets](architecture/library-and-presets.md) |
 | Workbench: docking shell, views, layouts, actions, drag and drop, command palette, keys | Shipped (redesign rounds 1–6, 9–10) | [workbench](architecture/workbench.md) |
@@ -45,8 +45,10 @@ two ([archive/ui-redesign](archive/ui-redesign/README.md)).
    timeline) and 12d (touch recording into the arrangement). **12a is done** (2026-11-04,
    [plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)): headers beside the lanes with M and S, zoom to 256 px a
    beat, a grid and snap, a position to play from, follow, view keys, and the timeline geometry shared with the wave
-   editor. The [plan for 12b](active/PLAN-round-12b-markers-and-loop.md) (markers, the loop brace, the transport looping
-   the arrangement, format v13) is signed off (2026-11-04, every decision as proposed) and being built.
+   editor. **12b is done** (2026-11-04, [plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)): a mark lane
+   under the ruler with markers and a loop brace, the engine looping the arrangement sample-accurately, a seek while
+   playing that releases held notes and restarts audio in phase, M, L, `[` and `]`, and format v13. 12c (automation on
+   the timeline, groups included) and 12d (touch recording into the arrangement) are to plan.
 2. **Round 13: visual refresh and themes.**
 3. **Merge `feat/ui-redesign` into `main`.** Decide whether this happens before round 12, and clear the verification
    debt first ([BACKLOG](BACKLOG.md#verification-debt)).

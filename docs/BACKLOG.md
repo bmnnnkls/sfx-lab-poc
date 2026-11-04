@@ -13,9 +13,9 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
 - **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline (groups are
   control owners but not automation owners yet), recording into the arrangement (touch recording on the timeline).
   [Spec](active/SPEC-round-12-arrangement-editor.md) signed off 2026-11-01; 12a is done
-  ([plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)); [12b's plan](active/PLAN-round-12b-markers-and-loop.md)
-  (markers and the loop) is signed off 2026-11-04 and being built; 12c (automation on the timeline) and 12d (touch into the arrangement) are
-  to plan.
+  ([plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)), and so is 12b, markers and the loop
+  ([plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)); 12c (automation on the timeline) and 12d (touch
+  into the arrangement) are to plan.
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
   Samples, library samples, several things at once.
@@ -67,7 +67,11 @@ Things that shipped without the check their plan asked for.
   done: the sticky headers and ruler on a trackpad scroll in both axes, at the editors' minimum size and under 600 px;
   the header splitter; pinch and ⌘-wheel zoom; middle-drag on a mouse; auto-scroll while dragging a region on a
   trackpad; snapping with Alt; follow pausing on a trackpad scroll; every key in the *Arrangement* rows with the focus
-  on the timeline, on a region and in the project name field.
+  on the timeline, on a region and in the project name field. Round 12b adds: drags in the mark lane on a trackpad
+  (markers, drawing the brace, its body and edges, auto-scroll past the side, Alt), rename in place, a marker's and the
+  brace's menu with Shift+F10, the brace dimmed and lit in both themes, and listening to a loop of a few bars with held
+  notes and an unwarped audio region across the jump, and to a click in the ruler while playing (notes cut, audio
+  rejoining in phase).
 
 ## Performance
 
