@@ -12,7 +12,9 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
 
 - **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline (groups are
   control owners but not automation owners yet), recording into the arrangement (touch recording on the timeline).
-  [Spec](active/SPEC-round-12-arrangement-editor.md) signed off 2026-11-01; [12a's plan](active/PLAN-round-12a-timeline-frame.md) is signed off and ready to build; 12b to 12d are to plan.
+  [Spec](active/SPEC-round-12-arrangement-editor.md) signed off 2026-11-01; 12a is done
+  ([plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)); 12b (markers and the loop), 12c (automation on the
+  timeline) and 12d (touch into the arrangement) are to plan.
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
   Samples, library samples, several things at once.
@@ -47,8 +49,8 @@ Things that shipped without the check their plan asked for.
   is busy, because it times tempo edits from the page.
 - **V8 Commit the measuring scripts** that rounds 4 and 11b used (`measure.cjs`, the in-place flow timing). Only
   `scripts/profile-status.cjs`, `scripts/measure-selection-levels.cjs` (round 11c-1) and
-  `scripts/measure-revert-and-zero.cjs` (round 11c-2) and `scripts/measure-second-pane.cjs` (round 11c-3) are in the
-  repository.
+  `scripts/measure-revert-and-zero.cjs` (round 11c-2), `scripts/measure-second-pane.cjs` (round 11c-3) and
+  `scripts/measure-long-timeline.cjs` (round 12a) are in the repository.
 - **V9 Demo release**: a short human listening pass on `main`, then tag the verified commit.
 - **V10 Hand pass for the wave editor's handling** (rounds 11c-1 to 11c-3), in Chrome, and Firefox and Safari once V3
   is done: every view key (M, R, L, `[` `]` among them, and Shift with a bracket on a non-US layout) and the edit keys
@@ -60,6 +62,11 @@ Things that shipped without the check their plan asked for.
   under 300 px, the fill-in on a long file, zooming in and scrolling on a trackpad (the columns on demand); boxes in the
   spectrogram (round 11d-2): drawing and resizing them on a trackpad, their outline in both themes, and listening to
   *Band gain…* and *Keep band* on real material (ringing, the feathers in time and frequency).
+- **V11 Hand pass for the arrangement's timeline frame** (round 12a), in Chrome, and Firefox and Safari once V3 is
+  done: the sticky headers and ruler on a trackpad scroll in both axes, at the editors' minimum size and under 600 px;
+  the header splitter; pinch and ⌘-wheel zoom; middle-drag on a mouse; auto-scroll while dragging a region on a
+  trackpad; snapping with Alt; follow pausing on a trackpad scroll; every key in the *Arrangement* rows with the focus
+  on the timeline, on a region and in the project name field.
 
 ## Performance
 

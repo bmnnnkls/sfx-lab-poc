@@ -1,7 +1,7 @@
 ---
 status: active
-date: 2026-11-01
-note: "Rounds 1-11 are done (11d, the spectrum, in two parts: the spectrogram and spectral edits); 12 (arrangement editor) has a signed-off spec and is next; 13 (visual refresh) comes after."
+date: 2026-11-04
+note: "Rounds 1-11 are done (11d, the spectrum, in two parts: the spectrogram and spectral edits); 12 (arrangement editor) is under way, 12a done; 13 (visual refresh) comes after."
 ---
 # UI redesign roadmap (draft)
 
@@ -340,8 +340,10 @@ playhead and lanes); there is nothing for a per-track arm to arm, since touch is
 and a lanes twisty; timeline automation is a new holder per owner, in song beats, so returns, the master and group buses
 get rows; a loop needs the engine's transport, not only the view. It splits the round into 12a (headers and the timeline
 frame), 12b (markers and the loop, format v13), 12c (automation on the timeline, groups included) and 12d (touch
-recording into the arrangement). **12a's [plan](PLAN-round-12a-timeline-frame.md)** (headers, zoom, snap, a position,
-follow, view keys, the geometry shared with the wave editor) is signed off as proposed and ready to build. The outline below is what the spec
+recording into the arrangement). **12a is done** 2026-11-04; see its [plan](../archive/ui-redesign/PLAN-round-12a-timeline-frame.md), signed off as
+proposed: headers beside the lanes with M and S, a zoom from the whole song to 256 px a beat, a grid and region-edge
+snap, a position to play from, follow, view keys, and the timeline geometry shared with the wave editor; returns' and
+the master's rows wait for 12c's lanes. The outline below is what the spec
 started from.
 
 Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACKLOG.md).

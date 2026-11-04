@@ -1,12 +1,13 @@
 ---
-status: active
-date: 2026-11-01
-note: "Part 1 of the round 12 spec: headers beside the lanes, zoom, snap, a position, follow, view keys, and the timeline geometry shared with the wave editor. Signed off 2026-11-01, every decision as proposed."
+status: done
+date: 2026-11-04
+shipped_in: architecture/clips-and-arrangement.md
+note: "Part 1 of the round 12 spec: headers beside the lanes, zoom, snap, a position, follow, view keys, and the timeline geometry shared with the wave editor. The hand pass in browsers is BACKLOG V11."
 ---
 # Round 12a: the timeline frame
 
-Status: **plan, signed off** 2026-11-01, every decision as proposed. Written 2026-11-01. Part of the [UI redesign](../archive/ui-redesign/README.md).
-Carries out part 1 of the signed-off [round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
+Status: **done** 2026-11-04; plan signed off 2026-11-01, every decision as proposed. Written 2026-11-01. Part of the [UI redesign](README.md).
+Carries out part 1 of the signed-off [round 12 spec](../../active/SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
 § 1, the timeline frame and the headers, and the two fixes its inventory found. The inventory was taken on
 `feat/ui-redesign` at `49804e9` (round 11 done, its spec archived). The spec's decisions are settled and not repeated
 here; this plan only adds the ones it raises. Where it differs from the spec, it says so.
@@ -38,7 +39,7 @@ The arrangement is a timeline that can be moved around in. After this part:
 
 ## Inventory
 
-What 12a touches, beyond the [spec's inventory](SPEC-round-12-arrangement-editor.md#inventory).
+What 12a touches, beyond the [spec's inventory](../../active/SPEC-round-12-arrangement-editor.md#inventory).
 
 ### The view's structure
 
@@ -48,7 +49,7 @@ What 12a touches, beyond the [spec's inventory](SPEC-round-12-arrangement-editor
 * **`ArrangementPlayhead` is rendered once per lane.** Each instance subscribes to `status.beat` while playing, so a
   ten-lane project renders ten components 30 times a second. The `editor` profile setup (Arrangement and Mixer, the
   arrangement playing, three regions on the Starter's tracks) counts them in its 145 renders a second
-  ([baselines](../reference/baselines.md#ui-work-per-second-while-playing)).
+  ([baselines](../../reference/baselines.md#ui-work-per-second-while-playing)).
 * The lane name and the group lane's name carry the subject's `ActionMenu`, `useDragSource`, `useEdgeTarget` (drag to
   reorder) and, for a group, the twisty. They move to the header unchanged.
 * The empty states (no tracks; every track hidden) stay.
@@ -336,8 +337,8 @@ ports). Step 2 changes the engine's status and step 6 the transport's use, so th
 8. **Docs and the profile.** `architecture/clips-and-arrangement.md` (§ The arrangement: the headers, zoom, snap, the
    position, follow, keys, `arrangementRows`, the sanitizer), `architecture/samples-and-wave-editor.md` (the geometry's
    new home), `architecture/workbench.md` (the *Arrangement* view keys); this plan's "Changes made while implementing",
-   sorted per [doc-workflow](../dev/doc-workflow.md); STATUS and BACKLOG; the profile in
-   [baselines](../reference/baselines.md).
+   sorted per [doc-workflow](../../dev/doc-workflow.md); STATUS and BACKLOG; the profile in
+   [baselines](../../reference/baselines.md).
 
 ## Behavior changes
 
@@ -389,4 +390,45 @@ Signed off 2026-11-01: every row as proposed.
 
 ## Changes made while implementing
 
-(Filled in while building.)
+* **Step 1: the wave editor keeps `SnapTarget.frame`.** The plan renamed it `at` in the wave editor too; its wrapper maps
+  `frame` to the shared `at` instead, so the wave editor's snap tests run unchanged. Its `BEAT_STEPS` stays sixteenths to
+  64 beats; the arrangement's ruler has its own steps up to 2048 beats (`TIMELINE_BEAT_STEPS`), since a whole 4096-beat
+  timeline at the farthest zoom needs labels that far apart.
+* **Step 2: `EngineStatus.mode` is required**, as planned; two test fixtures that build a status by hand got it. The
+  bound is `clampStartBeat`, used by `createArrangementClip` and `updateArrangementClip`. The audio specs passed
+  (22).
+* **Step 3: no shared splitter.** The plan named "the shell's `Splitter`"; the shell's splitters are flexlayout's, and
+  the only one of ours is the wave editor's `PaneSplitter`. The header column has its own `HeaderSplitter` on the same
+  pattern (a `separator`, ← and →, a double-click for the default).
+* **Step 3: group rows stay 28 px**, as before; the plan's 56 px is a track row.
+* **Step 3: `GroupMuteSolo` moved with `MuteSolo` and `useRoute`** to `ui/shared/MuteSolo.tsx`, with their CSS; the
+  headers draw them `compact`.
+* **Step 3: the ruler's label clashed.** "Bars and beats" made the export dialog's `getByLabel('Bars')` match twice; the
+  canvas is *Timeline ruler*.
+* **Step 3: scrolling a lane into view put it under the headers.** Playwright's drops (and anything calling
+  `scrollIntoView`) aligned a lane's start with the scroller's edge, behind the sticky header column. The scroller's
+  `scroll-padding` is now the header column and the ruler.
+* **Step 3: the lane highlight while dragging a region never showed.** The region set `data-drag-over` on the lane
+  body, while the CSS styled `.row[data-drag-over]`. It is now `[data-lane][data-drag-over='accept' | 'refuse']`.
+* **Step 3: the ruler canvas's width is set when it draws**, from the scroller less the ruler cell's offset, since a
+  CSS width for "the visible timeline" isn't available; it redraws when the header width changes too.
+* **Step 4: `useTimelineZoom` returns the zoom**, so the slider zooms around the middle of the view and the keys around
+  the position, through the same path as the wheel.
+* **Step 5: a moved region's end only wins when it snapped.** Left where it was, an end that is near nothing is always
+  "nearer" than a start that snapped; the browser test caught it, and a unit test now holds it.
+* **Step 6: follow's own scroll can come after the user's.** Setting `scrollLeft` by hand and follow's next frame both
+  happen before the scroll event, so the event alone can't tell them apart. Follow keeps where it last scrolled to on
+  the scroller (`data-follow-left`) and checks it before scrolling (`movedSinceFollow`); it forgets it when playback
+  stops and when follow is turned on again, or ▶ would pause it again at once.
+* **Step 6: the test reads `data-paused`.** The Follow button's paused state is also its title, but the test reads an
+  attribute meant for it.
+* **Step 7: only a key on the timeline itself is a view key.** The scroller holds the headers' buttons and the regions,
+  whose keys bubble to it; it acts only when the event's target is the scroller.
+* **Step 7: *Zoom to fit* can zoom in.** It shows from 0 to the content's end, so a single short region at the start
+  fills the width. That is the plan's rule; the browser test places the region at bar 6.
+* **Profile** (`scripts/profile-status.cjs`, 2026-11-04, `9ac535f`, load average 9 to 10): `editor` 87 component renders
+  a second (145 before: three playheads, one per lane, now one), 14.2 script ms; `groups` 58 (87 before: the
+  arrangement's playheads ran while scene 1 played, and now don't), 10.0 ms; `wave` 56, unchanged, 11.3 ms.
+* **Measure** (`scripts/measure-long-timeline.cjs`, production build, headless Chromium): a region at beat 4000 at
+  256 px a beat makes the lane 1,025,976 px wide; five seconds of sideways scrolls and ⌘-wheel zooms gave no long task.
+* **Not done:** the manual pass in browsers (BACKLOG V11).
