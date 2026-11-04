@@ -1,22 +1,22 @@
-import { type ControlOwner, type TrackItem, type TrackPlace, canMoveGroup, canMoveTrack } from '@core'
+import { type ControlOwner, type LibraryCatalog, type TrackItem, type TrackPlace, canMoveGroup, canMoveTrack, duplicateLibraryFolder, libraryItemDuplicate, moveLibraryEntry } from '@core'
 import { useLibraryStore } from '../library-store'
 import { useProjectStore } from '../project-store'
 import { canRunAction, runAction, type RunOptions, settle } from '.'
 import { canPasteClipOnLane, pasteClipOnLane } from './lane'
-import { graphFitsOwner, insertionScope, insertLibraryClipAt, libraryClipFitsSlot, replaceGraph } from './library'
+import { editLibrary, graphFitsOwner, insertionScope, insertLibraryClipAt, libraryClipFitsSlot, replaceGraph } from './library'
 import { project, sessionClipOf } from './lookup'
 import { canPasteClipInSlot, pasteClipInSlot } from './slot'
 import { canRecallPresetOn, recallPresetOn } from './sound'
 import type { ActionContext, SubjectOf } from './types'
 
 /** What is dragged: the subject of the thing picked up. It holds ids, read when it lands. */
-export type DragPayload = SubjectOf<'clip' | 'sample' | 'sound' | 'library-item' | 'track' | 'group'>
+export type DragPayload = SubjectOf<'clip' | 'sample' | 'sound' | 'library-item' | 'library-folder' | 'track' | 'group'>
 
 /**
  * Where it lands: the subject of the place under the pointer. A lane carries the beat, a canvas the point, a track or
  * a group the side a dragged track or group lands on.
  */
-export type DropTarget = SubjectOf<'slot' | 'lane' | 'track' | 'master' | 'canvas' | 'group'>
+export type DropTarget = SubjectOf<'slot' | 'lane' | 'track' | 'master' | 'canvas' | 'group' | 'library-folder' | 'library-root'>
 
 export interface DropModifiers {
   readonly alt: boolean
@@ -94,6 +94,89 @@ const trackMoves = (['track', 'group'] as const).flatMap((target) => [
     run: (payload, at) => useProjectStore.getState().moveGroup(payload.groupId, placeAt(at)!),
   }),
 ])
+
+/** A library folder or root that something dragged in the Library's tree lands in: a folder's id, or null for the top level. */
+type LibraryPlace = SubjectOf<'library-folder' | 'library-root'>
+const destinationOf = (place: LibraryPlace): string | null => (place.kind === 'library-folder' ? place.folderId : null)
+const libraryCatalog = (): LibraryCatalog => useLibraryStore.getState().catalog
+const libraryFolderOf = ({ folderId }: SubjectOf<'library-folder'>) => libraryCatalog().folders.find((folder) => folder.id === folderId)
+
+/** Whether a folder is `ancestor` or inside it. */
+const isWithin = (folderId: string, ancestor: string): boolean => {
+  const folders = libraryCatalog().folders
+  for (let id: string | null = folderId, seen = 0; id !== null && seen <= folders.length; seen++) {
+    if (id === ancestor) return true
+    id = folders.find((folder) => folder.id === id)?.parentId ?? null
+  }
+  return false
+}
+
+/** Whether a place is a live folder, or a root that takes things (*My library*). */
+const livePlace = (place: LibraryPlace) => (place.kind === 'library-root' ? place.root === 'mine' : !!libraryFolderOf(place) && !libraryFolderOf(place)!.trashed)
+
+/** Copies with Alt; restoring from the trash or moving otherwise. */
+const altCopies = (_payload: unknown, _place: unknown, { alt }: DropModifiers) => (alt ? 'copy' : 'move') as 'copy' | 'move'
+
+/**
+ * Library items and folders dragged in the Library's tree: onto a folder or *My library* they move there (Alt copies,
+ * and a trashed one is restored there), onto the trash they are trashed. A preset goes where its sound goes, so it
+ * only goes to the trash. Dropping where it already is does nothing, so it is refused.
+ */
+const libraryMoves = (['library-folder', 'library-root'] as const).flatMap((target) => [
+  define<'library-item', typeof target>({
+    id: `drop.library-item-on-${target === 'library-folder' ? 'folder' : 'root'}`,
+    payload: 'library-item',
+    target,
+    accepts: (payload, place) => {
+      const item = libraryItemOf(payload)
+      if (!item || item.content.kind === 'preset' || !livePlace(place)) return false
+      return !!item.trashed || item.folderId !== destinationOf(place)
+    },
+    effect: (payload, place, modifiers) => (libraryItemOf(payload)?.trashed ? 'move' : altCopies(payload, place, modifiers)),
+    run: (payload, place, context, { alt }) => {
+      const trashed = !!libraryItemOf(payload)?.trashed
+      if (alt && !trashed) return editLibrary(context, (value) => libraryItemDuplicate(value, payload.itemId, destinationOf(place)), 'Copied')
+      return editLibrary(context, (value) => moveLibraryEntry(value, payload.itemId, destinationOf(place)), trashed ? 'Restored' : 'Moved')
+    },
+  }),
+  define<'library-folder', typeof target>({
+    id: `drop.library-folder-on-${target === 'library-folder' ? 'folder' : 'root'}`,
+    payload: 'library-folder',
+    target,
+    // Never into itself or a folder inside it.
+    accepts: (payload, place) => {
+      const folder = libraryFolderOf(payload), destination = destinationOf(place)
+      if (!folder || !livePlace(place) || (destination !== null && isWithin(destination, folder.id))) return false
+      return !!folder.trashed || folder.parentId !== destination
+    },
+    effect: (payload, place, modifiers) => (libraryFolderOf(payload)?.trashed ? 'move' : altCopies(payload, place, modifiers)),
+    run: (payload, place, context, { alt }) => {
+      const trashed = !!libraryFolderOf(payload)?.trashed
+      if (alt && !trashed) return editLibrary(context, (value) => duplicateLibraryFolder(value, payload.folderId, destinationOf(place)), 'Copied')
+      return editLibrary(context, (value) => moveLibraryEntry(value, payload.folderId, destinationOf(place)), trashed ? 'Restored' : 'Moved')
+    },
+  }),
+])
+
+/** Onto the trash: *Trash*, with its presets or contents. A trashed one is already there. */
+const libraryTrash = [
+  define<'library-item', 'library-root'>({
+    id: 'drop.library-item-on-trash',
+    payload: 'library-item',
+    target: 'library-root',
+    accepts: (payload, root, context) => root.root === 'trash' && canRunAction('library-item.trash', payload, context),
+    effect: moves,
+    run: (payload, _root, context) => runAction('library-item.trash', payload, context),
+  }),
+  define<'library-folder', 'library-root'>({
+    id: 'drop.library-folder-on-trash',
+    payload: 'library-folder',
+    target: 'library-root',
+    accepts: (payload, root, context) => root.root === 'trash' && canRunAction('library-folder.trash', payload, context),
+    effect: moves,
+    run: (payload, _root, context) => runAction('library-folder.trash', payload, context),
+  }),
+]
 
 /** Every drop, by what is dragged and where it lands. Nothing else decides what a drop does. */
 export const drops: readonly Drop[] = [
@@ -259,6 +342,8 @@ export const drops: readonly Drop[] = [
     },
   }),
   ...trackMoves,
+  ...libraryMoves,
+  ...libraryTrash,
 ]
 
 /** The drop that would land `payload` on `target` now, or undefined when nothing accepts it there. */

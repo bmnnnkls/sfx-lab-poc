@@ -420,3 +420,11 @@ Signed off 2026-11-04: every row as proposed.
   is in `delete`, beside *Restore*. *Export all…* exports every live folder and item, named *My library*.
 * **Step 3:** the request carries the bundle's name as well as the selection, since the view used to take it from the
   name field; requests show the Library view.
+* **Step 4:** the drop table's unit tests are in `library-drops.test.ts` beside `drops.test.ts`, one case per cell.
+  Dropping onto the trash runs the *Trash* actions (`canRunAction` / `runAction`), so a drop and its menu twin can't
+  drift apart; the moves and copies share `editLibrary` with the actions.
+* **Step 4:** an Alt-drag of a trashed entry restores it (the cursor says move): a copy of something in the trash
+  isn't offered, as the menu offers only *Restore* there.
+* **Step 4:** `useSpringOpen` checks that a drag of ours is still going when its timer fires, and `mergeDragProps`
+  (also in `ui/shared/drag/`) runs several sets of drag props on one element, so the tree's rows spread them without
+  naming a drag handler and the architecture test stays as it is.

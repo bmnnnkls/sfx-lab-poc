@@ -14,8 +14,8 @@ const catalog = () => useLibraryStore.getState().catalog
 const itemOf = ({ itemId }: ItemSubject) => catalog().items.find((item) => item.id === itemId)
 const folderOf = ({ folderId }: FolderSubject) => catalog().folders.find((folder) => folder.id === folderId)
 
-/** Edits the catalog through the library and keeps the store's copy current. */
-const update = async (context: ActionContext, edit: (catalog: LibraryCatalog) => LibraryCatalog, message: string) => {
+/** Edits the catalog through the library and keeps the store's copy current; resolves with `message`. */
+export const editLibrary = async (context: ActionContext, edit: (catalog: LibraryCatalog) => LibraryCatalog, message: string) => {
   useLibraryStore.getState().setCatalog(await context.library.update(edit))
   return message
 }
@@ -159,7 +159,7 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     group: 'edit',
     applies: live,
     // The copy takes the item's presets along.
-    run: (subject, context) => update(context, (value) => libraryItemDuplicate(value, subject.itemId), 'Library saved'),
+    run: (subject, context) => editLibrary(context, (value) => libraryItemDuplicate(value, subject.itemId), 'Library saved'),
   },
   {
     id: 'library-item.insert-track',
@@ -208,7 +208,7 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     // A preset goes where its sound goes.
     applies: (subject) => live(subject) && itemOf(subject)?.content.kind !== 'preset',
     choices: (subject) => folderChoices(itemOf(subject)?.folderId ?? null),
-    run: (subject, context, choice) => update(context, (value) => moveLibraryEntry(value, subject.itemId, destinationOf(choice)), 'Moved'),
+    run: (subject, context, choice) => editLibrary(context, (value) => moveLibraryEntry(value, subject.itemId, destinationOf(choice)), 'Moved'),
   },
   {
     id: 'library-item.export',
@@ -228,7 +228,7 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     // Its presets go with it; the trash keeps their dependencies and sample bytes.
     run: (subject, context) => {
       context.library.stopPreview()
-      return update(context, (value) => trashLibraryEntry(value, subject.itemId), 'Moved to the trash')
+      return editLibrary(context, (value) => trashLibraryEntry(value, subject.itemId), 'Moved to the trash')
     },
   },
   {
@@ -236,7 +236,7 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     title: 'Restore',
     group: 'delete',
     applies: (subject) => !!itemOf(subject)?.trashed,
-    run: (subject, context) => update(context, (value) => trashLibraryEntry(value, subject.itemId, false), 'Restored'),
+    run: (subject, context) => editLibrary(context, (value) => trashLibraryEntry(value, subject.itemId, false), 'Restored'),
   },
 ]
 
@@ -245,7 +245,7 @@ const liveFolder = (subject: FolderSubject) => !!folderOf(subject) && !folderOf(
 /** Makes a folder called "New folder" in `parentId`, makes it active and names it in place. */
 const newFolder = async (parentId: string | null, context: ActionContext) => {
   const id = crypto.randomUUID()
-  await update(context, (value) => saveLibraryFolder(value, 'New folder', parentId, id), 'Library saved')
+  await editLibrary(context, (value) => saveLibraryFolder(value, 'New folder', parentId, id), 'Library saved')
   useLibraryStore.getState().setActive({ kind: 'folder', id })
   startRename({ kind: 'library-folder', folderId: id }, context)
 }
@@ -276,7 +276,7 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     group: 'edit',
     applies: liveFolder,
     // A deep copy beside it, sharing revisions and samples.
-    run: ({ folderId }, context) => update(context, (value) => duplicateLibraryFolder(value, folderId, folderOf({ kind: 'library-folder', folderId })?.parentId ?? null), 'Library saved'),
+    run: ({ folderId }, context) => editLibrary(context, (value) => duplicateLibraryFolder(value, folderId, folderOf({ kind: 'library-folder', folderId })?.parentId ?? null), 'Library saved'),
   },
   {
     id: 'library-folder.move',
@@ -284,7 +284,7 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     group: 'edit',
     applies: liveFolder,
     choices: (subject) => folderChoices(folderOf(subject)?.parentId ?? null, subject.folderId),
-    run: ({ folderId }, context, choice) => update(context, (value) => moveLibraryEntry(value, folderId, destinationOf(choice)), 'Moved'),
+    run: ({ folderId }, context, choice) => editLibrary(context, (value) => moveLibraryEntry(value, folderId, destinationOf(choice)), 'Moved'),
   },
   {
     id: 'library-folder.export',
@@ -302,7 +302,7 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     danger: true,
     applies: liveFolder,
     run: async ({ folderId }, context) => {
-      const message = await update(context, (value) => trashLibraryEntry(value, folderId), 'Moved to the trash with its contents')
+      const message = await editLibrary(context, (value) => trashLibraryEntry(value, folderId), 'Moved to the trash with its contents')
       const { active, setActive } = useLibraryStore.getState()
       if (active?.kind === 'folder' && active.id === folderId) setActive(null)
       return message
@@ -313,7 +313,7 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     title: 'Restore',
     group: 'delete',
     applies: (subject) => !!folderOf(subject)?.trashed,
-    run: ({ folderId }, context) => update(context, (value) => trashLibraryEntry(value, folderId, false), 'Restored'),
+    run: ({ folderId }, context) => editLibrary(context, (value) => trashLibraryEntry(value, folderId, false), 'Restored'),
   },
 ]
 
@@ -357,6 +357,6 @@ export const libraryRootActions: readonly Action<RootSubject>[] = [
     applies: ({ root }) => root === 'trash',
     enabled: anyTrashed,
     run: (_subject, context) =>
-      update(context, (value) => ({ ...value, folders: value.folders.map((folder) => (folder.trashed ? { ...folder, trashed: false } : folder)), items: value.items.map((item) => (item.trashed ? { ...item, trashed: false } : item)) }), 'Restored'),
+      editLibrary(context, (value) => ({ ...value, folders: value.folders.map((folder) => (folder.trashed ? { ...folder, trashed: false } : folder)), items: value.items.map((item) => (item.trashed ? { ...item, trashed: false } : item)) }), 'Restored'),
   },
 ]

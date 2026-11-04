@@ -44,6 +44,9 @@ export const startDrag = (payload: DragPayload) => {
 
 export const endDrag = end
 
+/** Whether a drag of ours is in progress. */
+export const dragging = (): boolean => current !== null
+
 /** The payload of a drag event, when it is a drag of ours. */
 export const ourDrag = (event: { dataTransfer: DataTransfer | null }): DragPayload | null =>
   current && event.dataTransfer?.types.includes(DRAG_TYPE) ? current : null
