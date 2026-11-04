@@ -30,6 +30,25 @@ export {
   type ArrangementChanges,
   type ArrangementClip,
 } from './arrangement-clip'
+export {
+  MAX_ARRANGEMENT_MARKERS,
+  MIN_LOOP_BEATS,
+  activeArrangementLoop,
+  addArrangementMarker,
+  arrangementContentEnd,
+  arrangementStops,
+  createMarkerId,
+  loopRangeOf,
+  moveArrangementMarker,
+  nextArrangementMarker,
+  removeArrangementLoop,
+  removeArrangementMarker,
+  renameArrangementMarker,
+  setArrangementLoop,
+  setArrangementLoopEnabled,
+  type ArrangementLoop,
+  type ArrangementMarker,
+} from './arrangement-marks'
 export { arrangementRows, type ArrangementRow } from './arrangement-rows'
 export { MAX_TIMELINE_BEATS } from './limits'
 export {

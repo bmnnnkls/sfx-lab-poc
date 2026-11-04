@@ -4,7 +4,7 @@ import {
   arrangementOnTrack,
   arrangementRows,
   type ArrangementClip,
-  timelineEnd,
+  arrangementContentEnd,
 } from '@core'
 import { ARRANGEMENT_ZOOM, TIMELINE_GRIDS, type TimelineGrid, gridBeats, playArrangementFromPosition, setArrangementPosition, stopArrangement, useArrangementView, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore } from '@state'
 import { type CSSProperties, Fragment, type ReactNode, useRef, useState } from 'react'
@@ -97,7 +97,7 @@ export const ArrangementView = () => {
   /** Where an empty lane was right-clicked, so "add" places the clip there. */
   const [placedAt, setPlacedAt] = useState(0)
 
-  const end = timelineEnd(arrangement)
+  const end = useProjectStore((state) => arrangementContentEnd(state.project))
   const bars = Math.max(MIN_BARS, Math.ceil(end / BEATS_PER_BAR) + TRAILING_BARS)
   const width = bars * BEATS_PER_BAR * pxPerBeat
   const { barPx, gridPx } = gridSpacing(pxPerBeat, gridBeats(grid))
@@ -184,7 +184,7 @@ export const ArrangementView = () => {
             position: view.position,
             gridBeats: gridBeats(view.grid),
             visibleBeats: width / view.pxPerBeat,
-            end: timelineEnd(arrangement),
+            end,
             selection: selectedRegion ? regionZoom(selectedRegion, arrangement) : null,
           })
           if (!action) return

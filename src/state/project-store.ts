@@ -41,6 +41,14 @@ import {
   updateModule,
   redo,
   removeArrangementClip,
+  addArrangementMarker,
+  createMarkerId,
+  moveArrangementMarker,
+  removeArrangementLoop,
+  removeArrangementMarker,
+  renameArrangementMarker,
+  setArrangementLoop,
+  setArrangementLoopEnabled,
   removeSample,
   replaceSample,
   type SampleRemap,
@@ -264,6 +272,17 @@ interface ProjectActions {
   /** Moves or resizes an arrangement region; a drag merges into one undo step. A selected region keeps its selection. */
   updateArrangementClip(id: string, changes: ArrangementChanges, mergeKey?: string): void
   removeArrangementClip(id: string): void
+  /** Adds a marker at `beat` (named *Marker N* without a name); its id, or null at the limit. */
+  addArrangementMarker(beat: number, name?: string): string | null
+  /** Moves a marker; a drag passes one `mergeKey` (`arr-marker:<id>`), so it is one step. */
+  moveArrangementMarker(id: string, beat: number, mergeKey?: string): void
+  renameArrangementMarker(id: string, name: string): void
+  removeArrangementMarker(id: string): void
+  /** Sets the loop brace's range; a drag passes one `mergeKey` (`arr-loop`), so it is one step. */
+  setArrangementLoop(range: { readonly from: number; readonly to: number }, mergeKey?: string): void
+  removeArrangementLoop(): void
+  /** Turns looping on or off: a view edit, saved and not undone. */
+  setArrangementLoopEnabled(enabled: boolean): void
 }
 
 export interface ProjectState extends ProjectActions {
@@ -449,6 +468,18 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     },
     removeArrangementClip: (id) =>
       edit((project) => ({ ...project, arrangement: removeArrangementClip(project.arrangement ?? [], id) })),
+    addArrangementMarker: (beat, name) => {
+      const id = createMarkerId()
+      const before = get().project
+      edit((project) => addArrangementMarker(project, beat, name, id))
+      return get().project === before ? null : id
+    },
+    moveArrangementMarker: (id, beat, mergeKey) => edit((project) => moveArrangementMarker(project, id, beat), mergeKey),
+    renameArrangementMarker: (id, name) => edit((project) => renameArrangementMarker(project, id, name)),
+    removeArrangementMarker: (id) => edit((project) => removeArrangementMarker(project, id)),
+    setArrangementLoop: (range, mergeKey) => edit((project) => setArrangementLoop(project, range), mergeKey),
+    removeArrangementLoop: () => edit(removeArrangementLoop),
+    setArrangementLoopEnabled: (enabled) => editView((project) => setArrangementLoopEnabled(project, enabled)),
   }
 })
 

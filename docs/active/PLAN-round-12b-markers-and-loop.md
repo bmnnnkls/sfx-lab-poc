@@ -281,4 +281,14 @@ Signed off 2026-11-04: every row as proposed.
 
 ## Changes made while implementing
 
-(Filled in while building.)
+### Step 1: the model and format v13
+
+* **A new loop is off.** `setArrangementLoop` keeps `enabled` from the loop it replaces; a brace drawn where there was
+  none starts off, so drawing never starts looping by itself. The plan's browser step (draw, then turn it on) assumed it.
+* **The sanitizer names a nameless marker** *Marker N* (its place in the file) instead of dropping it: the name is not
+  what makes a marker valid. It warns only for what it drops or re-ids, and for a loop it orders or stretches.
+* **A loop squeezed at the timeline's end** stretches backwards (`MAX_TIMELINE_BEATS - 1` to the end), as a sample
+  loop does at its sample's end.
+* **`project-storage.test.ts` pinned the format version** (`toBe(12)`): a bump has to touch it too, as it does
+  `sample-marks.test.ts`, which now checks against `CURRENT_VERSION`.
+* `arrangementStops` and `nextArrangementMarker`, which the keys and *Loop to next marker* need, landed with the model.

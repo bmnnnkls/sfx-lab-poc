@@ -93,4 +93,26 @@ describe('project store undo/redo', () => {
     store().undo()
     expect(clipAt(store().project, region)).toBe(source)
   })
+
+  it('undoes a marker drag as one step', () => {
+    const id = store().addArrangementMarker(4)!
+    const before = store().history.past.length
+    for (const beat of [5, 6, 7, 8]) {
+      vi.advanceTimersByTime(50)
+      store().moveArrangementMarker(id, beat, `arr-marker:${id}`)
+    }
+    expect(store().history.past.length).toBe(before + 1)
+    store().undo()
+    expect(store().project.arrangementMarkers![0]!.beat).toBe(4)
+  })
+
+  it("doesn't undo turning the loop on, and undoing a range keeps it on", () => {
+    store().setArrangementLoop({ from: 0, to: 4 })
+    const before = store().history.past.length
+    store().setArrangementLoopEnabled(true)
+    expect(store().history.past.length).toBe(before)
+    store().setArrangementLoop({ from: 0, to: 8 })
+    store().undo()
+    expect(store().project.arrangementLoop).toEqual({ from: 0, to: 4, enabled: true })
+  })
 })

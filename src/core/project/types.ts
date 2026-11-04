@@ -215,4 +215,8 @@ export interface Project {
    * arranged in (old files), so no format-version bump was needed.
    */
   readonly arrangement?: readonly ArrangementClip[]
+  /** Named places on the arrangement's timeline, sorted by beat; absent when there are none. */
+  readonly arrangementMarkers?: readonly import('./arrangement-marks').ArrangementMarker[]
+  /** The loop brace on the arrangement's timeline; absent when none is drawn. */
+  readonly arrangementLoop?: import('./arrangement-marks').ArrangementLoop
 }
