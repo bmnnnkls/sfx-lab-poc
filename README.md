@@ -1,5 +1,7 @@
 # SFX Lab (POC)
 
+[Demo](https://bmnnnkls.github.io/sfx-lab-poc/)
+
 A browser-based music and sound-design sandbox: an Ableton-style **session view** (clip launcher and piano roll) and
 **arrangement**, on top of a Max-style **patcher** (node graph) for building instruments, effects and note
 processors, in a dockable VS Code-style workbench. Everything runs client-side on the Web Audio API, with a custom DSP
