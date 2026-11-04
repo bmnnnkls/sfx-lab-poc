@@ -29,5 +29,8 @@
   },
   "script": "tests/browser/library-tree.smoke.spec.ts, \"records production Chromium timings for a near-limit library\"",
   "date": "2026-11-05",
-  "note": "Production build (vite preview), Chromium via Playwright. search: typing a query that matches 238 rows; clear: back to the collapsed tree (34 rows), a full re-render from the catalog; expand: one top-level folder. Threshold for virtualization: 100 ms."
+  "note": "Production build (vite preview), Chromium via Playwright. search: typing a query that matches 238 rows; clear: back to the collapsed tree (34 rows), a full re-render from the catalog; expand: one top-level folder. Threshold for virtualization: 100 ms.",
+  "cpu": "Apple M3 Pro",
+  "commit": "ba349a2 (library phase 1, step 5)",
+  "load": "load averages 6.5 to 8.4 at the time"
 }

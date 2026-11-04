@@ -18,7 +18,7 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
   into the arrangement) are to plan.
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
-  Samples, library samples, several things at once.
+  Samples and the Library, library samples, several things at once (several library items: library phase 7).
 - **U5 Track copy and paste between projects, and *Duplicate group*** (rounds 5 and 7 left it). It needs modules and
   samples to come along, as the Library does.
 - **U6 Grouping several tracks at once**: needs a track multi-selection first.
@@ -36,7 +36,8 @@ Things that shipped without the check their plan asked for.
   [round 10's notes](archive/ui-redesign/PLAN-round-10-commands-and-keys.md#changes-made-while-implementing). Change any
   default a browser keeps.
 - **V2 Firefox and Safari passes for the redesign**: container queries and sticky scrolling (round 4), Shift+F10
-  (round 5), float WAV copies and stereo MP3 (rounds 11a and 11b).
+  (round 5), float WAV copies and stereo MP3 (rounds 11a and 11b), the Library tree's drag and drop and spring-open
+  (library phase 1).
 - **V3 Make V1 and V2 possible**: install Firefox, and download the Playwright Firefox and WebKit builds that match the
   installed Playwright version.
 - **V4 Listening passes for 11a, 11b and 11c-2**: an old project with a stereo file; reverse used by a clip, a region

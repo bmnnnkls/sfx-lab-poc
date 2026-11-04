@@ -109,6 +109,9 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   brace's edges stop their moves and releases there. *(round 12b)*
 * **`ActionMenu` draws no menu without a subject.** A trigger whose subject depends on the pointer (the mark lane)
   always needs one, or a right-click there opens nothing. *(round 11c-2)*
+* **The lazy library service lists every method by hand** (`app/library-service.ts`). A parameter added to
+  `PersonalLibrary` is dropped there silently until the wrapper passes it on: the Library's ■ never turned back into
+  ▶, because `preview`'s new `onStop` didn't reach the library. *(library phase 1)*
 * **Two panes asking for one sample in the same tick decode it twice**, since each pane's `loading` is its own and
   neither holds a copy yet. `openAudio` waits on one decode per sample (`decodeWorking`). *(round 11c-3)*
 * **A second pane without a sample of its own follows the first,** so whatever moves the first moves it too. Code

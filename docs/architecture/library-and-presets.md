@@ -58,6 +58,16 @@ and every associated preset's sample choices. Missing modules/samples and extern
 are refused. Catalog folders/items cap at 1024/4096. Deletion is recursive recoverable trash. Restore makes the parent
 path visible. Revisions and hash blobs are never automatically collected, preserving project references and undo.
 
+A preset belongs with its sound. `moveLibraryEntry(catalog, id, folderId)` moves an item with its live presets (all
+of them for a trashed sound, which restoring brings back), or a folder; it refuses a folder into itself or a folder
+inside it, a trashed or missing destination, and a preset on its own. Moving a trashed entry restores it where it
+lands, as one edit: the move comes first, so the restore walks the destination's path and the old parents stay in the
+trash. `libraryItemDuplicate` copies a live item and its presets, named "… copy" only beside the original;
+`duplicateLibraryFolder` deep-copies a live folder's live contents with new ids, sharing revisions and samples (they
+are immutable), and carries a preset when its sound is copied, wherever the preset was kept. Both check the caps
+before writing anything. An older catalog may hold a preset in another folder than its sound: the Library shows it
+under the sound, and the next move takes it along.
+
 `insertLibraryAsset` creates a new instrument track or replaces an explicit compatible graph. It remaps nodes, wires,
 module definitions, nested interfaces, derived exposed port/knob IDs and all their references, automatic module-control
 keys, guarded target paths, per-instance overrides, preset states and fresh revision signatures. Interfaces must be
@@ -94,13 +104,44 @@ AudioContext/source. Generation tokens cancel asynchronous decoding/rendering; n
 and closes contexts, including before source start. Preview resolves explicitly as started/canceled; stale failures
 resolve as canceled while current failures remain errors. The panel gates busy/status/catalog updates by operation
 ownership, invalidating pending preview UI work on stop/navigation/unmount. Preview does not use the project engine, transport, history or
-autosave. `app/library-service` and `ui/library/LibraryPanel` load on demand to keep production chunks below the existing
-warning limit. The Library panel provides folder navigation, mixed lists, search/type filters, dependency/sample detail,
-explicit save/insert/replace, preview and recoverable trash controls. Items and folders have menus, and rename in
-place; the toolbar's name field is for saving. The catalog and the open folder are in `state/library-store.ts`, which
-the view and the library's actions keep current; the view's buttons run those actions and report on its status line. Bundle selection is reconciled against current
-nontrashed items, with hidden-selection counts and a clear action. Invalid scene inputs disable insertion; the core
-still enforces integer/range checks and occupied-slot replacement.
+autosave. A preview reports when it stops, by ending or by `stopPreview` (`preview(item, onStop)`), so the Library
+shows ■ on the item while it plays. `app/library-service` and `ui/library/LibraryPanel` load on demand to keep
+production chunks below the existing warning limit; the deferred service passes `onStop` on, and calls it for a
+preview cancelled while it loads.
+
+Things are saved where they are: a track's, bus's or the master's menu has *Save to library* (an instrument's ▸
+*Instrument + notes*, *Audio effects*, *Note effects*, the last only with a note graph) or *Save effects to library*,
+a session clip *Save to library* and a sample *Add to library* (`state/actions/library-save.ts`). The new item is
+named after its source (*Bass*, *Bass effects*, *Bass notes*, *Master effects*, the clip's or sample's name), goes into
+the folder open in the Library (the top level when it is gone or trashed) and is found as the one id the catalog
+didn't have before. The action resolves with "Saved Bass to Drums" and a *Show* button for its toast, which reveals
+the item in the Library and starts renaming it. A refused capture (a graph with a track's audio in it) reports its
+reason.
+
+The Library view is one tree (`ui/library/library-tree.ts` for the rows and keys, `LibraryTree.tsx`): *My library* and
+*Trash*, folders first and then items in each folder by name with numbers in order, and each sound's presets under it,
+wherever their own folder points. A preset whose sound is trashed or gone shows as an item in its own folder. The trash
+shows what was trashed at its top-most level, a folder with its contents. A search or a type filter shows the matches,
+the folders above them and a matching preset's sound, all open; a preset also matches on its sound's name, and the trash
+is searched only while it is open. Rows are `ActionMenu` triggers, drag sources (not the roots), drop targets (folders
+and roots) and spring open under a resting drag (see [workbench.md](workbench.md#drag-and-drop)). The active row is the
+one Tab reaches and the details show; a click selects, ⇧ extends along the rows, ⌘ toggles; Enter runs the details'
+main button and Space previews or stops. The header is search, the type filter and ⋯ (*My library*'s menu and *Export
+selection…*). The status line shows only with something to say, and carries *Retry* after the catalog failed to read
+(an older tab holding the database). The details (`LibraryDetails.tsx`) show the kind, one line of facts, the samples,
+one main button and ⋯ for the rest: *Add as new track* for an instrument or a preset of one, *Replace effects (notes)
+on Bass* for effects, *Insert into scene n of Bass* for a clip (the first empty slot of the selected track of its kind),
+*Add to project* for a sample, *Restore* for anything trashed; a button that can't run is disabled with the reason
+beside it. An empty library says how things get in and offers to save the selected instrument. When the active row
+goes to the trash, the view moves on to its folder.
+
+`state/library-store.ts` holds the catalog, the active row, the selected items, the item being previewed and a request
+for the view (an export to review, an import to pick), which the menus set and the view takes. The open folder, where
+saves go, is derived from the active row (`openFolderOf`: the active folder, or the active item's, its sound's for a
+preset). The view's buttons run the library's actions and report on its status line; menus report to the toasts.
+Selected items that leave (trashed, gone) leave the selection. The scene choices for a clip (*Insert into Bass ▸*,
+*Replace clip in Bass ▸*) disable the scenes that can't take it, with the reason; the core still enforces range checks
+and occupied-slot replacement.
 
 Verification covers full nested interface/control/sample remapping and preset recalls after reload, independent project
 package export after catalog changes/deletion, one-step insertion undo, duplicate names/cycles, conservative retention,
@@ -125,7 +166,10 @@ uses bounded incremental fflate inflation and actual-output/CRC checks. Limits c
 bytes, each entry, entry count, JSON size/objects/values/depth and module expansion. The complete format, strict ZIP
 subset and budgets are in [reference/library-bundle.md](../reference/library-bundle.md).
 
-Library review displays items/folders/dependencies/bytes/conflicts/missing files before export or import. Partial
+Library review is a modal dialog (`BundleDialog.tsx`, *Bundle review*), opened by *Export as .sfxlib…* on an item or
+folder, ⋯ ▸ *Export all…* or *Export selection…*, *Import .sfxlib…* (the view's hidden file input), or an `.sfxlib`
+dropped on the view. It says in a sentence what the bundle holds and where an import goes, warns about missing
+samples, and lists items, revisions and samples under *Details*, before export or import. Partial
 export requires an explicit checkbox and manifest/filename markers. Partial imports can be reviewed but cannot commit.
 Cancel/staging never write storage. Confirmed import always creates a fresh named root; repeated imports add independent
 copies. `library-storage` compares existing hash bytes inside the same serialized read/write transaction, retains equal

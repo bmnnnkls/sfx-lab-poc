@@ -1,7 +1,8 @@
 ---
-status: active
-date: 2026-11-04
-note: "Phase 1 of SPEC-library-ux.md: one Library tree with items and drag and drop, and the Save to library actions that replace the view's save row. Decisions signed off 2026-11-04; ready to build."
+status: done
+date: 2026-11-05
+shipped_in: architecture/library-and-presets.md
+note: "Phase 1 of SPEC-library-ux.md, built on feat/library-improvements: one Library tree with items and drag and drop, Save to library in the menus, compact details and a bundle dialog. Stays in active/ until phase 7 archives the round."
 ---
 # Library phase 1: the tree, drag and drop, and saving from where things are
 
@@ -460,3 +461,7 @@ Signed off 2026-11-04: every row as proposed.
   preview at 280 px in the sidebar and docked in the panel at about 760 px.
 * **Step 5:** chunks: main `index` 113.79 kB gzipped (113.72 before the phase), `state` 142.86 kB (140.12),
   `LibraryPanel` 7.82 kB (5.65). The build is warning-free.
+* **Step 6:** the notes went to `architecture/library-and-presets.md` and `workbench.md` (the view, the catalog edits,
+  saving, the `library-root` subject, the tree's drops and spring-open, toast buttons), decisions 78–88, a gotcha (the
+  lazy library service drops new parameters), a baseline (the near-limit tree), the backlog (U4, V2) and STATUS. The
+  tour has a short Library section; the spec's phasing says what phase 1 took from phases 2 and 7.

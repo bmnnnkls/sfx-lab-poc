@@ -384,7 +384,8 @@ Limits found in the code:
 ## 7. Phasing
 
 Each phase has its own plan (`PLAN-library-1-tree.md` … `PLAN-library-7-polish.md`), and [RUNBOOK-library.md](RUNBOOK-library.md)
-says how they are built. Phase 1 took the context-menu saves from phase 2. Phase 5's plan stores the link without a format
+says how they are built. Phase 1 took the context-menu saves and the root menu from phase 2, and Space and Enter on
+rows from phase 7 (F2 and Delete already reached rows through the verbs). Phase 5's plan stores the link without a format
 bump, which corrected D11 (signed off).
 
 | Phase | Work | Depends on |

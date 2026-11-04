@@ -1,6 +1,6 @@
 # Status
 
-Where the project stands, in one page. Updated 2026-11-04. Update it whenever a round or a piece of work lands
+Where the project stands, in one page. Updated 2026-11-05. Update it whenever a round or a piece of work lands
 (see [dev/doc-workflow.md](dev/doc-workflow.md)).
 
 ## Branches and releases
@@ -55,6 +55,11 @@ two ([archive/ui-redesign](archive/ui-redesign/README.md)).
 
 Outside the redesign, [active/SPEC-effects-round-2.md](active/SPEC-effects-round-2.md) has parts 1–2 done, and
 part 3 (Waveshaper and Crusher) is ready to build.
+
+The library UX round ([spec](active/SPEC-library-ux.md), [runbook](active/RUNBOOK-library.md)) runs on
+`feat/library-improvements`. **Phase 1 is done** (2026-11-05, [plan](active/PLAN-library-1-tree.md)): the Library is
+one tree of folders, items and presets with drag and drop, *Save to library* in the menus of tracks, buses, the master,
+clips and samples, compact details and a bundle review dialog. Phases 2–7 are planned.
 
 ## Accepted limits
 

@@ -135,6 +135,15 @@ main thread, one task.
 a region at beat 4000 and one at 0 at the closest zoom (256 px a beat) make each lane 1,025,976 px wide. Five seconds
 of sideways wheel scrolls and ⌘-wheel zooms out and back in gave no long task (none over 50 ms).
 
+## Library tree
+
+The near-limit case of `tests/browser/library-tree.smoke.spec.ts` (2026-11-05, library phase 1, production build,
+Chromium 156 via Playwright, Apple M3 Pro, load averages 6 to 8, `ba349a2`): a catalog of 1024 folders (32 top-level, 31 inside
+each) and 4096 items (a quarter presets). A search matching 238 rows took 28–36 ms to the next frame, clearing it (a full
+re-render of the collapsed tree, 34 rows) 14–21 ms, and opening a top-level folder 14–19 ms. Raw numbers in
+[measurements/library-tree-near-limit.json](../measurements/library-tree-near-limit.json). The threshold for
+virtualizing the tree is 100 ms.
+
 ## Audio engine
 
 The F1 capacity campaign (2026-10-19) is the most recent engine measurement. Its accepted results (first callback

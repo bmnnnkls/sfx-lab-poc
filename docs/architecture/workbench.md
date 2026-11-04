@@ -70,9 +70,8 @@ regions without knowing where they are docked (the [UI redesign](../archive/ui-r
   (and a module's interface) as a drawer over the canvas, opened by *Properties* or a double-click on a node, with
   Notes' heard notes under the canvas below 640 px; Clip's hint shortens, its velocity lane shrinks when short and
   the automation lanes become a `<select>`; Samples' rows take two lines and, under 300 px of height, the drop hint
-  goes; Library's folders are a tree
-  (`FolderTree`, the WAI-ARIA tree pattern) in three, two or one columns, the narrowest showing the open folder's
-  path and its folders until *All folders*.
+  goes; the Library's tree (`LibraryTree`, the WAI-ARIA tree pattern) sits beside its details from 640 px and over
+  them below, its header (search, type filter, ⋯) on one row.
 * **One font everywhere.** Inter is bundled (`@fontsource-variable/inter`, imported in `main.tsx`), so text measures
   the same on every platform and these layouts wrap the same on a Linux CI runner as on a Mac. The first render
   waits for it (at most a second); the fallbacks in `theme.css` only cover glyphs Inter lacks (✎, ▶).
@@ -166,7 +165,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
 
 * **Subjects.** What was right-clicked is a `Subject`: a small value with a `kind` and ids, never a component or a DOM
   element. The kinds: `track` (instrument, audio and return tracks), `group` (a group of tracks), `master`, `clip` (a session clip), `slot` (an
-  empty session cell), `automation-slot`, `scene`, `sample`, `library-item`, `library-folder`, `nodes`, `canvas`,
+  empty session cell), `automation-slot`, `scene`, `sample`, `library-item`, `library-folder`, `library-root` (*My library* or the
+  Library's trash), `nodes`, `canvas`,
   `module`, `region`, `lane`, `control` (a panel control or a mixer value), `sound` (a snapshot or preset), `pin` (a
   pinned front panel: an owner and a graph), `sample-selection` (a Wave editor pane's lanes: its sample's
   selection and cursor in that pane, and the clipboard, read from the stores), and `sample-marker`, `sample-region` and
@@ -192,9 +192,10 @@ right-clicked; what can be done to it lives in `state/actions/`.
   import only `@core`, so actions are plain functions that tests run on a project without React.
 * **Running.** `runAction(id, subject, context, { choice, report })` runs nothing that doesn't apply or isn't enabled.
   Project edits go through the project store, one undo step per action; library and layout actions aren't in project
-  undo. An asynchronous action (the library's, the sounds') resolves with a message or throws; `runAction` reports it
-  to the toasts (`usePersistenceStore.notify`), or to `report` (the Library's and Sounds' status lines, from their own
-  buttons), and returns a promise that settles after.
+  undo. An asynchronous action (the library's, the sounds') resolves with a message, or with `{ message, action }`
+  (`ActionReport`: a button for its toast, *Show* after a save to the library), or throws; `runAction` reports it to
+  the toasts (`usePersistenceStore.notify`), or to `report` (the Library's and Sounds' status lines, from their own
+  buttons, which leave the button out), and returns a promise that settles after.
 * **Verbs.** An action can name the edit key that runs it on the focused thing: `verb` is `delete`, `duplicate`,
   `copy`, `cut`, `paste` or `rename`, at most one action of a kind per verb (a unit test checks it). Every kind's
   *Rename* has `rename` (set in `renameAction`); the deletes that remove more than the thing itself (*Delete group and
@@ -203,10 +204,11 @@ right-clicked; what can be done to it lives in `state/actions/`.
   takes a paste (the graph's selected nodes paste on the canvas around them). `verbTarget` says what would run.
 * **Names.** `subjectName(subject)` names a subject for the palette: the track's, group's, clip's, scene's (*Scene
   2* when unnamed), sample's or region's name, *Master*, *2 nodes* or a single node's title, a control's target label,
-  *Lead instrument* for a pin, *Selection in Kick* for the Wave editor's lanes, *Hit in Kick* for a marker or region
+  *Lead instrument* for a pin, *My library* and *Trash* for the Library's roots, *Selection in Kick* for the Wave editor's lanes, *Hit in Kick* for a marker or region
   and *Loop in Kick* for a sample's loop, and the kind's word (*Track*) for a
   thing that is gone.
-* **Buttons run actions too.** ×, ✎, ■, M and S, the sample row's buttons, the Library's details and folder buttons,
+* **Buttons run actions too.** ×, ✎, ■, M and S, the sample row's buttons, the Library's main button, ▶ and empty-state
+  save,
   the Sounds rows, a card's *Edit* and *Unlink*, the toolbar's *Group into module* and the module bar's buttons call
   `runAction` with the same subject, so a button and its menu entry share one implementation. Two exceptions keep the
   view's choice: a preset's *Recall* and *Update* in Sounds act on the scope chosen at the top of the view (the menu's
@@ -215,7 +217,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
   next render; actions don't reach into view state. A deleted region stays named in the selection store and shows as
   nothing. What a menu needs from a view lives in a store: the
   graph editor's open sub-patch and module-interface toggle and its *Add node…* request (`graph-view-store`), and the
-  Library's catalog and open folder (`library-store`).
+  Library's catalog, active row, selection, preview and export or import request (`library-store`; the open folder
+  is derived from the active row).
 
 * **Pins.** A pin's menu is *Open* (tooltip "Open the full editor"), *Collapse* / *Expand*, *Move up*, *Move down*
   (disabled at the ends) and *Unpin* (not `danger`: nothing is lost); its header's buttons run them. The `open` group of
@@ -234,6 +237,10 @@ right-clicked; what can be done to it lives in `state/actions/`.
   `describeActions` and runs the chosen one with `useActionContext()`. With a `null` subject it draws the trigger
   without a menu. Its entries come from `useActionEntries(subject, context, only?)`, which a `PopupMenu` may use for
   some of a subject's actions: the Wave editor's *Process ▾* and *View ▾* are its `process` group and its zooms.
+* **Toasts can carry one button.** `notify(kind, message, details?, action?)`: the action is `{ label, run }`, kept in
+  memory only. The toast draws it beside ×; running it dismisses the toast, and a toast with a button stays 10 s
+  instead of 5 so it can be reached.
+* **A choice's tooltip** reaches its submenu entry, so a disabled choice says why (a scene that has a clip).
 * **Checkable entries.** A `MenuAction` with `checked` (true or false) is drawn as a Radix checkbox item
   (`menuitemcheckbox`) with a ✓ when true, in both kinds of menu.
 * **Entries are built only while the menu is open,** in a component inside the menu's content: `ContextMenu` takes a
@@ -264,15 +271,16 @@ right-clicked; what can be done to it lives in `state/actions/`.
 
 | Kind | Open | Edit | Clipboard | Delete |
 |---|---|---|---|---|
-| Track | Stop (instrument, audio), Open instrument, Open effects, Open notes, Show automation | Rename, Duplicate, Mute / Unmute, Solo / Unsolo | | Delete |
-| Master | Open effects, Show automation | | | |
-| Session clip | Launch / Restart, Edit notes or Edit clip, Edit automation | Rename, Duplicate to empty slot, Place on arrangement | Copy, Cut | Delete |
+| Track | Stop (instrument, audio), Open instrument, Open effects, Open notes, Show automation | Rename, Duplicate, Save to library ▸ Instrument + notes, Audio effects, Note effects (instrument) or Save effects to library (audio, return), Mute / Unmute, Solo / Unsolo | | Delete |
+| Master | Open effects, Show automation | Save effects to library | | |
+| Session clip | Launch / Restart, Edit notes or Edit clip, Edit automation | Rename, Duplicate to empty slot, Place on arrangement, Save to library | Copy, Cut | Delete |
 | Empty slot | | Create clip (MIDI), Add audio clip ▸ samples (audio) | Paste | |
 | Automation slot | Launch / Stop, Edit | Create (empty) | Copy, Paste (empty) | Delete |
 | Scene | Launch | Rename, Insert scene before, Duplicate | | Delete |
-| Sample | Preview, Open in wave editor | Rename, New sampler track, New audio track | | Remove from project |
-| Library item | Preview | Rename, Duplicate, Insert new instrument track, Replace selected graph / Add sample to project | | Trash; in the trash: Restore |
-| Library folder | Open | Rename, New folder inside | | Trash; in the trash: Restore |
+| Sample | Preview, Open in wave editor | Rename, New sampler track, New audio track, Add to library | | Remove from project |
+| Library item | Preview | Rename, Duplicate, Insert new instrument track, Replace selected graph / Add sample to project, Insert into Bass ▸ scenes and Replace clip in Bass ▸ scenes (clips), Move to ▸ My library and folder paths (not presets), Export as .sfxlib… | | Trash; in the trash: Restore |
+| Library folder | Open | Rename, New folder inside, Duplicate (deep), Move to ▸, Export as .sfxlib… | | Trash; in the trash: Restore |
+| Library root | | My library: New folder, Import .sfxlib…, Export all… | | Trash: Restore all |
 | Nodes | Open module (one use) | Rename (one control), Bypass / Unbypass (note effects), Group into module, Unlink (one use) | Copy, Cut, Duplicate | Delete |
 | Canvas | Add node… | Add sampler ▸ samples (an instrument graph, while the project has samples) | Paste | |
 | Module | | Rename, Show / Hide interface | | Delete (disabled while used, the reason in its title) |
@@ -299,8 +307,8 @@ track opens its volume lane, in the selected (or first) clip, or a return's slot
   in-place field selects its text a task after it mounts, once the menu that started it is gone (its focus trap holds
   the focus until then). **`InPlaceRename`** draws a view's name, or the field in its place while the store names
   this subject in this view: a track renamed from the mixer edits in the mixer only. Where it shows: the session
-  header and mixer strip (track), the slot (clip), the scene button, the sample row, the Library's item row and
-  folder tree row, the sound row, a node card's title (controls). The module bar's and a panel control's (edit mode)
+  header and mixer strip (track), the slot (clip), the scene button, the sample row, the Library's item and folder
+  rows, the sound row, a node card's title (controls). The module bar's and a panel control's (edit mode)
   name fields are always there; *Rename* selects the module bar's.
 * **Committing** is `commitRename(subject, name, context)`: each kind's setter, one undo step. The new setters are in
   `core/project/rename.ts`: `setTrackName`, `setClipName` (session clips; a region's content is a copy and keeps its
@@ -430,9 +438,10 @@ Things picked up in one view land in another. A drop is "paste here": it runs a 
 action's *Paste* runs, so every drop has a menu twin and the two can't drift apart.
 
 * **Payloads and targets are subjects.** What is dragged is a `DragPayload`: a `clip` (a session clip), a `sample`, a
-  `sound` (a project preset; snapshots don't drag), a `library-item`, a `track` or a `group`. Where it lands is a
-  `DropTarget`: a `slot`, a `lane` (with the snapped beat under the pointer), a `track` or a `group` (with the `edge` the
-  pointer is on: before, after, or a group's middle third, inside), the `master` or a `canvas` (with the canvas point). A
+  `sound` (a project preset; snapshots don't drag), a `library-item`, a `library-folder`, a `track` or a `group`. Where
+  it lands is a `DropTarget`: a `slot`, a `lane` (with the snapped beat under the pointer), a `track` or a `group` (with
+  the `edge` the pointer is on: before, after, or a group's middle third, inside), the `master`, a `canvas` (with the
+  canvas point), or in the Library's tree a `library-folder` or a `library-root`. A
   payload holds ids and is read when it lands, so something deleted mid-drag drops nothing.
 * **One list of drops.** `state/actions/drops.ts` holds every `Drop`: its payload and target kinds, `accepts` (refused
   drops show the "no drop" cursor), `effect` (`move` or `copy`) and `run`. `dropFor(payload, target, context)` is the
@@ -450,6 +459,17 @@ action's *Paste* runs, so every drop has a menu twin and the two can't drift apa
 | Project preset | | | Recalls it, in its own domain, when the track's graph matches its revision | On a bus, when its effects match | When the master's effects match | |
 | Library item | A clip of the track's kind: as the Library's *Insert into empty slot* | | An instrument, note effect, audio effect or preset: replaces that graph (*Replace selected graph* with this owner) | On a bus: an audio effect made from Group in, or an effects preset | An audio effect or effects preset | The same into this graph, when its kind matches and the canvas is at the top level |
 | Track, group | | | Moves it before or after the track (`moveTrack`, `moveGroup`), into that track's group | Before, after or inside it | | |
+
+In the Library's tree:
+
+| Payload | Folder | *My library* | *Trash* |
+|---|---|---|---|
+| Item | Moves it there with its presets (`moveLibraryEntry`); Alt copies it (`libraryItemDuplicate`); a trashed one is restored there | The same, at the top level | *Trash*, with its presets; a trashed one refuses |
+| Folder | Moves it inside, never into itself or a folder inside it; Alt deep-copies it (`duplicateLibraryFolder`); a trashed one is restored there | The same, at the top level | *Trash*, with its contents; a trashed one refuses |
+| Preset under its sound | Refuses: it goes where its sound goes | Refuses | *Trash* |
+
+A drop where the thing already is does nothing and refuses. The menu twins are *Move to ▸*, *Duplicate*, *Trash* and
+*Restore*; the drops onto the trash run the *Trash* actions themselves.
 
 Everything else refuses: an occupied slot, a track of the other kind, a library clip on a lane, a canvas inside a
 module, an effect made for another input (`trackIn`, `returnIn`, `masterIn`, `groupIn`), a preset on a graph that
@@ -473,18 +493,22 @@ group into itself or deeper than four levels, and a move that would make the mix
   the session grid and the mixer, y in the tree and the arrangement) and shows as `data-edge` while a track or a group is
   over it. Presets and library items land on the track as before and ignore the edge.
 * **Sources and targets.** Sources: a filled session slot, a sample row, a project preset's row in Sounds, a library
-  item's row, a Tracks tree row, a track's name (session header, mixer strip, lane name; not the whole header, whose
+  item's or folder's row, a Tracks tree row, a track's name (session header, mixer strip, lane name; not the whole header, whose
   slider keeps its gesture) and a group's band, collapsed header, strip or lane. Targets: every session slot (a filled one shows `refuse`), a lane's whole row (so a drop over a region
-  lands too), the session header, the mixer strip, the lane name, the master's header and strip, and a graph
-  editor's canvas.
+  lands too), the session header, the mixer strip, the lane name, the master's header and strip, a graph
+  editor's canvas, and the Library's folder and root rows.
+* **Spring-open rows.** `useSpringOpen(open)` opens a closed Library row (a folder, a sound with presets, a root) once
+  a drag of ours has rested on it for `SPRING_LOAD_MS`; leaving it, dropping or ending the drag first cancels.
+  `mergeDragProps` runs several sets of drag props on one element, so a tree row that is a source, a target and springs
+  open spreads them without naming a drag handler.
 * **Spring-loaded tabs.** A drag of ours resting 500 ms (`SPRING_LOAD_MS`) on the tab of a view that isn't showing,
   or on an activity-bar button, shows that view (`revealView`), a collapsed sidebar or panel included; moving off
   first cancels. `useSpringLoad` listens on the workbench's root (a tab's button carries its view in flexlayout's id)
   and on the activity bar's strip. A tab group keeps hidden views mounted, so the source is still there when its view
   is hidden mid-drag.
 * **The rule.** `tests/architecture.test.ts`: outside `ui/shared/drag/`, only `ControlCell` (the control reorder, with
-  its own type `application/x-sfxlab-control`), `SamplesPanel` (operating-system files, `Files` only) and
-  `RegionToggles` (which cancels drags) may use `dataTransfer`, `draggable` or `onDrag…`/`onDrop` handlers.
-* **Not yet.** Dragging regions out of the arrangement, drops that make tracks, files outside Samples, library samples,
-  several things at once, keyboard and touch drags (the menus cover both), and popout windows (turned off). Checked
+  its own type `application/x-sfxlab-control`), `SamplesPanel` and `LibraryPanel` (operating-system files, `Files`
+  only: audio files, and an `.sfxlib` to review) and `RegionToggles` (which cancels drags) may use `dataTransfer`, `draggable` or `onDrag…`/`onDrop` handlers.
+* **Not yet.** Dragging regions out of the arrangement, drops that make tracks, files outside Samples and the Library,
+  library samples, dragging tracks, clips, samples or presets onto library folders, several things at once, keyboard and touch drags (the menus cover both), and popout windows (turned off). Checked
   in Chromium only.

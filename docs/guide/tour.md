@@ -82,6 +82,16 @@ Click **✎** on a clip to open it in **Clip**, the piano roll:
   paste, delete, crop and insert silence with a crossfade at every join. Turn on **Edits make copies** to keep the
   original instead.
 
+## Keep sounds in the library
+
+Right-click the **Bass** track name and choose **Save to library ▸ Instrument + notes**. The toast says where it went;
+**Show** opens the **Library** with the new sound ready to rename. Buses and the master save their effects the same
+way, and clips and samples save from their own menus. In the Library, the presets you saved for a sound sit under it.
+Drag sounds and folders onto folders to sort them (hold Alt to copy), or onto **Trash**; drag them back out to
+restore them. **▶** or Space previews a sound on its own, and Enter puts it into the project: an instrument as a new
+track, a clip into the first empty slot. Share a folder with **Export as .sfxlib…** from its menu, and open one by
+dropping the file on the Library.
+
 ## Arrange
 
 Open **Arrangement** (activity bar, or Tab). Drag a session clip onto a lane, or right-click an empty lane to place
