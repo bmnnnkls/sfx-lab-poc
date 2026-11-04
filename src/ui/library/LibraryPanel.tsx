@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { type LibraryBundleStage, type LibraryBundleSelection, libraryBundleConflicts, type LibraryCatalog, type LibraryItem, type SnapshotScope, browseLibrary, libraryDependencies, saveLibraryFolder, saveLibraryItem } from '@core'
-import { type Subject, commitRename, insertLibraryClipAt, runAction, useLibraryStore, usePersonalLibrary, useProjectStore, useSelectionStore } from '@state'
+import { type Subject, commitRename, insertLibraryClipAt, openFolderOf, runAction, useLibraryStore, usePersonalLibrary, useProjectStore, useSelectionStore } from '@state'
 import { useDragSource } from '../shared/drag'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
@@ -16,7 +16,7 @@ const ItemRow = ({ itemId, children }: { itemId: string; children: ReactNode }) 
 
 export const LibraryPanel = () => {
   const library = usePersonalLibrary(), context = useActionContext(), project = useProjectStore(s => s.project), selection = useSelectionStore()
-  const catalog = useLibraryStore(s => s.catalog), setCatalog = useLibraryStore(s => s.setCatalog), folder = useLibraryStore(s => s.openFolder), [selected, setSelected] = useState('')
+  const catalog = useLibraryStore(s => s.catalog), setCatalog = useLibraryStore(s => s.setCatalog), folder = useLibraryStore(openFolderOf), [selected, setSelected] = useState('')
   const [name, setName] = useState('My sound'), [query, setQuery] = useState(''), [kind, setKind] = useState(''), [trash, setTrash] = useState(false)
   const [domain, setDomain] = useState<'patch' | 'fx' | 'notes'>('patch'), [sampleId, setSampleId] = useState(''), [scene, setScene] = useState(0)
   const [bundle, setBundle] = useState<{ stage: LibraryBundleStage; exporting: boolean } | null>(null), [partial, setPartial] = useState(false), [checked, setChecked] = useState<string[]>([])
@@ -58,7 +58,7 @@ export const LibraryPanel = () => {
     setBundle({ stage: await library.prepareBundle(selection, bundleName), exporting: true })
     return 'Review bundle dependencies before downloading'
   })
-  const navigate = (id: string | null) => { stopPreview(); useLibraryStore.getState().open(id); setSelected('') }
+  const navigate = (id: string | null) => { stopPreview(); useLibraryStore.getState().setActive(id === null ? null : { kind: 'folder', id }); setSelected('') }
   // A folder opened from its menu, or one just made inside it, shows nothing selected either.
   useEffect(() => setSelected(''), [folder])
   /** Runs one of the library's actions from a button here: busy while it runs, its message on the status line. */

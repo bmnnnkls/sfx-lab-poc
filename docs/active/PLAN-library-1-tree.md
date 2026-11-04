@@ -409,3 +409,14 @@ Signed off 2026-11-04: every row as proposed.
   trashed goes to the top level.
 * **Step 2:** `saveToLibrary(page, subject, choice?)` is in `fixtures.ts` from this step, and the context-menus spec
   checks the submenu, the disabled *Note effects*, four saves and *Show*.
+* **Step 3:** `openFolder` is a function, `openFolderOf(state)` for a selector and `openFolder()` for actions; the
+  store's `open` is gone and `setActive` replaces it. The old view reads it through the selector until step 5.
+* **Step 3:** a clip's scene entries name the track: *Insert into Bass ▸ Scene 1…* and *Replace clip in Bass ▸*. The
+  track is the selected one when it is of the clip's kind, or else the first that is (`clipTrackFor`, which the
+  details' primary button uses too). *Replace clip in* disables the empty scenes ("No clip to replace"); *Insert into*
+  the occupied ones ("Bass has a clip there"), and both say when there is no track of the kind or the sample is
+  missing. Scene titles are the scenes' names.
+* **Step 3:** *Move to ▸* and *Export as .sfxlib…* sit in the `edit` group; a preset has no *Move to*. *Restore all*
+  is in `delete`, beside *Restore*. *Export all…* exports every live folder and item, named *My library*.
+* **Step 3:** the request carries the bundle's name as well as the selection, since the view used to take it from the
+  name field; requests show the Library view.

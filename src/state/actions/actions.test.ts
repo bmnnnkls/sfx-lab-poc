@@ -29,6 +29,7 @@ const SUBJECTS: readonly Subject[] = [
   { kind: 'sample', sampleId: '' },
   { kind: 'library-item', itemId: '' },
   { kind: 'library-folder', folderId: '' },
+  { kind: 'library-root', root: 'mine' },
   { kind: 'nodes', target: { master: true }, path: [], nodeIds: [] },
   { kind: 'canvas', target: { master: true }, path: [], at: { x: 0, y: 0 } },
   { kind: 'module', moduleId: '' },

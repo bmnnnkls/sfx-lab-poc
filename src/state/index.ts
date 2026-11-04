@@ -49,7 +49,7 @@ export { useMidiStore, useMidi, MidiProvider, editMidiMappings, type MidiService
 export * from './automation-store'
 export * from './actions'
 export { useRenameStore, sameSubject, type Renaming } from './rename-store'
-export { useLibraryStore } from './library-store'
+export { type LibraryRequest, type LibraryRowRef, openFolder, openFolderOf, useLibraryStore } from './library-store'
 export { createClipboard, subscribeToClipboards, useClipboard, type Clipboard } from './clipboard'
 export { audioClipboard, copyWaveSelection } from './audio-clipboard'
 export {

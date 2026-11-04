@@ -5,7 +5,7 @@ import { clipActions } from './clip'
 import { controlActions } from './control'
 import { groupActions } from './group'
 import { laneActions } from './lane'
-import { libraryFolderActions, libraryItemActions } from './library'
+import { libraryFolderActions, libraryItemActions, libraryRootActions } from './library'
 import { masterActions } from './master'
 import { moduleActions } from './module'
 import { canvasActions, nodeActions } from './nodes'
@@ -28,7 +28,7 @@ export { runVerb, verbTarget } from './verbs'
 export { subjectName } from './subject-name'
 export { duplicateSessionClip, placeOnArrangement } from './clip'
 export { commitRename, startRename } from './rename'
-export { graphFitsOwner, insertLibraryClipAt, insertionScope, isInstrumentItem, libraryClipFitsSlot, replaceGraph } from './library'
+export { clipTrackFor, graphFitsOwner, insertLibraryClipAt, insertionScope, isInstrumentItem, libraryClipFitsSlot, replaceGraph } from './library'
 export { canPasteClipOnLane, pasteClipOnLane } from './lane'
 export { canPasteClipInSlot, pasteClipInSlot } from './slot'
 export { canRecallPresetOn, recallPresetOn } from './sound'
@@ -48,6 +48,7 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   sample: sampleActions,
   'library-item': libraryItemActions,
   'library-folder': libraryFolderActions,
+  'library-root': libraryRootActions,
   nodes: nodeActions,
   canvas: canvasActions,
   module: moduleActions,

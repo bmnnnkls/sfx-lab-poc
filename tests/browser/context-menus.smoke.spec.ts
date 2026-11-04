@@ -197,7 +197,7 @@ test('a library item trashes and restores from its menu, and a folder makes one 
   const items = panel.getByLabel('Library items', { exact: true })
   const synth = items.getByRole('button', { name: /^Synth/ })
   await synth.click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Preview', '—', 'Rename', 'Duplicate', 'Insert new instrument track', 'Replace selected graph', '—', 'Trash'])
+  expect(await menuEntries(page)).toEqual(['Preview', '—', 'Rename', 'Duplicate', 'Insert new instrument track', 'Replace selected graph', 'Move to▸', 'Export as .sfxlib…', '—', 'Trash'])
   await page.getByRole('menuitem', { name: 'Trash', exact: true }).click()
   await expect(page.getByText('Moved to the trash', { exact: true })).toBeVisible()
   await expect(synth).toHaveCount(0)

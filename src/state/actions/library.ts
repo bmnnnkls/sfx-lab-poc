@@ -1,12 +1,14 @@
-import { type ControlOwner, type LibraryCatalog, type LibraryItem, type SnapshotScope, EFFECT_INPUTS, libraryItemDuplicate, saveLibraryFolder, trashLibraryEntry } from '@core'
+import { type ControlOwner, type LibraryBundleSelection, type LibraryCatalog, type LibraryItem, type SnapshotScope, type Track, EFFECT_INPUTS, duplicateLibraryFolder, libraryItemDuplicate, moveLibraryEntry, saveLibraryFolder, trashLibraryEntry } from '@core'
+import { useLayoutStore } from '../layout-store'
 import { useLibraryStore } from '../library-store'
 import { useSelectionStore } from '../selection-store'
 import { project, trackOf } from './lookup'
 import { renameAction, startRename } from './rename'
-import type { Action, ActionContext, SubjectOf } from './types'
+import type { Action, ActionChoice, ActionContext, SubjectOf } from './types'
 
 type ItemSubject = SubjectOf<'library-item'>
 type FolderSubject = SubjectOf<'library-folder'>
+type RootSubject = SubjectOf<'library-root'>
 
 const catalog = () => useLibraryStore.getState().catalog
 const itemOf = ({ itemId }: ItemSubject) => catalog().items.find((item) => item.id === itemId)
@@ -77,6 +79,65 @@ export const insertLibraryClipAt = (item: LibraryItem, owner: ControlOwner, scen
 
 const live = (subject: ItemSubject) => !!itemOf(subject) && !itemOf(subject)?.trashed
 const isClip = (item: LibraryItem | undefined) => item?.content.kind === 'audio-clip' || item?.content.kind === 'midi-clip'
+const sceneName = (scene: number): string => project().sceneNames?.[scene] || `Scene ${scene + 1}`
+
+/**
+ * The track a library clip goes to from its menu and the Library's button: the selected track when it is of the
+ * clip's kind, or else the first track that is.
+ */
+export const clipTrackFor = (item: LibraryItem): Track | undefined => {
+  const kind = item.content.kind === 'midi-clip' ? 'instrument' : 'audio'
+  const selected = trackOf(useSelectionStore.getState().trackId ?? '')
+  return selected?.kind === kind ? selected : project().tracks.find((track) => track.kind === kind)
+}
+
+/** Why a library clip can't go into `scene` of `track`, or undefined when it can. */
+const clipRefusal = (item: LibraryItem, track: Track | undefined, scene: number): string | undefined => {
+  if (!track) return item.content.kind === 'midi-clip' ? 'There is no instrument track' : 'There is no audio track'
+  if (track.kind !== 'return' && track.clips[scene]) return `${track.name} has a clip there`
+  return libraryClipFitsSlot(item, track.id, scene) ? undefined : 'Its sample is missing'
+}
+
+/** One choice per scene: an empty slot to insert into, or (`replace`) a clip to replace. Disabled ones say why. */
+const sceneChoices = (item: LibraryItem, replace: boolean): ActionChoice[] => {
+  const track = clipTrackFor(item)
+  return Array.from({ length: project().sceneCount }, (_, scene) => {
+    const occupied = !!track && track.kind !== 'return' && !!track.clips[scene]
+    const reason = replace ? (!track ? clipRefusal(item, track, scene) : occupied ? undefined : 'No clip to replace') : clipRefusal(item, track, scene)
+    return { id: String(scene), title: sceneName(scene), enabled: !reason, ...(reason && { tooltip: reason }) }
+  })
+}
+
+/** *Move to*'s choice for the top level. */
+const TOP_LEVEL = '-'
+
+/**
+ * The live folders as choices, named by their path ("Drums / Kicks") in the tree's order, after *My library*. `exclude`
+ * leaves out a folder and what is inside it; `current` is disabled, being where the thing already is.
+ */
+const folderChoices = (current: string | null, exclude?: string): ActionChoice[] => {
+  const folders = catalog().folders.filter((folder) => !folder.trashed)
+  const choices: ActionChoice[] = [{ id: TOP_LEVEL, title: 'My library', enabled: current !== null }]
+  const visit = (parentId: string | null, path: readonly string[], seen: ReadonlySet<string>) => {
+    const children = folders
+      .filter((folder) => folder.parentId === parentId && !seen.has(folder.id) && folder.id !== exclude)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }) || (a.id < b.id ? -1 : 1))
+    for (const folder of children) {
+      const title = [...path, folder.name]
+      choices.push({ id: folder.id, title: title.join(' / '), enabled: folder.id !== current })
+      visit(folder.id, title, new Set([...seen, folder.id]))
+    }
+  }
+  visit(null, [], new Set())
+  return choices
+}
+const destinationOf = (choice: string | undefined) => (choice === TOP_LEVEL ? null : (choice ?? null))
+
+/** Asks the Library view to review an export: only the view holds the bundle dialog. */
+const requestExport = (selection: LibraryBundleSelection, name: string) => {
+  useLibraryStore.getState().setRequest({ kind: 'export', selection, name })
+  useLayoutStore.getState().revealView('library')
+}
 
 /** An item of the personal library. Its actions are asynchronous and resolve with what they did. */
 export const libraryItemActions: readonly Action<ItemSubject>[] = [
@@ -119,6 +180,45 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     },
   },
   {
+    id: 'library-item.insert-into',
+    title: (subject) => `Insert into ${clipTrackFor(itemOf(subject)!)?.name ?? 'track'}`,
+    group: 'edit',
+    applies: (subject) => live(subject) && isClip(itemOf(subject)),
+    choices: (subject) => sceneChoices(itemOf(subject)!, false),
+    run: (subject, context, choice) => {
+      const item = itemOf(subject)!, track = clipTrackFor(item), scene = Number(choice)
+      if (track && choice !== undefined) return insertLibraryClipAt(item, { kind: 'track', trackId: track.id }, scene, context)
+    },
+  },
+  {
+    id: 'library-item.replace-clip',
+    title: (subject) => `Replace clip in ${clipTrackFor(itemOf(subject)!)?.name ?? 'track'}`,
+    group: 'edit',
+    applies: (subject) => live(subject) && isClip(itemOf(subject)),
+    choices: (subject) => sceneChoices(itemOf(subject)!, true),
+    run: (subject, { library }, choice) => {
+      const item = itemOf(subject)!, track = clipTrackFor(item)
+      if (track && choice !== undefined) return library.insert(item, { mode: 'replace', scope: { owner: { kind: 'track', trackId: track.id }, domain: 'patch' } }, Number(choice), true)
+    },
+  },
+  {
+    id: 'library-item.move',
+    title: 'Move to',
+    group: 'edit',
+    // A preset goes where its sound goes.
+    applies: (subject) => live(subject) && itemOf(subject)?.content.kind !== 'preset',
+    choices: (subject) => folderChoices(itemOf(subject)?.folderId ?? null),
+    run: (subject, context, choice) => update(context, (value) => moveLibraryEntry(value, subject.itemId, destinationOf(choice)), 'Moved'),
+  },
+  {
+    id: 'library-item.export',
+    title: 'Export as .sfxlib…',
+    group: 'edit',
+    applies: live,
+    takesFocus: true,
+    run: (subject) => requestExport({ itemIds: [subject.itemId] }, itemOf(subject)!.name),
+  },
+  {
     id: 'library-item.trash',
     verb: 'delete',
     title: 'Trash',
@@ -142,6 +242,14 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
 
 const liveFolder = (subject: FolderSubject) => !!folderOf(subject) && !folderOf(subject)?.trashed
 
+/** Makes a folder called "New folder" in `parentId`, makes it active and names it in place. */
+const newFolder = async (parentId: string | null, context: ActionContext) => {
+  const id = crypto.randomUUID()
+  await update(context, (value) => saveLibraryFolder(value, 'New folder', parentId, id), 'Library saved')
+  useLibraryStore.getState().setActive({ kind: 'folder', id })
+  startRename({ kind: 'library-folder', folderId: id }, context)
+}
+
 /** A folder of the personal library. */
 export const libraryFolderActions: readonly Action<FolderSubject>[] = [
   {
@@ -149,7 +257,7 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     title: 'Open',
     group: 'open',
     applies: liveFolder,
-    run: ({ folderId }) => useLibraryStore.getState().open(folderId),
+    run: ({ folderId }) => useLibraryStore.getState().setActive({ kind: 'folder', id: folderId }),
   },
   renameAction('library-folder', liveFolder),
   {
@@ -159,12 +267,32 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     applies: liveFolder,
     takesFocus: true,
     // Made as "New folder", opened and named in place.
-    run: async ({ folderId }, context) => {
-      const id = crypto.randomUUID()
-      await update(context, (value) => saveLibraryFolder(value, 'New folder', folderId, id), 'Library saved')
-      useLibraryStore.getState().open(id)
-      startRename({ kind: 'library-folder', folderId: id }, context)
-    },
+    run: ({ folderId }, context) => newFolder(folderId, context),
+  },
+  {
+    id: 'library-folder.duplicate',
+    verb: 'duplicate',
+    title: 'Duplicate',
+    group: 'edit',
+    applies: liveFolder,
+    // A deep copy beside it, sharing revisions and samples.
+    run: ({ folderId }, context) => update(context, (value) => duplicateLibraryFolder(value, folderId, folderOf({ kind: 'library-folder', folderId })?.parentId ?? null), 'Library saved'),
+  },
+  {
+    id: 'library-folder.move',
+    title: 'Move to',
+    group: 'edit',
+    applies: liveFolder,
+    choices: (subject) => folderChoices(folderOf(subject)?.parentId ?? null, subject.folderId),
+    run: ({ folderId }, context, choice) => update(context, (value) => moveLibraryEntry(value, folderId, destinationOf(choice)), 'Moved'),
+  },
+  {
+    id: 'library-folder.export',
+    title: 'Export as .sfxlib…',
+    group: 'edit',
+    applies: liveFolder,
+    takesFocus: true,
+    run: (subject) => requestExport({ folderIds: [subject.folderId] }, folderOf(subject)!.name),
   },
   {
     id: 'library-folder.trash',
@@ -175,7 +303,8 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     applies: liveFolder,
     run: async ({ folderId }, context) => {
       const message = await update(context, (value) => trashLibraryEntry(value, folderId), 'Moved to the trash with its contents')
-      if (useLibraryStore.getState().openFolder === folderId) useLibraryStore.getState().open(null)
+      const { active, setActive } = useLibraryStore.getState()
+      if (active?.kind === 'folder' && active.id === folderId) setActive(null)
       return message
     },
   },
@@ -185,5 +314,49 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     group: 'delete',
     applies: (subject) => !!folderOf(subject)?.trashed,
     run: ({ folderId }, context) => update(context, (value) => trashLibraryEntry(value, folderId, false), 'Restored'),
+  },
+]
+
+const anyLive = () => catalog().items.some((item) => !item.trashed) || catalog().folders.some((folder) => !folder.trashed)
+const anyTrashed = () => catalog().items.some((item) => item.trashed) || catalog().folders.some((folder) => folder.trashed)
+
+/** A root of the Library's tree: *My library*, or the trash. */
+export const libraryRootActions: readonly Action<RootSubject>[] = [
+  {
+    id: 'library-root.new-folder',
+    title: 'New folder',
+    group: 'edit',
+    applies: ({ root }) => root === 'mine',
+    takesFocus: true,
+    run: (_subject, context) => newFolder(null, context),
+  },
+  {
+    id: 'library-root.import',
+    title: 'Import .sfxlib…',
+    group: 'edit',
+    applies: ({ root }) => root === 'mine',
+    takesFocus: true,
+    run: () => {
+      useLibraryStore.getState().setRequest({ kind: 'import' })
+      useLayoutStore.getState().revealView('library')
+    },
+  },
+  {
+    id: 'library-root.export-all',
+    title: 'Export all…',
+    group: 'edit',
+    applies: ({ root }) => root === 'mine',
+    enabled: anyLive,
+    takesFocus: true,
+    run: () => requestExport({ itemIds: catalog().items.filter((item) => !item.trashed).map((item) => item.id), folderIds: catalog().folders.filter((folder) => !folder.trashed).map((folder) => folder.id) }, 'My library'),
+  },
+  {
+    id: 'library-root.restore-all',
+    title: 'Restore all',
+    group: 'delete',
+    applies: ({ root }) => root === 'trash',
+    enabled: anyTrashed,
+    run: (_subject, context) =>
+      update(context, (value) => ({ ...value, folders: value.folders.map((folder) => (folder.trashed ? { ...folder, trashed: false } : folder)), items: value.items.map((item) => (item.trashed ? { ...item, trashed: false } : item)) }), 'Restored'),
   },
 ]

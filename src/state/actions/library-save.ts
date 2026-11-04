@@ -1,5 +1,5 @@
 import type { ControlOwner, SnapshotScope } from '@core'
-import { useLibraryStore } from '../library-store'
+import { openFolder, useLibraryStore } from '../library-store'
 import { project, sessionClipOf, trackOf } from './lookup'
 import { startRename } from './rename'
 import type { Action, ActionContext, ActionReport, Subject } from './types'
@@ -39,7 +39,7 @@ export const saveToLibrary = async (source: LibrarySource, context: ActionContex
   const { library } = context
   const name = libraryNameOf(source)
   const before = await library.read()
-  const open = useLibraryStore.getState().openFolder
+  const open = openFolder()
   const folder = before.folders.find((candidate) => candidate.id === open && !candidate.trashed)
   const folderId = folder?.id ?? null
   const next =

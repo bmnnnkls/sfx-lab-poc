@@ -33,7 +33,7 @@ beforeEach(() => {
   next = { ...keys.project, groups: keys.project.groups!.map((candidate) => ({ ...candidate, name: candidate.id === drums.groupId ? 'Drums' : 'Keys' })) }
   useProjectStore.getState().resetProject(setGroupBus(next, drums.groupId!, true))
   catalog = saveLibraryFolder(emptyLibrary(), 'Kicks', null, 'kicks')
-  useLibraryStore.setState({ catalog, openFolder: null, active: null })
+  useLibraryStore.setState({ catalog, active: null })
   usePersistenceStore.setState({ notices: [] })
   useRenameStore.getState().stop()
 })
@@ -65,7 +65,7 @@ describe('Save to library', () => {
     const bass = track('Bass').id
     await runAction('track.save-to-library', { kind: 'track', trackId: bass }, context(), { choice: 'patch' })
     await runAction('track.save-to-library', { kind: 'track', trackId: bass }, context(), { choice: 'fx' })
-    useLibraryStore.setState({ openFolder: 'kicks' })
+    useLibraryStore.setState({ active: { kind: 'folder', id: 'kicks' } })
     await runAction('track.save-effects-to-library', { kind: 'track', trackId: 'ret' }, context())
     await runAction('group.save-effects-to-library', { kind: 'group', groupId: project().groups!.find((candidate) => candidate.name === 'Drums')!.id }, context())
     await runAction('master.save-effects-to-library', { kind: 'master' }, context())

@@ -19,6 +19,7 @@ export type Subject =
   | { readonly kind: 'sample'; readonly sampleId: string }
   | { readonly kind: 'library-item'; readonly itemId: string }
   | { readonly kind: 'library-folder'; readonly folderId: string }
+  | { readonly kind: 'library-root'; readonly root: 'mine' | 'trash' } // a root of the Library's tree
   | { readonly kind: 'nodes'; readonly target: PatchTarget; readonly path: readonly string[]; readonly nodeIds: readonly string[] }
   | { readonly kind: 'canvas'; readonly target: PatchTarget; readonly path: readonly string[]; readonly at: { readonly x: number; readonly y: number } }
   | { readonly kind: 'module'; readonly moduleId: string }

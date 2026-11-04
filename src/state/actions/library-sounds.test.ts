@@ -1,7 +1,7 @@
 import { type LibraryCatalog, captureSnapshot, emptyLibrary, putSnapshot, saveLibraryFolder, saveLibraryItem } from '@core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { PersonalLibrary } from '../library'
-import { useLibraryStore } from '../library-store'
+import { openFolder, useLibraryStore } from '../library-store'
 import { usePersistenceStore } from '../persistence-store'
 import { useProjectStore } from '../project-store'
 import { useRenameStore } from '../rename-store'
@@ -64,11 +64,11 @@ describe('library', () => {
     calls.length = 0
     catalog = saveLibraryFolder(emptyLibrary(), 'Leads', null, 'leads')
     catalog = saveLibraryItem(catalog, { id: 'synth', name: 'Synth', folderId: 'leads', content: { kind: 'sample', sampleId: kick.id } } as never)
-    useLibraryStore.setState({ catalog, openFolder: null })
+    useLibraryStore.setState({ catalog, active: null })
   })
 
   it('offers what an item can do, and only Restore in the trash', async () => {
-    expect(titles(item)).toEqual(['Preview', 'Rename', 'Duplicate', 'Insert new instrument track', 'Add sample to project', 'Trash'])
+    expect(titles(item)).toEqual(['Preview', 'Rename', 'Duplicate', 'Insert new instrument track', 'Add sample to project', 'Move to', 'Export as .sfxlib…', 'Trash'])
     expect(describeActions(item, context()).find((entry) => entry.id === 'library-item.insert-track')?.enabled).toBe(false)
     await runAction('library-item.trash', item, context())
     expect(useLibraryStore.getState().catalog.items[0]?.trashed).toBe(true)
@@ -88,18 +88,18 @@ describe('library', () => {
   })
 
   it('opens folders, makes one inside and names it in place, and trashes one with its contents', async () => {
-    expect(titles(folder)).toEqual(['Open', 'Rename', 'New folder inside', 'Trash'])
+    expect(titles(folder)).toEqual(['Open', 'Rename', 'New folder inside', 'Duplicate', 'Move to', 'Export as .sfxlib…', 'Trash'])
     runAction('library-folder.open', folder, context())
-    expect(useLibraryStore.getState().openFolder).toBe('leads')
+    expect(openFolder()).toBe('leads')
     await runAction('library-folder.new-folder', folder, fakeContext({ library, origin: 'library' }))
     const made = useLibraryStore.getState().catalog.folders.find((entry) => entry.parentId === 'leads')!
     expect(made.name).toBe('New folder')
-    expect(useLibraryStore.getState().openFolder).toBe(made.id)
+    expect(openFolder()).toBe(made.id)
     expect(useRenameStore.getState().renaming).toEqual({ subject: { kind: 'library-folder', folderId: made.id }, origin: 'library' })
     runAction('library-folder.open', folder, context())
     await runAction('library-folder.trash', folder, context())
     await settle()
-    expect(useLibraryStore.getState().openFolder).toBeNull()
+    expect(openFolder()).toBeNull()
     expect(useLibraryStore.getState().catalog.items[0]?.trashed).toBe(true)
   })
 
