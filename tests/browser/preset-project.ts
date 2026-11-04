@@ -6,7 +6,7 @@ export const samplePresetProject = () => {
   const samples = [220, 660].map((frequency, index) => {
     const data = Float32Array.from({ length: 12000 }, (_, i) => 0.3 * Math.sin(2 * Math.PI * frequency * i / 48000) * (1 - i / 12000))
     const bytes = encodeWavChannels([data], 48000, 32), id = createHash('sha256').update(bytes).digest('hex')
-    return { bytes, decoded: { id, sampleRate: 48000, data }, info: { id, name: `Tone ${index + 1}`, extension: 'wav', sampleRate: 48000, channels: 1, durationSeconds: 0.25, bytes: bytes.length } }
+    return { bytes, decoded: { id, sampleRate: 48000, channels: [data] }, info: { id, name: `Tone ${index + 1}`, extension: 'wav', sampleRate: 48000, channels: 1, durationSeconds: 0.25, bytes: bytes.length } }
   })
   const p = createEmptyProject(), t = p.tracks[0] as InstrumentTrack
   const module: ModuleDefinition = { id: 'sample-voice', name: 'Shared sample voice', patch: createSamplerPatch(samples[0]!.info.id), inputs: [], outputs: [], knobs: [] }

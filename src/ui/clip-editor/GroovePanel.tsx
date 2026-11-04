@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { onViewHide } from '../layout/view-events'
 import type { GrooveSettings } from './groove-settings'
 import styles from './ClipEditor.module.css'
 
@@ -22,8 +23,8 @@ export const GroovePanel = ({ settings, onSettings, scope, onQuantize, onSwing, 
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
 
-  // Closes on Escape or a click elsewhere in the editor. Clicks outside it (undo/redo, transport) leave it
-  // open, because "try a groove, undo, try another" is the natural way to use these tools.
+  // Closes on Escape, a click elsewhere in the editor, or when the view is hidden. Clicks outside it (undo/redo,
+  // transport) leave it open, because "try a groove, undo, try another" is the natural way to use these tools.
   useEffect(() => {
     if (!open) return
     const editor = root.current?.closest('[data-clip-editor]') ?? document
@@ -33,9 +34,11 @@ export const GroovePanel = ({ settings, onSettings, scope, onQuantize, onSwing, 
     const onKeyDown = (event: KeyboardEvent) => event.key === 'Escape' && setOpen(false)
     editor.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
+    const offViewHide = onViewHide(root.current, () => setOpen(false))
     return () => {
       editor.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
+      offViewHide()
     }
   }, [open])
 

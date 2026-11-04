@@ -1,6 +1,6 @@
 import { createNote } from '@core'
 import { describe, expect, it } from 'vitest'
-import { LANE_HEIGHT, barTop, pickNoteAt, velocityAtY } from './velocity-lane-logic'
+import { LANE_HEIGHT, barTop, barTopCss, pickNoteAt, velocityAtY } from './velocity-lane-logic'
 
 describe('velocity lane', () => {
   it('maps the top of the lane to full velocity and the bottom to nearly none', () => {
@@ -27,5 +27,15 @@ describe('velocity lane', () => {
     const loud = createNote(64, 0, 1, 0.9)
     expect(pickNoteAt([quiet, loud], 0, barTop(0.9), 56)).toBe(loud)
     expect(pickNoteAt([quiet, loud], 0, barTop(0.2), 56)).toBe(quiet)
+  })
+
+  it('works in a lane shrunk by CSS, whose height the pointer brings', () => {
+    expect(velocityAtY(0, 40)).toBe(1)
+    expect(velocityAtY(barTop(0.5, 40), 40)).toBeCloseTo(0.5, 6)
+    const quiet = createNote(60, 0, 1, 0.2)
+    const loud = createNote(64, 0, 1, 0.9)
+    expect(pickNoteAt([quiet, loud], 0, barTop(0.9, 40), 56, 40)).toBe(loud)
+    // The bars' CSS puts them where barTop does, at any height.
+    expect(barTopCss(0.5)).toBe('calc(6px + 0.5 * (100% - 12px))')
   })
 })

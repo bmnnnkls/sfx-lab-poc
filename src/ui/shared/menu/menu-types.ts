@@ -6,6 +6,12 @@ export interface MenuAction {
   readonly disabled?: boolean
   /** Styles the item as destructive (red). */
   readonly danger?: boolean
+  /** Says more than the label, on hover. */
+  readonly tooltip?: string
+  /** Drawn with a check mark, as a checkable item: the option in effect. Undefined for a plain item. */
+  readonly checked?: boolean
+  /** It moves the focus to a dialog or field of its own, so the menu doesn't give it back to its button as it closes. */
+  readonly takesFocus?: boolean
   onSelect(): void
 }
 
@@ -13,4 +19,14 @@ export interface MenuSeparator {
   readonly kind: 'separator'
 }
 
-export type MenuEntry = MenuAction | MenuSeparator
+/** A nested menu, opened from an item with this label. */
+export interface MenuSubmenu {
+  readonly kind: 'submenu'
+  readonly label: string
+  readonly entries: readonly MenuEntry[]
+  /** It can't open now; `tooltip` says why. */
+  readonly disabled?: boolean
+  readonly tooltip?: string
+}
+
+export type MenuEntry = MenuAction | MenuSeparator | MenuSubmenu

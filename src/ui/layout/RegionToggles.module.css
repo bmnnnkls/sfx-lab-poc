@@ -1,0 +1,26 @@
+.toggles {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.toggles button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.toggles button:hover,
+.toggles button:focus-visible {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.toggles button[aria-pressed='true'] {
+  color: var(--accent);
+}

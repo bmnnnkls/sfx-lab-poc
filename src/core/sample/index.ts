@@ -1,6 +1,58 @@
-export type { SampleData, SampleInfo, SampleLookup } from './types'
+export type { SampleAudio, SampleData, SampleInfo, SampleLineage, SampleLookup, SampleLoop, SampleMarker, SampleOriginal, SampleRegion } from './types'
+export { SAMPLE_MARK_LIMITS, bytesKeyOf, originOf, savedFrameCount } from './marks'
+export { type FrameMap, type RemapStep, type SampleRemap, composeMaps, identityMap, inverseStep, mapOf, remapOfSteps } from './remap'
+export { lineageAfter, originalInfo, revertBlocked, revertRemap } from './lineage'
+export {
+  type SampleMarkChange,
+  addMarker,
+  addRegion,
+  createMarkId,
+  moveLoop,
+  moveMarker,
+  removeMarker,
+  removeRegion,
+  renameMarker,
+  setLoop,
+  updateRegion,
+} from './sample-marks'
+export { type SampleChannel, channelAt, decodedBytes, frameCount, monoAt } from './channels'
 export { SampleBank } from './sample-bank'
-export { computePeaks, toMono } from './audio-math'
+export { computePeaks, nearestZeroCrossing, selectionLevels, toMono, type Levels } from './audio-math'
 export { type WavBitDepth, encodeWav, encodeWavChannels } from './wav'
-export { deleteSampleRegion, fadeIn, fadeOut, keepSampleRegion, normalizeSample, reverseSample } from './edit'
+export {
+  type Crossfade,
+  DEFAULT_CROSSFADE,
+  EDIT_WAV_BIT_DEPTH,
+  type EdgeRamp,
+  type EditChannels,
+  type EditSelection,
+  type EditSetting,
+  type FrameRange,
+  GAIN_RANGE_DB,
+  MAX_CROSSFADE_SECONDS,
+  NORMALIZE_DEFAULT_DB,
+  SAMPLE_EDITS,
+  SILENT_PEAK,
+  type SampleEdit,
+  type SampleEditAfter,
+  type SampleEditContext,
+  type SampleEditEntry,
+  type SampleEditKind,
+  type SampleEditVariant,
+  afterEdit,
+  applySampleEdit,
+  changedFrames,
+  clampCrossfadeSeconds,
+  editSuffix,
+  isBandEdit,
+  peakOfRange,
+  remapFrame,
+  remapRange,
+  remapStep,
+  sampleEditEntry,
+  sampleRemap,
+} from './edits'
+export { type AudioCopy, CLIPBOARD_HANDLE_SECONDS, type JoinFade, copyAudioRange, fitChannels, joinChannel, silenceCopy, spliceAudio } from './crossfade'
+export { CROSSFADE_CURVES, type CrossfadeCurve, FADE_CURVES, type FadeCurve, type FadeCurveEntry, fadeShape, isCrossfadeCurve, isFadeCurve } from './fade-curves'
+export { type PeakPyramid, type WaveColumns, type WaveDraw, type WaveView, buildPeakPyramid, columnsFor, updatePeakPyramid, waveDrawFor } from './pyramid'
 export { createDemoSamples, type DemoSample } from './demo-samples'

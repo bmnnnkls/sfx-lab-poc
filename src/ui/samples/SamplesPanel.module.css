@@ -11,6 +11,7 @@
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
@@ -52,67 +53,30 @@
   font-size: 11px;
 }
 
-/* The sample editor: a toolbar of edits over a zoomable waveform. */
-.editor {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  height: 100%;
-  min-height: 0;
+.toolbar button,
+.row button {
+  white-space: nowrap;
 }
 
-.editorToolbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
+/* Below 420 px the drop hint goes under the buttons. */
+@container view (width < 420px) {
+  .hint {
+    flex-basis: 100%;
+  }
 }
 
-.editorHint {
-  margin: 0;
-  padding: 8px 12px;
-  color: var(--text-dim);
-  font-size: 11px;
-}
+/*
+ * Below 700 px, where the actions would leave the name a sliver, a row takes two lines: a waveform (narrower in a
+ * narrow view) and the name, then the actions.
+ */
+@container view (width < 700px) {
+  .row {
+    --thumb-width: min(160px, 40cqw);
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
 
-.zoom {
-  display: flex;
-  align-items: center;
-}
-
-.zoom input[type='range'] {
-  width: 110px;
-}
-
-.waveformFrame {
-  min-height: 0;
-  overflow: hidden;
-}
-
-.waveformScroll {
-  height: 100%;
-  overflow: auto;
-}
-
-.waveformBody {
-  position: relative;
-  height: 100%;
-  min-height: 150px;
-}
-
-.waveformCanvas {
-  display: block;
-  height: 150px;
-  touch-action: none;
-  cursor: crosshair;
-}
-
-.selection {
-  position: absolute;
-  top: 0;
-  height: 150px;
-  background: color-mix(in srgb, var(--accent) 25%, transparent);
-  border-inline: 1px solid var(--accent);
-  pointer-events: none;
+  .meta {
+    flex-basis: calc(100% - var(--thumb-width) - 10px);
+  }
 }

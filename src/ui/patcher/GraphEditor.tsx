@@ -1,4 +1,7 @@
 import {
+  type BusGroup,
+  type ControlOwner,
+  GROUP_IN_TYPE,
   MASTER_IN_TYPE,
   controlTargetForGraphParam,
   RETURN_IN_TYPE,
@@ -23,17 +26,18 @@ import {
   moveNode,
   noteNodeDefinitions,
   nodeDefinitions,
-  removeNode,
   setNodeParam,
   exampleModules,
   findExampleModule,
   randomizeParams,
+  canPin,
+  isPinned,
 } from '@core'
-import { useProjectStore } from '@state'
-import { type ReactNode, useRef, useState } from 'react'
+import { type Subject, canvasKey, graphKey, livePath, runAction, useGraphViewStore, useProjectSelect, useProjectStore } from '@state'
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { PanelView } from '../panel/PanelView'
-import type { MenuEntry } from '../shared/menu'
+import { type MenuEntry, useActionContext } from '../shared/menu'
 import { useStoredState } from '../shared/use-stored-state'
 import { ModuleBar } from './ModuleBar'
 import { ModuleInterface } from './ModuleInterface'
@@ -58,20 +62,26 @@ const VOICE_OPTIONS = [1, 2, 3, 4, 6, 8, 12, 16]
 
 const isFlag = (value: unknown): value is boolean => typeof value === 'boolean'
 
+const TOP_LEVEL: readonly string[] = []
+
 type View = 'graph' | 'panel'
 const isView = (value: unknown): value is View => value === 'graph' || value === 'panel'
 
-/** Where an insert graph starts: a return track at Return in, the master at Master in, every other track at Track in. */
-const START: Record<Track['kind'] | 'master', string> = {
+/**
+ * Where an insert graph starts: a return track at Return in, the master at Master in, a group bus at Group in, every
+ * other track at Track in.
+ */
+const START: Record<Track['kind'] | 'master' | 'group', string> = {
   instrument: TRACK_IN_TYPE,
   audio: TRACK_IN_TYPE,
   return: RETURN_IN_TYPE,
   master: MASTER_IN_TYPE,
+  group: GROUP_IN_TYPE,
 }
 const STARTS = new Set(Object.values(START))
 
 /** What each kind of graph may offer in its palette: the insert graph has its own ends and no note-driven sources. */
-const paletteFor = (graph: TrackGraph, kind: Track['kind'] | 'master') => {
+const paletteFor = (graph: TrackGraph, kind: Track['kind'] | 'master' | 'group') => {
   // A note graph also takes controls and math: they work out constants that drive the note nodes' parameters.
   if (graph === 'notes') return [...noteNodeDefinitions, ...nodeDefinitions.filter((definition) => definition.inNotes === true)]
   return nodeDefinitions.filter((definition) => {
@@ -84,8 +94,8 @@ const paletteFor = (graph: TrackGraph, kind: Track['kind'] | 'master') => {
 }
 
 interface GraphEditorProps {
-  /** The track whose graph is edited, or `master` for the master bus's. */
-  owner: Track | 'master'
+  /** The track whose graph is edited, a group with a bus (its bus's graph), or `master` for the master bus's. */
+  owner: Track | 'master' | BusGroup
   /**
    * `patch`: the instrument's sound patch. `fx`: the track's insert graph (any track). `notes`: the note graph
    * between the clips and the instrument.
@@ -101,19 +111,31 @@ interface GraphEditorProps {
  */
 export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const gesture = useControlGesture()
-  const track = owner === 'master' ? undefined : owner
+  const track = owner === 'master' || !('kind' in owner) ? undefined : owner
+  const group = owner !== 'master' && !('kind' in owner) ? owner : undefined
   const masterFx = useProjectStore((state) => state.project.master.fx)
+  // The id the owner has in the project and the engine; the master's graphs go by `master`.
+  const ownerId = track?.id ?? group?.id ?? 'master'
+  const controlOwner: ControlOwner = track ? { kind: 'track', trackId: track.id } : group ? { kind: 'group', groupId: group.id } : { kind: 'master' }
+  const ownerTarget: PatchTarget = track ? { trackId: track.id, graph } : group ? { groupId: group.id } : { master: true }
   const domain = graph === 'notes' ? 'notes' : 'audio'
   const modules = useProjectStore((state) => state.project.modules)
   const store = useProjectStore.getState
   const setTrackVoices = useProjectStore((state) => state.setTrackVoices)
 
-  const [path, setPath] = useState<readonly string[]>([])
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
-  const [interfaceOpen, setInterfaceOpen] = useState(true)
+  const context = useActionContext()
+  // The sub-patch open here, kept per graph for the session, so switching tracks and back finds it open again. A
+  // module use's *Open module* sets it too.
+  const graphId = graphKey(ownerId, graph)
+  const path = useGraphViewStore((state) => state.paths[graphId]) ?? TOP_LEVEL
+  const [picked, setSelected] = useState<ReadonlySet<string>>(new Set())
+  const interfaceOpen = useGraphViewStore((state) => state.moduleInterface)
+  // In a narrow editor the property editor and the module's interface are a drawer over the canvas.
+  const [drawerOpen, setDrawerOpen] = useState(false)
   // The node picker: where it opens (window pixels) and where the node goes (canvas coordinates).
   const [picker, setPicker] = useState<{ anchor: Point; at: Point; fromButton: boolean; from?: PortRef } | null>(null)
   const canvas = useRef<PatchCanvasHandle>(null)
+  const drawerId = useId()
   const addButton = useRef<HTMLButtonElement>(null)
   // Remembered per kind of graph (instrument, effects, notes), not per track: it is a way of looking, not part of the project.
   const [view, setView] = useStoredState<View>(`sfxlab.view.${graph}`, 'graph', isView)
@@ -121,21 +143,36 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
   const [showSockets, setShowSockets] = useStoredState<boolean>('sfxlab.sockets', false, isFlag)
 
   // A module that disappeared (undo, delete) ends the path there.
-  const missing = path.findIndex((id) => !modules.some((module) => module.id === id))
-  const known = missing === -1 ? path : path.slice(0, missing)
+  const known = livePath(path, (id) => modules.some((module) => module.id === id))
   const definition = modules.find((module) => module.id === known.at(-1))
-  const target: PatchTarget = definition ? { moduleId: definition.id } : track ? { trackId: track.id, graph } : { master: true }
-  const patch = definition ? definition.patch : track ? graphOf(track, graph) : masterFx
-  const scope = definition ? definition.id : `${track?.id ?? 'master'}:${graph}`
-  // Indicators show live values reported per track (the master bus is `master`); a module's inside has no track of its own.
-  const readoutTrack = definition ? undefined : (track?.id ?? 'master')
+  const target: PatchTarget = definition ? { moduleId: definition.id } : ownerTarget
+  const patch = definition ? definition.patch : track ? graphOf(track, graph) : group ? group.bus.fx : masterFx
+  const scope = definition ? definition.id : `${ownerId}:${graph}`
+  // Indicators show live values reported per track (a bus by its group's id, the master bus as `master`); a module's
+  // inside has no track of its own.
+  const readoutTrack = definition ? undefined : ownerId
 
-  const enter = (next: readonly string[]) => {
-    setPath(next)
-    setSelected(new Set())
-  }
+  const enter = (next: readonly string[]) => useGraphViewStore.getState().setPath(graphId, next)
+  // Another level shows nothing selected; nodes an action removed (a menu's Delete, Group) drop out of the selection.
+  const level = known.join('/')
+  useEffect(() => setSelected(new Set()), [level])
+  const selected: ReadonlySet<string> = [...picked].every((id) => patch.nodes.some((node) => node.id === id))
+    ? picked
+    : new Set([...picked].filter((id) => patch.nodes.some((node) => node.id === id)))
+  /** The graph as subjects name it: the track's (or the master's) graph and the module open in it. */
+  const place = { target: ownerTarget, path: known }
+  const selection: Subject = { kind: 'nodes', ...place, nodeIds: [...selected] }
+
+  // *Add node…* from the canvas's menu opens the picker where the canvas was clicked.
+  const addRequest = useGraphViewStore((state) => state.addRequest)
+  useEffect(() => {
+    if (!addRequest || addRequest.graph !== graphId) return
+    useGraphViewStore.getState().requestAdd(null)
+    setPicker({ anchor: canvas.current?.clientPoint(addRequest.at) ?? { x: 40, y: 40 }, at: addRequest.at, fromButton: false })
+  }, [addRequest, graphId])
   const edit = (change: PatchEdit, mergeKey?: string) => {
     if (definition) store().updateModulePatch(definition.id, change, mergeKey)
+    else if (group) store().updateGroupFx(group.id, change, mergeKey)
     else if (!track) store().updateMasterFx(change, mergeKey)
     else if (graph === 'notes') store().updateNoteGraph(track.id, change, mergeKey)
     else if (graph === 'fx') store().updateFx(track.id, change, mergeKey)
@@ -147,14 +184,24 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
     const kind = moduleDomain(module, modules)
     return (kind === undefined || kind === domain) && !(definition && containsModule(modules, module.id, definition.id))
   })
-  const title = track ? `${track.name}${SUFFIX[graph]}` : 'Master effects'
+  const title = track ? `${track.name}${SUFFIX[graph]}` : group ? `${group.name} effects` : 'Master effects'
   const crumbs = [{ label: title, path: [] as string[] }].concat(
     known.map((id, index) => ({
       label: modules.find((module) => module.id === id)?.name ?? '',
       path: known.slice(0, index + 1) as string[],
     })),
   )
-  const palette = paletteFor(graph, track?.kind ?? 'master')
+  // The Pin toggle: whether this graph's panel is pinned, and whether it could be.
+  const pin = { owner: controlOwner, graph }
+  const pinned = useProjectSelect((project) => isPinned(project, pin), Object.is)
+  const pinnable = useProjectSelect((project) => canPin(project, pin), Object.is)
+  const togglePin = () => {
+    if (pinned) runAction('pin.unpin', { kind: 'pin', ...pin }, context)
+    else if (track) runAction('track.pin', { kind: 'track', trackId: track.id }, context, { choice: graph })
+    else if (group) runAction('group.pin', { kind: 'group', groupId: group.id }, context)
+    else runAction('master.pin', { kind: 'master' }, context)
+  }
+  const palette = paletteFor(graph, track?.kind ?? (group ? 'group' : 'master'))
   // A wire dropped on empty canvas: the picker offers only what can take it, and wires the new node in.
   const dropped = picker?.from
   const droppedNode = dropped && patch.nodes.find((node) => node.id === dropped.node)
@@ -254,12 +301,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
           </nav>
         )}
         {definition && (
-          <ModuleBar
-            definition={definition}
-            interfaceOpen={interfaceOpen}
-            onToggleInterface={() => setInterfaceOpen((open) => !open)}
-            onDeleted={() => enter(known.slice(0, -1))}
-          />
+          <ModuleBar definition={definition} interfaceOpen={interfaceOpen} />
         )}
         <div className={styles.toolbar}>
           {!definition && <strong>{title}</strong>}
@@ -311,26 +353,55 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             <button
               disabled={selected.size === 0}
               title="Turn the selected nodes into a reusable module (Shift-click or drag a box to select)"
-              onClick={() => {
-                store().groupNodes(target, [...selected])
-                setSelected(new Set())
-              }}
+              onClick={() => runAction('nodes.group', selection, context)}
             >
               Group into module{selected.size > 0 ? ` (${selected.size})` : ''}
+            </button>
+          )}
+          {view === 'graph' && (
+            <button
+              className={styles.drawerToggle}
+              aria-pressed={drawerOpen}
+              aria-controls={drawerId}
+              title="Show the selected node's properties over the canvas (double-click a node)"
+              onClick={() => setDrawerOpen(!drawerOpen)}
+            >
+              Properties
+            </button>
+          )}
+          {!definition && (
+            <button
+              className={styles.pinToggle}
+              aria-pressed={pinned}
+              disabled={!pinned && !pinnable}
+              title={pinned ? 'Unpin this panel from the Pinned view' : pinnable ? 'Pin this panel to the Pinned view, to play it while you work elsewhere' : '16 panels are pinned'}
+              onClick={togglePin}
+            >
+              Pin
             </button>
           )}
           <RandomizeBar onRoll={(seed, amount) => edit((current, library) => randomizeParams(current, library, { seed, amount }))} />
         </div>
       </div>
-      <div {...gesture.events} className={styles.editorBody} data-has-aside={Boolean(aside) || (Boolean(definition) && interfaceOpen && view === 'graph')}>
+      <div
+        {...gesture.events}
+        className={styles.editorBody}
+        data-has-aside={Boolean(aside) || (Boolean(definition) && interfaceOpen && view === 'graph')}
+        onDoubleClick={(event) => {
+          const target = event.target as Element
+          if (target.closest('[data-node]') && !target.closest('button, input, select, [data-port]')) setDrawerOpen(true)
+        }}
+      >
         {view === 'panel' ? (
           <div className={styles.panelHost}>
-            <PanelView controlOwner={definition ? undefined : track ? { kind: 'track', trackId: track.id } : { kind: 'master' }} controlDomain={graph} patch={patch} modules={modules} scope={scope} readoutTrack={readoutTrack} edit={edit} />
+            <PanelView controlOwner={definition ? undefined : controlOwner} controlDomain={graph} patch={patch} modules={modules} scope={scope} readoutTrack={readoutTrack} edit={edit} />
           </div>
         ) : (
           <PatchCanvas
             key={scope}
             ref={canvas}
+            graph={place}
+            viewKey={canvasKey(graphId, known)}
             patch={patch}
             modules={modules}
             selected={selected}
@@ -339,7 +410,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
             readoutTrack={readoutTrack}
             onSelectionChange={setSelected}
             onSetNodeParams={(id, changes) => {
-              const owner = track ? { kind: 'track' as const, trackId: track.id } : { kind: 'master' as const }
+              const owner = controlOwner
               const values = definition ? [] : changes.flatMap((change) => {
                 const target = controlTargetForGraphParam(store().project, owner, graph, id, change.param)
                 return target ? [{ target, value: change.value }] : []
@@ -351,31 +422,30 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
               )
             }}
             onMoveNode={(id, x, y) => edit((current) => moveNode(current, id, x, y), `move:${scope}:${id}`)}
-            onRemoveNode={(id) => edit((current) => removeNode(current, id))}
             inputMenu={inputMenu}
             onConnect={(from, to) => edit((current, library) => connect(current, from, to, { modules: library }))}
             onDisconnect={(id) => edit((current) => disconnect(current, id))}
-            onOpenModule={(moduleId) => enter([...known, moduleId])}
-            onUnlinkModule={(nodeId) => store().unlinkModule(target, nodeId)}
             onRequestAdd={({ anchor, at, from }) => setPicker({ anchor, at, fromButton: false, from })}
           />
         )}
         {aside && <div className={styles.aside}>{aside}</div>}
         {view === 'graph' && (
-          <PropertyEditor
-            patch={patch}
-            modules={modules}
-            selected={selected}
-            scope={scope}
-            controlOwner={definition ? undefined : track ? { kind: 'track', trackId: track.id } : { kind: 'master' }}
-            controlDomain={graph}
-            ownerTrackId={track?.id ?? ''}
-            edit={edit}
-            onCreateControl={createControl}
-            onUnwire={(nodeId, paramId) => disconnectPort(nodeId, `param:${paramId}`)}
-          />
+          <div id={drawerId} className={styles.drawer} data-open={drawerOpen}>
+            <PropertyEditor
+              patch={patch}
+              modules={modules}
+              selected={selected}
+              scope={scope}
+              controlOwner={definition ? undefined : controlOwner}
+              controlDomain={graph}
+              ownerTrackId={track?.id ?? group?.id ?? ''}
+              edit={edit}
+              onCreateControl={createControl}
+              onUnwire={(nodeId, paramId) => disconnectPort(nodeId, `param:${paramId}`)}
+            />
+            {definition && interfaceOpen && <ModuleInterface definition={definition} />}
+          </div>
         )}
-        {definition && interfaceOpen && view === 'graph' && <ModuleInterface definition={definition} />}
       </div>
       {picker && catalog && (
         <QuickAdd catalog={catalog} anchor={picker.anchor} heading={droppedLabel ? `Can take ${droppedLabel}` : undefined} onPick={addFromPicker} onClose={closePicker} />

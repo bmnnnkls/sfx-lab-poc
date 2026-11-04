@@ -1,12 +1,17 @@
 .file {
   display: flex;
+  /* Takes the transport bar's spare width, holding its contents at the right end. */
+  flex: 1 1 auto;
+  justify-content: flex-end;
   align-items: center;
   gap: 10px;
-  margin-left: auto;
 }
 
+/* Gives way down to 120 px before the transport bar wraps. */
 .name {
-  width: 180px;
+  flex: 1 1 120px;
+  width: 120px;
+  max-width: 180px;
 }
 
 .indicator {
@@ -28,66 +33,5 @@
 }
 
 .menu {
-  position: relative;
-}
-
-.menu summary {
   padding: 4px 10px;
-  list-style: none;
-  cursor: pointer;
-  background: var(--panel-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.items {
-  position: absolute;
-  right: 0;
-  z-index: 10;
-  display: grid;
-  gap: 2px;
-  min-width: 200px;
-  margin-top: 4px;
-  padding: 6px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.items button {
-  text-align: left;
-  border-color: transparent;
-}
-
-.items button:hover:not(:disabled) {
-  background: var(--accent-soft);
-}
-
-.items button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.items hr {
-  width: 100%;
-  border: 0;
-  border-top: 1px solid var(--border);
-}
-
-.heading {
-  padding: 2px 8px;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-
-.example {
-  display: grid;
-  gap: 1px;
-}
-
-.example small {
-  font-size: 11px;
-  color: var(--text-dim);
 }

@@ -1,7 +1,9 @@
 .bar {
   display: flex;
+  /* Wraps to a second row in a narrow window rather than making the page scroll sideways. */
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
   padding: 8px 14px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);

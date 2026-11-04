@@ -1,6 +1,7 @@
 import {
   type Project,
   type SampleInfo,
+  bytesKeyOf,
   parseProject,
   serializeProject,
 } from '@core'
@@ -52,7 +53,7 @@ export const exportProject = async (
   }
   const missing: SampleInfo[] = []
   for (const sample of project.samples) {
-    const data = await readSample(sample.id)
+    const data = await readSample(bytesKeyOf(sample))
     if (!data) {
       missing.push(sample)
       continue
@@ -103,10 +104,10 @@ const readPackage = async (bytes: Uint8Array): Promise<ImportResult> => {
     const data = entries[sampleEntry(sample)]
     if (!data) {
       warnings.push(`Sample "${sample.name}" is missing from the package`)
-    } else if ((await sha256Hex(data)) !== sample.id) {
+    } else if ((await sha256Hex(data)) !== bytesKeyOf(sample)) {
       warnings.push(`Sample "${sample.name}" does not match its checksum and was skipped`)
     } else {
-      samples.set(sample.id, data)
+      samples.set(bytesKeyOf(sample), data)
     }
   }
   return { ok: true, project: parsed.project, warnings, samples }

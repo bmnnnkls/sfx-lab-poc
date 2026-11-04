@@ -1,6 +1,5 @@
 import { MAX_AUTOMATION_POINTS, resizeAutomation, doubleAutomation } from '../automation'
 import {
-  clearSampleReferences,
   clearTrackReferences,
   createDefaultFxGraph,
   createDefaultMasterGraph,
@@ -14,6 +13,8 @@ import type { SampleInfo } from '../sample'
 import { clamp, createId } from '../shared'
 import { createNote, notesEqual, shiftedCopies, trimNotesToLength } from './note-edit'
 import { clampAudioClip, createAudioClip } from './audio-clip'
+import { type ClipRef, editClipAt } from './clip-ref'
+import { mapBuses, pruneGroups } from './group-membership'
 import { mixesAfter } from './mix-order'
 import { MAX_CLIP_BEATS, MIN_CLIP_BEATS } from './limits'
 import type { AudioClip, AudioTrack, Clip, InstrumentTrack, MasterBus, Note, Project, ReturnTrack, Track } from './types'
@@ -23,6 +24,11 @@ export { MAX_CLIP_BEATS, MIN_CLIP_BEATS }
 export const MIN_TEMPO = 40
 export const MAX_TEMPO = 240
 export const DEFAULT_SCENE_COUNT = 4
+/** The most tracks and scenes a project has; files with more are cut to these. */
+export const MAX_TRACKS = 64
+export const MAX_SCENES = 64
+/** The most nodes one graph (or a module's inside) has. */
+export const MAX_PATCH_NODES = 200
 export const MAX_NAME_LENGTH = 80
 export const MIN_VOICES = 1
 export const MAX_VOICES = 16
@@ -80,12 +86,18 @@ export const createTrack = (
   clips: Array.from({ length: sceneCount }, () => null),
 })
 
+/**
+ * Whether a new audio track's `Track in` runs in stereo, so a stereo sample plays in stereo. Tracks already in a file keep
+ * what their file says (before 11a, mono).
+ */
+export const NEW_AUDIO_TRACK_STEREO = true
+
 export const createAudioTrack = (name: string, sceneCount: number): AudioTrack => ({
   kind: 'audio',
   id: createId('track'),
   name,
   volume: 0.8,
-  fx: createDefaultFxGraph(),
+  fx: createDefaultFxGraph(NEW_AUDIO_TRACK_STEREO),
   sends: {},
   clips: Array.from({ length: sceneCount }, () => null),
 })
@@ -105,11 +117,19 @@ export const addTrack = (project: Project, track: Track): Project => ({
 })
 
 /**
- * Removes a track, and what other tracks pointed at it: "notes from this track" inputs of note graphs and the return a
- * Send node sends to (also inside modules). Undo restores all of it.
+ * Removes a track, and what other tracks and buses pointed at it: "notes from this track" inputs of note graphs, the
+ * return a Send node or a send knob sends to and the track a Track audio node takes (also inside modules). A group it
+ * leaves empty goes too. Undo restores all of it.
  */
-export const removeTrack = (project: Project, trackId: string): Project => ({
+export const removeTrack = (project: Project, trackId: string): Project => pruneGroups({
   ...project,
+  ...(project.groups && {
+    groups: mapBuses(project.groups, (bus) => {
+      const fx = clearTrackReferences(bus.fx, trackId)
+      const sends = trackId in bus.sends ? withoutKey(bus.sends, trackId) : bus.sends
+      return fx === bus.fx && sends === bus.sends ? bus : { ...bus, fx, sends }
+    }),
+  }),
   ...(project.controlValues && { controlValues: project.controlValues.filter((entry) => !removedControlReference(entry.target, trackId)) }),
   ...(project.midiMappings && { midiMappings: project.midiMappings.filter((entry) => !removedControlReference(entry.target, trackId)) }),
   master: mapMasterFx(project.master, (fx) => clearTrackReferences(fx, trackId)),
@@ -179,7 +199,7 @@ const withMixField = <K extends 'pan' | 'muted' | 'soloed'>(track: Track, key: K
 export const setTrackPan = (project: Project, trackId: string, pan: number): Project =>
   updateTrack(project, trackId, (track) => withMixField(track, 'pan', clamp(pan, -1, 1), 0))
 
-/** Mute and solo are independent: a track can be both (solo then wins, see ARCHITECTURE.md). */
+/** Mute and solo are independent: a track can be both (solo then wins, see docs/architecture/mixing-and-routing.md). */
 export const setTrackMuted = (project: Project, trackId: string, muted: boolean): Project =>
   updateTrack(project, trackId, (track) => withMixField(track, 'muted', muted, false))
 
@@ -214,34 +234,21 @@ export const setClipAt = (
     clips: track.clips.map((existing, index) => (index === scene ? clip : existing)),
   }))
 
-const updateClip = (
-  project: Project,
-  trackId: string,
-  clipId: string,
-  change: (clip: Clip) => Clip,
-): Project =>
-  updateInstrument(project, trackId, (track) => {
-    const clips = track.clips.map((clip) => (clip?.id === clipId ? change(clip) : clip))
-    // Keep identity when nothing changed, so a no-op edit doesn't create an undo step.
-    return clips.every((clip, index) => clip === track.clips[index]) ? track : { ...track, clips }
-  })
+/** Edits the MIDI clip a ref points at; an audio clip, or nothing, stays as it is. */
+const updateClip = (project: Project, ref: ClipRef, change: (clip: Clip) => Clip): Project =>
+  editClipAt(project, ref, (clip) => ('notes' in clip ? change(clip) : clip))
 
 /** Resizes a clip. Shortening trims notes that no longer fit (undo restores them). */
-export const setClipLength = (
-  project: Project,
-  trackId: string,
-  clipId: string,
-  lengthBeats: number,
-): Project =>
-  updateClip(project, trackId, clipId, (clip) => {
+export const setClipLength = (project: Project, ref: ClipRef, lengthBeats: number): Project =>
+  updateClip(project, ref, (clip) => {
     const length = clamp(lengthBeats, MIN_CLIP_BEATS, MAX_CLIP_BEATS)
     if (length === clip.lengthBeats) return clip
     return { ...resizeAutomation(clip, length), lengthBeats: length, notes: trimNotesToLength(clip.notes, length) }
   })
 
 /** Doubles a clip's length and repeats its notes into the new half ("double loop"). */
-export const doubleClip = (project: Project, trackId: string, clipId: string): Project =>
-  updateClip(project, trackId, clipId, (clip) => {
+export const doubleClip = (project: Project, ref: ClipRef): Project =>
+  updateClip(project, ref, (clip) => {
     const length = clip.lengthBeats * 2
     if (length > MAX_CLIP_BEATS || clip.automation?.some((lane) => lane.points.length * 2 + 2 > MAX_AUTOMATION_POINTS)) return clip
     return {
@@ -252,14 +259,9 @@ export const doubleClip = (project: Project, trackId: string, clipId: string): P
     }
   })
 
-export const setClipNotes = (
-  project: Project,
-  trackId: string,
-  clipId: string,
-  notes: readonly Note[],
-): Project =>
+export const setClipNotes = (project: Project, ref: ClipRef, notes: readonly Note[]): Project =>
   // Identical notes keep the same project, so e.g. quantizing an already-quantized clip adds no undo step.
-  updateClip(project, trackId, clipId, (clip) =>
+  updateClip(project, ref, (clip) =>
     notesEqual(clip.notes, notes) ? clip : { ...clip, notes },
   )
 
@@ -289,28 +291,6 @@ export const addSamples = (project: Project, samples: readonly SampleInfo[]): Pr
  * Removes a sample from the library together with whatever played it: sampler nodes are cleared and audio
  * clips using it are removed (undo restores everything).
  */
-export const removeSample = (project: Project, sampleId: string): Project => ({
-  ...project,
-  master: mapMasterFx(project.master, (fx) => clearSampleReferences(fx, sampleId)),
-  samples: project.samples.filter((sample) => sample.id !== sampleId),
-  ...(project.sampleBindings && { sampleBindings: project.sampleBindings.map(b => b.sampleId === sampleId ? { ...b, sampleId: null } : b) }),
-  modules: mapModules(project.modules, (module) => {
-    const patch = clearSampleReferences(module.patch, sampleId)
-    return patch === module.patch ? module : { ...module, patch }
-  }),
-  tracks: project.tracks.map((track): Track => {
-    const fx = clearSampleReferences(track.fx, sampleId)
-    const base = fx === track.fx ? track : { ...track, fx }
-    if (base.kind === 'return') return base
-    if (base.kind === 'audio') {
-      const clips = base.clips.map((clip) => (clip?.sampleId === sampleId ? null : clip))
-      return clips.some((clip, index) => clip !== base.clips[index]) ? { ...base, clips } : base
-    }
-    const patch = clearSampleReferences(base.patch, sampleId)
-    return patch === base.patch ? base : { ...base, patch }
-  }),
-})
-
 const SAMPLER_NOTE = 60
 
 /** A ready-to-play track: a sampler loaded with `sample` and a one-bar clip that triggers it. */
@@ -336,22 +316,14 @@ export type AudioClipChanges = Partial<
 >
 
 /** Edits an audio clip's settings, keeping them in range. No change keeps the same project (no empty undo step). */
-export const updateAudioClip = (
-  project: Project,
-  trackId: string,
-  clipId: string,
-  changes: AudioClipChanges,
-): Project =>
-  updateAudio(project, trackId, (track) => {
-    const clips = track.clips.map((clip) => (clip?.id === clipId ? clampAudioClip({ ...resizeAutomation(clip, changes.lengthBeats ?? clip.lengthBeats), ...changes }) : clip))
-    const unchanged = clips.every((clip, index) => {
-      const before = track.clips[index]
-      return clip === before || (clip && before && JSON.stringify(clip) === JSON.stringify(before))
-    })
-    return unchanged ? track : { ...track, clips }
+/** Edits the audio clip a ref points at, kept in range; a MIDI clip, or nothing, stays as it is. */
+export const updateAudioClip = (project: Project, ref: ClipRef, changes: AudioClipChanges): Project =>
+  editClipAt(project, ref, (clip) => {
+    if (!('sampleId' in clip)) return clip
+    const next = clampAudioClip({ ...resizeAutomation(clip, changes.lengthBeats ?? clip.lengthBeats), ...changes })
+    return JSON.stringify(next) === JSON.stringify(clip) ? clip : next
   })
 
-/** Puts a new audio clip for `sample` in a slot, at the project tempo's best-guess length. */
 export const addAudioClip = (project: Project, trackId: string, scene: number, sample: SampleInfo): Project =>
   setAudioClipAt(project, trackId, scene, createAudioClip(sample, project.tempo))
 

@@ -2,7 +2,7 @@ diff --git a/scripts/review-benchmark/README.md b/scripts/review-benchmark/READM
 index d916b44..8dcefd7 100644
 --- a/scripts/review-benchmark/README.md
 +++ b/scripts/review-benchmark/README.md
-@@ -37,6 +37,48 @@ remain under `docs/tmp`, excluded from normal suites. They deliberately describe
+@@ -37,6 +37,48 @@ remain under `docs/archive/2026-10-perf-library/diagnostics`, excluded from normal suites. They deliberately describe
  pre-fix defects and are not expected to pass against repaired code.
  
  These are offline capacity/counter measurements, not worklet callback durations or

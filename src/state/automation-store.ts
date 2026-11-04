@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { type AutomationLane, type ControlTarget, commit, controlTargetKey, setClipAutomation, automationSlotsOf, setAutomationSlot, type ControlOwner, type AutomationSlot } from '@core'
 import { useProjectStore } from './project-store'
+import { useLayoutStore } from './layout-store'
+import { openAutomationSlot } from './navigation'
 import { useSelectionStore } from './selection-store'
 interface AutomationEditorState {
   readonly visible: boolean
@@ -14,14 +16,13 @@ export const useAutomationEditor = create<AutomationEditorState>((set) => ({
     if (target) {
       const project = useProjectStore.getState().project
       const owner = target.owner
-      if (owner.kind === 'master' || project.tracks.find((t) => t.id === owner.trackId)?.kind === 'return') {
-        const selected = useSelectionStore.getState()
-        const scene = selected.automationScene
+      if (owner.kind === 'master' || (owner.kind === 'track' && project.tracks.find((t) => t.id === owner.trackId)?.kind === 'return')) {
+        const scene = useSelectionStore.getState().automationScene
         if (!automationSlotsOf(project, owner)?.[scene]) editAutomationSlot(owner, scene, { id: crypto.randomUUID(), name: 'Automation', lengthBeats: 4 })
-        selected.selectAutomation(owner, scene)
+        openAutomationSlot(owner, scene)
       }
     }
-    set({ visible: true, target }); useSelectionStore.getState().setTab('clip')
+    set({ visible: true, target }); useLayoutStore.getState().revealView('clip')
   },
   hide: () => set({ visible: false, target: undefined }),
 }))

@@ -3,6 +3,7 @@ import {
   type NodeShape,
   type Patch,
   type PatchNode,
+  type PatchTarget,
   type PortRef,
   MODULE_NODE_TYPE,
   classifyStages,
@@ -10,10 +11,11 @@ import {
   flattenPatch,
   resolveParams,
 } from '@core'
-import { useProjectStore } from '@state'
+import { type Subject, useGraphViewStore, useProjectStore } from '@state'
 import { type PointerEvent, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { NODE_WIDTH, type Point, nodeHeight } from './geometry'
-import type { MenuEntry } from '../shared/menu'
+import { useDropTarget } from '../shared/drag'
+import { ActionMenu, type MenuEntry, useFocusSubjects } from '../shared/menu'
 import type { ParamChange } from '../panel/ControlWidget'
 import { NodeView } from './NodeView'
 import { nodeTitles } from '@core'
@@ -23,7 +25,16 @@ import styles from './Patcher.module.css'
 import { WireLayer } from './WireLayer'
 import { canvasPoint, MAX_ZOOM, MIN_ZOOM, zoomAt, type Viewport } from './viewport'
 
+/** Which graph a canvas shows, as subjects name it: the track's graph (or the master's) and the module open in it. */
+export interface GraphPlace {
+  readonly target: PatchTarget
+  readonly path: readonly string[]
+}
+
 interface PatchCanvasProps {
+  graph: GraphPlace
+  /** Where the canvas's pan and zoom are kept for the session (`canvasKey`): it starts there and leaves them there. */
+  viewKey: string
   patch: Patch
   modules: ModuleLibrary
   selected: ReadonlySet<string>
@@ -37,13 +48,10 @@ interface PatchCanvasProps {
   onMoveNode(nodeId: string, x: number, y: number): void
   /** A control's widget on its card changed its value. */
   onSetNodeParams(nodeId: string, changes: readonly ParamChange[]): void
-  onRemoveNode(nodeId: string): void
   /** The right-click menu of an input port of a node (empty: none). */
   inputMenu(nodeId: string, portId: string): readonly MenuEntry[]
   onConnect(from: PortRef, to: PortRef): void
   onDisconnect(connectionId: string): void
-  onOpenModule(moduleId: string): void
-  onUnlinkModule(nodeId: string): void
   /**
    * The user asked for the node picker: double-click on empty canvas, or Shift+A over it, or a wire dropped there (`from` is
    * then the output it was dragged from). `at` is in canvas coordinates, `anchor` in window pixels.
@@ -54,6 +62,8 @@ interface PatchCanvasProps {
 export interface PatchCanvasHandle {
   /** The middle of what is on screen, in canvas coordinates: where the Add button puts a node. */
   visibleCenter(): Point
+  /** Where a canvas point is on screen, in window pixels: where the picker opens for it. */
+  clientPoint(at: Point): Point
 }
 
 /** Two presses on empty canvas this close in time and place are a double-click. */
@@ -79,6 +89,8 @@ const boxOf = ({ from, to }: Box) => ({
 
 /** Pannable, zoomable node canvas: nodes as HTML, wires as SVG, wiring by dragging output -> input. */
 export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(function PatchCanvas({
+  graph,
+  viewKey,
   patch,
   modules,
   selected,
@@ -88,16 +100,16 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
   onSetNodeParams,
   onSelectionChange,
   onMoveNode,
-  onRemoveNode,
   inputMenu,
   onConnect,
   onDisconnect,
-  onOpenModule,
-  onUnlinkModule,
   onRequestAdd,
 }, handle) {
-  const [view, setView] = useState<Viewport>({ x: 0, y: 0, zoom: 1 })
+  const [view, setView] = useState<Viewport>(() => useGraphViewStore.getState().viewports[viewKey] ?? { x: 0, y: 0, zoom: 1 })
   const viewRef = useRef(view)
+  // Leaves the pan and zoom for the next canvas of this graph: switching tracks remounts the canvas, and hiding the
+  // view cleans this Effect up too. Not on every gesture: nothing reads it until then.
+  useEffect(() => () => useGraphViewStore.getState().setViewport(viewKey, viewRef.current), [viewKey])
   const [handTool, setHandTool] = useState(false)
   const [panning, setPanning] = useState(false)
   const pan = useRef<{ pointer: Point; view: Viewport } | null>(null)
@@ -117,12 +129,21 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
   const [pending, setPending] = useState<{ from: PortRef; pointer: Point } | null>(null)
   const [box, setBox] = useState<Box | null>(null)
 
+  const visibleCenter = (): Point => {
+    const view = scroller.current
+    return view ? canvasPoint({ x: view.clientWidth / 2, y: view.clientHeight / 2 }, viewRef.current) : { x: 300, y: 200 }
+  }
   useImperativeHandle(handle, () => ({
-    visibleCenter: () => {
-      const view = scroller.current
-      return view ? canvasPoint({ x: view.clientWidth / 2, y: view.clientHeight / 2 }, viewRef.current) : { x: 300, y: 200 }
+    visibleCenter,
+    clientPoint: (at) => {
+      const bounds = scroller.current?.getBoundingClientRect()
+      const { x, y, zoom } = viewRef.current
+      return { x: (bounds?.left ?? 0) + x + at.x * zoom, y: (bounds?.top ?? 0) + y + at.y * zoom }
     },
   }))
+  /** Where the empty canvas was right-clicked: where *Add node…* and *Paste* put things. */
+  const [menuAt, setMenuAt] = useState<Point>({ x: 0, y: 0 })
+  const nodesSubject = (nodeIds: readonly string[]): Extract<Subject, { kind: 'nodes' }> => ({ kind: 'nodes', target: graph.target, path: graph.path, nodeIds })
 
   // A non-passive listener prevents browser/page zoom during trackpad pinch and Ctrl+wheel.
   useEffect(() => {
@@ -134,8 +155,13 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
       const bounds = element.getBoundingClientRect()
       const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1
       if (event.ctrlKey || event.metaKey) {
+        // Wheel events report whole pixels (Chromium drops the fraction of mouse event coordinates); pointer events
+        // keep it. Zoom at the last pointer position when it is the same spot, so the point under the cursor stays
+        // put even when the canvas sits at a fractional offset, as docked panels do.
+        const seen = pointer.current.client
+        const cursor = Math.abs(seen.x - event.clientX) < 1 && Math.abs(seen.y - event.clientY) < 1 ? seen : { x: event.clientX, y: event.clientY }
         updateView(zoomAt(current, current.zoom * Math.exp(-event.deltaY * unit * 0.01), {
-          x: event.clientX - bounds.left, y: event.clientY - bounds.top,
+          x: cursor.x - bounds.left, y: cursor.y - bounds.top,
         }))
       } else {
         updateView({ ...current, x: current.x - (event.shiftKey ? event.deltaY : event.deltaX) * unit,
@@ -231,21 +257,52 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
     onSelectionChange(new Set([...(finished.additive ? selected : []), ...hit.map((node) => node.id)]))
   }
 
+  // What is dropped on the canvas lands at the canvas point under the pointer, as the menu's entries do.
+  const drop = useDropTarget((event) => {
+    const bounds = scroller.current?.getBoundingClientRect()
+    const point = canvasPoint({ x: event.clientX - (bounds?.left ?? 0), y: event.clientY - (bounds?.top ?? 0) }, viewRef.current)
+    return { kind: 'canvas', target: graph.target, path: graph.path, at: { x: Math.round(point.x), y: Math.round(point.y) } }
+  })
+
+  // With the focus on the canvas, the edit keys act on the selection, and Paste on the canvas at the pointer (or the
+  // middle of what shows).
+  useFocusSubjects(scroller, () => {
+    const at = pointer.current.over ? pointer.current.canvas : visibleCenter()
+    const canvas: Subject = { kind: 'canvas', target: graph.target, path: graph.path, at: { x: Math.round(at.x), y: Math.round(at.y) } }
+    return selected.size > 0 ? [nodesSubject([...selected]), canvas] : [canvas]
+  })
+  // A press on the canvas or a card focuses the canvas, unless it lands on something focusable of its own (a field).
+  const focusCanvas = (event: PointerEvent) => {
+    const holder = event.target instanceof Element ? event.target.closest('input, select, textarea, button, a[href], [tabindex], [contenteditable="true"]') : null
+    if (holder === null || holder === scroller.current) scroller.current?.focus({ preventScroll: true })
+  }
+
   const isBackground = (target: EventTarget | null) => target instanceof HTMLElement &&
     (target === scroller.current || target.dataset.testid === 'patch-surface')
 
   return (
     <div className={styles.canvasHost}>
+      <ActionMenu subject={{ kind: 'canvas', target: graph.target, path: graph.path, at: menuAt }}>
       <div
         ref={scroller}
         className={styles.scroller}
         style={{ backgroundPosition: `${view.x}px ${view.y}px`, backgroundSize: `${20 * view.zoom}px ${20 * view.zoom}px` }}
         data-testid="graph-viewport"
+        {...drop}
         data-panning={panning}
         data-hand-tool={handTool}
+        onContextMenu={(event) => {
+          const bounds = scroller.current?.getBoundingClientRect()
+          const point = canvasPoint({ x: event.clientX - (bounds?.left ?? 0), y: event.clientY - (bounds?.top ?? 0) }, viewRef.current)
+          setMenuAt({ x: Math.round(point.x), y: Math.round(point.y) })
+        }}
         onPointerEnter={() => (pointer.current.over = true)}
         onPointerLeave={() => (pointer.current.over = false)}
+        tabIndex={0}
+        role="group"
+        aria-label="Graph canvas"
         onPointerDownCapture={(event) => {
+          focusCanvas(event)
           if (event.button !== 1 && !(handTool && event.button === 0)) return
           event.preventDefault()
           event.stopPropagation()
@@ -321,14 +378,10 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
               inputMenu={(portId) => inputMenu(node.id, portId)}
               shared={isShared(node)}
               selected={selected.has(node.id)}
-              moduleActions={
-                node.type === MODULE_NODE_TYPE && node.moduleId
-                  ? { onOpen: () => onOpenModule(node.moduleId!), onUnlink: () => onUnlinkModule(node.id) }
-                  : undefined
-              }
+              subject={nodesSubject(selected.has(node.id) ? [...selected] : [node.id])}
+              moduleUse={node.type === MODULE_NODE_TYPE && !!node.moduleId}
               onSelect={(additive) => select(node.id, additive)}
               onMove={(x, y) => onMoveNode(node.id, x, y)}
-              onRemove={() => onRemoveNode(node.id)}
               onWireStart={(from) => setPending({ from, pointer: { x: node.x, y: node.y } })}
               onWireEnd={(to) => pending && onConnect(pending.from, to)}
             />
@@ -346,6 +399,7 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
           )}
         </div>
       </div>
+      </ActionMenu>
       <div className={styles.navigation} role="group" aria-label="Graph navigation">
         <button aria-label="Pan graph" aria-pressed={handTool} onClick={() => setHandTool(!handTool)} title="Drag to pan. Middle-drag also pans with the selection tool.">Hand</button>
         <button aria-label="Zoom out" disabled={view.zoom <= MIN_ZOOM} onClick={() => zoom(1 / 1.2)}>−</button>

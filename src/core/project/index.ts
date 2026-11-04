@@ -9,6 +9,9 @@ export type {
   ReturnTrack,
   SendLevels,
   Track,
+  TrackGroup,
+  GroupBus,
+  GroupColour,
   WarpMode,
 } from './types'
 export { isAudioTrack, isInstrumentTrack, isReturnTrack } from './track-kind'
@@ -18,14 +21,46 @@ export {
   arrangementLoopEnd,
   arrangementOnTrack,
   arrangementOverlaps,
+  clampStartBeat,
   createArrangementClip,
   isAudioContent,
   removeArrangementClip,
+  timelineEnd,
   updateArrangementClip,
   type ArrangementChanges,
   type ArrangementClip,
 } from './arrangement-clip'
-export { usedSampleIds, projectSampleDependencies } from './sample-use'
+export {
+  MAX_ARRANGEMENT_MARKERS,
+  MIN_LOOP_BEATS,
+  activeArrangementLoop,
+  addArrangementMarker,
+  arrangementContentEnd,
+  arrangementStops,
+  createMarkerId,
+  loopRangeOf,
+  moveArrangementMarker,
+  nextArrangementMarker,
+  removeArrangementLoop,
+  removeArrangementMarker,
+  renameArrangementMarker,
+  setArrangementLoop,
+  setArrangementLoopEnabled,
+  type ArrangementLoop,
+  type ArrangementMarker,
+} from './arrangement-marks'
+export { arrangementRows, type ArrangementRow } from './arrangement-rows'
+export { MAX_TIMELINE_BEATS } from './limits'
+export {
+  SAMPLE_USES,
+  type SampleReplaceReport,
+  type SampleUse,
+  projectSampleDependencies,
+  removeSample,
+  replaceSample,
+  usedSampleIds,
+} from './sample-uses'
+export { updateSampleMarks } from './sample-marks'
 export {
   DEFAULT_FADE_SECONDS,
   MAX_FADE_SECONDS,
@@ -46,6 +81,9 @@ export {
   DEFAULT_VOICES,
   MAX_CLIP_BEATS,
   MAX_NAME_LENGTH,
+  MAX_PATCH_NODES,
+  MAX_SCENES,
+  MAX_TRACKS,
   MAX_VOICES,
   MIN_CLIP_BEATS,
   MIN_VOICES,
@@ -60,10 +98,10 @@ export {
   addSamples,
   addTrack,
   createAudioTrack,
+  NEW_AUDIO_TRACK_STEREO,
   createClip,
   createReturnTrack,
   createTrack,
-  removeSample,
   removeTrack,
   doubleClip,
   setAudioClipAt,
@@ -83,6 +121,7 @@ export {
   updateAudioClip,
   type AudioClipChanges,
 } from './edit'
+export { type ClipRef, clipAt, editClipAt, regionClipRef, sessionClipRef } from './clip-ref'
 export {
   type PatchTarget,
   type TrackGraph,
@@ -102,6 +141,7 @@ export {
   type MixGraph,
   audioSourceTracks,
   audioSourcesOf,
+  hasMixLoop,
   mixDependencies,
   mixesAfter,
   sendTargetsOf,
@@ -134,6 +174,66 @@ export {
   type HumanizeOptions,
   type QuantizeOptions,
 } from './groove'
-export { copySessionClip } from './clip-copy'
+export { canPasteSessionClip, clipCopyFor, clipFitsTrack, copySessionClip, pasteSessionClip } from './clip-copy'
+export { NAME_LIMITS, setClipName, setGroupName, setSampleName, setSceneName, setTrackName } from './rename'
+export {
+  GROUP_COLOURS,
+  MAX_GROUP_DEPTH,
+  MAX_GROUPS,
+  type TrackItem,
+  type TrackPlace,
+  type TrackRow,
+  canGroupTrack,
+  canMoveGroup,
+  canMoveTrack,
+  findGroup,
+  groupDepth,
+  groupTrack,
+  moveGroup,
+  moveTrack,
+  neighbourPlace,
+  normalizeTrackGroups,
+  removeGroup,
+  setGroupCollapsed,
+  setGroupColour,
+  setGroupHidden,
+  setTrackHidden,
+  showAllTracks,
+  trackRows,
+  tracksInGroup,
+  tracksInOrder,
+  ungroup,
+  visibleRows,
+  withViewOf,
+} from './track-groups'
+export { type BusGroup, type ChannelRoute, busGroups, mixRouting } from './group-routing'
+export {
+  busOf,
+  createGroupBus,
+  setGroupBus,
+  setGroupMuted,
+  setGroupPan,
+  setGroupSend,
+  setGroupSoloed,
+  setGroupVolume,
+} from './group-bus'
+export {
+  MAX_PINS,
+  type LivePin,
+  type PanelPin,
+  canPin,
+  isPinned,
+  livePins,
+  movePin,
+  pinKey,
+  pinPanel,
+  pinTarget,
+  pinnedGraph,
+  setPinCollapsed,
+  unpinPanel,
+} from './pins'
+export { duplicateTrack } from './track-duplicate'
+export { copyNodes, pasteNodes, type CopiedNodes } from './node-copy'
+export { duplicateScene, insertScene, removeScene } from './scenes'
 
 export type { AutomationSlot } from './types'

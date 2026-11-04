@@ -84,11 +84,30 @@ describe('Engine', () => {
   })
 })
 
+describe('Engine scene launch', () => {
+  it("launches only the given tracks' clips in a scene, and leaves the others playing", () => {
+    const { engine, clip } = setup()
+    const other = createClip('o', 4, [createNote(60, 0, 1, 1)])
+    engine.apply({ type: 'track/add', kind: 'instrument', trackId: 'u', patch: createDefaultPatch(), noteGraph: createDefaultNoteGraph(), fx: createDefaultFxGraph(), clips: [other, null], volume: 1, voices: 8 })
+    engine.apply({ type: 'track/setClips', trackId: 't', clips: [clip, null] })
+    engine.apply({ type: 'scene/launch', scene: 0, trackIds: ['u'] })
+    render(engine, 2400)
+    expect(engine.status().tracks.u!.playingClipId).toBe(other.id)
+    expect(engine.status().tracks.t!.playingClipId).toBeNull()
+    engine.apply({ type: 'clip/launch', trackId: 't', clipId: clip.id })
+    // An empty slot stops its track, as a scene launch does; tracks not named keep playing.
+    engine.apply({ type: 'scene/launch', scene: 1, trackIds: ['u'] })
+    render(engine, 4 * 24000)
+    expect(engine.status().tracks.u!.playingClipId).toBeNull()
+    expect(engine.status().tracks.t!.playingClipId).toBe(clip.id)
+  })
+})
+
 describe('Engine samples', () => {
   const SAMPLE = {
     id: 'a'.repeat(64),
     sampleRate: SAMPLE_RATE,
-    data: Float32Array.from({ length: 24000 }, (_, i) => 0.8 * Math.sin((2 * Math.PI * 220 * i) / SAMPLE_RATE)),
+    channels: [Float32Array.from({ length: 24000 }, (_, i) => 0.8 * Math.sin((2 * Math.PI * 220 * i) / SAMPLE_RATE))],
   }
 
   const samplerSetup = () => {
@@ -124,7 +143,7 @@ describe('Engine samples', () => {
     const node = patch.nodes.find((n) => n.type === 'sampler')!
     engine.apply({ type: 'track/setPatch', trackId: 't', patch })
     engine.apply({ type: 'sample/add', sample: SAMPLE })
-    engine.apply({ type: 'sample/add', sample: { ...SAMPLE, id: 'b'.repeat(64), data: new Float32Array(24000) } })
+    engine.apply({ type: 'sample/add', sample: { ...SAMPLE, id: 'b'.repeat(64), channels: [new Float32Array(24000)] } })
     engine.apply({ type: 'track/setSample', trackId: 't', nodeId: node.id, sampleId: 'b'.repeat(64) })
     engine.apply({ type: 'clip/launch', trackId: 't', clipId: clip.id })
 

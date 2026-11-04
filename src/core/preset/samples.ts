@@ -27,7 +27,7 @@ export const resolveSampleTarget = (project: Project, target: SampleTarget) => {
 }
 export const enumerateSampleTargets = (project: Project): SampleTarget[] => {
   const result: SampleTarget[] = []
-  const owners: ControlOwner[] = [...project.tracks.map(t => ({ kind: 'track' as const, trackId: t.id })), { kind: 'master' }]
+  const owners: ControlOwner[] = [...project.tracks.map(t => ({ kind: 'track' as const, trackId: t.id })), ...(project.groups ?? []).flatMap(g => g.bus ? [{ kind: 'group' as const, groupId: g.id }] : []), { kind: 'master' }]
   for (const owner of owners) for (const domain of ['patch', 'notes', 'fx'] as const) {
     const walk = (graph: Patch, path: SampleTarget['path'], seen: ReadonlySet<string>) => {
       if (path.length > 32) return
@@ -63,7 +63,10 @@ export const projectWithSampleBindings = (project: Project): Project => {
       return sampleId === null ? rest : { ...rest, sampleId }
     }) }
     if (target.owner.kind === 'master') next = { ...next, master: { ...next.master, fx: patch } }
-    else {
+    else if (target.owner.kind === 'group') {
+      const groupId = target.owner.groupId
+      next = { ...next, groups: next.groups?.map(g => g.id !== groupId || !g.bus ? g : { ...g, bus: { ...g.bus, fx: patch } }) }
+    } else {
       const trackId = target.owner.trackId
       next = { ...next, tracks: next.tracks.map(t => t.id !== trackId ? t : target.domain === 'fx' ? { ...t, fx: patch } : t.kind !== 'instrument' ? t : target.domain === 'patch' ? { ...t, patch } : { ...t, noteGraph: patch }) }
     }

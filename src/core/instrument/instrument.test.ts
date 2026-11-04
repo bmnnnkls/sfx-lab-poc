@@ -178,7 +178,7 @@ describe('polyphonic Instrument', () => {
 
   it('a note that steals a still-held voice restarts the sampler', () => {
     const bank = new SampleBank()
-    bank.set({ id: 'ramp', sampleRate: SAMPLE_RATE, data: Float32Array.from({ length: 20000 }, (_, i) => i / 20000) })
+    bank.set({ id: 'ramp', sampleRate: SAMPLE_RATE, channels: [Float32Array.from({ length: 20000 }, (_, i) => i / 20000)] })
 
     const note = createNode('note', 0, 0)
     const sampler = { ...createNode('sampler', 0, 0), sampleId: 'ramp' }

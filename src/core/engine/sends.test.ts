@@ -34,7 +34,7 @@ type Part = { id: string; fx: Patch; volume?: number } | { id: string; ret: Patc
 const build = (parts: Part[]) => {
   const engine = new Engine(SAMPLE_RATE)
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
-  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, data: new Float32Array(4 * BEAT).fill(LEVEL) } })
+  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, channels: [new Float32Array(4 * BEAT).fill(LEVEL)] } })
   for (const part of parts) {
     if ('ret' in part) engine.apply({ type: 'track/add', kind: 'return', trackId: part.id, fx: part.ret, volume: part.volume ?? 1 })
     else engine.apply({ type: 'track/add', kind: 'audio', trackId: part.id, fx: part.fx, clips: [audioClip()], volume: part.volume ?? 1 })

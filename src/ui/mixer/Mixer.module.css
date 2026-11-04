@@ -1,8 +1,10 @@
 .mixer {
-  display: flex;
+  --padding: 10px;
+  /* Columns and rows are set by the panel: a row per level of group bands over the strips. */
+  display: grid;
   gap: 6px;
   height: 100%;
-  padding: 10px;
+  padding: var(--padding);
   overflow: auto hidden;
 }
 
@@ -26,9 +28,162 @@
   border-style: dashed;
 }
 
+/*
+ * At the right end, or at the right edge while the strips scroll under it, so the master fader is always there. The
+ * edge is the scroller's, past its padding, so no strip shows beside the master.
+ */
 .masterStrip {
-  margin-left: auto;
+  position: sticky;
+  right: calc(-1 * var(--padding));
+  z-index: 1;
+  justify-self: end;
+  width: 120px;
   border-width: 2px;
+}
+
+/* A member's strip carries its group's colour; a collapsed group is a narrow strip of its own. */
+.strip[data-stripe],
+.groupStrip {
+  box-shadow: inset 0 3px 0 var(--group);
+}
+
+.groupStrip {
+  align-items: stretch;
+  padding-inline: 4px;
+  border-color: var(--group);
+}
+
+.busStrip {
+  border-color: var(--group);
+  box-shadow: inset 0 3px 0 var(--group);
+}
+
+.busTitle {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.busTitle .name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Where a channel sums into, under its name: a bus, or the master. */
+.output {
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupStrip span.name {
+  padding: 4px 2px;
+  cursor: grab;
+}
+
+.twisty {
+  padding: 0 4px;
+  border-color: transparent;
+  background: none;
+  color: var(--text-dim);
+}
+
+/* Where a dragged track or group would land. */
+.strip[data-drop='accept'][data-edge='before'] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.strip[data-drop='accept'][data-edge='after'] {
+  box-shadow: inset -3px 0 0 var(--accent);
+}
+
+/* In a short mixer only the fader row gives up height; the name and buttons keep theirs. */
+.strip > * {
+  flex-shrink: 0;
+}
+
+.strip > .faderRow {
+  flex-shrink: 1;
+}
+
+.mutedStrip .name,
+.mutedStrip .faderRow {
+  opacity: 0.55;
+}
+
+.name {
+  overflow: hidden;
+  text-align: left;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+span.name {
+  padding: 4px 10px;
+}
+
+.kind {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.badges {
+  display: flex;
+  min-height: 22px;
+}
+
+.fxBadge {
+  padding: 1px 6px;
+  font-size: 11px;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.pan,
+.send {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* A send's label (the return's full name) sits above its slider, so a long name is not cut to a few letters. */
+.send {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.pan span {
+  flex: 0 0 26px;
+}
+
+.send span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pan input,
+.send input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+
+.sends {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.faderRow {
+  flex-shrink: 1;
 }
 
 .mutedStrip .name,
@@ -128,6 +283,28 @@ span.name {
   border-color: var(--accent);
 }
 
+/* Muted or soloed only through a group: half lit, so the cause shows on the group. */
+.buttons .muteHalf {
+  background: linear-gradient(to top, var(--queued) 50%, transparent 50%);
+  border-color: var(--queued);
+}
+
+.buttons .soloHalf {
+  background: linear-gradient(to top, var(--accent) 50%, transparent 50%);
+  border-color: var(--accent);
+}
+
+/* A folder's M and S at the end of its band. */
+.compact {
+  margin-left: auto;
+}
+
+.compact button {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  font-size: 11px;
+}
+
 .faderRow {
   display: flex;
   flex: 1;
@@ -167,4 +344,28 @@ span.name {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
+}
+
+/* Below 300 px high a strip keeps its name, mute and solo, the fader and the meter; pan, sends and badges go. */
+@container view (height < 300px) {
+  .pan,
+  .sends,
+  .badges {
+    display: none;
+  }
+
+  .faderRow {
+    min-height: 40px;
+  }
+}
+
+/* A strip a drag of ours is over: it would land there, or it can't. */
+.strip[data-drop='accept'] {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.strip[data-drop='refuse'] {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
 }

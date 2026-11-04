@@ -3,6 +3,7 @@ import type { DspNode, NodeDefinition, ProcessContext } from '../types'
 
 export const RETURN_IN_TYPE = 'returnIn'
 export const MASTER_IN_TYPE = 'masterIn'
+export const GROUP_IN_TYPE = 'groupIn'
 
 /** A stereo source: the signal a graph was given to process (a mono one is heard in both channels). */
 class StereoIn implements DspNode {
@@ -33,3 +34,6 @@ export const returnInNode = stereoIn(RETURN_IN_TYPE, 'Return in')
 
 /** Where the master graph starts: the mix of all tracks and returns. */
 export const masterInNode = stereoIn(MASTER_IN_TYPE, 'Master in')
+
+/** Where a group bus's graph starts: its members' sound after their faders, summed. */
+export const groupInNode = stereoIn(GROUP_IN_TYPE, 'Group in')

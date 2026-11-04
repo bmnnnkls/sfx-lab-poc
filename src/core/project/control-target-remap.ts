@@ -15,6 +15,8 @@ export const mapControlRoutesAt = (project: Project, scope: PatchTarget, rewrite
       offset = index + 1
     } else if ('master' in scope) {
       if (target.owner.kind !== 'master' || target.domain !== 'fx') return entry
+    } else if ('groupId' in scope) {
+      if (target.owner.kind !== 'group' || target.owner.groupId !== scope.groupId || target.domain !== 'fx') return entry
     } else if (target.owner.kind !== 'track' || target.owner.trackId !== scope.trackId || target.domain !== (scope.graph ?? 'patch')) return entry
     const tail = [...target.path.slice(offset).map((step) => step.nodeId), target.nodeId]
     const route = rewrite(tail)

@@ -1,62 +1,48 @@
 import type { SampleInfo } from '@core'
-import { useProjectStore, useSampleLibrary, useSampleStore, useSelectionStore } from '@state'
+import { type SubjectOf, runAction, useSampleStore } from '@state'
+import { useDragSource } from '../shared/drag'
+import { ActionMenu, useActionContext } from '../shared/menu'
+import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import styles from './SamplesPanel.module.css'
 
 const describeSample = (sample: SampleInfo): string =>
   `${sample.durationSeconds.toFixed(2)} s · ${sample.channels === 1 ? 'mono' : `${sample.channels} ch`} · .${sample.extension}`
 
-export const SampleRow = ({ sample, onEdit }: { sample: SampleInfo; onEdit(): void }) => {
-  const library = useSampleLibrary()
-  const removeSample = useProjectStore((state) => state.removeSample)
-  const addSamplerTrack = useProjectStore((state) => state.addSamplerTrack)
-  const addAudioTrack = useProjectStore((state) => state.addAudioTrackFromSample)
-  const selectTrack = useSelectionStore((state) => state.selectTrack)
-  const selectClip = useSelectionStore((state) => state.selectClip)
-  const setTab = useSelectionStore((state) => state.setTab)
+export const SampleRow = ({ sample }: { sample: SampleInfo }) => {
+  const context = useActionContext()
+  const subject: SubjectOf<'sample'> = { kind: 'sample', sampleId: sample.id }
+  const run = (id: string) => () => runAction(id, subject, context)
   const ready = useSampleStore((state) => state.status[sample.id] === 'ready')
-
-  const makeTrack = () => {
-    addSamplerTrack(sample)
-    const tracks = useProjectStore.getState().project.tracks
-    const added = tracks[tracks.length - 1]
-    if (added) selectTrack(added.id)
-    setTab('device')
-  }
-
-  /** An audio track that plays the sample as a looping clip, opened for editing. */
-  const makeAudioTrack = () => {
-    addAudioTrack(sample)
-    const tracks = useProjectStore.getState().project.tracks
-    const added = tracks[tracks.length - 1]
-    if (added?.kind === 'audio') {
-      const clip = added.clips[0]
-      if (clip) selectClip(added.id, clip.id)
-    }
-  }
+  // It drags onto an empty audio slot, an audio lane or an instrument's canvas.
+  const drag = useDragSource(useRenaming(subject) ? null : subject)
 
   return (
-    <li className={styles.row}>
+    <ActionMenu subject={subject}>
+    <li className={styles.row} {...drag}>
       <WaveformThumb sampleId={sample.id} />
       <div className={styles.meta}>
-        <strong>{sample.name}</strong>
+        <InPlaceRename subject={subject} name={sample.name} label={`Name of ${sample.name}`}>
+          <strong>{sample.name}</strong>
+        </InPlaceRename>
         <span>{describeSample(sample)}</span>
       </div>
-      <button onClick={() => library.preview(sample.id)} disabled={!ready} title="Preview" aria-label={`Preview ${sample.name}`}>
+      <button onClick={run('sample.preview')} disabled={!ready} title="Preview" aria-label={`Preview ${sample.name}`}>
         ▶
       </button>
-      <button onClick={onEdit} title="Open the sample editor: normalize, reverse, trim and fades" disabled={!ready}>
+      <button onClick={run('sample.open')} title="Open in the wave editor: normalize, reverse, trim and fades" disabled={!ready}>
         ✎
       </button>
-      <button onClick={makeTrack} title="Create an instrument track whose sampler plays this sample from MIDI notes">
+      <button onClick={run('sample.new-sampler-track')} title="Create an instrument track whose sampler plays this sample from MIDI notes">
         New sampler track
       </button>
-      <button onClick={makeAudioTrack} title="Create an audio track that plays this sample as a clip, in time with the project">
+      <button onClick={run('sample.new-audio-track')} title="Create an audio track that plays this sample as a clip, in time with the project">
         New audio track
       </button>
-      <button onClick={() => removeSample(sample.id)} aria-label={`Remove ${sample.name}`} title="Remove from the project">
+      <button onClick={run('sample.remove')} aria-label={`Remove ${sample.name}`} title="Remove from the project">
         ×
       </button>
     </li>
+    </ActionMenu>
   )
 }

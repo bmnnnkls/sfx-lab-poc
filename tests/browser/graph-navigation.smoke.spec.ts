@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures'
+import { test, expect, openView, viewRoot } from './fixtures'
 
 test('graph navigation pans, zooms at the cursor and keeps node dragging in graph coordinates', async ({ page }) => {
   await page.goto('/?starter')
@@ -63,4 +63,22 @@ test('graph navigation pans, zooms at the cursor and keeps node dragging in grap
   await expect(page.getByRole('button', { name: 'Reset graph view' })).toHaveText('83%')
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Reset graph view' })).toHaveText('100%')
+})
+
+test("switching tracks brings back each graph's zoom", async ({ page }) => {
+  await page.goto('/?starter')
+  const session = viewRoot(page, 'Session')
+  const instrument = await openView(page, 'Instrument')
+  const readout = instrument.getByRole('button', { name: 'Reset graph view', exact: true })
+  await session.getByRole('button', { name: 'Bass', exact: true }).click()
+  await expect(readout).toHaveText('100%')
+  await instrument.getByRole('button', { name: 'Zoom in', exact: true }).click()
+  await instrument.getByRole('button', { name: 'Zoom in', exact: true }).click()
+  await expect(readout).toHaveText('144%')
+  await session.getByRole('button', { name: 'Lead', exact: true }).click()
+  // Lead's graph, which starts where it was left: at the top level, unzoomed.
+  await expect(instrument.getByText('Lead', { exact: true })).toBeVisible()
+  await expect(readout).toHaveText('100%')
+  await session.getByRole('button', { name: 'Bass', exact: true }).click()
+  await expect(readout).toHaveText('144%')
 })

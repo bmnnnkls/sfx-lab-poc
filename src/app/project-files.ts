@@ -1,4 +1,4 @@
-import { type Project, createDemoProject, createEmptyProject, findExampleProject } from '@core'
+import { type Project, bytesKeyOf, createDemoProject, createEmptyProject, findExampleProject } from '@core'
 import { type ProjectStorage, type SampleStorage, downloadFile, exportProject, importProject, pickFile } from '@storage'
 import {
   type EngineControls,
@@ -37,7 +37,7 @@ export const createProjectFiles = (
     exportProject: async () => {
       try {
         const project = useProjectStore.getState().project
-        const file = await exportProject(project, (id) => sampleStorage.get(id))
+        const file = await exportProject(project, (key) => sampleStorage.get(key))
         downloadFile(file.fileName, file.mimeType, file.bytes)
         if (file.missing.length > 0) {
           persistence().notify(
@@ -75,13 +75,13 @@ export const createProjectFiles = (
       }
 
       try {
-        for (const [id, audio] of result.samples) {
-          if (!(await sampleStorage.has(id))) await sampleStorage.put(id, audio)
+        for (const [key, audio] of result.samples) {
+          if (!(await sampleStorage.has(key))) await sampleStorage.put(key, audio)
         }
         // A plain .json has no audio: flag samples this browser doesn't have so the user knows why they're silent.
         const warnings = [...result.warnings]
         for (const sample of result.project.samples) {
-          if (!result.samples.has(sample.id) && !(await sampleStorage.has(sample.id))) {
+          if (!result.samples.has(bytesKeyOf(sample)) && !(await sampleStorage.has(bytesKeyOf(sample)))) {
             warnings.push(`No audio for sample "${sample.name}": import the original file to restore it`)
           }
         }

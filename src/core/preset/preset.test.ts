@@ -5,7 +5,7 @@ import { createAudioClip, createArrangementClip, createEmptyProject, editPatchAt
 import { editControlBase, resolveControlTarget, projectWithControlValues, type ControlTarget } from '../control'
 import { parseProject, serializeProject } from '../persistence'
 import { diffProject } from '../sync'
-import { captureSnapshot, recallSnapshot, putSnapshot, duplicateSnapshot, deleteSnapshot, morphSnapshots, saveProjectPreset, recallProjectPreset, enumerateSampleTargets, editSampleBinding, resolveSampleTarget, assetSignature, captureAsset, duplicateProjectPreset, deleteProjectPreset } from './index'
+import { captureSnapshot, recallSnapshot, putSnapshot, duplicateSnapshot, deleteSnapshot, morphSnapshots, saveProjectPreset, recallProjectPreset, canRecallProjectPreset, enumerateSampleTargets, editSampleBinding, resolveSampleTarget, assetSignature, captureAsset, duplicateProjectPreset, deleteProjectPreset } from './index'
 const sample = (letter: string) => ({ id: letter.repeat(64), name: letter, extension: 'wav', sampleRate: 8000, channels: 1, bytes: 16000, durationSeconds: 1 })
 const read = (p: Project) => { const r = parseProject(serializeProject(p)); if (!r.ok) throw new Error(r.error); expect(r.warnings).toEqual([]); return r.project }
 const setup = () => {
@@ -98,6 +98,8 @@ describe('snapshots and immutable embedded presets', () => {
     expect(recallProjectPreset(second, preset, { ...scope, owner: { kind: 'track', trackId: 'copy' } }).issues).toEqual([])
     const broken = editPatchAt(saved, { trackId: scope.owner.trackId }, patch => ({ ...patch, nodes: patch.nodes.slice(1) }))
     expect(() => recallProjectPreset(broken, preset)).toThrow('Graph differs')
+    expect([canRecallProjectPreset(saved, preset), canRecallProjectPreset(broken, preset), canRecallProjectPreset(saved, preset, { ...scope, domain: 'fx' })]).toEqual([true, false, false])
+    expect(canRecallProjectPreset(second, preset, { ...scope, owner: { kind: 'track', trackId: 'copy' } })).toBe(true)
     const newRevision = saveProjectPreset(broken, scope, 'Changed structure')
     expect(newRevision.assetRevisions).toHaveLength(2)
     expect(recallProjectPreset({ ...saved, samples: [] }, preset).issues.some(i => i.reason.includes('Sample'))).toBe(true)

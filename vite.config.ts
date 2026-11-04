@@ -17,6 +17,7 @@ export default defineConfig({
           groups: [
             { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
             { name: 'ui-vendor', test: /node_modules[\\/](@radix-ui|@floating-ui)[\\/]/ },
+            { name: 'layout-vendor', test: /node_modules[\\/]flexlayout-react[\\/]/ },
           ],
         },
       },

@@ -1,4 +1,4 @@
-.editor { display: flex; flex-direction: column; min-height: 260px; height: 100%; overflow: hidden; }
+.editor { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
 .toolbar label { display: inline-flex; align-items: center; gap: 6px; }
 .toolbar input[type=number] { width: 78px; }
@@ -12,10 +12,26 @@
 .scroll { margin: 10px 16px; overflow-x: auto; }
 .ruler { position: relative; height: 22px; color: var(--text-dim); font-size: 11px; }
 .ruler span { position: absolute; transform: translateX(-50%); }
-.canvas { display: block; width: 100%; height: 180px; background: var(--panel); border: 1px solid var(--border); touch-action: none; cursor: crosshair; }
+.canvas { display: block; width: 100%; height: clamp(80px, 45cqh, 180px); background: var(--panel); border: 1px solid var(--border); touch-action: none; cursor: crosshair; }
 .grid { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .curve { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
 .point, .selected { fill: var(--accent); stroke: var(--panel); stroke-width: 1; vector-effect: non-scaling-stroke; cursor: move; }
 .selected { fill: var(--text); }
 .playhead { stroke: var(--text); stroke-width: 1; vector-effect: non-scaling-stroke; pointer-events: none; }
 .hint { padding: 0 12px; color: var(--text-dim); font-size: 11px; }
+
+/* The lane picker in a narrow editor, in place of the list (below). */
+.lanePicker { display: none; }
+
+/*
+ * Below 600 px the lane list gives the curve its width: the search, the lanes as a <select> and the add picker sit
+ * above the curve, with only the open lane's row (enable, delete).
+ */
+@container view (width < 600px) {
+  .body { flex-direction: column; }
+  .lanes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; width: auto; max-height: none; border-right: 0; border-bottom: 1px solid var(--border); }
+  .lanes > input, .lanes > select { flex: 1 1 140px; width: auto; margin: 0; }
+  .lanePicker { display: block; }
+  .lane { flex: 1 1 100%; margin: 0; }
+  .lane:not(:has(button[aria-pressed='true'])) { display: none; }
+}

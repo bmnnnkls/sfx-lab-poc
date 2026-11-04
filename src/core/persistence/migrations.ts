@@ -5,6 +5,19 @@ type Migration = (project: unknown) => unknown
 
 /** `MIGRATIONS[n]` upgrades the `project` payload from format version n to n + 1. */
 const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  // v13 adds the arrangement's markers and loop brace, both optional; a v12 file has neither.
+  12: (project) => project,
+  // v12 adds a sample's loop and lineage, both optional; a v11 sample has neither, so it plays as before and can't revert.
+  11: (project) => project,
+  // v11 adds a sample's origin, markers and regions, all optional; a v10 file has none.
+  10: (project) => project,
+  // v10 adds track groups and hidden tracks. v9 never interpreted them.
+  9: (project) => {
+    if (!isRecord(project)) return project
+    const { groups: _unknown, ...authored } = project
+    const strip = (raw: unknown) => { if (!isRecord(raw)) return raw; const { groupId: _group, hidden: _hidden, ...saved } = raw; return saved }
+    return Array.isArray(authored.tracks) ? { ...authored, tracks: authored.tracks.map(strip) } : authored
+  },
   // v9 uses deterministic signatures; sanitation reconstructs them from preserved revision payloads.
   // Opaque revision IDs and preset references are unchanged.
   8: (project) => project,

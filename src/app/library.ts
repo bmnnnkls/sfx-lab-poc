@@ -1,5 +1,5 @@
 import { decodeAudio } from '@audio'
-import { type LibraryCatalog, type LibraryItem, type Project, type SampleData, captureLibraryAsset, captureLibraryClip, captureLibrarySample, insertLibraryAsset, insertLibraryClip, libraryDependencies, libraryPreviewProject, Bounce, commit } from '@core'
+import { bytesKeyOf, type LibraryCatalog, type LibraryItem, type Project, type SampleData, captureLibraryAsset, captureLibraryClip, captureLibrarySample, insertLibraryAsset, insertLibraryClip, libraryDependencies, libraryPreviewProject, Bounce, commit } from '@core'
 import { type PersonalLibrary, useProjectStore } from '@state'
 import { type LibraryStorage, type SampleStorage, stageLibraryBundle, commitLibraryBundle, exportLibraryBundle, downloadFile } from '@storage'
 
@@ -9,8 +9,9 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
   const stopPreview = () => { generation++; if (source?.buffer) source.stop(); source?.disconnect(); source = undefined; if (context && context.state !== 'closed') void context.close(); context = undefined }
   const ensureBytes = async (catalog: LibraryCatalog, item: LibraryItem) => {
     for (const id of libraryDependencies(catalog, item).sampleIds) {
-      if (!catalog.samples.some(s => s.id === id)) throw new Error(`Sample metadata missing (${id})`)
-      if (!(await samples.has(id))) throw new Error(`Sample bytes missing (${id}); reimport the original sample before loading`)
+      const info = catalog.samples.find(s => s.id === id)
+      if (!info) throw new Error(`Sample metadata missing (${id})`)
+      if (!(await samples.has(bytesKeyOf(info)))) throw new Error(`Sample bytes missing (${id}); reimport the original sample before loading`)
     }
   }
   const save = async (capture: (catalog: LibraryCatalog, project: Project) => LibraryCatalog) => {
@@ -74,15 +75,18 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
         await ensureBytes(catalog, item)
         const decoded: SampleData[] = []
         for (const id of libraryDependencies(catalog, item).sampleIds) {
-          const bytes = await samples.get(id)
+          const info = catalog.samples.find(s => s.id === id)
+          const bytes = info && await samples.get(bytesKeyOf(info))
           if (!bytes) throw new Error('Preview sample bytes are missing')
           const audio = await decodeAudio(bytes)
-          decoded.push({ id, data: audio.mono, sampleRate: audio.sampleRate })
+          decoded.push({ id, ...audio.audio })
         }
         if (generation !== token) return 'cancelled'
         let left: Float32Array, right: Float32Array, rate = 48000
         if (item.content.kind === 'sample') {
-          left = decoded[0]!.data.slice(0, decoded[0]!.sampleRate * 4); right = left; rate = decoded[0]!.sampleRate
+          // A sample previews its first 4 s, each channel to its side (mono to both).
+          const { channels, sampleRate } = decoded[0]!
+          left = channels[0]!.slice(0, sampleRate * 4); right = (channels[1] ?? channels[0]!).slice(0, sampleRate * 4); rate = sampleRate
         } else {
           const project = libraryPreviewProject(catalog, item)
           const bounce = new Bounce(project, decoded, { scope: { kind: 'scene', scene: 0 }, bars: 1, maxTail: 0.5 })

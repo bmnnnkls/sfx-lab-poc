@@ -4,8 +4,16 @@
 }
 
 .layout {
+  --lane-height: var(--lane-full);
   display: grid;
   width: max-content;
+}
+
+/* Below 320 px high the velocity lane takes at most a quarter of the view, so the roll keeps most of it. */
+@container view (height < 320px) {
+  .layout {
+    --lane-height: min(25cqh, var(--lane-full));
+  }
 }
 
 .corner {

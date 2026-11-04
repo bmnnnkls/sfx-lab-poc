@@ -1,0 +1,7 @@
+/* A name field in place of a name: as wide as the name's box, in its font. `:where` lets a view's own class win. */
+:where(.field) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+}

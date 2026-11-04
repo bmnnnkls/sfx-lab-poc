@@ -1,7 +1,8 @@
 import type { Clip } from '@core'
-import { duplicateSessionClip, useAutomationEditor, useEngineControls, useProjectStore, useSelectionStore, useStatusStore } from '@state'
-import { ContextMenu } from '../shared/menu'
-import { placeOnArrangement } from './place-on-arrangement'
+import { type SubjectOf, runAction, useStatusStore } from '@state'
+import { useDragSource, useDropTarget } from '../shared/drag'
+import { ActionMenu, useActionContext } from '../shared/menu'
+import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import styles from './SessionView.module.css'
 
 interface ClipSlotProps {
@@ -11,54 +12,47 @@ interface ClipSlotProps {
 }
 
 export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
-  const controls = useEngineControls()
-  const createClip = useProjectStore((state) => state.createClip)
-  const deleteClip = useProjectStore((state) => state.deleteClip)
-  const selectClip = useSelectionStore((state) => state.selectClip)
+  const context = useActionContext()
   const playing = useStatusStore(
     (state) => !!clip && state.status?.tracks[trackId]?.playingClipId === clip.id,
   )
   const queued = useStatusStore(
     (state) => !!clip && state.status?.tracks[trackId]?.queued === clip.id,
   )
+  const slot: SubjectOf<'slot'> = { kind: 'slot', trackId, scene }
+  const subject: SubjectOf<'clip'> | null = clip && { kind: 'clip', trackId, clipId: clip.id }
+  // A filled slot is a target too, so it shows that it refuses.
+  const drop = useDropTarget(slot)
+  const drag = useDragSource(useRenaming(subject ?? slot) ? null : subject)
 
-  if (!clip) {
-    const create = () => selectClip(trackId, createClip(trackId, scene).id)
+  if (!clip || !subject) {
     return (
-      <ContextMenu entries={[{ label: 'Create clip', onSelect: create }]}>
-        <div className={`${styles.slot} ${styles.empty}`}>
-          <button onClick={create} aria-label="Create clip">
+      <ActionMenu subject={slot}>
+        <div className={`${styles.slot} ${styles.empty}`} {...drop}>
+          <button onClick={() => runAction('slot.create-clip', slot, context)} aria-label="Create clip">
             +
           </button>
         </div>
-      </ContextMenu>
+      </ActionMenu>
     )
   }
 
   const state = playing ? styles.playing : queued ? styles.queued : ''
   return (
-    <ContextMenu
-      entries={[
-        { label: playing ? 'Restart clip' : 'Launch clip', onSelect: () => controls.launchClip(trackId, clip.id) },
-        { label: 'Edit notes', onSelect: () => selectClip(trackId, clip.id) },
-        { label: 'Edit automation', onSelect: () => { selectClip(trackId, clip.id); useAutomationEditor.getState().show() } },
-        { label: 'Duplicate to empty slot', disabled: !useProjectStore.getState().project.tracks.some((t) => t.id === trackId && t.kind !== 'return' && t.clips.some((c) => !c)), onSelect: () => duplicateSessionClip(trackId, clip.id) },
-        { label: 'Place on arrangement', onSelect: () => placeOnArrangement(trackId, clip) },
-        { kind: 'separator' },
-        { label: 'Delete clip', danger: true, onSelect: () => deleteClip(trackId, scene) },
-      ]}
-    >
-      <div className={`${styles.slot} ${state}`} >
-        <button className={styles.launch} onClick={() => controls.launchClip(trackId, clip.id)}>
-          {playing ? '■' : '▶'} {clip.name}
-        </button>
-        <button onClick={() => selectClip(trackId, clip.id)} aria-label={`Edit ${clip.name}`}>
+    <ActionMenu subject={subject}>
+      <div className={`${styles.slot} ${state}`} {...drop} {...drag}>
+        <InPlaceRename subject={subject} name={clip.name} label={`Name of ${clip.name}`} className={styles.launch}>
+          <button className={styles.launch} onClick={() => runAction('clip.launch', subject, context)}>
+            {playing ? '■' : '▶'} {clip.name}
+          </button>
+        </InPlaceRename>
+        <button onClick={() => runAction('clip.edit', subject, context)} aria-label={`Edit ${clip.name}`}>
           ✎
         </button>
-        <button onClick={() => deleteClip(trackId, scene)} aria-label={`Delete ${clip.name}`}>
+        <button onClick={() => runAction('clip.delete', subject, context)} aria-label={`Delete ${clip.name}`}>
           ×
         </button>
       </div>
-    </ContextMenu>
+    </ActionMenu>
   )
 }

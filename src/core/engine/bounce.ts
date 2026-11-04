@@ -144,13 +144,15 @@ export class Bounce {
   constructor(project: Project, samples: readonly SampleData[], options: BounceOptions) {
     // Delay lines can be silent for seconds while an echo is still pending, including in serial graphs.
     // Render their explicit tail budget, then trim; a short silence window cannot prove they are empty.
-    this.hasDelay = [project.master.fx, ...project.modules.map(m => m.patch), ...project.tracks.flatMap(t => t.kind === 'instrument' ? [t.patch, t.fx] : [t.fx])].some(graph => graph.nodes.some(n => n.type === 'delay' || n.type === 'pingPong'))
+    this.hasDelay = [project.master.fx, ...project.modules.map(m => m.patch), ...project.tracks.flatMap(t => t.kind === 'instrument' ? [t.patch, t.fx] : [t.fx]), ...(project.groups ?? []).flatMap(g => g.bus ? [g.bus.fx] : [])].some(graph => graph.nodes.some(n => n.type === 'delay' || n.type === 'pingPong'))
     this.options = resolveBounceOptions(project, options)
     const { sampleRate, bars, maxTail, scope } = this.options
     this.engine = new Engine(sampleRate)
     // The same commands that build the live engine from an empty one: tempo, master graph, every track.
     // `diffProject` carries `arrangement/set`, so the timeline is already in place for that scope.
     for (const command of diffProject(null, project)) this.engine.apply(command)
+    // An export renders the whole timeline once, whatever the loop.
+    this.engine.apply({ type: 'arrangement/setLoop', loop: null })
     for (const sample of samples) this.engine.apply({ type: 'sample/add', sample })
     this.engine.apply(
       scope.kind === 'scene'

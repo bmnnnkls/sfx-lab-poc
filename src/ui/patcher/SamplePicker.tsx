@@ -1,4 +1,4 @@
-import { useProjectStore } from '@state'
+import { openSampleEditor, useProjectStore } from '@state'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import styles from './Patcher.module.css'
 
@@ -7,7 +7,7 @@ interface SamplePickerProps {
   onChange(sampleId: string | null): void
 }
 
-/** Chooses which library sample a sampler node plays, and shows its waveform. */
+/** Chooses which library sample a sampler node plays, shows its waveform, and opens it in the Wave editor. */
 export const SamplePicker = ({ sampleId, onChange }: SamplePickerProps) => {
   const samples = useProjectStore((state) => state.project.samples)
 
@@ -25,6 +25,13 @@ export const SamplePicker = ({ sampleId, onChange }: SamplePickerProps) => {
           </option>
         ))}
       </select>
+      <button
+        onClick={() => sampleId && openSampleEditor(sampleId)}
+        disabled={!sampleId || !samples.some((sample) => sample.id === sampleId)}
+        title={sampleId ? 'Open this sample in the Wave editor' : 'Pick a sample first'}
+      >
+        Edit
+      </button>
       {sampleId ? <WaveformThumb sampleId={sampleId} width={200} height={26} /> : <div style={{ height: 26 }} />}
     </div>
   )

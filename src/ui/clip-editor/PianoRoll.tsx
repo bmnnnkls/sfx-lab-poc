@@ -1,4 +1,5 @@
 import type { Note } from '@core'
+import { useClipboard } from '@state'
 import { useEffect, useRef } from 'react'
 import { ContextMenu, type MenuEntry } from '../shared/menu'
 import { shortcut } from '../shared/shortcut-labels'
@@ -19,7 +20,7 @@ import styles from './PianoRoll.module.css'
 import { Playhead } from './Playhead'
 import { RowBackground } from './RowBackground'
 import { Ruler } from './Ruler'
-import { useNoteClipboard } from './use-note-clipboard'
+import { noteClipboard } from './note-clipboard'
 import { usePianoRollInteraction } from './use-piano-roll-interaction'
 import { VelocityLane } from './VelocityLane'
 
@@ -33,6 +34,8 @@ interface PianoRollProps {
   pixelsPerBeat: number
   /** Scroll along with the playhead. */
   follow: boolean
+  /** Whether to show where the session launcher plays the clip; a region's copy has no playhead yet. */
+  playhead?: boolean
   /** Show the velocity lane under the roll. */
   showVelocity: boolean
   onZoom(pixelsPerBeat: number): void
@@ -62,6 +65,7 @@ export const PianoRoll = ({
   step,
   pixelsPerBeat,
   follow,
+  playhead = true,
   showVelocity,
   onZoom,
   onChange,
@@ -83,15 +87,18 @@ export const PianoRoll = ({
     onQuantize: groove?.quantize,
   })
 
-  // Open each clip scrolled to where its notes are, not the top of the keyboard.
+  // Open each clip scrolled to where its notes are, not the top of the keyboard. Only when the clip changes: the
+  // Effect also runs each time a hidden view is shown again, and that must keep the user's scroll.
   const initialNotes = useRef(notes)
   initialNotes.current = notes
   const laneHeight = showVelocity ? LANE_HEIGHT : 0
   const laneHeightRef = useRef(laneHeight)
   laneHeightRef.current = laneHeight
+  const centredClip = useRef<string | null>(null)
   useEffect(() => {
     const element = scroller.current
-    if (element) {
+    if (element && centredClip.current !== clipId) {
+      centredClip.current = clipId
       element.scrollTop = scrollTopFor(centerPitch(initialNotes.current), element.clientHeight, laneHeightRef.current)
     }
   }, [clipId])
@@ -112,7 +119,7 @@ export const PianoRoll = ({
     return () => element.removeEventListener('wheel', onWheel)
   }, [])
 
-  const clipboard = useNoteClipboard()
+  const clipboard = useClipboard(noteClipboard)
   const hasSelection = selected.size > 0
   const scope = hasSelection ? 'selection' : 'clip'
   const menu: MenuEntry[] = [
@@ -140,13 +147,15 @@ export const PianoRoll = ({
   } as React.CSSProperties
 
   return (
-    <div ref={scroller} className={styles.scroller}>
+    <div ref={scroller} className={styles.scroller} data-scroll="both">
       <div
         className={styles.layout}
         style={{
           gridTemplateColumns: `${KEY_WIDTH}px ${width}px`,
-          gridTemplateRows: `${RULER_HEIGHT}px ${ROWS * ROW_HEIGHT}px ${laneHeight}px`,
-        }}
+          // The velocity lane's height is CSS's: it shrinks in a short editor.
+          gridTemplateRows: `${RULER_HEIGHT}px ${ROWS * ROW_HEIGHT}px ${showVelocity ? 'var(--lane-height)' : '0px'}`,
+          '--lane-full': `${LANE_HEIGHT}px`,
+        } as React.CSSProperties}
       >
         <div className={styles.corner} />
         <Ruler lengthBeats={lengthBeats} pixelsPerBeat={pixelsPerBeat} />
@@ -181,14 +190,14 @@ export const PianoRoll = ({
             />
           )}
 
-          <Playhead
+          {playhead && <Playhead
             trackId={trackId}
             clipId={clipId}
             lengthBeats={lengthBeats}
             pixelsPerBeat={pixelsPerBeat}
             follow={follow}
             scroller={scroller}
-          />
+          />}
           </div>
         </ContextMenu>
 

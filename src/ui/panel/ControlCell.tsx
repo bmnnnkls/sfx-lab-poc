@@ -1,4 +1,5 @@
-import { MidiTargetMenu } from '../midi/MidiTargetMenu'
+import { ActionMenu } from '../shared/menu'
+import { RenameField } from '../shared/RenameField'
 import type { ControlTarget } from '@core'
 import type { ReactNode } from 'react'
 import { type ControlSize, type ModuleLibrary, type PanelItem, describeNode } from '@core'
@@ -6,7 +7,7 @@ import { type DragEvent, useState } from 'react'
 import { IndicatorFace } from '../shared/indicators/IndicatorFace'
 import { ControlWidget, type ParamChange, isSettable } from './ControlWidget'
 import styles from './panel.module.css'
-import { knobWidth, spanOf } from './panel-values'
+import { fitSpan, knobWidth, spanOf } from './panel-values'
 
 export type { ParamChange }
 
@@ -35,46 +36,24 @@ interface ControlCellProps {
   editing: boolean
   /** Where an indicator gets its live value (see `PanelView`). */
   readoutTrack?: string
+  /** The board's columns: a wider control takes these (see `fitSpan`). */
+  columns: number
   first: boolean
   last: boolean
   onSet(changes: readonly ParamChange[]): void
   actions: CellActions
 }
 
+/** The data type of a control dragged to another place on the panel; the cells accept nothing else. */
+const CONTROL_TYPE = 'application/x-sfxlab-control'
+
 const NEXT_SIZE: Record<ControlSize, ControlSize> = { S: 'M', M: 'L', L: 'S' }
 
-/** The name field of edit mode: kept until Enter or leaving the field, since a name is trimmed as it is applied. */
-const RenameField = ({ name, placeholder, onCommit }: { name: string; placeholder: string; onCommit(name: string): void }) => {
-  const [draft, setDraft] = useState<string | undefined>(undefined)
-  const commit = () => {
-    if (draft !== undefined && draft !== name) onCommit(draft)
-    setDraft(undefined)
-  }
-  return (
-    <input
-      className={styles.rename}
-      value={draft ?? name}
-      placeholder={placeholder}
-      aria-label={`Name of ${placeholder}`}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur()
-        if (event.key === 'Escape') {
-          setDraft(undefined)
-          event.currentTarget.blur()
-        }
-      }}
-    />
-  )
-}
-
-/** A control node on the board: the widget for its kind, writing the node's own value, with the edit tools around it in edit mode. */
-export const ControlCell = ({ item, modules, title, editing, readoutTrack, first, last, onSet, actions, feedback, midiTargets = [] }: ControlCellProps) => {
+export const ControlCell = ({ item, modules, title, editing, readoutTrack, columns, first, last, onSet, actions, feedback, midiTargets = [] }: ControlCellProps) => {
   const [over, setOver] = useState(false)
   const { node } = item
   const shape = describeNode(node, modules)
-  const span = spanOf(item)
+  const span = fitSpan(spanOf(item), columns, item.kind)
 
   const widget = (() => {
     if (!shape) return <p className={styles.missing}>{title} is not available</p>
@@ -83,13 +62,13 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
   })()
 
   const onDragOver = (event: DragEvent) => {
-    if (!editing) return
+    if (!editing || !event.dataTransfer.types.includes(CONTROL_TYPE)) return
     event.preventDefault()
     setOver(true)
   }
 
   return (
-    <MidiTargetMenu targets={midiTargets}><div
+    <ActionMenu subject={midiTargets.length ? { kind: 'control', targets: midiTargets } : null}><div
       className={styles.cell}
       style={{ gridColumn: `span ${span.cols}`, gridRow: `span ${span.rows}`, ['--knob-max' as string]: `${knobWidth(item.size)}px` }}
       data-kind={item.kind}
@@ -100,7 +79,7 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
       onDragLeave={() => setOver(false)}
       onDrop={(event) => {
         setOver(false)
-        const dragged = event.dataTransfer.getData('text/plain')
+        const dragged = event.dataTransfer.getData(CONTROL_TYPE)
         if (editing && dragged) {
           event.preventDefault()
           actions.dropped(dragged)
@@ -123,7 +102,7 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
             title="Drag to reorder"
             aria-label={`Drag ${title} to reorder`}
             onDragStart={(event) => {
-              event.dataTransfer.setData('text/plain', node.id)
+              event.dataTransfer.setData(CONTROL_TYPE, node.id)
               event.dataTransfer.effectAllowed = 'move'
             }}
           >
@@ -149,9 +128,9 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, first
           <button aria-label={`Remove ${title}`} title="Delete the control node, in the graph too" onClick={actions.remove}>
             ×
           </button>
-          <RenameField name={node.name ?? ''} placeholder={title} onCommit={actions.rename} />
+          <RenameField className={styles.rename} name={node.name ?? ''} placeholder={title} label={`Name of ${title}`} allowEmpty onCommit={actions.rename} />
         </div>
       )}
-    </div></MidiTargetMenu>
+    </div></ActionMenu>
   )
 }

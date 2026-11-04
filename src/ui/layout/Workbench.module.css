@@ -1,0 +1,6 @@
+/* flexlayout's layout fills its nearest positioned ancestor. */
+.workbench {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}

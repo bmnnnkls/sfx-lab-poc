@@ -1,0 +1,21 @@
+/* Each view scrolls itself, so views shown side by side, or one after another, keep separate offsets. */
+.view {
+  height: 100%;
+  overflow: auto;
+}
+
+/* Focused by a click inside the view, for F6; the view's own controls show the focus. */
+.view:focus {
+  outline: none;
+}
+
+/*
+ * What the view is laid out in: the root's size, but never below the view's minimum (the root then scrolls). Views
+ * query its size with `@container view (…)` and `cqw` / `cqh`, never the window's.
+ */
+.frame {
+  container: view / size;
+  height: 100%;
+  min-width: var(--min-width);
+  min-height: var(--min-height);
+}

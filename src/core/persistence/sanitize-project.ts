@@ -7,6 +7,7 @@ import {
   DEFAULT_SCENE_COUNT,
   DEFAULT_VOICES,
   MAX_NAME_LENGTH,
+  NAME_LIMITS,
   MAX_TEMPO,
   MAX_VOICES,
   MIN_TEMPO,
@@ -18,11 +19,13 @@ import { type ModuleDefinition, createDefaultFxGraph, createDefaultMasterGraph, 
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
-import { sanitizeArrangement } from './sanitize-arrangement'
+import { sanitizeArrangement, sanitizeArrangementMarks } from './sanitize-arrangement'
 import { sanitizeAudioClip } from './sanitize-audio-clip'
 import { sanitizeClip } from './sanitize-clip'
+import { repairGroupOrder, sanitizeGroups } from './sanitize-groups'
 import { repairTrackReferences } from './sanitize-track-references'
 import { sanitizeModules } from './sanitize-modules'
+import { sanitizePins } from './sanitize-pins'
 import { sanitizePatch } from './sanitize-patch'
 import { sanitizeSamples } from './sanitize-samples'
 import { readSends, repairSendLevels } from './sanitize-sends'
@@ -40,7 +43,7 @@ const sanitizeTrack = (
     warn(`Track ${index + 1}: skipped a malformed track`)
     return null
   }
-  const name = nonEmptyText(raw.name, `Track ${index + 1}`, 40)
+  const name = nonEmptyText(raw.name, `Track ${index + 1}`, NAME_LIMITS.track)
   const where = `Track "${name}"`
 
   const id = typeof raw.id === 'string' && !usedTrackIds.has(raw.id) ? raw.id : createId('track')
@@ -56,6 +59,9 @@ const sanitizeTrack = (
     ...(pan !== 0 && { pan }),
     ...(raw.muted === true && { muted: true }),
     ...(raw.soloed === true && { soloed: true }),
+    // Checked against the groups by `sanitizeGroups`.
+    ...(typeof raw.groupId === 'string' && { groupId: raw.groupId }),
+    ...(raw.hidden === true && { hidden: true }),
   }
   // Files from before insert graphs existed have none: the sound passes through untouched.
   const isReturn = raw.kind === 'return'
@@ -110,7 +116,7 @@ const sanitizeTrack = (
 const masterVolume = (raw: unknown): number => clamp(finiteNumber(raw, 1), 0, 1)
 
 /** A scene's name is a short label for a narrow button. */
-export const MAX_SCENE_NAME = 24
+export const MAX_SCENE_NAME = NAME_LIMITS.scene
 
 /** One text per scene (extra entries and anything that is not text are dropped, long names cut); nothing at all when no scene has a name. */
 const sceneNamesOf = (raw: unknown, sceneCount: number): string[] | undefined => {
@@ -138,16 +144,20 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
   const modules = sanitizeModules(raw.modules, sampleIds, warn)
 
   const usedTrackIds = new Set<string>()
-  const tracks = rawTracks
+  const read = rawTracks
     .slice(0, LIMITS.tracks)
     .map((track, index) => sanitizeTrack(track, index, sceneCount, usedTrackIds, sampleIds, modules, warn))
     .filter((track): track is Track => track !== null)
+  const grouped = sanitizeGroups(raw.groups, read, sampleIds, modules, warn)
+  const references = repairTrackReferences(grouped.tracks, grouped.groups, modules, warn)
+  const { tracks, groups } = repairSendLevels(references.tracks, references.groups, modules, warn)
 
   const libraryOrigins = sanitizeLibraryOrigins(raw.libraryOrigins, warn)
   const controlValues = sanitizeControlValues(raw.controlValues, warn)
   const midiMappings = sanitizeMidiMappings(raw.midiMappings, warn)
   const arrangement = sanitizeArrangement(raw.arrangement, new Set(tracks.map((track) => track.id)), sampleIds, warn)
-  return {
+  const marks = sanitizeArrangementMarks(raw.arrangementMarkers, raw.arrangementLoop, warn)
+  const project = repairGroupOrder({
     ...sanitizePresetFields(raw, sampleIds, warn),
     ...(libraryOrigins && { libraryOrigins }),
     ...(controlValues && { controlValues }),
@@ -159,6 +169,8 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     samples,
     modules,
     ...(arrangement && { arrangement }),
+    ...(marks.markers && { arrangementMarkers: marks.markers }),
+    ...(marks.loop && { arrangementLoop: marks.loop }),
     // Files from before the master bus existed have none: the mix passes through untouched.
     master: {
       ...(isRecord(raw.master) && raw.master.automationSlots !== undefined && { automationSlots: sanitizeAutomationSlots(raw.master.automationSlots, sceneCount, { kind: 'master' }, warn) }),
@@ -168,6 +180,10 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
           : createDefaultMasterGraph(),
       ...(isRecord(raw.master) && masterVolume(raw.master.volume) !== 1 && { volume: masterVolume(raw.master.volume) }),
     },
-    tracks: repairSendLevels(repairTrackReferences(tracks, modules, warn), modules, warn),
-  }
+    tracks,
+    ...(groups && { groups }),
+  }, warn)
+  // Read last: a pin is kept only when its graph is in what was read.
+  const pins = sanitizePins(raw.pins, project, warn)
+  return pins ? { ...project, pins } : project
 }

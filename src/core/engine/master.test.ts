@@ -17,7 +17,7 @@ const clip = (): AudioClip => ({
 const build = (master?: Patch) => {
   const engine = new Engine(SAMPLE_RATE)
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
-  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, data: new Float32Array(4 * BEAT).fill(LEVEL) } })
+  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, channels: [new Float32Array(4 * BEAT).fill(LEVEL)] } })
   for (const id of ['a', 'b']) {
     engine.apply({ type: 'track/add', kind: 'audio', trackId: id, fx: createDefaultFxGraph(), clips: [clip()], volume: 1 })
     engine.apply({ type: 'clip/launch', trackId: id, clipId: 'clip' })
@@ -78,7 +78,7 @@ describe('master graph', () => {
 
   it('does not process a sample being auditioned, which is not part of the mix', () => {
     const engine = new Engine(SAMPLE_RATE)
-    engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, data: new Float32Array(48000).fill(LEVEL) } })
+    engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, channels: [new Float32Array(48000).fill(LEVEL)] } })
     engine.apply({ type: 'master/setFx', graph: through('gain', { gain: 0 }) })
     engine.apply({ type: 'sample/preview', sampleId: SAMPLE_ID })
     expect(render(engine, 4800).left[4000]).toBeGreaterThan(0.05)

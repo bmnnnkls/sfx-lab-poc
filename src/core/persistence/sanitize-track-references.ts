@@ -1,6 +1,6 @@
 import { noteTapSources } from '../notefx'
 import { type ModuleLibrary, type Patch, clearTrackReferences, flattenPatch, setNodeTrack } from '../patch'
-import { type Track, mixesAfter } from '../project'
+import { type Track, type TrackGroup, mixesAfter } from '../project'
 import type { Warn } from './raw'
 
 /** One way a graph can point at another track, with what makes such a pointer valid. */
@@ -89,11 +89,18 @@ const repairLoops = (
 
 /**
  * Makes everything that points at another track valid: "notes from another track" inputs, Sends and "audio from another
- * track" inputs. A pointer to a track that is not in the file, to the track itself, to the wrong kind of track (a Send
- * must point at a return track), or that would make tracks depend on each other in a loop (even through others, and for
- * sound counting the Sends and the send knobs of the file too) is dropped, with a warning.
+ * track" inputs, in tracks and in bus graphs. A pointer to a track that is not in the file, to the track itself, to the
+ * wrong kind of track (a Send must point at a return track), or that would make tracks depend on each other in a loop
+ * (even through others, and for sound counting the Sends and the send knobs of the file too) is dropped, with a warning.
+ * Tracks are judged among themselves first; a bus's pointers are judged with the routing, so a loop through a bus loses
+ * the bus's pointer.
  */
-export const repairTrackReferences = (tracks: Track[], modules: ModuleLibrary, warn: Warn): Track[] => {
+export const repairTrackReferences = (
+  tracks: Track[],
+  groups: readonly TrackGroup[] | undefined,
+  modules: ModuleLibrary,
+  warn: Warn,
+): { tracks: Track[]; groups?: TrackGroup[] } => {
   // Notes are passed on before sound is mixed, so they are ordered apart from Sends and Track audio.
   let repaired = repairInvalid(noteTaps, tracks, warn)
   repaired = repairLoops(noteTaps, repaired, warn, (current, owner, target) => noteReaches(current, modules, target, owner.id))
@@ -101,7 +108,42 @@ export const repairTrackReferences = (tracks: Track[], modules: ModuleLibrary, w
   repaired = repairInvalid(audio, repairInvalid(sends, repaired, warn), warn)
   // A Send makes its return depend on the sender; Track audio makes the reader depend on the source.
   repaired = repairLoops(sends, repaired, warn, (current, owner, target) => mixesAfter({ tracks: current, modules }, owner.id, target))
-  return repairLoops(audio, repaired, warn, (current, owner, target) => mixesAfter({ tracks: current, modules }, target, owner.id))
+  repaired = repairLoops(audio, repaired, warn, (current, owner, target) => mixesAfter({ tracks: current, modules }, target, owner.id))
+  return { tracks: repaired, ...(groups && { groups: repairBusReferences(repaired, groups, modules, warn) }) }
+}
+
+/** The Sends and Track audio inputs of the bus graphs, made valid as `repairTrackReferences` says. */
+const repairBusReferences = (tracks: Track[], groups: readonly TrackGroup[], modules: ModuleLibrary, warn: Warn): TrackGroup[] => {
+  const byId = new Map(tracks.map((track) => [track.id, track]))
+  const withFx = (group: TrackGroup, fx: Patch): TrackGroup => (fx === group.bus?.fx ? group : { ...group, bus: { ...group.bus!, fx } })
+  let repaired = groups.map((group) => {
+    if (!group.bus) return group
+    let fx = group.bus.fx
+    for (const node of fx.nodes) {
+      if (node.trackId === undefined) continue
+      const target = byId.get(node.trackId)
+      if (node.type === sends.nodeType && target?.kind !== 'return') warn(`Track group "${group.name}": dropped a Send that points at something that is not a return track`)
+      else if (node.type === audio.nodeType && !target) warn(`Track group "${group.name}": dropped a "audio from track" input that points at a missing track`)
+      else continue
+      fx = setNodeTrack(fx, node.id, null)
+    }
+    return withFx(group, fx)
+  })
+  for (const original of groups) {
+    for (const node of original.bus?.fx.nodes ?? []) {
+      if (node.type !== sends.nodeType && node.type !== audio.nodeType) continue
+      const current = repaired.find((candidate) => candidate.id === original.id)!
+      const fx = current.bus!.fx
+      const target = fx.nodes.find((candidate) => candidate.id === node.id)?.trackId
+      if (target === undefined) continue
+      const graph = { tracks, groups: repaired, modules }
+      const loops = node.type === sends.nodeType ? mixesAfter(graph, current.id, target) : mixesAfter(graph, target, current.id)
+      if (!loops) continue
+      warn(`Track group "${original.name}": ${node.type === sends.nodeType ? sends.loop : audio.loop}`)
+      repaired = repaired.map((candidate) => (candidate === current ? withFx(candidate, setNodeTrack(fx, node.id, null)) : candidate))
+    }
+  }
+  return repaired
 }
 
 /** True when `from` takes notes, directly or through other tracks, from `target`. */

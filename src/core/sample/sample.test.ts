@@ -14,13 +14,19 @@ describe('toMono', () => {
 
 describe('computePeaks', () => {
   it('reports the loudest sample in each bucket', () => {
-    const peaks = computePeaks(Float32Array.of(0.1, -0.5, 0.2, 0.9, -0.3, 0), 3)
+    const peaks = computePeaks([Float32Array.of(0.1, -0.5, 0.2, 0.9, -0.3, 0)], 3)
     expect(Array.from(peaks).map((v) => +v.toFixed(2))).toEqual([0.5, 0.9, 0.3])
   })
 
   it('handles empty data and more buckets than samples', () => {
-    expect(computePeaks(new Float32Array(0), 4)).toHaveLength(4)
-    expect(computePeaks(Float32Array.of(0.5), 4)).toHaveLength(4)
+    expect(computePeaks([new Float32Array(0)], 4)).toHaveLength(4)
+    expect(computePeaks([Float32Array.of(0.5)], 4)).toHaveLength(4)
+    expect(computePeaks([], 4)).toHaveLength(4)
+  })
+
+  it('takes the loudest of the channels', () => {
+    const peaks = computePeaks([Float32Array.of(0.1, -0.5, 0.2, 0.1), Float32Array.of(-0.7, 0.2, 0.05, -0.3)], 2)
+    expect(Array.from(peaks).map((v) => +v.toFixed(2))).toEqual([0.7, 0.3])
   })
 })
 
@@ -147,7 +153,7 @@ describe('demo samples', () => {
 describe('SampleBank', () => {
   it('stores and removes samples by id', () => {
     const bank = new SampleBank()
-    bank.set({ id: 'a', sampleRate: 44100, data: new Float32Array(4) })
+    bank.set({ id: 'a', sampleRate: 44100, channels: [new Float32Array(4)] })
     expect(bank.get('a')?.sampleRate).toBe(44100)
     bank.delete('a')
     expect(bank.get('a')).toBeUndefined()

@@ -1,11 +1,11 @@
-import { DEFAULT_TEMPO } from '../dsp'
+import { DEFAULT_TEMPO, RIGHT, STEREO_FRAMES } from '../dsp'
 import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
-import { type Patch, audioSources, sendTargets } from '../patch'
+import { type Patch, audioSources, sendTargets, trackInIsStereo } from '../patch'
 import type { ArrangementClip, AudioClip, SendLevels } from '../project'
-import type { SampleLookup } from '../sample'
+import { type SampleLookup, frameCount } from '../sample'
 import { AudioClipLauncher, type AudioEvent, type LauncherStatus } from '../session'
 import { ArrangementAudio } from './arrangement-player'
-import { fadeGain, readRegion, regionOf, repitchPosition } from './audio-clip-playback'
+import { fadeGain, joinedPosition, readRegion, regionOf, repitchPosition } from './audio-clip-playback'
 import { ChannelStrip } from './channel-strip'
 import type { MixContext, MixTiming, PlayableTrack, ScheduledAction, PlaybackMode } from './playable-track'
 
@@ -18,9 +18,12 @@ interface Playing {
   startBeat: number
   /**
    * Read position in sample frames, used only by clips that ignore tempo (`warp: 'off'`).
-   * Negative until the first read, when it is set to the start of the clip's region.
+   * Negative until the first read, when it is set to the start of the clip's region, or, for an arrangement region
+   * joined after its start (`joined`), to where the region is at that beat.
    */
   position: number
+  /** Started after its timeline start (a seek or the loop's jump into it), so it reads from mid-region. */
+  joined?: boolean
 }
 
 interface Tail {
@@ -44,8 +47,14 @@ export class AudioTrackRuntime implements PlayableTrack {
   private sources: string[]
   /** The send knobs as pairs of (return track id, level), post-fader. */
   private sendList: ReadonlyArray<readonly [string, number]> = []
-  /** The clip audio of the current stretch, before the insert graph. */
-  private readonly scratch = new Float32Array(MAX_BLOCK_FRAMES)
+  /**
+   * The clip audio of the current stretch, before the insert graph. Mono (today's math, bit for bit) while the graph's
+   * `Track in` is mono; planar stereo (`STEREO_FRAMES`, left then right) once it runs in stereo.
+   */
+  private scratch: Float32Array
+  private stereo: boolean
+  /** The stereo path's audio as one signal for the track's tap (the average of its channels). */
+  private readonly tapScratch = new Float32Array(MAX_BLOCK_FRAMES)
   private tempo = DEFAULT_TEMPO
 
   constructor(
@@ -62,6 +71,8 @@ export class AudioTrackRuntime implements PlayableTrack {
     this.fx = new FxGraph(fx, sampleRate, samples)
     this.targets = sendTargets(fx)
     this.sources = audioSources(fx)
+    this.stereo = trackInIsStereo(fx)
+    this.scratch = new Float32Array(this.stereo ? STEREO_FRAMES : MAX_BLOCK_FRAMES)
   }
 
   readouts(): Readonly<Record<string, number>> {
@@ -77,6 +88,11 @@ export class AudioTrackRuntime implements PlayableTrack {
     this.fx = new FxGraph(fx, this.sampleRate, this.samples, this.tempo)
     this.targets = sendTargets(fx)
     this.sources = audioSources(fx)
+    const stereo = trackInIsStereo(fx)
+    if (stereo !== this.stereo) {
+      this.stereo = stereo
+      this.scratch = new Float32Array(stereo ? STEREO_FRAMES : MAX_BLOCK_FRAMES)
+    }
   }
 
   setSends(sends: SendLevels): void {
@@ -142,6 +158,13 @@ export class AudioTrackRuntime implements PlayableTrack {
     this.launcher.stop()
   }
 
+  /** The arrangement's position jumped: what plays fades out, and the region under the new position starts there. */
+  seekArrangement(): void {
+    this.arrangement.reset()
+    this.fadeOutPlaying()
+    this.playing = null
+  }
+
   reset(): void {
     this.stoppedAt = undefined
     this.launcher.reset()
@@ -157,7 +180,7 @@ export class AudioTrackRuntime implements PlayableTrack {
     const sample = this.samples.get(clip.sampleId)
     if (!sample) return Infinity
     if (clip.warp === 'repitch') return Math.max(0, Math.ceil((clip.lengthBeats - (timing.beat - startBeat)) / timing.beatsPerSample - 1e-8))
-    const region = regionOf(clip.start, clip.end, sample.data.length)
+    const region = regionOf(clip.start, clip.end, frameCount(sample))
     const left = region.endPos - (position < 0 ? region.startPos : position)
     return Math.max(0, Math.ceil(left / (sample.sampleRate / this.sampleRate) - 1e-8))
   }
@@ -186,7 +209,9 @@ export class AudioTrackRuntime implements PlayableTrack {
   private apply(event: AudioEvent): void {
     this.fadeOutPlaying()
     this.stoppedAt = event.kind === 'stop' ? event.beat : undefined
-    this.playing = event.kind === 'start' ? { clip: event.clip, startBeat: event.origin ?? event.beat, position: -1 } : null
+    this.playing = event.kind === 'start'
+      ? { clip: event.clip, startBeat: event.origin ?? event.beat, position: -1, ...(event.origin !== undefined && event.beat > event.origin && { joined: true }) }
+      : null
   }
 
   /** Hands what is sounding over to a short fade-out, so whatever replaces it (or silence) starts without a click. */
@@ -197,6 +222,7 @@ export class AudioTrackRuntime implements PlayableTrack {
   /** The clip audio goes through the insert graph (which keeps ringing after the clip ends), then the fader. */
   mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, { timing, sends, taps }: MixContext): void {
     this.scratch.fill(0, 0, frames)
+    if (this.stereo) this.scratch.fill(0, RIGHT, RIGHT + frames)
     if (this.tail) {
       const alive = this.mixVoice(this.tail.voice, frames, timing, this.tail)
       this.tail.framesLeft -= frames
@@ -205,12 +231,19 @@ export class AudioTrackRuntime implements PlayableTrack {
     const remaining = this.framesUntilEnd(timing)
     if (this.playing && !this.mixVoice(this.playing, frames, timing)) this.finishClip(timing.beat + Math.min(frames, remaining) * timing.beatsPerSample)
 
-    taps.write(this.trackId, 0, this.scratch, frames)
+    taps.write(this.trackId, 0, this.stereo ? this.monoOfScratch(frames) : this.scratch, frames)
     const gate = this.strip.sendsTo(sends)
     const signal = this.fx.process(this.scratch, frames, { sends: gate, taps })
     taps.write(this.trackId, 1, signal, frames)
     this.strip.mixInto(left, right, offset, frames, signal)
     for (const [returnId, level] of this.sendList) this.strip.send(gate, returnId, signal, level, frames)
+  }
+
+  /** The stereo scratch as one signal, for what listens to the track's sound before its effects. */
+  private monoOfScratch(frames: number): Float32Array {
+    const { scratch, tapScratch } = this
+    for (let i = 0; i < frames; i++) tapScratch[i] = ((scratch[i] ?? 0) + (scratch[RIGHT + i] ?? 0)) / 2
+    return tapScratch
   }
 
   /** Adds `frames` of `voice` to the scratch buffer. Returns false once the clip has finished (a non-looping pass ended). */
@@ -219,14 +252,15 @@ export class AudioTrackRuntime implements PlayableTrack {
     if (!sample) return true // a sample that hasn't arrived yet just plays silence, then joins in phase
 
     const { clip } = voice
-    const { data } = sample
-    const region = regionOf(clip.start, clip.end, data.length)
+    const region = regionOf(clip.start, clip.end, frameCount(sample))
     const regionLength = region.endPos - region.startPos
     const fadeInFrames = clip.fadeIn * sample.sampleRate
     const fadeOutFrames = clip.fadeOut * sample.sampleRate
     const gain = clip.gain
     const nativeSpeed = sample.sampleRate / this.sampleRate
-    if (voice.position < 0) voice.position = region.startPos
+    if (voice.position < 0) voice.position = voice.joined ? joinedPosition(timing.beat - voice.startBeat, nativeSpeed / timing.beatsPerSample, region, clip.loop) : region.startPos
+    // Past a one-shot region's end: nothing left to play.
+    if (voice.position < 0) return false
 
     for (let i = 0; i < frames; i++) {
       let position: number | null
@@ -252,8 +286,13 @@ export class AudioTrackRuntime implements PlayableTrack {
         if (remaining <= 0) return false
         level *= remaining / tail.total
       }
-      const value = readRegion(data, position, region, clip.loop) * level
-      this.scratch[i] = (this.scratch[i] ?? 0) + value
+      // The position and level are worked out once; the stereo path reads both channels there.
+      if (this.stereo) {
+        this.scratch[i] = (this.scratch[i] ?? 0) + readRegion(sample, 0, position, region, clip.loop) * level
+        this.scratch[RIGHT + i] = (this.scratch[RIGHT + i] ?? 0) + readRegion(sample, 1, position, region, clip.loop) * level
+      } else {
+        this.scratch[i] = (this.scratch[i] ?? 0) + readRegion(sample, 'mono', position, region, clip.loop) * level
+      }
     }
     return true
   }

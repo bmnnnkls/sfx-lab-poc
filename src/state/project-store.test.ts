@@ -1,4 +1,4 @@
-import { createDemoProject, createEmptyProject, setNodeParam, type InstrumentTrack } from '@core'
+import { clipAt, createDemoProject, createEmptyProject, createNote, regionClipRef, sessionClipRef, setNodeParam, type InstrumentTrack } from '@core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { selectCanRedo, selectCanUndo, useProjectStore } from './project-store'
 
@@ -74,5 +74,45 @@ describe('project store undo/redo', () => {
     store().undo()
     store().addTrack()
     expect(selectCanRedo(store())).toBe(false)
+  })
+
+  it("edits a region's own copy as one undo step, leaving its session source alone", () => {
+    const bass = store().project.tracks[0] as InstrumentTrack
+    const source = bass.clips[0]!
+    store().addArrangementClip(bass.id, 8, source)
+    const region = regionClipRef(store().project.arrangement![0]!.id)
+    const before = store().history.past.length
+    store().setClipNotes(region, [createNote(48, 0, 1)])
+    const edited = clipAt(store().project, region)!
+    expect('notes' in edited && edited.notes).toHaveLength(1)
+    expect(clipAt(store().project, sessionClipRef(bass.id, source.id))).toBe(source)
+    expect(store().history.past.length).toBe(before + 1)
+    // The same notes again add no step.
+    store().setClipNotes(region, 'notes' in edited ? edited.notes : [])
+    expect(store().history.past.length).toBe(before + 1)
+    store().undo()
+    expect(clipAt(store().project, region)).toBe(source)
+  })
+
+  it('undoes a marker drag as one step', () => {
+    const id = store().addArrangementMarker(4)!
+    const before = store().history.past.length
+    for (const beat of [5, 6, 7, 8]) {
+      vi.advanceTimersByTime(50)
+      store().moveArrangementMarker(id, beat, `arr-marker:${id}`)
+    }
+    expect(store().history.past.length).toBe(before + 1)
+    store().undo()
+    expect(store().project.arrangementMarkers![0]!.beat).toBe(4)
+  })
+
+  it("doesn't undo turning the loop on, and undoing a range keeps it on", () => {
+    store().setArrangementLoop({ from: 0, to: 4 })
+    const before = store().history.past.length
+    store().setArrangementLoopEnabled(true)
+    expect(store().history.past.length).toBe(before)
+    store().setArrangementLoop({ from: 0, to: 8 })
+    store().undo()
+    expect(store().project.arrangementLoop).toEqual({ from: 0, to: 4, enabled: true })
   })
 })

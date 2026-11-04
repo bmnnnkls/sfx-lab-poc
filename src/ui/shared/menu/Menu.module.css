@@ -20,7 +20,8 @@
   user-select: none;
 }
 
-.item[data-highlighted] {
+.item[data-highlighted],
+.item[data-state='open'] {
   background: var(--accent-soft);
 }
 
@@ -28,6 +29,16 @@
   color: var(--text-dim);
   opacity: 0.45;
   pointer-events: none;
+}
+
+.checkable {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.check {
+  width: 12px;
+  color: var(--accent);
 }
 
 .danger {

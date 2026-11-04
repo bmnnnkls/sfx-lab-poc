@@ -20,7 +20,7 @@ const setup = (control = target, audio = false) => {
   let listener = (_: EngineStatus) => {}, beat = 0
   const host = { recordingBeat: () => beat, send: (c: EngineCommand) => engine.apply(c), onStatus: (fn: typeof listener) => { listener = fn; return () => {} }, onFailure: () => () => {} } as unknown as AudioHost
   const disconnect = connectEngine(host)
-  if (audio) engine.apply({ type: 'sample/add', sample: { id: sample.id, sampleRate: 8000, data: new Float32Array(16000).fill(0.2) } })
+  if (audio) engine.apply({ type: 'sample/add', sample: { id: sample.id, sampleRate: 8000, channels: [new Float32Array(16000).fill(0.2)] } })
   const step = (frames = 128) => { engine.render(new Float32Array(frames), new Float32Array(frames)); const status = engine.status(); beat = status.beat; listener(status) }
   engine.apply({ type: 'scene/launch', scene: 0 }); step()
   useTouchStore.getState().arm(true)

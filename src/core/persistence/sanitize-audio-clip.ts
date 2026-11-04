@@ -1,6 +1,6 @@
 import type { ControlOwner } from '../control'
 import { sanitizeAutomation } from './sanitize-automation'
-import { type AudioClip, WARP_MODES, clampAudioClip } from '../project'
+import { type AudioClip, NAME_LIMITS, WARP_MODES, clampAudioClip } from '../project'
 import { createId } from '../shared'
 import { type Warn, finiteNumber, isRecord, nonEmptyText } from './raw'
 
@@ -32,7 +32,7 @@ export const sanitizeAudioClip = (
   const warp = WARP_MODES.find((mode) => mode === raw.warp) ?? 'repitch'
   const clip = clampAudioClip({
     id,
-    name: nonEmptyText(raw.name, 'Audio clip', 40),
+    name: nonEmptyText(raw.name, 'Audio clip', NAME_LIMITS.clip),
     sampleId: raw.sampleId,
     lengthBeats: finiteNumber(raw.lengthBeats, 4),
     loop: typeof raw.loop === 'boolean' ? raw.loop : true,

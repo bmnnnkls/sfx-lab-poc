@@ -12,7 +12,7 @@ const SAMPLE_ID = 'a'.repeat(64)
 const setup = (arrangement: readonly ArrangementClip[]) => {
   const engine = new Engine(SAMPLE_RATE)
   engine.apply({ type: 'transport/setTempo', bpm: 120 })
-  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, data: new Float32Array(4 * BEAT).fill(AMPLITUDE) } })
+  engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, channels: [new Float32Array(4 * BEAT).fill(AMPLITUDE)] } })
   engine.apply({
     type: 'track/add',
     kind: 'instrument',
@@ -142,7 +142,7 @@ describe('the arrangement in the engine', () => {
   it('starts an audio region on its track only', () => {
     const engine = new Engine(SAMPLE_RATE)
     engine.apply({ type: 'transport/setTempo', bpm: 120 })
-    engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, data: new Float32Array(4 * BEAT).fill(AMPLITUDE) } })
+    engine.apply({ type: 'sample/add', sample: { id: SAMPLE_ID, sampleRate: SAMPLE_RATE, channels: [new Float32Array(4 * BEAT).fill(AMPLITUDE)] } })
     engine.apply({ type: 'track/add', kind: 'audio', trackId: 'loop', fx: createDefaultFxGraph(), clips: [], volume: 1 })
     engine.apply({ type: 'track/add', kind: 'audio', trackId: 'other', fx: createDefaultFxGraph(), clips: [], volume: 1 })
     engine.apply({ type: 'arrangement/set', clips: [audioRegion('loop', 0)] })
@@ -161,5 +161,22 @@ describe('the arrangement in the engine', () => {
     // The next region at beat 16 cuts the loop and takes over.
     render(engine, 12 * BEAT + 500)
     expect(engine.status().tracks.loop!.playingClipId).toBe('arr-audio-r-next')
+  })
+})
+
+describe('the playback mode in the status', () => {
+  it('says which source the tracks follow', () => {
+    const engine = setup([])
+    expect(engine.status().mode).toBe('session')
+    engine.apply({ type: 'arrangement/play' })
+    expect(engine.status().mode).toBe('arrangement')
+    engine.apply({ type: 'transport/play' })
+    expect(engine.status().mode).toBe('session')
+    engine.apply({ type: 'arrangement/play', fromBeat: 4 })
+    engine.apply({ type: 'clip/launch', trackId: 'synth', clipId: 'clip' })
+    expect(engine.status().mode).toBe('session')
+    engine.apply({ type: 'arrangement/play' })
+    engine.apply({ type: 'scene/launch', scene: 0 })
+    expect(engine.status().mode).toBe('session')
   })
 })

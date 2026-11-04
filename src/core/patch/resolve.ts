@@ -7,7 +7,7 @@ const CONTEXT = {
   frames: 1,
   sampleRate: 48000,
   note: { frequency: 0, velocity: 0, gate: false, trigger: 0 },
-  samples: { get: () => undefined },
+  samples: { get: () => undefined, loopOf: () => undefined },
 } as const
 
 /** Deep enough for any chain a person wires by hand; a bound on cost, since the patch is acyclic anyway. */

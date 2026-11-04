@@ -1,5 +1,6 @@
 import type { ControlValue } from '../control'
 import type { LauncherStatus } from '../session'
+import type { PlaybackMode } from './playable-track'
 
 /** Snapshot of engine state for display; produced by the engine, consumed by the UI. */
 export interface EngineStatus {
@@ -9,6 +10,8 @@ export interface EngineStatus {
   readonly automationOverrideRevision?: number
   readonly automation?: readonly ControlValue[]
   readonly playing: boolean
+  /** What the tracks follow: the session's launchers, or the arrangement's timeline. */
+  readonly mode: PlaybackMode
   readonly beat: number
   /** Loudest output sample (0..1) since the previous status snapshot. */
   readonly peak: number
@@ -23,4 +26,11 @@ export interface EngineStatus {
    */
   readonly readouts: Readonly<Record<string, Readonly<Record<string, number>>>>
   readonly tracks: Readonly<Record<string, LauncherStatus>>
+  /** The sample being auditioned and the frame it has reached; absent while nothing is. */
+  readonly preview?: PreviewStatus
+}
+
+export interface PreviewStatus {
+  readonly sampleId: string
+  readonly frame: number
 }

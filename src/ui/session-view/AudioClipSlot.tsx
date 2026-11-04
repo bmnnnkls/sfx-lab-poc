@@ -1,8 +1,9 @@
 import type { AudioClip } from '@core'
-import { duplicateSessionClip, useAutomationEditor, useEngineControls, useProjectStore, useSelectionStore, useStatusStore } from '@state'
-import { ContextMenu, type MenuEntry, PopupMenu } from '../shared/menu'
+import { type SubjectOf, runAction, useProjectStore, useStatusStore } from '@state'
+import { useDragSource, useDropTarget } from '../shared/drag'
+import { ActionMenu, type MenuEntry, PopupMenu, useActionContext } from '../shared/menu'
+import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import { WaveformThumb } from '../shared/WaveformThumb'
-import { placeOnArrangement } from './place-on-arrangement'
 import styles from './SessionView.module.css'
 
 interface AudioClipSlotProps {
@@ -13,64 +14,54 @@ interface AudioClipSlotProps {
 
 /** A session-grid cell on an audio track: launches a sample clip, or (when empty) offers to add one. */
 export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
-  const controls = useEngineControls()
+  const context = useActionContext()
   const samples = useProjectStore((state) => state.project.samples)
-  const createAudioClip = useProjectStore((state) => state.createAudioClip)
-  const deleteClip = useProjectStore((state) => state.deleteAudioClip)
-  const selectClip = useSelectionStore((state) => state.selectClip)
   const playing = useStatusStore((state) => !!clip && state.status?.tracks[trackId]?.playingClipId === clip.id)
   const queued = useStatusStore((state) => !!clip && state.status?.tracks[trackId]?.queued === clip.id)
+  const slot: SubjectOf<'slot'> = { kind: 'slot', trackId, scene }
+  const subject: SubjectOf<'clip'> | null = clip && { kind: 'clip', trackId, clipId: clip.id }
+  // A filled slot is a target too, so it shows that it refuses.
+  const drop = useDropTarget(slot)
+  const drag = useDragSource(useRenaming(subject ?? slot) ? null : subject)
 
-  if (!clip) {
+  if (!clip || !subject) {
+    // The same choices as the right-click menu's *Add audio clip* ▸.
+    const add = (choice: string) => () => runAction('slot.add-audio-clip', slot, context, { choice })
     const choices: MenuEntry[] =
       samples.length === 0
-        ? [{ label: 'No samples yet: import some in the Samples tab', disabled: true, onSelect: () => {} }]
-        : samples.map((sample) => ({
-            label: sample.name,
-            onSelect: () => {
-              createAudioClip(trackId, scene, sample)
-              const track = useProjectStore.getState().project.tracks.find((candidate) => candidate.id === trackId)
-              const added = track?.kind === 'audio' ? track.clips[scene] : null
-              if (added) selectClip(trackId, added.id)
-            },
-          }))
+        ? [{ label: 'Import samples…', onSelect: add('') }]
+        : samples.map((sample) => ({ label: sample.name, onSelect: add(sample.id) }))
     return (
-      <div className={`${styles.slot} ${styles.empty}`}>
-        <PopupMenu entries={choices}>
-          <button aria-label="Add audio clip" title="Add an audio clip from the sample library">
-            +
-          </button>
-        </PopupMenu>
-      </div>
+      <ActionMenu subject={slot}>
+        <div className={`${styles.slot} ${styles.empty}`} {...drop}>
+          <PopupMenu entries={choices}>
+            <button aria-label="Add audio clip" title="Add an audio clip from the sample library">
+              +
+            </button>
+          </PopupMenu>
+        </div>
+      </ActionMenu>
     )
   }
 
   const state = playing ? styles.playing : queued ? styles.queued : ''
   return (
-    <ContextMenu
-      entries={[
-        { label: playing ? 'Restart clip' : 'Launch clip', onSelect: () => controls.launchClip(trackId, clip.id) },
-        { label: 'Edit clip', onSelect: () => selectClip(trackId, clip.id) },
-        { label: 'Edit automation', onSelect: () => { selectClip(trackId, clip.id); useAutomationEditor.getState().show() } },
-        { label: 'Duplicate to empty slot', disabled: !useProjectStore.getState().project.tracks.some((t) => t.id === trackId && t.kind !== 'return' && t.clips.some((c) => !c)), onSelect: () => duplicateSessionClip(trackId, clip.id) },
-        { label: 'Place on arrangement', onSelect: () => placeOnArrangement(trackId, clip) },
-        { kind: 'separator' },
-        { label: 'Delete clip', danger: true, onSelect: () => deleteClip(trackId, scene) },
-      ]}
-    >
-      <div className={`${styles.slot} ${state}`}>
-        <button className={`${styles.launch} ${styles.audioLaunch}`} onClick={() => controls.launchClip(trackId, clip.id)}>
-          <span>{playing ? '■' : '▶'}</span>
-          <span className={styles.slotName}>{clip.name}</span>
-          <WaveformThumb sampleId={clip.sampleId} width={44} height={16} />
-        </button>
-        <button onClick={() => selectClip(trackId, clip.id)} aria-label={`Edit ${clip.name}`}>
+    <ActionMenu subject={subject}>
+      <div className={`${styles.slot} ${state}`} {...drop} {...drag}>
+        <InPlaceRename subject={subject} name={clip.name} label={`Name of ${clip.name}`} className={styles.launch}>
+          <button className={`${styles.launch} ${styles.audioLaunch}`} onClick={() => runAction('clip.launch', subject, context)}>
+            <span>{playing ? '■' : '▶'}</span>
+            <span className={styles.slotName}>{clip.name}</span>
+            <WaveformThumb sampleId={clip.sampleId} width={44} height={16} />
+          </button>
+        </InPlaceRename>
+        <button onClick={() => runAction('clip.edit', subject, context)} aria-label={`Edit ${clip.name}`}>
           ✎
         </button>
-        <button onClick={() => deleteClip(trackId, scene)} aria-label={`Delete ${clip.name}`}>
+        <button onClick={() => runAction('clip.delete', subject, context)} aria-label={`Delete ${clip.name}`}>
           ×
         </button>
       </div>
-    </ContextMenu>
+    </ActionMenu>
   )
 }

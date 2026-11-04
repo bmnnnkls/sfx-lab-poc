@@ -179,6 +179,18 @@ describe('renderProject', () => {
     expect(frequencyOf(result.left, 8 * beat + 4800, 9 * beat)).toBeCloseTo(220, -1)
   })
 
+  it('the arrangement renders the whole timeline once, whatever the loop', () => {
+    const { project, trackId } = withTone()
+    const looping = { ...createArrangementClip(trackId, 0, createClip('loop', 4, [createNote(69, 0, 1, 1)])), loop: true as const }
+    const next = createArrangementClip(trackId, 8, createClip('next', 4, [createNote(57, 0, 1, 1)]))
+    const plain = { ...project, arrangement: [looping, next] }
+    const looped = { ...plain, arrangementLoop: { from: 0, to: 2, enabled: true } }
+    const once = renderProject(plain, [], { scope: { kind: 'arrangement' }, maxTail: 0 })
+    const result = renderProject(looped, [], { scope: { kind: 'arrangement' }, maxTail: 0 })
+    expect(result.left).toHaveLength(6 * RATE)
+    expect(result.left).toEqual(once.left)
+  })
+
   it('the arrangement throws when the timeline is empty, and its samples are decoded', () => {
     expect(() => renderProject(blank(), [], { scope: { kind: 'arrangement' }, maxTail: 0 })).toThrow(/arrangement/)
     const info: SampleInfo = { id: 'a'.repeat(64), name: 'tone', extension: 'wav', durationSeconds: 1, sampleRate: RATE, channels: 1, bytes: 0 }
@@ -190,7 +202,7 @@ describe('renderProject', () => {
 
   it('renders a sampler of a known buffer, and an audio clip, from the samples it is given', () => {
     const data = Float32Array.from({ length: RATE }, (_, i) => 0.5 * Math.sin((2 * Math.PI * 330 * i) / RATE))
-    const sample: SampleData = { id: 'a'.repeat(64), sampleRate: RATE, data }
+    const sample: SampleData = { id: 'a'.repeat(64), sampleRate: RATE, channels: [data] }
     const info: SampleInfo = { id: sample.id, name: 'tone', extension: 'wav', durationSeconds: 1, sampleRate: RATE, channels: 1, bytes: 0 }
 
     const clip = createClip('hit', 4, [createNote(60, 0, 1, 1)])
@@ -240,7 +252,7 @@ describe('renderProject', () => {
 describe('the end of the last bar', () => {
   it('starts nothing after it: the loop point is not a note on the last sample', () => {
     // A 0.1 s block of constant level, played as a one-shot: a stray note at the loop point would leave 0.1 s of it in the tail.
-    const hit: SampleData = { id: 'b'.repeat(64), sampleRate: RATE, data: new Float32Array(RATE / 10).fill(0.5) }
+    const hit: SampleData = { id: 'b'.repeat(64), sampleRate: RATE, channels: [new Float32Array(RATE / 10).fill(0.5)] }
     const clip = createClip('hit', 4, [createNote(60, 0, 1, 1)])
     const track = createTrack('Hit', 4, createSamplerPatch(hit.id))
     for (const tempo of [120, 97, 133, 61, 45]) {
@@ -433,5 +445,26 @@ describe('options', () => {
     const dry = renderProject(project, [], { scope, maxTail: 0 })
     const withReturn = renderProject(sent, [], { scope, maxTail: 0 })
     expect(peakOf(withReturn.left)).toBeGreaterThan(peakOf(dry.left) * 1.3) // the send adds the same signal again
+  })
+})
+
+describe('renderProject with group buses', () => {
+  it('renders nested buses, the same twice, and as the same mix without them', () => {
+    const { project } = withTone()
+    const graph = noteGraphFrom([{ id: 'i', type: 'groupIn' }, { id: 'o', type: 'trackOut' }], ['i.out>o.in'])
+    const nested: Project = {
+      ...project,
+      tracks: project.tracks.map((track) => ({ ...track, groupId: 'inner' })),
+      groups: [
+        { id: 'outer', name: 'Outer', colour: 'red', bus: { volume: 1, fx: graph, sends: {} } },
+        { id: 'inner', name: 'Inner', colour: 'blue', parentId: 'outer', bus: { volume: 0.5, fx: graph, sends: {} } },
+      ],
+    }
+    const options = { scope: { kind: 'scene' as const, scene: 0 }, maxTail: 0 }
+    const first = renderProject(nested, [], options)
+    expect(identical(first.left, renderProject(nested, [], options).left)).toBe(true)
+    const halved = renderProject({ ...project, tracks: project.tracks.map((track) => ({ ...track, volume: track.volume * 0.5 })) }, [], options)
+    expect(peakOf(first.left)).toBeGreaterThan(0.1)
+    for (let i = 0; i < first.left.length; i += 97) expect(Math.abs(first.left[i]! - halved.left[i]!)).toBeLessThan(1e-6)
   })
 })

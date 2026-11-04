@@ -1,5 +1,7 @@
 import { MASTER_IN_TYPE, TRACK_OUT_TYPE, describeNode } from '@core'
-import { useProjectStore, useSelectionStore } from '@state'
+import { openMasterEffects, useProjectStore, useSelectionStore } from '@state'
+import { useDropTarget } from '../shared/drag'
+import { ActionMenu } from '../shared/menu'
 import styles from './SessionView.module.css'
 
 /** The master bus at the end of the session grid: select it to edit the effects on the final mix. */
@@ -7,12 +9,13 @@ export const MasterHeader = () => {
   const modules = useProjectStore((state) => state.project.modules)
   const fx = useProjectStore((state) => state.project.master.fx)
   const selected = useSelectionStore((state) => state.master)
-  const selectMaster = useSelectionStore((state) => state.selectMaster)
   const effects = fx.nodes.filter((node) => node.type !== MASTER_IN_TYPE && node.type !== TRACK_OUT_TYPE)
+  const drop = useDropTarget({ kind: 'master' })
 
   return (
-    <div className={`${styles.header} ${styles.masterHeader} ${selected ? styles.selected : ''}`}>
-      <button className={styles.trackName} onClick={selectMaster} title="Effects on the final mix of all tracks">
+    <ActionMenu subject={{ kind: 'master' }}>
+    <div {...drop} className={`${styles.header} ${styles.masterHeader} ${selected ? styles.selected : ''}`}>
+      <button className={styles.trackName} onClick={openMasterEffects} title="Effects on the final mix of all tracks">
         Master
       </button>
       {effects.length > 0 && (
@@ -20,11 +23,12 @@ export const MasterHeader = () => {
           className={styles.fxBadge}
           title={`Effects: ${effects.map((node) => describeNode(node, modules)?.label ?? node.type).join(', ')}`}
           aria-label={`Master has ${effects.length} effect${effects.length === 1 ? '' : 's'}`}
-          onClick={selectMaster}
+          onClick={openMasterEffects}
         >
           fx {effects.length}
         </button>
       )}
     </div>
+    </ActionMenu>
   )
 }

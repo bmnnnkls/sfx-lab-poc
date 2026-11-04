@@ -1,6 +1,6 @@
 import { type Note, notesEqual, setVelocity } from '@core'
 import { type PointerEvent, useRef, useState } from 'react'
-import { LANE_HEIGHT, barTop, pickNoteAt, velocityAtY } from './velocity-lane-logic'
+import { barTopCss, pickNoteAt, velocityAtY } from './velocity-lane-logic'
 import styles from './PianoRoll.module.css'
 
 interface VelocityLaneProps {
@@ -22,26 +22,29 @@ export const VelocityLane = ({ notes, selected, width, pixelsPerBeat, onSelect, 
   const drag = useRef<{ ids: ReadonlySet<string>; origin: readonly Note[] } | null>(null)
   const [draft, setDraft] = useState<readonly Note[] | null>(null)
 
-  const pointer = (event: PointerEvent): { x: number; y: number } => {
+  // The lane's height comes from CSS (it shrinks in a short editor), so the pointer brings it along.
+  const pointer = (event: PointerEvent): { x: number; y: number; height: number } => {
     const bounds = lane.current?.getBoundingClientRect()
-    return bounds ? { x: event.clientX - bounds.left, y: event.clientY - bounds.top } : { x: 0, y: 0 }
+    return bounds ? { x: event.clientX - bounds.left, y: event.clientY - bounds.top, height: bounds.height } : { x: 0, y: 0, height: 0 }
   }
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
-    const { x, y } = pointer(event)
-    const target = pickNoteAt(notes, x, y, pixelsPerBeat)
+    const { x, y, height } = pointer(event)
+    const target = pickNoteAt(notes, x, y, pixelsPerBeat, height)
     if (!target) return
     const ids = selected.has(target.id) ? selected : new Set([target.id])
     onSelect(ids)
     drag.current = { ids, origin: notes }
-    setDraft(setVelocity(notes, ids, velocityAtY(y)))
+    setDraft(setVelocity(notes, ids, velocityAtY(y, height)))
     lane.current?.setPointerCapture(event.pointerId)
   }
 
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const current = drag.current
-    if (current) setDraft(setVelocity(current.origin, current.ids, velocityAtY(pointer(event).y)))
+    if (!current) return
+    const { y, height } = pointer(event)
+    setDraft(setVelocity(current.origin, current.ids, velocityAtY(y, height)))
   }
 
   const finish = (commit: boolean) => {
@@ -56,7 +59,7 @@ export const VelocityLane = ({ notes, selected, width, pixelsPerBeat, onSelect, 
     <div
       ref={lane}
       className={styles.lane}
-      style={{ width, height: LANE_HEIGHT }}
+      style={{ width }}
       data-testid="velocity-lane"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -68,7 +71,7 @@ export const VelocityLane = ({ notes, selected, width, pixelsPerBeat, onSelect, 
           key={note.id}
           className={`${styles.velocityBar} ${selected.has(note.id) ? styles.velocitySelected : ''}`}
           data-velocity={note.velocity.toFixed(2)}
-          style={{ left: note.start * pixelsPerBeat, top: barTop(note.velocity), bottom: 0 }}
+          style={{ left: note.start * pixelsPerBeat, top: barTopCss(note.velocity), bottom: 0 }}
         />
       ))}
     </div>

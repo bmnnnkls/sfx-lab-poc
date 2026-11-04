@@ -178,3 +178,29 @@ describe('ping-pong delay', () => {
     expect(at(left, 1440)).toBeCloseTo(0.64, 3) // then left again, quieter
   })
 })
+
+describe('Track in', () => {
+  const read = (input: Float32Array | undefined, channel?: 0 | 1) => {
+    const node = requireNodeDefinition('trackIn').create(SAMPLE_RATE)
+    if (channel !== undefined) node.setChannel?.(channel)
+    const out = new Float32Array(FRAMES)
+    node.process({ ...context(4), input }, [], [out])
+    return Array.from(out.subarray(0, 4))
+  }
+
+  it('can run in stereo: each copy reads its channel, and a mono input is heard in both', () => {
+    expect(requireNodeDefinition('trackIn').stereoCapable).toBe(true)
+    const input = stereo([0.5, 0.25, 0, 1], [-0.5, 0, 0.5, 1])
+    expect(read(input, 0)).toEqual([0.5, 0.25, 0, 1])
+    expect(read(input, 1)).toEqual([-0.5, 0, 0.5, 1])
+    const mono = Float32Array.from({ length: FRAMES }, (_, i) => i / 4)
+    expect(read(mono, 0)).toEqual([0, 0.25, 0.5, 0.75])
+    expect(read(mono, 1)).toEqual([0, 0.25, 0.5, 0.75])
+  })
+
+  it('in mono reads a mono input as it is and a stereo one as the average of its channels', () => {
+    expect(read(Float32Array.from({ length: FRAMES }, (_, i) => i / 4))).toEqual([0, 0.25, 0.5, 0.75])
+    expect(read(stereo([0.5, 0.25, 0, 1], [-0.5, 0, 0.5, 1]))).toEqual([0, 0.125, 0.25, 1])
+    expect(read(undefined)).toEqual([0, 0, 0, 0])
+  })
+})

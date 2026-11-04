@@ -12,7 +12,8 @@ export interface EngineControls {
   stop(): void
   launchClip(trackId: string, clipId: string): void
   launchAutomation(owner: import('@core').ControlOwner, slotId: string | null): void
-  launchScene(scene: number): void
+  /** Every track's clip in that scene; with `trackIds`, only those tracks' (a collapsed group's cell). */
+  launchScene(scene: number, trackIds?: readonly string[]): void
   stopTrack(trackId: string): void
   /** Plays one short note through a track's instrument, to hear what is being edited. */
   auditionNote(trackId: string, pitch: number, velocity: number): void

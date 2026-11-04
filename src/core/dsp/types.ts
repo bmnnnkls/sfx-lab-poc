@@ -124,6 +124,12 @@ export interface DspNode {
   setTrack?(trackId: string | null): void
   /** Only for indicators (`NodeDefinition.indicator`): the latest value the node saw, which the engine reports to the screen. */
   readout?(): number
+  /**
+   * Only for `stereoCapable` nodes that read something other than their inputs (a source reading `ProcessContext.input`):
+   * which channel this copy runs, called on each copy when the node runs in stereo. Nodes with inputs need not care:
+   * each copy is handed its channel's buffers.
+   */
+  setChannel?(channel: 0 | 1): void
   process(
     context: ProcessContext,
     inputs: ReadonlyArray<Float32Array | null>,

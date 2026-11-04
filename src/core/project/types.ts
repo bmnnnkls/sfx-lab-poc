@@ -68,8 +68,12 @@ interface TrackBase {
   readonly pan?: number
   /** Silences the track everywhere it is heard, its sends included; absent = false. Its effects keep running. */
   readonly muted?: boolean
-  /** Silences every track that is not soloed (see ARCHITECTURE.md, "Mixer"); absent = false. */
+  /** Silences every track that is not soloed (see docs/architecture/mixing-and-routing.md, "Mixer"); absent = false. */
   readonly soloed?: boolean
+  /** The group the track is directly in (see `TrackGroup`); absent = the top level. Never set on a return. */
+  readonly groupId?: string
+  /** Left out of the session grid, the arrangement and the mixer; it still plays. Absent = shown. Not an undo step. */
+  readonly hidden?: boolean
   /**
    * The insert graph after the track's own sound and before its fader: `Track in` -> effects -> `Track out`.
    * A fresh track has just those two, wired together (the sound passes through unchanged).
@@ -138,6 +142,45 @@ export interface MasterBus {
   readonly volume?: number
 }
 
+/** What a group is drawn in: a name, resolved by the views through a CSS variable (`--group-red`). */
+export type GroupColour = 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink'
+
+/**
+ * A folder of instrument and audio tracks, optionally a summing bus. Its tracks, nested groups' included,
+ * sit together in `Project.tracks`, and it is drawn where its first track is, so a group always has a track.
+ */
+export interface TrackGroup {
+  /** Never the id of a track: a group becomes a control owner with its bus. */
+  readonly id: string
+  readonly name: string
+  readonly colour: GroupColour
+  /** Its members are folded away in every view; absent = expanded. Not an undo step. */
+  readonly collapsed?: boolean
+  /** The group it is nested in; absent = the top level. */
+  readonly parentId?: string
+  /** Silences its members, nested groups' included, everywhere they are heard; absent = false. */
+  readonly muted?: boolean
+  /** Solos its members and its bus (see docs/architecture/mixing-and-routing.md, "Mixer"); absent = false. */
+  readonly soloed?: boolean
+  /** Sums its members after their faders, instead of sending them to the master; absent = a folder. */
+  readonly bus?: GroupBus
+}
+
+/**
+ * What a group that sums its tracks has after them, as a track has after its instrument. Its output is the nearest
+ * enclosing group with a bus, or the master.
+ */
+export interface GroupBus {
+  /** 0..1, as a track's. */
+  readonly volume: number
+  /** -1..1; absent = the centre. */
+  readonly pan?: number
+  /** `Group in` -> effects -> `Track out`, in stereo. */
+  readonly fx: Patch
+  /** Post-fader, as a track's knobs. */
+  readonly sends: SendLevels
+}
+
 /** The saveable document. Everything the user authors lives here. */
 export interface Project {
   readonly libraryOrigins?: readonly import('../library').LibraryOrigin[]
@@ -161,10 +204,19 @@ export interface Project {
   /** Reusable sub-patches (of sound or of notes). Patches use them by id, so editing one changes every use. */
   readonly modules: readonly ModuleDefinition[]
   readonly master: MasterBus
+  /** The order of everything: clip tracks in a group sit together. Returns are drawn after the clip tracks. */
   readonly tracks: readonly Track[]
+  /** Folders of tracks; absent in a project without groups. Their own order means nothing. */
+  readonly groups?: readonly TrackGroup[]
+  /** The front panels the Pinned view shows, top to bottom; absent when none are. A view field, as a group's collapse. */
+  readonly pins?: readonly import('./pins').PanelPin[]
   /**
    * The arrangement: copies of session clips placed on a timeline, per track. Absent in projects nobody has
    * arranged in (old files), so no format-version bump was needed.
    */
   readonly arrangement?: readonly ArrangementClip[]
+  /** Named places on the arrangement's timeline, sorted by beat; absent when there are none. */
+  readonly arrangementMarkers?: readonly import('./arrangement-marks').ArrangementMarker[]
+  /** The loop brace on the arrangement's timeline; absent when none is drawn. */
+  readonly arrangementLoop?: import('./arrangement-marks').ArrangementLoop
 }

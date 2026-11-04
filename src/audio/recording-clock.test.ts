@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import { RecordingClock } from './recording-clock'
 import type { EngineStatus } from '@core'
-const status = (beat: number, tempo = 120, playing = true): EngineStatus => ({ beat, tempo, playing, peak: 0, peaks: {}, tracks: {}, readouts: {} })
+const status = (beat: number, tempo = 120, playing = true): EngineStatus => ({ beat, tempo, playing, mode: 'session', peak: 0, peaks: {}, tracks: {}, readouts: {} })
 it('timestamps UI stalls in the audio clock, retaining tempo segments for delayed MIDI release', () => {
   const clock = new RecordingClock()
   clock.update(status(4), 10)

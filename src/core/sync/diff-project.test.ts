@@ -20,7 +20,7 @@ import {
   setTrackPan,
   setTrackSoloed,
 } from '../project'
-import { addAudioTrackWithClip, addSamples, createAudioTrack, addTrack, setTrackVolume as setVolume, updateAudioClip, isAudioTrack } from '../project'
+import { addAudioTrackWithClip, addSamples, createAudioTrack, addTrack, sessionClipRef, setTrackVolume as setVolume, updateAudioClip, isAudioTrack } from '../project'
 import { diffProject } from './diff-project'
 
 describe('diffProject', () => {
@@ -226,7 +226,7 @@ describe('diffProject', () => {
 
     it('maps clip edits to setAudioClips and volume to setVolume', () => {
       const clipId = isAudioTrack(audio) ? audio.clips[0]!.id : ''
-      const edited = setVolume(updateAudioClip(base, audio.id, clipId, { gain: 0.4 }), audio.id, 0.3)
+      const edited = setVolume(updateAudioClip(base, sessionClipRef(audio.id, clipId), { gain: 0.4 }), audio.id, 0.3)
 
       expect(diffProject(base, edited).map((c) => c.type)).toEqual(['track/setAudioClips', 'track/setVolume'])
     })

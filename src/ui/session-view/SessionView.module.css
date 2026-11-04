@@ -1,11 +1,35 @@
+.scroller {
+  height: 100%;
+  overflow: auto;
+}
+
+/*
+ * At least as wide as its columns at their minimum (gaps and padding included), so the sticky scene column has the
+ * whole width to stick in.
+ */
 .grid {
+  --track-min: 150px;
+  /* A row of group bands and the gap under it: the headers stick below the bands. */
+  --band-step: 30px;
   display: grid;
   gap: 4px;
+  width: max(100%, calc(var(--columns) * (var(--track-min) + 4px) + 56px + 20px));
   padding: 10px;
   align-content: start;
 }
 
+/* Below 640 px the track columns may narrow to 120 px. */
+@container view (width < 640px) {
+  .grid {
+    --track-min: 120px;
+  }
+}
+
+/* Track headers stay at the top, under the group bands, while the grid scrolls. */
 .header {
+  position: sticky;
+  top: calc(var(--bands, 0) * var(--band-step));
+  z-index: 1;
   display: grid;
   grid-template-columns: 1fr auto auto auto;
   gap: 4px;
@@ -55,6 +79,135 @@
 .addTrack,
 .scene {
   align-self: stretch;
+}
+
+/* The scene column stays at the right while the grid scrolls; its + stays at the top too. */
+.scene {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+}
+
+.addTrack {
+  min-height: 0;
+}
+
+/* The scene column's head: the + and, while tracks are hidden, how many. It stays at the top right. */
+.corner {
+  position: sticky;
+  top: calc(var(--bands, 0) * var(--band-step));
+  right: 0;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  align-content: stretch;
+}
+
+.hiddenTracks {
+  padding: 2px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.hiddenTracks.sounding {
+  color: var(--play);
+  border-color: var(--play);
+}
+
+/* A row of group bands per nesting level, over the headers. */
+.bandCell {
+  position: sticky;
+  top: calc(var(--level) * var(--band-step));
+  z-index: 1;
+  min-width: 0;
+  height: 26px;
+}
+
+.band {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  padding-inline: 4px;
+  background: color-mix(in srgb, var(--group) 22%, var(--panel));
+  border: 1px solid var(--group);
+  border-radius: var(--radius);
+}
+
+.twisty {
+  padding: 0 4px;
+  border-color: transparent;
+  background: none;
+  color: var(--text-dim);
+  line-height: 1;
+}
+
+.groupName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  cursor: grab;
+}
+
+/* A collapsed group's column. */
+.groupHeader {
+  grid-template-columns: auto 1fr;
+  align-content: start;
+  border-color: var(--group);
+  box-shadow: inset 0 3px 0 var(--group);
+}
+
+.mutedGroup {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+/* A bus's volume, on its band or its collapsed header. */
+.groupVolume {
+  display: flex;
+  flex: 0 1 120px;
+  align-items: center;
+  min-width: 40px;
+  grid-column: 1 / -1;
+}
+
+.groupVolume input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+}
+
+.groupCount {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.groupCell {
+  border-color: color-mix(in srgb, var(--group) 50%, var(--border));
+}
+
+/* A member's header carries its group's colour. */
+.header[data-stripe] {
+  box-shadow: inset 0 3px 0 var(--group);
+}
+
+/* Where a dragged track or group would land. */
+.header[data-drop='accept'][data-edge='before'],
+.band[data-drop='accept'][data-edge='before'] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.header[data-drop='accept'][data-edge='after'],
+.band[data-drop='accept'][data-edge='after'] {
+  box-shadow: inset -3px 0 0 var(--accent);
+}
+
+.band[data-drop='accept'][data-edge='inside'] {
+  border-color: var(--accent);
 }
 
 /* The scene's number, and under it what it is called. */
@@ -159,4 +312,26 @@
   grid-column: 1 / -1;
   order: 6;
   font-size: 11px;
+}
+
+/* A slot a drag of ours is over: it would land there, or it can't. */
+.slot[data-drop='accept'] {
+  opacity: 1;
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.slot[data-drop='refuse'] {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
+}
+
+.header[data-drop='accept'] {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.header[data-drop='refuse'] {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
 }

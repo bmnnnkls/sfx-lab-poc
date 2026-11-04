@@ -1,6 +1,6 @@
 import { type PanelItem, type ParamSpec, createNode, describeNode } from '@core'
 import { describe, expect, it } from 'vitest'
-import { axisSpec, defaultPosition, keyStep, knobWidth, positionOf, spanOf, valueAt } from './panel-values'
+import { axisSpec, boardColumns, defaultPosition, fitSpan, keyStep, knobWidth, positionOf, spanOf, valueAt } from './panel-values'
 
 const linear: ParamSpec = { id: 'a', label: 'A', min: 0, max: 10, default: 5 }
 const log: ParamSpec = { id: 'f', label: 'F', min: 20, max: 20000, default: 2000 }
@@ -103,5 +103,62 @@ describe('spanOf', () => {
     expect(spanOf(item({ kind: 'led' }))).toEqual({ cols: 1, rows: 1 })
     expect(spanOf(item({ kind: 'display', size: 'M' }))).toEqual({ cols: 3, rows: 1 })
     expect(spanOf(item({ kind: 'bar' }))).toEqual({ cols: 2, rows: 1 })
+  })
+})
+
+describe('fitSpan', () => {
+  const kinds = ['knob', 'slider', 'xy', 'switch', 'selector', 'led', 'display', 'bar'] as const
+  /** Each kind and size (and a sideways slider) as `cols×rows` at one to four columns. */
+  const table = () => {
+    const rows: string[] = []
+    for (const kind of kinds) {
+      for (const horizontal of kind === 'slider' ? [false, true] : [false]) {
+        for (const size of ['S', 'M', 'L'] as const) {
+          const span = spanOf({ kind, size, horizontal })
+          const fitted = [1, 2, 3, 4].map((columns) => { const fit = fitSpan(span, columns, kind); return `${fit.cols}×${fit.rows}` })
+          rows.push(`${kind}${horizontal ? ' sideways' : ''} ${size}: ${fitted.join(' ')}`)
+        }
+      }
+    }
+    return rows
+  }
+
+  it('takes the columns there are, keeping a knob square and a pad two rows or more', () => {
+    expect(table()).toEqual([
+      'knob S: 1×1 1×1 1×1 1×1',
+      'knob M: 1×1 2×2 2×2 2×2',
+      'knob L: 1×1 2×2 3×3 3×3',
+      'slider S: 1×2 1×2 1×2 1×2',
+      'slider M: 1×3 1×3 1×3 1×3',
+      'slider L: 1×4 1×4 1×4 1×4',
+      'slider sideways S: 1×1 2×1 2×1 2×1',
+      'slider sideways M: 1×1 2×1 3×1 3×1',
+      'slider sideways L: 1×1 2×1 3×1 4×1',
+      'xy S: 1×2 2×2 2×2 2×2',
+      'xy M: 1×2 2×2 3×2 3×2',
+      'xy L: 1×2 2×2 3×3 3×3',
+      'switch S: 1×1 1×1 1×1 1×1',
+      'switch M: 1×1 2×1 2×1 2×1',
+      'switch L: 1×1 2×1 3×1 3×1',
+      'selector S: 1×1 2×1 2×1 2×1',
+      'selector M: 1×1 2×1 3×1 3×1',
+      'selector L: 1×1 2×1 3×1 4×1',
+      'led S: 1×1 1×1 1×1 1×1',
+      'led M: 1×1 2×1 2×1 2×1',
+      'led L: 1×1 2×1 3×1 3×1',
+      'display S: 1×1 2×1 2×1 2×1',
+      'display M: 1×1 2×1 3×1 3×1',
+      'display L: 1×1 2×1 3×1 4×1',
+      'bar S: 1×1 2×1 2×1 2×1',
+      'bar M: 1×1 2×1 3×1 3×1',
+      'bar L: 1×1 2×1 3×1 4×1',
+    ])
+  })
+
+  it('counts the columns a board has', () => {
+    // A 280 px sidebar's board: 256 px inside 12 px padding, 8 px gaps.
+    expect(boardColumns(256, 104, 8)).toBe(2)
+    expect(boardColumns(456, 104, 8)).toBe(4)
+    expect(boardColumns(80, 104, 8)).toBe(1)
   })
 })

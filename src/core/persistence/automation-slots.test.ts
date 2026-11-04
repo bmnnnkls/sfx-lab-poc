@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { CURRENT_VERSION } from './format'
 import { describe, expect, it } from 'vitest'
 import { parseProject, serializeProject } from './project-file'
 const fixture = readFileSync(new URL('./fixtures/v5-automation-slots.sfxlab.json', import.meta.url), 'utf8')
@@ -10,7 +11,7 @@ describe('v5 return/master slots', () => {
     expect(r.project.master.automationSlots?.[0]?.lengthBeats).toBe(3)
     const ret = r.project.tracks.find((t) => t.kind === 'return')!
     expect(ret.kind === 'return' && ret.automationSlots?.[0]?.lengthBeats).toBe(2)
-    expect(JSON.parse(serializeProject(r.project)).version).toBe(9)
+    expect(JSON.parse(serializeProject(r.project)).version).toBe(CURRENT_VERSION)
     expect(read(serializeProject(r.project)).project).toEqual(r.project)
   })
   it('migrates all older versions without reinterpreting formerly unknown slot data', () => {

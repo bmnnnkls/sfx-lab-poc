@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { unzipSync, strFromU8 } from 'fflate'
-import { test, expect, openExample, expectSound, expectSaved } from './fixtures'
+import { test, expect, openExample, expectSound, expectSaved, openView, viewRoot, openFileMenu } from './fixtures'
 
 test('both examples play through the production AudioWorklet', async ({ page }) => {
   await page.goto('/')
@@ -16,8 +16,8 @@ test('both examples play through the production AudioWorklet', async ({ page }) 
 test('a panel gesture undoes once and persists after reload', async ({ page }) => {
   await page.goto('/')
   const showFilter = async () => {
-    await page.getByText('Master', { exact: true }).first().click()
-    await page.getByRole('button', { name: 'Effects', exact: true }).click()
+    await viewRoot(page, 'Session').getByText('Master', { exact: true }).first().click()
+    await openView(page, 'Effects')
     await page.getByRole('group', { name: 'View', exact: true }).getByRole('button', { name: 'Panel', exact: true }).click()
     return page.getByRole('slider', { name: 'DJ filter', exact: true })
   }
@@ -43,27 +43,27 @@ test('a panel gesture undoes once and persists after reload', async ({ page }) =
 
 test('a sample package restores project and audio bytes into a fresh browser', async ({ page, browser }, testInfo) => {
   await page.goto('/?starter')
-  await page.getByRole('button', { name: 'Samples', exact: true }).click()
+  const samples = await openView(page, 'Samples')
   await page.getByRole('button', { name: 'Add demo samples', exact: true }).click()
-  await expect(page.locator('[data-status="ready"]')).toHaveCount(5)
+  await expect(samples.locator('[data-status="ready"]')).toHaveCount(5)
   await page.getByRole('listitem').filter({ hasText: 'Demo Kick' }).getByRole('button', { name: 'New sampler track', exact: true }).click()
   await page.getByLabel('Project name').fill('Smoke package')
   await expectSaved(page)
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('sfxlab:project')!))
 
-  await page.getByText('File', { exact: true }).click()
+  await openFileMenu(page)
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export to file…', exact: true }).click(),
+    page.getByRole('menuitem', { name: 'Export to file…', exact: true }).click(),
   ])
   expect(download.suggestedFilename()).toBe('smoke-package.sfxlab')
   const packagePath = testInfo.outputPath('smoke-package.sfxlab')
   await download.saveAs(packagePath)
   const entries = unzipSync(await readFile(packagePath))
   expect(JSON.parse(strFromU8(entries['project.json']!))).toEqual(saved)
-  const samples = Object.entries(entries).filter(([name]) => name.startsWith('samples/'))
-  expect(samples).toHaveLength(5)
-  for (const [, bytes] of samples) expect(bytes.length).toBeGreaterThan(44)
+  const packaged = Object.entries(entries).filter(([name]) => name.startsWith('samples/'))
+  expect(packaged).toHaveLength(5)
+  for (const [, bytes] of packaged) expect(bytes.length).toBeGreaterThan(44)
 
   // An independent context proves the import brings its bytes, rather than reusing the source database.
   const destination = await browser.newContext()
@@ -73,25 +73,23 @@ test('a sample package restores project and audio bytes into a fresh browser', a
     imported.on('pageerror', (error) => errors.push(error.message))
     imported.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
     await imported.goto(new URL('/?starter', page.url()).href)
-    await imported.getByRole('button', { name: 'Samples', exact: true }).click()
+    await openView(imported, 'Samples')
     await expect(imported.getByRole('listitem')).toHaveCount(0)
-    await imported.getByText('File', { exact: true }).click()
+    await openFileMenu(imported)
     const [chooser] = await Promise.all([
       imported.waitForEvent('filechooser'),
-      imported.getByRole('button', { name: 'Import from file…', exact: true }).click(),
+      imported.getByRole('menuitem', { name: 'Import from file…', exact: true }).click(),
     ])
     await chooser.setFiles(packagePath)
     await expect(imported.getByLabel('Project name')).toHaveValue('Smoke package')
-    await imported.getByRole('button', { name: 'Samples', exact: true }).click()
-    await expect(imported.locator('[data-status="ready"]')).toHaveCount(5)
+    await expect((await openView(imported, 'Samples')).locator('[data-status="ready"]')).toHaveCount(5)
     await expectSaved(imported)
     expect(await imported.evaluate(() => JSON.parse(localStorage.getItem('sfxlab:project')!))).toEqual(saved)
     await imported.getByRole('button', { name: 'Launch scene 1', exact: true }).click()
     await expectSound(imported)
     await imported.getByRole('button', { name: 'Stop', exact: true }).first().click()
     await imported.reload()
-    await imported.getByRole('button', { name: 'Samples', exact: true }).click()
-    await expect(imported.locator('[data-status="ready"]')).toHaveCount(5)
+    await expect((await openView(imported, 'Samples')).locator('[data-status="ready"]')).toHaveCount(5)
     expect(errors).toEqual([])
   } finally {
     await destination.close()
@@ -105,10 +103,11 @@ test('shared module uses retain independent base values through separate gesture
   }, text)
   await page.goto('/')
   const panel = async () => {
-    await page.getByRole('button', { name: 'Instrument', exact: true }).click()
-    await page.getByRole('group', { name: 'View', exact: true }).getByRole('button', { name: 'Panel', exact: true }).click()
+    const instrument = await openView(page, 'Instrument')
+    await instrument.getByRole('group', { name: 'View', exact: true }).getByRole('button', { name: 'Panel', exact: true }).click()
+    return instrument
   }
-  await panel()
+  const instrument = await panel()
   const a = page.getByRole('slider', { name: 'A: Amount', exact: true })
   const b = page.getByRole('slider', { name: 'B: Amount', exact: true })
   await expect(a).toHaveAttribute('aria-valuenow', '0.7')
@@ -121,9 +120,9 @@ test('shared module uses retain independent base values through separate gesture
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(a).toHaveAttribute('aria-valuenow', '0.71')
   await expect(b).toHaveAttribute('aria-valuenow', '0.2')
-  await page.getByRole('group', { name: 'View', exact: true }).getByRole('button', { name: 'Graph', exact: true }).click()
-  await page.getByTestId('node-a').locator('[data-header]').click()
-  const property = page.getByTestId('properties').getByRole('slider', { name: 'Amount', exact: true })
+  await instrument.getByRole('group', { name: 'View', exact: true }).getByRole('button', { name: 'Graph', exact: true }).click()
+  await instrument.getByTestId('node-a').locator('[data-header]').click()
+  const property = instrument.getByTestId('properties').getByRole('slider', { name: 'Amount', exact: true })
   await expect(property).toHaveValue('710')
   await property.focus()
   await page.keyboard.press('ArrowLeft')

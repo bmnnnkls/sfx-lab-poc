@@ -1,5 +1,7 @@
+import { type Subject, runAction } from '@state'
 import type { MenuEntry } from '../shared/menu'
-import { ContextMenu } from '../shared/menu'
+import { ActionMenu, ContextMenu, useActionContext } from '../shared/menu'
+import { InPlaceRename } from '../shared/RenameField'
 import { type NodeShape, type PatchNode, type PortRef, controlKindFor } from '@core'
 import { nodeTooltip, portTooltip } from '../shared/tooltip/tooltip-text'
 import { HEADER_HEIGHT, MODULE_FOOTER_HEIGHT, NODE_WIDTH, PORT_ROW_HEIGHT, PREVIEW_AREA_HEIGHT, liveWidgetHeight } from './geometry'
@@ -27,14 +29,15 @@ interface NodeViewProps {
   /** Runs once on the mix of all voices (effects), rather than once per voice. */
   shared: boolean
   selected: boolean
-  /** Present for uses of a module: open its inside / make this use an independent copy. */
-  moduleActions?: { onOpen(): void; onUnlink(): void }
+  /** What its menu acts on: the selection when the card is selected, otherwise the card alone. */
+  subject: Extract<Subject, { kind: 'nodes' }>
+  /** A use of a module: its footer opens its inside or makes this use an independent copy. */
+  moduleUse: boolean
   /** The right-click menu of an input: create a knob, disconnect. Empty for none (the port then has no menu). */
   inputMenu(portId: string): readonly MenuEntry[]
   /** `additive` is true when Shift/Ctrl/Cmd was held, to add to or remove from the selection. */
   onSelect(additive: boolean): void
   onMove(x: number, y: number): void
-  onRemove(): void
   onWireStart(from: PortRef): void
   onWireEnd(to: PortRef): void
 }
@@ -55,11 +58,11 @@ export const NodeView = ({
   onSetParams,
   shared,
   selected,
-  moduleActions,
+  subject,
+  moduleUse,
   inputMenu,
   onSelect,
   onMove,
-  onRemove,
   onWireStart,
   onWireEnd,
 }: NodeViewProps) => {
@@ -67,12 +70,17 @@ export const NodeView = ({
   const rows = Math.max(shape.inputs.length, shape.outputs.length)
   // A socket shows its parameter's facts; a control's own range is the live one.
   const paramSpecOf = (paramId: string | undefined) => shape.params.find((candidate) => candidate.id === paramId)
+  const context = useActionContext()
+  // The card's own buttons act on it alone, whatever else is selected.
+  const own: Subject = { ...subject, nodeIds: [node.id] }
 
   return (
+    <ActionMenu subject={subject}>
     <div
       className={`${styles.node} ${selected ? styles.selected : ''} ${node.bypassed ? styles.nodeBypassed : ''}`}
       style={{ left: node.x, top: node.y, width: NODE_WIDTH }}
       data-testid={`node-${node.id}`}
+      data-node={node.id}
       data-selected={selected}
       onPointerDown={(event) => {
         // A press on the body selects the card too, but never one on a port, button or the header (which also drags).
@@ -90,8 +98,10 @@ export const NodeView = ({
         }}
       >
         <span className={styles.nodeTitle} data-tooltip={nodeTooltip(shape) || undefined}>
-          {title}
-          {moduleActions && <em className={styles.moduleTag}>module</em>}
+          <InPlaceRename subject={own} name={node.name ?? title} label={`Name of ${title}`}>
+            {title}
+          </InPlaceRename>
+          {moduleUse && <em className={styles.moduleTag}>module</em>}
           {node.stereo === true && shape.stereoCapable && (
             <em className={styles.stereoTag} data-tooltip="Runs in stereo: one copy of the node per channel.">
               L R
@@ -106,7 +116,7 @@ export const NodeView = ({
         <button
           className={styles.remove}
           onPointerDown={(event) => event.stopPropagation()}
-          onClick={onRemove}
+          onClick={() => runAction('nodes.delete', own, context)}
           aria-label={`Remove ${title}`}
         >
           ×
@@ -170,16 +180,17 @@ export const NodeView = ({
         </div>
       )}
 
-      {moduleActions && (
+      {moduleUse && (
         <div className={styles.moduleFooter} style={{ height: MODULE_FOOTER_HEIGHT }}>
-          <button onClick={moduleActions.onOpen} title="Edit the module; every use of it changes">
+          <button onClick={() => runAction('nodes.open-module', own, context)} title="Edit the module; every use of it changes">
             Edit
           </button>
-          <button onClick={moduleActions.onUnlink} title="Replace this use by an independent copy of its contents">
+          <button onClick={() => runAction('nodes.unlink', own, context)} title="Replace this use by an independent copy of its contents">
             Unlink
           </button>
         </div>
       )}
     </div>
+    </ActionMenu>
   )
 }

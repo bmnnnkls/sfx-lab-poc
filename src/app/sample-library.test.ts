@@ -1,0 +1,714 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { type SampleEdit, type SampleInfo, applyBandEditTo, addMarker, addRegion, copyAudioRange, createArrangementClip, createAudioClip, decodedBytes, createAudioTrack, createEmptyProject, encodeWavChannels, originOf, setLoop } from '@core'
+import { DEFAULT_SECOND_PANE, NO_WAVE_PANES, useWavePanesStore, audioClipboard, copyWaveSelection, waveViewKey, usePersistenceStore, useProjectStore, useSelectionStore, useWaveAudioStore, useWaveEditorStore, waveViewOf } from '@state'
+import { type SampleStorage, StorageFullError, createMemorySampleEditLog, createMemorySampleStorage, sha256Hex } from '@storage'
+import { type AudioHost, decodeAudio } from '@audio'
+import { ENGINE_KEEP_ALIVE_BYTES, ROOM_FACTOR, WORKING_COPY_CACHE_BYTES } from './sample-budgets'
+import { createSampleLibrary } from './sample-library'
+
+/** The browser decodes with Web Audio; here a WAV reader for the two formats these tests write stands in. */
+const readWav = (bytes: Uint8Array) => {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  let format = 0, channelCount = 0, sampleRate = 0, bits = 0, at = 12
+  while (at + 8 <= bytes.length) {
+    const id = String.fromCharCode(...bytes.subarray(at, at + 4)), size = view.getUint32(at + 4, true)
+    if (id === 'fmt ') { format = view.getUint16(at + 8, true); channelCount = view.getUint16(at + 10, true); sampleRate = view.getUint32(at + 12, true); bits = view.getUint16(at + 22, true) }
+    if (id === 'data') {
+      const frames = size / (channelCount * (bits / 8))
+      const channels = Array.from({ length: channelCount }, () => new Float32Array(frames))
+      for (let frame = 0; frame < frames; frame++) for (let c = 0; c < channelCount; c++) {
+        const offset = at + 8 + (frame * channelCount + c) * (bits / 8)
+        channels[c]![frame] = format === 3 ? view.getFloat32(offset, true) : view.getInt16(offset, true) / 32768
+      }
+      return { audio: { sampleRate, channels }, channels: channelCount, durationSeconds: frames / sampleRate }
+    }
+    at += 8 + size + (size % 2)
+  }
+  throw new Error('No data chunk')
+}
+
+vi.mock('@audio', () => ({ decodeAudio: vi.fn(async (bytes: Uint8Array) => readWav(bytes)) }))
+
+const host = { send: vi.fn() } as unknown as AudioHost
+const WHOLE = { range: { from: 0, to: 480 }, channels: 'both' } as const
+const REVERSE: SampleEdit = { kind: 'reverse', ...WHOLE }
+const NORMALIZE: SampleEdit = { kind: 'normalize', ...WHOLE, peakDb: -0.1, linked: true }
+const LEFT = Float32Array.from({ length: 480 }, (_, i) => Math.sin(i / 7) * 0.5 + 1e-7 * i)
+const RIGHT = Float32Array.from({ length: 480 }, (_, i) => Math.cos(i / 11) * 0.25)
+
+/** A stereo 32-bit float file in storage. */
+const stored = async (storage: SampleStorage, channels: Float32Array[], name = 'Loop'): Promise<SampleInfo> => {
+  const bytes = encodeWavChannels(channels, 48000, 32)
+  const id = await sha256Hex(bytes)
+  await storage.put(id, bytes)
+  return { id, name, extension: 'wav', durationSeconds: channels[0]!.length / 48000, sampleRate: 48000, channels: channels.length, bytes: bytes.length }
+}
+
+/** A stereo 32-bit float file in storage and the project. */
+const setup = async (options: Parameters<typeof createSampleLibrary>[2] = {}) => {
+  const storage = createMemorySampleStorage()
+  const info = await stored(storage, [LEFT, RIGHT])
+  useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [info] })
+  const edits = createMemorySampleEditLog()
+  return { storage, info, edits, library: createSampleLibrary(storage, host, { edits, ...options }) }
+}
+
+const samples = () => useProjectStore.getState().project.samples
+/** A sample's view key in the first pane. */
+const main = (info: SampleInfo) => waveViewKey('main', originOf(info))
+const lastNotice = () => usePersistenceStore.getState().notices.at(-1)?.message
+
+beforeEach(() => {
+  useProjectStore.getState().resetProject(createEmptyProject())
+  useSelectionStore.getState().selectSample(null)
+  useWaveAudioStore.setState({ panes: NO_WAVE_PANES, loading: NO_WAVE_PANES, editing: null })
+  useWavePanesStore.setState({ second: DEFAULT_SECOND_PANE, active: 'main' })
+  vi.mocked(host.send).mockClear()
+})
+
+/** Resolves once the working copy has settled. */
+const settled = () => new Promise<void>((resolve) => {
+  const check = () => {
+    const { loading } = useWaveAudioStore.getState()
+    return loading.main === null && loading.second === null ? resolve() : setTimeout(check, 1)
+  }
+  check()
+})
+
+describe('editing a sample as a copy', () => {
+  it('adds a new library entry with both channels, stored as 32-bit float that decodes to the same floats', async () => {
+    const { storage, info, library } = await setup()
+    await library.editSample(info.id, REVERSE, { asCopy: true, pane: 'main' })
+
+    const samples = useProjectStore.getState().project.samples
+    expect(samples).toHaveLength(2)
+    const copy = samples[1]!
+    expect(copy).toMatchObject({ name: 'Loop (reversed)', extension: 'wav', channels: 2, sampleRate: 48000, durationSeconds: 0.01 })
+    const stored = (await storage.get(copy.id))!
+    expect(copy.id).toBe(await sha256Hex(stored))
+    expect(copy.bytes).toBe(stored.length)
+    const decoded = readWav(stored)
+    expect(decoded.audio.channels.map((channel) => Array.from(channel))).toEqual([Array.from(LEFT).reverse(), Array.from(RIGHT).reverse()])
+  })
+
+  it('is undone like any project edit, leaving the original as it was', async () => {
+    const { info, library } = await setup()
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 480 }, crossfade: { frames: 0, curve: 'linear' } }, { asCopy: true, pane: 'main' })
+    expect(useProjectStore.getState().project.samples.map((sample) => sample.durationSeconds)).toEqual([0.01, 100 / 48000])
+    useProjectStore.getState().undo()
+    expect(useProjectStore.getState().project.samples).toEqual([info])
+  })
+
+  it('refuses an edit that leaves nothing, and gives the same copy for the same edit', async () => {
+    const { info, library } = await setup()
+    await library.editSample(info.id, { kind: 'delete', range: { from: 0, to: 480 }, crossfade: { frames: 0, curve: 'linear' } }, { asCopy: true, pane: 'main' })
+    expect(useProjectStore.getState().project.samples).toHaveLength(1)
+    await library.editSample(info.id, NORMALIZE, { asCopy: true, pane: 'main' })
+    await library.editSample(info.id, NORMALIZE, { asCopy: true, pane: 'main' })
+    expect(useProjectStore.getState().project.samples).toHaveLength(2)
+  })
+})
+
+describe('the working copy', () => {
+  it('is decoded with its pyramid when the editor opens a sample, and dropped when it closes or the sample leaves', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    const current = useWaveAudioStore.getState().panes.main
+    expect(current?.sampleId).toBe(info.id)
+    expect(current?.audio.channels.map((channel) => Array.from(channel))).toEqual([Array.from(LEFT), Array.from(RIGHT)])
+    expect(current?.pyramid.frames).toBe(480)
+
+    useSelectionStore.getState().selectSample(null)
+    await settled()
+    expect(useWaveAudioStore.getState().panes.main).toBeNull()
+
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    useProjectStore.getState().resetProject(createEmptyProject())
+    await settled()
+    expect(useWaveAudioStore.getState().panes.main).toBeNull()
+    disconnect()
+  })
+
+  it('is what an edit of the open sample reads, without the stored bytes', async () => {
+    const { storage, info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    await storage.delete(info.id)
+    await library.editSample(info.id, REVERSE, { asCopy: true, pane: 'main' })
+    expect(useProjectStore.getState().project.samples.map((sample) => sample.name)).toEqual(['Loop', 'Loop (reversed)'])
+    disconnect()
+  })
+})
+
+describe('editing a sample in place', () => {
+  it('stores and notes the bytes and gives the engine the audio before the project points at them', async () => {
+    const { storage, info, edits, library } = await setup({ now: () => 1234 })
+    const seen: Array<{ stored: boolean; noted: boolean; sent: boolean }> = []
+    const unsubscribe = useProjectStore.subscribe((state) => {
+      const id = state.project.samples[0]!.id
+      const sent = vi.mocked(host.send).mock.calls.some(([command]) => command.type === 'sample/add' && command.sample.id === id)
+      void Promise.all([storage.has(id), edits.list()]).then(([has, notes]) => seen.push({ stored: has, noted: notes.some((note) => note.id === id && note.at === 1234), sent }))
+    })
+    await library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
+    unsubscribe()
+    await Promise.resolve()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(seen).toEqual([{ stored: true, noted: true, sent: true }])
+    expect(samples()).toHaveLength(1)
+    expect(samples()[0]).toMatchObject({ name: 'Loop', origin: info.id, channels: 2 })
+  })
+
+  it('sends the engine a copy, so the main thread keeps the audio', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    await library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
+    const sent = vi.mocked(host.send).mock.calls.find(([command]) => command.type === 'sample/add' && command.sample.id === samples()[0]!.id)!
+    const working = useWaveAudioStore.getState().panes.main!
+    expect(sent[0].type === 'sample/add' && sent[0].sample.channels[0]).not.toBe(working.audio.channels[0])
+    expect(Array.from(working.audio.channels[0]!)).toEqual(Array.from(LEFT).reverse())
+    disconnect()
+  })
+
+  it('is one undo step, and undo and redo move the editor and keep its view', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    useWaveEditorStore.getState().select(main(info), { from: 10, to: 20, channels: 'left' })
+    useWaveEditorStore.getState().setView(main(info), { framesPerPixel: 2, startFrame: 4 })
+    const past = useProjectStore.getState().history.past.length
+
+    await library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
+    const edited = samples()[0]!
+    expect(useProjectStore.getState().history.past.length).toBe(past + 1)
+    expect(useSelectionStore.getState().sampleId).toBe(edited.id)
+    expect(useWaveAudioStore.getState().panes.main?.sampleId).toBe(edited.id)
+
+    useProjectStore.getState().undo()
+    expect(samples()).toEqual([info])
+    expect(useSelectionStore.getState().sampleId).toBe(info.id)
+    await settled()
+    expect(useWaveAudioStore.getState().panes.main?.sampleId).toBe(info.id)
+
+    useProjectStore.getState().redo()
+    expect(useSelectionStore.getState().sampleId).toBe(edited.id)
+    const view = waveViewOf(useWaveEditorStore.getState().views, main(edited))
+    expect(view).toMatchObject({ framesPerPixel: 2, startFrame: 4, selection: { from: 10, to: 20, channels: 'left' } })
+    disconnect()
+  })
+
+  it('leaves the cursor at the join after a delete, with nothing selected, and clamps a view past the new end', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    useWaveEditorStore.getState().select(main(info), { from: 100, to: 300, channels: 'both' })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 300 }, crossfade: { frames: 0, curve: 'linear' } }, { asCopy: false, pane: 'main' })
+    expect(waveViewOf(useWaveEditorStore.getState().views, main(info))).toMatchObject({ selection: null, cursor: 100 })
+    useWaveEditorStore.getState().select(main(info), { from: 200, to: 280, channels: 'both' })
+    useProjectStore.getState().undo()
+    useProjectStore.getState().redo()
+    expect(waveViewOf(useWaveEditorStore.getState().views, main(info)).selection).toMatchObject({ from: 200, to: 280 })
+    disconnect()
+  })
+
+  it.each([
+    { name: 'too little room', options: { freeBytes: async () => 1000 }, message: /Not enough browser storage/ },
+    {
+      name: 'a quota error',
+      storage: (inner: SampleStorage): SampleStorage => ({ ...inner, put: async () => { throw new StorageFullError() } }),
+      message: /storage is full/,
+    },
+  ])('refuses the edit on $name and leaves the project and its history as they were', async ({ options, storage, message }) => {
+    const memory = createMemorySampleStorage()
+    const info = await stored(memory, [LEFT, RIGHT])
+    useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [info] })
+    const edits = createMemorySampleEditLog()
+    const library = createSampleLibrary(storage ? storage(memory) : memory, host, { edits, ...options })
+    const before = useProjectStore.getState().history
+    await library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
+    expect(useProjectStore.getState().history).toBe(before)
+    expect(await edits.list()).toEqual([])
+    expect(lastNotice()).toMatch(message)
+    expect(vi.mocked(host.send).mock.calls.filter(([command]) => command.type === 'sample/add')).toEqual([])
+  })
+
+  it('checks for twice the file in free room', async () => {
+    const wav = encodeWavChannels([LEFT, RIGHT], 48000, 32).length
+    const { info, library } = await setup({ freeBytes: async () => ROOM_FACTOR * wav })
+    await library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
+    expect(samples()[0]!.id).not.toBe(info.id)
+  })
+
+  it('drops an edit whose sample left the project meanwhile, and leaves its file to cleanup', async () => {
+    const { info, edits, library } = await setup({
+      freeBytes: async () => {
+        useProjectStore.getState().removeSample(info.id)
+        return null
+      },
+    })
+    await library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
+    expect(samples()).toEqual([])
+    expect(lastNotice()).toMatch(/left the project/)
+    expect(await edits.list()).toHaveLength(1)
+  })
+
+  it('applies a band edit through the spectrum service, as one undo step that keeps the length, the cursor and the box', async () => {
+    const applied: SampleEdit[] = []
+    const spectrum = { applyOf: vi.fn(async (audio: Parameters<typeof applyBandEditTo>[0], edit: Parameters<typeof applyBandEditTo>[1]) => (applied.push(edit), applyBandEditTo(audio, edit))) }
+    const { info, library } = await setup({ spectrum })
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    const box = { from: 100, to: 400, channels: 'left' as const, band: { low: 500, high: 2000 } }
+    useWaveEditorStore.getState().select(main(info), box)
+    useWaveEditorStore.getState().setView(main(info), { cursor: 50 })
+    const past = useProjectStore.getState().history.past.length
+    const edit: SampleEdit = { kind: 'band-gain', range: { from: 100, to: 400 }, channels: 'left', band: box.band, db: -Infinity, feather: { frames: 0, octaves: 1 / 6 } }
+
+    await library.editSample(info.id, edit, { asCopy: false, pane: 'main' })
+    expect(applied).toEqual([edit])
+    const edited = samples()[0]!
+    expect(edited.id).not.toBe(info.id)
+    expect(edited.durationSeconds).toBe(info.durationSeconds)
+    expect(useProjectStore.getState().history.past.length).toBe(past + 1)
+    expect(waveViewOf(useWaveEditorStore.getState().views, main(edited))).toMatchObject({ cursor: 50, selection: box })
+    // The right channel, and the left outside the range, are as they were.
+    const audio = useWaveAudioStore.getState().panes.main!.audio
+    expect(Array.from(audio.channels[1]!)).toEqual(Array.from(RIGHT))
+    expect(Array.from(audio.channels[0]!.subarray(0, 100))).toEqual(Array.from(LEFT.subarray(0, 100)))
+    expect(Math.max(...audio.channels[0]!.subarray(200, 300).map(Math.abs))).toBeLessThan(Math.max(...LEFT.subarray(200, 300).map(Math.abs)) / 10)
+
+    useProjectStore.getState().undo()
+    expect(samples()).toEqual([info])
+    // At 0 dB the floats are the same: nothing changes.
+    await settled()
+    await library.editSample(info.id, { ...edit, db: 0 }, { asCopy: false, pane: 'main' })
+    expect(lastNotice()).toBe('Nothing changed')
+    disconnect()
+  })
+
+  it('says "Nothing changed" for an edit that gives the same file', async () => {
+    const storage = createMemorySampleStorage()
+    const silent = await stored(storage, [new Float32Array(480)])
+    useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [silent] })
+    const before = useProjectStore.getState().history
+    await createSampleLibrary(storage, host).editSample(silent.id, NORMALIZE, { asCopy: false, pane: 'main' })
+    expect(useProjectStore.getState().history).toBe(before)
+    expect(lastNotice()).toBe('Nothing changed')
+  })
+
+  it('points the uses at a library entry the result already is', async () => {
+    const storage = createMemorySampleStorage()
+    const original = await stored(storage, [LEFT, RIGHT])
+    const reversed = await stored(storage, [LEFT.slice().reverse(), RIGHT.slice().reverse()], 'Backwards')
+    const track = { ...createAudioTrack('Audio', 4), clips: [createAudioClip(original, 120), null, null, null] }
+    useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [original, reversed], tracks: [track] })
+    await createSampleLibrary(storage, host).editSample(original.id, REVERSE, { asCopy: false, pane: 'main' })
+    expect(samples()).toEqual([reversed])
+    const clip = useProjectStore.getState().project.tracks[0]!
+    expect(clip.kind === 'audio' && clip.clips[0]?.sampleId).toBe(reversed.id)
+    expect(lastNotice()).toBe('Already in the library as "Backwards"; its uses now point there.')
+  })
+
+  it('runs one edit at a time: one asked for meanwhile is refused', async () => {
+    const { info, library } = await setup()
+    const first = library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
+    expect(useWaveAudioStore.getState().editing).toBe(info.id)
+    await library.editSample(info.id, NORMALIZE, { asCopy: false, pane: 'main' })
+    await first
+    expect(useWaveAudioStore.getState().editing).toBeNull()
+    expect(useProjectStore.getState().history.past).toHaveLength(1)
+  })
+
+  it('with asCopy adds a copy and opens it in the editor', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    await library.editSample(info.id, REVERSE, { asCopy: true, pane: 'main' })
+    expect(samples().map((sample) => sample.name)).toEqual(['Loop', 'Loop (reversed)'])
+    expect(samples()[1]!.origin).toBeUndefined()
+    expect(useSelectionStore.getState().sampleId).toBe(samples()[1]!.id)
+    expect(useWaveAudioStore.getState().panes.main?.sampleId).toBe(samples()[1]!.id)
+    disconnect()
+  })
+
+  it('forgets the note when the same bytes are imported, so imports are never cleaned up', async () => {
+    const { info, edits, library } = await setup()
+    await library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
+    const edited = samples()[0]!
+    expect((await edits.list()).map((note) => note.id)).toEqual([edited.id])
+    const bytes = encodeWavChannels([LEFT.slice().reverse(), RIGHT.slice().reverse()], 48000, 32)
+    await library.importFiles([new File([bytes as Uint8Array<ArrayBuffer>], 'Again.wav')])
+    expect(await edits.list()).toEqual([])
+  })
+})
+
+describe('undo and memory', () => {
+  const removed = () => vi.mocked(host.send).mock.calls.flatMap(([command]) => (command.type === 'sample/remove' ? [command.sampleId] : []))
+  const decodes = () => vi.mocked(decodeAudio).mock.calls.length
+
+  it('keeps 128 MB of decoded audio on each side by default', () => {
+    expect([WORKING_COPY_CACHE_BYTES, ENGINE_KEEP_ALIVE_BYTES]).toEqual([128 * 1024 * 1024, 128 * 1024 * 1024])
+  })
+
+  it('undoes and redoes an edit inside the budgets with no sample/remove and nothing decoded', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    await library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
+    vi.mocked(host.send).mockClear()
+    const before = decodes()
+    for (let round = 0; round < 2; round++) {
+      useProjectStore.getState().undo()
+      await settled()
+      expect(useWaveAudioStore.getState().panes.main?.sampleId).toBe(info.id)
+      useProjectStore.getState().redo()
+      await settled()
+    }
+    expect(removed()).toEqual([])
+    expect(decodes()).toBe(before)
+    expect(vi.mocked(host.send).mock.calls.filter(([command]) => command.type === 'sample/add')).toEqual([])
+    disconnect()
+  })
+
+  it('past the budget lets the first sample to leave go first, and undo decodes it again', async () => {
+    const one = decodedBytes({ sampleRate: 48000, channels: [LEFT, RIGHT] })
+    const { info, library } = await setup({ budgets: { keepAlive: one } })
+    const disconnect = library.connect()
+    await library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
+    const reversed = samples()[0]!
+    expect(removed()).toEqual([])
+    await library.editSample(reversed.id, NORMALIZE, { asCopy: false, pane: 'main' })
+    expect(removed()).toEqual([info.id])
+
+    const before = decodes()
+    useProjectStore.getState().undo()
+    expect(decodes()).toBe(before)
+    useProjectStore.getState().undo()
+    await vi.waitFor(() => expect(decodes()).toBe(before + 1))
+    disconnect()
+  })
+
+  it('lets go of what only the redo future named once a new step drops it', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    await library.editSample(info.id, REVERSE, { asCopy: false, pane: 'main' })
+    const reversed = samples()[0]!
+    useProjectStore.getState().undo()
+    expect(removed()).toEqual([])
+    useProjectStore.getState().setName('Another step')
+    expect(removed()).toEqual([reversed.id])
+    disconnect()
+  })
+
+  it('undoes removing a sample with nothing decoded', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    await vi.waitFor(() => expect(vi.mocked(host.send).mock.calls.some(([command]) => command.type === 'sample/add')).toBe(true))
+    const before = decodes()
+    useProjectStore.getState().removeSample(info.id)
+    expect(removed()).toEqual([])
+    useProjectStore.getState().undo()
+    await Promise.resolve()
+    expect(decodes()).toBe(before)
+    expect(samples()).toEqual([info])
+    disconnect()
+  })
+
+  it('reopens a sample from the working copies, without decoding', async () => {
+    const storage = createMemorySampleStorage()
+    const first = await stored(storage, [LEFT, RIGHT])
+    const second = await stored(storage, [RIGHT], 'Other')
+    useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [first, second] })
+    const library = createSampleLibrary(storage, host)
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(first.id)
+    await settled()
+    useSelectionStore.getState().selectSample(second.id)
+    await settled()
+    const before = decodes()
+    useSelectionStore.getState().selectSample(first.id)
+    await settled()
+    expect(useWaveAudioStore.getState().panes.main?.sampleId).toBe(first.id)
+    expect(decodes()).toBe(before)
+    disconnect()
+  })
+})
+
+describe('two panes', () => {
+  const decodes = () => vi.mocked(decodeAudio).mock.calls.length
+  const BUTT = { frames: 0, curve: 'linear' } as const
+  const second = (info: SampleInfo) => waveViewKey('second', originOf(info))
+  const view = (key: string) => waveViewOf(useWaveEditorStore.getState().views, key)
+  const panes = () => useWaveAudioStore.getState().panes
+  /** Two samples, the first open in the editor and the second pane open on it. */
+  const twoSamples = async () => {
+    const setUp = await setup()
+    const other = await stored(setUp.storage, [RIGHT, LEFT], 'Other')
+    useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [setUp.info, other] })
+    const disconnect = setUp.library.connect()
+    useSelectionStore.getState().selectSample(setUp.info.id)
+    useWavePanesStore.getState().setSecond({ open: true })
+    await settled()
+    return { ...setUp, other, disconnect }
+  }
+
+  it("share one copy on one sample; another sample in the second pane is its own, released to the cache when the pane lets go", async () => {
+    const { info, other, disconnect } = await twoSamples()
+    expect(panes().second).toMatchObject({ sampleId: info.id, pane: 'second', viewKey: second(info) })
+    expect(panes().second!.audio).toBe(panes().main!.audio)
+    expect(panes().second!.pyramid).toBe(panes().main!.pyramid)
+
+    useWavePanesStore.getState().setSecond({ sampleId: other.id })
+    await settled()
+    expect(panes().second?.sampleId).toBe(other.id)
+    expect(panes().second!.audio).not.toBe(panes().main!.audio)
+    useWavePanesStore.getState().setSecond({ open: false })
+    await settled()
+    expect(panes().second).toBeNull()
+    // Kept: opening it again decodes nothing.
+    const before = decodes()
+    useWavePanesStore.getState().setSecond({ open: true })
+    await settled()
+    expect(panes().second?.sampleId).toBe(other.id)
+    expect(decodes()).toBe(before)
+    disconnect()
+  })
+
+  it('decode a sample both panes ask for at once only once', async () => {
+    const { info, library } = await setup()
+    const loaded = decodes()
+    const disconnect = library.connect()
+    // The engine's copy is decoded first, on its own.
+    await vi.waitFor(() => expect(decodes()).toBe(loaded + 1))
+    const before = decodes()
+    useWavePanesStore.getState().setSecond({ open: true })
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    expect(decodes()).toBe(before + 1)
+    expect(panes().second!.audio).toBe(panes().main!.audio)
+    disconnect()
+  })
+
+  it("move both onto an edit's result; the other pane's cursor and selection follow the audio they were on", async () => {
+    const { info, library, disconnect } = await twoSamples()
+    useWaveEditorStore.getState().setView(main(info), { cursor: 10 })
+    useWaveEditorStore.getState().setView(second(info), { cursor: 300 })
+    useWaveEditorStore.getState().select(second(info), { from: 200, to: 260, channels: 'left' })
+    useWaveEditorStore.getState().select(main(info), { from: 100, to: 150, channels: 'both' })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 150 }, crossfade: BUTT }, { asCopy: false, pane: 'main' })
+    const edited = samples()[0]!
+    expect(useSelectionStore.getState().sampleId).toBe(edited.id)
+    expect(panes().main?.sampleId).toBe(edited.id)
+    expect(panes().second?.sampleId).toBe(edited.id)
+    expect(panes().second!.audio).toBe(panes().main!.audio)
+    // The edited pane as after any edit; the other 50 frames left.
+    expect(view(main(edited))).toMatchObject({ cursor: 100, selection: null })
+    expect(view(second(edited))).toMatchObject({ cursor: 250, selection: { from: 150, to: 210, channels: 'left' } })
+
+    // A delete over the other pane's selection drops it.
+    useWaveEditorStore.getState().select(main(edited), { from: 140, to: 220, channels: 'both' })
+    await library.editSample(edited.id, { kind: 'delete', range: { from: 140, to: 220 }, crossfade: BUTT }, { asCopy: false, pane: 'main' })
+    expect(view(second(samples()[0]!)).selection).toBeNull()
+
+    // Undo and redo move both.
+    useProjectStore.getState().undo()
+    await settled()
+    expect([panes().main?.sampleId, panes().second?.sampleId]).toEqual([edited.id, edited.id])
+    disconnect()
+  })
+
+  it("keep the other pane's band as its time range follows the audio", async () => {
+    const { info, library, disconnect } = await twoSamples()
+    const band = { low: 200, high: 2000 }
+    useWaveEditorStore.getState().select(second(info), { from: 200, to: 260, channels: 'left', band })
+    useWaveEditorStore.getState().select(main(info), { from: 100, to: 150, channels: 'both' })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 150 }, crossfade: BUTT }, { asCopy: false, pane: 'main' })
+    expect(view(second(samples()[0]!)).selection).toEqual({ from: 150, to: 210, channels: 'left', band })
+    disconnect()
+  })
+
+  it('move only the pane an edit was asked from when it makes a copy; the other keeps the original', async () => {
+    const { info, library, disconnect } = await twoSamples()
+    await library.editSample(info.id, REVERSE, { asCopy: true, pane: 'main' })
+    const copy = samples().find((sample) => sample.id !== info.id && sample.name.includes('reversed'))!
+    expect(useSelectionStore.getState().sampleId).toBe(copy.id)
+    expect(useWavePanesStore.getState().second.sampleId).toBe(info.id)
+    expect([panes().main?.sampleId, panes().second?.sampleId]).toEqual([copy.id, info.id])
+
+    // From the second pane, the second moves.
+    await library.editSample(info.id, NORMALIZE, { asCopy: true, pane: 'second' })
+    expect(useSelectionStore.getState().sampleId).toBe(copy.id)
+    expect(panes().second?.sampleId).toBe(useWavePanesStore.getState().second.sampleId)
+    expect(useWavePanesStore.getState().second.sampleId).not.toBe(info.id)
+    disconnect()
+  })
+
+  it("edit from the second pane on another sample, leaving the first pane's alone", async () => {
+    const { info, other, library, disconnect } = await twoSamples()
+    useWavePanesStore.getState().setSecond({ sampleId: other.id })
+    await settled()
+    useWaveEditorStore.getState().select(second(other), { from: 0, to: 100, channels: 'both' })
+    await library.editSample(other.id, REVERSE, { asCopy: false, pane: 'second' })
+    const edited = samples().find((sample) => sample.name === 'Other')!
+    expect(edited.id).not.toBe(other.id)
+    expect(useWavePanesStore.getState().second.sampleId).toBe(edited.id)
+    expect([panes().main?.sampleId, panes().second?.sampleId]).toEqual([info.id, edited.id])
+    disconnect()
+  })
+
+  it("fall back to the first pane's sample when the second's leaves the project", async () => {
+    const { info, other, disconnect } = await twoSamples()
+    useWavePanesStore.getState().setSecond({ sampleId: other.id })
+    await settled()
+    useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [info] })
+    await settled()
+    expect(panes().second?.sampleId).toBe(info.id)
+    expect(panes().second!.audio).toBe(panes().main!.audio)
+    disconnect()
+  })
+
+  it('revert from the second pane: both move to the original; the second loses its selection, the first keeps its own', async () => {
+    const { info, library, disconnect } = await twoSamples()
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 150 }, crossfade: BUTT }, { asCopy: false, pane: 'main' })
+    const edited = samples()[0]!
+    useWaveEditorStore.getState().select(main(edited), { from: 200, to: 260, channels: 'both' })
+    useWaveEditorStore.getState().select(second(edited), { from: 10, to: 20, channels: 'both' })
+    await library.revertSample(edited.id, 'second')
+    expect(samples()[0]!.id).toBe(info.id)
+    expect([panes().main?.sampleId, panes().second?.sampleId]).toEqual([info.id, info.id])
+    expect(view(second(info)).selection).toBeNull()
+    expect(view(main(info)).selection).toMatchObject({ from: 250, to: 310 })
+    disconnect()
+  })
+})
+
+describe('the audio clipboard', () => {
+  it('copies one channel of a stereo selection alone, with handles', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    copyWaveSelection(useWaveAudioStore.getState().panes.main!, { from: 100, to: 200, channels: 'right' })
+    const copy = audioClipboard.get()!
+    expect(copy.audio.channels.map((channel) => Array.from(channel))).toEqual([Array.from(RIGHT.subarray(100, 200))])
+    expect(copy.handles.before.channels[0]).toHaveLength(100)
+    disconnect()
+  })
+
+  it('cuts as a copy and one undo step, and pastes back at the cursor to the same length', async () => {
+    const { info, library } = await setup()
+    const disconnect = library.connect()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    const butt = { frames: 0, curve: 'linear' } as const
+    const past = useProjectStore.getState().history.past.length
+    copyWaveSelection(useWaveAudioStore.getState().panes.main!, { from: 100, to: 200, channels: 'both' })
+    await library.editSample(info.id, { kind: 'delete', range: { from: 100, to: 200 }, crossfade: butt }, { asCopy: false, pane: 'main' })
+    expect(useProjectStore.getState().history.past.length).toBe(past + 1)
+    expect(samples()[0]!.durationSeconds).toBeCloseTo(380 / 48000, 12)
+
+    const cut = samples()[0]!
+    await library.editSample(cut.id, { kind: 'replace', range: { from: 100, to: 100 }, insert: audioClipboard.get()!, crossfade: butt }, { asCopy: false, pane: 'main' })
+    // Pasted back where it was cut with butt splices: the original file, so the original entry.
+    expect(samples()[0]!.id).toBe(info.id)
+    expect(waveViewOf(useWaveEditorStore.getState().views, main(info)).selection).toMatchObject({ from: 100, to: 200 })
+    useProjectStore.getState().undo()
+    useProjectStore.getState().undo()
+    expect(samples()).toEqual([info])
+    expect(audioClipboard.get()).not.toBeNull()
+    disconnect()
+  })
+})
+
+describe('Revert to original', () => {
+  const BUTT = { frames: 0, curve: 'linear' } as const
+  const edit = async (library: ReturnType<typeof createSampleLibrary>, change: SampleEdit) => {
+    await library.editSample(samples()[0]!.id, change, { asCopy: false, pane: 'main' })
+  }
+  /** The sample marked, and played by an arrangement region trimmed to 200 to 260 of its 480 frames. */
+  const marked = async () => {
+    const setUp = await setup()
+    let info = addMarker(addMarker(setUp.info, 50, 'A', 'a'), 300, 'B', 'b')
+    info = setLoop(addRegion(info, { from: 200, to: 260 }, 'R', 'r'), { from: 210, to: 250 })
+    const track = createAudioTrack('Audio', 4)
+    const clip = { ...createAudioClip(info, 120), start: 200 / 480, end: 260 / 480 }
+    useProjectStore.getState().resetProject({ ...createEmptyProject(), samples: [info], tracks: [track], arrangement: [createArrangementClip(track.id, 0, clip)] })
+    return { ...setUp, info }
+  }
+  const trim = () => {
+    const content = useProjectStore.getState().project.arrangement![0]!.content as { start: number; end: number; sampleId: string }
+    return { sampleId: content.sampleId, start: content.start * 480, end: content.end * 480 }
+  }
+
+  it('after a delete, a crop, a paste and a reverse puts trims, markers, regions and the loop back, in one undo step', async () => {
+    const { info, library } = await marked()
+    await edit(library, { kind: 'delete', range: { from: 100, to: 150 }, crossfade: BUTT })
+    await edit(library, { kind: 'crop', range: { from: 20, to: 420 } })
+    await edit(library, { kind: 'replace', range: { from: 0, to: 10 }, insert: copyAudioRange({ sampleRate: 48000, channels: [LEFT, RIGHT] }, { from: 300, to: 330 }, [0, 1]), crossfade: BUTT })
+    await edit(library, REVERSE)
+    const edited = samples()[0]!
+    expect(edited.lineage!.steps).toHaveLength(4)
+    expect(edited.markers!.map((marker) => marker.frame)).toEqual([170, 370])
+
+    const steps = useProjectStore.getState().history.past.length
+    await library.revertSample(edited.id, 'main')
+    const reverted = samples()[0]!
+    expect(useProjectStore.getState().history.past.length).toBe(steps + 1)
+    expect(reverted).toEqual({ ...info, markers: info.markers, regions: info.regions, loop: info.loop })
+    expect(reverted).not.toHaveProperty('origin')
+    expect(trim().sampleId).toBe(info.id)
+    expect(trim().start).toBeCloseTo(200, 9)
+    expect(trim().end).toBeCloseTo(260, 9)
+    // The engine has the original's audio.
+    expect(vi.mocked(host.send).mock.calls.some(([command]) => (command as { type: string; sample?: { id: string } }).type === 'sample/add' && (command as { sample: { id: string } }).sample.id === info.id)).toBe(true)
+
+    useProjectStore.getState().undo()
+    expect(samples()[0]).toEqual(edited)
+  })
+
+  it('moves the editor onto the original: the same view, the cursor where it was in it, no selection', async () => {
+    const { info, library } = await marked()
+    useSelectionStore.getState().selectSample(info.id)
+    await settled()
+    await edit(library, { kind: 'delete', range: { from: 100, to: 150 }, crossfade: BUTT })
+    useWaveEditorStore.getState().setView(main(info), { cursor: 250 })
+    useWaveEditorStore.getState().select(main(info), { from: 10, to: 20, channels: 'both' })
+    await library.revertSample(samples()[0]!.id, 'main')
+    expect(useSelectionStore.getState().sampleId).toBe(info.id)
+    expect(useWaveAudioStore.getState().panes.main).toMatchObject({ sampleId: info.id, pane: 'main', viewKey: main(info) })
+    expect(waveViewOf(useWaveEditorStore.getState().views, main(info))).toMatchObject({ cursor: 300, selection: null })
+  })
+
+  it("refuses when the original's bytes are gone, and leaves the project as it was", async () => {
+    const { info, storage, library } = await marked()
+    await edit(library, REVERSE)
+    await storage.delete(info.id)
+    const before = useProjectStore.getState().project
+    await library.revertSample(samples()[0]!.id, 'main')
+    expect(useProjectStore.getState().project).toBe(before)
+    expect(lastNotice()).toBe('The original of "Loop" is missing; import the file again.')
+  })
+
+  it("does nothing for a sample that is its own origin, or one edited before a revert was possible", async () => {
+    const { info, library } = await marked()
+    const before = useProjectStore.getState().project
+    await library.revertSample(info.id, 'main')
+    expect(useProjectStore.getState().project).toBe(before)
+    await edit(library, REVERSE)
+    const { lineage: _lineage, ...noChain } = samples()[0]!
+    useProjectStore.getState().resetProject({ ...useProjectStore.getState().project, samples: [noChain] })
+    const unchained = useProjectStore.getState().project
+    await library.revertSample(noChain.id, 'main')
+    expect(useProjectStore.getState().project).toBe(unchained)
+  })
+})

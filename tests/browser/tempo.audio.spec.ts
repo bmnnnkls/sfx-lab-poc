@@ -54,7 +54,7 @@ for (const type of ['delay', 'pingPong']) test(`${type} real stereo output follo
   const fx = noteGraphFrom([{ id: 'in', type: 'trackIn' }, { id: 'echo', type, params: { sync: 1, division: type === 'delay' ? 8 : 12, feedback: 0.7, mix: 0.7 } }, { id: 'out', type: 'trackOut' }], ['in.out>echo.in', 'echo.out>out.in'])
   const stereoFx = { ...fx, nodes: fx.nodes.map(n => n.id === 'echo' && type === 'delay' ? { ...n, stereo: true } : n) }
   const commands: EngineCommand[] = [
-    { type: 'sample/add', sample: { id: 'impulse', sampleRate: 48000, data } },
+    { type: 'sample/add', sample: { id: 'impulse', sampleRate: 48000, channels: [data] } },
     { type: 'track/add', kind: 'audio', trackId: 'tempo', fx: stereoFx, clips: [clip], volume: 1, pan: -0.25 },
   ]
   await page.evaluate(commands => {

@@ -3,7 +3,7 @@ import type { ControlValue } from '../control'
 import type { LiveNoteAddress } from './live-notes'
 import type { Patch } from '../patch'
 import type { ArrangementClip, AudioClip, Clip, SendLevels } from '../project'
-import type { SampleData } from '../sample'
+import type { SampleData, SampleLoop } from '../sample'
 
 /** Everything the outside world can ask the engine to do. Plain data, safe to post across threads. */
 export type EngineCommand =
@@ -23,6 +23,8 @@ export type EngineCommand =
   | { readonly type: 'arrangement/set'; readonly clips: readonly ArrangementClip[] }
   | { readonly type: 'arrangement/play'; readonly fromBeat?: number }
   | { readonly type: 'arrangement/stop' }
+  /** The range arrangement playback repeats, or null for none; session playback ignores it. */
+  | { readonly type: 'arrangement/setLoop'; readonly loop: { readonly from: number; readonly to: number } | null }
   | {
       readonly type: 'track/add'
       readonly kind: 'instrument'
@@ -38,6 +40,8 @@ export type EngineCommand =
       readonly voices: number
       /** Absent means nothing is sent. */
       readonly sends?: SendLevels
+      /** The bus it sums into; absent = the master. */
+      readonly output?: string
     }
   | {
       readonly type: 'track/add'
@@ -51,6 +55,7 @@ export type EngineCommand =
       readonly pan?: number
       readonly muted?: boolean
       readonly soloed?: boolean
+      readonly output?: string
     }
   | {
       readonly type: 'track/add'
@@ -61,8 +66,26 @@ export type EngineCommand =
       readonly pan?: number
       readonly muted?: boolean
       readonly soloed?: boolean
+      readonly output?: string
+    }
+  | {
+      /** A group's bus; `trackId` is the group's id. */
+      readonly type: 'track/add'
+      readonly kind: 'group'
+      readonly trackId: string
+      readonly fx: Patch
+      readonly volume: number
+      readonly pan?: number
+      readonly muted?: boolean
+      readonly soloed?: boolean
+      /** Absent means nothing is sent. */
+      readonly sends?: SendLevels
+      /** The bus it sums into; absent = the master. */
+      readonly output?: string
     }
   | { readonly type: 'track/remove'; readonly trackId: string }
+  /** Where a track or a bus sums into: a bus (a group's id), or null for the master. */
+  | { readonly type: 'track/setOutput'; readonly trackId: string; readonly output: string | null }
   | { readonly type: 'track/setPatch'; readonly trackId: string; readonly patch: Patch }
   | { readonly type: 'track/setFx'; readonly trackId: string; readonly graph: Patch }
   | { readonly type: 'master/setFx'; readonly graph: Patch }
@@ -101,7 +124,14 @@ export type EngineCommand =
     }
   | { readonly type: 'sample/add'; readonly sample: SampleData }
   | { readonly type: 'sample/remove'; readonly sampleId: string }
-  | { readonly type: 'sample/preview'; readonly sampleId: string }
+  /** Sets or clears a sample's loop (`SampleInfo.loop`); it may come before the sample's audio, and outlives it. */
+  | { readonly type: 'sample/setLoop'; readonly sampleId: string; readonly loop: SampleLoop | null }
+  /**
+   * Auditions a sample straight to the master: the whole sample, or frames `from` up to `to`, once or (`loop`) until
+   * stopped. Its position is reported in `EngineStatus.preview`.
+   */
+  | { readonly type: 'sample/preview'; readonly sampleId: string; readonly from?: number; readonly to?: number; readonly loop?: boolean }
   | { readonly type: 'sample/stopPreview' }
   | { readonly type: 'clip/launch'; readonly trackId: string; readonly clipId: string }
-  | { readonly type: 'scene/launch'; readonly scene: number }
+  /** Every track's clip in that scene; with `trackIds`, only those tracks' (a collapsed group's cell). */
+  | { readonly type: 'scene/launch'; readonly scene: number; readonly trackIds?: readonly string[] }

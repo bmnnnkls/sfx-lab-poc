@@ -1,5 +1,5 @@
 import { decodeAudio } from '@audio'
-import { Bounce, type BounceOptions, type Project, type SampleData, encodeBounce, usedSampleIds } from '@core'
+import { Bounce, type BounceOptions, type Project, type SampleData, bytesKeyOf, encodeBounce, usedSampleIds } from '@core'
 import { type SampleStorage, downloadFile, fileStem } from '@storage'
 
 /** How long to render before giving the page back to the browser: well under a frame, so the dialog stays responsive. */
@@ -29,13 +29,14 @@ export const exportAudioFile = async (
   const samples: SampleData[] = []
   const missing: string[] = []
   for (const id of usedSampleIds(project)) {
-    const bytes = await sampleStorage.get(id)
+    const info = project.samples.find((sample) => sample.id === id)
+    const bytes = await sampleStorage.get(info ? bytesKeyOf(info) : id)
     if (!bytes) {
-      missing.push(project.samples.find((sample) => sample.id === id)?.name ?? id)
+      missing.push(info?.name ?? id)
       continue
     }
     const decoded = await decodeAudio(bytes)
-    samples.push({ id, sampleRate: decoded.sampleRate, data: decoded.mono })
+    samples.push({ id, ...decoded.audio })
     if (signal?.aborted) return null
   }
 

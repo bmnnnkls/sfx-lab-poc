@@ -55,6 +55,12 @@ export const clearSampleReferences = (patch: Patch, sampleId: string): Patch =>
       }
     : patch
 
+/** Points every node that plays sample `from` at sample `to` (when an edit replaces it); no use keeps the same patch. */
+export const replaceSampleReferences = (patch: Patch, from: string, to: string): Patch =>
+  patch.nodes.some((node) => node.sampleId === from)
+    ? { ...patch, nodes: patch.nodes.map((node) => (node.sampleId === from ? { ...node, sampleId: to } : node)) }
+    : patch
+
 /** Points a `trackNotes` node at a track (or none). */
 export const setNodeTrack = (patch: Patch, nodeId: string, trackId: string | null): Patch => ({
   ...patch,

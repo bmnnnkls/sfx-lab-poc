@@ -8,7 +8,10 @@ interface WaveformThumbProps {
   height?: number
 }
 
-/** Small waveform drawing for a library sample, with its load state when it isn't ready. */
+/**
+ * Small waveform drawing for a library sample, with its load state when it isn't ready. A container narrows it with
+ * `--thumb-width`; the drawing scales to fit.
+ */
 export const WaveformThumb = ({ sampleId, width = 160, height = 32 }: WaveformThumbProps) => {
   const peaks = useSampleStore((state) => state.peaks[sampleId])
   const status = useSampleStore((state) => state.status[sampleId])
@@ -37,7 +40,7 @@ export const WaveformThumb = ({ sampleId, width = 160, height = 32 }: WaveformTh
     status === 'missing' ? 'audio missing' : status === 'error' ? 'could not decode' : status === 'loading' ? 'loading…' : null
 
   return (
-    <div className={styles.thumb} style={{ width, height }} data-status={status ?? 'none'}>
+    <div className={styles.thumb} style={{ width: `var(--thumb-width, ${width}px)`, height }} data-status={status ?? 'none'}>
       <canvas ref={canvas} width={width} height={height} />
       {message && <span className={styles.message}>{message}</span>}
     </div>

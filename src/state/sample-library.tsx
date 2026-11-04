@@ -1,18 +1,35 @@
+import type { PreviewRange, SampleEdit } from '@core'
 import { createContext, useContext } from 'react'
+import type { WavePane } from './wave-panes'
 
 /** Importing and auditioning samples. Implemented in `app/`, consumed by `ui/`. */
 export interface SampleLibrary {
   importFiles(files: readonly File[]): Promise<void>
   /** Adds a few synthesised one-shots (kick, snare, hat, pluck) so the sampler can be tried instantly. */
   addDemoSamples(): Promise<void>
-  preview(sampleId: string): void
+  /** Auditions a sample: the whole of it, or frames `from` up to `to`, once or looping. */
+  preview(sampleId: string, range?: PreviewRange): void
   stopPreview(): void
   /**
-   * Adds a derived copy of a sample ("name (suffix)") built by `transform` on its decoded mono data:
-   * normalize, reverse, trim and similar edits. The original stays untouched; the copy is a normal
-   * library sample (undoable with the project).
+   * Applies `edit` to a sample. In place (`asCopy: false`), the result is a new file and every use of the sample moves
+   * onto it in one undo step; with `asCopy`, it is a new library sample, "name (suffix)", and the original stays as it
+   * was. One edit runs at a time (`useWaveAudioStore.editing`). Everything that edits a sample calls this, never the
+   * steps inside it.
    */
-  deriveSample(sampleId: string, suffix: string, transform: (mono: Float32Array) => Float32Array): Promise<void>
+  editSample(sampleId: string, edit: SampleEdit, options: SampleEditOptions): Promise<void>
+  /**
+   * *Revert to original*: every use of an edited sample points at its first version again, in one undo step, with clips'
+   * trims, markers, regions and the loop moved back to where they were in it (`revertRemap`). It runs as an edit does
+   * (one at a time) and refuses, with a toast, when the original's bytes are gone. `pane` is the one it was asked from.
+   */
+  revertSample(sampleId: string, pane: WavePane): Promise<void>
+}
+
+/** How an edit lands: in place, or as a new library sample (the editor's *Edits make copies*). */
+export interface SampleEditOptions {
+  readonly asCopy: boolean
+  /** The editor's pane the edit was asked from: it moves onto the result with the selection and cursor the edit leaves. */
+  readonly pane: WavePane
 }
 
 const SampleLibraryContext = createContext<SampleLibrary | null>(null)

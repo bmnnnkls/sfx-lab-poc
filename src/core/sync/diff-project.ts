@@ -2,7 +2,7 @@ import { compileAutomation } from '../automation'
 import { projectWithControlValues } from '../control'
 import type { EngineCommand } from '../engine'
 import { type ModuleLibrary, type Patch, engineNoteGraph, flattenPatch } from '../patch'
-import { type AudioTrack, type InstrumentTrack, type Project, type SendLevels, type Track, panOf } from '../project'
+import { type AudioTrack, type BusGroup, type ChannelRoute, type InstrumentTrack, type Project, type SendLevels, type Track, activeArrangementLoop, busGroups, mixRouting, panOf } from '../project'
 
 /** Identity of a patch's wiring, ignoring params and canvas positions. */
 const structureOf = (patch: Patch): string =>
@@ -122,18 +122,44 @@ const diffTrack = (prev: Track, next: Track, before: ModuleLibrary, after: Modul
     commands.push({ type: 'track/setVolume', trackId: next.id, volume: next.volume })
   }
   if (panOf(prev) !== panOf(next)) commands.push({ type: 'track/setPan', trackId: next.id, pan: panOf(next) })
-  if ((prev.muted ?? false) !== (next.muted ?? false)) {
-    commands.push({ type: 'track/setMute', trackId: next.id, muted: next.muted ?? false })
-  }
-  if ((prev.soloed ?? false) !== (next.soloed ?? false)) {
-    commands.push({ type: 'track/setSolo', trackId: next.id, soloed: next.soloed ?? false })
-  }
   return commands
 }
 
-const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand => {
+const NO_ROUTE: ChannelRoute = { output: null, muted: false, soloed: false }
+
+/** Mute, solo and output as the engine takes them: the effective flags and the bus, through the groups. */
+const routeFields = (route: ChannelRoute) => ({ muted: route.muted, soloed: route.soloed, ...(route.output !== null && { output: route.output }) })
+
+/** What changed in a channel's route: its effective mute and solo, and the bus it sums into. */
+const diffRoute = (id: string, prev: ChannelRoute, next: ChannelRoute): EngineCommand[] => [
+  ...(prev.muted !== next.muted ? [{ type: 'track/setMute' as const, trackId: id, muted: next.muted }] : []),
+  ...(prev.soloed !== next.soloed ? [{ type: 'track/setSolo' as const, trackId: id, soloed: next.soloed }] : []),
+  ...(prev.output !== next.output ? [{ type: 'track/setOutput' as const, trackId: id, output: next.output }] : []),
+]
+
+const addBusCommand = (group: BusGroup, route: ChannelRoute, modules: ModuleLibrary): EngineCommand => ({
+  type: 'track/add',
+  kind: 'group',
+  trackId: group.id,
+  fx: flattenPatch(group.bus.fx, modules),
+  volume: group.bus.volume,
+  pan: group.bus.pan ?? 0,
+  sends: group.bus.sends,
+  ...routeFields(route),
+})
+
+/** A bus's graph, fader, pan and sends, as a track's. */
+const diffBus = (prev: BusGroup, next: BusGroup, before: ModuleLibrary, after: ModuleLibrary): EngineCommand[] => {
+  const commands = diffPatch('fx', next.id, prev.bus.fx, before, next.bus.fx, after)
+  if (!sameSends(prev.bus.sends, next.bus.sends)) commands.push({ type: 'track/setSends', trackId: next.id, sends: next.bus.sends })
+  if (prev.bus.volume !== next.bus.volume) commands.push({ type: 'track/setVolume', trackId: next.id, volume: next.bus.volume })
+  if ((prev.bus.pan ?? 0) !== (next.bus.pan ?? 0)) commands.push({ type: 'track/setPan', trackId: next.id, pan: next.bus.pan ?? 0 })
+  return commands
+}
+
+const addTrackCommand = (track: Track, route: ChannelRoute, modules: ModuleLibrary): EngineCommand => {
   const fx = flattenPatch(track.fx, modules)
-  const mix = { volume: track.volume, pan: panOf(track), muted: track.muted ?? false, soloed: track.soloed ?? false }
+  const mix = { volume: track.volume, pan: panOf(track), ...routeFields(route) }
   switch (track.kind) {
     case 'return':
       return { type: 'track/add', kind: 'return', trackId: track.id, fx, ...mix }
@@ -156,6 +182,25 @@ const addTrackCommand = (track: Track, modules: ModuleLibrary): EngineCommand =>
 }
 
 /** Commands that bring an engine holding `prev` (null = empty) in line with `next`. */
+/**
+ * A `sample/setLoop` for each sample whose loop differs from the previous project's: every sample's from nothing (so a
+ * loaded project clears a loop another left in the bank), and a cleared one for a looped sample that left.
+ */
+const diffLoops = (prev: Project | null, next: Project): EngineCommand[] => {
+  if (prev?.samples === next.samples) return []
+  const before = new Map((prev?.samples ?? []).map((sample) => [sample.id, sample.loop]))
+  const commands: EngineCommand[] = []
+  for (const sample of next.samples) {
+    const was = before.get(sample.id)
+    const loop = sample.loop ?? null
+    if (prev && was?.from === loop?.from && was?.to === loop?.to) continue
+    commands.push({ type: 'sample/setLoop', sampleId: sample.id, loop })
+  }
+  const kept = new Set(next.samples.map((sample) => sample.id))
+  for (const [sampleId, loop] of before) if (loop && !kept.has(sampleId)) commands.push({ type: 'sample/setLoop', sampleId, loop: null })
+  return commands
+}
+
 export const diffProject = (prev: Project | null, next: Project, syncAutomation = true): EngineCommand[] => {
   const automation = syncAutomation ? compileAutomation(next) : []
   const automationChanged = syncAutomation && JSON.stringify(prev && compileAutomation(prev)) !== JSON.stringify(automation)
@@ -175,24 +220,51 @@ export const diffProject = (prev: Project | null, next: Project, syncAutomation 
   const before = prev?.modules ?? []
   const prevTracks = new Map((prev?.tracks ?? []).map((track) => [track.id, track]))
   const nextIds = new Set(next.tracks.map((track) => track.id))
+  const prevBuses = new Map((prev ? busGroups(prev) : []).map((group) => [group.id, group]))
+  const nextBuses = busGroups(next)
+  const nextBusIds = new Set(nextBuses.map((group) => group.id))
+  // A group's mute reaches its members, and a move into a bus group changes a track's output.
+  const prevRoutes = prev ? mixRouting(prev) : new Map<string, ChannelRoute>()
+  const nextRoutes = mixRouting(next)
+  const routeOf = (id: string) => nextRoutes.get(id) ?? NO_ROUTE
 
   for (const id of prevTracks.keys()) {
     if (!nextIds.has(id)) commands.push({ type: 'track/remove', trackId: id })
   }
+  for (const id of prevBuses.keys()) {
+    if (!nextBusIds.has(id)) commands.push({ type: 'track/remove', trackId: id })
+  }
   for (const track of next.tracks) {
     const existing = prevTracks.get(track.id)
     if (!existing) {
-      commands.push(addTrackCommand(track, next.modules))
-    } else if (existing.kind !== track.kind) {
-      commands.push({ type: 'track/remove', trackId: track.id }, addTrackCommand(track, next.modules))
-    } else if (existing !== track || before !== next.modules) {
-      commands.push(...diffTrack(existing, track, before, next.modules))
+      commands.push(addTrackCommand(track, routeOf(track.id), next.modules))
+      continue
     }
+    if (existing.kind !== track.kind) {
+      commands.push({ type: 'track/remove', trackId: track.id }, addTrackCommand(track, routeOf(track.id), next.modules))
+      continue
+    }
+    if (existing !== track || before !== next.modules) commands.push(...diffTrack(existing, track, before, next.modules))
+    commands.push(...diffRoute(track.id, prevRoutes.get(track.id) ?? NO_ROUTE, routeOf(track.id)))
   }
+  for (const group of nextBuses) {
+    const existing = prevBuses.get(group.id)
+    if (!existing) {
+      commands.push(addBusCommand(group, routeOf(group.id), next.modules))
+      continue
+    }
+    if (existing !== group || before !== next.modules) commands.push(...diffBus(existing, group, before, next.modules))
+    commands.push(...diffRoute(group.id, prevRoutes.get(group.id) ?? NO_ROUTE, routeOf(group.id)))
+  }
+  commands.push(...diffLoops(prev, next))
   // The arrangement is small, so it is pushed whole whenever it changed (edits create new arrays).
   if (prev?.arrangement !== next.arrangement) {
     commands.push({ type: 'arrangement/set', clips: next.arrangement ?? [] })
   }
+  // The loop reaches the engine only when it plays: its range with the toggle on.
+  const loop = activeArrangementLoop(next)
+  const looped = prev ? activeArrangementLoop(prev) : null
+  if (loop?.from !== looped?.from || loop?.to !== looped?.to) commands.push({ type: 'arrangement/setLoop', loop })
   if (syncAutomation && automationChanged && (automation.length || prev)) commands.push({ type: 'automation/configure', tracks: automation })
   return commands
 }

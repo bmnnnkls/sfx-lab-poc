@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { type Point } from './geometry'
 import { type Catalog, type CatalogEntry } from './node-catalog'
+import { onViewHide } from '../layout/view-events'
 import { popupPosition } from './placement'
 import { INITIAL, type QuickAddAction, type QuickAddState, rowsOf, step } from './quick-add-model'
 import styles from './QuickAdd.module.css'
@@ -46,7 +47,12 @@ export const QuickAdd = ({ catalog, anchor, heading, onPick, onClose }: QuickAdd
       if (!root.current?.contains(event.target as Node)) onClose()
     }
     document.addEventListener('pointerdown', away, true)
-    return () => document.removeEventListener('pointerdown', away, true)
+    // It belongs to its canvas, so it closes when the view is hidden rather than reopening when it shows.
+    const offViewHide = onViewHide(root.current, onClose)
+    return () => {
+      document.removeEventListener('pointerdown', away, true)
+      offViewHide()
+    }
     // The popup is opened once per use; `onClose` is stable for that long.
   }, [])
 

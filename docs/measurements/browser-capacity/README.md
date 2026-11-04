@@ -14,4 +14,4 @@ Reproduce from the repository root with installed dependencies:
 node --experimental-transform-types --disable-warning=ExperimentalWarning --import ./scripts/review-benchmark/loader.mjs docs/measurements/browser-capacity/examples.mjs
 ```
 
-The [report](../../REPORT-browser-audio-capacity-and-rust-engine.md) also cites the earlier [F1 second-opinion measurements](../f1-second-opinion/README.md). No Rust/Wasm implementation, native host, new browser test or post-remediation performance result is claimed.
+The [report](../../archive/2026-10-perf-library/REPORT-browser-audio-capacity-and-rust-engine.md) also cites the earlier [F1 second-opinion measurements](../f1-second-opinion/README.md). No Rust/Wasm implementation, native host, new browser test or post-remediation performance result is claimed.

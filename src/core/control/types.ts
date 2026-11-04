@@ -1,6 +1,10 @@
 import type { ParamSpec } from '../dsp'
 
-export type ControlOwner = { readonly kind: 'track'; readonly trackId: string } | { readonly kind: 'master' }
+/** Whose controls: a track's (returns use their track ids), a group bus's (by group id) or the master's. */
+export type ControlOwner = { readonly kind: 'track'; readonly trackId: string } | { readonly kind: 'group'; readonly groupId: string } | { readonly kind: 'master' }
+
+/** The id an owner has in the engine's track map and in the project: a track's or a group's; null for the master. */
+export const controlOwnerId = (owner: ControlOwner): string | null => (owner.kind === 'track' ? owner.trackId : owner.kind === 'group' ? owner.groupId : null)
 export type ControlDomain = 'patch' | 'notes' | 'fx'
 /** Module identity is checked as well as use identity: replacing a use must not redirect a target. */
 export interface InstanceStep { readonly nodeId: string; readonly moduleId: string }
@@ -17,7 +21,7 @@ export type ControlResolution =
 
 /** Canonical structured identity; labels, positions and object property insertion order have no role. */
 export const controlTargetKey = (target: ControlTarget): string => JSON.stringify([
-  target.owner.kind, target.owner.kind === 'track' ? target.owner.trackId : null,
+  target.owner.kind, controlOwnerId(target.owner),
   target.kind, ...(target.kind === 'graph'
     ? [target.domain, target.path.map((step) => [step.nodeId, step.moduleId]), target.nodeId, target.nodeType, target.paramId]
     : [target.control, target.control === 'send' ? target.returnId : null]),

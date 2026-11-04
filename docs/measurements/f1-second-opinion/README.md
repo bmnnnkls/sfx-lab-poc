@@ -23,4 +23,4 @@ Focused verification: 8 files, 87 tests passed using:
 npm test -- src/core/engine/automation.test.ts src/core/engine/automation-perf.test.ts src/core/engine/automation-audio.test.ts src/core/engine/automation-slots.test.ts src/core/engine/held-notes.test.ts src/core/engine/note-graph.test.ts src/core/engine/tempo.test.ts src/core/engine/send-invalidation.test.ts
 ```
 
-Interpretation and limitations are in the [second opinion](../../ASSESSMENT-review-critical-F1-second-opinion.md). No browser deadline measurement or post-fix performance result was produced.
+Interpretation and limitations are in the [second opinion](../../archive/2026-10-perf-library/ASSESSMENT-review-critical-F1-second-opinion.md). No browser deadline measurement or post-fix performance result was produced.

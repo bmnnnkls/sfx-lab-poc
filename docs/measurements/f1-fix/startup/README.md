@@ -1,6 +1,6 @@
 # Reviewed startup preparation — history and wrap-up
 
-Latest status: [implementation report and decision review](../../../REPORT-fix-F1-implementation-status.md).
+Latest status: [implementation report and decision review](../../../archive/2026-10-perf-library/REPORT-fix-F1-implementation-status.md).
 Work wrapped at user request; F1 remains open. The sections below retain historical checkpoints.
 
 The user explicitly approved C4 after the [exact-scheduling checkpoint](../quiet-final/README.md) failed unchanged
@@ -146,7 +146,7 @@ No production source changed during or after the final capacity campaign.
 
 ## Wrap-up at user request — 2026-10-19
 
-See [the final status/decision report](../../../REPORT-fix-F1-implementation-status.md). C6 was not approved; no full
+See [the final status/decision report](../../../archive/2026-10-perf-library/REPORT-fix-F1-implementation-status.md). C6 was not approved; no full
 prototype-hook campaign or new profiling run was started. The latest four-process offline pairs
 (`clock-baseline-1.txt`, `clock-candidate-1.txt`, `clock-baseline-2.txt`, `clock-candidate-2.txt`) pass all notes gates.
 Low Light notes is 132.204/125.847 ms per audio-second, 1.003/1.000 times mixer. The one-track no-lane signal repeats:

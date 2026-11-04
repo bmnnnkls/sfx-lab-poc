@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { CURRENT_VERSION } from './format'
 import { describe, expect, it } from 'vitest'
 import { parseProject, serializeProject } from './project-file'
 
@@ -15,7 +16,7 @@ describe('v2 control value persistence', () => {
     expect(loaded.warnings).toEqual([])
     expect(loaded.project.controlValues).toHaveLength(1)
     expect(read(serializeProject(loaded.project)).project).toEqual(loaded.project)
-    expect(JSON.parse(serializeProject(loaded.project)).version).toBe(9)
+    expect(JSON.parse(serializeProject(loaded.project)).version).toBe(CURRENT_VERSION)
   })
   it('drops malformed/nonfinite entries with warnings and bounds the collection', () => {
     const raw = JSON.parse(fixture)

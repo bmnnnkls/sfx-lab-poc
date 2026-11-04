@@ -1,6 +1,7 @@
 import {
   type AudioClip,
   type AudioTrack,
+  type ClipRef,
   MAX_FADE_SECONDS,
   MAX_GAIN,
   WARP_MODES,
@@ -9,8 +10,10 @@ import {
   isTrimmed,
   playbackSpeed,
   regionFraction,
+  sessionClipRef,
 } from '@core'
-import { useProjectStore } from '@state'
+import { type Subject, runAction, useProjectStore } from '@state'
+import { useActionContext } from '../shared/menu'
 import toolbar from '../clip-editor/ClipEditor.module.css'
 import { LengthField } from '../clip-editor/LengthField'
 import styles from './AudioClipEditor.module.css'
@@ -49,21 +52,30 @@ const FadeField = ({ label, seconds, onChange }: { label: string; seconds: numbe
 
 /**
  * Editor for one audio clip: which sample, how it follows the tempo, whether it loops, how long it is,
- * and how loud. Every change goes through `updateAudioClip`, so it is undoable and reaches the engine live.
+ * and how loud. Every change goes through `updateAudioClip`, so it is undoable and reaches the engine live. A region's
+ * own copy is edited through `clipRef`, with `where` it is on the arrangement.
  */
-export const AudioClipEditor = ({ track, clip }: { track: AudioTrack; clip: AudioClip }) => {
+export const AudioClipEditor = ({ track, clip, clipRef, where }: { track: AudioTrack; clip: AudioClip; clipRef?: ClipRef; where?: string }) => {
   const samples = useProjectStore((state) => state.project.samples)
   const tempo = useProjectStore((state) => state.project.tempo)
   const update = useProjectStore((state) => state.updateAudioClip)
 
   const sample = samples.find((candidate) => candidate.id === clip.sampleId)
-  const change = (changes: Parameters<typeof update>[2]) => update(track.id, clip.id, changes)
+  const ref = clipRef ?? sessionClipRef(track.id, clip.id)
+  const change = (changes: Parameters<typeof update>[1]) => update(ref, changes)
+  const context = useActionContext()
+  // The clip's own action, so the button, the menus and the palette open the sample the same way.
+  const editSample = (): void => {
+    const subject: Subject = ref.kind === 'region' ? { kind: 'region', regionId: ref.regionId } : { kind: 'clip', trackId: ref.trackId, clipId: ref.clipId }
+    void runAction(ref.kind === 'region' ? 'region.edit-sample' : 'clip.edit-sample', subject, context)
+  }
 
   return (
     <div className={toolbar.editor} data-clip-editor>
       <div className={toolbar.toolbar}>
         <strong>
           {track.name} / {clip.name}
+          {where && ` · ${where}`}
         </strong>
 
         <label className={toolbar.field}>
@@ -76,6 +88,9 @@ export const AudioClipEditor = ({ track, clip }: { track: AudioTrack; clip: Audi
             ))}
           </select>
         </label>
+        <button onClick={editSample} disabled={!sample} title={sample ? 'Open the sample in the Wave editor, at the part this clip plays' : 'The sample is no longer in the library'}>
+          Edit sample
+        </button>
 
         <label className={toolbar.field} title="Re-pitch speeds the clip up or down to fit its length at the project tempo, so it stays in time. Off plays it at its original speed.">
           Warp
@@ -143,6 +158,7 @@ export const AudioClipEditor = ({ track, clip }: { track: AudioTrack; clip: Audi
             trackId={track.id}
             clip={clip}
             sampleSeconds={sample.durationSeconds}
+            playhead={ref.kind === 'session'}
             onTrim={change}
           />
         )}

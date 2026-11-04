@@ -1,4 +1,4 @@
-import { LIBRARY_BUNDLE_VERSION, LIBRARY_CATALOG_VERSION, canonicalRecord, selectLibraryBundle, validateLibraryCatalog, upgradeLibraryCatalog, validateBundleObjectBudget, libraryName, mergeLibraryBundle, type LibraryBundleManifest, type LibraryBundleSelection, type LibraryBundleStage, type LibraryCatalog } from '@core'
+import { bytesKeyOf, LIBRARY_BUNDLE_VERSION, LIBRARY_CATALOG_VERSION, canonicalRecord, selectLibraryBundle, validateLibraryCatalog, upgradeLibraryCatalog, validateBundleObjectBudget, libraryName, mergeLibraryBundle, type LibraryBundleManifest, type LibraryBundleSelection, type LibraryBundleStage, type LibraryCatalog } from '@core'
 import { strFromU8, strToU8, zipSync } from 'fflate'
 import { sha256Hex } from './hash'
 import { fileStem } from './project-transfer'
@@ -22,9 +22,9 @@ export const exportLibraryBundle = async (catalog: LibraryCatalog, selection: Li
   const selected = selectLibraryBundle(catalog, selection), missing: string[] = [], files: Record<string, [Uint8Array, { level: 0; mtime: Date }]> = {}
   let expanded = 0
   for (const sample of selected.samples) {
-    const data = await readSample(sample.id)
+    const data = await readSample(bytesKeyOf(sample))
     if (!data) { missing.push(sample.id); continue }
-    if (data.length !== sample.bytes || await sha256Hex(data) !== sample.id) throw new Error(`Sample bytes/hash do not match metadata: ${sample.name}`)
+    if (data.length !== sample.bytes || await sha256Hex(data) !== bytesKeyOf(sample)) throw new Error(`Sample bytes/hash do not match metadata: ${sample.name}`)
     if (data.length > LIBRARY_ARCHIVE_LIMITS.entry || (expanded += data.length) > LIBRARY_ARCHIVE_LIMITS.expanded) throw new Error('Library bundle byte limit exceeded')
     files[`samples/${sample.id}`] = [data, { level: 0, mtime: new Date(2000, 0, 1) }]
   }
@@ -46,8 +46,8 @@ export const stageLibraryBundle = async (bytes: Uint8Array): Promise<LibraryBund
   for (const sample of manifest.catalog.samples) {
     const data = entries.get(`samples/${sample.id}`)
     if (!data) { missing.push(sample.id); continue }
-    if (data.length !== sample.bytes || await sha256Hex(data) !== sample.id) throw new Error(`Library sample hash/size mismatch: ${sample.name}`)
-    blobs.set(sample.id, data)
+    if (data.length !== sample.bytes || await sha256Hex(data) !== bytesKeyOf(sample)) throw new Error(`Library sample hash/size mismatch: ${sample.name}`)
+    blobs.set(bytesKeyOf(sample), data)
   }
   if (canonicalRecord([...missing].sort()) !== canonicalRecord([...manifest.missing].sort())) throw new Error('Bundle missing bytes do not match the explicit manifest marker')
   return { manifest, blobs, missing, expandedBytes: [...entries.values()].reduce((n, b) => n + b.length, 0) }
@@ -59,9 +59,9 @@ export const commitLibraryBundle = async (storage: LibraryStorage, stage: Librar
   if (manifest.partial || stage.missing.length) throw new Error('Incomplete library bundle: restore missing bytes and export a complete bundle before importing')
   const blobs = new Map<string, Uint8Array>()
   for (const sample of manifest.catalog.samples) {
-    const data = stage.blobs.get(sample.id)?.slice()
-    if (!data || data.length !== sample.bytes || await sha256Hex(data) !== sample.id) throw new Error('Staged library sample hash/size mismatch')
-    blobs.set(sample.id, data)
+    const data = stage.blobs.get(bytesKeyOf(sample))?.slice()
+    if (!data || data.length !== sample.bytes || await sha256Hex(data) !== bytesKeyOf(sample)) throw new Error('Staged library sample hash/size mismatch')
+    blobs.set(bytesKeyOf(sample), data)
   }
   return storage.update(current => mergeLibraryBundle(current, manifest.catalog, manifest.name), blobs)
 }

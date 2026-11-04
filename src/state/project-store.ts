@@ -1,5 +1,6 @@
 import {
   type Clip,
+  type ClipRef,
   type History,
   type ModuleDefinition,
   type Note,
@@ -27,7 +28,12 @@ import {
   createDemoProject,
   createHistory,
   createTrack,
+  copySessionClip,
   doubleClip,
+  duplicateScene,
+  duplicateTrack,
+  insertScene,
+  removeScene,
   editPatchAt,
   groupNodesAsModule,
   removeModule,
@@ -35,11 +41,28 @@ import {
   updateModule,
   redo,
   removeArrangementClip,
+  addArrangementMarker,
+  createMarkerId,
+  moveArrangementMarker,
+  removeArrangementLoop,
+  removeArrangementMarker,
+  renameArrangementMarker,
+  setArrangementLoop,
+  setArrangementLoopEnabled,
   removeSample,
+  replaceSample,
+  type SampleRemap,
+  type SampleReplaceReport,
   removeTrack,
+  pasteSessionClip,
   setClipAt,
   setClipLength,
+  setClipName,
   setClipNotes,
+  setSampleName,
+  updateSampleMarks,
+  setSceneName,
+  setTrackName,
   setProjectName,
   setTempo,
   setMasterVolume,
@@ -52,9 +75,32 @@ import {
   undo,
   updateArrangementClip,
   updateAudioClip,
+  type GroupColour,
+  type TrackPlace,
+  groupTrack,
+  moveGroup,
+  moveTrack,
+  removeGroup,
+  setGroupCollapsed,
+  setGroupBus,
+  setGroupColour,
+  setGroupMuted,
+  setGroupSoloed,
+  setGroupHidden,
+  setGroupName,
+  setTrackHidden,
+  showAllTracks,
+  ungroup,
+  withViewOf,
+  type PanelPin,
+  movePin,
+  pinPanel,
+  setPinCollapsed,
+  unpinPanel,
 } from '@core'
 import { create } from 'zustand'
 import type { ArrangementChanges, AudioClip } from '@core'
+import { useSelectionStore } from './selection-store'
 
 const DEFAULT_CLIP_BEATS = 4
 
@@ -74,6 +120,48 @@ interface ProjectActions {
   /** Adds a return track: a place for other tracks to send sound to, with its own effects. */
   addReturnTrack(): void
   removeTrack(trackId: string): void
+  /** Adds a copy of a track right after it (see `duplicateTrack`); returns its id, or null at the track limit. */
+  duplicateTrack(trackId: string): string | null
+  /** Renames a track; an empty name keeps the old one. */
+  setTrackName(trackId: string, name: string): void
+  /** A new group around a track, in the track's group; returns its id, or null when it can't. */
+  groupTrack(trackId: string): string | null
+  /** Moves a track or a group; it joins the group of what it lands next to. */
+  moveTrack(trackId: string, place: TrackPlace): void
+  moveGroup(groupId: string, place: TrackPlace): void
+  /** Removes a group and keeps its tracks and nested groups, one level up. */
+  ungroup(groupId: string): void
+  /** Removes a group, its nested groups and their tracks. */
+  removeGroup(groupId: string): void
+  setGroupName(groupId: string, name: string): void
+  setGroupColour(groupId: string, colour: GroupColour): void
+  /** Makes a group sum its tracks into a bus, or back into a folder (dropping the bus's effects). */
+  setGroupBus(groupId: string, on: boolean): void
+  setGroupMuted(groupId: string, muted: boolean): void
+  setGroupSoloed(groupId: string, soloed: boolean): void
+  /** View edits: saved with the project, but not undo steps, and undo and redo keep them. */
+  setGroupCollapsed(groupId: string, collapsed: boolean): void
+  setTrackHidden(trackId: string, hidden: boolean): void
+  setGroupHidden(groupId: string, hidden: boolean): void
+  showAllTracks(): void
+  /** Pins a graph's front panel at the bottom of the Pinned view, unless it is pinned or there are 16. A view edit. */
+  pinPanel(pin: Pick<PanelPin, 'owner' | 'graph'>): void
+  /** Pins are named by `pinKey`. View edits, as pinning. */
+  unpinPanel(key: string): void
+  movePin(key: string, direction: -1 | 1): void
+  setPinCollapsed(key: string, collapsed: boolean): void
+  /** Renames a session clip; an empty name keeps the old one. */
+  setClipName(trackId: string, clipId: string, name: string): void
+  /** Names a scene; an empty name clears it. */
+  setSceneName(scene: number, name: string): void
+  /** Inserts an empty scene before `at`, up to 64 scenes. */
+  insertScene(at: number): void
+  /** Inserts a copy of a scene's row after it, up to 64 scenes. */
+  duplicateScene(scene: number): void
+  /** Removes a scene's row; the last scene stays. */
+  removeScene(scene: number): void
+  /** Renames a sample; an empty name keeps the old one. */
+  setSampleName(sampleId: string, name: string): void
   setTrackVolume(trackId: string, volume: number): void
   /** Pans a track, -1 (left) .. 1 (right); dragging is one undo step. */
   setTrackPan(trackId: string, pan: number): void
@@ -85,6 +173,16 @@ interface ProjectActions {
   setTrackSend(trackId: string, returnId: string, level: number): void
   addSamples(samples: readonly SampleInfo[]): void
   removeSample(sampleId: string): void
+  /**
+   * Moves every use of a sample onto the result of an edit (see `replaceSample`), as one undo step. Returns what it did
+   * besides, for the caller to tell the user.
+   */
+  replaceSample(fromId: string, to: SampleInfo, remap: SampleRemap): SampleReplaceReport
+  /**
+   * Changes a sample's markers, regions or loop (`addMarker`, `updateRegion`, `setLoop`, …) as one undo step; a drag
+   * passes one `mergeKey` throughout (`marker:<origin>:<id>`), so it is one step.
+   */
+  editSampleMarks(sampleId: string, change: (info: SampleInfo) => SampleInfo, mergeKey?: string): void
   /** Adds a track with a sampler playing `sample`, plus a clip that triggers it. */
   addSamplerTrack(sample: SampleInfo): void
   /** Adds an audio track with a looping clip of `sample` in the first scene. */
@@ -93,8 +191,11 @@ interface ProjectActions {
   deleteAudioClip(trackId: string, scene: number): void
   /** Puts a new audio clip of `sample` into a slot of an audio track. */
   createAudioClip(trackId: string, scene: number, sample: SampleInfo): void
-  /** Edits an audio clip; rapid edits of the same setting (a slider drag) merge into one undo step. */
-  updateAudioClip(trackId: string, clipId: string, changes: AudioClipChanges): void
+  /**
+   * Edits an audio clip, in its slot or a region's copy; rapid edits of the same setting (a slider drag) merge into
+   * one undo step.
+   */
+  updateAudioClip(ref: ClipRef, changes: AudioClipChanges): void
   setTrackVoices(trackId: string, voices: number): void
   /**
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
@@ -116,6 +217,12 @@ interface ProjectActions {
     edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
     mergeKey?: string,
   ): void
+  /** Like `updatePatch`, for a group bus's graph (the effects on what its tracks sum to). */
+  updateGroupFx(
+    groupId: string,
+    edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
+    mergeKey?: string,
+  ): void
   /** Like `updatePatch`, for the track's note graph (what happens to notes before the instrument). */
   updateNoteGraph(
     trackId: string,
@@ -125,6 +232,12 @@ interface ProjectActions {
   /** Like `updatePatch`, for a patch inside a module (which changes every use of that module). */
   updateModulePatch(
     moduleId: string,
+    edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
+    mergeKey?: string,
+  ): void
+  /** Like `updatePatch`, for any patch: a track's graphs, the master's, or a module's inside. */
+  editPatch(
+    target: PatchTarget,
     edit: (patch: Patch, modules: readonly ModuleDefinition[]) => Patch,
     mergeKey?: string,
   ): void
@@ -140,17 +253,36 @@ interface ProjectActions {
   /** Deletes a module that nothing uses. */
   deleteModule(moduleId: string): void
   createClip(trackId: string, scene: number): Clip
+  /** Puts a copy of a clip value into an empty slot of a track of its kind (see `pasteSessionClip`). */
+  pasteClip(clip: Clip | AudioClip, trackId: string, scene: number): void
+  /**
+   * Moves a session clip into an empty slot of a track of its kind, keeping its id (see `copySessionClip`). The
+   * selection follows the clip when it is the selected one.
+   */
+  moveClip(fromTrackId: string, clipId: string, toTrackId: string, scene: number): void
   deleteClip(trackId: string, scene: number): void
-  setClipNotes(trackId: string, clipId: string, notes: readonly Note[]): void
-  /** Resizes a clip; shortening trims notes that no longer fit. */
-  setClipLength(trackId: string, clipId: string, lengthBeats: number): void
+  /** Sets a MIDI clip's notes, in its slot or a region's copy. */
+  setClipNotes(ref: ClipRef, notes: readonly Note[]): void
+  /** Resizes a clip; shortening trims notes that no longer fit. A region grows into the next one, as its edge does. */
+  setClipLength(ref: ClipRef, lengthBeats: number): void
   /** Doubles the clip's length and repeats its notes into the new half. */
-  doubleClip(trackId: string, clipId: string): void
+  doubleClip(ref: ClipRef): void
   /** Puts a copy of a session clip on the arrangement timeline of one track. */
   addArrangementClip(trackId: string, startBeat: number, content: Clip | AudioClip): void
-  /** Moves or resizes an arrangement region; a drag merges into one undo step. */
+  /** Moves or resizes an arrangement region; a drag merges into one undo step. A selected region keeps its selection. */
   updateArrangementClip(id: string, changes: ArrangementChanges, mergeKey?: string): void
   removeArrangementClip(id: string): void
+  /** Adds a marker at `beat` (named *Marker N* without a name); its id, or null at the limit. */
+  addArrangementMarker(beat: number, name?: string): string | null
+  /** Moves a marker; a drag passes one `mergeKey` (`arr-marker:<id>`), so it is one step. */
+  moveArrangementMarker(id: string, beat: number, mergeKey?: string): void
+  renameArrangementMarker(id: string, name: string): void
+  removeArrangementMarker(id: string): void
+  /** Sets the loop brace's range; a drag passes one `mergeKey` (`arr-loop`), so it is one step. */
+  setArrangementLoop(range: { readonly from: number; readonly to: number }, mergeKey?: string): void
+  removeArrangementLoop(): void
+  /** Turns looping on or off: a view edit, saved and not undone. */
+  setArrangementLoopEnabled(enabled: boolean): void
 }
 
 export interface ProjectState extends ProjectActions {
@@ -176,6 +308,19 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       return history === state.history ? state : withHistory(history)
     })
 
+  /** A view edit replaces the present without an undo step (see `withViewOf`). */
+  const editView = (change: (project: Project) => Project) =>
+    set((state) => {
+      const project = change(state.project)
+      return project === state.project ? state : { history: { ...state.history, present: project }, project }
+    })
+
+  /** After undo or redo: the restored project, showing what the current one shows. */
+  const restored = (state: ProjectState, history: History<Project>) => {
+    const present = withViewOf(history.present, state.project)
+    return withHistory(present === history.present ? history : { ...history, present })
+  }
+
   return {
     documentEpoch: 0,
     project: demo,
@@ -186,8 +331,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       ...withHistory(commit(state.history, project, { now: Date.now() })),
       documentEpoch: state.documentEpoch + 1,
     })),
-    undo: () => set((state) => withHistory(undo(state.history))),
-    redo: () => set((state) => withHistory(redo(state.history))),
+    undo: () => set((state) => restored(state, undo(state.history))),
+    redo: () => set((state) => restored(state, redo(state.history))),
 
     setName: (name) => edit((project) => setProjectName(project, name), 'name'),
     setTempo: (bpm) => edit((project) => setTempo(project, bpm), 'tempo'),
@@ -205,6 +350,40 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         return addTrack(project, createReturnTrack(`Return ${String.fromCharCode(65 + (count % 26))}`))
       }),
     removeTrack: (trackId) => edit((project) => removeTrack(project, trackId)),
+    duplicateTrack: (trackId) => {
+      const result = duplicateTrack(get().project, trackId)
+      if (result.trackId) edit(() => result.project)
+      return result.trackId
+    },
+    setTrackName: (trackId, name) => edit((project) => setTrackName(project, trackId, name)),
+    groupTrack: (trackId) => {
+      const result = groupTrack(get().project, trackId)
+      if (result.groupId) edit(() => result.project)
+      return result.groupId
+    },
+    moveTrack: (trackId, place) => edit((project) => moveTrack(project, trackId, place)),
+    moveGroup: (groupId, place) => edit((project) => moveGroup(project, groupId, place)),
+    ungroup: (groupId) => edit((project) => ungroup(project, groupId)),
+    removeGroup: (groupId) => edit((project) => removeGroup(project, groupId)),
+    setGroupName: (groupId, name) => edit((project) => setGroupName(project, groupId, name)),
+    setGroupColour: (groupId, colour) => edit((project) => setGroupColour(project, groupId, colour)),
+    setGroupBus: (groupId, on) => edit((project) => setGroupBus(project, groupId, on)),
+    setGroupMuted: (groupId, muted) => edit((project) => setGroupMuted(project, groupId, muted)),
+    setGroupSoloed: (groupId, soloed) => edit((project) => setGroupSoloed(project, groupId, soloed)),
+    setGroupCollapsed: (groupId, collapsed) => editView((project) => setGroupCollapsed(project, groupId, collapsed)),
+    setTrackHidden: (trackId, hidden) => editView((project) => setTrackHidden(project, trackId, hidden)),
+    setGroupHidden: (groupId, hidden) => editView((project) => setGroupHidden(project, groupId, hidden)),
+    showAllTracks: () => editView(showAllTracks),
+    pinPanel: (pin) => editView((project) => pinPanel(project, pin)),
+    unpinPanel: (key) => editView((project) => unpinPanel(project, key)),
+    movePin: (key, direction) => editView((project) => movePin(project, key, direction)),
+    setPinCollapsed: (key, collapsed) => editView((project) => setPinCollapsed(project, key, collapsed)),
+    setClipName: (trackId, clipId, name) => edit((project) => setClipName(project, trackId, clipId, name)),
+    setSceneName: (scene, name) => edit((project) => setSceneName(project, scene, name)),
+    insertScene: (at) => edit((project) => insertScene(project, at)),
+    duplicateScene: (scene) => edit((project) => duplicateScene(project, scene)),
+    removeScene: (scene) => edit((project) => removeScene(project, scene)),
+    setSampleName: (sampleId, name) => edit((project) => setSampleName(project, sampleId, name)),
     setTrackVolume: (trackId, volume) =>
       edit((project) => setTrackVolume(project, trackId, volume), `volume:${trackId}`),
 
@@ -218,15 +397,21 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     addSamples: (samples) => edit((project) => addSamples(project, samples)),
     removeSample: (sampleId) => edit((project) => removeSample(project, sampleId)),
+    replaceSample: (fromId, to, remap) => {
+      const result = replaceSample(get().project, fromId, to, remap)
+      if (result.project !== get().project) edit(() => result.project)
+      return result.report
+    },
+    editSampleMarks: (sampleId, change, mergeKey) => edit((project) => updateSampleMarks(project, sampleId, change), mergeKey),
     addSamplerTrack: (sample) => edit((project) => addSamplerTrack(project, sample)),
     addAudioTrackFromSample: (sample) => edit((project) => addAudioTrackWithClip(project, sample)),
     deleteAudioClip: (trackId, scene) => edit((project) => setAudioClipAt(project, trackId, scene, null)),
     createAudioClip: (trackId, scene, sample) =>
       edit((project) => addAudioClip(project, trackId, scene, sample)),
-    updateAudioClip: (trackId, clipId, changes) =>
+    updateAudioClip: (ref, changes) =>
       edit(
-        (project) => updateAudioClip(project, trackId, clipId, changes),
-        `audio:${clipId}:${Object.keys(changes).sort().join(',')}`,
+        (project) => updateAudioClip(project, ref, changes),
+        `audio:${ref.kind === 'region' ? ref.regionId : ref.clipId}:${Object.keys(changes).sort().join(',')}`,
       ),
     setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
 
@@ -236,10 +421,13 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       edit((project) => editPatchAt(project, { trackId, graph: 'fx' }, change), mergeKey),
     updateMasterFx: (change, mergeKey) =>
       edit((project) => editPatchAt(project, { master: true }, change), mergeKey),
+    updateGroupFx: (groupId, change, mergeKey) =>
+      edit((project) => editPatchAt(project, { groupId }, change), mergeKey),
     updateNoteGraph: (trackId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { trackId, graph: 'notes' }, change), mergeKey),
     updateModulePatch: (moduleId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { moduleId }, change), mergeKey),
+    editPatch: (target, change, mergeKey) => edit((project) => editPatchAt(project, target, change), mergeKey),
     groupNodes: (target, nodeIds) => edit((project) => groupNodesAsModule(project, target, nodeIds)),
     addModuleUse: (target, moduleId, x, y) => edit((project) => addModuleUse(project, target, moduleId, x, y)),
     addExampleModule: (target, definition, x, y) => edit((project) => addExampleModuleUse(project, target, definition, x, y)),
@@ -252,25 +440,46 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       edit((project) => setClipAt(project, trackId, scene, clip))
       return clip
     },
+    moveClip: (fromTrackId, clipId, toTrackId, scene) => {
+      const before = get().project
+      edit((project) => copySessionClip(project, fromTrackId, clipId, toTrackId, scene, true))
+      const selection = useSelectionStore.getState()
+      if (get().project !== before && selection.clipId === clipId) selection.selectClip(toTrackId, clipId)
+    },
     deleteClip: (trackId, scene) => edit((project) => setClipAt(project, trackId, scene, null)),
-    setClipNotes: (trackId, clipId, notes) =>
-      edit((project) => setClipNotes(project, trackId, clipId, notes)),
-    setClipLength: (trackId, clipId, lengthBeats) =>
-      edit((project) => setClipLength(project, trackId, clipId, lengthBeats)),
-    doubleClip: (trackId, clipId) => edit((project) => doubleClip(project, trackId, clipId)),
+    pasteClip: (clip, trackId, scene) => edit((project) => pasteSessionClip(project, clip, trackId, scene)),
+    setClipNotes: (ref, notes) => edit((project) => setClipNotes(project, ref, notes)),
+    setClipLength: (ref, lengthBeats) => edit((project) => setClipLength(project, ref, lengthBeats)),
+    doubleClip: (ref) => edit((project) => doubleClip(project, ref)),
 
     addArrangementClip: (trackId, startBeat, content) =>
       edit((project) => ({
         ...project,
         arrangement: addArrangementClip(project.arrangement ?? [], createArrangementClip(trackId, startBeat, content)),
       })),
-    updateArrangementClip: (id, changes, mergeKey) =>
+    updateArrangementClip: (id, changes, mergeKey) => {
       edit((project) => {
         const arrangement = updateArrangementClip(project.arrangement ?? [], id, changes)
         return arrangement === (project.arrangement ?? []) ? project : { ...project, arrangement }
-      }, mergeKey),
+      }, mergeKey)
+      // A selected region moved to another lane stays selected, with its new track.
+      const selection = useSelectionStore.getState()
+      if (changes.trackId && selection.regionId === id && selection.trackId !== changes.trackId) selection.selectRegion(id, changes.trackId)
+    },
     removeArrangementClip: (id) =>
       edit((project) => ({ ...project, arrangement: removeArrangementClip(project.arrangement ?? [], id) })),
+    addArrangementMarker: (beat, name) => {
+      const id = createMarkerId()
+      const before = get().project
+      edit((project) => addArrangementMarker(project, beat, name, id))
+      return get().project === before ? null : id
+    },
+    moveArrangementMarker: (id, beat, mergeKey) => edit((project) => moveArrangementMarker(project, id, beat), mergeKey),
+    renameArrangementMarker: (id, name) => edit((project) => renameArrangementMarker(project, id, name)),
+    removeArrangementMarker: (id) => edit((project) => removeArrangementMarker(project, id)),
+    setArrangementLoop: (range, mergeKey) => edit((project) => setArrangementLoop(project, range), mergeKey),
+    removeArrangementLoop: () => edit(removeArrangementLoop),
+    setArrangementLoopEnabled: (enabled) => editView((project) => setArrangementLoopEnabled(project, enabled)),
   }
 })
 
