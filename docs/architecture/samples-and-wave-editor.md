@@ -246,7 +246,10 @@ rebuilt the inside; round 11b made edits change the sample in place.
   its box is what the detail shows, and it **is the scrollbar** (`role="scrollbar"`, focusable: arrows, Page Up and
   Down, Home and End): drag the box to scroll, its edges to zoom, click elsewhere to centre there. A native scroller
   can't be wide enough at full zoom. The **ruler** shows m:ss.mmm (frames under one frame per pixel) or bars and beats in
-  4/4 from frame 0 (`ruler-ticks.ts`, labels at least 72 px apart). The **detail** has one `WaveLane` per channel, each a
+  4/4 from frame 0 (`ruler-ticks.ts`, labels at least 72 px apart).
+  The view's arithmetic (zoom, clamp, ticks, snap targets, auto-scroll) is the timeline geometry the arrangement shares,
+  in `ui/shared/timeline/` over an axis in any unit; `wave-geometry.ts`, `ruler-ticks.ts` and `snap.ts` keep their
+  names as wrappers in frames, `SnapTarget.frame` included. The **detail** has one `WaveLane` per channel, each a
   canvas the size of its box times `devicePixelRatio`; `data-draw` on it says which band is drawn. It is focusable
   (`role="group"`, *Waveform lanes*), takes the focus on any press, and is its pane's `sample-selection` subject's
   `ActionMenu` trigger.

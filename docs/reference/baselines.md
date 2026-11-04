@@ -44,6 +44,11 @@ Round 11d-2 (2026-10-31, `6d134da`, load average 4 to 5): `wave` 56 and 15.2; `w
 `WavePlayhead` renders 29 times a second, at the status rate. `DetailView`, `WaveLane`, `WaveStatus` and `LaneScale`
 render 0 times.
 
+Round 12a (2026-11-04, `9ac535f`, load average 9 to 10): `editor` 87 component renders and 14.2 script ms a second
+(145 before: the arrangement drew one playhead per lane, three on the Starter, and now draws one); `groups` 58 and 10.0
+(87 before: the arrangement's playheads ran while scene 1 played, and now show only in arrangement mode); `wave` 56 and
+11.3, unchanged. `ArrangementView`, `ArrangementRegion` and the headers render 0 times; `ArrangementPlayhead` 29.
+
 Earlier tables: [round 2](../archive/ui-redesign/PLAN-round-2-shell.md#changes-made-while-implementing) (the
 first, with base comparisons), [round 11a](../archive/ui-redesign/PLAN-round-11a-stereo-and-the-pyramid.md#changes-made-while-implementing),
 [round 11b](../archive/ui-redesign/PLAN-round-11b-in-place-edits.md#changes-made-while-implementing).
@@ -119,6 +124,12 @@ main thread, one task.
 |---|---:|---:|---:|---:|---:|
 | 5 s | 0.2 ms | 1.7 ms | 0.9 ms | 1.4 ms | 4.2 ms |
 | 120 s | 2.9 ms | 44 ms | 20 ms | 34 ms | 100.9 ms |
+
+## Arrangement
+
+`scripts/measure-long-timeline.cjs` (2026-11-04, `9ac535f`, production build, headless Chromium, load average 9 to 10):
+a region at beat 4000 and one at 0 at the closest zoom (256 px a beat) make each lane 1,025,976 px wide. Five seconds
+of sideways wheel scrolls and ⌘-wheel zooms out and back in gave no long task (none over 50 ms).
 
 ## Audio engine
 

@@ -1,6 +1,6 @@
 # Status
 
-Where the project stands, in one page. Updated 2026-10-31. Update it whenever a round or a piece of work lands
+Where the project stands, in one page. Updated 2026-11-04. Update it whenever a round or a piece of work lands
 (see [dev/doc-workflow.md](dev/doc-workflow.md)).
 
 ## Branches and releases
@@ -24,7 +24,7 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 | Track groups, group buses, Tracks tree | Shipped (redesign rounds 7–8) | [tracks-and-groups](architecture/tracks-and-groups.md) |
 | Automation (clip, return and master), touch recording | Shipped; no automation on groups yet | [control-and-automation](architecture/control-and-automation.md) |
 | Browser MIDI input and learn | Shipped; physical hardware not verified | [midi](architecture/midi.md) |
-| Arrangement timeline (prototype) | Shipped; the full editor is round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
+| Arrangement timeline: headers, zoom, snap, a position, follow, keys | Shipped (round 12a); markers, the loop, automation lanes and recording are the rest of round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
 | Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse, markers, regions, the sampler's loop, snap, *Revert to original*, a second pane, a spectrogram, band selection and spectral edits) | Shipped (round 11 done) | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
 | Snapshots, presets, personal library, `.sfxlib` bundles | Shipped | [library-and-presets](architecture/library-and-presets.md) |
 | Workbench: docking shell, views, layouts, actions, drag and drop, command palette, keys | Shipped (redesign rounds 1–6, 9–10) | [workbench](architecture/workbench.md) |
@@ -39,7 +39,14 @@ selects a frequency band, and *Band gain…* and *Keep band* change only that ba
 two ([archive/ui-redesign](archive/ui-redesign/README.md)).
 
 1. **Round 12: the arrangement editor.** Track headers, automation lanes on the timeline (groups too), recording into
-   the arrangement. Outline in [active/ui-redesign-roadmap.md](active/ui-redesign-roadmap.md#round-12-arrangement-editor).
+   the arrangement. Outline in [active/ui-redesign-roadmap.md](active/ui-redesign-roadmap.md#round-12-arrangement-editor);
+   the [spec](active/SPEC-round-12-arrangement-editor.md) is signed off (2026-11-01, every decision as proposed). It
+   splits the round into 12a (headers and the timeline frame), 12b (markers and the loop), 12c (automation on the
+   timeline) and 12d (touch recording into the arrangement). **12a is done** (2026-11-04,
+   [plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)): headers beside the lanes with M and S, zoom to 256 px a
+   beat, a grid and snap, a position to play from, follow, view keys, and the timeline geometry shared with the wave
+   editor. The [plan for 12b](active/PLAN-round-12b-markers-and-loop.md) (markers, the loop brace, the transport looping
+   the arrangement, format v13) is waiting for sign-off.
 2. **Round 13: visual refresh and themes.**
 3. **Merge `feat/ui-redesign` into `main`.** Decide whether this happens before round 12, and clear the verification
    debt first ([BACKLOG](BACKLOG.md#verification-debt)).
@@ -67,6 +74,9 @@ Each of these is a backlog item:
 * The wave editor's keys, middle-drag, edge drags, auto-scroll and Shift+F10 menu by hand (round 11c-1), and its
   mark drags, Alt with a drag, rename in place and folded mark lane (round 11c-2), and the spectrogram's colors, scale
   and fill-in (round 11d-1); Playwright drove them in Chromium only.
+* The arrangement's headers, zoom, snap, follow and keys by hand (round 12a): sticky headers on a trackpad, pinch,
+  middle-drag on a mouse, auto-scroll, the keys with the focus on the timeline, a region and a field; Playwright drove
+  them in Chromium only.
 * Firefox and Safari for anything in the redesign: Safari loading float WAV, stereo MP3, Shift+F10.
 * Manual listening passes for rounds 11a and 11b, and a looped sampler (11c-2). The bounce hashes and audio specs stand
   in for them.

@@ -1,10 +1,11 @@
 import type { CSSProperties } from 'react'
 import type { GroupBus, TrackGroup } from '@core'
-import { type SubjectOf, openGroupEffects, runAction, useProjectStore, useSelectionStore } from '@state'
+import { type SubjectOf, openGroupEffects, useProjectStore, useSelectionStore } from '@state'
 import { useDragSource, useEdgeTarget } from '../shared/drag'
-import { ActionMenu, useActionContext } from '../shared/menu'
+import { ActionMenu } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
-import { EffectsBadge, FaderRow, MuteSolo, OutputLine, PanControl, SendKnobs, type StripOwner, useEffectLabels, useRoute } from './ChannelStrip'
+import { GroupMuteSolo, useRoute } from '../shared/MuteSolo'
+import { EffectsBadge, FaderRow, OutputLine, PanControl, SendKnobs, type StripOwner, useEffectLabels } from './ChannelStrip'
 import styles from './Mixer.module.css'
 
 const colourOf = (group: TrackGroup) => ({ '--group': `var(--group-${group.colour})` }) as CSSProperties
@@ -32,27 +33,6 @@ const GroupName = ({ group }: { group: TrackGroup }) => {
         {group.name}
       </button>
     </InPlaceRename>
-  )
-}
-
-/** A group's M and S, through its actions. */
-export const GroupMuteSolo = ({ group, compact }: { group: TrackGroup; compact?: boolean }) => {
-  const context = useActionContext()
-  const subject: SubjectOf<'group'> = { kind: 'group', groupId: group.id }
-  const route = useRoute(group.id)
-  // A folder has no channel of its own: only what an enclosing group says lights its buttons halfway.
-  const parent = useRoute(group.parentId ?? '')
-  return (
-    <MuteSolo
-      kind="group"
-      compact={compact}
-      name={group.name}
-      muted={group.muted === true}
-      soloed={group.soloed === true}
-      route={group.bus ? route : parent}
-      onMute={() => runAction('group.mute', subject, context)}
-      onSolo={() => runAction('group.solo', subject, context)}
-    />
   )
 }
 

@@ -10,11 +10,14 @@ import {
   arrangementLoopEnd,
   arrangementOnTrack,
   arrangementOverlaps,
+  clampStartBeat,
   createArrangementClip,
   isAudioContent,
   removeArrangementClip,
+  timelineEnd,
   updateArrangementClip,
 } from './arrangement-clip'
+import { MAX_TIMELINE_BEATS } from './limits'
 import type { Clip } from './types'
 import type { ArrangementClip } from './arrangement-clip'
 
@@ -119,5 +122,26 @@ describe('arrangement clips', () => {
     const other = createArrangementClip('t2', 0, midiClip())
     const onTrack = arrangementOnTrack([a, other, b], 't1')
     expect(onTrack.map((region) => region.startBeat)).toEqual([0, 8])
+  })
+})
+
+describe('the timeline bound', () => {
+  it('keeps a region inside the timeline when it is placed or moved', () => {
+    const region = createArrangementClip('t', MAX_TIMELINE_BEATS, midiClip())
+    expect(region.startBeat).toBe(MAX_TIMELINE_BEATS - 4)
+    const moved = updateArrangementClip([region], region.id, { startBeat: -8 })
+    expect(moved[0]!.startBeat).toBe(0)
+    const longer = updateArrangementClip([region], region.id, { content: { ...region.content, lengthBeats: 8 } })
+    expect(longer[0]!.startBeat).toBe(MAX_TIMELINE_BEATS - 8)
+  })
+
+  it('ends where the last region stops sounding, its loop included', () => {
+    const first = createArrangementClip('t', 0, midiClip())
+    const looping = { ...createArrangementClip('t', 8, midiClip()), loop: true }
+    const next = createArrangementClip('t', 20, midiClip())
+    expect(timelineEnd([])).toBe(0)
+    expect(timelineEnd([first, looping])).toBe(12)
+    expect(timelineEnd([first, looping, next])).toBe(24)
+    expect(clampStartBeat(5000, 4)).toBe(MAX_TIMELINE_BEATS - 4)
   })
 })

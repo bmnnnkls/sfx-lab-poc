@@ -117,14 +117,20 @@ through a patch, as before) or an **audio track**.
 
 ## The arrangement (clips on a timeline)
 
-A second main view beside the session grid: copies of session clips placed on a timeline, one lane per track —
-the Ableton **Arrangement** view as a prototype. The transport bar toggles (Session | Arrangement), and Tab
-switches views like in Ableton.
+A second main view beside the session grid: copies of session clips placed on a timeline, one lane per track, with
+the tracks' headers beside them, as in Ableton's **Arrangement** view. The transport bar toggles (Session |
+Arrangement), and Tab switches views like in Ableton.
 
 * **Model.** An `ArrangementClip` (`core/project/arrangement-clip.ts`) is `{ id, trackId, startBeat, content, loop? }`
   where `content` is a *copy* of a session clip (a MIDI clip or an audio clip), independent of the session grid
   afterwards. Regions may overlap on one track (both play; the newest start wins for audio). `Project.arrangement`
   is optional, so files from before this load unchanged (no format-version bump).
+* **The timeline's bound.** No region ends past `MAX_TIMELINE_BEATS` (4096 beats, 1024 bars of 4/4,
+  `core/project/limits.ts`): `createArrangementClip` and `updateArrangementClip` clamp `startBeat` through
+  `clampStartBeat`, and the sanitizer drops a region past it with a warning. `timelineEnd(regions)` is the last beat
+  any region sounds (its loop end); the view draws at least 32 bars and 4 past it.
+* **Files.** `sanitizeArrangement` keeps a region's `loop` (only a real `true`), and drops a region whose track or
+  sample is missing.
 * **Playback.** Which regions sound is *derived from the transport position*, not queued: `ArrangementPlayer`
   (`core/engine/arrangement-player.ts`) has one `ArrangementNotes` / `ArrangementAudio` per track that emits the
   events of the regions overlapping each beat range. A MIDI region plays **once** (notes are cut at its end, and
@@ -143,26 +149,81 @@ switches views like in Ableton.
 * **Two playback modes.** The engine holds `playbackMode: 'session' | 'arrangement'`; every track runtime follows
   one source at a time and releases the other's notes (with a 5 ms tail for audio) on `setMode`. `arrangement/play`
   (with an optional `fromBeat`) switches to the arrangement; `transport/play`, `clip/launch` and `scene/launch`
-  switch back to the session. A track added mid-arrangement follows the timeline like the rest. `arrangement/set`
-  pushes the whole region list (it is small, and edits create new arrays).
-* **UI.** `ui/arrangement/`: a ruler in bars, one lane per shown non-return track (in the order of `trackRows`, with a
-  group lane before a group's members, see "Tracks and groups"), regions drawn as a note preview (MIDI)
-  or a waveform thumbnail (audio). **Drag a session slot onto a lane** to copy it there at the snapped beat (see
-  [Drag and drop](workbench.md#drag-and-drop)); in the default layout, where Session and Arrangement share a tab group, hold the
-  drag over the Arrangement tab to show it. Right-click an empty lane to place one of the track's session clips at
-  the clicked beat (*Add clip* ▸), add a sample's clip on an audio lane (*Add audio clip* ▸), paste a copied clip or
+  switch back to the session. `EngineStatus.mode` says which plays, so the arrangement's playhead shows only while
+  the timeline plays. A track added mid-arrangement follows the timeline like the rest. `arrangement/set` pushes the
+  whole region list (it is small, and edits create new arrays).
+* **The view's layout** (`ui/arrangement/`). A toolbar over **one scroller** for both axes. Its content is a grid of the
+  header column and the timeline; the headers are `position: sticky` at its left and the ruler row at its top, so a
+  sideways scroll moves only the timeline and an up-and-down one moves headers and lanes together, with no script to
+  keep them in step. The scroller's `scroll-padding` is the header column and the ruler, so what scrolls into view
+  lands beside them, not behind them. The rows come from `arrangementRows(project)` (`core`): `visibleRows` without the
+  returns, each track with its group's colour, memoized like `trackRows`.
+* **Headers.** A track's header has its name (click or Enter selects the track, marked while selected), and the
+  mixer's `MuteSolo` (`ui/shared/MuteSolo.tsx`: lit for the row's own flag, half lit through a group); a muted row's
+  name is struck through. A group's header has its fold twisty, its name (selects the group), a *bus* tag on a bus and
+  `GroupMuteSolo`; folded, its row shows its members' regions as thin bars. A header carries the track's or group's
+  menu, drags to reorder (before or after by halves, into a group by its middle third) and takes presets as the
+  session's does. The header column is 180 px, resized from 120 to 320 by the splitter at its right edge (← and → move
+  it by 10 px, a double-click returns it to 180); below 600 px of view it is drawn at 120 px. Track rows are 56 px high,
+  group rows 28.
+* **The ruler and the lines.** The ruler is a canvas the size of the visible timeline, sticky at the timeline's left
+  edge, redrawn in an animation frame on scroll, zoom and resize: bar numbers, and beats and sixteenths
+  (`formatBeat`) as the zoom allows, at least 72 px apart (`ticks` from `ui/shared/timeline`, steps up to 2048 beats).
+  The lanes' bar and grid lines are CSS gradients sized by `--bar-px` and `--grid-px` (`gridSpacing`): grid lines
+  closer than 4 px aren't drawn, and bars that close show every fourth.
+* **Zoom and scroll.** The zoom is pixels per beat, from the whole drawn timeline in the visible width (never below
+  0.05) to 256. ⌘ or Ctrl with the wheel, and a pinch, zoom around the pointer: the store's zoom changes, and a layout
+  effect sets `scrollLeft` so the beat under the pointer stays (`useTimelineZoom`). The toolbar's slider is
+  logarithmic. *Zoom to fit* shows from 0 to `timelineEnd` (32 bars when empty); *Zoom to selection* shows the
+  selected region with a bar each side. Both are asked of the store (`zoom`) and applied by the view once it knows its
+  width (`takeZoom`). The plain wheel scrolls; a middle-drag pans both ways. A region dragged within 24 px of the
+  timeline's side, or past it, scrolls it each animation frame (`autoScrollUnits`) and keeps following the pointer's
+  beat.
+* **The view's settings** (`state/arrangement-view-store.ts`, `useArrangementView`): the zoom, the grid, follow and the
+  header width, kept per browser as one object under `sfxlab:arrangement-view` (the old `sfxlab:arrangement-zoom` is
+  read once when it is absent); the position, in memory. None of it is in the project or undone.
+* **Snap.** The toolbar's *Grid* (*Bar*, *Beat*, *1/2*, *1/4*, *1/8*, *1/16*, *Off*; 1/4 by default) snaps drops, the
+  right-click's beat, region moves and resizes and the position. A moved or resized region's edges also snap to every
+  other region's start and end, on any lane, within 8 px (`regionSnapping`, `snapBeat`); the nearer of a grid line and
+  an edge wins. A moved region snaps its end instead of its start when the end is the nearer to something
+  (`snapRegionStart`), so it can be dragged to end at a bar. Alt held during a drag (or at a click or drop) snaps to
+  nothing.
+* **The position** is where arrangement playback starts: a dashed line over the lanes and a mark in the ruler. A click
+  in the ruler sets it, on the grid; while the arrangement plays, the click also seeks there. ▶ *Arrangement* plays
+  from it; ■ stops and leaves it, so ▶ plays from the same place again; ■ while stopped puts it back at 0
+  (`state/arrangement-transport.ts`). The transport bar's ▶ and Space play the session, as before.
+* **Follow** (*Follow*, on by default): when the playhead leaves the visible timeline, the view scrolls so it sits 15%
+  in, as the piano roll's does. The playhead writes `scrollLeft` from its own effect, so following renders nothing
+  else. A sideways scroll by the user while the arrangement plays (a wheel, a trackpad, a middle-drag, a zoom, the
+  scrollbar) pauses follow until the next ▶ or the toggle, and the button shows half lit (`data-paused`). Follow's own
+  scrolls are told apart by where it last scrolled to, kept on the scroller (`followTo`); the playhead checks that mark
+  before it scrolls (`movedSinceFollow`), since its next frame can come before the scroll event, and forgets it when
+  playback stops or follow is turned on again.
+* **Keys.** The timeline takes the focus on a press on the lanes or the ruler (it is focusable, with a focus ring), and
+  its view keys are one pure function, `timelineKeyAction` (`timeline-keys.ts`), listed read only under *Arrangement*
+  in the shortcuts dialog: ← → move the position a grid step (a beat with the grid off), onto the grid; Alt with them a
+  tenth of the view; Home and End to 0 and to `timelineEnd`; + (=) and − zoom by two wheel notches around the position
+  (the middle when it is out of view); Z zooms to the selected region, Shift+Z to fit; F follows or stops. A key that
+  moves the position out of view scrolls by the least that shows it. Only a key pressed on the timeline itself is
+  taken: a region, a header's buttons and fields keep theirs, and Space stays the transport's.
+* **Regions** are DOM elements placed in pixels, drawn as a note preview (MIDI, at most 200 notes) or a waveform
+  thumbnail (audio). **Drag a session slot onto a lane** to copy it there at the snapped beat (see
+  [Drag and drop](workbench.md#drag-and-drop)); in the default layout, where Session and Arrangement share a tab group,
+  hold the drag over the Arrangement tab to show it. Right-click an empty lane to place one of the track's session clips
+  at the clicked beat (*Add clip* ▸), add a sample's clip on an audio lane (*Add audio clip* ▸), paste a copied clip or
   region there, or clear the track. A session slot's menu keeps **Place on arrangement**, which appends a copy at the
-  end of its track's timeline: the keyboard's route, since a lane can't take the focus. The lane's name carries the
-  track's menu and selects the track on click, marked while selected. Drag a region to move it (quarter-beat snap) —
-  vertical dragging onto another lane moves it across tracks (the drop resolves the target from the lane element's
-  `data-lane`); drag its edge to resize (MIDI clips trim their notes). **Selecting a region**: pressing it selects
-  it in the selection store, with its track, so Instrument, Effects, Notes and Sounds follow, and Clip shows its own
-  copy if Clip is showing; double-click, Enter (regions are focusable) or the menu's *Edit* open it in Clip
-  (`openRegion`). Right-click a region to edit it, open its session source (*Edit session clip*, while it exists),
-  duplicate, loop (until the next region: a repeat badge and a hatched span up to the loop end), copy or delete. The region is the menu's `asChild` child, so it forwards the trigger's handlers, `data-state` and `ref`
-  onto its root element — a component that drops them silently never opens the menu. Regions render live while
-  the transport runs. Every edit is an undoable project step (`addArrangementClip` / `updateArrangementClip` /
-  `removeArrangementClip`), a drag merging into one step.
+  end of its track's timeline: the keyboard's route. Drag a region to move it, and vertically onto another lane to move
+  it across tracks: the lane under the pointer (its `data-lane`) shows accept or refuse (`data-drag-over`), and a lane
+  of the other kind of track (`clipFitsTrack`: a MIDI region over an audio track) refuses it. Drag its edge to resize
+  (MIDI clips trim their notes). **Selecting a region**: pressing it selects it in the selection store, with its track,
+  so Instrument, Effects, Notes and Sounds follow, and Clip shows its own copy if Clip is showing; double-click, Enter
+  (regions are focusable) or the menu's *Edit* open it in Clip (`openRegion`). Right-click a region to edit it, open
+  its session source (*Edit session clip*, while it exists), duplicate, loop (until the next region: a repeat badge and
+  a hatched span up to the loop end), copy or delete. The region is the menu's `asChild` child, so it forwards the
+  trigger's handlers, `data-state` and `ref` onto its root element — a component that drops them silently never opens
+  the menu. Regions render live while the transport runs. Every edit is an undoable project step
+  (`addArrangementClip` / `updateArrangementClip` / `removeArrangementClip`), a drag merging into one step.
+* **One playhead** for all lanes, in an overlay over the lanes and under the headers, owning its status subscription.
 * **Bouncing.** File > Export audio offers an **Arrangement** scope (see "Exporting audio"): the timeline renders
   from beat 0 to the last region's end, then the usual tail.
-* **Not in the prototype.** Automation lanes on the timeline and recording into the arrangement.
+* **Not yet.** Markers and a loop brace, automation lanes on the timeline, and recording into the arrangement.

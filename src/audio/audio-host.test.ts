@@ -127,7 +127,7 @@ it('uses compact clock anchors for recording before publishing the end-of-quantu
   f.node.port.onmessage({ data: { kind: 'clock', clock: { beat: 4, tempo: 240, playing: true }, audioTime: 0 } })
   expect(host.recordingBeat()).toBe(4)
   expect(listener).not.toHaveBeenCalled()
-  const status = { beat: 4 + 128 / 48000 * 4, tempo: 240, playing: true, peak: .5, peaks: {}, tracks: {}, readouts: {} }
+  const status = { beat: 4 + 128 / 48000 * 4, tempo: 240, playing: true, mode: 'session' as const, peak: .5, peaks: {}, tracks: {}, readouts: {} }
   f.node.port.onmessage({ data: { kind: 'status', status, audioTime: 128 / 48000 } })
   expect(listener).toHaveBeenCalledExactlyOnceWith(status)
   expect(host.recordingBeat()).toBeCloseTo(4)

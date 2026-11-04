@@ -1,5 +1,6 @@
 .view {
-  --name-width: 120px;
+  /* The header column's width as kept, or 120 px in a narrow view (below). */
+  --header-width: var(--header-saved, 180px);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -25,26 +26,43 @@
   font-size: 12px;
 }
 
-/* The timeline scrolls horizontally; the ruler and rows share the same width. */
+/* One scroller for headers and lanes: the headers are sticky at its left, the ruler at its top. */
 .scroll {
   flex: 1;
   overflow: auto;
   min-height: 0;
+  overscroll-behavior: contain;
+  /* What scrolls into view lands beside the headers and under the ruler, not behind them. */
+  scroll-padding-left: var(--header-width);
+  scroll-padding-top: 24px;
+}
+
+.scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.timeline {
+  position: relative;
+  width: max-content;
+  min-width: 100%;
 }
 
 .lane {
   position: relative;
   display: grid;
-  grid-template-columns: var(--name-width) 1fr;
-  gap: 0;
+  grid-template-columns: var(--header-width) max-content;
 }
 
 .row {
   position: relative;
   height: 56px;
   border-bottom: 1px solid var(--border);
-  background:
-    repeating-linear-gradient(90deg, var(--border) 0 1px, transparent 1px calc(4 * var(--beat-px, 24px)));
+  /* Bar lines over grid lines, scrolling with the content; their spacing is set from the zoom and the grid. */
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--border) 100%, transparent) 1px, transparent 1px),
+    linear-gradient(to right, color-mix(in srgb, var(--border) 45%, transparent) 1px, transparent 1px);
+  background-size: var(--bar-px) 100%, var(--grid-px) 100%;
 }
 
 .laneBody {
@@ -52,57 +70,105 @@
   inset: 0;
 }
 
-.name {
+/* A track's or a group's header, at the left while the timeline scrolls. */
+.header {
+  position: sticky;
+  left: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
+  gap: 6px;
   height: 56px;
-  padding: 0 8px;
+  padding: 0 6px 0 8px;
   border-bottom: 1px solid var(--border);
   border-right: 1px solid var(--border);
   background: var(--panel);
-  font-weight: 600;
   font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
   cursor: default;
 }
 
-.returnName {
-  opacity: 0.5;
-  font-style: italic;
+.headerName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
 }
 
-/* The ruler shares the lane grid so bars line up with the rows. */
+/* A muted row, by its own flag or through a group, as the session's group header shows it. */
+.mutedHeader .headerName {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.busTag {
+  font-size: 10px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 3px;
+}
+
 .rulerRow {
+  position: sticky;
+  top: 0;
+  z-index: 3;
   display: grid;
-  grid-template-columns: var(--name-width) 1fr;
+  grid-template-columns: var(--header-width) max-content;
   height: 24px;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
-  position: sticky;
-  top: 0;
-  z-index: 2;
 }
 
-.rulerCorner {
+/* Over both the headers and the ruler. */
+.corner {
+  position: sticky;
+  left: 0;
+  z-index: 4;
   border-right: 1px solid var(--border);
+  background: var(--panel);
 }
 
 .ruler {
   position: relative;
+  height: 24px;
 }
 
-.barMark {
+/* The visible part of the ruler, kept at the timeline's left edge while it scrolls. */
+.rulerCanvas {
+  position: sticky;
+  left: var(--header-width);
+  display: block;
+  height: 24px;
+}
+
+/* The bar between the header column and the timeline. */
+.headerSplitter {
   position: absolute;
   top: 0;
+  right: -3px;
   bottom: 0;
-  border-left: 1px solid var(--border);
-  padding-left: 4px;
-  font-size: 10px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 5;
+}
+
+.headerSplitter:hover,
+.headerSplitter:focus-visible {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  outline: none;
+}
+
+/* The playhead and the position lie over every lane, under the headers. */
+.overlay {
+  position: absolute;
+  top: 24px;
+  bottom: 0;
+  left: var(--header-width);
   pointer-events: none;
+  z-index: 1;
 }
 
 .region {
@@ -223,27 +289,15 @@
   outline-offset: -1px;
 }
 
-/* The selected track's name, as the session header and the mixer strip mark theirs. */
-.selectedName {
-  color: var(--accent);
-  box-shadow: inset 3px 0 0 var(--accent);
-}
-
-/* A lane's name a drag of ours is over. */
-.name[data-drop='accept'] {
+/* The lane a dragged region is over: it takes the region, or (the other kind of track) refuses it. */
+[data-lane][data-drag-over='accept'] {
   outline: 2px dashed var(--accent);
   outline-offset: -2px;
 }
 
-.name[data-drop='refuse'] {
+[data-lane][data-drag-over='refuse'] {
   outline: 1px dashed var(--text-dim);
   outline-offset: -1px;
-}
-
-/* The lane a dragged region is over. */
-.row[data-drag-over] {
-  outline: 2px dashed var(--accent);
-  outline-offset: -2px;
 }
 
 .playhead {
@@ -256,9 +310,49 @@
   z-index: 1;
 }
 
-.zoom {
+/* The position: where arrangement playback starts. */
+.position {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px dashed var(--accent);
+  pointer-events: none;
+}
+
+.positionMark {
+  position: absolute;
+  top: 0;
+  width: 0;
+  height: 0;
+  margin-left: -5px;
+  border: 5px solid transparent;
+  border-top: 7px solid var(--accent);
+  pointer-events: none;
+}
+
+.ruler {
+  cursor: pointer;
+}
+
+/* Follow on but paused by a scroll: half lit. */
+.toolbar button[aria-pressed='true']:not(.paused) {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.paused {
+  background: linear-gradient(to top, var(--accent) 50%, transparent 50%);
+  border-color: var(--accent);
+}
+
+.zoom,
+.grid {
   display: flex;
   align-items: center;
+  gap: 4px;
+  font-size: 12px;
 }
 
 .zoom input[type='range'] {
@@ -282,20 +376,60 @@
   }
 }
 
-/* Below 560 px the track names take less of the width, cut with an ellipsis. */
-@container view (width < 560px) {
+/* Below 600 px the headers take 120 px whatever width is kept, leaving the timeline the rest. */
+@container view (width < 600px) {
   .view {
-    --name-width: 72px;
+    --header-width: 120px;
   }
 }
 
-/* A group's lane: a short row with its name, over its members' lanes. */
-.groupLane .name,
+/* The selected track or group, as the session header and the mixer strip mark theirs. */
+.selectedHeader .headerName {
+  color: var(--accent);
+}
+
+.selectedHeader {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* A member's header carries its group's colour. */
+.header[data-stripe]:not(.selectedHeader) {
+  box-shadow: inset 3px 0 0 var(--group);
+}
+
+/* A header a drag of ours is over, and where a dragged track or group would land. */
+.header[data-drop='accept'] {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.header[data-drop='refuse'] {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
+}
+
+.header[data-drop='accept'][data-edge='before'] {
+  outline: none;
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.header[data-drop='accept'][data-edge='after'] {
+  outline: none;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.header[data-drop='accept'][data-edge='inside'] {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* A group's row: a short header with its name, over its members' rows. */
+.groupHeader,
 .groupRow {
   height: 28px;
 }
 
-.groupName {
+.groupHeader {
   gap: 2px;
   background: color-mix(in srgb, var(--group) 22%, var(--panel));
   box-shadow: inset 3px 0 0 var(--group);
@@ -323,25 +457,3 @@
   opacity: 0.7;
 }
 
-/* A member's name carries its group's colour. */
-.name[data-stripe] {
-  box-shadow: inset 3px 0 0 var(--group);
-}
-
-/* Where a dragged track or group would land. */
-.name[data-drop='accept'][data-edge='before'] {
-  box-shadow: inset 0 2px 0 var(--accent);
-}
-
-.name[data-drop='accept'][data-edge='after'] {
-  box-shadow: inset 0 -2px 0 var(--accent);
-}
-
-.name[data-drop='accept'][data-edge='inside'] {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
-.name[data-stripe].selectedName {
-  box-shadow: inset 3px 0 0 var(--accent);
-}

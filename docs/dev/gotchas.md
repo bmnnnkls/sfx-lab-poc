@@ -21,6 +21,11 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   (`viewRoot(page, 'Session')`). *(round 2)*
 * **Hidden views don't re-render.** A view kept in `<Activity>` doesn't update until it is shown again, so show it
   before reading what it draws. *(round 7)*
+* **`getByLabel` matches part of a label.** The arrangement's ruler, labelled "Bars and beats", made the export dialog's
+  `getByLabel('Bars')` find two elements. Pass `exact: true`, or name things so they don't contain another's label.
+  *(round 12a)*
+* **Playwright's `fill` refuses a range input's value off its step** ("Malformed value") when `min` isn't a whole
+  number of steps from it. Move the slider with its keys (Home, End, arrows) instead. *(round 12a)*
 * **Reading the saved project right after loading** can race the autosave and read `null`. This is the known flake in
   `library.smoke.spec.ts` (V6). Wait for the save. *(round 8)*
 * **Audio specs that time edits from the page are load-sensitive.** `tempo.audio.spec.ts`'s ping-pong tail check
@@ -65,6 +70,12 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **`putImageData` ignores the canvas's transform and clip.** On a lane scaled to the device pixel ratio and clipped to
   a part, it lands at device pixels in the corner. Put the image into a scratch canvas and `drawImage` that, which
   honours both. *(round 11d-1)*
+* **Sticky headers hide what `scrollIntoView` aligns.** In a scroller with sticky headers, an element scrolled into
+  view lands under them (Playwright scrolls drop targets into view too). Give the scroller a `scroll-padding` the size
+  of the sticky parts, as the arrangement does. *(round 12a)*
+* **A scroll event comes after the frame that scrolled.** Setting `scrollLeft` by hand and a playhead's next frame
+  setting it again can both happen before one `scroll` event, which then sees only the last. To tell a program's scroll
+  from the user's, compare `scrollLeft` with where the program left it, before scrolling again. *(round 12a)*
 * **The project's types are the window's** (`lib: DOM`), so a worker file has no `DedicatedWorkerGlobalScope`. Type
   the part of `self` it uses, as `audio/spectrum-worker.ts` does. *(round 11d-1)*
 

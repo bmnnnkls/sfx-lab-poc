@@ -415,8 +415,8 @@ Everything the app can do from a menu can be found by name and run from the keyb
 * **Keyboard shortcuts** (`KeyboardShortcuts`, a `<dialog>`): a search, then every bindable command by category with its
   keys, *Change* (records the next key, Escape cancels; it replaces the command's keys), *Remove* and *Reset*; *Reset
   all*. A refused key says why, a used key warns, a moved key names the command that lost it. `VIEW_KEYS` lists the
-  view-local keys read only: the piano roll's, the automation editor's, the Wave editor's, QuickAdd's, the trees', the
-  controls', Shift+A and Shift+F10. They stay in their views and run first.
+  view-local keys read only: the piano roll's, the automation editor's, the Wave editor's, the arrangement's timeline's,
+  QuickAdd's, the trees', the controls', Shift+A and Shift+F10. They stay in their views and run first.
 * **Not checked by hand.** Whether Chrome, Firefox and Safari leave every default to the page was not tried with a
   real keyboard; Playwright's keys reach the page whatever a browser would do. See the round-10 plan.
 

@@ -68,6 +68,8 @@ export {
 export { type WaveSpectrum, useWaveSpectrumStore } from './wave-spectrum-store'
 export * from './wave-edits'
 export * from './wave-view'
+export * from './arrangement-view-store'
+export * from './arrangement-transport'
 
 export { editAutomationSlot, editOwnerAutomation } from './automation-store'
 

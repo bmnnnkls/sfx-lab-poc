@@ -1,10 +1,10 @@
 import { type WaveView, nearestZeroCrossing } from '@core'
 import { type WaveAudio, type WaveChannels, openWave, useWaveEditSettings, useWaveEditorStore, waveViewOf } from '@state'
+import { snapTo } from '../shared/timeline'
 import { marksOf } from './mark-geometry'
 import { type RulerMode, rulerTicks } from './ruler-ticks'
 
-/** A pointer gesture snaps to a target this close, in columns. */
-export const SNAP_PX = 8
+export { SNAP_PX } from '../shared/timeline'
 
 /** One frame a gesture may snap to, named so a drag can leave out what it moves (`marker:<id>`, `region:<id>:from`, `loop:to`). */
 export interface SnapTarget {
@@ -22,20 +22,13 @@ export interface Snapping {
  * The nearest target within `SNAP_PX` columns of `frame` (a zero crossing is one more candidate), else the frame. No
  * snapping (null: both snaps off, or Alt held) leaves it. `ignore` leaves out the target a drag is moving.
  */
-export const snapFrame = (frame: number, snapping: Snapping | null, view: WaveView, ignore?: string): number => {
-  if (!snapping) return frame
-  const radius = SNAP_PX * view.framesPerPixel
-  let best = frame
-  let distance = Infinity
-  const consider = (candidate: number) => {
-    const away = Math.abs(candidate - frame)
-    if (away <= radius && away < distance) [best, distance] = [candidate, away]
-  }
-  for (const target of snapping.targets) if (target.key !== ignore) consider(target.frame)
-  const zero = snapping.zero?.(frame, radius)
-  if (zero !== null && zero !== undefined) consider(zero)
-  return best
-}
+export const snapFrame = (frame: number, snapping: Snapping | null, view: WaveView, ignore?: string): number =>
+  snapTo(
+    frame,
+    snapping && { targets: snapping.targets.map((target) => ({ at: target.frame, key: target.key })), nearest: snapping.zero },
+    { start: view.startFrame, perPixel: view.framesPerPixel, width: view.width },
+    ignore,
+  )
 
 /** The ruler's mode and tempo, which the beat grid follows. */
 export interface RulerNow {
