@@ -323,3 +323,18 @@ Signed off 2026-11-04: every row as proposed.
   the plan's table listed it before.
 * The context-menus smoke spec pins the region menu's entries, so *Set loop to region* changed it too.
 
+### Step 4: the mark lane
+
+* **A drag's merge key is per gesture** (`arr-loop:<n>`, `arr-marker:<id>:<n>`), not the plan's `arr-loop` and
+  `arr-marker:<id>`: drawing a brace and then resizing it within the history's merge window made one undo step, which
+  the browser spec caught (undo took the brace away, not the resize). A drag is still one step.
+* **The mark lane's elements stop the press from reaching the scroller**, so a press in its empty space focuses the
+  timeline itself (as a press on the lanes does) before the draw starts.
+* **A brace's edge sits inside the brace**, so its moves and its release stop there; otherwise each move ran twice.
+* **The lines down the lanes are a layer before the lanes**, not in the playhead's overlay: the overlay is drawn over
+  the regions, and the lines go under them.
+* **The UI-driven audio spec** gives the engine the sweep's region with raw commands (the starter has no audio to
+  loop), then draws the brace, turns it on and plays from the view, and checks the same three passes.
+* The views-at-min-size spec checks ⟳ *Loop* and the mark lane's corner at the Arrangement's minimum sizes; the
+  toolbar's two new buttons still fit.
+
