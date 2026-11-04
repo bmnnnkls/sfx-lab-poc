@@ -343,9 +343,11 @@ frame), 12b (markers and the loop, format v13), 12c (automation on the timeline,
 recording into the arrangement). **12a is done** 2026-11-04; see its [plan](../archive/ui-redesign/PLAN-round-12a-timeline-frame.md), signed off as
 proposed: headers beside the lanes with M and S, a zoom from the whole song to 256 px a beat, a grid and region-edge
 snap, a position to play from, follow, view keys, and the timeline geometry shared with the wave editor; returns' and
-the master's rows wait for 12c's lanes. **12b's [plan](PLAN-round-12b-markers-and-loop.md)** (markers and a loop brace
-in a mark lane, the transport looping the arrangement, a seek that releases what was sounding, format v13) is waiting
-for sign-off. The outline below is what the spec
+the master's rows wait for 12c's lanes. **12b is done** 2026-11-04; see its
+[plan](../archive/ui-redesign/PLAN-round-12b-markers-and-loop.md), signed off as proposed: markers and a loop brace in a
+mark lane under the ruler (DOM elements, not a canvas), the engine looping the arrangement sample-accurately, one seek
+that releases what was sounding for the loop's jump and a click in the ruler while playing, M, L, `[` and `]`, and
+format v13. 12c and 12d are to plan. The outline below is what the spec
 started from.
 
 Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACKLOG.md).

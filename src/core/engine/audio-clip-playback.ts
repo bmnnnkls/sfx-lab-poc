@@ -34,6 +34,18 @@ export const repitchPosition = (
   return region.startPos + (phase / lengthBeats) * (region.endPos - region.startPos)
 }
 
+/**
+ * Where a clip that ignores tempo (`warp: 'off'`) is `beatsSinceStart` beats after it started, reading
+ * `framesPerBeat` sample frames a beat: where an arrangement region joined after its start (a seek, or the loop's
+ * jump into it) reads from, so it plays in phase. -1 once a non-looping clip has finished.
+ */
+export const joinedPosition = (beatsSinceStart: number, framesPerBeat: number, region: Region, loop: boolean): number => {
+  const advanced = Math.max(0, beatsSinceStart) * framesPerBeat
+  const length = region.endPos - region.startPos
+  if (!loop && advanced >= length) return -1
+  return region.startPos + (loop ? advanced % length : advanced)
+}
+
 const valueAt = (sample: SampleAudio, channel: ReadChannel, index: number): number =>
   channel === 'mono' ? monoAt(sample, index) : channelAt(sample, channel, index)
 

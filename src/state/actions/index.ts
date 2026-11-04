@@ -1,4 +1,5 @@
 import { usePersistenceStore } from '../persistence-store'
+import { arrangementLoopActions, arrangementMarkerActions, arrangementTimelineActions } from './arrangement-marks'
 import { automationSlotActions } from './automation-slot'
 import { clipActions } from './clip'
 import { controlActions } from './control'
@@ -33,6 +34,7 @@ export { canRecallPresetOn, recallPresetOn } from './sound'
 export { automationSlotClipboard, clipClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes } from './clipboards'
 export { editTargetOf, graphKeyOf } from './nodes'
 export { processActions } from './sample-selection'
+export { markerTitle, toggleArrangementLoop } from './arrangement-marks'
 
 const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = {
   track: trackActions,
@@ -57,6 +59,9 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   'sample-marker': sampleMarkerActions,
   'sample-region': sampleRegionActions,
   'sample-loop': sampleLoopActions,
+  'arrangement-marker': arrangementMarkerActions,
+  'arrangement-loop': arrangementLoopActions,
+  'arrangement-timeline': arrangementTimelineActions,
 }
 
 /** The actions of a subject's kind, in menu order. Nothing else picks actions. */

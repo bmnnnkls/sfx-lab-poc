@@ -2,7 +2,7 @@ import { compileAutomation } from '../automation'
 import { projectWithControlValues } from '../control'
 import type { EngineCommand } from '../engine'
 import { type ModuleLibrary, type Patch, engineNoteGraph, flattenPatch } from '../patch'
-import { type AudioTrack, type BusGroup, type ChannelRoute, type InstrumentTrack, type Project, type SendLevels, type Track, busGroups, mixRouting, panOf } from '../project'
+import { type AudioTrack, type BusGroup, type ChannelRoute, type InstrumentTrack, type Project, type SendLevels, type Track, activeArrangementLoop, busGroups, mixRouting, panOf } from '../project'
 
 /** Identity of a patch's wiring, ignoring params and canvas positions. */
 const structureOf = (patch: Patch): string =>
@@ -261,6 +261,10 @@ export const diffProject = (prev: Project | null, next: Project, syncAutomation 
   if (prev?.arrangement !== next.arrangement) {
     commands.push({ type: 'arrangement/set', clips: next.arrangement ?? [] })
   }
+  // The loop reaches the engine only when it plays: its range with the toggle on.
+  const loop = activeArrangementLoop(next)
+  const looped = prev ? activeArrangementLoop(prev) : null
+  if (loop?.from !== looped?.from || loop?.to !== looped?.to) commands.push({ type: 'arrangement/setLoop', loop })
   if (syncAutomation && automationChanged && (automation.length || prev)) commands.push({ type: 'automation/configure', tracks: automation })
   return commands
 }

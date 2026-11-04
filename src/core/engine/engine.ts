@@ -17,7 +17,7 @@ import type { MixContext, PlayableTrack, ScheduledAction, PlaybackMode } from '.
 import { ReturnTrackRuntime } from './return-track-runtime'
 import { SamplePreview } from './sample-preview'
 import type { EngineStatus } from './status'
-import { liveSource } from './live-notes'
+import { clipSource, liveSource } from './live-notes'
 import { TrackRuntime } from './track-runtime'
 
 interface ScheduledEvent {
@@ -79,6 +79,8 @@ export class Engine {
   private readonly masterInput = new Float32Array(STEREO_FRAMES)
   /** Which event source the tracks follow: the session launchers or the arrangement timeline. */
   private playbackMode: PlaybackMode = 'session'
+  /** The last loop jump in the current `render` call: the frame it fell on and the beat it went to. */
+  private jump: { readonly frame: number; readonly beat: number } | null = null
 
   constructor(private readonly sampleRate: number) {
     this.transport = new Transport(sampleRate)
@@ -140,6 +142,11 @@ export class Engine {
         for (const track of this.tracks.values()) track.setArrangement(command.clips)
         break
       case 'arrangement/play':
+        // A seek while the arrangement plays releases what was sounding, as the loop's jump does.
+        if (this.playbackMode === 'arrangement' && this.transport.playing) {
+          this.seekArrangement(command.fromBeat ?? 0)
+          break
+        }
         this.playbackMode = 'arrangement'
         this.transport.seek(command.fromBeat ?? 0)
         this.transport.play()
@@ -147,6 +154,9 @@ export class Engine {
         break
       case 'arrangement/stop':
         this.stopTransport()
+        break
+      case 'arrangement/setLoop':
+        this.transport.loop = command.loop
         break
       case 'track/add':
         if (this.tracks.has(command.trackId)) this.cancelTrackNotes(command.trackId)
@@ -276,17 +286,31 @@ export class Engine {
   render(left: Float32Array, right: Float32Array): void {
     left.fill(0)
     right.fill(0)
+    this.jump = null
     for (let offset = 0; offset < left.length;) {
       // Note-graph automation schedules at sample boundaries; audio and mixer curves keep block processing.
-      const frames = Math.min(MAX_BLOCK_FRAMES, left.length - offset)
+      let frames = Math.min(MAX_BLOCK_FRAMES, left.length - offset)
+      // A block never crosses the loop's end: it stops on the last sample before it, and the position jumps back.
+      const toLoopEnd = this.playbackMode === 'arrangement' && this.transport.playing ? this.transport.framesToLoopEnd() : null
+      if (toLoopEnd !== null) frames = Math.min(frames, toLoopEnd)
       this.renderBlock(left, right, offset, frames)
       offset += frames
+      const beat = toLoopEnd === null ? null : this.transport.loopJump()
+      if (beat !== null) {
+        this.seekArrangement(beat, this.transport.loop!.from)
+        this.jump = { frame: offset, beat }
+      }
     }
     // A sample being auditioned is not part of the mix, so it skips the master graph.
     this.preview.mixInto(left, right)
     softClip(left)
     softClip(right)
     this.peak = Math.max(this.peak, peakOf(left), peakOf(right))
+  }
+
+  /** The last loop jump of the latest `render` call, `frame` samples into it, or null; the recording clock anchors on it. */
+  lastJump(): { readonly frame: number; readonly beat: number } | null {
+    return this.jump
   }
 
   /** Clock-only snapshot: no readout traversal, peak reset or audio-state mutation. */
@@ -333,6 +357,18 @@ export class Engine {
     for (const track of this.tracks.values()) if (track instanceof TrackRuntime) track.cancelNotes(scope)
   }
 
+  /**
+   * Moves the playing arrangement to `beat` (events from `eventsFrom`, after a loop jump): the timeline's held notes are
+   * released there, so their tails start at the jump, and audio regions fade out in 5 ms and restart in phase under
+   * the new position. Live notes keep sounding.
+   */
+  private seekArrangement(beat: number, eventsFrom?: number): void {
+    this.transport.seek(beat, eventsFrom)
+    // A track's notes may come from another track's timeline through a tap: release every source it can hear.
+    for (const { tracks, ids } of this.components()) for (const track of tracks) for (const id of ids) track.cancelNotes({ source: clipSource(id) })
+    for (const track of this.tracks.values()) if (track instanceof AudioTrackRuntime) track.seekArrangement()
+  }
+
   private stopTransport(): void {
     this.automation.reset()
     this.transport.stop()
@@ -365,7 +401,7 @@ export class Engine {
   private renderBlock(left: Float32Array, right: Float32Array, offset: number, frames: number): void {
     const audioEvents: ScheduledEvent[] = []
     if (this.transport.playing) for (const track of this.scheduleTracks()) if (!(track instanceof TrackRuntime)) {
-      for (const action of track.schedule(this.transport.positionBeats, this.transport.beatAfter(frames), this.noteTaps)) {
+      for (const action of track.schedule(this.transport.eventsFrom(0), this.transport.eventsTo(frames), this.noteTaps)) {
         audioEvents.push({ frame: this.eventFrame(action.beat, this.transport.positionBeats, frames), order: this.scheduleRanks.get(track)!, action })
       }
     }
@@ -453,7 +489,7 @@ export class Engine {
     const to = from + frames * this.transport.beatsPerSample
     this.noteTaps.clear()
     for (const track of tracks) {
-      const actions = track.schedule(from, to, this.noteTaps, this.transport.playing ? this.transport.beatAfter(cursor) : undefined, this.transport.beatAfter(cursor + frames))
+      const actions = track.schedule(from, to, this.noteTaps, this.transport.playing ? this.transport.eventsFrom(cursor) : undefined, this.transport.eventsTo(cursor + frames))
       for (const action of actions) scheduled.push({ frame: cursor + this.eventFrame(action.beat, from, frames), order: this.scheduleRanks.get(track)!, action })
     }
   }

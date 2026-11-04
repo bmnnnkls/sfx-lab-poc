@@ -20,7 +20,7 @@ class EngineProcessor extends AudioWorkletProcessor {
         this.engine.apply(event.data.command)
         this.initialCommands?.push(event.data.command)
         const type = event.data.command.type
-        if (type.startsWith('transport/') || type.endsWith('/launch')) this.clockChanged = true
+        if (type.startsWith('transport/') || type.startsWith('arrangement/') || type.endsWith('/launch')) this.clockChanged = true
       } else if (event.data.kind === 'prepare') {
         this.prepare()
       }
@@ -39,6 +39,9 @@ class EngineProcessor extends AudioWorkletProcessor {
       this.framesSinceStatus = sampleRate * STATUS_INTERVAL_SECONDS
     }
     this.engine.render(left, right)
+    // A loop jump is stamped with its own frame's time, so the recording clock maps a touch to the right pass.
+    const jump = this.engine.lastJump()
+    if (jump) this.port.postMessage({ kind: 'clock', clock: { ...this.engine.clock(), beat: jump.beat }, audioTime: currentTime + jump.frame / sampleRate } satisfies WorkletMessage)
     this.reportStatus(left.length)
     return true
   }

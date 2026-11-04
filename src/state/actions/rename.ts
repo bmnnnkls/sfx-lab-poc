@@ -20,6 +20,7 @@ const HOME: Partial<Record<SubjectKind, ViewId>> = {
   nodes: 'instrument',
   'sample-marker': 'wave',
   'sample-region': 'wave',
+  'arrangement-marker': 'arrangement',
 }
 
 /** Starts renaming `subject` in place, in the view the menu was opened in, which is shown if it is hidden. */
@@ -70,6 +71,8 @@ export const commitRename = (subject: Subject, typed: string, context: ActionCon
       return store.editSampleMarks(subject.sampleId, (info) => renameMarker(info, subject.markerId, name))
     case 'sample-region':
       return store.editSampleMarks(subject.sampleId, (info) => updateRegion(info, subject.regionId, { name }))
+    case 'arrangement-marker':
+      return store.renameArrangementMarker(subject.markerId, name)
     case 'module':
       return store.updateModule(subject.moduleId, (module) => renameModule(module, name.slice(0, 60)))
     case 'sound':

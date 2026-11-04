@@ -23,6 +23,8 @@ export type EngineCommand =
   | { readonly type: 'arrangement/set'; readonly clips: readonly ArrangementClip[] }
   | { readonly type: 'arrangement/play'; readonly fromBeat?: number }
   | { readonly type: 'arrangement/stop' }
+  /** The range arrangement playback repeats, or null for none; session playback ignores it. */
+  | { readonly type: 'arrangement/setLoop'; readonly loop: { readonly from: number; readonly to: number } | null }
   | {
       readonly type: 'track/add'
       readonly kind: 'instrument'

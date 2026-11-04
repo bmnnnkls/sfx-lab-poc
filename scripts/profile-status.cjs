@@ -21,6 +21,8 @@
 //           (M, R and L), so the mark lane has something to draw. Needs round 11a (the marks, round 11c-2).
 //   wave-split  The wave setup with the second pane open on the same sample (View ▾ → Second pane), so two playheads
 //           run. Needs round 11c-3.
+//   loop    The editor setup with three markers (bars 1, 3 and 5) and a one-bar loop brace over bar 1, turned on, so
+//           the arrangement loops while it is measured. Needs round 12b.
 //   wave-spectrum  The wave setup with the lanes on the spectrogram (View ▾ → Spectrogram), filled in before
 //           measuring, and a box selected in it, so its outline is drawn and ▶ loops its time range. Needs round 11d-2.
 //
@@ -29,12 +31,12 @@ const { chromium } = require('@playwright/test')
 
 const [devUrl, previewUrl, secondsArg, setupArg] = process.argv.slice(2)
 if (!devUrl || !previewUrl) {
-  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four|groups|pinned|wave|wave-split|wave-spectrum]')
+  console.error('Usage: node scripts/profile-status.cjs <dev-url> <preview-url> [seconds] [editor|all|four|groups|pinned|loop|wave|wave-split|wave-spectrum]')
   process.exit(2)
 }
 const SECONDS = Number(secondsArg ?? 10)
 const SETUP = setupArg ?? 'editor'
-const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume', 'PinnedView', 'PinnedPanel', 'PanelView', 'ControlCell', 'CommandHost', 'HostDialogs', 'CommandPalette', 'SampleEditor', 'Overview', 'Ruler', 'DetailView', 'WaveLane', 'WavePlayhead', 'EditToolbar', 'EditSettings', 'ProcessMenu', 'ViewMenu', 'EditorSettings', 'WaveStatus', 'LaneScale', 'MarkLane', 'WavePane', 'PaneTitle', 'PaneSplitter']
+const WATCHED = ['ArrangementView', 'ArrangementRegion', 'ArrangementPlayhead', 'ArrangementMarks', 'ArrangementMarkLines', 'LevelBar', 'MixerStrip', 'EffectiveValue', 'TransportBar', 'Playhead', 'SessionView', 'ViewHost', 'TracksView', 'GroupCell', 'HiddenTracks', 'SoundingDot', 'ChannelStrip', 'BusStrip', 'GroupStrip', 'GroupVolume', 'PinnedView', 'PinnedPanel', 'PanelView', 'ControlCell', 'CommandHost', 'HostDialogs', 'CommandPalette', 'SampleEditor', 'Overview', 'Ruler', 'DetailView', 'WaveLane', 'WavePlayhead', 'EditToolbar', 'EditSettings', 'ProcessMenu', 'ViewMenu', 'EditorSettings', 'WaveStatus', 'LaneScale', 'MarkLane', 'WavePane', 'PaneTitle', 'PaneSplitter']
 
 // A stub React DevTools hook: React then runs in profiling mode (dev build) and reports every commit.
 const hook = () => {
@@ -217,6 +219,27 @@ const setUp = async (page, url) => {
     await wave.getByRole('button', { name: /^Play (from cursor|selection)$/ }).click()
   } else {
     if (SETUP === 'pinned') await pinPanels(page)
+    if (SETUP === 'loop') {
+      const arrangement = page.locator('[data-view="arrangement"]')
+      const ruler = arrangement.getByTestId('arrangement-ruler')
+      // 24 px a beat: markers on bars 1, 3 and 5, then the brace drawn over bar 1 in the mark lane and turned on.
+      // On the bar grid, so a click a few pixels in (clear of the header splitter) lands on the bar.
+      await arrangement.getByLabel('Grid').selectOption('bar')
+      for (const beat of [0, 8, 16]) {
+        await ruler.click({ position: { x: beat * 24 + 6, y: 10 } })
+        await arrangement.getByRole('button', { name: '+ Marker', exact: true }).click()
+      }
+      await ruler.click({ position: { x: 6, y: 10 } })
+      const lane = await arrangement.getByTestId('arrangement-marks').boundingBox()
+      // From the bar's end back to its start: the first marker's flag covers the start.
+      await page.mouse.move(lane.x + 4 * 24 - 6, lane.y + lane.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(lane.x + 6, lane.y + lane.height / 2, { steps: 4 })
+      await page.mouse.up()
+      await arrangement.getByRole('button', { name: '⟳ Loop', exact: true }).click()
+      const brace = arrangement.getByTestId('arrangement-loop-brace')
+      if (await brace.getAttribute('data-enabled') !== 'true' || await arrangement.getByTestId('arrangement-marker').count() !== 3) throw new Error('The loop setup did not take')
+    }
     await show(page, 'Mixer')
     await page.getByRole('button', { name: 'Play arrangement', exact: true }).click()
   }

@@ -34,7 +34,8 @@
   overscroll-behavior: contain;
   /* What scrolls into view lands beside the headers and under the ruler, not behind them. */
   scroll-padding-left: var(--header-width);
-  scroll-padding-top: 24px;
+  /* The ruler and the mark lane. */
+  scroll-padding-top: 44px;
 }
 
 .scroll:focus-visible {
@@ -164,7 +165,7 @@
 /* The playhead and the position lie over every lane, under the headers. */
 .overlay {
   position: absolute;
-  top: 24px;
+  top: 44px;
   bottom: 0;
   left: var(--header-width);
   pointer-events: none;
@@ -457,3 +458,156 @@
   opacity: 0.7;
 }
 
+
+/* The mark lane: under the ruler, sticky with it. */
+.marksRow {
+  position: sticky;
+  top: 24px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: var(--header-width) max-content;
+  height: 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.marksCorner {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.marks {
+  position: relative;
+  height: 20px;
+}
+
+.marksBody {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* A marker: a flag at its beat and its name, cut at the next marker. */
+.marker {
+  position: absolute;
+  top: 0;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 6px;
+  border: none;
+  border-left: 2px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel));
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.marker:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.markerName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markerRename {
+  position: absolute;
+  top: 0;
+  z-index: 3;
+}
+
+/* The loop brace: solid while looping is on, dimmed and dashed while it is off. */
+.brace {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border: 1px dashed color-mix(in srgb, var(--play, #4caf50) 70%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--play, #4caf50) 12%, transparent);
+  cursor: grab;
+  touch-action: none;
+  z-index: 1;
+}
+
+.brace[data-enabled] {
+  border-style: solid;
+  border-color: var(--play, #4caf50);
+  background: color-mix(in srgb, var(--play, #4caf50) 35%, transparent);
+}
+
+.brace:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.braceEdge {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.braceFrom {
+  left: -3px;
+}
+
+.braceTo {
+  right: -3px;
+}
+
+.braceEdge:hover {
+  background: color-mix(in srgb, var(--play, #4caf50) 55%, transparent);
+}
+
+/* The markers' and the brace's lines down the lanes, under the regions. */
+.markLines {
+  position: absolute;
+  top: 44px;
+  bottom: 0;
+  left: var(--header-width);
+  pointer-events: none;
+}
+
+.markLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.loopLine {
+  border-left-style: dashed;
+  border-left-color: color-mix(in srgb, var(--play, #4caf50) 35%, transparent);
+}
+
+.loopLine[data-enabled] {
+  border-left-style: solid;
+  border-left-color: color-mix(in srgb, var(--play, #4caf50) 60%, transparent);
+}
+
+.toolbar button[aria-pressed='true'].loopButton {
+  color: var(--bg);
+  background: var(--play, #4caf50);
+  border-color: var(--play, #4caf50);
+}

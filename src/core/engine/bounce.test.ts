@@ -179,6 +179,18 @@ describe('renderProject', () => {
     expect(frequencyOf(result.left, 8 * beat + 4800, 9 * beat)).toBeCloseTo(220, -1)
   })
 
+  it('the arrangement renders the whole timeline once, whatever the loop', () => {
+    const { project, trackId } = withTone()
+    const looping = { ...createArrangementClip(trackId, 0, createClip('loop', 4, [createNote(69, 0, 1, 1)])), loop: true as const }
+    const next = createArrangementClip(trackId, 8, createClip('next', 4, [createNote(57, 0, 1, 1)]))
+    const plain = { ...project, arrangement: [looping, next] }
+    const looped = { ...plain, arrangementLoop: { from: 0, to: 2, enabled: true } }
+    const once = renderProject(plain, [], { scope: { kind: 'arrangement' }, maxTail: 0 })
+    const result = renderProject(looped, [], { scope: { kind: 'arrangement' }, maxTail: 0 })
+    expect(result.left).toHaveLength(6 * RATE)
+    expect(result.left).toEqual(once.left)
+  })
+
   it('the arrangement throws when the timeline is empty, and its samples are decoded', () => {
     expect(() => renderProject(blank(), [], { scope: { kind: 'arrangement' }, maxTail: 0 })).toThrow(/arrangement/)
     const info: SampleInfo = { id: 'a'.repeat(64), name: 'tone', extension: 'wav', durationSeconds: 1, sampleRate: RATE, channels: 1, bytes: 0 }

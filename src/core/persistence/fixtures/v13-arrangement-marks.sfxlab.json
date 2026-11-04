@@ -1,0 +1,55 @@
+{
+  "format": "sfx-lab-project",
+  "version": 13,
+  "project": {
+    "name": "Arrangement marks",
+    "tempo": 120,
+    "sceneCount": 1,
+    "samples": [],
+    "modules": [],
+    "tracks": [
+      {
+        "kind": "instrument",
+        "id": "track-bass",
+        "name": "Bass",
+        "volume": 0.8,
+        "voices": 4,
+        "patch": {
+          "nodes": [
+            { "id": "n1", "type": "note", "x": 10, "y": 20, "params": {} },
+            { "id": "n2", "type": "oscillator", "x": 200, "y": 20, "params": { "waveform": 2, "frequency": 220, "detune": 0 } },
+            { "id": "n3", "type": "output", "x": 400, "y": 20, "params": {} }
+          ],
+          "connections": [
+            { "id": "w1", "from": { "node": "n1", "port": "frequency" }, "to": { "node": "n2", "port": "freq" } },
+            { "id": "w2", "from": { "node": "n2", "port": "out" }, "to": { "node": "n3", "port": "in" } }
+          ]
+        },
+        "clips": [null]
+      }
+    ],
+    "arrangement": [
+      {
+        "id": "arr-riff",
+        "trackId": "track-bass",
+        "startBeat": 4,
+        "loop": true,
+        "content": {
+          "id": "clip-riff",
+          "name": "Riff",
+          "lengthBeats": 4,
+          "notes": [
+            { "pitch": 40, "start": 0, "duration": 1, "velocity": 0.8 },
+            { "pitch": 43, "start": 2, "duration": 1.5, "velocity": 0.7 }
+          ]
+        }
+      }
+    ],
+    "arrangementMarkers": [
+      { "id": "marker-intro", "beat": 0, "name": "Intro" },
+      { "id": "marker-verse", "beat": 8, "name": "Verse" },
+      { "id": "marker-chorus", "beat": 24, "name": "Chorus" }
+    ],
+    "arrangementLoop": { "from": 8, "to": 16, "enabled": true }
+  }
+}

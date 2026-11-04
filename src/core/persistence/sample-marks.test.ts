@@ -121,11 +121,10 @@ describe('format v12: a sample\'s loop and lineage', () => {
     expect(revertBlocked(sample!)).toBeNull()
   })
 
-  it('round-trips, and saves as v12', () => {
+  it('round-trips, and saves as the current version', () => {
     const { project } = parseOk(fixture('v12-sample-lineage.sfxlab.json'))
     const text = serializeProject(project)
-    expect(CURRENT_VERSION).toBe(12)
-    expect(JSON.parse(text).version).toBe(12)
+    expect(JSON.parse(text).version).toBe(CURRENT_VERSION)
     expect(parseOk(text).project).toEqual(project)
   })
 

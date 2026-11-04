@@ -1,4 +1,4 @@
-import { arrangementEnd, isAudioContent } from '@core'
+import { arrangementEnd, arrangementLoopEnd, isAudioContent } from '@core'
 import { openClip, openRegion } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { editSampleOf, sampleInLibrary } from './clip'
@@ -64,6 +64,16 @@ export const regionActions: readonly Action<RegionSubject>[] = [
     run: (subject) => {
       const region = regionOf(subject)
       if (region) useProjectStore.getState().updateArrangementClip(region.id, { loop: !region.loop })
+    },
+  },
+  {
+    id: 'region.set-loop',
+    title: 'Set loop to region',
+    group: 'edit',
+    tooltip: () => 'Put the loop brace over the region, to where it stops sounding',
+    run: (subject) => {
+      const region = regionOf(subject)
+      if (region) useProjectStore.getState().setArrangementLoop({ from: region.startBeat, to: arrangementLoopEnd(region, project().arrangement ?? []) })
     },
   },
   {

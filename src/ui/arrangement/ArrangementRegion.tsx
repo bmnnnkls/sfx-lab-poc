@@ -8,7 +8,7 @@ import { gridBeats, openRegion, useArrangementView, useProjectStore } from '@sta
 import { useRef } from 'react'
 import { autoScrollUnits } from '../shared/timeline'
 import { WaveformThumb } from '../shared/WaveformThumb'
-import { regionSnapping, snapBeat, snapRegionStart } from './region-snap'
+import { snapBeat, snapRegionStart, timelineSnapping } from './region-snap'
 import { visibleTimeline } from './use-timeline-zoom'
 import styles from './arrangement.module.css'
 
@@ -91,7 +91,7 @@ export const ArrangementRegion = ({ region, pxPerBeat, selected, onSelect, ...do
   const move = (state: DragState, x: number, y: number) => {
     const deltaBeats = (x - state.startX + (state.scroller?.scrollLeft ?? 0) - state.startLeft) / pxPerBeat
     const axis = { start: 0, perPixel: 1 / pxPerBeat, width: 1 }
-    const snapping = state.alt ? null : regionSnapping(useProjectStore.getState().project.arrangement ?? [], region.id)
+    const snapping = state.alt ? null : timelineSnapping(useProjectStore.getState().project, region.id)
     const grid = state.alt ? null : gridBeats(useArrangementView.getState().grid)
     const snap = (beat: number) => snapBeat(beat, grid, snapping, axis)
     if (state.resizing) {

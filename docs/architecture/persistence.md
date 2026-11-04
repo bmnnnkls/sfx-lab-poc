@@ -9,7 +9,9 @@ History, autosave, import and export, and the signature canonicalization behind 
   and patches are shared between entries and keeping 200 steps is cheap.
 * **Every document edit is undoable**, including replacing the whole project (import / new / demo / restore).
   The startup load is not (`resetProject`), so a fresh session starts with an empty history. Selection, transport
-  and the playhead are not part of history.
+  and the playhead are not part of history. **View fields** are saved but not undone: a group's `collapsed`, a track's
+  `hidden`, the pins and the arrangement loop's `enabled`. The store writes them with `editView`, and `withViewOf` gives
+  a project that undo or redo brings back what shows now.
 * **Drags are one step.** Continuous edits pass a merge key (`param:<track>:<node>:<param>`, `move:<track>:<node>`,
   `volume:<track>`, `tempo`, `name`); consecutive edits with the same key within 800 ms collapse into a single
   entry. Discrete actions (add node, connect, toggle note, add track…) pass no key, so each is its own step.
@@ -44,6 +46,8 @@ History, autosave, import and export, and the signature canonicalization behind 
   It never throws.
 * **To change the saved shape:** bump `CURRENT_VERSION`, add a migration, and commit a new fixture beside
   `persistence/fixtures/v1-minimal.sfxlab.json` — the old fixture must keep loading.
+* **The arrangement's fields**, all optional: `arrangement` (regions, `sanitizeArrangement`), `arrangementMarkers` and
+  `arrangementLoop` (v13, `sanitizeArrangementMarks`); see [the arrangement](clips-and-arrangement.md#the-arrangement-clips-on-a-timeline).
 * **Autosave:** `app/autosave.ts` subscribes to the project store; `storage/autosaver.ts` debounces (500 ms)
   and flushes on tab hide / `pagehide`. The header shows Saved / Saving… / Not saved.
 * **Startup:** `app/services.ts` loads the saved project *before* the first render. With nothing saved, a first visit opens on

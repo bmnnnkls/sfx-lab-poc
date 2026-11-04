@@ -12,7 +12,7 @@ describe('ProjectStorage', () => {
     expect(storage.loadCurrent().status).toBe('loaded')
     expect(storage.saveCurrent(createEmptyProject())).toEqual({ ok: true })
     expect(store.getItem('sfxlab:pre-signature-v9')).toBe(old)
-    expect(JSON.parse(store.getItem('sfxlab:project')!).version).toBe(12)
+    expect(JSON.parse(store.getItem('sfxlab:project')!).version).toBe(13)
     storage.saveCurrent(createDemoProject())
     storage.saveBackup(createEmptyProject())
     expect(store.getItem('sfxlab:pre-signature-v9')).toBe(old)

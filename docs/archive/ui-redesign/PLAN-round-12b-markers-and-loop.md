@@ -1,16 +1,17 @@
 ---
-status: active
+status: done
 date: 2026-11-04
-note: "Part 2 of the round 12 spec: markers and a loop brace in a mark lane, the transport looping the arrangement, a seek that releases what was sounding, format v13. Waiting for sign-off."
+shipped_in: architecture/clips-and-arrangement.md
+note: "Part 2 of the round 12 spec: markers and a loop brace in a mark lane, the transport looping the arrangement, a seek that releases what was sounding, format v13. Signed off 2026-11-04, every decision as proposed; done 2026-11-04."
 ---
 # Round 12b: markers and the loop
 
-Status: **plan, waiting for sign-off.** Written 2026-11-04. Part of the [UI redesign](../archive/ui-redesign/README.md).
-Carries out part 2 of the signed-off [round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
+Status: **done** 2026-11-04; the plan was signed off 2026-11-04, every decision as proposed. Written 2026-11-04. Part of the [UI redesign](README.md).
+Carries out part 2 of the signed-off [round 12 spec](../../active/SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
 § 2, markers and the loop brace, and § 5, format v13. The inventory was taken on `imp/hungry-cannon-e8e493` at `c680c55`
 (round 12a done, not merged into `feat/ui-redesign` yet). The spec's decisions are settled and not repeated here; this
 plan only adds the ones it raises. Where it differs from the spec or from
-[12a's plan](../archive/ui-redesign/PLAN-round-12a-timeline-frame.md), it says so.
+[12a's plan](PLAN-round-12a-timeline-frame.md), it says so.
 
 ## Goal
 
@@ -36,7 +37,7 @@ The arrangement can be marked up and looped. After this part:
 
 ## Inventory
 
-What 12b touches, beyond the [spec's inventory](SPEC-round-12-arrangement-editor.md#inventory) and 12a's.
+What 12b touches, beyond the [spec's inventory](../../active/SPEC-round-12-arrangement-editor.md#inventory) and 12a's.
 
 ### The format
 
@@ -236,8 +237,8 @@ ports). Steps 2 and 4 also run `npm run test:audio`.
    lists *Add marker here* with the timeline focused.
 6. **Docs and the profile.** `architecture/clips-and-arrangement.md` (the marks, the loop, the seek),
    `architecture/persistence.md`, `reference/formats-and-versions.md`; this plan's "Changes made while implementing",
-   sorted per [doc-workflow](../dev/doc-workflow.md); STATUS and BACKLOG; the profile in
-   [baselines](../reference/baselines.md).
+   sorted per [doc-workflow](../../dev/doc-workflow.md); STATUS and BACKLOG; the profile in
+   [baselines](../../reference/baselines.md).
 
 ## Behavior changes
 
@@ -263,6 +264,8 @@ ports). Steps 2 and 4 also run `npm run test:audio`.
 
 ## Decisions to sign off
 
+Signed off 2026-11-04: every row as proposed.
+
 | Question | Proposed | Alternative |
 |---|---|---|
 | How the marks are drawn | **DOM elements** in the native scroller, like the regions: presses, focus, menus and rename for free. The wave editor's mark geometry stays where it is. Differs from 12a's plan, which moved it here for canvas marks | A canvas mark lane like the wave editor's, with the shared geometry |
@@ -279,4 +282,92 @@ ports). Steps 2 and 4 also run `npm run test:audio`.
 
 ## Changes made while implementing
 
-(Filled in while building.)
+### Step 1: the model and format v13
+
+* **A new loop is off.** `setArrangementLoop` keeps `enabled` from the loop it replaces; a brace drawn where there was
+  none starts off, so drawing never starts looping by itself. The plan's browser step (draw, then turn it on) assumed it.
+* **The sanitizer names a nameless marker** *Marker N* (its place in the file) instead of dropping it: the name is not
+  what makes a marker valid. It warns only for what it drops or re-ids, and for a loop it orders or stretches.
+* **A loop squeezed at the timeline's end** stretches backwards (`MAX_TIMELINE_BEATS - 1` to the end), as a sample
+  loop does at its sample's end.
+* **`project-storage.test.ts` pinned the format version** (`toBe(12)`): a bump has to touch it too, as it does
+  `sample-marks.test.ts`, which now checks against `CURRENT_VERSION`.
+* `arrangementStops` and `nextArrangementMarker`, which the keys and *Loop to next marker* need, landed with the model.
+
+### Step 2: the engine
+
+* **A seek releases the timeline's notes, not live keys.** The plan said `cancelNotes()` on every instrument track,
+  which also drops a held MIDI key and an audition. The seek cancels by source instead: each track releases the clip
+  notes of every track in its tap component (`clipSource(id)`), so notes reaching it through a tap go too, and a key
+  held while the loop goes round keeps sounding.
+* **The events of a block, not its samples, are cut at the loop.** A block that runs into `to` ends past it by part of
+  a sample; its event range is cut at `to` (`Transport.eventsTo`), or a region starting at `to` would start on the last
+  sample before the jump (a 5 ms tail of it after). The block after the jump starts its events at `from`
+  (`eventsFrom`), though the position carries the overshoot past it, or a note on the loop's first beat would be
+  skipped on every pass after the first. Both have a unit test that fails without them.
+* **An unwarped region joined mid-way now plays in phase** (`joinedPosition`). Before, an arrangement region with
+  `warp: 'off'` that playback joined after its start (a play or seek from inside it) read from the sample's start, so
+  a loop whose start is inside such a region would replay the sample's head on every pass. Session clips are unchanged:
+  they never join mid-way.
+* **The jump's clock packet** carries the transport's `clock()` with the jump's beat, stamped
+  `currentTime + frame / sampleRate`; the status after it agrees, so `RecordingClock` keeps one anchor for it, as the
+  plan expected.
+* **The audio spec drives the engine with raw commands** (a neutral master, its own audio track, 240 BPM so a bar is a
+  second at any rate) and compares each pass with an offline `Engine` render of the bar, as the plan said; driving it
+  from the UI is step 4's.
+
+### Step 3: subjects and actions
+
+* **A marker's name in the palette** is *Marker Verse*, as planned, but a default name already says it: *Marker 2*,
+  not *Marker Marker 2* (`markerTitle`, shared with the mark lane's accessible names).
+* ***Zoom to loop*** sits in the `view` group after *Remove loop* (`delete`), since the menus keep the group order;
+  the plan's table listed it before.
+* The context-menus smoke spec pins the region menu's entries, so *Set loop to region* changed it too.
+
+### Step 4: the mark lane
+
+* **A drag's merge key is per gesture** (`arr-loop:<n>`, `arr-marker:<id>:<n>`), not the plan's `arr-loop` and
+  `arr-marker:<id>`: drawing a brace and then resizing it within the history's merge window made one undo step, which
+  the browser spec caught (undo took the brace away, not the resize). A drag is still one step.
+* **The mark lane's elements stop the press from reaching the scroller**, so a press in its empty space focuses the
+  timeline itself (as a press on the lanes does) before the draw starts.
+* **A brace's edge sits inside the brace**, so its moves and its release stop there; otherwise each move ran twice.
+* **The lines down the lanes are a layer before the lanes**, not in the playhead's overlay: the overlay is drawn over
+  the regions, and the lines go under them.
+* **The UI-driven audio spec** gives the engine the sweep's region with raw commands (the starter has no audio to
+  loop), then draws the brace, turns it on and plays from the view, and checks the same three passes.
+* The views-at-min-size spec checks ⟳ *Loop* and the mark lane's corner at the Arrangement's minimum sizes; the
+  toolbar's two new buttons still fit.
+
+### Step 5: keys
+
+* **`timelineKeyAction` takes the marks as numbers** (`stops`, from `arrangementStops`) and whether there is a brace
+  (`hasLoop`), and answers `addMarker` and `toggleLoop` for the view to run, so the function stays pure.
+* **A closing menu gives the focus back to its trigger a tick later**: the browser spec focused the timeline right after
+  *Loop to next marker*, the marker took the focus back, and the second L went to it. The spec waits for the marker's
+  focus first (round 5's gotcha, met again).
+* The *Arrangement* row for Z now says it zooms to the loop without a selected region.
+
+### Step 6: docs and the profile
+
+* **The profile** (`6353599`, load average 5 to 7): `editor` 87 component renders a second, `groups` 58, as 12a left
+  them; the new `loop` setup 87. The mark lane renders 0 times. The `loop` setup draws the brace from the bar's end
+  back to its start and clicks a few pixels in on the *Bar* grid: the first marker's flag covers the bar's start, and
+  the header splitter reaches 3 px into the ruler.
+* **Not verified by hand:** drags in the mark lane on a trackpad, rename in place, the brace in both themes, and
+  listening to a loop with held notes and an unwarped region across the jump, in Chrome, Firefox and Safari: added to
+  BACKLOG V11.
+
+### Where the notes went
+
+* Invariants (the seek's scope, the event range cut at the loop's ends, joined unwarped regions, the clock packet, the
+  per-gesture merge keys, the lines under the regions) are in
+  [clips-and-arrangement](../../architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) and
+  [persistence](../../architecture/persistence.md).
+* Decisions 69 to 77 in [decisions](../../decisions/README.md).
+* Gotchas: drags that merge in a spec, the test outside `core/persistence` a bump touches, nested pointer handlers
+  ([gotchas](../../dev/gotchas.md)); testing at a tempo where edges fall between samples
+  ([verification](../../dev/verification.md)).
+* The profile in [baselines](../../reference/baselines.md); the v13 row in
+  [formats and versions](../../reference/formats-and-versions.md); the hand pass in [BACKLOG](../../BACKLOG.md) V11.
+

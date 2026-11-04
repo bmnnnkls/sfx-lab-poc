@@ -4,14 +4,17 @@ import {
   arrangementOnTrack,
   arrangementRows,
   type ArrangementClip,
-  timelineEnd,
+  type ArrangementLoop,
+  arrangementContentEnd,
+  arrangementStops,
 } from '@core'
-import { ARRANGEMENT_ZOOM, TIMELINE_GRIDS, type TimelineGrid, gridBeats, playArrangementFromPosition, setArrangementPosition, stopArrangement, useArrangementView, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore } from '@state'
+import { ARRANGEMENT_ZOOM, TIMELINE_GRIDS, type TimelineGrid, gridBeats, playArrangementFromPosition, setArrangementPosition, stopArrangement, toggleArrangementLoop, useArrangementView, useEngineControls, useLayoutStore, useProjectStore, useSelectionStore } from '@state'
 import { type CSSProperties, Fragment, type ReactNode, useRef, useState } from 'react'
 import { viewTitles } from '../layout/view-titles'
 import { useDropTarget } from '../shared/drag'
-import { ActionMenu } from '../shared/menu'
+import { ActionMenu, useFocusSubjects } from '../shared/menu'
 import { ArrangementHeader } from './ArrangementHeader'
+import { ArrangementMarkLines, ArrangementMarks } from './ArrangementMarks'
 import { ArrangementPlayhead, ArrangementPosition, PositionMark } from './ArrangementPlayhead'
 import { ArrangementRegion } from './ArrangementRegion'
 import { ArrangementRuler } from './ArrangementRuler'
@@ -33,6 +36,9 @@ export const regionZoom = (region: ArrangementClip, regions: readonly Arrangemen
   from: Math.max(0, region.startBeat - BEATS_PER_BAR),
   to: arrangementLoopEnd(region, regions) + BEATS_PER_BAR,
 })
+
+/** *Zoom to selection* with no region selected: the loop brace and a bar on each side. */
+export const loopZoom = (loop: ArrangementLoop) => ({ from: Math.max(0, loop.from - BEATS_PER_BAR), to: loop.to + BEATS_PER_BAR })
 
 /** A beat on the grid as it is set now; with Alt held, or the grid off, where it is. */
 const onGrid = (beats: number, alt: boolean): number => {
@@ -97,7 +103,7 @@ export const ArrangementView = () => {
   /** Where an empty lane was right-clicked, so "add" places the clip there. */
   const [placedAt, setPlacedAt] = useState(0)
 
-  const end = timelineEnd(arrangement)
+  const end = useProjectStore((state) => arrangementContentEnd(state.project))
   const bars = Math.max(MIN_BARS, Math.ceil(end / BEATS_PER_BAR) + TRAILING_BARS)
   const width = bars * BEATS_PER_BAR * pxPerBeat
   const { barPx, gridPx } = gridSpacing(pxPerBeat, gridBeats(grid))
@@ -106,8 +112,13 @@ export const ArrangementView = () => {
   const scrollerWidth = useElementWidth(scroller)
   const minPx = minPxPerBeat(bars * BEATS_PER_BAR, Math.max(1, scrollerWidth - headerWidth))
   const selectedRegion = useProjectStore((state) => state.project.arrangement?.find((region) => region.id === selected))
+  const loop = useProjectStore((state) => state.project.arrangementLoop)
+  // *Zoom to selection* shows the selected region, else the brace.
+  const selection = selectedRegion ? regionZoom(selectedRegion, arrangement) : loop ? loopZoom(loop) : null
 
   useFollowPause(scroller)
+  // The focused timeline is the timeline at the position: the palette lists *Add marker here* and the loop there.
+  useFocusSubjects(scroller, () => [{ kind: 'arrangement-timeline', beat: useArrangementView.getState().position }])
   const follow = useArrangementView((state) => state.follow)
   const following = useArrangementView((state) => state.following)
 
@@ -148,10 +159,10 @@ export const ArrangementView = () => {
           Zoom to fit
         </button>
         <button
-          disabled={!selectedRegion}
-          title={selectedRegion ? 'Zoom to the selected region (Z)' : 'Select a region to zoom to it'}
+          disabled={!selection}
+          title={selectedRegion ? 'Zoom to the selected region (Z)' : loop ? 'Zoom to the loop (Z)' : 'Select a region, or draw a loop, to zoom to it'}
           onClick={() => {
-            if (selectedRegion) useArrangementView.getState().zoom(regionZoom(selectedRegion, arrangement))
+            if (selection) useArrangementView.getState().zoom(selection)
           }}
         >
           Zoom to selection
@@ -164,6 +175,23 @@ export const ArrangementView = () => {
           onClick={() => useArrangementView.getState().setFollow(!follow || !following)}
         >
           Follow
+        </button>
+        <button
+          title="Add a marker at the position (M)"
+          onClick={() => {
+            useProjectStore.getState().addArrangementMarker(useArrangementView.getState().position)
+          }}
+        >
+          + Marker
+        </button>
+        <button
+          className={styles.loopButton}
+          aria-pressed={loop?.enabled === true}
+          disabled={!loop}
+          title={loop ? 'Loop the brace while the arrangement plays (L)' : 'Drag in the mark lane to draw a loop first'}
+          onClick={toggleArrangementLoop}
+        >
+          ⟳ Loop
         </button>
         <span className={styles.info}>{HINT}</span>
       </div>
@@ -184,8 +212,10 @@ export const ArrangementView = () => {
             position: view.position,
             gridBeats: gridBeats(view.grid),
             visibleBeats: width / view.pxPerBeat,
-            end: timelineEnd(arrangement),
-            selection: selectedRegion ? regionZoom(selectedRegion, arrangement) : null,
+            end,
+            selection,
+            stops: arrangementStops(useProjectStore.getState().project),
+            hasLoop: loop !== undefined,
           })
           if (!action) return
           event.preventDefault()
@@ -202,11 +232,13 @@ export const ArrangementView = () => {
           }
           if (action.zoomTo) view.zoom(action.zoomTo)
           if (action.toggleFollow) view.setFollow(!view.follow || !view.following)
+          if (action.addMarker) useProjectStore.getState().addArrangementMarker(view.position)
+          if (action.toggleLoop) toggleArrangementLoop()
         }}
         onPointerDown={(event) => {
           // A press on the lanes or the ruler (not a region, a header or a button) gives the timeline the keys.
           const target = event.target as Element
-          if (target.closest('[data-lane], [data-testid="arrangement-ruler"]')) event.currentTarget.focus({ preventScroll: true })
+          if (target.closest('[data-lane], [data-marks], [data-testid="arrangement-ruler"]')) event.currentTarget.focus({ preventScroll: true })
         }}
       >
         <div className={styles.timeline}>
@@ -226,6 +258,16 @@ export const ArrangementView = () => {
               <PositionMark pxPerBeat={pxPerBeat} />
               <ArrangementRuler scroller={scroller} pxPerBeat={pxPerBeat} headerWidth={headerWidth} />
             </div>
+          </div>
+          <div className={styles.marksRow}>
+            <div className={styles.marksCorner} title="Markers and the loop brace">
+              Markers
+            </div>
+            <ArrangementMarks scroller={scroller} pxPerBeat={pxPerBeat} width={width} />
+          </div>
+          {/* Before the lanes, so the regions are drawn over the lines. */}
+          <div className={styles.markLines} style={{ width }} aria-hidden>
+            <ArrangementMarkLines pxPerBeat={pxPerBeat} />
           </div>
           {rows.map((row) => {
             if (row.kind === 'group') {

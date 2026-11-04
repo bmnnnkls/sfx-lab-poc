@@ -1,5 +1,6 @@
-import { type ControlOwner, controlTargetLabel, nodeTitles, patchAt } from '@core'
+import { BEATS_PER_BAR, type ControlOwner, controlTargetLabel, nodeTitles, patchAt } from '@core'
 import { useLibraryStore } from '../library-store'
+import { markerTitle } from './arrangement-marks'
 import { GRAPH_TITLES } from './pin'
 import { editTargetOf } from './nodes'
 import { project, sessionClipOf, trackOf } from './lookup'
@@ -14,6 +15,9 @@ const ownerName = (owner: ControlOwner): string =>
 
 const sampleOf = (sampleId: string) => project().samples?.find((sample) => sample.id === sampleId)
 const sampleName = (sampleId: string) => sampleOf(sampleId)?.name ?? 'sample'
+
+/** A beat on the arrangement's timeline as its bar and beat, counted from 1: beat 16 is *5.1*. */
+const barBeat = (beat: number): string => `${Math.floor(beat / BEATS_PER_BAR) + 1}.${Math.floor(beat % BEATS_PER_BAR) + 1}`
 
 const sceneName = (scene: number): string => project().sceneNames?.[scene] || `Scene ${scene + 1}`
 
@@ -74,5 +78,15 @@ export const subjectName = (subject: Subject): string => {
       return `${sampleOf(subject.sampleId)?.regions?.find((region) => region.id === subject.regionId)?.name ?? 'Region'} in ${sampleName(subject.sampleId)}`
     case 'sample-loop':
       return `Loop in ${sampleName(subject.sampleId)}`
+    case 'arrangement-marker': {
+      const name = project().arrangementMarkers?.find((marker) => marker.id === subject.markerId)?.name
+      return name ? markerTitle(name) : 'Marker'
+    }
+    case 'arrangement-loop': {
+      const loop = project().arrangementLoop
+      return loop ? `Loop ${barBeat(loop.from)} – ${barBeat(loop.to)}` : 'Loop'
+    }
+    case 'arrangement-timeline':
+      return `Timeline at ${barBeat(subject.beat)}`
   }
 }

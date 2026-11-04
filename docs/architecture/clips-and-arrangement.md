@@ -128,7 +128,8 @@ Arrangement), and Tab switches views like in Ableton.
 * **The timeline's bound.** No region ends past `MAX_TIMELINE_BEATS` (4096 beats, 1024 bars of 4/4,
   `core/project/limits.ts`): `createArrangementClip` and `updateArrangementClip` clamp `startBeat` through
   `clampStartBeat`, and the sanitizer drops a region past it with a warning. `timelineEnd(regions)` is the last beat
-  any region sounds (its loop end); the view draws at least 32 bars and 4 past it.
+  any region sounds (its loop end); `arrangementContentEnd(project)` is the later of that, the loop brace's end and the
+  last marker, and the view draws at least 32 bars and 4 past it.
 * **Files.** `sanitizeArrangement` keeps a region's `loop` (only a real `true`), and drops a region whose track or
   sample is missing.
 * **Playback.** Which regions sound is *derived from the transport position*, not queued: `ArrangementPlayer`
@@ -136,7 +137,9 @@ Arrangement), and Tab switches views like in Ableton.
   events of the regions overlapping each beat range. A MIDI region plays **once** (notes are cut at its end, and
   released on the range that crosses it); an audio region is phase-locked to its timeline start exactly like
   session clips (`AudioEvent.origin` is the loop base the player derives its read position from) and stops at its
-  end. A seek plays what is under the playhead: audio joins in phase, notes that start after the seek position fire.
+  end. A seek plays what is under the playhead: audio joins in phase, notes that start after the seek position fire. An
+  audio region joined after its start reads from where it is at that beat, `warp: 'off'` included (`joinedPosition`):
+  its read position is the beats since its start at the sample's own rate, wrapped when it loops.
 * **Looping regions.** A region with `loop: true` repeats its clip on the timeline: the pass math of
   `ClipLauncher.clipEvents` (one pass per clip length, notes cut at the pass end, the pass index part of the note
   identity) applied per region, until `arrangementLoopEnd` — the start of the **next region on that track** (any
@@ -152,11 +155,39 @@ Arrangement), and Tab switches views like in Ableton.
   switch back to the session. `EngineStatus.mode` says which plays, so the arrangement's playhead shows only while
   the timeline plays. A track added mid-arrangement follows the timeline like the rest. `arrangement/set` pushes the
   whole region list (it is small, and edits create new arrays).
+* **Seeking while it plays** (`Engine.seekArrangement`). `arrangement/play` while the arrangement already plays, and
+  the loop's jump, move the transport and release what was sounding there: each instrument track cancels the timeline
+  notes of every track in its tap component (scoped to `clipSource(id)`, so a held MIDI key and an audition keep
+  sounding, and notes reaching it through a tap go too), with an all-off at the jump so release tails start there; each
+  audio track resets its arrangement player and fades what it plays out in 5 ms, so the region under the new position
+  starts there, in phase.
+* **Markers and the loop brace** (`core/project/arrangement-marks.ts`). `Project.arrangementMarkers` are
+  `{ id, beat, name }`, at most 256 (`MAX_ARRANGEMENT_MARKERS`), kept in beat order, inside `[0, MAX_TIMELINE_BEATS]`,
+  named *Marker N* (the lowest N not taken) when added without a name. `Project.arrangementLoop` is
+  `{ from, to, enabled? }`, ordered, inside the timeline and at least a beat long (`MIN_LOOP_BEATS`; a shorter range is
+  stretched). The edits are pure and return the same project when nothing changes. Markers and the loop's range are
+  project edits, undone, a drag being one step; `enabled` is a view field, written by `editView` and carried across undo
+  and redo by `withViewOf`, as a group's `collapsed` is. A new brace is off; changing its range keeps whether it is on.
+* **The transport loop.** `Transport.loop` is the range playback repeats, set by `arrangement/setLoop { loop }`;
+  `diffProject` sends it when the brace's range or `enabled` changes, with `null` for no brace or looping off. The
+  engine applies it only while the arrangement plays, so session playback ignores it. In `render`, a block never crosses
+  the loop's end: with the position before `to`, a block is at most the frames to the last sample before it
+  (`framesToLoopEnd`), and after the block that reaches it the position jumps to `from` plus what it passed `to` by
+  (`loopJump`), so the phase stays exact over any number of passes. That block's events are cut at `to`
+  (`Transport.eventsTo`), so a region starting at the loop's end never sounds before the jump, and the block after the
+  jump starts its events at `from` (`eventsFrom`), so a note on the loop's first beat sounds on every pass. Playback
+  from before the brace runs into it and then loops; from after it, it plays on and never loops. The jump goes through
+  `seekArrangement`, so notes held across it are released at it and audio restarts in phase.
+* **The clock after a jump.** `Engine.lastJump()` is the frame and beat of the latest jump in a `render` call; the
+  worklet posts a clock packet stamped with that frame's own time (`currentTime + frame / sampleRate`), and after every
+  `arrangement/` command, as after `transport/` ones, so the recording clock anchors the jump where it happened.
+* **The bounce ignores the loop**: after `diffProject`, it sends `arrangement/setLoop { loop: null }`, so an export
+  renders the whole timeline once.
 * **The view's layout** (`ui/arrangement/`). A toolbar over **one scroller** for both axes. Its content is a grid of the
   header column and the timeline; the headers are `position: sticky` at its left and the ruler row at its top, so a
   sideways scroll moves only the timeline and an up-and-down one moves headers and lanes together, with no script to
-  keep them in step. The scroller's `scroll-padding` is the header column and the ruler, so what scrolls into view
-  lands beside them, not behind them. The rows come from `arrangementRows(project)` (`core`): `visibleRows` without the
+  keep them in step. The scroller's `scroll-padding` is the header column and the ruler with the mark lane (44 px), so
+  what scrolls into view lands beside them, not behind them. The rows come from `arrangementRows(project)` (`core`): `visibleRows` without the
   returns, each track with its group's colour, memoized like `trackRows`.
 * **Headers.** A track's header has its name (click or Enter selects the track, marked while selected), and the
   mixer's `MuteSolo` (`ui/shared/MuteSolo.tsx`: lit for the row's own flag, half lit through a group); a muted row's
@@ -171,11 +202,30 @@ Arrangement), and Tab switches views like in Ableton.
   (`formatBeat`) as the zoom allows, at least 72 px apart (`ticks` from `ui/shared/timeline`, steps up to 2048 beats).
   The lanes' bar and grid lines are CSS gradients sized by `--bar-px` and `--grid-px` (`gridSpacing`): grid lines
   closer than 4 px aren't drawn, and bars that close show every fourth.
+* **The mark lane** (`ArrangementMarks.tsx`), a 20 px row under the ruler, sticky at the top with it; its cell under
+  the corner says *Markers*. Markers and the brace are **DOM elements**, as regions are, not a canvas as in the wave
+  editor: each presses, takes the focus (so its verbs and the palette act on it), carries a menu and hosts the rename
+  field, with no hit-testing code. A marker is a button at its beat, a flag and its name, cut at the next marker; the
+  brace is one element from `from` to `to` with 6 px edge handles, solid while looping is on and dimmed and dashed
+  while it is off. Faint lines down the lanes, one per marker and two for the brace, are a layer before the lanes, so
+  the regions are drawn over them. **Gestures:** a press on a marker and a drag moves it, a click without a drag puts
+  the position there and a double-click renames it in place (`RenameField`); a drag in the empty lane draws a new
+  brace from the press to the pointer, replacing the old range, and a click there sets the position, as the ruler
+  does; the brace's body drags it whole (its end snapping when nearer, as a region's does) and its edges resize it,
+  never under a beat. All snap to the grid and to `timelineSnapping`'s targets, Alt to nothing, and a drag near or
+  past the side auto-scrolls. Each gesture is one undo step, its edits merging under a key of its own
+  (`arr-loop:<n>`, `arr-marker:<id>:<n>`), so a draw and a resize right after it are two. A press in the empty lane
+  gives the timeline the keys. **Menus:** a marker's (*Go to*, *Rename*, *Loop to next marker*, *Delete*), the
+  brace's (*Loop* or *Stop looping*, *Remove loop*, *Zoom to loop*) and the empty lane's (*Add marker here* at the
+  clicked beat, the loop toggle); a region's menu has *Set loop to region* (the brace over it, to its loop end). The
+  subjects are `arrangement-marker`, `arrangement-loop` and `arrangement-timeline` (`state/actions/arrangement-marks.ts`),
+  and the focused timeline gives `arrangement-timeline` at the position, so the palette lists *Add marker here* and the
+  toggle there. The toolbar has *+ Marker* (at the position) and ⟳ *Loop* (`aria-pressed`, disabled with no brace).
 * **Zoom and scroll.** The zoom is pixels per beat, from the whole drawn timeline in the visible width (never below
   0.05) to 256. ⌘ or Ctrl with the wheel, and a pinch, zoom around the pointer: the store's zoom changes, and a layout
   effect sets `scrollLeft` so the beat under the pointer stays (`useTimelineZoom`). The toolbar's slider is
-  logarithmic. *Zoom to fit* shows from 0 to `timelineEnd` (32 bars when empty); *Zoom to selection* shows the
-  selected region with a bar each side. Both are asked of the store (`zoom`) and applied by the view once it knows its
+  logarithmic. *Zoom to fit* shows from 0 to `arrangementContentEnd` (32 bars when empty); *Zoom to selection* shows the
+  selected region with a bar each side, else the loop brace with a bar each side, and is disabled with neither. Both are asked of the store (`zoom`) and applied by the view once it knows its
   width (`takeZoom`). The plain wheel scrolls; a middle-drag pans both ways. A region dragged within 24 px of the
   timeline's side, or past it, scrolls it each animation frame (`autoScrollUnits`) and keeps following the pointer's
   beat.
@@ -183,9 +233,10 @@ Arrangement), and Tab switches views like in Ableton.
   header width, kept per browser as one object under `sfxlab:arrangement-view` (the old `sfxlab:arrangement-zoom` is
   read once when it is absent); the position, in memory. None of it is in the project or undone.
 * **Snap.** The toolbar's *Grid* (*Bar*, *Beat*, *1/2*, *1/4*, *1/8*, *1/16*, *Off*; 1/4 by default) snaps drops, the
-  right-click's beat, region moves and resizes and the position. A moved or resized region's edges also snap to every
-  other region's start and end, on any lane, within 8 px (`regionSnapping`, `snapBeat`); the nearer of a grid line and
-  an edge wins. A moved region snaps its end instead of its start when the end is the nearer to something
+  right-click's beat, region moves and resizes, the marks' drags and the position. A drag's edges also snap, within
+  8 px, to every region's start and end on any lane, every marker and the loop's edges (`timelineSnapping`, keyed
+  `<region>:start`, `marker:<id>`, `loop:from` and so on, so a drag leaves out what it moves; `snapBeat`); the nearer of
+  a grid line and a target wins. A moved region snaps its end instead of its start when the end is the nearer to something
   (`snapRegionStart`), so it can be dragged to end at a bar. Alt held during a drag (or at a click or drop) snaps to
   nothing.
 * **The position** is where arrangement playback starts: a dashed line over the lanes and a mark in the ruler. A click
@@ -202,8 +253,11 @@ Arrangement), and Tab switches views like in Ableton.
 * **Keys.** The timeline takes the focus on a press on the lanes or the ruler (it is focusable, with a focus ring), and
   its view keys are one pure function, `timelineKeyAction` (`timeline-keys.ts`), listed read only under *Arrangement*
   in the shortcuts dialog: ← → move the position a grid step (a beat with the grid off), onto the grid; Alt with them a
-  tenth of the view; Home and End to 0 and to `timelineEnd`; + (=) and − zoom by two wheel notches around the position
-  (the middle when it is out of view); Z zooms to the selected region, Shift+Z to fit; F follows or stops. A key that
+  tenth of the view; Home and End to 0 and to `arrangementContentEnd`; + (=) and − zoom by two wheel notches around the
+  position (the middle when it is out of view); Z zooms to the selected region (else the brace), Shift+Z to fit; F
+  follows or stops; M adds a marker at the position; L turns looping on or off (with a brace); `[` and `]` put the
+  position on the previous or next marker or loop edge (`arrangementStops`), and at the first or last mark they are no
+  view key, as in the wave editor. A key that
   moves the position out of view scrolls by the least that shows it. Only a key pressed on the timeline itself is
   taken: a region, a header's buttons and fields keep theirs, and Space stays the transport's.
 * **Regions** are DOM elements placed in pixels, drawn as a note preview (MIDI, at most 200 notes) or a waveform
@@ -225,5 +279,9 @@ Arrangement), and Tab switches views like in Ableton.
   (`addArrangementClip` / `updateArrangementClip` / `removeArrangementClip`), a drag merging into one step.
 * **One playhead** for all lanes, in an overlay over the lanes and under the headers, owning its status subscription.
 * **Bouncing.** File > Export audio offers an **Arrangement** scope (see "Exporting audio"): the timeline renders
-  from beat 0 to the last region's end, then the usual tail.
-* **Not yet.** Markers and a loop brace, automation lanes on the timeline, and recording into the arrangement.
+  from beat 0 to the last region's end, then the usual tail, whatever the loop.
+* **Files.** The markers and the loop are saved since format v13 (`sanitizeArrangementMarks`): a marker outside the
+  timeline is dropped, a duplicate or missing id gets a fresh one, names are trimmed and the first 256 by beat kept; a
+  loop not inside the timeline is dropped, its ends are ordered and a short one stretched to a beat, and it is on only
+  for a real `true`. Each repair warns.
+* **Not yet.** Automation lanes on the timeline, and recording into the arrangement.
