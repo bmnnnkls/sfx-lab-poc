@@ -1,4 +1,4 @@
-import { type ControlOwner, type LibraryCatalog, type LibraryItem, type SnapshotScope, EFFECT_INPUTS, saveLibraryFolder, saveLibraryItem, trashLibraryEntry } from '@core'
+import { type ControlOwner, type LibraryCatalog, type LibraryItem, type SnapshotScope, EFFECT_INPUTS, libraryItemDuplicate, saveLibraryFolder, trashLibraryEntry } from '@core'
 import { useLibraryStore } from '../library-store'
 import { useSelectionStore } from '../selection-store'
 import { project, trackOf } from './lookup'
@@ -98,17 +98,7 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     group: 'edit',
     applies: live,
     // The copy takes the item's presets along.
-    run: (subject, context) =>
-      update(context, (value) => {
-        const item = value.items.find((candidate) => candidate.id === subject.itemId)
-        if (!item) throw new Error('That library item is gone')
-        const id = crypto.randomUUID()
-        let next = saveLibraryItem(value, { ...item, id, name: `${item.name} copy` })
-        for (const preset of value.items) {
-          if (!preset.trashed && preset.content.kind === 'preset' && preset.content.assetId === item.id) next = saveLibraryItem(next, { ...preset, id: crypto.randomUUID(), content: { ...preset.content, assetId: id } })
-        }
-        return next
-      }, 'Library saved'),
+    run: (subject, context) => update(context, (value) => libraryItemDuplicate(value, subject.itemId), 'Library saved'),
   },
   {
     id: 'library-item.insert-track',

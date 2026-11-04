@@ -383,3 +383,18 @@ Signed off 2026-11-04: every row as proposed.
 | Threshold for virtualization | **100 ms** for the collapsed near-limit tree or a search | Measured, not assumed. |
 
 ## Changes made while implementing
+
+* **Inventory re-checked** at `5166380`: no source or test changed since `5693980`, so the plan stood as written.
+* **Step 1:** `folder-tree.ts` stays beside `library-tree.ts` until step 5, since the old `FolderTree` still draws the
+  view until then; step 5 deletes both.
+* **Step 1:** rows carry a `key` (`mine`, `trash`, `f:<folder>`, `i:<item>`), a `parent` key, a `name` and their
+  `root`, so `treeKey` and the view work on one kind of key. Folder counts are the items directly in the folder; a
+  root's count is every item row under it. Presets under their sound aren't counted.
+* **Step 1:** a copy is named "… copy" only when it lands beside its original (*Duplicate*); an Alt-drag into another
+  folder keeps the name, as Finder does. Copies' presets go into the copy's folder.
+* **Step 1:** `duplicateLibraryFolder` copies live contents only, and a preset follows its sound: one whose sound is
+  copied comes along wherever it was kept, one whose sound stays outside stays. An orphaned preset in the folder is
+  copied as the plain item it shows as.
+* **Step 1:** moving a trashed entry moves it first and then restores it, so the restore walks the destination's
+  path and leaves the old parents in the trash. A trashed sound takes all its presets, since restoring it restores
+  them all.
