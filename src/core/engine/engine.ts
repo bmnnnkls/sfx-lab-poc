@@ -128,8 +128,8 @@ export class Engine {
       case 'automation/configure':
         this.curves.clear()
         this.targetMetadata = new WeakMap()
-        this.automation.configure(command.tracks, new Map([...this.tracks].map(([id, track]) => [id, track.status()])))
-        for (const [id, track] of this.tracks) if (track instanceof TrackRuntime) track.setAutomationNoteGraph(command.tracks.find((t) => t.trackId === id)?.noteGraph)
+        this.automation.configure(command.tracks, new Map([...this.tracks].map(([id, track]) => [id, track.status()])), command.timeline)
+        for (const [id, track] of this.tracks) if (track instanceof TrackRuntime) track.setAutomationNoteGraph(command.tracks.find((t) => t.trackId === id)?.noteGraph ?? command.timeline?.noteGraphs?.[id])
         break
       case 'automation/overrides': this.automation.setOverrides(command.values, command.revision); break
       case 'track/noteOn':
@@ -180,6 +180,7 @@ export class Engine {
         }
         this.newRun()
         this.playbackMode = 'arrangement'
+        this.automation.setArrangement(true)
         this.transport.seek(command.fromBeat ?? 0)
         this.transport.play()
         for (const track of this.tracks.values()) track.setMode('arrangement')
@@ -486,6 +487,7 @@ export class Engine {
   private sessionMode(): void {
     if (this.playbackMode !== 'session') {
       this.playbackMode = 'session'
+      this.automation.setArrangement(false)
       for (const track of this.tracks.values()) track.setMode('session')
     }
   }

@@ -366,3 +366,21 @@ Signed off 2026-11-05: every row as proposed.
   architecture test requires.
 * The sanitizer keeps an open entry with no lanes (a return opened to add one), and drops a closed empty one, as the
   edits do.
+
+### Step 2: the engine
+
+* **The planning horizon doesn't stop at region edges.** Automation is evaluated every sample inside a horizon, so a
+  region's start or end takes effect on its own sample without a stop. What the stop was for, the constant-range proof
+  for note lanes, instead treats a range with a region edge or a wrap inside it as not constant (`lanesIn` answers
+  `null`). `ArrangementAutomation` finds the regions under the beat once and keeps them until the beat leaves their
+  span, so a tick searches nothing; a seek or the loop's jump lands outside the span and finds them again, with no call
+  from the engine.
+* **Switching to the arrangement stops the session's automation queues.** Before, a session clip's lanes kept playing
+  after ▶ *Arrangement* if the clip had been playing, since only the track launchers were reset. `setArrangement`
+  restores what the other source was writing, both ways.
+* **`configured` follows the mode**: in session mode only session lanes count, in arrangement mode only timeline and
+  region lanes, so a project with lanes in just one of them keeps the fast block path in the other.
+* **Note graphs for timeline lanes** travel in `timeline.noteGraphs`, since `AutomationTrack` only exists for a track
+  with session lanes.
+* The audio spec drives the worklet with raw commands and a timeline compiled in Node from a matching project, as the
+  loop's spec does.

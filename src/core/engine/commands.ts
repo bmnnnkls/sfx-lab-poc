@@ -1,4 +1,4 @@
-import type { AutomationTrack } from '../automation'
+import type { AutomationTrack, TimelineAutomation } from '../automation'
 import type { ControlValue } from '../control'
 import type { LiveNoteAddress } from './live-notes'
 import type { Patch } from '../patch'
@@ -15,7 +15,8 @@ export type CountInStart =
 /** Everything the outside world can ask the engine to do. Plain data, safe to post across threads. */
 export type EngineCommand =
   | { readonly type: 'automation/launch'; readonly owner: import('../control').ControlOwner; readonly slotId: string | null }
-  | { readonly type: 'automation/configure'; readonly tracks: readonly AutomationTrack[] }
+  /** `timeline`: what plays while the arrangement plays (absent: nothing). */
+  | { readonly type: 'automation/configure'; readonly tracks: readonly AutomationTrack[]; readonly timeline?: TimelineAutomation }
   | { readonly type: 'automation/overrides'; readonly values: readonly ControlValue[]; readonly revision?: number }
   | { readonly type: 'track/noteOn'; readonly trackId: string; readonly note: LiveNoteAddress; readonly pitch: number; readonly velocity: number }
   | { readonly type: 'track/noteOff'; readonly trackId: string; readonly note: LiveNoteAddress }

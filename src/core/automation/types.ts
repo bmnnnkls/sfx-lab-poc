@@ -35,3 +35,19 @@ export interface AutomationTrack {
   readonly noteGraph?: Patch
   readonly clips: readonly (AutomationClip | null)[]
 }
+/** A region's own lanes on the timeline: they play from `start` to `end`, the phase wrapping by `length`. */
+export interface TimelineRegionLanes {
+  readonly trackId: string
+  readonly start: number
+  /** The region's end, or its loop end when it loops. */
+  readonly end: number
+  readonly length: number
+  readonly lanes: readonly PlaybackLane[]
+}
+/** What plays while the arrangement plays: each owner's timeline lanes, in song beats, and the regions' own lanes. */
+export interface TimelineAutomation {
+  readonly owners: readonly { readonly owner: import('../control').ControlOwner; readonly lanes: readonly PlaybackLane[] }[]
+  readonly regions: readonly TimelineRegionLanes[]
+  /** The flattened note graph of each instrument track a timeline or region lane addresses in domain `notes`. */
+  readonly noteGraphs?: Readonly<Record<string, Patch>>
+}

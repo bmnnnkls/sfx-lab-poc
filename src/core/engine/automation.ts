@@ -1,6 +1,7 @@
-import { automationOwnerKey, automationPosition, automationValue, type AutomationClip, type AutomationTrack, type PlaybackLane } from '../automation'
+import { automationOwnerKey, automationPosition, automationValue, type AutomationClip, type AutomationTrack, type PlaybackLane, type TimelineAutomation } from '../automation'
 import { controlTargetKey, type ControlOwner, type ControlTarget, type ControlValue } from '../control'
 import { LaunchQueue, type LauncherStatus } from '../session'
+import { ArrangementAutomation } from './arrangement-automation'
 
 /** Runtime ownership only. The same clock/queue and evaluator are used in the worklet and offline engine. */
 export class EngineAutomation {
@@ -10,8 +11,22 @@ export class EngineAutomation {
   private readonly metadata = new Map<PlaybackLane, { key: string; entry: { lane: PlaybackLane; value: number }; uniform: boolean }>()
   overrideRevision = 0
   private overrides = new Map<string, ControlValue>()
+  /** While the arrangement plays, its lanes play instead of the launch queues'. */
+  private readonly timeline = new ArrangementAutomation()
+  private arrangement = false
   constructor(private readonly write: (target: ControlTarget, value: number, baseValue?: number) => void) {}
-  configure(tracks: readonly AutomationTrack[], statuses: ReadonlyMap<string, LauncherStatus>): void {
+  /**
+   * Follows the engine's playback mode. Switching restores what the other source was writing; into the arrangement,
+   * the session's queues stop, as its launchers do.
+   */
+  setArrangement(on: boolean): void {
+    if (on === this.arrangement) return
+    this.restore()
+    if (on) for (const track of this.tracks.values()) track.queue.reset()
+    this.arrangement = on
+    this.timeline.forget()
+  }
+  configure(tracks: readonly AutomationTrack[], statuses: ReadonlyMap<string, LauncherStatus>, timeline?: TimelineAutomation): void {
     // Deleting a playing dedicated slot releases its manual/MIDI ownership as well.
     for (const [key, previous] of this.tracks) {
       if (!previous.slots || !previous.queue.playback) continue
@@ -41,8 +56,14 @@ export class EngineAutomation {
       next.set(key, { clips: track.clips, queue, slots: !!track.slotOwner })
     }
     this.tracks = next
+    this.timeline.configure(timeline)
     this.metadata.clear()
-    for (const track of tracks) for (const clip of track.clips) for (const lane of clip?.lanes ?? []) this.metadata.set(lane, { key: controlTargetKey(lane.target), entry: { lane, value: lane.baseValue }, uniform: lane.points.every(point => point.value === lane.points[0]?.value) })
+    const lanes = [
+      ...tracks.flatMap((track) => track.clips.flatMap((clip) => clip?.lanes ?? [])),
+      ...(timeline?.owners.flatMap((entry) => entry.lanes) ?? []),
+      ...(timeline?.regions.flatMap((region) => region.lanes) ?? []),
+    ]
+    for (const lane of lanes) this.metadata.set(lane, { key: controlTargetKey(lane.target), entry: { lane, value: lane.baseValue }, uniform: lane.points.every(point => point.value === lane.points[0]?.value) })
   }
   setOverrides(values: readonly ControlValue[], revision = 0): void {
     this.overrideRevision = revision
@@ -71,7 +92,7 @@ export class EngineAutomation {
   }
   finish(trackId: string): void { const queue = this.tracks.get(automationOwnerKey({ kind: 'track', trackId }))?.queue; if (queue) queue.playback = null }
   stopTrack(trackId: string): void { const track = this.tracks.get(automationOwnerKey({ kind: 'track', trackId })); if (track?.slots) track.queue.queued = { clip: null }; else track?.queue.stop() }
-  reset(): void { this.overrides.clear(); this.restore(); for (const track of this.tracks.values()) track.queue.reset() }
+  reset(): void { this.overrides.clear(); this.restore(); for (const track of this.tracks.values()) track.queue.reset(); this.timeline.forget() }
   private restore(): void {
     for (const [key, entry] of this.active) this.write(entry.lane.target, this.overrides.get(key)?.value ?? entry.lane.baseValue)
     this.active.clear()
@@ -80,7 +101,8 @@ export class EngineAutomation {
   tick(from: number, to: number): void {
     const next = this.next
     next.clear()
-    for (const [trackId, track] of this.tracks) {
+    if (this.arrangement) this.timeline.lanesAt(from, this.visit)
+    else for (const [trackId, track] of this.tracks) {
       const boundary = track.queue.pendingBoundary(from - 1e-10, to - 1e-10)
       if (boundary !== null) {
         track.queue.commit(boundary)
@@ -108,11 +130,27 @@ export class EngineAutomation {
     this.next = this.active
     this.active = next
   }
+  /** A lane playing on the timeline, evaluated at `beat`; bound once, so a tick allocates nothing. */
+  private readonly visit = (lane: PlaybackLane, beat: number): void => {
+    const value = automationValue(lane, beat)
+    if (value === undefined) return
+    const meta = this.metadata.get(lane)!
+    meta.entry.value = value
+    this.next.set(meta.key, meta.entry)
+  }
   /** Only provably constant note controls may use interval processors. Helpers are handled by the caller.
    * Called after the first sample tick: ownership/restoration at the horizon start has already committed.
    * A queued transition inside the horizon conservatively retains sample cadence on both sides.
    */
   noteOwners(into: Set<string>, from: number, to: number): void {
+    if (this.arrangement) {
+      this.timeline.lanesIn(from, to, (lane, range) => {
+        const meta = this.metadata.get(lane)!
+        if (range && (this.overrides.has(meta.key) || meta.uniform)) return
+        if (!range || !constantPosition(lane, range[0], range[1])) this.addNoteOwner(into, lane)
+      })
+      return
+    }
     for (const { queue } of this.tracks.values()) {
       const boundary = queue.pendingBoundary(from - 1e-10, to - 1e-10)
       if (boundary !== null) {
@@ -138,12 +176,14 @@ export class EngineAutomation {
   }
   /** Kept for the structural diagnostic; render planning uses reusable owner/component sets. */
   get noteLanes(): boolean {
+    if (this.arrangement) return this.timeline.noteLanes
     for (const { queue } of this.tracks.values()) for (const clip of [queue.playback?.clip, queue.queued?.clip]) {
       if (clip?.lanes.some(lane => lane.enabled && lane.points.length && lane.target.kind === 'graph' && lane.target.domain === 'notes')) return true
     }
     return false
   }
-  get configured(): boolean { return this.tracks.size > 0 }
+  /** Whether anything can play in the current mode; with nothing, a block needs no planning horizon. */
+  get configured(): boolean { return this.arrangement ? this.timeline.configured : this.tracks.size > 0 }
   overrideValues(): readonly ControlValue[] { return [...this.overrides.values()] }
   /** Copy ownership that must survive planning a later queued transition in this horizon. */
   copyOverrides(into: Map<string, number>): void {

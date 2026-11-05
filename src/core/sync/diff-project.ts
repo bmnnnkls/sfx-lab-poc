@@ -1,4 +1,4 @@
-import { compileAutomation } from '../automation'
+import { compileAutomation, compileTimelineAutomation } from '../automation'
 import { projectWithControlValues } from '../control'
 import type { EngineCommand } from '../engine'
 import { type ModuleLibrary, type Patch, engineNoteGraph, flattenPatch } from '../patch'
@@ -203,7 +203,8 @@ const diffLoops = (prev: Project | null, next: Project): EngineCommand[] => {
 
 export const diffProject = (prev: Project | null, next: Project, syncAutomation = true): EngineCommand[] => {
   const automation = syncAutomation ? compileAutomation(next) : []
-  const automationChanged = syncAutomation && JSON.stringify(prev && compileAutomation(prev)) !== JSON.stringify(automation)
+  const timeline = syncAutomation ? compileTimelineAutomation(next) : undefined
+  const automationChanged = syncAutomation && JSON.stringify(prev && [compileAutomation(prev), compileTimelineAutomation(prev)]) !== JSON.stringify([automation, timeline])
   prev = prev && projectWithControlValues(prev)
   next = projectWithControlValues(next)
   const commands: EngineCommand[] = []
@@ -265,6 +266,7 @@ export const diffProject = (prev: Project | null, next: Project, syncAutomation 
   const loop = activeArrangementLoop(next)
   const looped = prev ? activeArrangementLoop(prev) : null
   if (loop?.from !== looped?.from || loop?.to !== looped?.to) commands.push({ type: 'arrangement/setLoop', loop })
-  if (syncAutomation && automationChanged && (automation.length || prev)) commands.push({ type: 'automation/configure', tracks: automation })
+  const timed = !!timeline && (timeline.owners.length > 0 || timeline.regions.length > 0)
+  if (syncAutomation && automationChanged && (automation.length || timed || prev)) commands.push({ type: 'automation/configure', tracks: automation, ...(timed && { timeline }) })
   return commands
 }

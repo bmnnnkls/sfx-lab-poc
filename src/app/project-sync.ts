@@ -1,5 +1,5 @@
 import type { AudioHost } from '@audio'
-import { controlTargetKey, compileAutomation, diffProject, projectWithControlValues, resolveControlTarget } from '@core'
+import { type Project, controlTargetKey, compileAutomation, compileTimelineAutomation, diffProject, projectWithControlValues, resolveControlTarget } from '@core'
 import { useControlStore, useProjectStore, useRecordSettings, useStatusStore, setTouchClock, reconcileTouches, cancelTouches, setRecordClock, reconcileRecords, cancelRecords } from '@state'
 
 /** Keeps the engine mirroring the project document and feeds engine status back to the UI. */
@@ -18,18 +18,20 @@ export const connectEngine = (host: AudioHost): (() => void) => {
 
   let projection = projectWithControlValues(useProjectStore.getState().project, useControlStore.getState().overrides)
   sendDiff(null, projection)
+  // Both sources the engine plays automation from: the session's clips and slots, and the arrangement's timeline.
+  const configure = (project: Project) => ({ type: 'automation/configure' as const, tracks: compileAutomation(project), timeline: compileTimelineAutomation(project) })
   let automationProject = useProjectStore.getState().project
-  let automationConfig = JSON.stringify(compileAutomation(automationProject))
-  host.send({ type: 'automation/configure', tracks: compileAutomation(useProjectStore.getState().project) })
+  let automationConfig = JSON.stringify(configure(automationProject))
+  host.send(configure(automationProject))
   const refresh = () => {
     const next = projectWithControlValues(useProjectStore.getState().project, useControlStore.getState().overrides)
     sendDiff(projection, next)
     projection = next
     if (automationProject === useProjectStore.getState().project) return
     automationProject = useProjectStore.getState().project
-    const config = compileAutomation(automationProject)
+    const config = configure(automationProject)
     const signature = JSON.stringify(config)
-    if (signature !== automationConfig) { automationConfig = signature; host.send({ type: 'automation/configure', tracks: config }) }
+    if (signature !== automationConfig) { automationConfig = signature; host.send(config) }
   }
   let overrideRevision = 0
   let lastOverrides = useControlStore.getState().overrides
