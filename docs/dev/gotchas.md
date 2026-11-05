@@ -107,6 +107,9 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   it rewrites an old envelope to. *(round 12b)*
 * **An element inside another with the same pointer handlers gets each event twice**, once as it bubbles: the loop
   brace's edges stop their moves and releases there. *(round 12b)*
+* **Subjects are compared as JSON** (`sameSubject`), so key order counts: a row's in-place rename shows only for a
+  subject built like the one that started it. Build a `sound` subject with `soundSubject(soundId, preset, onto?)`.
+  *(library phase 4)*
 * **`ActionMenu` draws no menu without a subject.** A trigger whose subject depends on the pointer (the mark lane)
   always needs one, or a right-click there opens nothing. *(round 11c-2)*
 * **The lazy library service lists every method by hand** (`app/library-service.ts`). A parameter added to

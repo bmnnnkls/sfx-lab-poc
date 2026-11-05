@@ -114,6 +114,13 @@ Collected here as the phases go, and reported at each phase's end:
   row's name ("Drums bus"). A clip row's *Show* is the clip's own *Edit notes*.
 * **Listening** (phase 3): copy Low Light's stab onto a new track and play both; the copy's graph is checked by tests,
   not by ear.
+* **Wording to look at** (phase 4), in Sounds: the empty state ("Save a preset to keep this sound and use it on other
+  tracks; save a snapshot to remember knob positions here and morph between them."), a row's kind label ("Preset ·
+  Sweep" for another track's preset), the tooltips ("Recall onto Bass", "Bass's graph isn't this preset's", "A preset of
+  Instrument, to use on other tracks", "The knob positions of Instrument, to recall or morph"), *Sample choices* and
+  "Default (Tone 1)", and ⋯'s name, *Sounds actions*.
+* **Sounds at 280 px** (phase 4): the header keeps one line, so a long owner name ends in an ellipsis there; and the
+  morph slider stays when another track is selected, since A and B are kept across selections.
 * **Wording to look at** (phase 2): the Library menu's disabled reasons ("Select an instrument track", "Sum the group
   to a bus first", "Bass has no note effects") and the drop refusals ("Uses Track audio from Kick", "Uses a Send to
   Echo"), in the transport bar's *Library* menu and on the Library's rows during a drag.

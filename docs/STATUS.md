@@ -66,7 +66,10 @@ external routing refused up front and the reason shown. **Phase 3 is done** (202
 [plan](active/PLAN-library-3-this-project.md)): the tree's first root, *This project*, shows the open project's
 tracks, buses and master with their graphs, presets and clips, and its samples and modules, live and read-only; a graph
 saves, previews, shows, copies to a new track or is dragged onto another owner, and one that reads another track says
-why it can't. Phases 4–7 are planned.
+why it can't. **Phase 4 is done** (2026-11-05, [plan](active/PLAN-library-4-sounds.md)): Sounds shows the presets
+and snapshots of the selection, with a tab per graph that follows the editor shown; rows recall onto the selection on
+click, A and B for the morph are set from rows, saving names a sound after its owner and renames it in place, and ⋯
+*Show all in project* lists everything. Phases 5–7 are planned.
 
 ## Accepted limits
 

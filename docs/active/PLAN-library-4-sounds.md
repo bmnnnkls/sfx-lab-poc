@@ -1,7 +1,8 @@
 ---
-status: active
-date: 2026-11-04
-note: "Phase 4 of SPEC-library-ux.md: Sounds shows the presets and snapshots of the selection, rows recall on click, morph from rows, saving without a name field. Decisions signed off 2026-11-04."
+status: done
+date: 2026-11-05
+shipped_in: architecture/library-and-presets.md
+note: "Phase 4 of SPEC-library-ux.md, built on feat/library-improvements: Sounds shows the presets and snapshots of the selection, rows recall on click onto it, morph from rows, saving without a name field. Also shipped in architecture/workbench.md. Stays in active/ until phase 7 archives the round."
 ---
 # Library phase 4: Sounds shows the presets of what is selected
 
@@ -200,3 +201,7 @@ Signed off 2026-11-04: every row as proposed.
   Stab recalled with Touch armed while scene 3 played ("3 controls recalled"). An Enter pressed within a frame of
   *+ Save preset* reaches the button before the name field takes the focus, and saves a second sound; a person doesn't
   type that fast, and the specs wait for the field.
+* **Step 3:** the notes are sorted: the view, its store and `onto` into `library-and-presets.md`; the subject and the
+  removed button-versus-menu exception into `workbench.md`; decisions 100–104; a gotcha (subjects compare as JSON);
+  backlog L6 (sample choices in the property editor) and V2 (dragging a preset row out of Sounds); STATUS, the tour,
+  and the runbook's queue for the user (wording, and the header at 280 px).

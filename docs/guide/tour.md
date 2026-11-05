@@ -98,6 +98,12 @@ restore them. **▶** or Space previews a sound on its own, and Enter puts it in
 track, a clip into the first empty slot. Share a folder with **Export as .sfxlib…** from its menu, and open one by
 dropping the file on the Library.
 
+**Sounds** (secondary sidebar) keeps sounds inside the project, for whatever is selected. Its tabs follow the editor
+you have open. **+ Save preset** keeps the graph's sound for this and other tracks with the same graph; **+ Snapshot**
+remembers the knob positions here. Both are named after the track (*Bass 1*), ready to rename. Click a row to recall
+it; right-click a snapshot for **Set as A** and another for **Set as B**, and the **Morph** slider blends between them.
+**⋯ ▸ Show all in project** lists every sound in the project.
+
 ## Arrange
 
 Open **Arrangement** (activity bar, or Tab). Drag a session clip onto a lane, or right-click an empty lane to place

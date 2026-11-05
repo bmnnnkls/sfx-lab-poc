@@ -38,7 +38,8 @@ Things that shipped without the check their plan asked for.
 - **V2 Firefox and Safari passes for the redesign**: container queries and sticky scrolling (round 4), Shift+F10
   (round 5), float WAV copies and stereo MP3 (rounds 11a and 11b), the Library tree's drag and drop and spring-open
   (library phase 1), dragging tracks, groups, clips, samples and presets onto the Library with its refusal reason
-  (library phase 2), dragging graphs, clips, samples and presets out of the Library's *This project* (library phase 3).
+  (library phase 2), dragging graphs, clips, samples and presets out of the Library's *This project* (library phase 3), dragging a
+  preset row out of Sounds (library phase 4).
 - **V3 Make V1 and V2 possible**: install Firefox, and download the Playwright Firefox and WebKit builds that match the
   installed Playwright version.
 - **V4 Listening passes for 11a, 11b and 11c-2**: an old project with a stereo file; reverse used by a clip, a region
@@ -130,6 +131,9 @@ Things that shipped without the check their plan asked for.
 - **L4 Module usage in the module list** (the module editor already lists uses).
 - **L5 More example modules (idea E8), saving a personal module example, and the drum-machine example (idea E5)** with
   independent sampler pads.
+- **L6 Sample choices beside the sampler's own sample picker.** Sounds lists a graph's per-use sample choices under
+  *Sample choices*; they belong in the Instrument view's property editor, where the shared default is picked (library
+  phase 4 left them in Sounds, collapsed).
 
 ## Controls and panels
 

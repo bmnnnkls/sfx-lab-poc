@@ -22,10 +22,34 @@ clips, mixer routing and hardware mappings never enter assets/presets. Catalog i
 `sampleId` defaults, null explicitly silences a use. `projectWithSampleBindings` flattens affected graphs in the transient
 engine projection before numeric control values; live sync and offline bounce share it. Group/unlink rewrite binding
 routes, including uses of edited shared definitions. Removing samples clears active bindings; saved presets retain
-missing dependency references for diagnostics. The Sounds tab lists per-use bindings with reset-to-default, and root
-property sample pickers resolve/edit the same active binding. Shared-definition editors still edit shared defaults.
-Each snapshot and preset row in Sounds has a menu (*Recall*, *Update*, *Rename*, *Duplicate*, *Delete*) and renames in
-place; the *Sound name* field is for saving.
+missing dependency references for diagnostics. Sounds lists the selected graph's per-use bindings under a collapsed
+*Sample choices (n)*, each named by the node titles along its path, with *Default* to reset; root property sample
+pickers resolve/edit the same active binding. Shared-definition editors still edit shared defaults.
+
+**The Sounds view** (`ui/presets/SoundsPanel.tsx`) shows the presets and snapshots of the selection: the owner (a
+track, a group's bus or the master, or the first track when nothing is selected) and a tab for its graph. An
+instrument track has *Instrument*, *Effects*, *Notes* and *Track*; another track, a bus and the master have *Effects*
+and *Track* (`soundsTabsOf`). The rows are the presets that can be recalled onto that graph
+(`recallablePresets(project, owner, domain)`: the owner's own and other owners' whose revision signature matches,
+captured once per list) and the owner's snapshots of that domain. A row is a button named *Recall Bass 1*: a click,
+Enter or Space recalls it onto the selection, its menu has the rest (*Recall*, *Set as A*, *Set as B*, *Update*,
+*Save to library*, *Rename*, *Duplicate*, *Delete*), and a preset row drags onto a track whose graph matches it. Its
+kind label says *Preset* or *Snapshot*, with the owner for another owner's preset, and the morph's A and B. The row
+recalled last shows ● until its graph changes. *+ Save preset* (not on *Track*) and *+ Snapshot* save a sound named
+after its owner (*Bass 1*, `nextSoundName`) and start renaming it in place. The status line shows the save and a
+recall's report. ⋯ has *Show all in project*, a view preference kept per browser (`sfxlab:sounds-show-all`), which
+lists every sound under owner and graph headings, each recalling onto its own owner. With nothing to list, one line
+says what presets and snapshots are for.
+
+The view's state is `state/sounds-store.ts`: `tab`, the morph's ends `a` and `b` (snapshot IDs), `showAll` and the
+`recalled` mark (the sound, the scope it went to, and `scopeState` of that scope just after; an instrument preset's
+covers its notes). The store follows the layout: when Instrument, Effects or Notes becomes visible, `tab` moves to its
+graph (`editorTabOf`), and a tab chosen by hand holds until then. It follows the project too: A, B and the mark go
+when their sound does. The morph's slider shows only while A and B pair up (`morphPair`: the same scope and targets).
+The `sound` subject carries `onto?: ControlOwner`: Sounds' rows set it to the selected owner, and `sound.recall`
+recalls a preset onto it in the preset's domain (disabled, with the reason, where its graph doesn't match). Without it
+a preset recalls onto its own owner; a snapshot always does. `soundSubject(soundId, preset, onto?)` builds the subject
+with its keys in one order, since the rename store compares subjects as JSON.
 
 `state/preset-actions` commits one recall to history. Normal Read recall edits authored bases, releases affected temporary
 overrides, leaves lane points alone and reports Read-controlled values. Armed recall finishes pending Touch gestures,
@@ -44,7 +68,8 @@ unreferenced revisions. No browser, storage adapter or library catalog code is n
 
 Verification includes partial recall, revision mismatch, shared defaults and independent overrides, explicit silence,
 group/unlink, Read/Touch atomic steps and lane-limit rejection, scope/scale/discrete/momentary morph rules, and hostile
-parsing/migrations. Production smoke saves/recalls/undoes/reloads two sounds and inspects morph UI. Real-output tests
+parsing/migrations. Production smoke saves two snapshots named in place, recalls them by click and Enter, undoes, reloads and morphs between
+rows set as A and B, and recalls a preset saved on one track onto a copy of it. Real-output tests
 recall numeric and sampled presets; two shared sample-instrument uses with different samples survive fresh reload and
 match offline output within 0.00002 amplitude. Physical MIDI hardware remains untested.
 

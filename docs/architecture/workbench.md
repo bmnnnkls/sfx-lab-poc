@@ -168,8 +168,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
   empty session cell), `automation-slot`, `scene`, `sample`, `library-item`, `library-folder`, `library-root` (*My library* or the
   Library's trash), `project-graph` (an owner's instrument, effects or notes under the Library's *This project*: an
   owner and a domain), `nodes`, `canvas`,
-  `module`, `region`, `lane`, `control` (a panel control or a mixer value), `sound` (a snapshot or preset), `pin` (a
-  pinned front panel: an owner and a graph), `sample-selection` (a Wave editor pane's lanes: its sample's
+  `module`, `region`, `lane`, `control` (a panel control or a mixer value), `sound` (a snapshot or preset, and in
+  Sounds the selected owner it recalls onto), `pin` (a pinned front panel: an owner and a graph), `sample-selection` (a Wave editor pane's lanes: its sample's
   selection and cursor in that pane, and the clipboard, read from the stores), and `sample-marker`, `sample-region` and
   `sample-loop` (a marker, a region or the loop in a pane's mark lane, set from what the pointer is on). The four carry
   the `pane` (`main` or `second`) they were opened in, and act on that pane's view. `nodes`
@@ -211,9 +211,10 @@ right-clicked; what can be done to it lives in `state/actions/`.
 * **Buttons run actions too.** ×, ✎, ■, M and S, the sample row's buttons, the Library's main button, ▶ and empty-state
   save,
   the Sounds rows, a card's *Edit* and *Unlink*, the toolbar's *Group into module* and the module bar's buttons call
-  `runAction` with the same subject, so a button and its menu entry share one implementation. Two exceptions keep the
-  view's choice: a preset's *Recall* and *Update* in Sounds act on the scope chosen at the top of the view (the menu's
-  on the preset's own), and the automation cell's ▶ and ■ launch directly.
+  `runAction` with the same subject, so a button and its menu entry share one implementation. A Sounds row's subject
+  carries the selected owner (`onto`), so its click and its menu's *Recall* both recall onto the selection; *Set as A*
+  and *Set as B* set the morph's ends in `sounds-store`. One exception keeps the view's choice: the automation cell's ▶
+  and ■ launch directly.
 * **Selection in views.** When an action removes what a view had selected (nodes), the view drops the stale id on its
   next render; actions don't reach into view state. A deleted region stays named in the selection store and shows as
   nothing. What a menu needs from a view lives in a store: the
