@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-11-05
-note: "Signed off 2026-11-05, every decision as proposed. Recording MIDI notes into Session slots and the Arrangement (backlog M2, user testing 11); parts 1-2 done, part 3 planned, not signed off."
+note: "Signed off 2026-11-05, every decision as proposed. Recording MIDI notes into Session slots and the Arrangement (backlog M2, user testing 11); parts 1-2 done, part 3 planned and signed off, to build."
 ---
 # Recording MIDI clips (spec)
 
-Status: **spec, signed off** 2026-11-05, every decision as proposed. Parts 1 to 3 can now be planned, in order; parts 1 and 2 are done ([part 1](../archive/midi-recording/PLAN-midi-recording-1-session.md), [part 2](../archive/midi-recording/PLAN-midi-recording-2-overdub.md), 2026-11-05); part 3 is planned ([plan](PLAN-midi-recording-3-arrangement.md), not signed off). Written 2026-11-05 on `feat/user-testing-quick-wins` at `608c10d` (after
+Status: **spec, signed off** 2026-11-05, every decision as proposed. Parts 1 to 3 can now be planned, in order; parts 1 and 2 are done ([part 1](../archive/midi-recording/PLAN-midi-recording-1-session.md), [part 2](../archive/midi-recording/PLAN-midi-recording-2-overdub.md), 2026-11-05); part 3 is planned ([plan](PLAN-midi-recording-3-arrangement.md), signed off 2026-11-05). Written 2026-11-05 on `feat/user-testing-quick-wins` at `608c10d` (after
 per-track MIDI inputs). No code was changed. The item is [BACKLOG](../BACKLOG.md) M2, from
 [user testing](REVIEW-user-testing-2026-11.md) note 11: *"how can I record MIDI clips in sessions and directly in
 arrangement?"* It follows the shape of the [round 12 spec](SPEC-round-12-arrangement-editor.md).

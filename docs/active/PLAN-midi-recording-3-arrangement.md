@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-11-05
-note: "Part 3 of the MIDI recording spec: recording into the Arrangement. Written, decisions A1-A10 not signed off."
+note: "Part 3 of the MIDI recording spec: recording into the Arrangement. Signed off 2026-11-05, every decision as proposed; not built yet."
 ---
 # MIDI recording, part 3: recording into the Arrangement
 
-Status: **plan, not signed off.** Written 2026-11-05 on `imp/midi-recording-part3-plan`, branched from
+Status: **plan, signed off** 2026-11-05, every decision as proposed. Written 2026-11-05 on `imp/midi-recording-part3-plan`, branched from
 `imp/ecstatic-lehmann-5efb9d` at `83cc366` (parts 1 and 2 done, neither merged). No code was changed. Carries out
 part 3 of the signed-off [MIDI recording spec](SPEC-midi-recording.md#parts), after
 [part 1](../archive/midi-recording/PLAN-midi-recording-1-session.md) and
@@ -295,6 +295,8 @@ No saved field and no format bump: a recorded region is an ordinary region. Expo
   three passes, at 90 and 140 BPM.
 
 ## Decisions to sign off
+
+Signed off 2026-11-05: every decision as proposed.
 
 | # | Decision | Proposed | Alternatives |
 |---|---|---|---|
