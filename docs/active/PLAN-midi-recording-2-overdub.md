@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-11-05
-note: "Part 2 of the MIDI recording spec: ● Rec, Session overdub, count-in, the ● Rec menu. Planned, decisions O1-O7 to sign off."
+note: "Part 2 of the MIDI recording spec: ● Rec, Session overdub, count-in, the ● Rec menu. Signed off 2026-11-05, every decision as proposed; not built yet."
 ---
 # MIDI recording, part 2: overdub and count-in
 
-Status: **plan, to sign off** (§ Decisions to sign off). Written 2026-11-05 on `imp/midi-recording-part1-b60ea0` at
+Status: **plan, signed off** 2026-11-05, every decision as proposed. Written 2026-11-05 on `imp/midi-recording-part1-b60ea0` at
 `78d38e6`, after [part 1](../archive/midi-recording/PLAN-midi-recording-1-session.md) (done, not merged). Carries out
 part 2 of the signed-off [MIDI recording spec](SPEC-midi-recording.md#parts). The spec's decisions 1 to 16 and part 1's
 P1 to P6 are settled and not repeated; this plan adds only the ones it raises. Where it differs from the spec, it says
@@ -297,6 +297,8 @@ playing.
   played slightly early.
 
 ## Decisions to sign off
+
+Signed off 2026-11-05: every decision as proposed.
 
 | # | Decision | Proposed | Alternatives |
 |---|---|---|---|
