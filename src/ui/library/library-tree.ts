@@ -1,12 +1,15 @@
-import type { LibraryCatalog, LibraryFolder, LibraryItem } from '@core'
+import { type ControlOwner, type LibraryCatalog, type LibraryFolder, type LibraryItem, type Project, controlGraph, trackRows } from '@core'
+import { routingRefusalIn } from '@state'
 
-/** The tree's two roots: the live library and the trash. */
-export type LibraryRoot = 'mine' | 'trash'
+/** The tree's roots: the open project (*This project*), the live library and the trash. */
+export type LibraryRoot = 'project' | 'mine' | 'trash'
 
 /** A row's key, unique in the tree and stable across renders: a root's name, `f:` a folder id, `i:` an item id. */
 export type RowKey = string
 export const folderKey = (id: string): RowKey => `f:${id}`
 export const itemKey = (id: string): RowKey => `i:${id}`
+/** Whether a key is *This project*'s root or a row under it (`p:`). */
+export const isProjectKey = (key: RowKey): boolean => key === 'project' || key.startsWith('p:')
 
 interface RowBase {
   readonly key: RowKey
@@ -21,15 +24,33 @@ interface RowBase {
   readonly expanded: boolean
 }
 
+/** A graph of an owner, as *This project* names it: *Instrument*, *Effects* or *Notes*. */
+export type GraphDomain = 'patch' | 'fx' | 'notes'
+
+/**
+ * What a row of *This project* is: an owner (a track, a group's bus, the master), one of its graphs, a project preset
+ * under its graph, a heading (*Clips*, *Samples*, *Modules*), a session clip, a sample or a module.
+ */
+export type ProjectEntry =
+  | { readonly kind: 'owner'; readonly owner: ControlOwner }
+  | { readonly kind: 'graph'; readonly owner: ControlOwner; readonly domain: GraphDomain; readonly presets: number; readonly reason?: string }
+  | { readonly kind: 'project-preset'; readonly presetId: string }
+  | { readonly kind: 'heading'; readonly heading: 'clips' | 'samples' | 'modules' }
+  | { readonly kind: 'clip'; readonly trackId: string; readonly clipId: string; readonly clipKind: 'midi-clip' | 'audio-clip' }
+  | { readonly kind: 'sample'; readonly sampleId: string }
+  | { readonly kind: 'module'; readonly moduleId: string }
+
 /**
  * A row the tree shows. A preset shows under its sound (`preset`); one whose sound isn't beside it, trashed or gone,
- * shows as an item in its own folder.
+ * shows as an item in its own folder. *This project*'s rows are `project` rows, carrying what they are (`entry`); a
+ * heading counts the rows under it.
  */
 export type LibraryRow =
   | (RowBase & { readonly kind: 'root'; readonly count: number })
   | (RowBase & { readonly kind: 'folder'; readonly id: string; readonly parentId: string | null; readonly count: number })
   | (RowBase & { readonly kind: 'item'; readonly id: string; readonly folderId: string | null; readonly presets: number })
   | (RowBase & { readonly kind: 'preset'; readonly id: string; readonly assetId: string })
+  | (RowBase & { readonly kind: 'project'; readonly entry: ProjectEntry; readonly count: number })
 
 export interface RowOptions {
   /** The keys of the expanded rows. */
@@ -39,7 +60,7 @@ export interface RowOptions {
   readonly kind?: string
 }
 
-/** What the tree starts with: *My library* open, the trash closed. */
+/** What the tree starts with: *My library* open, *This project* and the trash closed. */
 export const INITIAL_EXPANDED: ReadonlySet<RowKey> = new Set(['mine'])
 
 interface Node {
@@ -130,6 +151,136 @@ export const libraryRows = (catalog: Pick<LibraryCatalog, 'folders' | 'items'>, 
     rows.push({ kind: 'root', key: root, parent: null, level: 1, name: root === 'mine' ? 'My library' : 'Trash', root, count: countItems(shown), hasChildren: shown.length > 0, expanded: isExpanded })
     if (isExpanded) for (const node of shown) visit(node, root, 2, root)
   }
+  return rows
+}
+
+// ---- This project
+
+/** A row of *This project* before filtering: what it is, what search and the type filter match, and what is under it. */
+interface ProjectNode {
+  readonly key: RowKey
+  readonly name: string
+  readonly entry: ProjectEntry
+  /** The type filter's kind it is (`instrument`, `midi-clip`, …); none for an owner, a heading or a module. */
+  readonly kind?: string
+  /** It matches only through the rows under it: an owner or a heading. */
+  readonly container: boolean
+  readonly children: readonly ProjectNode[]
+}
+
+/** The rows of *This project* for one state of the project: its name and its top rows. */
+export interface ProjectModel {
+  readonly name: string
+  readonly nodes: readonly ProjectNode[]
+}
+
+/** The nodes a graph starts and ends with; a graph of only these holds nothing. */
+const ENDPOINTS: ReadonlySet<string> = new Set(['trackIn', 'returnIn', 'groupIn', 'masterIn', 'trackOut', 'clipNotes', 'noteOut'])
+const GRAPH_NAMES: Readonly<Record<GraphDomain, string>> = { patch: 'Instrument', fx: 'Effects', notes: 'Notes' }
+const GRAPH_KINDS: Readonly<Record<GraphDomain, string>> = { patch: 'instrument', fx: 'audio-effect', notes: 'note-effect' }
+
+/** A key for an owner: `t:` a track's id, `g:` a group's, `m` the master. */
+const ownerPart = (owner: ControlOwner) => (owner.kind === 'track' ? `t:${owner.trackId}` : owner.kind === 'group' ? `g:${owner.groupId}` : 'm')
+export const projectOwnerKey = (owner: ControlOwner): RowKey => `p:${ownerPart(owner)}`
+export const projectGraphKey = (owner: ControlOwner, domain: GraphDomain): RowKey => `p:${ownerPart(owner)}/${domain}`
+const sameOwner = (a: ControlOwner, b: ControlOwner) => ownerPart(a) === ownerPart(b)
+
+const leaf = (key: RowKey, name: string, entry: ProjectEntry, kind?: string): ProjectNode => ({ key, name, entry, ...(kind && { kind }), container: false, children: [] })
+const heading = (key: RowKey, name: string, which: 'clips' | 'samples' | 'modules', children: readonly ProjectNode[]): ProjectNode => ({ key, name, entry: { kind: 'heading', heading: which }, container: true, children })
+
+/** The rows under an owner: its graphs that hold something (or have presets), each with its presets, then its clips. */
+const ownerNode = (project: Project, owner: ControlOwner, name: string, domains: readonly GraphDomain[], clips: ProjectNode[]): ProjectNode => {
+  const graphs = domains.flatMap((domain): ProjectNode[] => {
+    const graph = controlGraph(project, owner, domain)
+    const presets = (project.presets ?? []).filter((preset) => preset.scope.domain === domain && sameOwner(preset.scope.owner, owner))
+    if (!graph || (!graph.nodes.some((node) => !ENDPOINTS.has(node.type)) && presets.length === 0)) return []
+    const reason = routingRefusalIn(project, { owner, domain })
+    return [{
+      key: projectGraphKey(owner, domain),
+      name: GRAPH_NAMES[domain],
+      entry: { kind: 'graph', owner, domain, presets: presets.length, ...(reason && { reason }) },
+      kind: GRAPH_KINDS[domain],
+      container: false,
+      children: presets.map((preset) => leaf(`p:s:${preset.id}`, preset.name, { kind: 'project-preset', presetId: preset.id }, 'preset')),
+    }]
+  })
+  const key = projectOwnerKey(owner)
+  return { key, name, entry: { kind: 'owner', owner }, container: true, children: clips.length > 0 ? [...graphs, heading(`${key}/clips`, 'Clips', 'clips', clips)] : graphs }
+}
+
+/**
+ * *This project*'s rows: each clip track in Tracks order, then the returns, the group buses and the master, each with
+ * its graphs and clips; then the project's samples and modules. Nothing is captured: names, counts and a node-type scan
+ * for the ⚠ reason.
+ */
+const buildProjectModel = (project: Project): ProjectModel => {
+  const nodes: ProjectNode[] = []
+  const tracks = (kind: 'clips' | 'returns') => project.tracks.filter((track) => (track.kind === 'return') === (kind === 'returns'))
+  for (const track of [...tracks('clips'), ...tracks('returns')]) {
+    const owner: ControlOwner = { kind: 'track', trackId: track.id }
+    const clipKind = track.kind === 'instrument' ? 'midi-clip' : 'audio-clip'
+    const clips = track.kind === 'return' ? [] : track.clips.flatMap((clip) => (clip ? [leaf(`p:c:${clip.id}`, clip.name || 'Clip', { kind: 'clip', trackId: track.id, clipId: clip.id, clipKind }, clipKind)] : []))
+    nodes.push(ownerNode(project, owner, track.name, track.kind === 'instrument' ? ['patch', 'fx', 'notes'] : ['fx'], clips))
+  }
+  for (const row of trackRows(project)) if (row.kind === 'group' && row.group.bus) nodes.push(ownerNode(project, { kind: 'group', groupId: row.group.id }, `${row.group.name} bus`, ['fx'], []))
+  nodes.push(ownerNode(project, { kind: 'master' }, 'Master', ['fx'], []))
+  if (project.samples.length > 0) nodes.push(heading('p:samples', 'Samples', 'samples', project.samples.map((sample) => leaf(`p:a:${sample.id}`, sample.name, { kind: 'sample', sampleId: sample.id }, 'sample'))))
+  if (project.modules.length > 0) nodes.push(heading('p:modules', 'Modules', 'modules', project.modules.map((module) => leaf(`p:o:${module.id}`, module.name, { kind: 'module', moduleId: module.id }))))
+  return { name: project.name, nodes }
+}
+
+const models = new WeakMap<Project, ProjectModel>()
+let lastModel: { readonly signature: string; readonly model: ProjectModel } | undefined
+
+/**
+ * *This project*'s rows for a state of the project, memoized on the project object. A new project whose rows are the
+ * same as the last one's (an edit that changed only a value, a knob dragged) gets the same model back, so a view that
+ * selects it doesn't re-render.
+ */
+export const projectModel = (project: Project): ProjectModel => {
+  const known = models.get(project)
+  if (known) return known
+  const built = buildProjectModel(project)
+  const signature = JSON.stringify(built)
+  const model = lastModel?.signature === signature ? lastModel.model : built
+  lastModel = { signature, model }
+  models.set(project, model)
+  return model
+}
+
+/**
+ * With a query or a kind, only the matches and the rows above them. An owner's name is matched by the rows under it
+ * (a search for *Bass* shows Bass's graphs, presets and clips), a heading's never; modules match search only.
+ */
+const filterProject = (nodes: readonly ProjectNode[], query: string, kind: string, inherited: readonly string[] = []): ProjectNode[] => {
+  const kept: ProjectNode[] = []
+  for (const node of nodes) {
+    const names = node.entry.kind === 'owner' ? [...inherited, node.name] : inherited
+    const children = filterProject(node.children, query, kind, names)
+    const matches = !node.container && (!kind || node.kind === kind) && [node.name, ...names].some((name) => name.toLocaleLowerCase().includes(query))
+    if (children.length > 0 || matches) kept.push({ ...node, children })
+  }
+  return kept
+}
+
+/**
+ * *This project*'s rows, depth first: its root, named after the project, and what is under its expanded rows. With a
+ * query or a kind, the matches and the rows above them, all expanded, while the root is open (as the trash is searched).
+ */
+export const projectRows = (model: ProjectModel, { expanded, query = '', kind = '' }: RowOptions): LibraryRow[] => {
+  const filtering = query.trim() !== '' || kind !== ''
+  const searched = filtering && expanded.has('project')
+  const shown = searched ? filterProject(model.nodes, query.trim().toLocaleLowerCase(), kind) : model.nodes
+  const isExpanded = shown.length > 0 && expanded.has('project')
+  const rows: LibraryRow[] = [{ kind: 'root', key: 'project', parent: null, level: 1, name: model.name, root: 'project', count: 0, hasChildren: shown.length > 0, expanded: isExpanded }]
+  const visit = (node: ProjectNode, parent: RowKey, level: number) => {
+    const open = node.children.length > 0 && (searched || expanded.has(node.key))
+    // A heading counts its rows, a graph its presets.
+    const count = node.entry.kind === 'heading' || node.entry.kind === 'graph' ? node.children.length : 0
+    rows.push({ kind: 'project', key: node.key, parent, level, name: node.name, root: 'project', hasChildren: node.children.length > 0, expanded: open, entry: node.entry, count })
+    if (open) for (const child of node.children) visit(child, node.key, level + 1)
+  }
+  if (isExpanded) for (const node of shown) visit(node, 'project', 2)
   return rows
 }
 

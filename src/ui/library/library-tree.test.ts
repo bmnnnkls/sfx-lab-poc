@@ -1,5 +1,6 @@
+import { type Project, createDemoProject, createGroupBus, findExampleProject, saveProjectPreset } from '@core'
 import { describe, expect, it } from 'vitest'
-import { ancestorsOf, expandedFor, folderKey, INITIAL_EXPANDED, itemKey, libraryRows, type LibraryRow, treeKey } from './library-tree'
+import { ancestorsOf, expandedFor, folderKey, INITIAL_EXPANDED, itemKey, libraryRows, type LibraryRow, projectModel, projectRows, treeKey } from './library-tree'
 
 const folder = (id: string, name: string, parentId: string | null, trashed = false) => ({ id, name, parentId, ...(trashed ? { trashed } : {}) })
 const item = (id: string, name: string, folderId: string | null, kind = 'instrument', trashed = false) => ({ id, name, folderId, content: { kind }, ...(trashed ? { trashed } : {}) })
@@ -94,5 +95,104 @@ describe('library tree keys', () => {
     const expanded = new Set(['mine'])
     const move = treeKey(libraryRows(catalog, { expanded }), folderKey('pads'), expanded, '*')!
     expect([...move.expanded!].sort()).toEqual(['mine', folderKey('drums'), folderKey('pads')].sort())
+  })
+})
+
+describe('this project rows', () => {
+  const lowLight = () => findExampleProject('low-light')!.create()
+  const glassRain = () => findExampleProject('glass-rain')!.create()
+  /** Every row under the root open, as the tree draws them. */
+  const everything = (project: Project, options: { query?: string; kind?: string } = {}) => {
+    const model = projectModel(project)
+    const keys = new Set<string>(['project'])
+    // Opening a row shows the rows under it; repeat until nothing new opens.
+    for (let size = -1; size !== keys.size;) {
+      size = keys.size
+      for (const row of projectRows(model, { expanded: keys })) if (row.hasChildren) keys.add(row.key)
+    }
+    return projectRows(model, { expanded: keys, ...options })
+  }
+  const reasons = (rows: readonly LibraryRow[]) =>
+    rows.flatMap((row) => (row.kind === 'project' && row.entry.kind === 'graph' && row.entry.reason ? [`${rows.find((owner) => owner.key === row.parent)!.name} ${row.name}: ${row.entry.reason}`] : []))
+
+  it('starts collapsed, named after the project, first in the tree', () => {
+    const rows = projectRows(projectModel(createDemoProject()), { expanded: INITIAL_EXPANDED })
+    expect(rows).toEqual([expect.objectContaining({ kind: 'root', key: 'project', name: 'Demo project', root: 'project', hasChildren: true, expanded: false })])
+  })
+
+  it('shows each track, then the master, with the graphs that hold something and the clips; empty graphs are left out', () => {
+    expect(names(everything(createDemoProject()))).toEqual([
+      'Demo project',
+      '  Bass', '    Instrument', '    Clips', '      Root', '      Walk',
+      '  Lead', '    Instrument', '    Clips', '      Arp', '      Hook',
+      '  Pad', '    Instrument', '    Clips', '      Cm', '      Ab',
+      '  Master',
+    ])
+    const rows = everything(createDemoProject())
+    expect(rows.find((row) => row.name === 'Clips')).toMatchObject({ kind: 'project', count: 2, entry: { kind: 'heading', heading: 'clips' } })
+    expect(rows.find((row) => row.name === 'Master')).toMatchObject({ hasChildren: false, entry: { kind: 'owner', owner: { kind: 'master' } } })
+  })
+
+  it("lists Low Light's tracks in order, then its returns, the master and its modules, with ⚠ on what reads another track", () => {
+    const rows = everything(lowLight())
+    expect(rows.filter((row) => row.level === 2).map((row) => row.name)).toEqual([
+      'Kick', 'Clap', 'Hat', 'Open hat', 'Shaker', 'Knocks', 'Bass', 'Stab', 'Arp', 'Drone', 'Riser', 'Crash', 'Dust', 'Room', 'Echo', 'Hall', 'Master', 'Modules',
+    ])
+    const under = (name: string) => rows.filter((row) => row.parent === rows.find((owner) => owner.level === 2 && owner.name === name)!.key).map((row) => row.name)
+    expect(under('Kick')).toEqual(['Instrument', 'Clips'])
+    expect(under('Stab')).toEqual(['Instrument', 'Effects', 'Notes', 'Clips'])
+    expect(under('Room')).toEqual(['Effects'])
+    expect(under('Master')).toEqual(['Effects'])
+    expect(rows.find((row) => row.name === 'Modules')).toMatchObject({ count: 4 })
+    expect(rows.filter((row) => row.parent === rows.find((owner) => owner.name === 'Kick')!.key + '/clips')).toHaveLength(7)
+    expect(reasons(rows)).toEqual([
+      'Bass Effects: Uses Track audio from Kick', 'Stab Effects: Uses Track audio from Kick', 'Arp Effects: Uses Track audio from Kick', 'Drone Effects: Uses Track audio from Kick', 'Echo Effects: Uses Track audio from Kick',
+    ])
+  })
+
+  it("puts ⚠ on Glass Rain's Arp notes, and on its instrument, whose save takes the notes along", () => {
+    const rows = everything(glassRain())
+    expect(reasons(rows)).toEqual(['Arp Instrument: Uses Track notes from Pad', 'Arp Notes: Uses Track notes from Pad'])
+    expect(rows.filter((row) => row.parent === rows.find((owner) => owner.name === 'Arp')!.key).map((row) => row.name)).toEqual(['Instrument', 'Effects', 'Notes'])
+  })
+
+  it('shows presets under their graph, counted, a group bus after the returns, and the samples', () => {
+    let project = createDemoProject()
+    const bass = project.tracks[0]!
+    project = saveProjectPreset(project, { owner: { kind: 'track', trackId: bass.id }, domain: 'patch' }, 'Warm')
+    project = saveProjectPreset(project, { owner: { kind: 'track', trackId: bass.id }, domain: 'patch' }, 'Bright')
+    project = { ...project, groups: [{ id: 'grp', name: 'Low end', colour: 'red', bus: createGroupBus() }], tracks: project.tracks.map((track, index) => (index === 0 ? { ...track, groupId: 'grp' } : track)) }
+    project = { ...project, samples: [{ id: 's1', name: 'Kick.wav', extension: 'wav', durationSeconds: 1, sampleRate: 48000, channels: 1, bytes: 10 }] }
+    const rows = everything(project)
+    expect(rows.find((row) => row.name === 'Instrument')).toMatchObject({ count: 2, hasChildren: true, entry: { kind: 'graph', presets: 2 } })
+    expect(names(rows).slice(1, 8)).toEqual(['  Bass', '    Instrument', '      Warm', '      Bright', '    Clips', '      Root', '      Walk'])
+    expect(rows.filter((row) => row.level === 2).map((row) => row.name)).toEqual(['Bass', 'Lead', 'Pad', 'Low end bus', 'Master', 'Samples'])
+    expect(rows.find((row) => row.name === 'Kick.wav')).toMatchObject({ entry: { kind: 'sample', sampleId: 's1' }, parent: 'p:samples' })
+  })
+
+  it('searches while the root is open: an owner by its name, the rest by theirs, with the type filter; modules by search only', () => {
+    const model = projectModel(lowLight())
+    expect(names(projectRows(model, { expanded: new Set(), query: 'stab' }))).toEqual(['Low Light'])
+    const open = new Set(['project'])
+    const stab = names(projectRows(model, { expanded: open, query: 'stab' }))
+    expect(stab.slice(0, 6)).toEqual(['Low Light', '  Stab', '    Instrument', '    Effects', '    Notes', '    Clips'])
+    expect(stab).toHaveLength(6 + 5)
+    expect(names(projectRows(model, { expanded: open, kind: 'note-effect' }))).toEqual(['Low Light', '  Stab', '    Notes', '  Arp', '    Notes'])
+    expect(names(projectRows(model, { expanded: open, query: 'bass', kind: 'audio-effect' }))).toEqual(['Low Light', '  Bass', '    Effects'])
+    const moduleName = lowLight().modules[0]!.name
+    expect(names(projectRows(model, { expanded: open, query: moduleName }))).toContain(`    ${moduleName}`)
+    expect(names(projectRows(model, { expanded: open, query: moduleName, kind: 'instrument' }))).not.toContain(`    ${moduleName}`)
+    expect(projectRows(model, { expanded: open, query: 'nothing at all' })[0]).toMatchObject({ hasChildren: false, expanded: false })
+  })
+
+  it('is memoized on the project, and an edit that changes no row gives the same model', () => {
+    const project = lowLight()
+    const model = projectModel(project)
+    expect(projectModel(project)).toBe(model)
+    const kick = project.tracks[0]!
+    const louder = { ...project, tracks: project.tracks.map((track) => (track.id === kick.id ? { ...track, volume: 0.5 } : track)) }
+    expect(projectModel(louder)).toBe(model)
+    const renamed = { ...project, tracks: project.tracks.map((track) => (track.id === kick.id ? { ...track, name: 'Big kick' } : track)) }
+    expect(projectModel(renamed)).not.toBe(model)
   })
 })

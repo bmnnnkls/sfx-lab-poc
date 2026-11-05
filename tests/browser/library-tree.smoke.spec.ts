@@ -83,7 +83,7 @@ test('the library is one tree: saved from a track, organised by dragging, search
   // A search shows the matches under their folders; clearing it brings the tree back.
   await panel.getByLabel('Search library', { exact: true }).fill('warm')
   const labels = () => panel.getByRole('treeitem').evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
-  await expect.poll(labels).toEqual(['My library, 2 items', 'Pads, 1 item', 'Kicks, 1 item', 'Lead', 'Warm', 'Lead', 'Warm', 'Trash'])
+  await expect.poll(labels).toEqual(['Demo project', 'My library, 2 items', 'Pads, 1 item', 'Kicks, 1 item', 'Lead', 'Warm', 'Lead', 'Warm', 'Trash'])
   await panel.getByLabel('Search library', { exact: true }).fill('')
   await expect(treeRow(panel, 'Drums')).toBeVisible()
 

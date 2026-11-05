@@ -7,7 +7,7 @@ note: "Phase 3 of SPEC-library-ux.md: the This project root in the Library tree,
 
 Phase 3 of [SPEC-library-ux.md](SPEC-library-ux.md) (§ 3, D8). Builds on phases [1](PLAN-library-1-tree.md) and
 [2](PLAN-library-2-entry-points.md): the tree model, the library drops, the save actions and `externalRoutingIn`.
-Inventory taken at `9b4f2cd`. Re-check it at the branch tip before step 1.
+Inventory taken at `9b4f2cd`, re-checked at `c558921` (see "Changes made while implementing").
 
 ## Goal
 
@@ -46,7 +46,16 @@ the link to the library sound a track came from (phase 5).
 * Existing subjects cover most rows: `track`, `group` and `master` (owner rows), `clip`, `sample`, `sound` (presets)
   and `module`. There is no subject for "this owner's instrument graph" as a thing.
 * `revealView` and the selection store's `selectTrack`, `selectMaster` and `selectGroup` exist (pins use them for
-  *Open*).
+  *Open*, through `openPinnedEditor({ owner, graph })` in `state/navigation.ts`).
+* **The project has no ID.** `useProjectStore`'s `documentEpoch` changes only when a project is loaded or replaced, so
+  the root's expansion is kept per epoch.
+* **`graphFitsOwner(item, owner)` reads the revisions of the store's catalog** (`state/actions/library.ts`), so a
+  throwaway item needs the catalog passed in too.
+* **`routingRefusal(scope)` reads the store's project** (`state/actions/drops.ts`, phase 2); the rows need it for a
+  given project, as `routingRefusalIn(project, scope)`.
+* **`insertLibraryAsset` records the item's own ID as the origin** (`libraryOrigins[].itemId`), so the throwaway item
+  is given the ID `project:<owner>:<domain>`.
+* **The examples hold no presets and no samples.** Presets and a sampled instrument are built in the tests.
 
 ## Design
 
@@ -63,8 +72,8 @@ the link to the library sound a track came from (phase 5).
 | *Samples*, then each sample | `sample` (existing) | `sample` (existing) |
 | *Modules*, then each module definition | `module` (existing) | none until L2 |
 
-* **Collapsed by default**, at the top of the tree. The expanded rows are kept per project ID in the library store,
-  so switching projects doesn't carry one project's expansion to the next.
+* **Collapsed by default**, at the top of the tree. The expanded rows are kept per loaded project (its
+  `documentEpoch`) in the library store, so switching projects doesn't carry one project's expansion to the next.
 * **Search and the type filter** cover these rows: an *Instrument* row is an instrument, *Effects* an audio effect,
   *Notes* a note effect, clips their kind, samples samples. Modules match search only.
 * **The ⚠ reason** comes from `externalRoutingIn` (phase 2), computed when the rows are built: a node-type scan per
@@ -111,7 +120,8 @@ origins are.
 
 1. **Rows.** `projectRows`, the root in the tree, search and filter, persisted expansion, ⚠ reasons. Unit tests on
    the starter and both examples: rows and counts, empty graphs left out, Low Light's ⚠ rows (Bass, Stab, Arp, Drone
-   effects and the Echo return; Glass Rain's Arp notes), and search.
+   effects and the Echo return; Glass Rain's Arp notes, and its instrument, whose save takes the notes along), and
+   search.
 2. **Subject, actions and the source catalog.** The `project-graph` subject, its actions, `projectGraphItem`, and
    `from` on `insert` and `preview`. Unit tests: `describeActions` for each domain and for a routed one; *Copy to new
    track* is one undo step with presets; preview resolves a sampled instrument's bytes.
@@ -151,3 +161,30 @@ Signed off 2026-11-04: every row as proposed.
 | Copy onto another owner | **Yes, by drag and *Copy to new track***, through `insertLibraryAsset` | Same independence as a library insert. |
 | Modules | **Listed, not savable** until backlog L2 | |
 | Origin of a copy | **`itemId: 'project:<owner>:<domain>'`**, informational | Origins are never used for playback. |
+
+## Changes made while implementing
+
+* **Inventory re-checked** at `c558921`. Phase 2 had made `externalRoutingIn` and the library drops as planned. The
+  code had moved in five places, now in the inventory: the project has no ID (the expansion is kept per
+  `documentEpoch`), `graphFitsOwner` and `routingRefusal` read the stores, `insertLibraryAsset` takes the origin from
+  the item's ID, and the examples hold no presets or samples.
+* **Step 1:** Glass Rain's Arp shows ⚠ on its *Instrument* too: saving an instrument takes its note graph along, and
+  that reads the pad's notes. The plan's list named only its notes.
+* **Step 1:** *This project* is searched only while it is open, as the trash is. A search in the collapsed tree stays
+  on *My library*, and the existing library specs keep their rows.
+* **Step 1:** a graph "holds something" when it has a node other than its ends (`trackIn`, `returnIn`, `groupIn`,
+  `masterIn`, `trackOut`, `clipNotes`, `noteOut`). A graph with presets shows even when it holds nothing else.
+* **Step 1:** glyphs are the library's own (♪ instrument, ◈ effects, ♮ notes, • preset, ▦ ▤ clips, ∿ sample), so a
+  kind reads the same in both roots; ◆ marks the root and ◇ a module. A group bus is named "Drums bus". The root has no
+  count; *Clips*, *Samples* and *Modules* count their rows, a graph its presets (its label says "2 presets").
+* **Step 1:** an owner matches a search through the rows under it (*Bass* shows Bass's graphs, presets and clips); a
+  heading never matches by its own name; modules match search only.
+* **Step 1:** clip, sample and preset rows drag their existing payloads already, so they drop onto library folders
+  as from their own views. Owner rows don't drag. *Rename* in an owner's, clip's or sample's menu renames in place in
+  the row, as it does in their own views: their existing menus, as signed off.
+* **Step 1:** `projectModel(project)` is memoized on the project object, and a project whose rows didn't change (a
+  value edited, a knob dragged) gets the previous model back, so the tree, which selects it, doesn't re-render.
+* **Step 1:** the library tree spec that lists every row's label during a search now starts with the project's root
+  (*Demo project*): a new row, not a dropped case.
+* **Step 1:** checked in the preview on Low Light at a wide window and with the Library at 280 px in the sidebar: the
+  rows, ⚠ and counts fit. The app has one (dark) theme, so light looks the same, as phase 1 found.

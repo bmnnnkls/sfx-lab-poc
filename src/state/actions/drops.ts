@@ -1,10 +1,10 @@
-import { type ControlOwner, type LibraryCatalog, type SnapshotScope, type TrackItem, type TrackPlace, canMoveGroup, canMoveTrack, duplicateLibraryFolder, externalRoutingIn, libraryItemDuplicate, moveLibraryEntry } from '@core'
+import { type ControlOwner, type LibraryCatalog, type SnapshotScope, type TrackItem, type TrackPlace, canMoveGroup, canMoveTrack, duplicateLibraryFolder, libraryItemDuplicate, moveLibraryEntry } from '@core'
 import { useLibraryStore } from '../library-store'
 import { useProjectStore } from '../project-store'
 import { canRunAction, runAction, type RunOptions, settle } from '.'
 import { canPasteClipOnLane, pasteClipOnLane } from './lane'
 import { editLibrary, graphFitsOwner, insertionScope, insertLibraryClipAt, libraryClipFitsSlot, replaceGraph } from './library'
-import { type LibrarySource, saveToLibrary } from './library-save'
+import { type LibrarySource, routingRefusal, saveToLibrary } from './library-save'
 import { project, sessionClipOf, trackOf } from './lookup'
 import { canPasteClipInSlot, pasteClipInSlot } from './slot'
 import { canRecallPresetOn, recallPresetOn } from './sound'
@@ -180,19 +180,6 @@ const libraryTrash = [
     run: (payload, _root, context) => runAction('library-folder.trash', payload, context),
   }),
 ]
-
-/** What a node that reads another track is called, in a refusal. */
-const ROUTING_NAMES: Readonly<Record<string, string>> = { send: 'a Send', trackAudio: 'Track audio', trackNotes: 'Track notes' }
-
-/** Why a graph can't be saved: it reads another track (*Uses Track audio from Kick*), or undefined when it can. */
-export const routingRefusal = (scope: SnapshotScope): string | undefined => {
-  const routing = externalRoutingIn(project(), scope)
-  if (!routing) return undefined
-  const name = ROUTING_NAMES[routing.nodeType] ?? routing.nodeType
-  const track = routing.trackId === undefined ? undefined : trackOf(routing.trackId)?.name
-  if (!track) return `Uses ${name}`
-  return routing.nodeType === 'send' ? `Uses ${name} to ${track}` : `Uses ${name} from ${track}`
-}
 
 /** Payloads from the project that a library folder takes: saved there. */
 type SavedPayload = SubjectOf<'track' | 'group' | 'clip' | 'sample' | 'sound'>

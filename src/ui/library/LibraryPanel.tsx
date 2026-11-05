@@ -5,7 +5,7 @@ import { PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import { BundleDialog } from './BundleDialog'
 import { KIND_NAMES, LibraryDetails, primaryOf } from './LibraryDetails'
 import type { LibraryRow } from './library-tree'
-import { LibraryTree, subjectOf } from './LibraryTree'
+import { LibraryTree } from './LibraryTree'
 import styles from './LibraryPanel.module.css'
 
 const BUNDLE_LIMIT = 128 * 1024 * 1024
@@ -72,11 +72,11 @@ export const LibraryPanel = () => {
     act('library-item.preview', { kind: 'library-item', itemId: row.id }, undefined, true)
   }
   const primary = (row: LibraryRow) => {
-    if (row.kind === 'root' || row.kind === 'folder') return
+    if (row.kind !== 'item' && row.kind !== 'preset') return
     const item = catalog.items.find((candidate) => candidate.id === row.id)
     if (!item) return
     const action = primaryOf(catalog, item)
-    if (!action.refusal) act(action.id, subjectOf(row), action.choice)
+    if (!action.refusal) act(action.id, { kind: 'library-item', itemId: row.id }, action.choice)
     else setMessage(action.refusal)
   }
   const reviewExport = (selection: LibraryBundleSelection, name: string) => run(async () => {

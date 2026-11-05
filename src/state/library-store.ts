@@ -1,11 +1,21 @@
 import { type LibraryBundleSelection, type LibraryCatalog, emptyLibrary } from '@core'
 import { create } from 'zustand'
 import { useLayoutStore } from './layout-store'
+import { useProjectStore } from './project-store'
 
-/** A row of the Library's tree: a root (`mine` or `trash`), a folder or an item, by id. */
+/**
+ * A row of the Library's tree: a root (`project`, `mine` or `trash`), a folder or an item, by id; or a row of *This
+ * project* (`project`), by its row key.
+ */
 export interface LibraryRowRef {
-  readonly kind: 'root' | 'folder' | 'item'
+  readonly kind: 'root' | 'folder' | 'item' | 'project'
   readonly id: string
+}
+
+/** The expanded rows of *This project*, for the project loaded when they were set (its `documentEpoch`). */
+export interface ProjectExpansion {
+  readonly epoch: number
+  readonly keys: ReadonlySet<string>
 }
 
 /**
@@ -27,11 +37,15 @@ interface LibraryViewState {
   /** The item being previewed, whose row shows ■. */
   readonly previewing: string | null
   readonly request: LibraryRequest | null
+  /** What is open under *This project*. Loading another project starts it collapsed again (`projectExpandedOf`). */
+  readonly projectExpanded: ProjectExpansion
   setCatalog(catalog: LibraryCatalog): void
   setActive(active: LibraryRowRef | null): void
   select(selected: readonly string[]): void
   setPreviewing(itemId: string | null): void
   setRequest(request: LibraryRequest | null): void
+  /** Sets what is open under *This project*, for the project loaded now. */
+  setProjectExpanded(keys: ReadonlySet<string>): void
   /** Shows an item in the Library: makes it active, so the tree expands its path, and shows the view. */
   reveal(itemId: string): void
 }
@@ -43,16 +57,24 @@ export const useLibraryStore = create<LibraryViewState>((set) => ({
   selected: [],
   previewing: null,
   request: null,
+  projectExpanded: { epoch: -1, keys: new Set() },
   setCatalog: (catalog) => set({ catalog }),
   setActive: (active) => set({ active }),
   select: (selected) => set({ selected }),
   setPreviewing: (previewing) => set({ previewing }),
   setRequest: (request) => set({ request }),
+  setProjectExpanded: (keys) => set({ projectExpanded: { epoch: useProjectStore.getState().documentEpoch, keys } }),
   reveal: (itemId) => {
     set({ active: { kind: 'item', id: itemId }, selected: [itemId] })
     useLayoutStore.getState().revealView('library')
   },
 }))
+
+const NONE: ReadonlySet<string> = new Set()
+
+/** What is open under *This project* for the project loaded at `epoch`: nothing, for a project loaded since. */
+export const projectExpandedOf = ({ projectExpanded }: Pick<LibraryViewState, 'projectExpanded'>, epoch: number): ReadonlySet<string> =>
+  projectExpanded.epoch === epoch ? projectExpanded.keys : NONE
 
 /**
  * The folder open in the Library, where new things are saved: the active folder, or the folder of the active item

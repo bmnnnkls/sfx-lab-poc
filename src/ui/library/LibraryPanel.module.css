@@ -41,6 +41,8 @@
 .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rootName { font-weight: 600; }
 .count { flex: 0 0 auto; color: var(--text-dim); font-size: 11px; }
+/* A graph of This project that can't be saved or copied: its reason is the row's tooltip. */
+.reason { flex: 0 0 auto; color: var(--queued); font-size: 11px; }
 .play { flex: 0 0 auto; padding: 0 5px; border-color: transparent; background: none; color: var(--text-dim); font-size: 10px; line-height: 18px; }
 .play:hover { color: var(--accent); }
 .row:not(:hover):not(:focus-visible):not(.active):not([data-previewing]) .play { visibility: hidden; }
