@@ -47,8 +47,9 @@ two ([archive/ui-redesign](archive/ui-redesign/README.md)).
    beat, a grid and snap, a position to play from, follow, view keys, and the timeline geometry shared with the wave
    editor. **12b is done** (2026-11-04, [plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)): a mark lane
    under the ruler with markers and a loop brace, the engine looping the arrangement sample-accurately, a seek while
-   playing that releases held notes and restarts audio in phase, M, L, `[` and `]`, and format v13. 12c (automation on
-   the timeline, groups included) and 12d (touch recording into the arrangement) are to plan.
+   playing that releases held notes and restarts audio in phase, M, L, `[` and `]`, and format v13. The [plan for 12c](active/PLAN-round-12c-timeline-automation.md)
+   (automation on the timeline, groups included, format v14) is signed off (2026-11-05, every decision as proposed) and ready to build; 12d (touch recording into the
+   arrangement) is to plan.
 2. **Round 13: visual refresh and themes.**
 3. **Merge `feat/ui-redesign` into `main`.** Decide whether this happens before round 12, and clear the verification
    debt first ([BACKLOG](BACKLOG.md#verification-debt)).

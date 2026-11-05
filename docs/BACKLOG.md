@@ -14,8 +14,8 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
   control owners but not automation owners yet), recording into the arrangement (touch recording on the timeline).
   [Spec](active/SPEC-round-12-arrangement-editor.md) signed off 2026-11-01; 12a is done
   ([plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)), and so is 12b, markers and the loop
-  ([plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)); 12c (automation on the timeline) and 12d (touch
-  into the arrangement) are to plan.
+  ([plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)); [12c's plan](active/PLAN-round-12c-timeline-automation.md)
+  (automation on the timeline) is signed off 2026-11-05 and ready to build; 12d (touch into the arrangement) is to plan.
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
   Samples and the Library, library samples, several things at once outside the Library (the Library's tree drags
