@@ -276,7 +276,7 @@ const graphCopyFits = (payload: GraphPayload, owner: ControlOwner) => {
 /** Copies a graph of the project onto `owner`'s, as a library insert: fresh node IDs, its own modules and presets. */
 const copyGraphOnto = (payload: GraphPayload, owner: ControlOwner, { library }: ActionContext) => {
   const { catalog, item } = capturedGraph(payload)!
-  return library.insert(item, { mode: 'replace', scope: { owner, domain: payload.domain } }, undefined, undefined, catalog)
+  return library.insert(item, { mode: 'replace', scope: { owner, domain: payload.domain }, carry: { owner: payload.owner, domain: payload.domain } }, undefined, undefined, catalog)
 }
 
 /**

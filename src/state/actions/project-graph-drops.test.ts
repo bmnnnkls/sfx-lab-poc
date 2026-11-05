@@ -75,7 +75,7 @@ describe('a graph of This project dropped', () => {
     const bass = track('Bass') as Extract<ReturnType<typeof track>, { kind: 'instrument' }>
     const past = useProjectStore.getState().history.past.length
     await runDrop(graph('Bass', 'patch'), header('Lead'), context(), { alt: false })
-    expect(inserts.map(({ item, destination }) => [item.id, destination])).toEqual([[`project:track:${bass.id}:patch`, { mode: 'replace', scope: { owner: { kind: 'track', trackId: track('Lead').id }, domain: 'patch' } }]])
+    expect(inserts.map(({ item, destination }) => [item.id, destination])).toEqual([[`project:track:${bass.id}:patch`, { mode: 'replace', scope: { owner: { kind: 'track', trackId: track('Lead').id }, domain: 'patch' }, carry: { owner: { kind: 'track', trackId: bass.id }, domain: 'patch' } }]])
     const lead = track('Lead') as typeof bass
     expect(lead.patch.nodes.map((node) => node.type)).toEqual(bass.patch.nodes.map((node) => node.type))
     // Fresh node IDs: the copy is independent of the original.

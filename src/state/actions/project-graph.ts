@@ -85,7 +85,7 @@ export const projectGraphActions: readonly Action<GraphSubject>[] = [
     // One undo step; the copy is independent of the original, as a library insert is.
     run: (subject, { library }) => {
       const { catalog, item } = projectGraphItem(project(), subject.owner, subject.domain, copyName(subject))
-      return library.insert(item, { mode: 'new-track' }, undefined, undefined, catalog)
+      return library.insert(item, { mode: 'new-track', carry: { owner: subject.owner, domain: subject.domain } }, undefined, undefined, catalog)
     },
   },
 ]

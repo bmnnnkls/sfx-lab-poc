@@ -179,3 +179,19 @@ Signed off 2026-11-04: every row as proposed.
 * **Step 1:** the fixture `v13-library-link.sfxlab.json` is v6-presets' sampler inserted as *Big bass* into an empty
   project, with its real maps (8 nodes, 1 module).
 
+* **Step 2:** `linkOf` came with this step, since the tests check a link by it and a project-graph copy needs it.
+  `insertedOrigin` (in `link.ts`) builds the origin `insertLibraryAsset` records; it writes `owner` beside `trackId`.
+* **Step 2:** a link past `LINK_LIMITS` (its own pairs, or every link's together) isn't written: the origin is
+  recorded without it, so the file never holds a link its sanitizer would drop.
+* **Step 2:** **project-graph copies carry the link too.** *Copy to new track* and a graph dropped on another owner
+  insert a throwaway capture whose item is `project:…`; `AssetDestination` gains `carry` (the scope it was captured
+  from), and the copy gets the source's live link composed with its own maps, naming the library item. Without a live
+  link at the source, it gets none. This is the same reasoning as the signed-off duplicate row: otherwise copying a
+  sound silently loses its library presets.
+* **Step 2:** duplicating a track carries, per graph, the link `linkOf` finds (live or not), with the owner moved; it
+  runs in the project store's `duplicateTrack` (`carryLibraryLinks`), since `core/project` can't import the library.
+* **Step 2: the build warned** (runbook stop 6): the automatic `state` chunk reached 500.40 kB minified (498.44 at
+  step 1). The user chose a `core` group in `vite.config.ts`'s `codeSplitting` (`src/core` in its own chunk), keeping
+  the warning limit. Gzipped, before → after: `state` 146.94 → 29.73 kB, `index` 114.75 → 112.30, a new `core`
+  123.04; the eager total grows about 2.9 kB, of which the step's code is under 1 kB. The lazy `library` chunk stays
+  3.7 kB: the library's core code was already in the eager `state` chunk.

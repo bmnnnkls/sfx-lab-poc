@@ -4,6 +4,7 @@ import { EXTERNAL_ROUTING, assetSignature, saveProjectPreset, editSampleBinding,
 import { type Project, createTrack } from '../project'
 import { createId } from '../shared'
 import { saveLibraryItem } from './catalog'
+import { insertedOrigin } from './link'
 import type { LibraryCatalog, LibraryItem } from './types'
 
 /** Save the current authored state plus every compatible embedded preset, not unrelated owners' sounds. */
@@ -96,10 +97,15 @@ const copyAsset = (payload: AssetPayload, owner: ControlOwner) => {
   const library = payload.modules.map(m => module(m.id))
   const target = <T extends ControlTarget | SampleTarget>(t: T): T => ({ ...t, owner, ...(t.kind === 'graph' && { nodeId: nodeId(t.nodeId), path: t.path.map(s => ({ nodeId: nodeId(s.nodeId), moduleId: modules.get(s.moduleId) ?? s.moduleId })) }) })
   const copied: AssetPayload = payload.kind === 'instrument' ? { ...payload, modules: library, patch: patch(payload.patch), noteGraph: patch(payload.noteGraph) } : { ...payload, modules: library, graph: patch(payload.graph) }
-  return { payload: copied, target }
+  return { payload: copied, target, nodes, modules }
 }
 
-export interface AssetDestination { readonly mode: 'new-track' | 'replace'; readonly scope?: SnapshotScope }
+/**
+ * Where an insert goes. `carry`: the scope of this project the item was captured from (a project graph copied to
+ * another owner), whose library link the copy carries, composed with the copy's maps, in place of a link to the
+ * throwaway item.
+ */
+export interface AssetDestination { readonly mode: 'new-track' | 'replace'; readonly scope?: SnapshotScope; readonly carry?: SnapshotScope }
 export const insertLibraryAsset = (project: Project, catalog: LibraryCatalog, item: LibraryItem, destination: AssetDestination): { project: Project; scope: SnapshotScope } => {
   const content = item.content
   if (!('revisionId' in content)) throw new Error('Choose an instrument, effect or preset')
@@ -148,7 +154,7 @@ export const insertLibraryAsset = (project: Project, catalog: LibraryCatalog, it
     samples: [...next.samples, ...catalog.samples.filter(s => payload.sampleIds.includes(s.id) && !next.samples.some(known => known.id === s.id))],
     controlValues: next.controlValues?.filter(v => !affected(v.target)), sampleBindings: next.sampleBindings?.filter(b => !affected(b.target)),
     assetRevisions: [...(next.assetRevisions ?? []), { id: revisionId, payload, signature: assetSignature(payload) }], presets: [...(next.presets ?? []), ...presets],
-    libraryOrigins: [...(next.libraryOrigins ?? []), { itemId: item.id, revisionId: original.id, ...(owner.kind === 'track' && { trackId: owner.trackId }), domain }],
+    libraryOrigins: [...(next.libraryOrigins ?? []), insertedOrigin(project, item.id, original.id, { owner, domain }, copy, destination.carry)],
   }
   if ((next.libraryOrigins?.length ?? 0) > 4096 || (next.controlValues?.length ?? 0) > 4096 || (next.sampleBindings?.length ?? 0) > 4096) throw new Error('Project library/control collection limit reached (4096)')
   if (next.samples.length > 256) throw new Error('Project sample limit reached')
