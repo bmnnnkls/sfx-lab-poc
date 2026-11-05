@@ -56,27 +56,15 @@ two ([archive/ui-redesign](archive/ui-redesign/README.md)).
 Outside the redesign, [active/SPEC-effects-round-2.md](active/SPEC-effects-round-2.md) has parts 1–2 done, and
 part 3 (Waveshaper and Crusher) is ready to build.
 
-The library UX round ([spec](active/SPEC-library-ux.md), [runbook](active/RUNBOOK-library.md)) runs on
-`feat/library-improvements`. **Phase 1 is done** (2026-11-05, [plan](active/PLAN-library-1-tree.md)): the Library is
-one tree of folders, items and presets with drag and drop, *Save to library* in the menus of tracks, buses, the master,
-clips and samples, compact details and a bundle review dialog. **Phase 2 is done** (2026-11-05,
-[plan](active/PLAN-library-2-entry-points.md)): a *Library* menu in the transport bar whose entries are commands, a
-project preset saved on its own, and tracks, groups, clips, samples and presets dragged onto library folders, with
-external routing refused up front and the reason shown. **Phase 3 is done** (2026-11-05,
-[plan](active/PLAN-library-3-this-project.md)): the tree's first root, *This project*, shows the open project's
-tracks, buses and master with their graphs, presets and clips, and its samples and modules, live and read-only; a graph
-saves, previews, shows, copies to a new track or is dragged onto another owner, and one that reads another track says
-why it can't. **Phase 4 is done** (2026-11-05, [plan](active/PLAN-library-4-sounds.md)): Sounds shows the presets
-and snapshots of the selection, with a tab per graph that follows the editor shown; rows recall onto the selection on
-click, A and B for the morph are set from rows, saving names a sound after its owner and renames it in place, and ⋯
-*Show all in project* lists everything. **Phase 5 is done** (2026-11-05, [plan](active/PLAN-library-5-link.md)): a
-library sound inserted into a project keeps a link (its ID maps and a hash of its graph's shape), so Sounds shows *From
-the library* with that sound's presets to recall, a project preset saves back into it, duplicates and copies keep the
-link, and the Library's details say where a sound is used; a rewired graph says so. **Phase 6 is done** (2026-11-05,
-[plan](active/PLAN-library-6-factory.md)): a read-only *Factory* root after *My library* holds 49 sounds, effects, note
-effects and clips captured from Low Light, Glass Rain and five starters, with stable ids and a line each, loaded in
-its own chunk the first time the Library opens; they preview, insert, drag and link like library sounds, and *Copy to
-My library* (or a drag onto a folder) makes an editable copy. Phase 7 is planned.
+**The library UX round is done** (2026-11-05, on `feat/library-improvements`, not merged;
+[spec, plans and runbook](archive/library-ux/SPEC-library-ux.md)). The Library is one tree with four roots: *This
+project* (the open project's graphs, presets, clips and samples, live), *My library*, a read-only *Factory* of 49
+sounds, effects and clips from the examples, loaded lazily, and *Trash*. Things get in from every menu, the transport
+bar's *Library* menu and by dragging, with external routing refused and the reason shown; they drag out onto tracks,
+slots and graphs, several at once inside the tree, and cut, copy and paste with ⌘X, ⌘C and ⌘V. Sounds shows the
+selection's presets and snapshots, and *From the library* the presets of the library sound it came from, through a
+link that survives duplicates and copies and saves new presets back. Not checked: the listening pass and the wording
+review (backlog V12, V13), Firefox and Safari (V2).
 
 ## Accepted limits
 
@@ -105,3 +93,4 @@ Each of these is a backlog item:
 * Manual listening passes for rounds 11a and 11b, and a looped sampler (11c-2). The bounce hashes and audio specs stand
   in for them.
 * Physical MIDI keyboards and controllers.
+* The library round's listening pass and its wording and layout review (V12, V13).

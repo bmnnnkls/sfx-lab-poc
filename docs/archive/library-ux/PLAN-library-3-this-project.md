@@ -2,7 +2,7 @@
 status: done
 date: 2026-11-05
 shipped_in: architecture/library-and-presets.md
-note: "Phase 3 of SPEC-library-ux.md, built on feat/library-improvements: the This project root in the Library tree, live from the project, read-only, with save, copy, preview and show, and a source catalog for insert and preview. Also shipped in architecture/workbench.md. Stays in active/ until phase 7 archives the round."
+note: "Phase 3 of SPEC-library-ux.md, built on feat/library-improvements: the This project root in the Library tree, live from the project, read-only, with save, copy, preview and show, and a source catalog for insert and preview. Also shipped in architecture/workbench.md."
 ---
 # Library phase 3: *This project* in the Library
 

@@ -175,14 +175,25 @@ the folders above them and a matching preset's sound, all open; a preset also ma
 Factory and the trash are searched only while they are open. Rows are `ActionMenu` triggers, drag sources (not the
 roots), drop targets (My library's folders and roots; a Factory row's target is null, so it shows the refusal) and spring open under a resting drag (see [workbench.md](workbench.md#drag-and-drop)). The active row is the
 one Tab reaches and the details show; a click selects, ⇧ extends along the rows, ⌘ toggles; Enter runs the details'
-main button and Space previews or stops. The header is search, the type filter and ⋯ (*My library*'s menu and *Export
+main button and Space previews or stops. A selected row of a selection of several drags them all (see
+[workbench.md](workbench.md#drag-and-drop)). **⌘X, ⌘C and ⌘V** use the library's own clipboard (`libraryClipboard`),
+apart from the project's: ⌘X (*Cut*) marks My library items and folders, dimmed (`data-cut`) until a paste or Esc;
+⌘C (*Copy*) takes My library's, the Factory's or one row of *This project* (a graph, a session clip, a sample or a
+project preset; there a clip's *Cut* doesn't apply, and *Copy* fills both clipboards); ⌘V (*Paste here*) on a folder or
+*My library* moves what was cut (and empties the clipboard) or copies what was copied, as dropping it there would. An
+item's cut or copy takes the selection when the item is in it; folders go one at a time. Several things land by
+`libraryLanding` (`state/actions/library-landing.ts`): the one-thing drop rule applied to each, all refused if one is,
+a preset whose sound lands too going with it, in one catalog update. The header is search, the type filter and ⋯ (*My library*'s menu and *Export
 selection…*). The status line shows only with something to say, and carries *Retry* after the catalog failed to read
 (an older tab holding the database). The details (`LibraryDetails.tsx`) show the kind, one line of facts, the samples,
 one main button and ⋯ for the rest: *Add as new track* for an instrument or a preset of one, *Replace effects (notes)
 on Bass* for effects, *Insert into scene n of Bass* for a clip (the first empty slot of the selected track of its kind),
 *Add to project* for a sample, *Restore* for anything trashed; a button that can't run is disabled with the reason
-beside it. An empty library says how things get in and offers to save the selected instrument. When the active row
-goes to the trash, the view moves on to its folder.
+beside it. An empty library says how things get in and offers to save the selected instrument. Until it is dismissed
+(once per browser, `sfxlab:library-use-hint-dismissed` in `localStorage`), a hint under the empty library's text and a
+live item's details says "Drag onto a track, a slot or a graph to use it." (`UseHint.tsx`). When the active row goes to
+the trash, the view moves on to its folder. The tree isn't virtualized: at 1024 folders and 4096 items it renders,
+searches and opens a folder in under 40 ms (see [baselines](../reference/baselines.md#library-tree)).
 
 **This project** is the tree's first root, named after the open project (◆ *Low Light*) and collapsed until opened.
 Its rows are built live from the project store and never stored (`projectRows`, from `projectModel(project)`): each

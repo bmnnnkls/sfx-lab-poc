@@ -2,7 +2,7 @@
 status: done
 date: 2026-11-05
 shipped_in: architecture/library-and-presets.md
-note: "Phase 1 of SPEC-library-ux.md, built on feat/library-improvements: one Library tree with items and drag and drop, Save to library in the menus, compact details and a bundle dialog. Stays in active/ until phase 7 archives the round."
+note: "Phase 1 of SPEC-library-ux.md, built on feat/library-improvements: one Library tree with items and drag and drop, Save to library in the menus, compact details and a bundle dialog."
 ---
 # Library phase 1: the tree, drag and drop, and saving from where things are
 

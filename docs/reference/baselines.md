@@ -144,6 +144,11 @@ re-render of the collapsed tree, 34 rows) 14–21 ms, and opening a top-level fo
 [measurements/library-tree-near-limit.json](../measurements/library-tree-near-limit.json). The threshold for
 virtualizing the tree is 100 ms.
 
+Redone in library phase 7 (2026-11-05, `f25c5a3`, same machine, load averages 7 to 11), with a second pass that opens
+*This project* and the Factory as well (83 rows, four roots searched together): over three runs every search,
+re-render and folder opening took **9–36 ms** (the collapsed tree alone: search 26–36, clear 13–20, expand 9–20; all
+roots open: search 22–33, clear 14–28, expand 10–18). The JSON now holds this run, with phase 1's ranges in its note.
+
 The Factory catalog (library phase 6, 2026-11-05, `95ad59a`, the main development machine): 49 items, 14 folders and 37
 revisions, **524 900 bytes** of JSON. `createFactoryCatalog` took **80, 96 and 103 ms** in Chromium on the dev build
 (three cold loads in the app's preview pane, read from the `sfxlab:factory-catalog` performance measure) and 85–150 ms
@@ -179,6 +184,9 @@ machine, gzipped sizes from Vite's report): `core` 123.0 kB, `state` 29.7 kB (14
 With the Factory (library phase 6, 2026-11-05, gzipped, against `cb124ef`): a lazy `factory` chunk of 16.9 kB (5.4 kB
 gzipped), not preloaded; `index` 112.9 → 112.3 kB, `core` 123.7 → 124.9, `state` 30.0 → 30.7, `LibraryPanel` 10.4 → 11.0,
 `library` 1.8 → 1.9. `vite build` takes about 0.4 s after `tsc`.
+
+With the library clipboard, multi-drag and the hint (library phase 7, 2026-11-05, gzipped, against `7a00065`): `index`
+112.28 → 112.33 kB, `state` 30.18 → 32.35, `LibraryPanel` 10.94 → 11.46; `core`, `factory` and `library` unchanged.
 
 ## Project files
 

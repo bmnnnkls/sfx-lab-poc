@@ -124,6 +124,16 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **The lazy library service lists every method by hand** (`app/library-service.ts`). A parameter added to
   `PersonalLibrary` is dropped there silently until the wrapper passes it on: the Library's ■ never turned back into
   ▶, because `preview`'s new `onStop` didn't reach the library. *(library phase 1)*
+* **`library.ts` can't import the drops**: `drops.ts` imports it. Library actions that need the drop table (*Paste
+  here*) live in `library-clipboard.ts`, and `actions/index.ts` merges them into the lists in group order
+  (`merged`). *(library phase 7)*
+* **An edit key can mean something else in the Library.** `clip.cut` doesn't apply where the context's `origin` is the
+  Library, and `clip.copy` there fills the library clipboard too; `sound.copy` and `sample.copy` apply only there. A
+  test of a verb sets `origin` (`fakeContext({ origin: 'library' })`). *(library phase 7)*
+* **`runVerb` doesn't wait** for an asynchronous action: a unit test that pastes by the verb waits a tick before it
+  reads the catalog, or runs the action with `runAction`, which returns the promise. *(library phase 7)*
+* **Menu tests list every entry**: the unit tests' `titles(...)` and `context-menus.smoke.spec.ts`'s `menuEntries`.
+  A new action on a subject changes them; that's the menu changing, not a test weakened. *(library phase 7)*
 * **A menu built from commands re-renders only on the stores `useCommandEntries` follows** (layout, persistence,
   project, Touch, selection, library). A command whose label, tooltip or state reads another store shows stale text
   while its menu is open until that store is added there. *(library phase 2)*

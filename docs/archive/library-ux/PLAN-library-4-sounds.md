@@ -2,7 +2,7 @@
 status: done
 date: 2026-11-05
 shipped_in: architecture/library-and-presets.md
-note: "Phase 4 of SPEC-library-ux.md, built on feat/library-improvements: Sounds shows the presets and snapshots of the selection, rows recall on click onto it, morph from rows, saving without a name field. Also shipped in architecture/workbench.md. Stays in active/ until phase 7 archives the round."
+note: "Phase 4 of SPEC-library-ux.md, built on feat/library-improvements: Sounds shows the presets and snapshots of the selection, rows recall on click onto it, morph from rows, saving without a name field. Also shipped in architecture/workbench.md."
 ---
 # Library phase 4: Sounds shows the presets of what is selected
 

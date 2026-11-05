@@ -1,7 +1,8 @@
 ---
-status: active
-date: 2026-11-04
-note: "Phase 7 of SPEC-library-ux.md: cut and paste moves, dragging several items at once, virtualization if measured slow, a first-run hint, and closing the round's docs. Decisions signed off 2026-11-04."
+status: done
+date: 2026-11-05
+shipped_in: architecture/library-and-presets.md
+note: "Phase 7 of SPEC-library-ux.md: cut, copy and paste with a library clipboard, dragging several items at once, virtualization measured and skipped, a first-run hint, and the round closed. Also shipped in architecture/workbench.md."
 ---
 # Library phase 7: polish and closing
 
@@ -122,3 +123,12 @@ Signed off 2026-11-04: every row as proposed.
   screenshots); at 280 × 200 *Save Bass to library* stays in sight and the hint scrolls below the text. Chunks,
   gzipped: `LibraryPanel` 11.18 → 11.46 kB; the build is warning-free. The smoke case is in
   `library-tree.smoke.spec.ts`.
+* **Gates before closing:** `npm run test:audio` passed, 25 specs in 2.9 minutes; smoke 243 specs.
+* **Step 5:** the notes are sorted: the clipboard, multi-drag, the landing rule and the hint into
+  `library-and-presets.md`, the payload, the drop rows and the clipboard into `workbench.md` (its "not yet" line keeps
+  several things at once outside the Library); decisions 119–123; four gotchas (`library.ts` can't import the drops,
+  edit keys that change in the Library, `runVerb` doesn't wait, menu tests list every entry); the phase 7 tree timings
+  and chunks in `baselines.md`; backlog U4 and V2 updated, V12 (listening) and V13 (wording and layout) take the
+  runbook's queue; STATUS, the tour and the docs index. The spec, the seven plans and the runbook are in
+  `archive/library-ux/`.
+

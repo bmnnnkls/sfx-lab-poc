@@ -101,6 +101,8 @@ dropping the file on the Library.
 Under *My library*, **🔒 Factory** holds ready-made sounds, effects and clips taken from the two examples, and a few
 starters: open **Drums**, press **▶** on **Kick**, and drag it onto a track. Factory sounds can't be changed in place;
 right-click one and choose **Copy to My library** (or drag it onto one of your folders) for a copy of your own.
+To tidy up, ⇧-click a range of sounds and drag them onto a folder together, or cut them with **⌘X**, click a folder
+and paste with **⌘V**; **⌘C** then **⌘V** copies instead, Factory sounds included.
 
 **Sounds** (secondary sidebar) keeps sounds inside the project, for whatever is selected. Its tabs follow the editor
 you have open. **+ Save preset** keeps the graph's sound for this and other tracks with the same graph; **+ Snapshot**

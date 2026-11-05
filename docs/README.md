@@ -31,7 +31,7 @@ docs/
 | Look up a version, storage key or size limit | [reference/formats-and-versions.md](reference/formats-and-versions.md) |
 | Compare performance | [reference/baselines.md](reference/baselines.md) |
 | Plan a new round, or land one | [dev/doc-workflow.md](dev/doc-workflow.md) |
-| Read the history | [archive/](archive/): [the UI redesign rounds](archive/ui-redesign/README.md), [performance and library](archive/2026-10-perf-library/), [handoffs](archive/handoffs/) |
+| Read the history | [archive/](archive/): [the UI redesign rounds](archive/ui-redesign/README.md), [performance and library](archive/2026-10-perf-library/), [the library UX round](archive/library-ux/SPEC-library-ux.md), [handoffs](archive/handoffs/) |
 
 The rules that keep this in order (front matter, what moves where when a round lands, the link check) are in
 [dev/doc-workflow.md](dev/doc-workflow.md).

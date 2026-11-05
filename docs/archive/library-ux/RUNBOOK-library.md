@@ -1,7 +1,8 @@
 ---
-status: active
-date: 2026-11-04
-note: "How the library UX round is built without stopping: order, gates, what needs the user, what doesn't, and where to hand off to a fresh session."
+status: done
+date: 2026-11-05
+shipped_in: architecture/library-and-presets.md
+note: "How the library UX round was built: order, gates, stop conditions and hand-offs. The round is done; its queue for the user is backlog V2, V5, V12 and V13."
 ---
 # Runbook: building the library UX round
 
@@ -142,6 +143,11 @@ Collected here as the phases go, and reported at each phase's end:
 * **Wording to look at** (phase 2): the Library menu's disabled reasons ("Select an instrument track", "Sum the group
   to a bus first", "Bass has no note effects") and the drop refusals ("Uses Track audio from Kick", "Uses a Send to
   Echo"), in the transport bar's *Library* menu and on the Library's rows during a drag.
+
+* **Wording to look at** (phase 7), in the Library: *Cut*, *Copy* and *Paste here* in the menus (a Factory row has
+  *Copy* beside *Copy to My library*), the reports "Moved Kick to Pads", "Copied 3 things to My library", "Moved 2 things
+  to the trash", the refusal "Drop one sound at a time" when several items are dragged onto a track, and the hint
+  "Drag onto a track, a slot or a graph to use it." with its × ("Don't show this again").
 
 ## Decisions made in the plans
 

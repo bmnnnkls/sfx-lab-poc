@@ -1,7 +1,8 @@
 ---
-status: active
-date: 2026-11-04
-note: "Proposal for discussion: Library and Sounds analysis, one tree with items and drag and drop, a This project root, Sounds as the presets of the selection, a read-only Factory library from the examples. All decisions (D1–D16) signed off 2026-11-04; next is a plan for phase 1."
+status: done
+date: 2026-11-05
+shipped_in: architecture/library-and-presets.md
+note: "The library UX round: one Library tree with This project, My library, a read-only Factory and Trash; Sounds as the presets of the selection; the library link. All decisions (D1–D16) signed off 2026-11-04; built in seven phases on feat/library-improvements (080b1e7 to the phase 7 docs commit). Also shipped in architecture/workbench.md."
 ---
 
 # Library and Sounds UX, and a Factory library

@@ -333,6 +333,9 @@ track opens its volume lane, in the selected (or first) clip, or a return's slot
   clicked beat, as `clipCopyFor(project, clip, trackId)`: fresh clip, note, lane and point ids, the lanes moved to the
   destination track (a lane whose node isn't on that track shows as unavailable). An audio clip whose sample was
   removed doesn't paste. `copySessionClip` (*Duplicate to empty slot*) uses the same copy.
+* **The library** (`libraryClipboard`): cut or copied, and the entries as they would be dragged (`LibraryClipEntry`),
+  for the Library's *Paste here* (see [library-and-presets.md](library-and-presets.md)). Cutting a library folder
+  leaves a copied clip alone.
 * **Automation slots** (`automationSlotClipboard`): *Paste* into an empty cell of the master or any return, with fresh
   ids and the lanes moved to that owner.
 * **Nodes** (`nodeClipboard`): the nodes and the wires between them (`copyNodes` in `core/project/node-copy.ts`), with
@@ -452,7 +455,8 @@ action's *Paste* runs, so every drop has a menu twin and the two can't drift apa
 
 * **Payloads and targets are subjects.** What is dragged is a `DragPayload`: a `clip` (a session clip), a `sample`, a
   `sound` (a project preset; snapshots don't drag), a `library-item`, a `library-folder`, a `track`, a `group` or a `project-graph` (a graph
-  of an owner, from the Library's *This project*). Where
+  of an owner, from the Library's *This project*), and `library-items { ids }`, several library items, the one payload
+  that isn't a subject (nothing has a menu on it). Where
   it lands is a `DropTarget`: a `slot`, a `lane` (with the snapped beat under the pointer), a `track` or a `group` (with
   the `edge` the pointer is on: before, after, or a group's middle third, inside), the `master`, a `canvas` (with the
   canvas point), or in the Library's tree a `library-folder` or a `library-root`. A
@@ -489,6 +493,7 @@ In the Library's tree:
 | Sample | Adds the sample there | The same | Refuses |
 | Project preset | Saves it on its own there (`captureLibraryPreset`) | The same | Refuses |
 | Graph of the project | Saves it there, as its owner's save for that graph does | The same | Refuses |
+| Several items (a selected row of a selection) | Each as one item would land, in one catalog update (`libraryLanding`): My library's move (Alt copies), the Factory's are copied in; a preset whose sound is among them goes with it; if any one refuses, all do | The same, at the top level | *Trash* for each; refuses if any can't go |
 
 A drop where the thing already is does nothing and refuses. The menu twins are *Move to ▸*, *Duplicate*, *Trash* and
 *Restore*; the drops onto the trash run the *Trash* actions themselves. A thing from the project is saved with
@@ -496,7 +501,8 @@ A drop where the thing already is does nothing and refuses. The menu twins are *
 *Show* reveals it; the menu twins are its *Save to library* entries. A graph that reads another track (`send`,
 `trackAudio`, `trackNotes`, found by `externalRoutingIn`) is refused up front with the reason: "Uses Track audio from
 Kick". A capture that still fails when it runs (sample bytes missing) reports its reason in the toast. A trashed folder
-takes nothing from the project.
+takes nothing from the project. Several items onto a slot, a track, a group, the master or a canvas refuse with "Drop
+one sound at a time".
 
 A graph of the project (a `project-graph` payload, dragged from *This project*) copies onto another owner as a library
 insert: `projectGraphItem` captures it into a throwaway catalog, `graphFitsOwner(item, owner, catalog)` checks the
@@ -548,5 +554,5 @@ group into itself or deeper than four levels, and a move that would make the mix
   its own type `application/x-sfxlab-control`), `SamplesPanel` and `LibraryPanel` (operating-system files, `Files`
   only: audio files, and an `.sfxlib` to review) and `RegionToggles` (which cancels drags) may use `dataTransfer`, `draggable` or `onDrag…`/`onDrop` handlers.
 * **Not yet.** Dragging regions out of the arrangement, drops that make tracks, files outside Samples and the Library,
-  library samples, several things at once, keyboard and touch drags (the menus cover both), and popout windows (turned off). Checked
+  library samples, several things at once outside the Library, keyboard and touch drags (the menus cover both), and popout windows (turned off). Checked
   in Chromium only.

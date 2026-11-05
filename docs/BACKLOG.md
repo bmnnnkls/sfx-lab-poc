@@ -18,7 +18,8 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
   into the arrangement) are to plan.
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
-  Samples and the Library, library samples, several things at once (several library items: library phase 7).
+  Samples and the Library, library samples, several things at once outside the Library (the Library's tree drags
+  several items since library phase 7).
 - **U5 Track copy and paste between projects, and *Duplicate group*** (rounds 5 and 7 left it). It needs modules and
   samples to come along, as the Library does.
 - **U6 Grouping several tracks at once**: needs a track multi-selection first.
@@ -39,7 +40,7 @@ Things that shipped without the check their plan asked for.
   (round 5), float WAV copies and stereo MP3 (rounds 11a and 11b), the Library tree's drag and drop and spring-open
   (library phase 1), dragging tracks, groups, clips, samples and presets onto the Library with its refusal reason
   (library phase 2), dragging graphs, clips, samples and presets out of the Library's *This project* (library phase 3), dragging a
-  preset row out of Sounds (library phase 4).
+  preset row out of Sounds (library phase 4), dragging several library items at once (library phase 7).
 - **V3 Make V1 and V2 possible**: install Firefox, and download the Playwright Firefox and WebKit builds that match the
   installed Playwright version.
 - **V4 Listening passes for 11a, 11b and 11c-2**: an old project with a stereo file; reverse used by a clip, a region
@@ -75,6 +76,18 @@ Things that shipped without the check their plan asked for.
   brace's menu with Shift+F10, the brace dimmed and lit in both themes, and listening to a loop of a few bars with held
   notes and an unwarped audio region across the jump, and to a click in the ruler while playing (notes cut, audio
   rejoining in phase).
+- **V12 Library listening pass** (library round): each Factory instrument and effect auditioned once (▶ in the
+  Library; the tests check only that every instrument is finite, audible and not blown up, before and after a
+  Randomize roll), and a copy of Low Light's stab on a new track played beside the original.
+- **V13 Library wording and layout review** (library round): the labels, tooltips and reports each phase was unsure
+  of, listed with their screens in the [runbook's queue](archive/library-ux/RUNBOOK-library.md#queued-for-the-user-never-blocking): the Library menu's disabled reasons and drop
+  refusals, *This project*'s details, Sounds' empty state, kind labels and tooltips, the library link's wording, the
+  Factory's root, details, descriptions and clip names, and phase 7's *Cut*, *Copy* (beside *Copy to My library* on
+  Factory rows), *Paste here*, "Drop one sound at a time" and the hint. Also: with the *Library* button the transport
+  bar wraps below about 1250 px instead of 1175 px; Sounds' header at 280 px ends a long owner name in an ellipsis and
+  keeps the morph slider across selections; the empty Library at 280 × 200 puts *Save Bass to library* before the hint;
+  the Factory's content choices (*Hook stab* for a Groove stab, *Pluck* without its arpeggiator, two *Hall*s told apart
+  by their descriptions).
 
 ## Performance
 

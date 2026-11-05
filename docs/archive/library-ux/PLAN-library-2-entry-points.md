@@ -2,7 +2,7 @@
 status: done
 date: 2026-11-05
 shipped_in: architecture/workbench.md
-note: "Phase 2 of SPEC-library-ux.md, built on feat/library-improvements: the Library menu and its commands, a project preset saved on its own, and tracks, groups, clips, samples and presets dragged onto library folders. Also shipped in architecture/library-and-presets.md. Stays in active/ until phase 7 archives the round."
+note: "Phase 2 of SPEC-library-ux.md, built on feat/library-improvements: the Library menu and its commands, a project preset saved on its own, and tracks, groups, clips, samples and presets dragged onto library folders. Also shipped in architecture/library-and-presets.md."
 ---
 # Library phase 2: the Library menu and dragging things in
 
