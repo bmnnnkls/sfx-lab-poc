@@ -8,7 +8,7 @@ import type { Project } from './types'
 
 const project = createDemoProject()
 const [a, b, c] = project.tracks.filter((track) => track.kind === 'instrument').map((track) => track.id) as [string, string, string]
-const follow = (trackId: string | null, channel: number | null = null) => ({ trackId, channel })
+const follow = (trackId: string | null, channel: number | null = null, armed: readonly string[] = []) => ({ trackId, channel, armed })
 
 describe('liveNoteTracks', () => {
   it('follows the selection while no track has an input of its own', () => {
@@ -36,6 +36,36 @@ describe('liveNoteTracks', () => {
     const own = setTrackMidiInput(project, a, { channel: 4 })
     expect(liveNoteTracks(own, 'keys', 0, follow(a))).toEqual([])
     expect(liveNoteTracks(own, 'keys', 4, follow(b))).toEqual([a])
+  })
+})
+
+describe('liveNoteTracks with armed tracks', () => {
+  it('layers an armed follower with the selected track, each once', () => {
+    expect(liveNoteTracks(project, 'keys', 0, follow(a, null, [b]))).toEqual([a, b])
+    expect(liveNoteTracks(project, 'keys', 0, follow(a, null, [a, b, b]))).toEqual([a, b])
+    // Recording a track never needs it selected.
+    expect(liveNoteTracks(project, 'keys', 0, follow(null, null, [c]))).toEqual([c])
+  })
+
+  it('applies the follow channel to armed followers too', () => {
+    expect(liveNoteTracks(project, 'keys', 3, follow(a, 2, [b]))).toEqual([])
+    expect(liveNoteTracks(project, 'keys', 2, follow(a, 2, [b]))).toEqual([a, b])
+  })
+
+  it('leaves a track with its own input to its rule, and gives a matched note only to those inputs', () => {
+    const own = setTrackMidiInput(project, b, { channel: 9 })
+    expect(liveNoteTracks(own, 'keys', 0, follow(a, null, [b, c]))).toEqual([a, c])
+    expect(liveNoteTracks(own, 'keys', 9, follow(a, null, [b, c]))).toEqual([b])
+  })
+
+  it('ignores armed ids that are not instrument tracks', () => {
+    const other = project.tracks.find((track) => track.kind !== 'instrument')
+    expect(liveNoteTracks(project, 'keys', 0, follow(a, null, ['nothing', ...(other ? [other.id] : [])]))).toEqual([a])
+  })
+
+  it('re-routes held notes when arming or disarming', () => {
+    expect(liveNoteRouting(project, follow(a, null, [b]))).not.toBe(liveNoteRouting(project, follow(a)))
+    expect(liveNoteRouting(project, follow(a, null, ['nothing']))).toBe(liveNoteRouting(project, follow(a)))
   })
 })
 
