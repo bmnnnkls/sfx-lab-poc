@@ -19,6 +19,7 @@ weighs the Rust engine against fixing the current one.
 | Small MIDI models | [§2](archive/EXPLORATIONS-2026-10-14.md#2-small-midi-models-midi-llms) |
 | Tauri and a Rust/Wasm engine; WASM DSP nodes (Faust, RNBO) | [§3](archive/EXPLORATIONS-2026-10-14.md#3-tauri-and-a-rust-engine), [§8](archive/EXPLORATIONS-2026-10-14.md#8-platform-architecture-one-engine-many-hosts) |
 | Collaboration | [§4](archive/EXPLORATIONS-2026-10-14.md#4-collaboration) |
+| Workspace packages, the engine on a server, audio streaming | [proposal](active/SPEC-packages-and-server-audio.md) (2026-11-05), building on [§8](archive/EXPLORATIONS-2026-10-14.md#8-platform-architecture-one-engine-many-hosts) |
 | Git-backed projects | [§5](archive/EXPLORATIONS-2026-10-14.md#5-version-control-git-backed-projects) |
 | Touch surfaces on tablets | [§6](archive/EXPLORATIONS-2026-10-14.md#6-a-more-modern-layout-docking-on-the-desktop-surfaces-on-tablets) (the docking half shipped as the workbench) |
 | Visuals, light and installation hosts | [§7](archive/EXPLORATIONS-2026-10-14.md#7-visuals-light-and-installations) |

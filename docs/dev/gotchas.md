@@ -44,8 +44,11 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **`npx playwright test` serves whatever `dist/` holds.** Its web server is `vite preview`, so a spec run that way
   tests the last build: run `vite build` first (`npm run test:smoke` does). *(round 11c-2)*
 * **Two browser-test runs at once collide**: they share port 4173 and `test-results/`, so one can't start its server
-  or loses its trace files ("ENOENT … .trace"), which reads like a failed test. Run them one after the other.
-  *(round 11c-2)*
+  or loses its trace files ("ENOENT … .trace"), which reads like a failed test. Run them one after the other. Two
+  checkouts (worktrees) have their own `test-results/`; give one of them another port with `PW_PORT`. *(round 11c-2)*
+* **A spec outside the group folders doesn't run.** Each Playwright project reads only its own folder, so a spec at
+  `tests/browser/` itself or in a new folder runs in no project; `tests/architecture.test.ts` catches it. A new group
+  goes in `tests/browser/groups.ts`.
 * **The unit tests beside a smoke run fail its timed specs**: `vitest` starts a worker per file, and specs with bounded
   waits (the library's isolated previews, the spectrogram following an edit) time out. Don't run anything heavy while
   the smoke tests run. *(round 11d-2)*

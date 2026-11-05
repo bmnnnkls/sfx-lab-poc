@@ -8,14 +8,17 @@ npm run typecheck  # tsc --noEmit
 npm run build      # typecheck + production build
 ```
 
-Browser checks build the production app and serve it on port 4173 themselves:
+Browser checks build the production app and serve it on port 4173 themselves (`PW_PORT=4174` picks another):
 
 ```bash
-npx playwright install chromium  # once after install and after Playwright upgrades
-npm run test:smoke               # the *.smoke.spec.ts files: fast UI checks
-npm run test:audio               # the *.audio.spec.ts files: real worklet output
-npm run test:browser             # both
+npx playwright install chromium               # once after install and after Playwright upgrades
+npm run test:smoke                            # every smoke group: fast UI checks
+npm run test:smoke:group -- smoke-samples     # one group: pulse, workbench, timeline, samples or library
+npm run test:audio                            # the audio specs: real worklet output
+npm run test:browser                          # both: the smoke groups (two workers), then audio (one)
 ```
+
+Which group to run when is in [verification](verification.md).
 
 On Linux, install the browser's system dependencies with `npx playwright install --with-deps chromium`. Failures keep
 screenshots and traces in `test-results/` and an HTML report in `playwright-report/`.

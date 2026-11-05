@@ -9,9 +9,10 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:smoke": "npm run build && playwright test --project=smoke",
+    "test:smoke": "npm run build && playwright test --project='smoke-*'",
+    "test:smoke:group": "npm run build && playwright test --project",
     "test:audio": "npm run build && playwright test --project=audio",
-    "test:browser": "npm run build && playwright test",
+    "test:browser": "npm run build && playwright test --project='smoke-*' && playwright test --project=audio",
     "test:watch": "vitest"
   },
   "dependencies": {

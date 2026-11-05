@@ -6,14 +6,41 @@ What the checks cover and how CI and the production build are set up. Commands a
 code and bundles production assets. Use `npm ci` to reproduce the lockfile on Node 22.12+ (including platform-specific
 optional native packages); see [gotchas](gotchas.md#environment) if a native binary fails to load.
 
-`playwright.config.ts` defines separate Chromium smoke and audio projects under `tests/browser/`. `npm run test:smoke`,
-`npm run test:audio` and `npm run test:browser` build and serve the production app on a dedicated port 4173. They use
-Playwright's managed browser, fresh per-test storage, no retries, assertions with bounded waits, page/console error
-checks and retained failure screenshots/traces. There is one spec file per feature area (`*.smoke.spec.ts` for the
-UI, `*.audio.spec.ts` for real worklet output); `tests/browser/fixtures.ts` holds the shared helpers and view titles,
-and `viewRoot(page, title)` scopes a locator to one view. The audio project uses a sample-window tap derived from the
-legacy checks (`audio-tap.ts`) to measure real output through the worklet; it rejects an inactive tap. Legacy
-scenarios not yet migrated are listed in [browser-checks](../browser-checks/README.md) ([BACKLOG](../BACKLOG.md) T1).
+The browser tests under `tests/browser/` are Chromium Playwright projects: five smoke groups and the audio specs. `npm run
+test:smoke`, `npm run test:audio` and `npm run test:browser` build and serve the production app on port 4173 (`PW_PORT`
+picks another, so a second checkout can run at the same time). They use Playwright's managed browser, fresh per-test
+storage, no retries, assertions with bounded waits, page/console error checks and retained failure screenshots/traces.
+There is one spec file per feature area (`*.smoke.spec.ts` for the UI, `*.audio.spec.ts` for real worklet output);
+`tests/browser/support/fixtures.ts` holds the shared helpers and view titles, and `viewRoot(page, title)` scopes a locator
+to one view. The audio project uses a sample-window tap derived from the legacy checks (`support/audio-tap.ts`) to
+measure real output through the worklet; it rejects an inactive tap. Legacy scenarios not yet migrated are listed in
+[browser-checks](../browser-checks/README.md) ([BACKLOG](../BACKLOG.md) T1).
+
+Each smoke group is a folder and a project (`smoke-<group>`), listed in `tests/browser/groups.ts`;
+`tests/architecture.test.ts` fails if a spec sits anywhere else, where no project would run it. Spec files run on two
+workers at once, the tests inside a file in order. Audio specs run on one worker, because their output checks are
+load-sensitive, and `test:browser` runs them after the smoke groups, so the two never overlap.
+
+| Group | What it covers | Run it for changes in |
+|---|---|---|
+| `pulse` | Startup, saving and opening projects, commands and keys, graph navigation, linked selection, tempo, MIDI | Always, before every commit |
+| `workbench` | Docking and layout, every view at its minimum size, context menus, pinned panels, drag and drop between views | `ui/layout`, `ui/commands`, `ui/file-menu`, `ui/shared`, `ui/controls`, `ui/panel`, `ui/pinned`, any `.css` |
+| `timeline` | The arrangement and its marks, automation, the Tracks tree, group buses | `ui/arrangement`, the clip editors, `ui/automation`, `ui/tracks`, `ui/mixer`, `core/automation`, clips and groups in `core/project` |
+| `samples` | The wave editor, its marks, panes and spectrogram | `ui/wave-editor`, `ui/samples`, `state/wave-*`, `core/sample`, `core/spectrum`, `audio/spectrum*` |
+| `library` | The Library tree, *This project*, Sounds and presets, bundles | `ui/library`, `ui/presets`, `core/library`, `core/preset`, `storage/library-*`, `app/library*` |
+
+When to run what:
+
+* **While working on a feature**: its group (`npm run test:smoke:group -- smoke-samples`) and `npm run test:watch`.
+* **Before a commit**: `pulse` and the groups of the paths the commit changes.
+* **At the end of a plan step, and before merging**: every smoke group (`npm run test:smoke`), and the audio specs
+  when `core/engine`, `core/dsp`, `core/instrument` or `audio/` changed. Changes to `core/engine`, `core/dsp`,
+  `core/persistence`, `storage`, `app`, the project store, `support/`, the configs or the lockfile run every group even
+  before a commit.
+* **CI** runs every smoke group on pull requests and `main`.
+* **Not at the same time**: two browser-test runs in one checkout, or unit tests beside a smoke run
+  ([gotchas](gotchas.md#browser-tests)). A known flaky spec (BACKLOG V6, V7) is rerun alone before it counts as a failure; no
+  retries.
 
 A change that must leave a DSP node's output as it was is checked against a hash taken from the old code: render many
 cases (every mode, odd speeds, release, retrigger), hash the floats, check the old file out to read the hash, and keep
