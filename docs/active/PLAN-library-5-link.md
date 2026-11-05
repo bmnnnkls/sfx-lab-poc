@@ -1,7 +1,8 @@
 ---
-status: active
-date: 2026-11-04
-note: "Phase 5 of SPEC-library-ux.md (C1): remember how a library sound's IDs were mapped when it was inserted, so library presets recall onto the track and project presets save back into the library sound. Decisions signed off 2026-11-04, including the D11 correction."
+status: done
+date: 2026-11-05
+shipped_in: architecture/library-and-presets.md
+note: "Phase 5 of SPEC-library-ux.md (C1): remember how a library sound's IDs were mapped when it was inserted, so library presets recall onto the track and project presets save back into the library sound. Decisions signed off 2026-11-04, including the D11 correction. Shipped in 1da0715, df33d91, dd1c678, d2d50d4 and the docs commit; src/core became its own build chunk on the way."
 ---
 # Library phase 5: the link between a track and its library sound
 
@@ -246,3 +247,9 @@ Signed off 2026-11-04: every row as proposed.
   It loads with no warnings and reads back identical. The same file in a build from before this phase (`204821d`, in a
   throwaway worktree) loads with no warnings; its origins keep `itemId`, `revisionId`, `trackId` and `domain`, and
   `owner` and `link` are dropped silently.
+* **Step 5:** the notes are sorted: the link, the Sounds section, the save-back and project-graph copies into
+  `library-and-presets.md`; version 13's row in `formats-and-versions.md` (the optional `owner` and `link`, and
+  `LINK_LIMITS`); decisions 107–111 (no bump, the hash-based shape, owners and carrying, the save-back's fallback, the
+  `core` chunk); two gotchas (`openView('Instrument')` while Sounds shows; a chunk group can't make static imports
+  lazy); the `core` group in `verification.md`; the bundle and file-size numbers in `baselines.md`; backlog P6 (lazy
+  library code); STATUS, the tour, and the runbook's queue for the user (wording, the chunk change).

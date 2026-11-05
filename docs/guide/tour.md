@@ -102,7 +102,9 @@ dropping the file on the Library.
 you have open. **+ Save preset** keeps the graph's sound for this and other tracks with the same graph; **+ Snapshot**
 remembers the knob positions here. Both are named after the track (*Bass 1*), ready to rename. Click a row to recall
 it; right-click a snapshot for **Set as A** and another for **Set as B**, and the **Morph** slider blends between them.
-**⋯ ▸ Show all in project** lists every sound in the project.
+**⋯ ▸ Show all in project** lists every sound in the project. A sound that came from the library also shows **From
+the library**, with that library sound's presets, even ones added since; click one to recall it. **Save to library** on
+a preset of such a sound adds it to the library sound.
 
 ## Arrange
 

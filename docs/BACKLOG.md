@@ -89,6 +89,9 @@ Things that shipped without the check their plan asked for.
 - **P3 Profile idle-track inserts and sends and dense automated note graphs** with reproducible measurements. CPU
   figures in old exploration notes are not a benchmark.
 - **P4 Lazy example loading**, measured against the current chunk graph.
+- **P6 Library code loads eagerly.** `core/library` is in the eager `core` chunk because the state layer and the UI
+  import it (`linkOf`, `graphFitsOwner`, `insertionScope`, the drops). Moving those behind the lazy library service
+  would load it only when needed; measure what it saves first (library phase 5).
 - **P5 The in-place edit of a long sample blocks the main thread**: on 120 s of stereo, one task of 100 to 130 ms
   (applying the edit, encoding the WAV and hashing it), with the spectrogram on or off (round 11d-1's measure). Move
   the encode and the hash to a worker, or split them into tasks.

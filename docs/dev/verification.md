@@ -72,7 +72,9 @@ The Pages workflow runs unit/architecture, build/typecheck and smoke checks on P
 permissions. Only main builds the deployment with its repository base path and publishes, after checks succeed.
 
 Production bundling uses Vite 8's `build.rolldownOptions.output.codeSplitting.groups`: React, React DOM and Scheduler
-form a `react` chunk; Radix and Floating UI form `ui-vendor`. Package-boundary patterns support both path separators.
+form a `react` chunk; Radix and Floating UI form `ui-vendor`; flexlayout forms `layout-vendor`; and `src/core`, the
+pure model, forms `core`, so neither it nor the state layer passes the warning limit. Package-boundary patterns support
+both path separators.
 These eagerly loaded dependencies have independent content hashes and Vite emits module-preload links; the audio
 worklet and the spectrum worker are separate chunks (sizes in [baselines](../reference/baselines.md#bundle)). Total JavaScript transfer is essentially unchanged: the benefit is independent
 dependency caching and smaller individual chunks, not lazy loading. The default chunk-size warning limit is unchanged.

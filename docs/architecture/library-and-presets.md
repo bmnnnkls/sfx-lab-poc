@@ -39,7 +39,13 @@ recalled last shows ● until its graph changes. *+ Save preset* (not on *Track*
 after its owner (*Bass 1*, `nextSoundName`) and start renaming it in place. The status line shows the save and a
 recall's report. ⋯ has *Show all in project*, a view preference kept per browser (`sfxlab:sounds-show-all`), which
 lists every sound under owner and graph headings, each recalling onto its own owner. With nothing to list, one line
-says what presets and snapshots are for.
+says what presets and snapshots are for. Below the project's sounds, a graph inserted from the library has **From the
+library · Big bass** (`ui/presets/LibrarySounds.tsx`; the link is described below): the library sound and its presets
+that fit, as rows *Recall Dark* described *Library sound* or *Library preset*, recalled onto the selection through the
+link, with the ● mark as for project sounds. A rewired graph shows "This sound has changed since it came from the
+library" and no rows; a trashed sound "The library sound is in the trash"; a graph without a link, or whose sound is
+gone, nothing. Not with *Show all*, nor on *Track*. The section reads the catalog itself (`library.read()`), since the
+library store's copy stays empty until the Library has been shown.
 
 The view's state is `state/sounds-store.ts`: `tab`, the morph's ends `a` and `b` (snapshot IDs), `showAll` and the
 `recalled` mark (the sound, the scope it went to, and `scopeState` of that scope just after; an instrument preset's
@@ -120,8 +126,9 @@ publishing metadata or bytes. Bundle exchange now validates/stages before this t
 `app/library` bridges storage to the document via `state/PersonalLibrary`; successful insertion commits once to project
 history. Saves and catalog edits do not change that history. Missing bytes are preflighted before save/load. Project
 format **v7** adds optional bounded `libraryOrigins` (4096 records, ID fields 256 characters), known-field rebuilding,
-an explicit v6→v7 migration dropping formerly unknown origin fields and a committed v7 fixture. Origins are informational
-and never linked updates. Loaded project revisions/presets/sample metadata are self-contained for reload/package export.
+an explicit v6→v7 migration dropping formerly unknown origin fields and a committed v7 fixture. Origins are informational:
+a link on one (below) lets Sounds offer the library sound's presets, but the project never reads the library to play,
+and nothing updates a copy from the library. Loaded project revisions/presets/sample metadata are self-contained for reload/package export.
 
 `libraryPreviewProject` creates a temporary project with a test note/tone and the appropriate effect input. `app/library`
 renders it through a fresh `Bounce`/`Engine`, decodes its own samples and plays the bounded result on a separate
@@ -153,7 +160,11 @@ A project preset can be saved on its own: *Save to library* in its Sounds row me
 preset items under it. It never reads the current graph, so it works after the preset's owner has been rewired. It
 refuses external routing in the revision and missing sample metadata, and `PersonalLibrary.savePreset(presetId,
 folderId)` runs the same sample-bytes preflight as the other saves. A snapshot has no graph of its own and can't be
-saved.
+saved. A preset of a **linked** sound saves back instead: when `presetLink` finds the link its revision was saved
+through, and the library sound is there and not trashed, *Save to library* (`savePresetToLibrary` in
+`state/actions/sound.ts`) runs `PersonalLibrary.addPresetToSound(presetId)`, which adds it to that sound as a new
+preset and reports "Added *Deep* to *Big bass*" with *Show*. Otherwise it saves a sound of its own as above; its
+tooltip says which.
 
 The Library view is one tree (`ui/library/library-tree.ts` for the rows and keys, `LibraryTree.tsx`): *This project*
 (below), *My library* and *Trash*, folders first and then items in each folder by name with numbers in order, and each sound's presets under it,
@@ -200,9 +211,33 @@ owner, domain, name)` runs `captureLibraryAsset` into `emptyLibrary()` and gives
 from?)` and `preview(item, onStop?, from?)` read `from` instead of storage, and check sample bytes against it the same
 way, so a sampled instrument's bytes are found in the project's sample storage. A copy is a library insert: fresh node
 IDs, its own modules and the source's compatible presets (the inserted sound's own state among them), one undo step, and
-a `libraryOrigins` record naming the throwaway ID, informational as origins are. `graphFitsOwner(item, owner, from?)`
+a `libraryOrigins` record. The insert's destination names the scope it was captured from (`carry`), so the copy's
+origin carries the source's live library link, composed with the copy's own maps, rather than naming the throwaway
+ID; a source without a live link gives a copy without one. `graphFitsOwner(item, owner, from?)`
 reads `from` too. The library item's *Preview* and the graph's share `previewLibraryItem(item, context, from?)`, so ■
 stays on the latest preview of either.
+
+**The library link** (`core/library/link.ts`). `insertLibraryAsset` keeps what `copyAsset` mapped: an origin records
+the `owner` (beside `trackId`, still written for older readers) and an optional `link { shape, nodes, modules }`: the
+library node and module IDs paired with the project's, and `shape`, a 64-bit hash (`stableHash64`, 16 hex digits) of the
+inserted graph's `assetSignature` (`linkShape`). Preset targets name leaf nodes only (an exposed knob is its inner
+node's parameter), so the two maps are all a preset needs. `linkOf(project, owner, domain)` gives the latest linked
+origin whose shape matches the owner's graph now (`live`), or else the latest one (not live: the graph was rewired);
+knob changes don't touch the signature, so they don't break it. `linkedSounds(catalog, origin)` gives the library sound
+(an origin naming a preset resolves to its sound), whether it is trashed, and its states that fit: the sound and its
+live presets whose revision has the signature of the revision the origin names. `presetFromLibrary(origin, state)`
+puts a state's targets through the maps forward, onto the linked owner, and `recallLinkedPreset` recalls it through
+`recallPresetState`, which takes the shape from the owner's current graph instead of a stored revision (and runs the same
+body as `recallProjectPreset`); `recallLinkedSound` in `state/preset-actions` makes that one undo step, with Touch and
+Read as for any recall. The graph isn't replaced, so its automation and MIDI mappings stay. Saving back is the inverse:
+`presetLink(project, preset)` finds the link whose shape is the preset's own revision's (so a preset saved before a
+rewire still saves back), and `presetToLibrary` puts the targets through the maps backward onto the sound's own owner
+and revision, in the sound's folder, adding the sample metadata it needs; it refuses a gone or trashed sound.
+Duplicating a track carries its links as they are (`carryLibraryLinks`, run by the project store's `duplicateTrack`),
+since a duplicate keeps node IDs; removing a track leaves its origins. A link past `LINK_LIMITS` (2048 node pairs, 128
+module pairs, 16 384 pairs across the file) isn't written, and the sanitizer drops one with a warning. Links for sounds
+inserted before links existed aren't guessed. The Library's details show "Used on Bass, Bass copy" for a sound that
+owners of the open project are linked to, live.
 
 `state/library-store.ts` holds the catalog, the active row, the selected items, the item being previewed and a request
 for the view (an export to review, an import to pick), which the menus set and the view takes. The open folder, where

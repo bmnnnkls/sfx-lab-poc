@@ -164,6 +164,19 @@ After the vendor chunk split, the main chunk went from 705.5 kB to 400.1 kB, Rea
 using them ([BACKLOG](../BACKLOG.md#performance) P4). The spectrum worker is its own chunk, 106.5 kB (round 11d-1,
 2026-10-31), 109.6 kB with the band edits (round 11d-2): it imports `@core`'s index.
 
+With `src/core` in its own chunk (library phase 5, 2026-11-05, `df33d91`, `npm run build` on the main development
+machine, gzipped sizes from Vite's report): `core` 123.0 kB, `state` 29.7 kB (146.9 before), main `index` 112.3 kB
+(114.8 before); the eager total grew about 2.9 kB, under 1 kB of it the step's own code. The lazy `library` chunk
+(the library service) stays 3.7 kB. At the end of phase 5 (`d2d50d4`): `core` 123.7 kB, `state` 30.0 kB,
+`index` 112.9 kB, `LibraryPanel` 10.4 kB.
+
+## Project files
+
+Library links (library phase 5, 2026-11-05): Low Light with ten of its instruments saved and inserted again as linked
+sounds (26 tracks, 282 pairs) is 510 331 bytes, against 501 329 with the links stripped: 9 002 bytes, 1.8 %, about
+900 bytes a link. It loads without warnings and reads back identical; measured with a throwaway Vitest file running
+`captureLibraryAsset` and `insertLibraryAsset` on the example.
+
 ## Test suites
 
 The main development machine (12 logical cores), on `feat/library-improvements`:

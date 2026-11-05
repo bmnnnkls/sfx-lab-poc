@@ -37,7 +37,7 @@ committed fixture in `core/persistence/fixtures/`.
 | 10 | Track groups, hidden tracks; later, without a bump: group buses, group mute and solo, pins | `v10-track-groups`, `v10-group-buses`, `v10-pinned-panels` |
 | 11 | A sample's `origin`, `markers` and `regions` (stereo samples, wave editor) | `v11-sample-markers` |
 | 12 | A sample's `loop` (what a sampler in *loop* mode repeats) and `lineage` (the original's facts and each in-place edit's position map, for *Revert to original*) | `v12-sample-lineage` |
-| 13 | The arrangement's `arrangementMarkers` and `arrangementLoop` (the loop brace, and whether playback repeats it) | `v13-arrangement-marks` |
+| 13 | The arrangement's `arrangementMarkers` and `arrangementLoop` (the loop brace, and whether playback repeats it); later, without a bump: a library origin's `owner` and `link` (node and module maps and a shape hash, bounded by `LINK_LIMITS` in `core/library/types.ts`: 2048 node pairs, 128 module pairs, 16 384 pairs in a file) | `v13-arrangement-marks`, `v13-library-link` |
 
 Fields added without a bump (as in v10) are dropped silently by builds that predate them. Use that only when the
 file is never worse for losing the field; otherwise bump.

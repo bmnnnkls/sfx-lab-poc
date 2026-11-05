@@ -69,7 +69,10 @@ saves, previews, shows, copies to a new track or is dragged onto another owner, 
 why it can't. **Phase 4 is done** (2026-11-05, [plan](active/PLAN-library-4-sounds.md)): Sounds shows the presets
 and snapshots of the selection, with a tab per graph that follows the editor shown; rows recall onto the selection on
 click, A and B for the morph are set from rows, saving names a sound after its owner and renames it in place, and ⋯
-*Show all in project* lists everything. Phases 5–7 are planned.
+*Show all in project* lists everything. **Phase 5 is done** (2026-11-05, [plan](active/PLAN-library-5-link.md)): a
+library sound inserted into a project keeps a link (its ID maps and a hash of its graph's shape), so Sounds shows *From
+the library* with that sound's presets to recall, a project preset saves back into it, duplicates and copies keep the
+link, and the Library's details say where a sound is used; a rewired graph says so. Phases 6–7 are planned.
 
 ## Accepted limits
 

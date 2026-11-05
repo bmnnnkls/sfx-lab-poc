@@ -68,6 +68,9 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   that shows the result (`/^0:01\.00\d$/`), and allow the pixel a drag starts in.
 * **A spec that imports from another spec runs that spec's tests too.** Put shared helpers in a plain module
   (`marked-sample.ts`, `preset-project.ts`). *(round 11c-3)*
+* **`openView(page, 'Instrument')` is ambiguous while Sounds shows**: Sounds has a tab named *Instrument* too, so the
+  layout tab's locator finds two. Open the editor from the track's menu (*Open instrument*) and take
+  `viewRoot(page, 'Instrument')`. *(library phase 5)*
 
 ## Browsers and the DOM
 
@@ -123,6 +126,9 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   while its menu is open until that store is added there. *(library phase 2)*
 * **A browser shows no tooltip during a drag.** A drop target's `title` alone is invisible while something is dragged
   over it; draw the reason too (`data-drop-reason`), as the Library's tree rows do. *(library phase 2)*
+* **A build chunk group can't make statically imported code lazy.** Leaving `src/core/library` out of the `core`
+  group still put it in an eager chunk, since the state layer and the UI import it; only a dynamic `import()` (the
+  library service) loads lazily. Measure the chunk list before and after a `codeSplitting` change. *(library phase 5)*
 * **A session header or Tracks row always carries an `edge`** (`useEdgeTarget`), even when what is dragged isn't a
   track or a group. A drop that checks for no edge never lands on a header; only track and group moves read it.
   *(library phase 3)*

@@ -121,6 +121,12 @@ Collected here as the phases go, and reported at each phase's end:
   "Default (Tone 1)", and ⋯'s name, *Sounds actions*.
 * **Sounds at 280 px** (phase 4): the header keeps one line, so a long owner name ends in an ellipsis there; and the
   morph slider stays when another track is selected, since A and B are kept across selections.
+* **Wording to look at** (phase 5), in Sounds: the section's heading "From the library · Big bass", the rows' kind
+  labels "Library sound" and "Library preset", "This sound has changed since it came from the library", "The library
+  sound is in the trash", *Save to library*'s tooltip "Adds this preset to the library sound it came from" and its report
+  "Added Deep to Big bass"; in the Library's details, "Used on Bass, Bass copy".
+* **The build's chunks changed** (phase 5): `src/core` is its own chunk (`core`), as chosen when the `state` chunk passed
+  500 kB. Leaving the library's core code out of it was measured and changed nothing (backlog P6).
 * **Wording to look at** (phase 2): the Library menu's disabled reasons ("Select an instrument track", "Sum the group
   to a bus first", "Bass has no note effects") and the drop refusals ("Uses Track audio from Kick", "Uses a Send to
   Echo"), in the transport bar's *Library* menu and on the Library's rows during a drag.
