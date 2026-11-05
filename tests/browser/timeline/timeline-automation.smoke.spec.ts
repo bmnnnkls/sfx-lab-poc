@@ -1,5 +1,7 @@
 import type { Page } from '@playwright/test'
+import { serializeProject } from '../../../src/core'
 import { test, expect, openView } from '../support/fixtures'
+import { sweepProject } from '../support/automation-project'
 
 /*
  * Automation on the arrangement's timeline (round 12c): returns' and the master's rows, the lanes twisty, timeline
@@ -40,4 +42,24 @@ test("returns and the master have rows after the clip tracks, without regions, a
 
   // Every clip track has one, and a group only with a bus.
   await expect(arrangement.getByRole('button', { name: 'Show automation lanes of Bass', exact: true })).toBeVisible()
+})
+
+test('a box drawn with Ctrl selects points in the clip editor', async ({ page }) => {
+  await page.addInitScript((saved) => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(sweepProject(true)))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Edit Sweep clip', exact: true }).click()
+  await page.getByRole('button', { name: 'Automation', exact: true }).click()
+  const area = page.getByRole('application', { name: 'Automation drawing area' })
+  const box = (await area.boundingBox())!
+  for (const [x, y] of [[0.2, 0.3], [0.4, 0.6], [0.6, 0.4], [0.9, 0.5]]) await page.mouse.click(box.x + box.width * x!, box.y + box.height * y!)
+  await expect(page.locator('[data-point-id]')).toHaveCount(4)
+  await page.keyboard.down('Control')
+  await page.mouse.move(box.x + box.width * 0.1, box.y + box.height * 0.1)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.9, { steps: 6 })
+  await expect(page.getByTestId('automation-box')).toBeVisible()
+  await page.mouse.up()
+  await page.keyboard.up('Control')
+  await page.getByRole('button', { name: 'Delete points', exact: true }).click()
+  await expect(page.locator('[data-point-id]')).toHaveCount(1)
 })

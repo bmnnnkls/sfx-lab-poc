@@ -3,6 +3,7 @@ import { automationGestureKey, createClipboard, editOwnerAutomation, useClipboar
 import { type PointerEvent, useEffect, useRef, useState } from 'react'
 import { formatParam } from '../shared/param-scale'
 import styles from './AutomationEditor.module.css'
+import { type PointGesture, copyPoints, dragPoints, pastePoints, pressPoints, removePoints, snapPointBeat } from './point-gestures'
 
 /** Points copied in the editor, beats relative to the first; reactive, so Paste enables as soon as they're copied. */
 const pointClipboard = createClipboard<readonly AutomationPoint[]>([])
@@ -36,7 +37,8 @@ export const AutomationEditor = ({ track, clip, owner: explicitOwner }: { track:
   const [step, setStep] = useState(0.25)
   const [zoom, setZoom] = useState(1)
   const [pasteBeat, setPasteBeat] = useState(0)
-  const drag = useRef<{ key: string; origin: readonly AutomationPoint[]; selected: ReadonlySet<string>; beat: number; value: number } | null>(null)
+  const drag = useRef<{ key: string; gesture: PointGesture } | null>(null)
+  const [box, setBox] = useState<{ from: { beat: number; value: number }; to: { beat: number; value: number } } | null>(null)
   const lane = lanes.find((lane) => lane.id === laneId) ?? lanes[0]
   const resolveLane = (target: ControlTarget) => owns(target) ? resolveControlTarget(project, target) : { status: 'unavailable' as const, automatable: false, reason: 'Unsupported automation owner; lane retained but will not play' }
   const resolution = lane && resolveLane(lane.target)
@@ -63,43 +65,41 @@ export const AutomationEditor = ({ track, clip, owner: explicitOwner }: { track:
     }
   }, [requested, track.id, clip.id])
   const copied = useClipboard(pointClipboard)
-  const copy = () => { if (lane) { const points = lane.points.filter((p) => selected.has(p.id)); if (!points.length) return; const start = Math.min(...points.map((p) => p.beat)); pointClipboard.set(points.map((p) => ({ ...p, beat: p.beat - start }))) } }
-  const remove = () => { if (!selected.size) return; if (lane) change(lane.points.filter((p) => !selected.has(p.id))); setSelected(new Set()) }
+  const grid = { step, length: clip.lengthBeats }
+  const copy = () => { if (lane) { const points = copyPoints(lane.points, selected); if (points.length) pointClipboard.set(points) } }
+  const remove = () => { if (!selected.size) return; if (lane) change(removePoints(lane.points, selected)); setSelected(new Set()) }
   const paste = (beat = pasteBeat) => {
     if (!lane) return
-    const points = pointClipboard.get().map((p) => ({ ...p, id: pointId(), beat: p.beat + beat }))
-    change([...lane.points, ...points]); setSelected(new Set(points.map((p) => p.id)))
+    const { points, pasted } = pastePoints(lane.points, pointClipboard.get(), beat, clip.lengthBeats, pointId)
+    change(points); setSelected(pasted)
   }
+  /** The pointer in the clip's beats (not snapped) and the lane's value. */
   const coords = (event: PointerEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect()
-    const raw = Math.max(0, Math.min(clip.lengthBeats, (event.clientX - rect.left) / rect.width * clip.lengthBeats))
-    return { beat: step ? Math.round(raw / step) * step : raw, value: Math.max(0, Math.min(1, 1 - (event.clientY - rect.top) / rect.height)) }
+    return { beat: Math.max(0, Math.min(clip.lengthBeats, (event.clientX - rect.left) / rect.width * clip.lengthBeats)), value: Math.max(0, Math.min(1, 1 - (event.clientY - rect.top) / rect.height)) }
   }
+  const keysOf = (event: PointerEvent) => ({ shift: event.shiftKey, command: event.metaKey || event.ctrlKey, alt: event.altKey })
   const down = (event: PointerEvent<SVGSVGElement>) => {
     if (!lane || event.button !== 0) return
     event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId)
-    const { beat, value } = coords(event)
-    setPasteBeat(beat)
-    const id = (event.target as Element).getAttribute('data-point-id')
-    const existing = lane.points.find((p) => p.id === id)
-    if (!existing && lane.points.length >= MAX_AUTOMATION_POINTS) return
-    if (event.shiftKey && existing) { const next = new Set(selected); if (next.has(existing.id)) next.delete(existing.id); else next.add(existing.id); setSelected(next); return }
-    const point: AutomationPoint = existing ?? { id: pointId(), beat, value, interpolation: 'linear' }
-    const ids = existing && selected.has(existing.id) ? selected : new Set([point.id])
-    const points = existing ? lane.points : [...lane.points, point]
+    const at = coords(event)
+    setPasteBeat(snapPointBeat(at.beat, grid, keysOf(event)))
+    const result = pressPoints(lane.points, (event.target as Element).getAttribute('data-point-id'), at, keysOf(event), selected, grid, pointId)
     const key = automationGestureKey()
-    setSelected(ids)
-    drag.current = { key, origin: points, selected: ids, beat, value }
-    if (!existing) change(points, key)
+    setSelected(result.selected)
+    drag.current = result.gesture && { key, gesture: result.gesture }
+    if (result.gesture?.kind === 'box') setBox({ from: at, to: at })
+    if (result.changed) change(result.points, key)
   }
   const move = (event: PointerEvent<SVGSVGElement>) => {
     const active = drag.current
     if (!active) return
-    const { beat, value } = coords(event)
-    const chosen = active.origin.filter((p) => active.selected.has(p.id))
-    const delta = Math.max(-Math.min(...chosen.map((p) => p.beat)), Math.min(clip.lengthBeats - Math.max(...chosen.map((p) => p.beat)), beat - active.beat))
-    change(active.origin.map((p) => active.selected.has(p.id) ? { ...p, beat: p.beat + delta, value: Math.max(0, Math.min(1, p.value + value - active.value)) } : p), active.key)
+    const at = coords(event)
+    const result = dragPoints(active.gesture, at, keysOf(event), grid)
+    if (active.gesture.kind === 'box') { setBox({ from: active.gesture.from, to: at }); setSelected(result.selected) }
+    else if (result.points) change(result.points, active.key)
   }
+  const end = () => { drag.current = null; setBox(null) }
   const points = lane?.points ?? []
   const path = points.length ? `M 0 ${100 - points[0]!.value * 100} ` + points.map((p, i) => {
     const prev = points[i - 1]
@@ -114,7 +114,7 @@ export const AutomationEditor = ({ track, clip, owner: explicitOwner }: { track:
     <div className={styles.body}><aside className={styles.lanes}><input aria-label="Search automation targets" placeholder="Search targets…" value={search} onChange={(e) => setSearch(e.target.value)} />{lanes.length > 0 && <select className={styles.lanePicker} aria-label="Automation lane" value={lane?.id ?? ''} onChange={(e) => { setLaneId(e.target.value); setSelected(new Set()) }}>{lanes.map((l) => <option key={l.id} value={l.id}>{targetName(l.target)}</option>)}</select>}<select aria-label="Add automation lane" value="" disabled={lanes.length >= 64} onChange={(e) => { const target = targets.find((t) => controlTargetKey(t) === e.target.value); if (target) addLane(target) }}><option value="">Add target…</option>{targets.map((target) => { const r = resolveControlTarget(project, target); return <option key={controlTargetKey(target)} value={controlTargetKey(target)} disabled={r.status !== 'available' || !r.automatable}>{targetName(target)}{r.status !== 'available' || !r.automatable ? ' (unavailable)' : ''}</option> })}</select>
       {lanes.map((l) => { const r = resolveLane(l.target); const missing = r.status !== 'available' || !r.automatable; return <div key={l.id} className={styles.lane}><input type="checkbox" aria-label={`Enable ${targetName(l.target)}`} checked={l.enabled} onChange={(e) => edit(lanes.map((v) => v.id === l.id ? { ...v, enabled: e.target.checked } : v))} /><button aria-pressed={lane?.id === l.id} onClick={() => { setLaneId(l.id); setSelected(new Set()) }} title={missing ? r.reason : targetName(l.target)}>{missing ? '⚠ Unavailable: ' : ''}{targetName(l.target)}</button><button aria-label="Delete automation lane" onClick={() => edit(lanes.filter((v) => v.id !== l.id))}>×</button></div> })}</aside>
       <div className={styles.main}>{lane ? <><div className={styles.toolbar}><span>{touch.recording.includes(controlTargetKey(lane.target)) ? 'Touch recording' : overridden ? 'Override' : lane.enabled ? 'Read' : 'Disabled'}{resolution && (resolution.status !== 'available' || !resolution.automatable) ? ` · ${resolution.reason}` : ''}</span><button disabled={!selected.size} onClick={copy}>Copy</button><button disabled={!selected.size} onClick={() => { copy(); remove() }}>Cut</button><button disabled={!copied.length} onClick={() => paste()}>Paste</button><button disabled={!selected.size} onClick={() => { copy(); paste(Math.min(clip.lengthBeats, Math.max(...points.filter((p) => selected.has(p.id)).map((p) => p.beat)) + (step || 0.25))) }}>Duplicate</button><button disabled={!selected.size} onClick={remove}>Delete points</button><button onClick={() => change([])}>Clear lane</button><label>Paste at <input aria-label="Paste beat" type="number" min={0} max={clip.lengthBeats} step={step || 'any'} value={pasteBeat} onChange={(e) => setPasteBeat(Number(e.target.value))} /></label></div>
-      <div className={styles.scroll} data-scroll="x"><div style={{ width: `${zoom * 100}%` }}><div className={styles.ruler}>{Array.from({ length: Math.ceil(clip.lengthBeats) + 1 }, (_, i) => <span key={i} style={{ left: `${i / clip.lengthBeats * 100}%` }}>{i}</span>)}</div><svg className={styles.canvas} viewBox="0 0 1000 100" preserveAspectRatio="none" aria-label="Automation drawing area" role="application" tabIndex={0} onPointerDown={down} onPointerMove={move} onPointerUp={() => { drag.current = null }} onPointerCancel={() => { drag.current = null }} onLostPointerCapture={() => { drag.current = null }} onKeyDown={(e) => {
+      <div className={styles.scroll} data-scroll="x"><div style={{ width: `${zoom * 100}%` }}><div className={styles.ruler}>{Array.from({ length: Math.ceil(clip.lengthBeats) + 1 }, (_, i) => <span key={i} style={{ left: `${i / clip.lengthBeats * 100}%` }}>{i}</span>)}</div><svg className={styles.canvas} viewBox="0 0 1000 100" preserveAspectRatio="none" aria-label="Automation drawing area" role="application" tabIndex={0} onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end} onKeyDown={(e) => {
         const cmd = e.metaKey || e.ctrlKey
         if (cmd && e.key.toLowerCase() === 'a') { e.preventDefault(); setSelected(new Set(points.map((p) => p.id))) }
         if (cmd && e.key.toLowerCase() === 'c') { e.preventDefault(); copy() }
@@ -123,7 +123,7 @@ export const AutomationEditor = ({ track, clip, owner: explicitOwner }: { track:
         if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); remove() }
       }}>
         {Array.from({ length: Math.min(1024, Math.ceil(clip.lengthBeats / (step || 1))) }, (_, i) => <line key={i} x1={i * (step || 1) / clip.lengthBeats * 1000} x2={i * (step || 1) / clip.lengthBeats * 1000} y1={0} y2={100} className={styles.grid} />)}
-        <path d={path} className={styles.curve} />{points.map((p) => <ellipse key={p.id} data-point-id={p.id} cx={p.beat / clip.lengthBeats * 1000} cy={100 - p.value * 100} rx={6 / zoom} ry={2.3} className={selected.has(p.id) ? styles.selected : styles.point}><title>{p.beat} beats · {available ? formatParam(available.spec, controlFromNormalized(available.spec, p.value)) : p.value}</title></ellipse>)}<AutomationPhase owner={owner} clipId={clip.id} lengthBeats={clip.lengthBeats} />
+        <path d={path} className={styles.curve} />{box && <rect data-testid="automation-box" className={styles.box} x={Math.min(box.from.beat, box.to.beat) / clip.lengthBeats * 1000} width={Math.abs(box.to.beat - box.from.beat) / clip.lengthBeats * 1000} y={100 - Math.max(box.from.value, box.to.value) * 100} height={Math.abs(box.to.value - box.from.value) * 100} />}{points.map((p) => <ellipse key={p.id} data-point-id={p.id} cx={p.beat / clip.lengthBeats * 1000} cy={100 - p.value * 100} rx={6 / zoom} ry={2.3} className={selected.has(p.id) ? styles.selected : styles.point}><title>{p.beat} beats · {available ? formatParam(available.spec, controlFromNormalized(available.spec, p.value)) : p.value}</title></ellipse>)}<AutomationPhase owner={owner} clipId={clip.id} lengthBeats={clip.lengthBeats} />
       </svg></div></div>
       {only && <div className={styles.toolbar}><label>Beat <input key={`beat:${only.id}:${only.beat}`} aria-label="Point beat" type="number" defaultValue={only.beat} min={0} max={clip.lengthBeats} step={step || 'any'} onBlur={(e) => change(points.map((p) => p.id === only.id ? { ...p, beat: Number(e.target.value) } : p))} /></label><label>Value {available?.spec.unit ?? ''}<input key={`value:${only.id}:${only.value}`} aria-label="Point value" type="number" step="any" defaultValue={available ? controlFromNormalized(available.spec, only.value) : only.value} onBlur={(e) => change(points.map((p) => p.id === only.id ? { ...p, value: available ? controlToNormalized(available.spec, Number(e.target.value)) : Number(e.target.value) } : p))} /></label><label>Segment <select aria-label="Point interpolation" value={only.interpolation} onChange={(e) => change(points.map((p) => p.id === only.id ? { ...p, interpolation: e.target.value as 'linear' | 'hold' } : p))}><option value="linear">Linear</option><option value="hold">Hold</option></select></label></div>}
       <p className={styles.hint}>{points.length} / {MAX_AUTOMATION_POINTS} points · Click to draw · drag selected points · Shift-click to select · ⌘/Ctrl A/C/X/V · Delete · times are beats, values follow the control scale{available && points.length ? ` · first: ${formatParam(available.spec, controlFromNormalized(available.spec, automationPosition(lane, 0)!))}` : ''}</p></> : <p className={styles.hint}>Add a target to draw automation. Empty lanes leave base values unchanged.</p>}</div>

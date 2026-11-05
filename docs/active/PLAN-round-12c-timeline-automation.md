@@ -384,3 +384,15 @@ Signed off 2026-11-05: every row as proposed.
   with session lanes.
 * The audio spec drives the worklet with raw commands and a timeline compiled in Node from a matching project, as the
   loop's spec does.
+
+### Step 3: rows and headers
+
+* **Returns and the master have a row kind each** (`kind: 'return'`, `kind: 'master'`), not track rows, so no code that
+  places regions sees them. With no clip track shown, the view keeps its empty message and draws neither.
+
+### Step 4: the shared point gestures
+
+* **A box selects among the points at its press**, carried in the gesture, as a move carries its origin.
+* **The clip editor's grid snap moved into the gestures**: the pointer is read unsnapped, and a press and a drag snap
+  through `snapPointBeat`, which Alt skips. A drag's distance is still the snapped pointer less the snapped press, as
+  before.
