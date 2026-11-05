@@ -1,4 +1,4 @@
-import { type ControlOwner, EFFECT_INPUTS, type LibraryCatalog, type LibraryItem, libraryDependencies } from '@core'
+import { type ControlOwner, EFFECT_INPUTS, type LibraryCatalog, type LibraryItem, type Project, libraryDependencies, linkOf, originOwner } from '@core'
 import { type LibraryRowRef, type Subject, clipTrackFor, graphFitsOwner, insertionScope, libraryClipFitsSlot, subjectName, useProjectStore, useSelectionStore } from '@state'
 import { PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import { type ProjectEntry, projectModel, projectNodeOf } from './library-tree'
@@ -86,6 +86,24 @@ const factsOf = (catalog: LibraryCatalog, item: LibraryItem): string => {
   }
 }
 
+/**
+ * The owners of the open project whose graph is linked, live, to a library sound: "Used on Bass, Bass copy". A link's
+ * origin may name one of the sound's presets. Informational: it follows the project, not the library.
+ */
+const usedOn = (project: Project, catalog: LibraryCatalog, item: LibraryItem): readonly string[] => {
+  if (item.trashed || item.content.kind === 'preset' || !('state' in item.content)) return []
+  const names = new Set<string>()
+  for (const origin of project.libraryOrigins ?? []) {
+    const named = origin.link && catalog.items.find((candidate) => candidate.id === origin.itemId)
+    const soundId = named?.content.kind === 'preset' ? named.content.assetId : named?.id
+    const owner = originOwner(origin)
+    if (soundId !== item.id || !owner || !origin.domain) continue
+    const found = linkOf(project, owner, origin.domain)
+    if (found?.live && found.origin === origin) names.add(ownerName(owner))
+  }
+  return [...names]
+}
+
 /** ⋯: the subject's menu, the same as a right-click on its row. */
 const More = ({ subject, label }: { subject: Subject; label: string }) => {
   const context = useActionContext()
@@ -106,7 +124,7 @@ interface LibraryDetailsProps {
 /** What the active row is, in one line of facts, with its main button and ⋯ for the rest. */
 export const LibraryDetails = ({ catalog, active, busy, onRun }: LibraryDetailsProps) => {
   // The main button names the selected track, so it follows the project and the selection.
-  useProjectStore((state) => state.project)
+  const project = useProjectStore((state) => state.project)
   useSelectionStore((state) => [state.trackId, state.groupId, state.master].join())
   const live = catalog.items.filter((item) => !item.trashed)
   const item = active?.kind === 'item' ? catalog.items.find((candidate) => candidate.id === active.id) : undefined
@@ -114,6 +132,7 @@ export const LibraryDetails = ({ catalog, active, busy, onRun }: LibraryDetailsP
   if (item) {
     const subject: Subject = { kind: 'library-item', itemId: item.id }
     const primary = primaryOf(catalog, item)
+    const used = usedOn(project, catalog, item)
     const samples = libraryDependencies(catalog, item).sampleIds.map((id) => catalog.samples.find((sample) => sample.id === id) ?? { id, name: 'Missing sample', durationSeconds: 0 })
     return (
       <article className={styles.details} aria-label="Library details">
@@ -122,6 +141,7 @@ export const LibraryDetails = ({ catalog, active, busy, onRun }: LibraryDetailsP
           <span className={styles.kind}>{item.trashed ? `${KIND_NAMES[item.content.kind]} · in the trash` : KIND_NAMES[item.content.kind]}</span>
         </header>
         <p className={styles.facts}>{factsOf(catalog, item)}</p>
+        {used.length > 0 && <p className={styles.facts}>Used on {used.join(', ')}</p>}
         {samples.length > 0 && item.content.kind !== 'sample' && (
           <ul className={styles.samples} aria-label="Samples">
             {samples.map((sample) => <li key={sample.id}>{sample.name} · {sample.durationSeconds.toFixed(2)} s</li>)}

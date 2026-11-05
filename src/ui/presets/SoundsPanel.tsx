@@ -5,6 +5,7 @@ import { useControlGesture } from '../controls/use-control-gesture'
 import { useDragSource } from '../shared/drag'
 import { ActionMenu, PopupMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
+import { LibrarySounds } from './LibrarySounds'
 import styles from './SoundsPanel.module.css'
 
 const TAB_TITLES: Readonly<Record<SoundsTab, string>> = { patch: 'Instrument', fx: 'Effects', notes: 'Notes', track: 'Track' }
@@ -195,6 +196,7 @@ export const SoundsPanel = () => {
             </ul>
           </section>
         )}
+        {!showAll && ownerExists && tab !== 'track' && <LibrarySounds owner={owner} domain={tab} ownerName={ownerNameIn(project, owner)} onReport={setMessage} />}
       </div>
       <div className={styles.buttons}>
         {tab !== 'track' && <button disabled={!ownerExists} aria-label="Save preset" title={`A preset of ${TAB_TITLES[tab]}, to use on other tracks`} onClick={() => save('preset')}>+ Save preset</button>}

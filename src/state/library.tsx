@@ -8,6 +8,8 @@ export interface PersonalLibrary {
   saveSample(sampleId: string, name: string, folderId: string | null): Promise<LibraryCatalog>
   /** A project preset on its own: a new sound from the preset's own revision, holding only that preset. */
   savePreset(presetId: string, folderId: string | null): Promise<LibraryCatalog>
+  /** A project preset of a linked sound, added as a new preset of the library sound it came from (`presetToLibrary`). */
+  addPresetToSound(presetId: string): Promise<LibraryCatalog>
   /**
    * Copies an item into the project. `from` is a catalog to read the item from instead of storage: a throwaway capture
    * of a graph of the project (*Copy to new track*, a graph dropped on another owner), or Factory's.

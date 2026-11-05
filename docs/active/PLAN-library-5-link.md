@@ -208,3 +208,41 @@ Signed off 2026-11-04: every row as proposed.
   targets through the maps backward onto the sound's own owner, files the preset in the sound's folder, and adds the
   sample metadata it needs. It refuses "The library sound is gone" or "…is in the trash".
 * **Step 3:** targets not in the maps keep their IDs; the recall then reports them as unavailable rather than failing.
+* **Step 2, reconsidered after the user asked for `src/core/library` to stay out of the `core` chunk** so it loads
+  lazily: measured, it changes nothing. With the group's test excluding `core/library/`, the library's core code still
+  lands in `core` (`state` and the UI import it statically: `linkOf`, `graphFitsOwner`, `insertionScope`, the drops),
+  as it was in the eager `state` chunk before the split. What loads lazily is the library service (storage, bundles,
+  preview), the `library` chunk, which stays lazy at 3.7–4.0 kB in every variant. So the group stays as committed;
+  making `core/library` lazy would mean moving those imports behind the service, which is beyond this round.
+* **Step 4:** the section is `ui/presets/LibrarySounds.tsx`, below *In this project* (or the empty state) in the
+  scrolling `.sounds` box, a `<section>` named *From the library · Big bass*. Its rows are `role=button` *Recall
+  Dark*, described *Library sound* or *Library preset*, with the ● mark (the sounds store's `recalled`, keyed by the
+  library item's ID). It reads the catalog (`library.read()`) when the selection's link names a new item, since the
+  store's copy is empty until the Library has been shown. With no link, or the sound gone, it shows nothing; with
+  *Show all*, or the *Track* tab, neither.
+* **Step 4:** `recallLinkedSound(origin, state)` (`preset-actions.ts`) recalls through the same body as
+  `recallSavedSound` (`recallWith`): one undo step, Touch and Read unchanged.
+* **Step 4:** *Save to library* on a preset row runs `savePresetToLibrary`: with a link (`presetLink`) to a sound that
+  is there and not trashed, `PersonalLibrary.addPresetToSound(presetId)` (passed on by the lazy wrapper, the phase 1
+  gotcha) adds it and reports "Added *Deep* to *Big bass*" with *Show*. Otherwise, a trashed or gone sound included, it
+  falls back to phase 2's single-preset save rather than refusing. Its tooltip says which it will do: "Adds this preset
+  to the library sound it came from".
+* **Step 4:** the details' "Used on Bass, Bass copy" is a second facts line, for a sound only (not a preset), listing
+  owners whose graph is linked live to it (an origin may name one of its presets).
+* **Step 4:** the smoke case is one test that covers the plan's three: Sweep saved as *Big sweep*, inserted and
+  duplicated ("Used on Big sweep, Big sweep copy"); Dark recalled from the library section; *Third* saved and added to
+  the sound, seen under it in the Library; Open and Third recalled on the copy (one undo step); the copy's Filter
+  deleted, and the section says it changed. The library gains its third preset by the save-back, the only way the UI
+  adds a preset to a library sound. The copy's Instrument view opens from its menu (*Open instrument*): Sounds' own
+  *Instrument* tab shares the view tab's name, so `openView(page, 'Instrument')` is ambiguous while Sounds shows.
+* **Step 4:** the audio case is a ninth mode of `automation.audio.spec.ts`, `linked-preset`: Sweep saved, put back onto
+  Sweep from the library, Bright recalled from the library section; offline it matches inserting Bright itself within
+  0.00002, and the real worklet matches that.
+* **Step 4:** checked in the preview (dev build, Low Light): the library's *Bass* inserted, Sounds at 280 px in the
+  sidebar and at about 580 px, ● on a recalled library preset; after deleting the copy's Oscillator, the section's line
+  and no "Used on". One dark theme, as before.
+* **Manual measurements:** Low Light with ten of its instruments saved and inserted as linked sounds (26 tracks, 282
+  pairs): 510 331 bytes against 501 329 with the links stripped, so **9 002 bytes (1.8 %), about 900 bytes a link**.
+  It loads with no warnings and reads back identical. The same file in a build from before this phase (`204821d`, in a
+  throwaway worktree) loads with no warnings; its origins keep `itemId`, `revisionId`, `trackId` and `domain`, and
+  `owner` and `link` are dropped silently.

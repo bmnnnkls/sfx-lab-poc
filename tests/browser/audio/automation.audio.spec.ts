@@ -1,19 +1,21 @@
 import { samplePresetProject } from '../support/preset-project'
 import { exportLibraryBundle } from '../../../src/storage'
-import { captureLibraryAsset, emptyLibrary, renderProject, serializeProject, parseProject, saveProjectPreset, editControlBase, type Project } from '../../../src/core'
+import { captureLibraryAsset, emptyLibrary, insertLibraryAsset, renderProject, serializeProject, parseProject, saveProjectPreset, editControlBase, type Project } from '../../../src/core'
 import { test, expect, expectSaved, libraryPanel, openView, saveToLibrary, treeRow, viewRoot } from '../support/fixtures'
 import { noteSweepProject, slotSweepProject, sweepProject, sweepTarget } from '../support/automation-project'
 
 declare global { interface Window { __sweepSamples: number[] } }
-for (const mode of ['clip', 'notes', 'slots', 'touch', 'preset', 'sample-preset', 'library-preset', 'bundle-preset']) {
-const slots = mode === 'slots', touch = mode === 'touch', preset = mode === 'preset', bundlePreset = mode === 'bundle-preset', samplePreset = mode === 'sample-preset' || mode === 'library-preset' || bundlePreset, libraryPreset = mode === 'library-preset' || bundlePreset
-test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after trash/reload' : libraryPreset ? 'independent library sample asset after trash/reload' : samplePreset ? 'recalled instance sample preset' : preset ? 'recalled project preset' : touch ? 'Touch take' : slots ? 'return/master slots' : mode === 'notes' ? 'helper/notes and filter curves' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
+for (const mode of ['clip', 'notes', 'slots', 'touch', 'preset', 'sample-preset', 'library-preset', 'bundle-preset', 'linked-preset']) {
+const slots = mode === 'slots', touch = mode === 'touch', linked = mode === 'linked-preset', preset = mode === 'preset' || linked, bundlePreset = mode === 'bundle-preset', samplePreset = mode === 'sample-preset' || mode === 'library-preset' || bundlePreset, libraryPreset = mode === 'library-preset' || bundlePreset
+test(`the real worklet ${linked ? 'library preset recalled through its link' : bundlePreset ? 'imported bundle sample asset after trash/reload' : libraryPreset ? 'independent library sample asset after trash/reload' : samplePreset ? 'recalled instance sample preset' : preset ? 'recalled project preset' : touch ? 'Touch take' : slots ? 'return/master slots' : mode === 'notes' ? 'helper/notes and filter curves' : 'clip filter sweep'} matches offline sample timing across wraps`, async ({ page }) => {
   let project: Project = slots ? slotSweepProject() : mode === 'notes' ? noteSweepProject() : sweepProject()
   if (preset) {
     project = { ...project, tracks: project.tracks.map(t => t.kind === 'instrument' ? { ...t, clips: t.clips.map(c => c ? { ...c, automation: [] } : c) } : t) }
     const scope = { owner: sweepTarget.owner, domain: 'patch' as const }
     project = saveProjectPreset(project, scope, 'Warm')
     project = saveProjectPreset(editControlBase(project, sweepTarget, 12000).project, scope, 'Bright')
+    // Linked: the sound's own state is a third cutoff, so recalling Bright from the library changes something.
+    if (linked) project = editControlBase(project, sweepTarget, 500).project
   }
   const sampleFixture = samplePreset ? samplePresetProject() : undefined
   if (sampleFixture) project = sampleFixture.project
@@ -98,7 +100,31 @@ test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after tras
     await openView(page, 'Samples')
     for (const s of sampleFixture.samples) await expect(page.getByRole('button', { name: `Preview ${s.info.name}`, exact: true })).toBeEnabled()
   }
-  if (preset) {
+  if (linked) {
+    // Saved to the library, put back onto Sweep from there (so Sweep is linked), and Bright recalled from Sounds'
+    // library section. It must sound as inserting Bright itself does.
+    const session = viewRoot(page, 'Session')
+    await session.getByText('Sweep', { exact: true }).first().click()
+    await saveToLibrary(page, session.getByRole('button', { name: 'Sweep', exact: true }), 'Instrument + notes')
+    await openView(page, 'Library')
+    const voice = treeRow(libraryPanel(page), 'Sweep')
+    await voice.click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Replace selected graph', exact: true }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'copied into project' })).toBeVisible()
+    const sounds = await openView(page, 'Sounds')
+    await sounds.getByRole('region', { name: 'From the library · Sweep', exact: true }).getByRole('button', { name: 'Recall Bright', exact: true }).click()
+    await expect(sounds.getByRole('status')).toContainText('controls recalled')
+    await expectSaved(page)
+    const saved = parseProject((await page.evaluate(() => localStorage.getItem('sfxlab:project')))!)
+    if (!saved.ok) throw new Error(saved.error)
+    const scope = { owner: sweepTarget.owner, domain: 'patch' as const }
+    const catalog = captureLibraryAsset(emptyLibrary(), project, scope, 'Sweep', null)
+    const inserted = insertLibraryAsset(project, catalog, catalog.items.find(i => i.name === 'Bright')!, { mode: 'replace', scope }).project
+    expected = renderProject(inserted, [], { scope: { kind: 'clip', trackId: 'sweep', clipId: 'sweep-clip' }, bars: 1, maxTail: 0 })
+    const recalled = renderProject(saved.project, [], { scope: { kind: 'clip', trackId: 'sweep', clipId: 'sweep-clip' }, bars: 1, maxTail: 0 })
+    expect(Math.max(...recalled.left.map((v, i) => Math.abs(v - expected.left[i]!)))).toBeLessThan(0.00002)
+    expect(expected.left).not.toEqual(offline.left)
+  } else if (preset) {
     await viewRoot(page, 'Session').getByText('Sweep', { exact: true }).first().click()
     await openView(page, 'Sounds')
     await page.getByRole('button', { name: 'Recall Warm', exact: true }).click()

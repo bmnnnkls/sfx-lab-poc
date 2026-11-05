@@ -1,6 +1,6 @@
-import { type InstrumentTrack, type Project, duplicateTrack, noteGraphFrom, parseProject, resolveControlTarget, serializeProject } from '../../../src/core'
+import { type ControlTarget, type InstrumentTrack, type Project, duplicateTrack, editControlBase, noteGraphFrom, parseProject, resolveControlTarget, saveProjectPreset, serializeProject } from '../../../src/core'
 import { sweepProject, sweepTarget } from '../support/automation-project'
-import { test, expect, expectSaved, openView, saveSound, viewRoot } from '../support/fixtures'
+import { test, expect, expectSaved, libraryPanel, openView, saveSound, saveToLibrary, treeRow, viewRoot } from '../support/fixtures'
 
 const savedProject = async (page: import('@playwright/test').Page): Promise<Project> => {
   await expectSaved(page)
@@ -113,4 +113,86 @@ test("a preset saved on one track lists and recalls onto another whose graph mat
   await page.getByRole('menuitemcheckbox', { name: 'Show all in project', exact: true }).click()
   await expect(sounds.getByRole('heading', { name: 'Sweep · Instrument', exact: true })).toBeVisible()
   await expect(sounds.getByRole('button', { name: 'Recall Bright', exact: true })).toBeVisible()
+})
+
+test("a library sound's presets recall from Sounds through its link, a project preset saves back into it, and a rewire says so", async ({ page }) => {
+  // Sweep with two presets, Dark (cutoff 500) and Open (8000), and its cutoff back at 2000.
+  let project: Project = sweepProject()
+  const scope = { owner: { kind: 'track' as const, trackId: 'sweep' }, domain: 'patch' as const }
+  project = saveProjectPreset(editControlBase(project, sweepTarget, 500).project, scope, 'Dark')
+  project = saveProjectPreset(editControlBase(project, sweepTarget, 8000).project, scope, 'Open')
+  project = editControlBase(project, sweepTarget, 2000).project
+  await page.addInitScript(saved => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(project))
+  await page.goto('/')
+  const session = viewRoot(page, 'Session')
+
+  // Saved to the library as Big sweep, inserted as a new track, and that track duplicated.
+  await saveToLibrary(page, session.getByRole('button', { name: 'Sweep', exact: true }), 'Instrument + notes')
+  await page.getByRole('status').filter({ hasText: 'Saved Sweep to' }).getByRole('button', { name: 'Show', exact: true }).click()
+  const panel = libraryPanel(page)
+  await panel.getByRole('textbox', { name: 'Name of Sweep', exact: true }).fill('Big sweep')
+  await page.keyboard.press('Enter')
+  await treeRow(panel, 'Big sweep').click()
+  await panel.getByRole('button', { name: 'Add as new track', exact: true }).click()
+  await expect(panel.getByRole('status')).toContainText('copied into project')
+  await session.getByRole('button', { name: 'Big sweep', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Duplicate', exact: true }).click()
+  await expect(session.getByRole('button', { name: 'Big sweep copy', exact: true })).toBeVisible()
+  await treeRow(panel, 'Big sweep').click()
+  await expect(panel.getByRole('article')).toContainText('Used on Big sweep, Big sweep copy')
+
+  const cutoffOf = async (name: string) => {
+    const saved = await savedProject(page)
+    const track = saved.tracks.find((candidate) => candidate.name === name) as InstrumentTrack
+    const filter = track.patch.nodes.find((node) => node.type === 'filter')!
+    const result = resolveControlTarget(saved, { ...sweepTarget, owner: { kind: 'track', trackId: track.id }, nodeId: filter.id } as ControlTarget)
+    return result.status === 'available' ? result.baseValue : undefined
+  }
+
+  // On Big sweep: the library section lists the sound and its two presets. Dark recalls, and Third is saved from it.
+  await session.getByText('Big sweep', { exact: true }).first().click()
+  const sounds = await openView(page, 'Sounds')
+  const fromLibrary = sounds.getByRole('region', { name: 'From the library · Big sweep', exact: true })
+  await expect.poll(() => fromLibrary.getByRole('button').evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))).toEqual(['Recall Big sweep', 'Recall Dark', 'Recall Open'])
+  await fromLibrary.getByRole('button', { name: 'Recall Dark', exact: true }).click()
+  await expect(sounds.getByRole('status')).toContainText('controls recalled')
+  await expect(fromLibrary.getByRole('button', { name: 'Recall Dark', exact: true })).toHaveAttribute('data-recalled', 'true')
+  expect(await cutoffOf('Big sweep')).toBe(500)
+  await saveSound(page, sounds, 'preset', 'Third')
+  await sounds.getByRole('button', { name: 'Recall Third', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Save to library', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Added Third to Big sweep' }).last()).toBeVisible()
+  await expect.poll(() => fromLibrary.getByRole('button').evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))).toEqual(['Recall Big sweep', 'Recall Dark', 'Recall Open', 'Recall Third'])
+
+  // Third is under Big sweep in the Library.
+  await openView(page, 'Library')
+  const item = treeRow(panel, 'Big sweep')
+  await item.click()
+  await item.press('ArrowRight')
+  await expect(item).toHaveAttribute('aria-expanded', 'true')
+  await expect(panel.getByRole('treeitem', { name: 'Third', exact: true })).toBeVisible()
+
+  // On the copy: Open, then Third, recalled from the library section.
+  await session.getByText('Big sweep copy', { exact: true }).first().click()
+  await openView(page, 'Sounds')
+  const copyLibrary = sounds.getByRole('region', { name: 'From the library · Big sweep', exact: true })
+  await copyLibrary.getByRole('button', { name: 'Recall Open', exact: true }).click()
+  await expect.poll(() => cutoffOf('Big sweep copy')).toBe(8000)
+  await copyLibrary.getByRole('button', { name: 'Recall Third', exact: true }).click()
+  await expect.poll(() => cutoffOf('Big sweep copy')).toBe(500)
+  // One undo step.
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect.poll(() => cutoffOf('Big sweep copy')).toBe(8000)
+
+  // A rewire of the copy: the Filter goes, and the section says the sound has changed.
+  // From the track's menu: Sounds has an Instrument tab of its own, so the view's tab isn't the only one so named.
+  await session.getByRole('button', { name: 'Big sweep copy', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Open instrument', exact: true }).click()
+  const instrument = viewRoot(page, 'Instrument')
+  await expect(instrument).toBeVisible()
+  await instrument.locator('[data-node]', { hasText: 'Filter' }).first().locator('[data-header]').click()
+  await page.keyboard.press('Delete')
+  await openView(page, 'Sounds')
+  await expect(copyLibrary).toContainText('This sound has changed since it came from the library')
+  await expect(copyLibrary.getByRole('button')).toHaveCount(0)
 })

@@ -1,10 +1,11 @@
-import { type ControlOwner, type Project, type ProjectPreset, type SnapshotScope, assetSignature, canRecallProjectPreset, captureAsset, captureSnapshot, controlOwnerId, deleteProjectPreset, deleteSnapshot, duplicateProjectPreset, duplicateSnapshot, putSnapshot, saveProjectPreset } from '@core'
+import { type ControlOwner, type Project, type ProjectPreset, type SnapshotScope, assetSignature, canRecallProjectPreset, captureAsset, captureSnapshot, controlOwnerId, deleteProjectPreset, deleteSnapshot, duplicateProjectPreset, duplicateSnapshot, linkedSounds, presetLink, putSnapshot, saveProjectPreset } from '@core'
+import { useLibraryStore } from '../library-store'
 import { editPresetProject, recallSavedSound } from '../preset-actions'
 import { scopeState, useSoundsStore } from '../sounds-store'
 import { saveToLibrary } from './library-save'
 import { ownerName, project } from './lookup'
 import { renameAction, startRename } from './rename'
-import type { Action, ActionContext, SubjectOf } from './types'
+import type { Action, ActionContext, ActionReport, SubjectOf } from './types'
 
 type SoundSubject = SubjectOf<'sound'>
 
@@ -74,6 +75,32 @@ export const recallablePresets = (value: Project, owner: ControlOwner, domain: S
 export const recallPresetOn = (preset: ProjectPreset, owner: ControlOwner, domain: SnapshotScope['domain'] = preset.scope.domain): string =>
   recallSavedSound(preset, { owner, domain })
 
+/** The library link a project preset saves back through: its own revision's shape is the link's (`presetLink`). */
+const linkOfPreset = (presetId: string) => {
+  const value = project(), preset = value.presets?.find((candidate) => candidate.id === presetId)
+  return preset ? presetLink(value, preset) : undefined
+}
+
+/**
+ * *Save to library* on a preset: with a link to a library sound that is there and not trashed, adds it to that sound
+ * ("Added *Deep* to *Big bass*", with *Show*); otherwise a new library sound holding only this preset.
+ */
+export const savePresetToLibrary = async (presetId: string, context: ActionContext): Promise<ActionReport> => {
+  const origin = linkOfPreset(presetId), name = project().presets?.find((candidate) => candidate.id === presetId)?.name ?? 'Preset'
+  if (origin) {
+    const before = await context.library.read()
+    const { sound, trashed } = linkedSounds(before, origin)
+    if (sound && !trashed) {
+      const next = await context.library.addPresetToSound(presetId)
+      useLibraryStore.getState().setCatalog(next)
+      const known = new Set(before.items.map((item) => item.id)), added = next.items.find((item) => !known.has(item.id))
+      const message = `Added ${name} to ${sound.name}`
+      return added ? { message, action: { label: 'Show', run: () => useLibraryStore.getState().reveal(added.id) } } : { message }
+    }
+  }
+  return saveToLibrary({ kind: 'preset', presetId }, context)
+}
+
 /** A sound edit as one undo step; it reports what it did, or throws why it couldn't. */
 const saved = async (edit: Parameters<typeof editPresetProject>[0]) => {
   editPresetProject(edit)
@@ -131,10 +158,10 @@ export const soundActions: readonly Action<SoundSubject>[] = [
     id: 'sound.save-to-library',
     title: 'Save to library',
     group: 'edit',
-    tooltip: () => "A new library sound from this preset's own graph, holding only this preset",
+    tooltip: (subject) => (linkOfPreset(subject.soundId) ? 'Adds this preset to the library sound it came from' : "A new library sound from this preset's own graph, holding only this preset"),
     // A snapshot has no graph of its own to save.
     applies: (subject) => subject.preset && exists(subject),
-    run: ({ soundId }, context) => saveToLibrary({ kind: 'preset', presetId: soundId }, context),
+    run: ({ soundId }, context) => savePresetToLibrary(soundId, context),
   },
   renameAction('sound', exists),
   {
