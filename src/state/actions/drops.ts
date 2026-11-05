@@ -4,6 +4,7 @@ import { useProjectStore } from '../project-store'
 import { canRunAction, runAction, type RunOptions, settle } from '.'
 import { canPasteClipOnLane, pasteClipOnLane } from './lane'
 import { copyToMine, editLibrary, graphFitsOwner, insertionScope, insertLibraryClipAt, libraryClipFitsSlot, replaceGraph } from './library'
+import { type LibraryEntry, landLibraryEntries, libraryLanding } from './library-landing'
 import { type LibrarySource, libraryNameOf, routingRefusal, saveToLibrary } from './library-save'
 import { project, sessionClipOf, trackOf } from './lookup'
 import { projectGraphItem } from './project-graph'
@@ -12,7 +13,15 @@ import { canRecallPresetOn, recallPresetOn } from './sound'
 import type { ActionContext, ActionReport, SubjectOf } from './types'
 
 /** What is dragged: the subject of the thing picked up. It holds ids, read when it lands. */
-export type DragPayload = SubjectOf<'clip' | 'sample' | 'sound' | 'library-item' | 'library-folder' | 'track' | 'group' | 'project-graph'>
+export type DragPayload = SubjectOf<'clip' | 'sample' | 'sound' | 'library-item' | 'library-folder' | 'track' | 'group' | 'project-graph'> | LibraryItemsPayload
+
+/** Several library items dragged at once: a selected row of a selection of more than one drags them all. */
+export interface LibraryItemsPayload {
+  readonly kind: 'library-items'
+  readonly ids: readonly string[]
+}
+
+type PayloadOf<K extends DragPayload['kind']> = Extract<DragPayload, { kind: K }>
 
 /**
  * Where it lands: the subject of the place under the pointer. A lane carries the beat, a canvas the point, a track or
@@ -40,7 +49,7 @@ export interface Drop<P extends DragPayload = DragPayload, T extends DropTarget 
   run(payload: P, target: T, context: ActionContext, modifiers: DropModifiers): void | Promise<string | ActionReport | void>
 }
 
-const define = <P extends DragPayload['kind'], T extends DropTarget['kind']>(drop: Drop<SubjectOf<P>, SubjectOf<T>>): Drop => drop as unknown as Drop
+const define = <P extends DragPayload['kind'], T extends DropTarget['kind']>(drop: Drop<PayloadOf<P>, SubjectOf<T>>): Drop => drop as unknown as Drop
 
 const copies = () => 'copy' as const
 const presetOf = ({ soundId, preset }: SubjectOf<'sound'>) => (preset ? project().presets?.find((candidate) => candidate.id === soundId) : undefined)
@@ -205,6 +214,38 @@ const libraryTrash = [
     run: (payload, _root, context) => runAction('library-folder.trash', payload, context),
   }),
 ]
+
+const entriesOf = ({ ids }: LibraryItemsPayload): LibraryEntry[] => ids.map((itemId) => ({ kind: 'library-item', itemId }))
+
+/**
+ * Several library items dragged onto a folder, *My library* or the trash: each as one item would land (My library's
+ * move, Alt copies, a trashed one is restored; the Factory's are copied in; the trash takes My library's live ones), in
+ * one catalog update. If any one is refused, they all are.
+ */
+const libraryItemsMoves = (['library-folder', 'library-root'] as const).map((target) =>
+  define<'library-items', typeof target>({
+    id: `drop.library-items-on-${target === 'library-folder' ? 'folder' : 'root'}`,
+    payload: 'library-items',
+    target,
+    accepts: (payload, place) => !!libraryLanding(entriesOf(payload), place, 'move'),
+    effect: (payload, _place, { alt }) => (alt || payload.ids.every(isFactoryId) ? 'copy' : 'move'),
+    run: (payload, place, context, { alt }) => landLibraryEntries(entriesOf(payload), place, alt && !(place.kind === 'library-root' && place.root === 'trash') ? 'copy' : 'move', context),
+  }),
+)
+
+/** Several sounds onto a track, a slot, a graph or a header have no one meaning: refused, saying so. */
+const ONE_AT_A_TIME = 'Drop one sound at a time'
+const libraryItemsRefused = (['slot', 'track', 'master', 'group', 'canvas'] as const).map((target) =>
+  define<'library-items', typeof target>({
+    id: `drop.library-items-on-${target}`,
+    payload: 'library-items',
+    target,
+    accepts: () => false,
+    refusal: () => ONE_AT_A_TIME,
+    effect: copies,
+    run: () => {},
+  }),
+)
 
 /** Payloads from the project that a library folder takes: saved there. */
 type SavedPayload = SubjectOf<'track' | 'group' | 'clip' | 'sample' | 'sound'>
@@ -530,6 +571,8 @@ export const drops: readonly Drop[] = [
   ...libraryMoves,
   ...factoryCopies,
   ...libraryTrash,
+  ...libraryItemsMoves,
+  ...libraryItemsRefused,
   ...librarySaves,
   ...projectGraphDrops,
 ]

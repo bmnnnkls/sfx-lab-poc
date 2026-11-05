@@ -92,6 +92,8 @@ interface RowProps {
   readonly previewing: boolean
   /** Cut, waiting for a paste: drawn dimmed. */
   readonly cut: boolean
+  /** The selection it drags with it, when it is a selected row of several. */
+  readonly group?: readonly string[]
   onChoose(row: LibraryRow, event: MouseEvent): void
   onToggle(row: LibraryRow): void
   onExpand(row: LibraryRow): void
@@ -105,10 +107,11 @@ interface RowProps {
  */
 const NO_SUBJECT: Subject = { kind: 'master' }
 
-const Row = ({ row, item, active, focusable, selected, previewing, cut, onChoose, onToggle, onExpand, onPreview, onRename }: RowProps) => {
+const Row = ({ row, item, active, focusable, selected, previewing, cut, group, onChoose, onToggle, onExpand, onPreview, onRename }: RowProps) => {
   const subject = subjectOf(row)
   const renaming = useRenaming(subject ?? NO_SUBJECT) && subject !== null
-  const payload: DragPayload | null = renaming || row.kind === 'root' ? null : row.kind === 'project' ? projectPayload(row.entry, subject) : (subject as DragPayload)
+  const payload: DragPayload | null =
+    renaming || row.kind === 'root' ? null : row.kind === 'project' ? projectPayload(row.entry, subject) : group ? { kind: 'library-items', ids: group } : (subject as DragPayload)
   const target: DropTarget | null = (row.kind === 'root' || row.kind === 'folder') && row.root !== 'project' && row.root !== 'factory' ? (subject as DropTarget) : null
   const drag = useDragSource(payload)
   const drop = useDropTarget(target)
@@ -203,7 +206,7 @@ interface LibraryTreeProps {
  * read-only *Factory* (collapsed until opened) and *Trash*, folders, items and the presets under their sound. The active row is the one Tab reaches and the details show; the arrows move it, Right and Left
  * expand and collapse, Enter runs its primary action and Space previews. A click makes a row active and selects it,
  * ⇧ extends the selection along the rows and ⌘ toggles a row. Rows drag onto folders and the roots, and a closed row
- * springs open under a resting drag. Cut rows (⌘X) are dimmed until pasted (⌘V on a folder) or Esc clears them.
+ * springs open under a resting drag; a selected row drags the whole selection. Cut rows (⌘X) are dimmed until pasted (⌘V on a folder) or Esc clears them.
  */
 export const LibraryTree = ({ catalog, factory, query, kind, active, selected, previewing, onActivate, onPrimary, onPreview, onRename }: LibraryTreeProps) => {
   // *This project*'s rows change with its edits, but not with a value's (a knob dragged): `projectModel` says.
@@ -301,6 +304,7 @@ export const LibraryTree = ({ catalog, factory, query, kind, active, selected, p
           selected={(row.kind === 'item' || row.kind === 'preset') && selected.includes(row.id)}
           previewing={previewing !== null && previewIdOf(row) === previewing}
           cut={cutKeys.has(row.key)}
+          group={(row.kind === 'item' || row.kind === 'preset') && selected.length > 1 && selected.includes(row.id) ? selected : undefined}
           onChoose={choose}
           onToggle={toggle}
           onExpand={expand}

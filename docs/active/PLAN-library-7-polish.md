@@ -95,3 +95,16 @@ Signed off 2026-11-04: every row as proposed.
   library*'s *Paste here* disabled, since the move would land where it is.
 * **Step 1: chunks**, gzipped, against `7a00065`: `state` 30.18 → 32.17 kB, `index` 112.28 → 112.32; the build is
   warning-free.
+* **Step 2:** `LibraryItemsPayload` (`{ kind: 'library-items', ids }`) is a `DragPayload` but not a subject: nothing
+  has a menu on it, so `define` types payloads by `PayloadOf` rather than `SubjectOf`. A row drags it when it is a
+  selected item of a selection of more than one (`group` on the tree's row), Factory and My library items alike.
+* **Step 2:** `drop.library-items-on-folder` and `-on-root` (mine and trash) run step 1's `libraryLanding` and
+  `landLibraryEntries`: accepted by the move rule (a copy's rule takes anything a move's does), Alt copies, the cursor
+  says copy when every item is the Factory's. A trashed item is restored where it lands with Alt held too, as one
+  item's drag does (`libraryLanding`'s copy mode now restores it rather than refusing). Reports "Moved 3 things to
+  Kit", "Copied 2 things to My library", "Moved 2 things to the trash".
+* **Step 2:** onto a slot, a track, the master, a group or a canvas, `drop.library-items-on-…` accepts nothing and
+  refuses with "Drop one sound at a time" (the target's `data-drop-reason` and title). A lane takes no library item,
+  so it has none.
+* **Step 2:** no view changed (a drag's payload and the drop table); the smoke drags three items onto *Kit*, and onto
+  Lead's header, where the reason shows. Chunks, gzipped: `state` 32.17 → 32.35 kB, `LibraryPanel` 11.14 → 11.18.

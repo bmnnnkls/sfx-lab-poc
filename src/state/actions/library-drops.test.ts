@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { PersonalLibrary } from '../library'
 import { useLibraryStore } from '../library-store'
 import { usePersistenceStore } from '../persistence-store'
-import { type DragPayload, type DropTarget, dropFor, runDrop } from './drops'
+import { type DragPayload, type DropTarget, dropFor, refusalFor, runDrop } from './drops'
 import { fakeContext } from './test-support'
 
 let catalog: LibraryCatalog
@@ -155,5 +155,47 @@ describe('anything else', () => {
   it('lands on no library folder or root', () => {
     const others: DragPayload[] = [{ kind: 'sample', sampleId: 's' }, { kind: 'track', trackId: 't' }, { kind: 'group', groupId: 'g' }, { kind: 'sound', soundId: 's', preset: true }, { kind: 'clip', trackId: 't', clipId: 'c' }]
     for (const payload of others) for (const target of [into('pads'), MINE, TRASH]) expect(accepted(payload, target)).toBeUndefined()
+  })
+})
+
+describe('several library items', () => {
+  const several = (...ids: string[]): DragPayload => ({ kind: 'library-items', ids })
+
+  it('move into a folder together, Alt copies them, and the trash takes them', async () => {
+    catalog = saveLibraryItem(catalog, sound('hat', null))
+    useLibraryStore.setState({ catalog })
+    expect(accepted(several('riff', 'hat', 'kick'), into('pads'))).toBe('drop.library-items-on-folder')
+    expect([effect(several('riff', 'hat'), into('pads'), false), effect(several('riff', 'hat'), into('pads'), true)]).toEqual(['move', 'copy'])
+    // A preset whose sound is dragged too goes with it.
+    await drop(several('riff', 'hat', 'kick', 'tight'), into('pads'))
+    expect(['riff', 'hat', 'kick', 'tight'].map((id) => (entry(id) as LibraryItem).folderId)).toEqual(['pads', 'pads', 'pads', 'pads'])
+    await drop(several('riff', 'hat'), MINE, true)
+    expect(catalog.items.filter((value) => value.name === 'riff').map((value) => value.folderId).sort()).toEqual(['pads', null].sort())
+    await drop(several('riff', 'hat'), TRASH)
+    expect([entry('riff'), entry('hat')].every((value) => value?.trashed)).toBe(true)
+    expect(usePersistenceStore.getState().notices.map((notice) => notice.message)).toEqual(['Moved 3 things to pads', 'Copied 2 things to My library', 'Moved 2 things to the trash'])
+  })
+
+  it('are refused together when any one is, and a trashed one is restored', async () => {
+    // riff is at the top level already; Tight can't move without its sound; Old is in the trash.
+    expect(accepted(several('kick', 'riff'), MINE)).toBeUndefined()
+    expect(accepted(several('riff', 'tight'), into('pads'))).toBeUndefined()
+    expect(accepted(several('kick', 'riff'), into('old'))).toBeUndefined()
+    await drop(several('snare', 'riff'), into('pads'))
+    expect([entry('snare'), entry('riff')].map((value) => [(value as LibraryItem).folderId, !!value?.trashed])).toEqual([['pads', false], ['pads', false]])
+  })
+
+  it('refuse a track, a slot, the master, a group or a graph, saying why', () => {
+    const targets: DropTarget[] = [
+      { kind: 'track', trackId: 't' },
+      { kind: 'slot', trackId: 't', scene: 0 },
+      { kind: 'master' },
+      { kind: 'group', groupId: 'g' },
+      { kind: 'canvas', target: { master: true }, path: [], at: { x: 0, y: 0 } },
+    ]
+    for (const target of targets) {
+      expect(accepted(several('kick', 'riff'), target)).toBeUndefined()
+      expect(refusalFor(several('kick', 'riff'), target, context())).toBe('Drop one sound at a time')
+    }
   })
 })

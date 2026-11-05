@@ -51,8 +51,8 @@ const landingEntries = (catalog: LibraryCatalog, entries: readonly LibraryEntry[
 
 /**
  * How `entries` land on `place`, applying the rule for one dragged thing to each, or undefined when any is refused (so
- * the whole lands or none of it). Onto a live folder or *My library*: My library's move there (restoring a trashed one)
- * or copy, never into themselves, and a move refuses where it already is; a preset only goes to the trash; the
+ * the whole lands or none of it). Onto a live folder or *My library*: My library's move there or copy (a trashed one is
+ * restored there either way), never into themselves, and a move refuses where it already is; a preset only goes to the trash; the
  * Factory's are copied in. Onto the trash: My library's live ones are trashed.
  */
 export const libraryLanding = (entries: readonly LibraryEntry[], place: LibraryPlace, mode: LandingMode, state = useLibraryStore.getState()): Landing | undefined => {
@@ -89,8 +89,7 @@ export const libraryLanding = (entries: readonly LibraryEntry[], place: LibraryP
     if (entry.kind === 'library-item' && 'content' in found && found.content.kind === 'preset') return undefined
     if (entry.kind === 'library-folder' && destination !== null && isWithin(catalog, destination, id)) return undefined
     if (found.trashed) {
-      // A trashed thing is restored where it lands, as a drag restores it; a copy of it isn't offered.
-      if (mode === 'copy') return undefined
+      // A trashed thing is restored where it lands, as a drag restores it (Alt held too): a copy of it isn't offered.
       edits.push((value) => moveLibraryEntry(value, id, destination))
       counts.restored++
     } else if (mode === 'copy') {

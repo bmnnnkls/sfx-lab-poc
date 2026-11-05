@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { test, expect, libraryMenu, libraryPanel, openView, treeRow } from '../support/fixtures'
+import { test, expect, dragTo, libraryMenu, libraryPanel, openView, treeRow } from '../support/fixtures'
 
 /** Makes a folder at the top level from the Library's ⋯, named in place. */
 const newFolder = async (page: Page, panel: Locator, name: string) => {
@@ -72,4 +72,44 @@ test('⌘C then ⌘V copies a Factory sound into a folder; ⌘X marks it, Esc cl
   await page.reload()
   await openView(page, 'Library')
   await expect(treeRow(libraryPanel(page), 'Pads')).toHaveAttribute('aria-label', 'Pads, 1 item')
+})
+
+test('three selected items drag into a folder at once, and onto a track they are refused', async ({ page }) => {
+  await page.goto('/?starter')
+  const session = await openView(page, 'Session')
+  await openView(page, 'Library')
+  const panel = libraryPanel(page)
+  await newFolder(page, panel, 'Kit')
+
+  // Three Factory drums, selected with ⇧ and copied in by ⌘C, ⌘V.
+  const factory = treeRow(panel, 'Factory')
+  await expect(factory).toHaveAttribute('aria-label', 'Factory, 49 items')
+  await opened(factory)
+  await opened(treeRow(panel, 'Drums'))
+  await exactRow(panel, 'Clap').click()
+  await exactRow(panel, 'Hat').click({ modifiers: ['Shift'] })
+  await page.keyboard.press('ControlOrMeta+c')
+  await treeRow(panel, 'My library').click()
+  await page.keyboard.press('ControlOrMeta+v')
+  await expect(page.getByRole('status').filter({ hasText: 'Copied 3 things to My library' })).toBeVisible()
+  await factory.click()
+  await factory.press('ArrowLeft')
+
+  const [clap, crash, hat] = ['Clap', 'Crash', 'Hat'].map((name) => exactRow(panel, name))
+  await clap!.click()
+  await hat!.click({ modifiers: ['Shift'] })
+  for (const row of [clap!, crash!, hat!]) await expect(row).toHaveAttribute('aria-selected', 'true')
+
+  // Several sounds onto a track: refused, saying why.
+  const lead = session.getByRole('button', { name: 'Lead', exact: true })
+  await dragTo(page, crash!, lead, { whileOver: () => expect(page.locator('[data-drop-reason="Drop one sound at a time"]')).toHaveCount(1) })
+  await expect(treeRow(panel, 'My library')).toHaveAttribute('aria-label', 'My library, 3 items')
+
+  // Onto Kit: all three move, in one drag of the middle one.
+  await dragTo(page, crash!, treeRow(panel, 'Kit'))
+  await expect(page.getByRole('status').filter({ hasText: 'Moved 3 things to Kit' })).toBeVisible()
+  await expect(treeRow(panel, 'Kit')).toHaveAttribute('aria-label', 'Kit, 3 items')
+  await page.reload()
+  await openView(page, 'Library')
+  await expect(treeRow(libraryPanel(page), 'Kit')).toHaveAttribute('aria-label', 'Kit, 3 items')
 })
