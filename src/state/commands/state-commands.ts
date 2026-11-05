@@ -5,6 +5,7 @@ import { usePersistenceStore } from '../persistence-store'
 import { selectCanRedo, selectCanUndo, useProjectStore } from '../project-store'
 import { useStatusStore } from '../status-store'
 import { useTouchStore } from '../touch-store'
+import { FIXED_LENGTHS, type FixedLength, useRecordSettings } from '../record-settings'
 import { LIBRARY_COMMANDS } from './library-commands'
 import type { Command } from './types'
 
@@ -33,6 +34,37 @@ const regionToggle = (region: Exclude<RegionId, 'editor'>): Command => ({
 })
 
 const STARTER = 'starter'
+
+/** The metronome levels its menu and command offer, in dB. */
+export const METRONOME_LEVELS = [0, -6, -12, -18, -24, -30, -40] as const
+/** How a fixed length is named: *Off*, *1 bar*, *4 bars*. */
+export const fixedLengthTitle = (bars: FixedLength): string => (bars === 0 ? 'Off' : `${bars} bar${bars === 1 ? '' : 's'}`)
+
+const recordCommands: readonly Command[] = [
+  {
+    id: 'transport.metronome',
+    category: 'Transport',
+    title: 'Toggle metronome',
+    label: () => (useRecordSettings.getState().metronome ? 'Turn metronome off' : 'Turn metronome on'),
+    tooltip: 'Click on every beat while the transport runs; never in an export',
+    run: () => useRecordSettings.getState().setMetronome(!useRecordSettings.getState().metronome),
+  },
+  {
+    id: 'transport.metronome-level',
+    category: 'Transport',
+    title: 'Metronome level',
+    choices: () => METRONOME_LEVELS.map((db) => ({ id: String(db), title: `${db} dB`, checked: useRecordSettings.getState().metronomeLevel === db })),
+    run: (_context, choice) => { if (choice !== undefined) useRecordSettings.getState().setMetronomeLevel(Number(choice)) },
+  },
+  {
+    id: 'transport.fixed-length',
+    category: 'Transport',
+    title: 'Fixed recording length',
+    tooltip: 'A take recorded into a slot ends by itself after this many bars',
+    choices: () => FIXED_LENGTHS.map((bars) => ({ id: String(bars), title: fixedLengthTitle(bars), checked: useRecordSettings.getState().fixedBars === bars })),
+    run: (_context, choice) => { if (choice !== undefined) useRecordSettings.getState().setFixedBars(Number(choice) as FixedLength) },
+  },
+]
 
 const VERB_TITLES: Readonly<Record<Verb, string>> = {
   delete: 'Delete',
@@ -108,6 +140,7 @@ export const STATE_COMMANDS: readonly Command[] = [
     tooltip: "Record controls into each owner's playing clip or automation slot",
     run: () => useTouchStore.getState().arm(!useTouchStore.getState().armed),
   },
+  ...recordCommands,
   { id: 'history.undo', category: 'Edit', title: 'Undo', repeat: true, enabled: () => selectCanUndo(useProjectStore.getState()), run: () => useProjectStore.getState().undo() },
   { id: 'history.redo', category: 'Edit', title: 'Redo', repeat: true, enabled: () => selectCanRedo(useProjectStore.getState()), run: () => useProjectStore.getState().redo() },
   { id: 'track.add-instrument', category: 'Track', title: 'Add instrument track', run: () => useProjectStore.getState().addTrack() },

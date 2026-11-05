@@ -2,6 +2,7 @@ import { type ArrangementClip, type AudioClip, type Clip, arrangementEnd, commit
 import { useAutomationEditor } from '../automation-store'
 import { openClip, openSampleEditor } from '../navigation'
 import { useProjectStore } from '../project-store'
+import { endTake, useRecordStore } from '../record-store'
 import { useStatusStore } from '../status-store'
 import { project, sessionClipOf, trackOf } from './lookup'
 import { clipClipboard, copyToLibraryClipboard } from './clipboards'
@@ -64,6 +65,15 @@ const playing = ({ trackId, clipId }: ClipSubject) => useStatusStore.getState().
 
 /** A session clip, MIDI or audio. */
 export const clipActions: readonly Action<ClipSubject>[] = [
+  {
+    id: 'clip.stop-recording',
+    title: 'Stop recording',
+    group: 'open',
+    applies: ({ trackId, clipId }) => useRecordStore.getState().takes[trackId]?.clipId === clipId,
+    enabled: ({ trackId }) => useRecordStore.getState().takes[trackId]?.state !== 'ending',
+    tooltip: () => 'Stop recording at the next bar',
+    run: ({ trackId }) => endTake(trackId),
+  },
   {
     id: 'clip.launch',
     title: (subject) => (playing(subject) ? 'Restart' : 'Launch'),

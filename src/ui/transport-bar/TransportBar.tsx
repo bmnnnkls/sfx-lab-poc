@@ -1,19 +1,30 @@
 import { MidiSettings } from '../midi/MidiSettings'
 import { MAX_TEMPO, MIN_TEMPO } from '@core'
-import { useEngineControls, useLayoutStore, useProjectStore, useStatusStore, useTouchStore } from '@state'
+import { useEngineControls, useLayoutStore, useProjectStore, useRecordSettings, useRecordStore, useStatusStore, useTouchStore } from '@state'
 import { useKeyLabel, withKey } from '../commands/CommandHost'
 import { LibraryMenu } from '../commands/LibraryMenu'
 import { ViewMenu } from '../commands/ViewMenu'
+import { useCommandEntries } from '../commands/menu-entries'
+import { RECORD_MENU } from '../commands/menus'
+import { PopupMenu } from '../shared/menu'
 import { FileMenu } from '../file-menu/FileMenu'
 import { HistoryButtons } from '../history-buttons/HistoryButtons'
 import { LevelMeter } from './LevelMeter'
 import { TransportPosition } from './TransportPosition'
 import styles from './TransportBar.module.css'
+import { useRecordSettingsStorage } from './use-record-settings-storage'
+
+const recordEntries = () => useCommandEntries(RECORD_MENU)
 
 export const TransportBar = () => {
   const visible = useLayoutStore((state) => state.visible)
   const revealView = useLayoutStore((state) => state.revealView)
   const touch = useTouchStore()
+  useRecordSettingsStorage()
+  const metronome = useRecordSettings((state) => state.metronome)
+  const recordFeedback = useRecordStore((state) => (state.armed.length > 0 || Object.keys(state.takes).length > 0 ? state.feedback : ''))
+  const recordingTakes = useRecordStore((state) => Object.keys(state.takes).length > 0)
+  const metronomeKey = useKeyLabel('transport.metronome')
   const controls = useEngineControls()
   const tempo = useProjectStore((state) => state.project.tempo)
   const setTempo = useProjectStore((state) => state.setTempo)
@@ -38,6 +49,15 @@ export const TransportBar = () => {
       </button>
       <button aria-label="Arm Touch automation" aria-pressed={touch.armed} title={withKey("Record controls into each owner's playing clip or automation slot", touchKey)} className={touch.armed ? styles.active : undefined} onClick={() => touch.arm(!touch.armed)}>● Touch</button>
       {touch.armed && <output className={styles.touchFeedback} title={touch.feedback} role="status">{touch.feedback}</output>}
+      <div className={styles.metronome}>
+        <button aria-label="Metronome" aria-pressed={metronome} className={metronome ? styles.active : undefined} title={withKey('Metronome: click on every beat while the transport runs (never in an export)', metronomeKey)} onClick={() => useRecordSettings.getState().setMetronome(!metronome)}>
+          ♩
+        </button>
+        <PopupMenu entries={recordEntries}>
+          <button aria-label="Metronome and recording settings" title="Metronome level and fixed recording length">▾</button>
+        </PopupMenu>
+      </div>
+      {recordFeedback && <output className={`${styles.touchFeedback} ${recordingTakes ? styles.recordFeedback : ''}`} title={recordFeedback} role="status" aria-label="Recording">{recordFeedback}</output>}
       <label className={styles.field}>
         BPM
         <input

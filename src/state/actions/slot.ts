@@ -2,6 +2,7 @@ import { type AudioClip, type Clip, canPasteSessionClip } from '@core'
 import { useLayoutStore } from '../layout-store'
 import { openClip } from '../navigation'
 import { useProjectStore } from '../project-store'
+import { recordInSlot, useRecordStore } from '../record-store'
 import { clipClipboard } from './clipboards'
 import { project, trackOf } from './lookup'
 import type { Action, SubjectOf } from './types'
@@ -30,6 +31,15 @@ export const slotActions: readonly Action<SlotSubject>[] = [
     group: 'edit',
     applies: (subject) => isEmpty(subject) && trackOf(subject.trackId)?.kind === 'instrument',
     run: ({ trackId, scene }) => openClip(trackId, useProjectStore.getState().createClip(trackId, scene).id),
+  },
+  {
+    id: 'slot.record',
+    title: 'Record a clip here',
+    group: 'edit',
+    applies: (subject) => isEmpty(subject) && trackOf(subject.trackId)?.kind === 'instrument',
+    enabled: ({ trackId }) => useRecordStore.getState().armed.includes(trackId),
+    tooltip: ({ trackId }) => (useRecordStore.getState().armed.includes(trackId) ? 'Record a clip here from the next bar' : 'Arm the track to record into it'),
+    run: ({ trackId, scene }, { engine }) => { recordInSlot(trackId, scene, engine.launchClip) },
   },
   {
     id: 'slot.add-audio-clip',

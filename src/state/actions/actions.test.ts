@@ -173,7 +173,7 @@ describe('session clip', () => {
 describe('empty slot', () => {
   it('creates a MIDI clip and opens it', () => {
     const lead = track('Lead')
-    expect(titles({ kind: 'slot', trackId: lead.id, scene: 1 })).toEqual(['Create clip', 'Paste'])
+    expect(titles({ kind: 'slot', trackId: lead.id, scene: 1 })).toEqual(['Create clip', 'Record a clip here', 'Paste'])
     runAction('slot.create-clip', { kind: 'slot', trackId: lead.id, scene: 1 }, fakeContext())
     expect(useSelectionStore.getState().clipId).toBe(clipOf('Lead', 1).id)
     expect(titles({ kind: 'slot', trackId: lead.id, scene: 1 })).toEqual([])

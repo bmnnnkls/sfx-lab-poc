@@ -3,12 +3,13 @@ import { type SubjectOf, runAction, useProjectStore, useSelectionStore } from '@
 import type { CSSProperties } from 'react'
 import { useDragSource, useEdgeTarget } from '../shared/drag'
 import { ActionMenu, useActionContext } from '../shared/menu'
+import { ArmButton } from '../shared/ArmButton'
 import { GroupMuteSolo, MuteSolo, useRoute } from '../shared/MuteSolo'
 import styles from './arrangement.module.css'
 
 /**
  * A track's header, at the left of its lane while the timeline scrolls: its name (clicking selects the track, as the
- * session header and the mixer strip do; the selected one is marked), M and S. It carries the track's menu, drags to
+ * session header and the mixer strip do; the selected one is marked), M and S, and an instrument's arm ●. It carries the track's menu, drags to
  * reorder, and takes a preset or a library graph dropped on it.
  */
 export const TrackHeader = ({ track, depth, stripe }: { track: Track; depth: number; stripe?: GroupColour }) => {
@@ -49,6 +50,7 @@ export const TrackHeader = ({ track, depth, stripe }: { track: Track; depth: num
           onMute={() => runAction('track.mute', subject, context)}
           onSolo={() => runAction('track.solo', subject, context)}
         />
+        {track.kind === 'instrument' && <ArmButton trackId={track.id} name={track.name} className={styles.headerArm} />}
       </div>
     </ActionMenu>
   )

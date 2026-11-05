@@ -4,3 +4,13 @@
 .overlay select { max-width: 210px; }
 .mapping { border-top: 1px solid #596173; padding: 10px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .notice { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 90; padding: 12px; background: #28394b; color: #fff; border: 1px solid #7ba4d1; border-radius: 6px; }
+
+.latency {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.latency input[type='number'] {
+  width: 4.5em;
+}

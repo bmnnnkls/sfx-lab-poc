@@ -78,3 +78,24 @@
   font-size: 11px;
   color: var(--text-dim);
 }
+
+/* ♩ and its ▾, joined. */
+.metronome {
+  display: flex;
+}
+
+.metronome > button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.metronome > button:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: none;
+  padding-inline: 4px;
+}
+
+.recordFeedback {
+  color: var(--record);
+}

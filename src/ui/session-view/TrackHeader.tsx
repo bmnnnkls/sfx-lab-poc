@@ -8,6 +8,7 @@ import { ActionMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import styles from './SessionView.module.css'
 import { describeTrackInput, trackInputTag } from '../midi/track-input'
+import { ArmButton } from '../shared/ArmButton'
 
 /** A track's column header. `stripe` is the colour of the group it is in. */
 export const TrackHeader = ({ track, stripe }: { track: Track; stripe?: GroupColour }) => {
@@ -80,6 +81,7 @@ export const TrackHeader = ({ track, stripe }: { track: Track; stripe?: GroupCol
           ■
         </button>
       )}
+      {track.kind === 'instrument' && <ArmButton trackId={track.id} name={track.name} />}
       <button onClick={() => runAction('track.delete', subject, context)} aria-label={`Remove ${track.name}`}>
         ×
       </button>

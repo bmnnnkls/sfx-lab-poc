@@ -355,3 +355,38 @@
   outline: 1px dashed var(--text-dim);
   outline-offset: -1px;
 }
+
+/* An empty slot of an armed track: ● records a clip into it. */
+.recordEmpty {
+  opacity: 0.8;
+}
+
+.recordEmpty button {
+  color: var(--record);
+}
+
+/* A slot being recorded into: red, blinking while its take waits for the bar. */
+.recording {
+  border-color: var(--record);
+  background: color-mix(in srgb, var(--record) 16%, var(--panel));
+}
+
+.recording .launch {
+  color: var(--record);
+}
+
+.recordQueued {
+  border-color: var(--record);
+  animation: record-blink 0.5s steps(2, jump-none) infinite;
+}
+
+@keyframes record-blink {
+  50% {
+    background: color-mix(in srgb, var(--record) 22%, var(--panel));
+  }
+}
+
+/* ■, ● and × on a track header: narrow, so the name keeps its room in a 150 px column. */
+.header > button:not(.trackName):not(.fxBadge) {
+  padding-inline: 6px;
+}

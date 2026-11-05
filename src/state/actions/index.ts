@@ -34,6 +34,7 @@ export { clipTrackFor, graphFitsOwner, insertLibraryClipAt, insertionScope, isIn
 export { canPasteClipOnLane, pasteClipOnLane } from './lane'
 export { copyName, projectGraphItem, projectGraphItemId } from './project-graph'
 export { canPasteClipInSlot, pasteClipInSlot } from './slot'
+export { ARM_TOOLTIP } from './track'
 export { canRecallPresetOn, nextSoundName, recallablePresets, recallPresetOn, saveSound, soundSubject } from './sound'
 export { automationSlotClipboard, clipClipboard, libraryClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes, type LibraryClip, type LibraryClipEntry } from './clipboards'
 export { editTargetOf, graphKeyOf } from './nodes'

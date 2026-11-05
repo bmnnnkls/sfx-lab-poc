@@ -1,5 +1,5 @@
 import { type ControlTarget, type InstrumentTrack, controlTargetKey, midiSourceKey, resolveControlTarget } from '@core'
-import { type MidiInputInfo, editMidiMappings, useMidi, useMidiStore, useProjectStore, useControlStore } from '@state'
+import { LATENCY_OFFSET_MS, type MidiInputInfo, editMidiMappings, useMidi, useMidiStore, useProjectStore, useControlStore, useRecordSettings } from '@state'
 import { useEffect, useState } from 'react'
 import styles from './MidiSettings.module.css'
 import { formatParam } from '../shared/param-scale'
@@ -43,6 +43,19 @@ const TrackInputRow = ({ track, inputs }: { track: InstrumentTrack; inputs: read
   </div>
 }
 
+/**
+ * The recording latency offset: what the recorder moves notes earlier by beyond the output latency the browser
+ * reports (a positive offset places them earlier).
+ */
+const LatencyOffset = () => {
+  const offset = useRecordSettings((s) => s.latencyOffsetMs)
+  const set = useRecordSettings((s) => s.setLatencyOffset)
+  return <div className={styles.latency}>
+    <label>Latency offset (ms) <input type="number" aria-label="Latency offset (ms)" min={LATENCY_OFFSET_MS.min} max={LATENCY_OFFSET_MS.max} step={1} value={offset} onChange={(e) => { if (e.target.value !== '') set(Number(e.target.value)) }} /></label>
+    <input type="range" aria-label="Latency offset slider" min={LATENCY_OFFSET_MS.min} max={LATENCY_OFFSET_MS.max} step={1} value={offset} onChange={(e) => set(Number(e.target.value))} />
+  </div>
+}
+
 export const MidiSettings = () => {
   const [open, setOpen] = useState(false)
   const midi = useMidi()
@@ -80,6 +93,9 @@ export const MidiSettings = () => {
       <p>Inputs</p>
       {state.inputs.length === 0 && <p>No inputs available.</p>}
       {state.inputs.map((input) => <label key={input.id}><input type="checkbox" checked={!state.disabledInputs.includes(input.id)} onChange={(e) => useMidiStore.setState({ disabledInputs: e.target.checked ? state.disabledInputs.filter((id) => id !== input.id) : [...state.disabledInputs, input.id] })} />{input.name} — {input.connected ? 'connected' : 'disconnected'}</label>)}
+      <h3>Recording</h3>
+      <p>Recorded notes are placed earlier by the output latency the browser reports, plus this offset. If notes land late, raise it; if early, lower it.</p>
+      <LatencyOffset />
       <h3>Track inputs</h3>
       <p>An instrument follows the selection: it plays while it is selected (or pinned as the destination). Give it an input of its own to have it always listen to that input and channel; notes that match a track's own input go only to it, and the rest to the selected instrument.</p>
       {project.tracks.filter((t): t is InstrumentTrack => t.kind === 'instrument').map((track) => <TrackInputRow key={track.id} track={track} inputs={state.inputs} />)}

@@ -616,3 +616,9 @@
   background: var(--play, #4caf50);
   border-color: var(--play, #4caf50);
 }
+
+/* An instrument header's arm ●, after M and S. */
+.headerArm {
+  flex: none;
+  padding: 1px 5px;
+}
