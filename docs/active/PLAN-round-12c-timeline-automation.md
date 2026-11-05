@@ -411,3 +411,16 @@ Signed off 2026-11-05: every row as proposed.
 * **Test technique:** a spec that overrides an automated control must wait for the first status with the lane's
   readout (the mixer's *Read:* text) before moving it; a move before that authors the base, as for an unautomated
   control.
+
+### Step 6: *Show automation* and Clip for a region
+
+* **One phase selector for every playhead** (`clipPhase(ref, …)`): a session clip from its launcher, a region from the
+  arrangement's beat (`regionPhaseAt`). The piano roll, the audio clip editor and the automation editor take it in
+  place of their `playhead` flag, so none of them matches a region by its content's id, which is its session source's.
+* ***Show automation on timeline* takes the focus** (`takesFocus`), or the closing menu would give it back to the
+  control; and the lane tries for a few frames, since the Arrangement is revealed in the same update and is still
+  hidden when the lane first mounts.
+* **On a group's control, *Show automation in clip* is left out**, not shown disabled: a group can't have clip lanes.
+* **Touch on a region's own lanes says it doesn't record there**, in Clip, instead of asking to launch the clip.
+* **"Sounds the same placed on the timeline"** is an engine test (session scene against arrangement, same output),
+  not a real-worklet spec: step 2's audio spec already holds the worklet to the offline engine for timeline lanes.

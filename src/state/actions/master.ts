@@ -2,6 +2,7 @@ import { openMasterEffects } from '../navigation'
 import { showAutomation } from './control'
 import { saveEffectsAction } from './library-save'
 import { effectsPinAction } from './pin'
+import { lanesToggleAction } from './timeline-lane'
 import type { Action, SubjectOf } from './types'
 
 /** The master bus: nothing to rename, duplicate or delete; its effects save to the library. */
@@ -15,4 +16,5 @@ export const masterActions: readonly Action<SubjectOf<'master'>>[] = [
     run: () => showAutomation({ kind: 'mixer', owner: { kind: 'master' }, control: 'volume' }),
   },
   saveEffectsAction<SubjectOf<'master'>>('master.save-effects-to-library', () => ({ kind: 'master' })),
+  lanesToggleAction<SubjectOf<'master'>>('master.timeline-lanes', () => ({ kind: 'master' })),
 ]

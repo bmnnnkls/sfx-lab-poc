@@ -246,6 +246,19 @@ describe('the engine plays timeline lanes in arrangement mode', () => {
     expect(readout(engine, volume(M))!).toBeLessThan(beforeJump)
   })
 
+  it('a session clip with lanes sounds the same placed on the timeline', () => {
+    const project = base()
+    const swell = { ...createClip('Swell', 4, [createNote(60, 0, 4, 1)]), id: 'swell', automation: [lane(S, [[0, 0.1, 'linear'], [4, 0.9, 'linear']], 'swell')] }
+    const source = project.tracks[0] as InstrumentTrack
+    const withClip: Project = { ...project, arrangement: [createArrangementClip('S', 0, swell)], tracks: [{ ...source, clips: [swell, ...source.clips.slice(1)] }] }
+    const session = new Engine(RATE)
+    diffProject(null, withClip).forEach((command) => session.apply(command))
+    session.apply({ type: 'scene/launch', scene: 0 })
+    const timeline = engineFor(withClip)
+    const frames = Math.floor(BEAT * 3.9)
+    expect(maxDiff(render(session, frames), render(timeline, frames))).toBeLessThan(1e-6)
+  })
+
   it('keeps the fast path with nothing on the timeline', () => {
     const engine = engineFor(base())
     render(engine, 256)

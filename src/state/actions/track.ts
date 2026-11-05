@@ -9,6 +9,7 @@ import { saveEffectsAction, saveToLibrary } from './library-save'
 import { project, trackOf } from './lookup'
 import { GRAPH_TITLES, graphChoices, pinLimitNote } from './pin'
 import { renameAction } from './rename'
+import { lanesToggleAction } from './timeline-lane'
 import type { Action, ActionChoice, SubjectOf } from './types'
 
 type TrackSubject = SubjectOf<'track'>
@@ -223,4 +224,5 @@ export const trackActions: readonly Action<TrackSubject>[] = [
     danger: true,
     run: ({ trackId }) => useProjectStore.getState().removeTrack(trackId),
   },
+  lanesToggleAction<SubjectOf<'track'>>('track.timeline-lanes', ({ trackId }) => ({ kind: 'track', trackId })),
 ]

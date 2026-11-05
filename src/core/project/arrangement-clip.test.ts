@@ -16,6 +16,7 @@ import {
   removeArrangementClip,
   timelineEnd,
   updateArrangementClip,
+  regionPhaseAt,
 } from './arrangement-clip'
 import { MAX_TIMELINE_BEATS } from './limits'
 import type { Clip } from './types'
@@ -143,5 +144,26 @@ describe('the timeline bound', () => {
     expect(timelineEnd([first, looping])).toBe(12)
     expect(timelineEnd([first, looping, next])).toBe(24)
     expect(clampStartBeat(5000, 4)).toBe(MAX_TIMELINE_BEATS - 4)
+  })
+})
+
+describe('regionPhaseAt', () => {
+  const region = (startBeat: number, lengthBeats: number, loop = false) => ({ ...createArrangementClip('t', startBeat, createClip('C', lengthBeats)), loop })
+  it.each([
+    ['before it', 3.5, null],
+    ['at its start', 4, 0],
+    ['inside it', 5.5, 1.5],
+    ['at its end', 6, null],
+  ])('a region from 4 to 6, %s', (_, beat, expected) => {
+    const r = region(4, 2)
+    expect(regionPhaseAt(r, [r], beat)).toBe(expected)
+  })
+
+  it('wraps while it loops, up to the next region on its track', () => {
+    const looping = region(0, 2, true)
+    const next = region(7, 1)
+    expect(regionPhaseAt(looping, [looping, next], 5)).toBe(1)
+    expect(regionPhaseAt(looping, [looping, next], 6.5)).toBe(0.5)
+    expect(regionPhaseAt(looping, [looping, next], 7)).toBeNull()
   })
 })

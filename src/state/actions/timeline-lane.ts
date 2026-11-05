@@ -1,11 +1,12 @@
-import { type AutomationLane, type ControlTarget, controlTargetKey, timelineLanesOf } from '@core'
+import { type AutomationLane, type ControlOwner, type ControlTarget, controlTargetKey, timelineLanesOf, timelineLanesOpen, timelineOwnerAllowed } from '@core'
 import { editTimelineAutomation } from '../automation-store'
 import { useControlStore } from '../control-store'
 import { useLayoutStore } from '../layout-store'
 import { useSelectionStore } from '../selection-store'
 import { finishTargetTouch } from '../touch-store'
 import { project } from './lookup'
-import type { Action, SubjectOf } from './types'
+import { useProjectStore } from '../project-store'
+import type { Action, Subject, SubjectOf } from './types'
 
 type LaneSubject = SubjectOf<'timeline-lane'>
 
@@ -112,3 +113,16 @@ export const timelineLaneActions: readonly Action<LaneSubject>[] = [showInPanel,
     run: (subject) => editLane(subject, () => null),
   },
 ]
+
+/** *Show automation lanes* / *Hide automation lanes* on an owner's menu: its lanes twisty on the timeline. */
+export const lanesToggleAction = <S extends Subject>(id: string, ownerOf: (subject: S) => ControlOwner): Action<S> => ({
+  id,
+  title: (subject) => `${timelineLanesOpen(project(), ownerOf(subject)) ? 'Hide' : 'Show'} automation lanes`,
+  tooltip: () => 'Its automation lanes under its row on the arrangement',
+  group: 'view',
+  applies: (subject) => timelineOwnerAllowed(project(), ownerOf(subject)),
+  run: (subject) => {
+    const owner = ownerOf(subject)
+    useProjectStore.getState().setTimelineLanesOpen(owner, !timelineLanesOpen(project(), owner))
+  },
+})

@@ -127,3 +127,43 @@ test("a bus's fader lane on the timeline: added, drawn, dragged and undone, held
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(lane).toHaveAttribute('data-beats', '0,4,8')
 })
+
+test("Show automation on timeline on a bus fader adds its lane, opens the bus's lanes and focuses the lane", async ({ page }) => {
+  await page.goto('/?starter')
+  await leadInBus(page)
+  const mixer = await openView(page, 'Mixer')
+  await mixer.getByRole('slider', { name: 'Group 1 fader', exact: true }).click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Show automation in clip', exact: true })).toHaveCount(0)
+  await page.getByRole('menuitem', { name: 'Show automation on timeline', exact: true }).click()
+  const arrangement = page.locator('[data-view="arrangement"]')
+  const lane = arrangement.getByRole('application', { name: 'Mixer / volume lane', exact: true })
+  await expect(lane).toBeFocused()
+  await expect(arrangement.getByRole('button', { name: 'Hide automation lanes of Group 1', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(lane).toHaveCount(0)
+})
+
+test("a region opened in Clip edits its own lanes, not its session source's, and shows its playhead while the arrangement plays", async ({ page }) => {
+  await page.addInitScript((saved) => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(sweepProject()))
+  await page.goto('/')
+  await (await openView(page, 'Session')).getByRole('button', { name: '▶ Sweep clip', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Place on arrangement', exact: true }).click()
+  const arrangement = await openView(page, 'Arrangement')
+  await arrangement.getByTestId('arrangement-region').first().dblclick()
+  await page.getByRole('button', { name: 'Automation', exact: true }).click()
+  const editor = page.locator('[data-automation-editor]')
+  await expect(editor.locator('[data-point-id]')).toHaveCount(2)
+  const area = editor.getByRole('application', { name: 'Automation drawing area' })
+  const box = (await area.boundingBox())!
+  await page.mouse.click(box.x + box.width * 0.75, box.y + box.height * 0.5)
+  await expect(editor.locator('[data-point-id]')).toHaveCount(3)
+
+  // Playing the arrangement, the region's editor draws where it is.
+  await arrangement.getByRole('button', { name: 'Play arrangement', exact: true }).click()
+  await expect(editor.locator('line[class*="playhead"]')).toHaveCount(1)
+  await arrangement.getByRole('button', { name: 'Stop', exact: true }).click()
+
+  // The session clip keeps its two points.
+  await (await openView(page, 'Session')).getByRole('button', { name: 'Edit Sweep clip', exact: true }).click()
+  await expect(page.locator('[data-automation-editor] [data-point-id]')).toHaveCount(2)
+})

@@ -122,3 +122,13 @@ const normalizeContent = (content: Clip | AudioClip): Clip | AudioClip =>
   isAudioContent(content)
     ? clampAudioClip(content)
     : { ...content, lengthBeats: clamp(content.lengthBeats, MIN_CLIP_BEATS, MAX_CLIP_BEATS), notes: trimNotesToLength(content.notes, clamp(content.lengthBeats, MIN_CLIP_BEATS, MAX_CLIP_BEATS)) }
+
+/**
+ * Where in its clip a region plays at song beat `beat`: its phase, wrapped by the clip's length while it loops (up to its
+ * loop end), or null outside it.
+ */
+export const regionPhaseAt = (region: ArrangementClip, regions: readonly ArrangementClip[], beat: number): number | null => {
+  const end = region.loop ? arrangementLoopEnd(region, regions) : arrangementEnd(region)
+  if (beat < region.startBeat || beat >= end) return null
+  return (beat - region.startBeat) % region.content.lengthBeats
+}

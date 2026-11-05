@@ -64,7 +64,7 @@ describe('pinning from menus', () => {
   })
 
   it('offers a bus and the master a toggle, and a folder nothing', () => {
-    expect(opens(onGroup('Drums'))).toEqual(['Collapse', 'Open effects', 'Pin effects panel'])
+    expect(opens(onGroup('Drums'))).toEqual(['Collapse', 'Open effects', 'Show automation', 'Pin effects panel'])
     expect(opens(onGroup('Keys'))).toEqual(['Collapse'])
     expect(opens(master)).toEqual(['Open effects', 'Pin effects panel', 'Show automation'])
     runAction('group.pin', onGroup('Drums'), fakeContext())

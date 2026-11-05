@@ -22,6 +22,7 @@ import {
   useClipboard,
   useControlStore,
   useProjectStore,
+  useTimelineLaneRequest,
 } from '@state'
 import { type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject, useEffect, useRef, useState } from 'react'
 import { type PointGesture, type PointGrid, type PointerAt, copyPoints, dragPoints, pastePoints, pressPoints, removePoints } from '../automation/point-gestures'
@@ -81,6 +82,24 @@ const TimelineLane = ({ owner, lane, scroller, pxPerBeat, width, depth }: LanePr
   const canvas = useRef<HTMLCanvasElement>(null)
   const drag = useRef<{ key: string; gesture: PointGesture } | null>(null)
   const copied = useClipboard(pointClipboard)
+  // *Show automation on timeline* asks this lane to show itself: it scrolls into view and takes the focus.
+  const requested = useTimelineLaneRequest((state) => state.key === key)
+  useEffect(() => {
+    if (!requested) return
+    // The Arrangement may be revealed in the same update: try for a few frames, until the lane can take the focus.
+    let frame = 0, tries = 0
+    const attempt = () => {
+      const element = canvas.current
+      if (element) {
+        element.scrollIntoView({ block: 'nearest' })
+        element.focus({ preventScroll: true })
+        if (document.activeElement === element || ++tries >= 10) { useTimelineLaneRequest.getState().clear(); return }
+      }
+      frame = requestAnimationFrame(attempt)
+    }
+    attempt()
+    return () => cancelAnimationFrame(frame)
+  }, [requested])
 
   // Redrawn in an animation frame on scroll, resize and edits, as the ruler is.
   useEffect(() => {

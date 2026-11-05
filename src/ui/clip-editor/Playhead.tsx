@@ -1,12 +1,12 @@
+import type { EngineStatus } from '@core'
 import { useStatusStore } from '@state'
 import { type RefObject, useEffect } from 'react'
 import { KEY_WIDTH } from './piano-roll-geometry'
 import styles from './PianoRoll.module.css'
 
 interface PlayheadProps {
-  trackId: string
-  clipId: string
-  lengthBeats: number
+  /** Where the clip plays now, in beats from its start (`clipPhase`), or null. */
+  phase: (status: EngineStatus | null) => number | null
   pixelsPerBeat: number
   /** Keep the playhead in view by scrolling the roll (for clips longer than the screen). */
   follow: boolean
@@ -14,12 +14,8 @@ interface PlayheadProps {
 }
 
 /** The moving line showing where the playing clip is. Owns its status subscription so the roll doesn't re-render at 30 Hz. */
-export const Playhead = ({ trackId, clipId, lengthBeats, pixelsPerBeat, follow, scroller }: PlayheadProps) => {
-  const beat = useStatusStore((state) => {
-    const launcher = state.status?.tracks[trackId]
-    if (!state.status || launcher?.playingClipId !== clipId || launcher.startBeat === null) return null
-    return (state.status.beat - launcher.startBeat) % lengthBeats
-  })
+export const Playhead = ({ phase, pixelsPerBeat, follow, scroller }: PlayheadProps) => {
+  const beat = useStatusStore((state) => phase(state.status))
 
   useEffect(() => {
     const element = scroller.current

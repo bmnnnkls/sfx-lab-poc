@@ -1,10 +1,12 @@
 import { GROUP_COLOURS, type GroupColour, type TrackItem, findGroup, neighbourPlace, setGroupBus, tracksInGroup } from '@core'
+import { showTimelineAutomation } from '../automation-store'
 import { openGroupEffects } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { saveEffectsAction } from './library-save'
 import { project } from './lookup'
 import { effectsPinAction } from './pin'
 import { renameAction } from './rename'
+import { lanesToggleAction } from './timeline-lane'
 import type { Action, SubjectOf } from './types'
 
 type GroupSubject = SubjectOf<'group'>
@@ -51,6 +53,15 @@ export const groupActions: readonly Action<GroupSubject>[] = [
     group: 'open',
     applies: (subject) => groupOf(subject)?.bus !== undefined,
     run: (subject) => openGroupEffects(subject.groupId),
+  },
+  {
+    id: 'group.show-automation',
+    title: 'Show automation',
+    tooltip: () => 'The bus fader\u2019s lane on the arrangement\u2019s timeline',
+    group: 'open',
+    takesFocus: true,
+    applies: (subject) => groupOf(subject)?.bus !== undefined,
+    run: ({ groupId }) => showTimelineAutomation({ kind: 'mixer', owner: { kind: 'group', groupId }, control: 'volume' }),
   },
   effectsPinAction<GroupSubject>('group.pin', ({ groupId }) => ({ owner: { kind: 'group', groupId }, graph: 'fx' }), (subject) => groupOf(subject)?.bus !== undefined),
   renameAction('group', (subject) => groupOf(subject) !== undefined),
@@ -116,4 +127,5 @@ export const groupActions: readonly Action<GroupSubject>[] = [
     applies: (subject) => groupOf(subject) !== undefined,
     run: (subject) => useProjectStore.getState().removeGroup(subject.groupId),
   },
+  lanesToggleAction<GroupSubject>('group.timeline-lanes', ({ groupId }) => ({ kind: 'group', groupId })),
 ]

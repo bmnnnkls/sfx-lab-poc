@@ -71,6 +71,7 @@ export * from './wave-edits'
 export * from './wave-view'
 export * from './arrangement-view-store'
 export * from './arrangement-transport'
+export { clipPhase } from './clip-phase'
 
 export { editAutomationSlot, editOwnerAutomation } from './automation-store'
 

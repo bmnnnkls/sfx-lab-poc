@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { type AutomationLane, type ControlOwner, createEmptyProject, timelineLanesOf, timelineLanesOpen } from '@core'
-import { automationGestureKey, editTimelineAutomation } from './automation-store'
+import { type AutomationLane, type ControlOwner, type InstrumentTrack, createArrangementClip, createClip, createEmptyProject, timelineLanesOf, timelineLanesOpen } from '@core'
+import { automationGestureKey, editRegionAutomation, editTimelineAutomation } from './automation-store'
 import { useProjectStore } from './project-store'
 
 const master: ControlOwner = { kind: 'master' }
@@ -26,5 +26,22 @@ describe('timeline lanes in the history', () => {
     useProjectStore.getState().undo()
     expect(beatOfB()).toBeUndefined()
     expect(timelineLanesOpen(useProjectStore.getState().project, master)).toBe(true)
+  })
+})
+
+describe("a region's own lanes", () => {
+  it('are edited through its ClipRef, leaving the session source alone', () => {
+    const base = createEmptyProject()
+    const track = base.tracks[0] as InstrumentTrack
+    const source = { ...createClip('Source', 4), automation: [] }
+    const project = { ...base, tracks: [{ ...track, clips: [source, ...track.clips.slice(1)] }], arrangement: [{ ...createArrangementClip(track.id, 0, source), id: 'r' }] }
+    useProjectStore.getState().resetProject(project)
+    const lane: AutomationLane = { id: 'l', target: { kind: 'mixer', owner: { kind: 'track', trackId: track.id }, control: 'pan' }, enabled: true, points: [{ id: 'p', beat: 1, value: 0.2, interpolation: 'linear' }] }
+    editRegionAutomation('r', [lane, { ...lane, id: 'other', target: { ...lane.target, owner: { kind: 'master' } } }])
+    const after = useProjectStore.getState().project
+    expect(after.arrangement![0]!.content.automation).toEqual([lane])
+    expect((after.tracks[0] as InstrumentTrack).clips[0]!.automation).toEqual([])
+    useProjectStore.getState().undo()
+    expect(useProjectStore.getState().project.arrangement![0]!.content.automation).toEqual([])
   })
 })

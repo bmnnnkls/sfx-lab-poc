@@ -20,6 +20,7 @@ export {
   addArrangementClip,
   arrangementEnd,
   arrangementLoopEnd,
+  regionPhaseAt,
   arrangementOnTrack,
   arrangementOverlaps,
   clampStartBeat,

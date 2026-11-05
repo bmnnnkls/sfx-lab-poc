@@ -27,12 +27,14 @@ export const ClipEditor = () => {
   const scene = useSelectionStore((s) => s.automationScene)
   const project = useProjectStore((s) => s.project)
 
-  // No automation and no playhead for a region yet: the timeline plays neither (round 12).
+  // A region's own copy, with its own lanes: they play inside it on the timeline.
   if (region) {
     const where = `arrangement, bar ${Math.floor(region.startBeat / BEATS_PER_BAR) + 1}`
     const content = region.content
-    if (regionTrack?.kind === 'instrument' && !isAudioContent(content)) return <div className={styles.view}><MidiClipEditor key={region.id} track={regionTrack} clip={content} clipRef={regionClipRef(region.id)} where={where} /></div>
-    if (regionTrack?.kind === 'audio' && isAudioContent(content)) return <div className={styles.view}><AudioClipEditor key={region.id} track={regionTrack} clip={content} clipRef={regionClipRef(region.id)} where={where} /></div>
+    const ref = regionClipRef(region.id)
+    const lanes = regionTrack && regionTrack.kind !== 'return' ? <AutomationEditor key={`lanes:${region.id}`} track={regionTrack} clip={content} clipRef={ref} /> : null
+    if (regionTrack?.kind === 'instrument' && !isAudioContent(content)) return <div className={styles.view}><EditorView automation={automation} />{automation ? lanes : <MidiClipEditor key={region.id} track={regionTrack} clip={content} clipRef={ref} where={where} />}</div>
+    if (regionTrack?.kind === 'audio' && isAudioContent(content)) return <div className={styles.view}><EditorView automation={automation} />{automation ? lanes : <AudioClipEditor key={region.id} track={regionTrack} clip={content} clipRef={ref} where={where} />}</div>
   }
 
   if (group) {
