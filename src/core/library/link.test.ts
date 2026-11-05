@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { createEmptyProject, createTrack, duplicateTrack, type InstrumentTrack, type Project } from '../project'
+import { createClip, createEmptyProject, createNote, createTrack, duplicateTrack, type InstrumentTrack, type Project } from '../project'
+import { type ControlTarget, editControlBase, enumerateControlTargets, resolveControlTarget } from '../control'
 import { createModuleUse, createNode, type ModuleDefinition } from '../patch'
 import { parseProject, serializeProject } from '../persistence'
-import { captureAsset, type SnapshotScope } from '../preset'
-import { captureLibraryAsset, carryLibraryLinks, emptyLibrary, insertLibraryAsset, linkOf, linkShape, type LibraryCatalog } from './index'
+import { captureAsset, captureSnapshot, editSampleBinding, enumerateSampleTargets, inSnapshotScope, resolveSampleTarget, saveProjectPreset, type ProjectPreset, type SampleTarget, type SnapshotScope } from '../preset'
+import { captureLibraryAsset, carryLibraryLinks, emptyLibrary, insertLibraryAsset, linkOf, linkShape, linkedSounds, presetFromLibrary, presetLink, presetToLibrary, recallLinkedPreset, trashLibraryEntry, type LibraryCatalog, type LinkedOrigin } from './index'
 
 const load = (project: Project) => { const result = parseProject(serializeProject(project)); if (!result.ok) throw new Error(result.error); expect(result.warnings).toEqual([]); return result.project }
 const fixture = () => { const result = parseProject(readFileSync(new URL('../persistence/fixtures/v6-presets.sfxlab.json', import.meta.url), 'utf8')); if (!result.ok) throw new Error(result.error); return result.project }
@@ -114,5 +115,127 @@ describe('writing library links', () => {
     const a = linkOf(second.project, first.scope.owner, 'patch')!, b = linkOf(second.project, second.scope.owner, 'patch')!
     expect(a.live && b.live).toBe(true)
     expect(a.origin.link.shape).not.toBe(b.origin.link.shape)
+  })
+})
+
+/**
+ * A library whose sound (*Big bass*, the v6 sampler) has a preset *Bright*: a control turned and the first sample
+ * choice set to the sample it doesn't use. The sound's own state is the fixture's.
+ */
+const brightLibrary = () => {
+  const source = fixture(), scope = scopeOf(source)
+  const control = enumerateControlTargets(source).find((t): t is Extract<ControlTarget, { kind: 'graph' }> => t.kind === 'graph' && inSnapshotScope(t, scope) && t.nodeType === 'control')!
+  const choice = enumerateSampleTargets(source).filter(t => inSnapshotScope(t, scope))[0]!
+  let bright = editControlBase(source, control, 37).project
+  const current = resolveSampleTarget(source, choice)
+  bright = editSampleBinding(bright, { target: choice, sampleId: source.samples.find(s => current.status !== 'available' || s.id !== current.sampleId)!.id })
+  bright = saveProjectPreset(bright, scope, 'Bright')
+  const withPreset = { ...source, presets: bright.presets, assetRevisions: bright.assetRevisions }
+  const catalog = captureLibraryAsset(emptyLibrary(), withPreset, scope, 'Big bass', null)
+  return { catalog, sound: catalog.items.find(i => i.content.kind !== 'preset')!, bright: catalog.items.find(i => i.name === 'Bright')! }
+}
+const stateOf = (item: { content: unknown }) => (item.content as { state: ProjectPreset }).state
+
+/** An owner's values and sample choices, keyed in library IDs through the link backward: comparable across copies. */
+const libraryView = (project: Project, scope: SnapshotScope, origin: LinkedOrigin) => {
+  const nodes = new Map(origin.link.nodes.map(([library, copy]) => [copy, library])), modules = new Map(origin.link.modules.map(([library, copy]) => [copy, library]))
+  const key = (t: ControlTarget | SampleTarget) => t.kind === 'graph' ? JSON.stringify([t.domain, t.path.map(s => [nodes.get(s.nodeId), modules.get(s.moduleId)]), nodes.get(t.nodeId), 'paramId' in t ? t.paramId : '']) : ''
+  const scopes = [scope, { ...scope, domain: 'notes' as const }]
+  return {
+    values: Object.fromEntries(scopes.flatMap(each => captureSnapshot(project, each, '').values.map(v => [key(v.target), v.value]))),
+    samples: Object.fromEntries(enumerateSampleTargets(project).filter(t => scopes.some(each => inSnapshotScope(t, each))).map(t => { const r = resolveSampleTarget(project, t); return [key(t), r.status === 'available' ? r.sampleId : r.status] })),
+  }
+}
+
+describe('using library links', () => {
+  it('recalls a library preset onto an inserted sound as inserting that preset does, values and sample choices both', () => {
+    const { catalog, sound, bright } = brightLibrary()
+    const inserted = insertLibraryAsset(createEmptyProject(), catalog, sound, { mode: 'new-track' })
+    const origin = linkOf(inserted.project, inserted.scope.owner, 'patch')!.origin
+    const states = linkedSounds(catalog, origin).states
+    expect(states[0]).toBe(sound)
+    expect(new Set(states.map(i => i.name))).toEqual(new Set(['Big bass', 'Bright', 'Preset A']))
+    const recalled = recallLinkedPreset(inserted.project, origin, presetFromLibrary(origin, stateOf(bright)))
+    expect(recalled.issues).toEqual([])
+    const direct = insertLibraryAsset(createEmptyProject(), catalog, bright, { mode: 'new-track' })
+    const expected = libraryView(direct.project, direct.scope, linkOf(direct.project, direct.scope.owner, 'patch')!.origin)
+    const actual = libraryView(recalled.project, inserted.scope, origin)
+    expect(actual).toEqual(expected)
+    // Bright differs from the sound in a value and in a sample choice, so the recall did something.
+    const before = libraryView(inserted.project, inserted.scope, origin)
+    expect(actual.values).not.toEqual(before.values)
+    expect(actual.samples).not.toEqual(before.samples)
+  })
+
+  it('stays live through a knob change and dies with a rewire, after which a recall refuses', () => {
+    const { catalog, sound, bright } = brightLibrary()
+    const { project, scope } = insertLibraryAsset(createEmptyProject(), catalog, sound, { mode: 'new-track' })
+    const control = enumerateControlTargets(project).find(t => t.kind === 'graph' && inSnapshotScope(t, scope) && t.nodeType === 'control')!
+    const turned = editControlBase(project, control, 12).project
+    expect(linkOf(turned, scope.owner, 'patch')!.live).toBe(true)
+    const owner = scope.owner as { trackId: string }
+    const rewired: Project = { ...turned, tracks: turned.tracks.map(t => t.id === owner.trackId && t.kind === 'instrument' ? { ...t, patch: { ...t.patch, nodes: [...t.patch.nodes, { ...createNode('gain', 0, 0), id: 'added' }] } } : t) }
+    const dead = linkOf(rewired, scope.owner, 'patch')!
+    expect(dead.live).toBe(false)
+    expect(() => recallLinkedPreset(rewired, dead.origin, presetFromLibrary(dead.origin, stateOf(bright)))).toThrow('This sound has changed since it came from the library')
+  })
+
+  it('keeps automation lanes and MIDI mappings through a library recall', () => {
+    const { catalog, sound, bright } = brightLibrary()
+    const inserted = insertLibraryAsset(createEmptyProject(), catalog, sound, { mode: 'new-track' })
+    const owner = inserted.scope.owner as { trackId: string }
+    const control = enumerateControlTargets(inserted.project).find(t => t.kind === 'graph' && inSnapshotScope(t, inserted.scope) && t.nodeType === 'control')!
+    const lane = { id: 'lane', target: control, enabled: true, points: [{ id: 'p0', beat: 0, value: 20, interpolation: 'linear' as const }, { id: 'p1', beat: 2, value: 80, interpolation: 'linear' as const }] }
+    const mapping = { id: 'map', deviceId: 'dev', deviceName: 'Knobs', channel: 0, cc: 21, target: control, pickup: false }
+    const project: Project = { ...inserted.project, midiMappings: [mapping], tracks: inserted.project.tracks.map(t => t.id === owner.trackId && t.kind === 'instrument' ? { ...t, clips: [{ ...createClip('Tone', 4, [createNote(60, 0, 4)]), automation: [lane] }, ...t.clips.slice(1)] } : t) }
+    const origin = linkOf(project, inserted.scope.owner, 'patch')!.origin
+    const recalled = recallLinkedPreset(project, origin, presetFromLibrary(origin, stateOf(bright))).project
+    expect(recalled.midiMappings).toEqual([mapping])
+    const clipOf = (value: Project) => (value.tracks.find(t => t.id === owner.trackId) as InstrumentTrack).clips[0]!
+    expect(clipOf(recalled).automation).toEqual([lane])
+    expect(resolveControlTarget(recalled, control)).toMatchObject({ status: 'available' })
+  })
+
+  it('saves a project preset back into the library sound, which a fresh project then recalls', () => {
+    const { catalog, sound } = brightLibrary()
+    const inserted = insertLibraryAsset(createEmptyProject(), catalog, sound, { mode: 'new-track' })
+    const control = enumerateControlTargets(inserted.project).find(t => t.kind === 'graph' && inSnapshotScope(t, inserted.scope) && t.nodeType === 'control')!
+    const deep = saveProjectPreset(editControlBase(inserted.project, control, 63).project, inserted.scope, 'Deep')
+    const preset = deep.presets!.find(p => p.name === 'Deep')!
+    const origin = presetLink(deep, preset)!
+    expect(origin.itemId).toBe(sound.id)
+    const saved = presetToLibrary(deep, catalog, origin, preset)
+    expect(saved.item).toMatchObject({ name: 'Deep', folderId: sound.folderId, content: { kind: 'preset', assetId: sound.id, revisionId: origin.revisionId } })
+    expect(stateOf(saved.item).scope.owner).toEqual(stateOf(sound).scope.owner)
+    // A fresh project, with the sound inserted again: Deep is one of its states, and recalls as it was saved.
+    const fresh = insertLibraryAsset(createEmptyProject(), saved.catalog, sound, { mode: 'new-track' })
+    const link = linkOf(fresh.project, fresh.scope.owner, 'patch')!.origin
+    const deepItem = linkedSounds(saved.catalog, link).states.find(i => i.name === 'Deep')!
+    const recalled = recallLinkedPreset(fresh.project, link, presetFromLibrary(link, stateOf(deepItem)))
+    expect(recalled.issues).toEqual([])
+    expect(libraryView(recalled.project, fresh.scope, link)).toEqual(libraryView(deep, inserted.scope, origin))
+  })
+
+  it('refuses to save back into a trashed or gone sound, and finds no link for a preset saved after a rewire', () => {
+    const { catalog, sound } = brightLibrary()
+    const inserted = insertLibraryAsset(createEmptyProject(), catalog, sound, { mode: 'new-track' })
+    const deep = saveProjectPreset(inserted.project, inserted.scope, 'Deep'), preset = deep.presets!.at(-1)!
+    const origin = presetLink(deep, preset)!
+    expect(linkedSounds(trashLibraryEntry(catalog, sound.id), origin)).toMatchObject({ trashed: true, states: [] })
+    expect(() => presetToLibrary(deep, trashLibraryEntry(catalog, sound.id), origin, preset)).toThrow('The library sound is in the trash')
+    expect(() => presetToLibrary(deep, emptyLibrary(), origin, preset)).toThrow('The library sound is gone')
+    const owner = inserted.scope.owner as { trackId: string }
+    const rewired: Project = { ...deep, tracks: deep.tracks.map(t => t.id === owner.trackId && t.kind === 'instrument' ? { ...t, patch: { ...t.patch, nodes: [...t.patch.nodes, { ...createNode('gain', 0, 0), id: 'added' }] } } : t) }
+    const later = saveProjectPreset(rewired, inserted.scope, 'Later')
+    expect(presetLink(later, later.presets!.at(-1)!)).toBeUndefined()
+    expect(presetLink(later, preset)).toEqual(origin)
+  })
+
+  it('resolves an origin naming a preset to its sound', () => {
+    const { catalog, sound, bright } = brightLibrary()
+    const { project, scope } = insertLibraryAsset(createEmptyProject(), catalog, bright, { mode: 'new-track' })
+    const origin = linkOf(project, scope.owner, 'patch')!.origin
+    expect(origin.itemId).toBe(bright.id)
+    expect(linkedSounds(catalog, origin).sound).toBe(sound)
   })
 })

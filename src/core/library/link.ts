@@ -1,7 +1,9 @@
-import { type ControlOwner, controlOwnerId } from '../control'
-import { type AssetPayload, type SnapshotScope, assetSignature, captureAsset } from '../preset'
+import { type ControlOwner, type ControlTarget, controlOwnerId } from '../control'
+import { type AssetPayload, type ProjectPreset, type SampleTarget, type SnapshotScope, assetSignature, captureAsset, recallPresetState } from '../preset'
 import type { Project } from '../project'
-import { LINK_LIMITS, type LibraryLink, type LibraryOrigin } from './types'
+import { createId } from '../shared'
+import { saveLibraryItem } from './catalog'
+import { LINK_LIMITS, type LibraryCatalog, type LibraryItem, type LibraryLink, type LibraryOrigin } from './types'
 
 /**
  * A stable 64-bit hash of a string, as 16 hex digits: two 32-bit lanes mixed over its UTF-16 code units (cyrb53's
@@ -93,4 +95,88 @@ export const carryLibraryLinks = (project: Project, from: string, to: string): P
     origins = [...origins, { ...found.origin, trackId: to, owner: { kind: 'track', trackId: to } }]
   }
   return origins === (project.libraryOrigins ?? []) ? project : { ...project, libraryOrigins: origins }
+}
+
+/** What a library sound offers a link: the sound, whether it is trashed, and its states that fit the link's graph. */
+export interface LinkedSounds {
+  /** The library sound the origin names (its sound, for an origin naming a preset); undefined when it is gone. */
+  readonly sound: LibraryItem | undefined
+  readonly trashed: boolean
+  /** The sound itself and its live presets, those whose revision has the inserted revision's signature, sound first. */
+  readonly states: readonly LibraryItem[]
+}
+
+/** The library sound an origin names, and its states that recall through the link. */
+export const linkedSounds = (catalog: LibraryCatalog, origin: LibraryOrigin): LinkedSounds => {
+  const named = catalog.items.find((item) => item.id === origin.itemId)
+  const sound = named?.content.kind === 'preset' ? catalog.items.find((item) => item.id === (named.content as { assetId: string }).assetId) : named
+  if (!sound) return { sound: undefined, trashed: false, states: [] }
+  if (sound.trashed) return { sound, trashed: true, states: [] }
+  const signature = catalog.revisions.find((revision) => revision.id === origin.revisionId)?.signature
+  const fits = (item: LibraryItem) => 'revisionId' in item.content && catalog.revisions.find((revision) => revision.id === (item.content as { revisionId: string }).revisionId)?.signature === signature
+  const presets = catalog.items.filter((item) => !item.trashed && item.content.kind === 'preset' && item.content.assetId === sound.id)
+  return { sound, trashed: false, states: signature === undefined ? [] : [sound, ...presets].filter(fits) }
+}
+
+/** A target with its node and module IDs put through `nodes` and `modules`, onto `owner`. IDs not in the maps stay. */
+const translate = <T extends ControlTarget | SampleTarget>(target: T, owner: ControlOwner, nodes: ReadonlyMap<string, string>, modules: ReadonlyMap<string, string>): T =>
+  target.kind === 'graph'
+    ? { ...target, owner, nodeId: nodes.get(target.nodeId) ?? target.nodeId, path: target.path.map((step) => ({ nodeId: nodes.get(step.nodeId) ?? step.nodeId, moduleId: modules.get(step.moduleId) ?? step.moduleId })) }
+    : { ...target, owner }
+
+/** The domains a state of `kind` spans: an instrument's include its notes. */
+const domainsOf = (state: ProjectPreset) => (state.scope.domain === 'patch' ? ['patch', 'notes'] : [state.scope.domain])
+
+/** Throws unless every value and sample choice of `state` is a graph control of its own scope. */
+const checkOwnState = (state: ProjectPreset) => {
+  const belongs = (target: ControlTarget | SampleTarget) => target.kind === 'graph' && domainsOf(state).includes(target.domain) && JSON.stringify(target.owner) === JSON.stringify(state.scope.owner)
+  if (state.values.some((value) => !belongs(value.target)) || state.samples.some((binding) => !belongs(binding.target))) throw new Error('Preset contains controls outside its sound')
+}
+
+/**
+ * A library state (a sound's own, or one of its presets) as a preset of the linked owner's current graph: its targets
+ * put through the link's maps, forward. Recall it with `recallLinkedPreset`.
+ */
+export const presetFromLibrary = (origin: LinkedOrigin, state: ProjectPreset): ProjectPreset => {
+  checkOwnState(state)
+  const owner = originOwner(origin)
+  if (!owner) throw new Error('The link has no owner')
+  const nodes = new Map(origin.link.nodes), modules = new Map(origin.link.modules)
+  return { ...state, scope: { ...state.scope, owner }, values: state.values.map((value) => ({ ...value, target: translate(value.target, owner, nodes, modules) })), samples: state.samples.map((binding) => ({ ...binding, target: translate(binding.target, owner, nodes, modules) })) }
+}
+
+/** Recalls `presetFromLibrary`'s preset onto its owner, while the owner's graph still has the link's shape. */
+export const recallLinkedPreset = (project: Project, origin: LinkedOrigin, preset: ProjectPreset) =>
+  recallPresetState(project, preset, preset.scope, (payload) => linkShape(payload) === origin.link.shape, 'This sound has changed since it came from the library')
+
+/**
+ * The link a project preset saves back through: the latest linked origin of its owner and domain whose shape is its
+ * own revision's. A preset saved after a rewire has none, even while an older one of the same owner has.
+ */
+export const presetLink = (project: Project, preset: ProjectPreset): LinkedOrigin | undefined => {
+  const revision = project.assetRevisions?.find((candidate) => candidate.id === preset.revisionId)
+  if (!revision || preset.scope.domain === 'track') return undefined
+  const shape = linkShape(revision.payload)
+  return (project.libraryOrigins ?? []).filter((origin): origin is LinkedOrigin => !!origin.link && origin.link.shape === shape && origin.domain === preset.scope.domain && sameOwner(originOwner(origin), preset.scope.owner)).at(-1)
+}
+
+/**
+ * Adds a project preset to the library sound it is linked to, as a new preset of that sound: its targets put through
+ * the link's maps, backward, onto the sound's own owner and revision. Refuses when the sound is gone or trashed, or
+ * the preset uses a sample the project has no metadata for.
+ */
+export const presetToLibrary = (project: Project, catalog: LibraryCatalog, origin: LinkedOrigin, preset: ProjectPreset): { readonly catalog: LibraryCatalog; readonly item: LibraryItem; readonly sound: LibraryItem } => {
+  const { sound, trashed } = linkedSounds(catalog, origin)
+  if (!sound || !('state' in sound.content) || origin.revisionId === undefined || !catalog.revisions.some((revision) => revision.id === origin.revisionId)) throw new Error('The library sound is gone')
+  if (trashed) throw new Error('The library sound is in the trash')
+  checkOwnState(preset)
+  const owner = sound.content.state.scope.owner
+  const nodes = new Map(origin.link.nodes.map(([library, copy]) => [copy, library])), modules = new Map(origin.link.modules.map(([library, copy]) => [copy, library]))
+  const state: ProjectPreset = { ...preset, revisionId: origin.revisionId, scope: { ...preset.scope, owner }, values: preset.values.map((value) => ({ ...value, target: translate(value.target, owner, nodes, modules) })), samples: preset.samples.map((binding) => ({ ...binding, target: translate(binding.target, owner, nodes, modules) })) }
+  const sampleIds = new Set(state.samples.flatMap((binding) => (binding.sampleId ? [binding.sampleId] : [])))
+  const missing = [...sampleIds].filter((id) => !catalog.samples.some((known) => known.id === id) && !project.samples.some((known) => known.id === id))
+  if (missing.length) throw new Error(`Missing sample metadata: ${missing.join(', ')}`)
+  const item: LibraryItem = { id: createId('item'), name: preset.name, folderId: sound.folderId, content: { kind: 'preset', assetId: sound.id, revisionId: origin.revisionId, state } }
+  const withSamples: LibraryCatalog = { ...catalog, samples: [...catalog.samples, ...project.samples.filter((known) => sampleIds.has(known.id) && !catalog.samples.some((each) => each.id === known.id))] }
+  return { catalog: saveLibraryItem(withSamples, item), item, sound }
 }

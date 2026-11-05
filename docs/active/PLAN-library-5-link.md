@@ -195,3 +195,16 @@ Signed off 2026-11-04: every row as proposed.
   the warning limit. Gzipped, before → after: `state` 146.94 → 29.73 kB, `index` 114.75 → 112.30, a new `core`
   123.04; the eager total grows about 2.9 kB, of which the step's code is under 1 kB. The lazy `library` chunk stays
   3.7 kB: the library's core code was already in the eager `state` chunk.
+* **Step 3:** `recallPresetState(project, preset, scope, matches, refusal?)` is in `core/preset/assets.ts`, and
+  `recallProjectPreset` runs through it. `preset` can't import the library, so the caller passes the shape check:
+  `recallLinkedPreset(project, origin, preset)` (in `link.ts`) checks the link's `shape`, and refuses with "This sound
+  has changed since it came from the library".
+* **Step 3:** `linkedSounds(catalog, origin)` gives the library sound (an origin naming a preset resolves to its
+  sound), whether it is trashed, and its *states*: the sound and its live presets whose revision has the signature of
+  the revision the origin names. Sounds lists those.
+* **Step 3:** `presetLink(project, preset)` finds the link a project preset saves back through: the latest linked
+  origin of its owner and domain whose shape is **the preset's own revision's**, not the graph's now. So a preset saved
+  before a rewire still saves back, and one saved after it doesn't. `presetToLibrary` takes that origin, puts the
+  targets through the maps backward onto the sound's own owner, files the preset in the sound's folder, and adds the
+  sample metadata it needs. It refuses "The library sound is gone" or "…is in the trash".
+* **Step 3:** targets not in the maps keep their IDs; the recall then reports them as unavailable rather than failing.
