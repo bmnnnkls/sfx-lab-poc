@@ -168,7 +168,7 @@ test('records production Chromium timings for a near-limit library: the collapse
   const tree = libraryPanel(page).getByRole('treeitem', { name: 'My library, 3072 items' })
   await tree.waitFor()
   const open = await page.evaluate(() => performance.now() - (window as unknown as { __t: number }).__t)
-  const timings = await page.evaluate(async () => {
+  const measure = () => page.evaluate(async () => {
     const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)))
     const input = document.querySelector('input[aria-label="Search library"]') as HTMLInputElement
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
@@ -185,7 +185,17 @@ test('records production Chromium timings for a near-limit library: the collapse
     }
     return { rows, runs }
   })
+  const timings = await measure()
+  // Again with This project and the Factory open too: four roots, searched together.
+  const panel = libraryPanel(page)
+  await expect(panel.getByRole('treeitem', { name: 'Factory, 49 items' })).toBeVisible()
+  for (const root of ['Demo project', 'Factory, 49 items']) {
+    await panel.getByRole('treeitem', { name: root, exact: true }).click()
+    await page.keyboard.press('ArrowRight')
+  }
+  const allRoots = await measure()
   // `clear` re-renders the whole collapsed tree from the catalog; `openLibraryMs` includes loading the view's chunk and reading storage.
-  const out = { cpu: os.cpus()[0]?.model, platform: os.platform(), browser: browser.version(), folders: 1024, items: 4096, openLibraryMs: Math.round(open), ...timings }
+  const out = { cpu: os.cpus()[0]?.model, platform: os.platform(), browser: browser.version(), folders: 1024, items: 4096, openLibraryMs: Math.round(open), ...timings, allRootsOpen: allRoots }
   await testInfo.attach('library-tree-near-limit.json', { body: JSON.stringify(out, null, 2), contentType: 'application/json' })
+  if (process.env.TREE_TIMINGS) (await import('node:fs')).writeFileSync(process.env.TREE_TIMINGS, JSON.stringify(out, null, 2))
 })

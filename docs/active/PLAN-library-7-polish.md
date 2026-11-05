@@ -48,7 +48,7 @@ Phase 7 of [SPEC-library-ux.md](SPEC-library-ux.md). It comes after phases 1–6
 
 1. Cut and paste, with unit tests for the clipboard and verbs, and smoke for ⌘X then ⌘V onto a folder.
 2. Multi-drag, with drop unit tests and smoke for moving three items into a folder.
-3. Virtualization, if needed, with the near-limit measurement redone and recorded.
+3. Virtualization, if needed, with the near-limit measurement redone and recorded. *(Skipped: 9–36 ms with all four roots open.)*
 4. The first-run hint.
 5. **Closing the round**:
    * `docs/STATUS.md` gets a line.
@@ -108,3 +108,7 @@ Signed off 2026-11-04: every row as proposed.
   so it has none.
 * **Step 2:** no view changed (a drag's payload and the drop table); the smoke drags three items onto *Kit*, and onto
   Lead's header, where the reason shows. Chunks, gzipped: `state` 32.17 → 32.35 kB, `LibraryPanel` 11.14 → 11.18.
+* **Step 3: skipped, as measured.** The near-limit case (1024 folders, 4096 items, production build in Chromium) now
+  measures twice: as phase 1 did, and with *This project* and the Factory open too (83 rows, four roots searched
+  together). Three runs, every search, re-render and folder opening took 9–36 ms (phase 1: 14–36), under the 100 ms
+  threshold, so the tree isn't virtualized. The numbers are in `docs/measurements/library-tree-near-limit.json`.

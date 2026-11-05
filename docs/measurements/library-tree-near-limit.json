@@ -2,35 +2,61 @@
   "browser": "156.0.8078.4",
   "folders": 1024,
   "items": 4096,
-  "openLibraryMs": 831,
-  "rows": 34,
+  "openLibraryMs": 879,
+  "rows": 36,
   "runs": {
     "search": [
-      35.800000071525574,
-      31.899999976158142,
-      33.5,
-      27.799999952316284,
-      35.799999952316284
+      31.1,
+      31.9,
+      28.4,
+      26.9,
+      35.9
     ],
     "clear": [
-      16.800000071525574,
-      20.799999952316284,
-      14.800000071525574,
-      14.700000047683716,
-      14
+      19,
+      15.1,
+      13.2,
+      15.2,
+      14.3
     ],
     "expand": [
-      15.899999976158142,
-      18.5,
-      16.5,
-      14.299999952316284,
-      17.299999952316284
+      14.9,
+      15.9,
+      17.6,
+      15.5,
+      17.3
     ]
   },
-  "script": "tests/browser/library-tree.smoke.spec.ts, \"records production Chromium timings for a near-limit library\"",
+  "allRootsOpen": {
+    "rows": 83,
+    "runs": {
+      "search": [
+        26.7,
+        32.9,
+        26.4,
+        31.5,
+        24.2
+      ],
+      "clear": [
+        16.4,
+        16.5,
+        16,
+        14.9,
+        28.3
+      ],
+      "expand": [
+        10.6,
+        11.4,
+        9.7,
+        11.1,
+        13.2
+      ]
+    }
+  },
+  "script": "tests/browser/library/library-tree.smoke.spec.ts, \"records production Chromium timings for a near-limit library\"",
   "date": "2026-11-05",
-  "note": "Production build (vite preview), Chromium via Playwright. search: typing a query that matches 238 rows; clear: back to the collapsed tree (34 rows), a full re-render from the catalog; expand: one top-level folder. Threshold for virtualization: 100 ms.",
+  "note": "Production build (vite preview), Chromium via Playwright. search: typing a query that matches 238 rows of My library; clear: back to the collapsed tree, a full re-render from the catalog; expand: one top-level folder. allRootsOpen: the same with This project (the starter) and the Factory open as well, so four roots render and are searched. Three runs, every value 9-36 ms. Threshold for virtualization: 100 ms, so phase 7 skipped it. Phase 1's run (ba349a2, three roots): search 28-36 ms, clear 14-21, expand 14-19.",
   "cpu": "Apple M3 Pro",
-  "commit": "ba349a2 (library phase 1, step 5)",
-  "load": "load averages 6.5 to 8.4 at the time"
+  "commit": "f25c5a3 (library phase 7, step 2)",
+  "load": "load averages 7.4 to 11 at the time"
 }
