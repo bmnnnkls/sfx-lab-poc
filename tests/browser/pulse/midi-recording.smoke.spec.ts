@@ -77,25 +77,120 @@ test('arm, record into a slot, end, undo, redo and reload', async ({ page }) => 
   await expect(viewRoot(page, 'Clip').getByLabel('Clip length in beats')).toHaveValue(String(length))
 })
 
-test('the metronome, its menu and the latency offset are kept per browser', async ({ page }) => {
+test('the metronome, the ● Rec menu and the latency offset are kept per browser', async ({ page }) => {
   await page.goto('/')
   const metronome = page.getByRole('button', { name: 'Metronome', exact: true })
   await expect(metronome).toHaveAttribute('aria-pressed', 'false')
   await metronome.click()
   await expect(metronome).toHaveAttribute('aria-pressed', 'true')
-  await page.getByRole('button', { name: 'Metronome and recording settings', exact: true }).click()
+  // ♩ is only a toggle now: its settings are in ● Rec's menu, with the count-in.
+  await expect(page.getByRole('button', { name: 'Metronome and recording settings', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Recording settings', exact: true }).click()
+  await expect(page.getByRole('menuitem')).toHaveText([/^Fixed recording length/, /^Count-in/, /^Metronome level/])
   await page.getByRole('menuitem', { name: 'Fixed recording length', exact: true }).click()
   await page.getByRole('menuitemcheckbox', { name: '2 bars', exact: true }).click()
+  await page.getByRole('button', { name: 'Recording settings', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Count-in', exact: true }).click()
+  await page.getByRole('menuitemcheckbox', { name: '1 bar', exact: true }).click()
   await page.getByRole('button', { name: 'MIDI', exact: true }).click()
   await page.getByLabel('Latency offset (ms)', { exact: true }).fill('12')
   await page.getByRole('button', { name: 'Close MIDI settings' }).click()
   await page.reload()
   await expect(page.getByRole('button', { name: 'Metronome', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await page.getByRole('button', { name: 'Metronome and recording settings', exact: true }).click()
+  await page.getByRole('button', { name: 'Recording settings', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Fixed recording length', exact: true }).click()
   await expect(page.getByRole('menuitemcheckbox', { name: '2 bars', exact: true })).toHaveAttribute('aria-checked', 'true')
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Recording settings', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Count-in', exact: true }).click()
+  await expect(page.getByRole('menuitemcheckbox', { name: '1 bar', exact: true })).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'MIDI', exact: true }).click()
   await expect(page.getByLabel('Latency offset (ms)', { exact: true })).toHaveValue('12')
+})
+
+/** MIDI on, from the settings panel. */
+const enableMidi = async (page: import('@playwright/test').Page) => {
+  await page.getByRole('button', { name: 'MIDI', exact: true }).click()
+  await page.getByRole('button', { name: 'Enable MIDI', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'MIDI settings', exact: true })).toContainText('MIDI: enabled')
+  await page.getByRole('button', { name: 'Close MIDI settings' }).click()
+}
+
+test('● Rec overdubs a playing clip on an armed track, pass after pass, as one undo step', async ({ page }) => {
+  // A one-bar clip, so a second pass comes quickly.
+  const demo = project()
+  const [keys] = demo.tracks
+  const withLoop = { ...demo, tempo: 240, tracks: [{ ...keys!, clips: keys!.clips.map((_, i) => (i === 0 ? { id: 'loop', name: 'Loop', lengthBeats: 4, notes: [] } : null)) }, demo.tracks[1]!] }
+  await page.addInitScript((saved) => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(withLoop))
+  await installMidiPorts(page)
+  await page.goto('/')
+  await enableMidi(page)
+  const session = viewRoot(page, 'Session')
+  await session.getByRole('button', { name: 'Arm Keys synth for recording', exact: true }).click()
+
+  // F9 and the button both toggle ● Rec; nothing plays yet, so it says what to do.
+  const rec = page.getByRole('button', { name: 'Record', exact: true })
+  await page.locator('body').click({ position: { x: 1, y: 1 } })
+  await page.keyboard.press('F9')
+  await expect(rec).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('status', { name: 'Recording' })).toHaveText('Launch a clip on an armed track to overdub')
+  await rec.click()
+  await expect(rec).toHaveAttribute('aria-pressed', 'false')
+
+  await session.getByRole('button', { name: '▶ Loop' }).click()
+  await expect(session.getByRole('button', { name: /■ Loop/ })).toBeVisible()
+  await rec.click()
+  await expect(session.getByRole('img', { name: 'overdubbing' })).toBeVisible()
+  await expect(page.getByRole('status', { name: 'Recording' })).toHaveText('Overdubbing Keys synth')
+  await session.getByRole('button', { name: 'Edit Loop', exact: true }).click()
+  const clip = await openView(page, 'Clip')
+  await sendMidi(page, [0x90, 60, 100]); await page.waitForTimeout(100); await sendMidi(page, [0x80, 60, 0])
+  await expect(clip.locator('[data-note-id]')).toHaveCount(1)
+  // A second pass (a bar is a second at 240 BPM) adds to the first.
+  await page.waitForTimeout(1100)
+  await sendMidi(page, [0x90, 67, 100]); await page.waitForTimeout(100); await sendMidi(page, [0x80, 67, 0])
+  await expect(clip.locator('[data-note-id]')).toHaveCount(2)
+  await expect(clip.getByLabel('Clip length in beats')).toHaveValue('4')
+  await page.keyboard.press('F9')
+  await expect(rec).toHaveAttribute('aria-pressed', 'false')
+  await expect(session.getByRole('img', { name: 'overdubbing' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Stop', exact: true }).first().click()
+  // The overdub is one undo step.
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(clip.locator('[data-note-id]')).toHaveCount(0)
+})
+
+test('a count-in clicks a bar before a take from a stopped transport, and ■ during it records nothing', async ({ page }) => {
+  await page.addInitScript((saved) => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject({ ...project(), tempo: 120 }))
+  await page.addInitScript(() => localStorage.setItem('sfxlab:record', JSON.stringify({ countInBars: 1 })))
+  await installMidiPorts(page)
+  await page.goto('/')
+  await enableMidi(page)
+  const session = viewRoot(page, 'Session')
+  await session.getByRole('button', { name: 'Arm Keys synth for recording', exact: true }).click()
+  const record = session.getByRole('button', { name: 'Record a clip here', exact: true })
+  const countIn = page.getByRole('status', { name: 'Count-in' })
+
+  // ■ during the count-in: no take, and no empty clip left behind.
+  await record.first().click()
+  await expect(countIn).toHaveText('Count-in 1')
+  await expect(session.locator('[data-recording]')).toHaveAttribute('data-recording', 'queued')
+  await page.getByRole('button', { name: 'Stop', exact: true }).first().click()
+  await expect(countIn).toHaveCount(0)
+  await expect(session.locator('[data-recording]')).toHaveCount(0)
+  await expect(record).toHaveCount(4)
+
+  // Let it run: after a bar (2 s at 120 BPM) the take starts, and a note played then lands near its first beat.
+  await record.first().click()
+  await expect(countIn).toHaveText('Count-in 1')
+  await expect(session.locator('[data-recording]')).toHaveAttribute('data-recording', 'recording', { timeout: 4000 })
+  await expect(countIn).toHaveCount(0)
+  await sendMidi(page, [0x90, 60, 100]); await page.waitForTimeout(100); await sendMidi(page, [0x80, 60, 0])
+  await session.getByRole('button', { name: 'Edit Clip 1', exact: true }).click()
+  const clip = await openView(page, 'Clip')
+  await expect(clip.locator('[data-note-id]')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Stop', exact: true }).first().click()
 })

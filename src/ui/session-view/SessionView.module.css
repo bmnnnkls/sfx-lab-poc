@@ -380,6 +380,11 @@
   animation: record-blink 0.5s steps(2, jump-none) infinite;
 }
 
+/* A clip being overdubbed: a red dot after its name. */
+.overdubDot {
+  color: var(--record);
+}
+
 @keyframes record-blink {
   50% {
     background: color-mix(in srgb, var(--record) 22%, var(--panel));

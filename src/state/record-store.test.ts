@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { type Clip, type EngineStatus, type InstrumentTrack, type LauncherStatus, type Project, addTrack, createAudioTrack, createEmptyProject, createTrack, serializeProject } from '@core'
+import { type Clip, type EngineStatus, type InstrumentTrack, type LauncherStatus, type Project, addTrack, createAudioTrack, createClip, createEmptyProject, createTrack, serializeProject, setClipAt } from '@core'
 import { useProjectStore } from './project-store'
 import { setRecordClock } from './record-clock'
 import { useRecordSettings } from './record-settings'
-import { cancelRecords, endTake, recordInSlot, recordNote, recordPedal, reconcileRecords, stopTakes, useRecordStore } from './record-store'
+import { cancelRecords, countInBars, endTake, recordInSlot, recordNote, recordPedal, reconcileRecords, stopTakes, useRecordStore } from './record-store'
 import { useStatusStore } from './status-store'
 
 const BASS = 'bass', LEAD = 'lead'
@@ -22,10 +22,10 @@ const setup = () => {
 }
 
 /** Reports a status at `beat` with these launchers, as the engine does ~30 times a second. */
-const tick = (beat: number, tracks: Record<string, Partial<LauncherStatus>> = {}, playing = true) => {
+const tick = (beat: number, tracks: Record<string, Partial<LauncherStatus>> = {}, playing = true, extra: Partial<EngineStatus> = {}) => {
   clock = { beat, playing }
   const status: EngineStatus = {
-    playing, mode: 'session', beat, peak: 0, peaks: {}, readouts: {},
+    playing, mode: 'session', beat, peak: 0, peaks: {}, readouts: {}, ...extra,
     tracks: Object.fromEntries(Object.entries(tracks).map(([id, l]) => [id, { playingClipId: null, startBeat: null, queued: null, ...l }])),
   }
   reconcileRecords(status)
@@ -52,7 +52,7 @@ const startTake = (trackId: string, scene: number, at: number) => {
 
 beforeEach(() => {
   setup()
-  useRecordSettings.setState({ fixedBars: 0 })
+  useRecordSettings.setState({ fixedBars: 0, countInBars: 0 })
 })
 afterEach(() => {
   cancelRecords()
@@ -286,5 +286,191 @@ describe('a take', () => {
     tick(0.05, { [BASS]: { playingClipId: clip.id, startBeat: 0 } })
     on(BASS, 1); off(BASS, 2)
     expect(notes(BASS, 0)).toEqual([[60, 1, 1]])
+  })
+})
+
+describe('overdub', () => {
+  /** An 8-beat clip in Bass's first slot, Bass armed. */
+  const loop = () => {
+    const project = setClipAt(useProjectStore.getState().project, BASS, 0, { ...createClip('Loop', 8), id: 'loop' })
+    useProjectStore.getState().resetProject(project)
+    useRecordStore.getState().arm(BASS, true)
+    return { playingClipId: 'loop', startBeat: 4 }
+  }
+  const rec = (on: boolean) => useRecordStore.getState().setRec(on)
+
+  it('adds what is played over a playing clip, pass after pass, placed by its position in the pass', () => {
+    const playing = loop()
+    tick(5, { [BASS]: playing })
+    rec(true)
+    expect(useRecordStore.getState().takes[BASS]).toMatchObject({ kind: 'overdub', clipId: 'loop', state: 'recording' })
+    expect(useRecordStore.getState().feedback).toBe('Overdubbing Bass')
+    on(BASS, 6); off(BASS, 6.5)
+    tick(13, { [BASS]: playing })
+    on(BASS, 13.5, 64); off(BASS, 14, 64)
+    // Pass 1 at beat 2, pass 2 at beat 1.5 of the clip.
+    expect(notes(BASS, 0)).toEqual([[60, 2, 0.5], [64, 1.5, 0.5]])
+    expect(clipIn(BASS, 0)!.lengthBeats).toBe(8)
+  })
+
+  it('is one undo step from ● Rec on to off, and an empty overdub is none', () => {
+    const playing = loop()
+    const before = serializeProject(useProjectStore.getState().project)
+    const past = useProjectStore.getState().history.past.length
+    tick(5, { [BASS]: playing })
+    rec(true)
+    rec(false)
+    expect(useProjectStore.getState().history.past.length).toBe(past)
+    rec(true)
+    on(BASS, 6); off(BASS, 6.5); on(BASS, 14); off(BASS, 15)
+    rec(false)
+    expect(useRecordStore.getState().takes[BASS]).toBeUndefined()
+    expect(useProjectStore.getState().history.past.length).toBe(past + 1)
+    useProjectStore.getState().undo()
+    expect(serializeProject(useProjectStore.getState().project)).toBe(before)
+  })
+
+  it('cuts a note held across the clip end, and closes held notes when ● Rec goes off', () => {
+    const playing = loop()
+    tick(5, { [BASS]: playing })
+    rec(true)
+    on(BASS, 11); off(BASS, 13)
+    expect(notes(BASS, 0)).toEqual([[60, 7, 1]])
+    on(BASS, 14, 62)
+    clock.beat = 15
+    rec(false)
+    expect(notes(BASS, 0)).toEqual([[60, 7, 1], [62, 2, 1]])
+  })
+
+  it('punches in at the press: nothing from before it, not even an early note', () => {
+    const playing = loop()
+    tick(6, { [BASS]: playing })
+    rec(true)
+    on(BASS, 5.9); off(BASS, 6.5)
+    on(BASS, 7, 62); off(BASS, 7.5, 62)
+    expect(notes(BASS, 0)).toEqual([[62, 3, 0.5]])
+  })
+
+  it('records a clip launched with ● Rec on from its start, early notes on its first beat, through a count-in', () => {
+    loop()
+    rec(true)
+    useRecordSettings.setState({ countInBars: 1 })
+    expect(countInBars()).toBe(1)
+    // The count-in: the clip is queued, the transport stopped, the clock on negative beats.
+    tick(-2, { [BASS]: { queued: 'loop' } }, false, { countIn: { barsLeft: 1, beat: -2 } })
+    expect(useRecordStore.getState().takes[BASS]).toMatchObject({ kind: 'overdub', state: 'queued' })
+    expect(countInBars()).toBe(0)
+    on(BASS, -0.1); off(BASS, 0.5)
+    tick(0.1, { [BASS]: { playingClipId: 'loop', startBeat: 0 } })
+    expect(notes(BASS, 0)).toEqual([[60, 0, 0.5]])
+  })
+
+  it('a relaunch or a new length ends the take and opens another', () => {
+    const playing = loop()
+    tick(5, { [BASS]: playing })
+    rec(true)
+    const first = useRecordStore.getState().takes[BASS]!.id
+    on(BASS, 6); off(BASS, 6.5)
+    // A note held over the relaunch boundary is closed there, and not doubled in the new take.
+    on(BASS, 11.5, 64)
+    tick(12.05, { [BASS]: { playingClipId: 'loop', startBeat: 12 } })
+    const second = useRecordStore.getState().takes[BASS]!.id
+    expect(second).not.toBe(first)
+    off(BASS, 12.5, 64)
+    on(BASS, 13, 62); off(BASS, 13.5, 62)
+    expect(notes(BASS, 0).sort((a, b) => a[1]! - b[1]!)).toEqual([[62, 1, 0.5], [60, 2, 0.5], [64, 7.5, 0.5]])
+    useProjectStore.getState().setClipLength({ kind: 'session', trackId: BASS, clipId: 'loop' }, 4)
+    tick(13.6, { [BASS]: { playingClipId: 'loop', startBeat: 12 } })
+    expect(useRecordStore.getState().takes[BASS]?.id).not.toBe(second)
+  })
+
+  it('a slot take ending with ● Rec on goes on overdubbing its clip, with nothing doubled', () => {
+    useRecordStore.getState().arm(BASS, true)
+    rec(true)
+    const { start, playing } = startTake(BASS, 1, 1)
+    tick(start + 0.1, { [BASS]: playing })
+    on(BASS, start + 1); off(BASS, start + 1.5)
+    endTake(BASS)
+    // Ends at start + 4: a note just before the end is the slot take's, one just after is the overdub's.
+    on(BASS, start + 3.9, 62); off(BASS, start + 3.95, 62)
+    on(BASS, start + 4.02, 64)
+    tick(start + 4.05, { [BASS]: playing })
+    expect(useRecordStore.getState().takes[BASS]).toMatchObject({ kind: 'overdub' })
+    off(BASS, start + 4.5, 64)
+    expect(notes(BASS, 1).map(([pitch, at]) => [pitch, +at!.toFixed(3)]).sort((a, b) => a[1]! - b[1]!)).toEqual([[64, 0.02], [60, 1], [62, 3.9]])
+  })
+
+  it('ends when the track is disarmed, the clip stops, or the transport stops', () => {
+    const playing = loop()
+    tick(5, { [BASS]: playing })
+    rec(true)
+    useRecordStore.getState().arm(BASS, false)
+    expect(useRecordStore.getState().takes[BASS]).toBeUndefined()
+    useRecordStore.getState().arm(BASS, true)
+    expect(useRecordStore.getState().takes[BASS]).toBeDefined()
+    tick(8.1, { [BASS]: { stopBeat: 8 } })
+    expect(useRecordStore.getState().takes[BASS]).toBeUndefined()
+    tick(9, { [BASS]: playing })
+    expect(useRecordStore.getState().takes[BASS]).toBeDefined()
+    stopTakes(9.5)
+    expect(useRecordStore.getState().takes[BASS]).toBeUndefined()
+  })
+
+  it('says when nothing is armed, and records nothing in the Arrangement', () => {
+    rec(true)
+    expect(useRecordStore.getState().feedback).toBe('Armed tracks: none')
+    rec(false)
+    const playing = loop()
+    tick(5, { [BASS]: playing }, true, { mode: 'arrangement' })
+    rec(true)
+    expect(useRecordStore.getState().takes[BASS]).toBeUndefined()
+    expect(useRecordStore.getState().feedback).toBe("Recording into the Arrangement isn't available yet")
+  })
+})
+
+describe('count-in', () => {
+  beforeEach(() => {
+    useRecordStore.getState().arm(BASS, true)
+    useRecordSettings.setState({ countInBars: 2 })
+  })
+
+  it('counts in a slot take, or any start with ● Rec on, only from a stopped transport', () => {
+    expect(countInBars()).toBe(0)
+    recordInSlot(BASS, 0, vi.fn())
+    const clip = clipIn(BASS, 0)!
+    expect(countInBars({ trackId: BASS, clipId: clip.id })).toBe(2)
+    expect(countInBars({ trackId: BASS, clipId: 'other' })).toBe(0)
+    useRecordStore.getState().setRec(true)
+    expect(countInBars()).toBe(2)
+    tick(1, {})
+    expect(countInBars()).toBe(0)
+    useRecordSettings.setState({ countInBars: 0 })
+    tick(0, {}, false)
+    expect(countInBars()).toBe(0)
+  })
+
+  it('■ during a count-in drops the take and the empty clip made for it', () => {
+    recordInSlot(BASS, 0, vi.fn())
+    const clip = clipIn(BASS, 0)!
+    tick(-6, { [BASS]: { queued: clip.id } }, false, { countIn: { barsLeft: 2, beat: -6 } })
+    expect(useRecordStore.getState().takes[BASS]).toBeDefined()
+    stopTakes()
+    expect(useRecordStore.getState().takes[BASS]).toBeUndefined()
+    expect(clipIn(BASS, 0)).toBeNull()
+    expect(useRecordStore.getState().feedback).toBe('Count-in stopped: nothing recorded')
+  })
+
+  it('a take waits through a long count-in, and keeps a note played just before its first beat', () => {
+    vi.useFakeTimers()
+    try {
+      recordInSlot(BASS, 0, vi.fn())
+      const clip = clipIn(BASS, 0)!
+      tick(-7, { [BASS]: { queued: clip.id } }, false, { countIn: { barsLeft: 2, beat: -7 } })
+      vi.advanceTimersByTime(5000)
+      tick(-0.5, { [BASS]: { queued: clip.id } }, false, { countIn: { barsLeft: 1, beat: -0.5 } })
+      on(BASS, -0.1); off(BASS, 0.4)
+      tick(0.05, { [BASS]: { playingClipId: clip.id, startBeat: 0 } })
+      expect(notes(BASS, 0)).toEqual([[60, 0, 0.4]])
+    } finally { vi.useRealTimers() }
   })
 })

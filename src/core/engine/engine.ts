@@ -10,7 +10,7 @@ import { Transport } from '../transport'
 import { AudioBoard } from './audio-board'
 import { AudioTaps } from './audio-taps'
 import { AudioTrackRuntime } from './audio-track-runtime'
-import type { EngineCommand } from './commands'
+import type { CountInStart, EngineCommand } from './commands'
 import { GroupBusRuntime } from './group-bus-runtime'
 import { type MixChannel, mixState } from './mix-state'
 import type { MixContext, PlayableTrack, ScheduledAction, PlaybackMode } from './playable-track'
@@ -20,6 +20,9 @@ import { SamplePreview } from './sample-preview'
 import type { EngineStatus } from './status'
 import { clipSource, liveSource } from './live-notes'
 import { TrackRuntime } from './track-runtime'
+
+/** Beats in a bar a count-in counts (4/4, as the metronome accents). */
+const COUNT_IN_BAR_BEATS = 4
 
 interface ScheduledEvent {
   readonly frame: number
@@ -82,8 +85,13 @@ export class Engine {
   private readonly masterInput = new Float32Array(STEREO_FRAMES)
   /** Which event source the tracks follow: the session launchers or the arrangement timeline. */
   private playbackMode: PlaybackMode = 'session'
-  /** The last loop jump in the current `render` call: the frame it fell on and the beat it went to. */
+  /**
+   * The last place in the current `render` call where the clock jumped: a loop jump, or the transport starting after a
+   * count-in. The frame it fell on and the beat it went to.
+   */
   private jump: { readonly frame: number; readonly beat: number } | null = null
+  /** A count-in running: the beats left to click, and what starts when it ends. */
+  private counting: { left: number; readonly bars: number; then: CountInStart } | null = null
 
   constructor(private readonly sampleRate: number) {
     this.transport = new Transport(sampleRate)
@@ -131,7 +139,11 @@ export class Engine {
         this.cancelNotes()
         break
       case 'transport/play':
-        this.playSession()
+        // During a count-in the transport is about to start.
+        if (!this.counting) this.playSession()
+        break
+      case 'transport/countIn':
+        this.countIn(command.bars, command.then)
         break
       case 'transport/stop':
         this.stopTransport()
@@ -149,6 +161,8 @@ export class Engine {
         for (const track of this.tracks.values()) track.setArrangement(command.clips)
         break
       case 'arrangement/play':
+        // During a count-in, an arrangement start becomes what it starts.
+        if (this.counting) { this.counting.then = command; break }
         // A seek while the arrangement plays releases what was sounding, as the loop's jump does.
         if (this.playbackMode === 'arrangement' && this.transport.playing) {
           this.seekArrangement(command.fromBeat ?? 0)
@@ -277,16 +291,45 @@ export class Engine {
         this.tracks.get(command.trackId)?.stopClip()
         break
       case 'clip/launch':
-        this.automation.launch(command.trackId, command.clipId)
-        this.tracks.get(command.trackId)?.launchClip(command.clipId)
-        this.playSession()
-        break
       case 'scene/launch':
-        this.automation.scene(command.scene, command.trackIds)
-        for (const [id, track] of this.tracks) if (!command.trackIds || command.trackIds.includes(id)) track.launchScene(command.scene)
-        this.playSession()
+        // During a count-in, a launch is queued and starts with the transport.
+        this.queueLaunch(command)
+        if (!this.counting) this.playSession()
         break
     }
+  }
+
+  /** Queues a clip or a scene on the launchers, in session mode, without starting the transport. */
+  private queueLaunch(command: Extract<CountInStart, { type: 'clip/launch' | 'scene/launch' }>): void {
+    this.sessionMode()
+    if (command.type === 'clip/launch') {
+      this.automation.launch(command.trackId, command.clipId)
+      this.tracks.get(command.trackId)?.launchClip(command.clipId)
+      return
+    }
+    this.automation.scene(command.scene, command.trackIds)
+    for (const [id, track] of this.tracks) if (!command.trackIds || command.trackIds.includes(id)) track.launchScene(command.scene)
+  }
+
+  /**
+   * Starts a count-in from a stopped transport: `bars` bars of clicks, then `then` on the frame it ends. Launches are
+   * queued now, so they show as waiting. While playing, or with no bars, `then` runs at once; a second count-in
+   * replaces what the first starts.
+   */
+  private countIn(bars: number, then: CountInStart): void {
+    const whole = Number.isFinite(bars) ? Math.max(0, Math.round(bars)) : 0
+    if (this.transport.playing || (whole === 0 && !this.counting)) { this.apply(then); return }
+    if (then.type === 'clip/launch' || then.type === 'scene/launch') this.queueLaunch(then)
+    if (this.counting) { this.counting.then = then; return }
+    this.counting = { left: whole * COUNT_IN_BAR_BEATS, bars: whole, then }
+  }
+
+  /** Ends the count-in on this frame: the transport starts as `then` says. */
+  private endCountIn(): void {
+    const then = this.counting!.then
+    this.counting = null
+    if (then.type === 'arrangement/play') this.apply(then)
+    else this.playSession()
   }
 
   /** Fills `left`/`right` with audio, advancing the transport. Buffers may be any length. */
@@ -300,12 +343,23 @@ export class Engine {
       // A block never crosses the loop's end: it stops on the last sample before it, and the position jumps back.
       const toLoopEnd = this.playbackMode === 'arrangement' && this.transport.playing ? this.transport.framesToLoopEnd() : null
       if (toLoopEnd !== null) frames = Math.min(frames, toLoopEnd)
-      const fromBeat = this.transport.playing ? this.transport.positionBeats : null
       const beatsPerSample = this.transport.beatsPerSample
+      // A count-in ends on a block's edge too: the transport starts on its first sample.
+      const counting = this.counting
+      if (counting) frames = Math.min(frames, Math.max(1, Math.ceil(counting.left / beatsPerSample - 1e-6)))
+      const fromBeat = this.transport.playing ? this.transport.positionBeats : counting ? -counting.left : null
       this.renderBlock(left, right, offset, frames)
-      // The click is not part of the mix: it comes after the master graph and fader, as the preview does.
-      this.metronome.mixInto(left, right, offset, frames, fromBeat, beatsPerSample)
+      // The click is not part of the mix: it comes after the master graph and fader, as the preview does. A count-in
+      // clicks whether the metronome is on or not.
+      this.metronome.mixInto(left, right, offset, frames, fromBeat, beatsPerSample, counting !== null)
       offset += frames
+      if (counting && this.counting === counting) {
+        counting.left -= frames * beatsPerSample
+        if (counting.left <= 1e-9) {
+          this.endCountIn()
+          if (this.transport.playing) this.jump = { frame: offset, beat: this.transport.positionBeats }
+        }
+      }
       const beat = toLoopEnd === null ? null : this.transport.loopJump()
       if (beat !== null) {
         this.seekArrangement(beat, this.transport.loop!.from)
@@ -319,14 +373,23 @@ export class Engine {
     this.peak = Math.max(this.peak, peakOf(left), peakOf(right))
   }
 
-  /** The last loop jump of the latest `render` call, `frame` samples into it, or null; the recording clock anchors on it. */
-  lastJump(): { readonly frame: number; readonly beat: number } | null {
+  /**
+   * The last place the clock jumped in the latest `render` call (a loop jump, or the start after a count-in), `frame`
+   * samples into it, or null; the recording clock anchors on it.
+   */
+  lastClockEdge(): { readonly frame: number; readonly beat: number } | null {
     return this.jump
   }
 
   /** Clock-only snapshot: no readout traversal, peak reset or audio-state mutation. */
-  clock(): Pick<EngineStatus, 'tempo' | 'playing' | 'beat'> {
-    return { tempo: this.transport.tempo, playing: this.transport.playing, beat: this.transport.positionBeats }
+  clock(): Pick<EngineStatus, 'tempo' | 'playing' | 'beat' | 'countIn'> {
+    const countIn = this.countInStatus()
+    return { tempo: this.transport.tempo, playing: this.transport.playing, beat: this.transport.positionBeats, ...(countIn && { countIn }) }
+  }
+
+  private countInStatus(): EngineStatus['countIn'] {
+    if (!this.counting) return undefined
+    return { barsLeft: Math.max(1, Math.ceil(this.counting.left / COUNT_IN_BAR_BEATS - 1e-9)), beat: -this.counting.left }
   }
 
   /** Snapshot for display. Reading it also resets the output-level peak. */
@@ -345,7 +408,8 @@ export class Engine {
     const masterReadouts = this.master.readouts()
     if (Object.keys(masterReadouts).length > 0) readouts.master = masterReadouts
     const preview = this.preview.position()
-    return { tempo: this.transport.tempo, masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, mode: this.playbackMode, beat: this.transport.positionBeats, peak, peaks, readouts, tracks, ...(preview && { preview }) }
+    const countIn = this.countInStatus()
+    return { ...(countIn && { countIn }), tempo: this.transport.tempo, masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, mode: this.playbackMode, beat: this.transport.positionBeats, peak, peaks, readouts, tracks, ...(preview && { preview }) }
   }
 
   /** Structural edits cancel the affected track and every transitive note reader, without touching unrelated tracks. */
@@ -381,6 +445,7 @@ export class Engine {
   }
 
   private stopTransport(): void {
+    this.counting = null
     this.automation.reset()
     this.transport.stop()
     for (const track of this.tracks.values()) track.reset()
@@ -388,11 +453,15 @@ export class Engine {
 
   /** Plays with the session launchers as the event source (switching back from the arrangement if needed). */
   private playSession(): void {
+    this.sessionMode()
+    this.transport.play()
+  }
+
+  private sessionMode(): void {
     if (this.playbackMode !== 'session') {
       this.playbackMode = 'session'
       for (const track of this.tracks.values()) track.setMode('session')
     }
-    this.transport.play()
   }
 
   /** Runs the mix of the block through the master graph and the master fader, in place. */

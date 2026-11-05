@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { type Clip, type EngineStatus, type Note, type Project, type TakeEvent, MAX_CLIP_BEATS, MAX_TAKE_NOTES, commit, createClip, finishedNotes, sessionClipRef, setClipAt, setClipLength, setClipNotes, takeNotes } from '@core'
+import { type Clip, type EngineStatus, type Note, type Project, type TakeEvent, type TakeLoop, EARLY_BEATS, MAX_CLIP_BEATS, MAX_TAKE_NOTES, commit, createClip, finishedNotes, sessionClipRef, setClipAt, setClipLength, setClipNotes, takeNotes } from '@core'
 import { guardHistory, useProjectStore } from './project-store'
 import { transportBeat } from './record-clock'
 import { useRecordSettings } from './record-settings'
@@ -13,9 +13,15 @@ const EPSILON = 1e-9
 const LAUNCH_WAIT_MS = 2000
 
 export type TakeState = 'queued' | 'recording' | 'ending'
+/**
+ * A take into a new clip in an empty slot (the slot's ●), or an overdub into a clip already playing on an armed track
+ * while ● Rec is on.
+ */
+export type TakeKind = 'slot' | 'overdub'
 /** What the view shows of a take: one per track at most. */
 export interface TakeView {
   readonly id: string
+  readonly kind: TakeKind
   readonly clipId: string
   readonly scene: number
   readonly state: TakeState
@@ -24,14 +30,23 @@ export interface TakeView {
 interface RecordState {
   /** The armed instrument tracks. Transient: not saved, not undone. */
   readonly armed: readonly string[]
+  /** ● Rec: what you play over a clip playing on an armed track is added to it. Transient, like the arm. */
+  readonly rec: boolean
   readonly takes: Readonly<Record<string, TakeView>>
   readonly feedback: string
   /** Arms or disarms a track; a track that isn't an instrument can't be armed. Disarming ends its take at the next bar. */
   arm(trackId: string, on: boolean): void
+  /** Turns ● Rec on or off; off ends every overdub now. */
+  setRec(on: boolean): void
 }
 
 interface Take {
   readonly id: string
+  readonly kind: TakeKind
+  /** Overdub: where the clip's passes are counted from and how long they are, once it plays. */
+  loop?: TakeLoop
+  /** How early a note may count as on the start: a sixteenth, but nothing at a punch-in. */
+  early: number
   readonly trackId: string
   readonly clipId: string
   readonly scene: number
@@ -54,21 +69,49 @@ interface Take {
 }
 
 const takes = new Map<string, Take>()
+/**
+ * The beat ● Rec went on, and each track was armed, on this run of the transport (−Infinity before it ran): an overdub
+ * records from the later of these and its clip's start.
+ */
+let recSince = -Infinity
+const armedSince = new Map<string, number>()
+/** The beats start again from 0 when the transport stops, so what was noted on the last run no longer applies. */
+const forgetSince = () => { recSince = -Infinity; armedSince.clear() }
+const sinceFor = (trackId: string) => Math.max(recSince, armedSince.get(trackId) ?? -Infinity)
 
 export const useRecordStore = create<RecordState>((set, get) => ({
-  armed: [], takes: {}, feedback: '',
+  armed: [], rec: false, takes: {}, feedback: '',
   arm: (trackId, on) => {
     const armed = get().armed
     if (on) {
       const track = useProjectStore.getState().project.tracks.find((t) => t.id === trackId)
       if (track?.kind !== 'instrument' || armed.includes(trackId)) return
-      set({ armed: [...armed, trackId], feedback: takes.size ? get().feedback : 'Press ● on an empty slot to record' })
+      armedSince.set(trackId, transportBeat() ?? -Infinity)
+      set({ armed: [...armed, trackId], feedback: takes.size ? get().feedback : get().rec ? recFeedback() : 'Press ● on an empty slot to record' })
+      if (get().rec) reconcileNow()
       return
     }
     if (!armed.includes(trackId)) return
-    if (takes.has(trackId)) endTake(trackId)
+    const take = takes.get(trackId)
+    if (take?.kind === 'overdub') finish(take, beatNow())
+    else if (take) endTake(trackId)
+    armedSince.delete(trackId)
     const rest = armed.filter((id) => id !== trackId)
-    set({ armed: rest, ...(rest.length === 0 && takes.size === 0 && { feedback: '' }) })
+    set({ armed: rest, ...(rest.length === 0 && takes.size === 0 && { feedback: get().rec ? recFeedback() : '' }) })
+  },
+  setRec: (on) => {
+    if (on === get().rec) return
+    if (on) {
+      recSince = transportBeat() ?? -Infinity
+      set({ rec: true })
+      reconcileNow()
+      feedback(recFeedback())
+      return
+    }
+    set({ rec: false })
+    const now = beatNow()
+    for (const take of [...takes.values()]) if (take.kind === 'overdub') { if (take.start === undefined) drop(take); else finish(take, now) }
+    feedback(takes.size ? recordingText() : '')
   },
 }))
 
@@ -76,10 +119,22 @@ const feedback = (message: string) => useRecordStore.setState({ feedback: messag
 const trackName = (trackId: string) => useProjectStore.getState().project.tracks.find((t) => t.id === trackId)?.name ?? 'a track'
 const publish = () => {
   const views: Record<string, TakeView> = {}
-  for (const take of takes.values()) views[take.trackId] = { id: take.id, clipId: take.clipId, scene: take.scene, state: take.state }
+  for (const take of takes.values()) views[take.trackId] = { id: take.id, kind: take.kind, clipId: take.clipId, scene: take.scene, state: take.state }
   useRecordStore.setState({ takes: views })
 }
-const recording = () => { if (takes.size) feedback(`Recording ${[...takes.keys()].map(trackName).join(', ')}`) }
+/** *Recording Bass*, *Overdubbing Lead*, or both. */
+const recordingText = () => {
+  const named = (kind: TakeKind) => [...takes.values()].filter((take) => take.kind === kind).map((take) => trackName(take.trackId))
+  const slot = named('slot'), overdub = named('overdub')
+  return [slot.length ? `Recording ${slot.join(', ')}` : '', overdub.length ? `Overdubbing ${overdub.join(', ')}` : ''].filter(Boolean).join(' · ')
+}
+const recording = () => { if (takes.size) feedback(recordingText()) }
+/** What ● Rec says while it is on: who records, or why nothing does. */
+const recFeedback = () => {
+  if (useRecordStore.getState().armed.length === 0) return 'Armed tracks: none'
+  if (useStatusStore.getState().status?.mode === 'arrangement') return "Recording into the Arrangement isn't available yet"
+  return takes.size ? recordingText() : 'Launch a clip on an armed track to overdub'
+}
 
 /** The next bar at least `margin` beats after `beat`. */
 const nextBar = (beat: number, margin = 0) => Math.ceil((beat + margin - EPSILON) / BAR) * BAR
@@ -120,10 +175,13 @@ const drop = (take: Take, message?: string) => {
   else if (takes.size) recording()
 }
 
+/** The take's range for the take model: its start and end, how early a note may be, and an overdub's passes. */
+const rangeOf = (take: Take) => ({ id: take.id, start: take.start!, end: take.end, early: take.early, ...(take.loop && { loop: take.loop }) })
+
 /** Writes what is finished so far. */
 const writeFinished = (take: Take) => {
   if (take.start === undefined) return
-  if (!write(take, finishedNotes(take.events, { id: take.id, start: take.start, end: take.end }, Infinity))) {
+  if (!write(take, finishedNotes(take.events, rangeOf(take), Infinity))) {
     if (takes.get(take.trackId) === take) finish(take, nextBar(beatNow()), `${MAX_TAKE_NOTES} notes reached: the take ended`)
   }
 }
@@ -133,12 +191,13 @@ const writeFinished = (take: Take) => {
  * the clip's length set to the bars recorded, at least one.
  */
 const finish = (take: Take, end: number, message?: string, close = end) => {
+  if (take.kind === 'overdub') { endOverdub(take, close, message); return }
   const start = take.start
   takes.delete(take.trackId)
   publish()
   if (start === undefined) { feedback(message ?? (takes.size ? '' : 'The take ended before it started')); if (takes.size) recording(); return }
   const length = Math.min(MAX_CLIP_BEATS, Math.max(BAR, end - start))
-  write(take, takeNotes(take.events, { id: take.id, start, end: Math.min(close, start + length) }))
+  write(take, takeNotes(take.events, { ...rangeOf(take), end: Math.min(close, start + length) }))
   if (useProjectStore.getState().documentEpoch === take.epoch && clipOf(useProjectStore.getState().project, take)) {
     commitTake(take, (project) => setClipLength(project, sessionClipRef(take.trackId, take.clipId), length))
     const clip = clipOf(useProjectStore.getState().project, take)
@@ -146,6 +205,59 @@ const finish = (take: Take, end: number, message?: string, close = end) => {
     feedback(message ?? `Recorded ${bars} bar${bars === 1 ? '' : 's'} into ${clip?.name ?? 'the clip'}`)
   }
   if (takes.size && !message) recording()
+}
+
+/**
+ * Ends an overdub at `at`: its held notes close there (cut at the clip's end), every note is written, and the clip is
+ * left as long as it was. Nothing played, nothing written: an empty overdub leaves no undo step.
+ */
+const endOverdub = (take: Take, at: number, message?: string) => {
+  takes.delete(take.trackId)
+  publish()
+  if (take.start !== undefined && take.epoch === useProjectStore.getState().documentEpoch && at > take.start) write(take, takeNotes(take.events, { ...rangeOf(take), end: at }))
+  if (message) feedback(message)
+  else if (takes.size) recording()
+  else if (useRecordStore.getState().rec) feedback(recFeedback())
+}
+
+const newTake = (kind: TakeKind, trackId: string, clipId: string, scene: number, events: TakeEvent[] = []): Take =>
+  ({ id: `take-${crypto.randomUUID()}`, kind, trackId, clipId, scene, epoch: useProjectStore.getState().documentEpoch, state: 'queued', early: EARLY_BEATS, events, openedAt: Date.now(), seen: false, written: new Set() })
+
+/** The clip with that id in a track's slots, and its scene. */
+const sessionClip = (project: Project, trackId: string, clipId: string): { clip: Clip; scene: number } | undefined => {
+  const track = project.tracks.find((t) => t.id === trackId)
+  if (track?.kind !== 'instrument') return undefined
+  const scene = track.clips.findIndex((c) => c?.id === clipId)
+  return scene < 0 ? undefined : { clip: track.clips[scene]!, scene }
+}
+
+/**
+ * Opens an overdub on a clip of an armed track, queued until it plays. `events` carries over what a take that ended at
+ * the same boundary had, so nothing played around it is lost.
+ */
+const openOverdub = (trackId: string, clipId: string, events?: TakeEvent[]): Take | undefined => {
+  const found = sessionClip(useProjectStore.getState().project, trackId, clipId)
+  if (!found) return undefined
+  const take = newTake('overdub', trackId, clipId, found.scene, events)
+  take.seen = true
+  takes.set(trackId, take)
+  return take
+}
+
+/**
+ * Starts an overdub when its clip plays from `anchor`: it records from the later of that and `since` (● Rec on, the
+ * arm, or the end of the take before it). Early notes count only from the clip's own start.
+ */
+const startOverdub = (take: Take, anchor: number, since: number, early = since <= anchor + EPSILON) => {
+  const clip = clipOf(useProjectStore.getState().project, take)
+  if (!clip) { drop(take); return }
+  take.loop = { anchor, length: clip.lengthBeats }
+  take.start = Math.max(anchor, since)
+  take.early = early ? EARLY_BEATS : 0
+  take.state = 'recording'
+  publish()
+  recording()
+  writeFinished(take)
 }
 
 /** Sets where a started take ends, and the clip's length to match, now: the engine loops there with no gap. */
@@ -168,10 +280,12 @@ export const recordInSlot = (trackId: string, scene: number, launch: (trackId: s
   if (track?.kind !== 'instrument' || track.clips[scene] === undefined || track.clips[scene] !== null) return false
   if (!useRecordStore.getState().armed.includes(trackId)) { feedback('Arm a track to record into it'); return false }
   const running = takes.get(trackId)
-  if (running) endTake(trackId)
+  // An overdub stops here; a take into a slot ends at the next bar, where the new one starts.
+  if (running?.kind === 'overdub') finish(running, beatNow())
+  else if (running) endTake(trackId)
   const bars = useRecordSettings.getState().fixedBars
   const clip = createClip(`Clip ${scene + 1}`, bars ? bars * BAR : MAX_CLIP_BEATS)
-  const take: Take = { id: `take-${crypto.randomUUID()}`, trackId, clipId: clip.id, scene, epoch: store.documentEpoch, state: 'queued', events: [], openedAt: Date.now(), seen: false, written: new Set() }
+  const take = newTake('slot', trackId, clip.id, scene)
   commitTake(take, (project) => setClipAt(project, trackId, scene, clip))
   takes.set(trackId, take)
   publish()
@@ -186,15 +300,41 @@ export const recordInSlot = (trackId: string, scene: number, launch: (trackId: s
  */
 export const endTake = (trackId: string): void => {
   const take = takes.get(trackId)
-  if (!take || take.state === 'ending') return
+  if (!take || take.kind !== 'slot' || take.state === 'ending') return
   const now = beatNow()
   if (take.start === undefined) { take.endAsked = now; take.state = 'ending'; publish(); return }
   setEnd(take, nextBar(now, END_MARGIN))
 }
 
-/** Ends every take now, at the bar after `beat` (the transport stopping): held notes are closed at `beat`. */
+/**
+ * Ends every take now, at the bar after `beat` (the transport stopping): held notes are closed at `beat`. A take
+ * stopped during its count-in never started: the empty clip made for it goes, in the same undo step.
+ */
 export const stopTakes = (beat = beatNow()): void => {
-  for (const take of [...takes.values()]) finish(take, Math.min(take.end ?? Infinity, nextBar(beat)), undefined, beat)
+  const countingIn = useStatusStore.getState().status?.countIn !== undefined
+  for (const take of [...takes.values()]) {
+    if (countingIn && take.kind === 'slot' && take.start === undefined) removeEmptyClip(take)
+    finish(take, Math.min(take.end ?? Infinity, nextBar(beat)), countingIn && take.start === undefined ? 'Count-in stopped: nothing recorded' : undefined, beat)
+  }
+  forgetSince()
+}
+
+const removeEmptyClip = (take: Take) => {
+  const clip = clipOf(useProjectStore.getState().project, take)
+  if (clip && clip.notes.length === 0 && take.epoch === useProjectStore.getState().documentEpoch) commitTake(take, (project) => setClipAt(project, take.trackId, take.scene, null))
+}
+
+/**
+ * How many bars to count in before a start: the count-in set, from a stopped transport that isn't counting in already,
+ * when the start records. It does when ● Rec is on, or when it launches a slot take's clip (`start`).
+ */
+export const countInBars = (start?: { readonly trackId: string; readonly clipId: string }): number => {
+  const bars = useRecordSettings.getState().countInBars
+  const status = useStatusStore.getState().status
+  if (!bars || status?.playing || status?.countIn) return 0
+  const take = start && takes.get(start.trackId)
+  const slot = take?.kind === 'slot' && take.clipId === start!.clipId && take.start === undefined
+  return useRecordStore.getState().rec || slot ? bars : 0
 }
 
 /** Ends every take as of now: before undo and redo, so the take is whole when it is undone. */
@@ -207,7 +347,8 @@ export const endTakesNow = (): void => {
 export const cancelRecords = (): void => {
   takes.clear()
   publish()
-  useRecordStore.setState({ armed: [], feedback: '' })
+  forgetSince()
+  useRecordStore.setState({ armed: [], rec: false, feedback: '' })
 }
 
 /** A note-on or note-off as the MIDI adapter passes it: its beat is undefined while the transport is stopped. */
@@ -238,6 +379,7 @@ export const recordPedal = (source: string, channel: number, down: boolean, beat
  */
 export const reconcileRecords = (status: EngineStatus): void => {
   const previous = useStatusStore.getState().status
+  if (!status.playing && !status.countIn) forgetSince()
   for (const take of [...takes.values()]) {
     if (takes.get(take.trackId) !== take) continue
     if (take.epoch !== useProjectStore.getState().documentEpoch) { drop(take); continue }
@@ -248,9 +390,10 @@ export const reconcileRecords = (status: EngineStatus): void => {
     const gone = !waiting && (take.seen || Date.now() - take.openedAt > LAUNCH_WAIT_MS)
     if (!status.playing) {
       if (take.start !== undefined) stopTakes(previous?.beat ?? status.beat)
-      else if (gone) drop(take, 'The take ended before it started')
+      else if (gone) drop(take, take.kind === 'slot' ? 'The take ended before it started' : undefined)
       continue
     }
+    if (take.kind === 'overdub') { reconcileOverdub(take, status, previous, gone); continue }
     if (take.start === undefined) {
       if (launcher?.playingClipId === take.clipId && launcher.startBeat !== null) {
         take.start = launcher.startBeat
@@ -272,9 +415,67 @@ export const reconcileRecords = (status: EngineStatus): void => {
       continue
     }
     if (take.end !== undefined && status.beat >= take.end - EPSILON) {
-      finish(take, take.end, take.state === 'recording' && take.limit ? '64 bars reached: the take ended' : undefined)
+      const end = take.end
+      finish(take, end, take.state === 'recording' && take.limit ? '64 bars reached: the take ended' : undefined)
+      // With ● Rec on, the clip goes on overdubbing from where the take ended, keeping what was played around it.
+      if (overdubbing(take.trackId, status) && launcher.startBeat !== null) {
+        const next = openOverdub(take.trackId, take.clipId, [...take.events])
+        if (next) startOverdub(next, launcher.startBeat, end, false)
+      }
     }
   }
+  openOverdubs(status)
+}
+
+/** Whether a track overdubs now: ● Rec on, the track armed, and the Session playing (or counting in). */
+const overdubbing = (trackId: string, status: EngineStatus) =>
+  useRecordStore.getState().rec && useRecordStore.getState().armed.includes(trackId) && status.mode === 'session' && (status.playing || status.countIn !== undefined)
+
+/** Follows an overdub's clip: it starts when the clip plays, and ends when the clip stops, is relaunched or changes length. */
+const reconcileOverdub = (take: Take, status: EngineStatus, previous: EngineStatus | null, gone: boolean) => {
+  const launcher = status.tracks[take.trackId]
+  if (status.mode !== 'session') { finish(take, previous?.beat ?? status.beat); return }
+  if (take.start === undefined) {
+    if (launcher?.playingClipId === take.clipId && launcher.startBeat !== null) startOverdub(take, launcher.startBeat, sinceFor(take.trackId))
+    else if (gone) drop(take)
+    return
+  }
+  const clip = clipOf(useProjectStore.getState().project, take)
+  if (!clip) { drop(take); return }
+  if (launcher?.playingClipId !== take.clipId || launcher.startBeat !== take.loop!.anchor) {
+    // Stopped, replaced, or relaunched at a boundary: the take ends there, and a clip playing from it goes on with
+    // what was played around it.
+    const boundary = launcher?.playingClipId ? (launcher.startBeat ?? status.beat) : (launcher?.stopBeat ?? previous?.beat ?? status.beat)
+    finish(take, boundary)
+    if (launcher?.playingClipId && launcher.startBeat !== null && overdubbing(take.trackId, status)) {
+      const next = openOverdub(take.trackId, launcher.playingClipId, [...take.events])
+      if (next) startOverdub(next, launcher.startBeat, boundary, false)
+    }
+    return
+  }
+  // A new length moves where the passes fall: this take ends, and the next one counts from the new length.
+  if (clip.lengthBeats !== take.loop!.length) finish(take, beatNow())
+}
+
+/** Opens an overdub for each armed track with a clip playing or queued, while ● Rec is on. */
+const openOverdubs = (status: EngineStatus) => {
+  if (!useRecordStore.getState().rec) return
+  for (const trackId of useRecordStore.getState().armed) {
+    if (takes.has(trackId) || !overdubbing(trackId, status)) continue
+    const launcher = status.tracks[trackId]
+    if (status.playing && launcher?.playingClipId && launcher.startBeat !== null) {
+      const take = openOverdub(trackId, launcher.playingClipId)
+      if (take) startOverdub(take, launcher.startBeat, sinceFor(trackId))
+    } else if (launcher?.queued) {
+      if (openOverdub(trackId, launcher.queued)) { publish(); recording() }
+    }
+  }
+}
+
+/** Opens what ● Rec or an arm should open now, by the last status. */
+const reconcileNow = () => {
+  const status = useStatusStore.getState().status
+  if (status) openOverdubs(status)
 }
 
 guardHistory(endTakesNow)

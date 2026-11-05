@@ -64,3 +64,28 @@ describe('finishedNotes', () => {
     expect(shape(finishedNotes([on(3, 60), off(5, 60)], { ...range, end: 4 }, 5))).toEqual([[60, 3, 1]])
   })
 })
+
+describe('takeNotes with a loop (overdub)', () => {
+  // A 4-beat clip that started at beat 8; the overdub records from beat 8 too.
+  const range = { id: 'take', start: 8, end: 40, loop: { anchor: 8, length: 4 } }
+  it.each<[string, TakeEvent[], (number[])[], Partial<typeof range> & { early?: number }]>([
+    ['places a note by its position in the pass', [on(13, 60), off(14, 60)], [[60, 1, 1]], {}],
+    ['notes from pass 1 and pass 3 land in the one clip', [on(9, 60), off(9.5, 60), on(18.5, 62), off(19, 62)], [[60, 1, 0.5], [62, 2.5, 0.5]], {}],
+    ['a note held across the end is cut at the clip end', [on(11, 60), off(13, 60)], [[60, 3, 1]], {}],
+    ['a note sustained across the end is cut at the clip end', [pedal(10, true), on(11.5, 60), off(11.75, 60), pedal(14, false)], [[60, 3.5, 0.5]], {}],
+    ['a note held when the take ends is closed there, inside the clip', [on(25, 60)], [[60, 1, 3]], { end: 28 }],
+    ['an early note at the anchor counts as on its first beat', [on(8 - EARLY_BEATS / 2, 60), off(9, 60)], [[60, 0, 1]], {}],
+    ['a punch-in in pass 2 keeps no earlier note', [on(13, 60), off(14, 60), on(14.5, 62), off(15, 62)], [[62, 2.5, 0.5]], { start: 14, early: 0 }],
+    ['a note just under the end wraps to 0, not to the length', [on(12 - 1e-12, 60), off(13, 60)], [[60, 0, 1]], {}],
+    ['a fractional length wraps by itself', [on(11, 60), off(11.25, 60), on(14, 62), off(14.25, 62)], [[60, 0.5, 0.25], [62, 1, 0.25]], { loop: { anchor: 8, length: 2.5 } }],
+    ['a three-beat clip', [on(15.5, 60), off(16, 60)], [[60, 1.5, 0.5]], { loop: { anchor: 8, length: 3 } }],
+    ['the shortest note at the very end stays inside the clip', [on(11.999, 60), off(11.9995, 60)], [[60, 3.999, 0.001]], {}],
+  ])('%s', (_name, events, expected, over) => {
+    expect(shape(takeNotes(events, { ...range, ...over }))).toEqual(expected)
+  })
+
+  it('finishedNotes places and cuts the same way', () => {
+    const events = [on(11, 60), off(13, 60), on(13.5, 62)]
+    expect(shape(finishedNotes(events, { id: 'take', start: 8, loop: { anchor: 8, length: 4 } }, 13.6))).toEqual([[60, 3, 1]])
+  })
+})

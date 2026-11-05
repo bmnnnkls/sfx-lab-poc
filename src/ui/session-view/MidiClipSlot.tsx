@@ -20,7 +20,10 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
     (state) => !!clip && state.status?.tracks[trackId]?.queued === clip.id,
   )
   const armed = useRecordStore((state) => state.armed.includes(trackId))
-  const take = useRecordStore((state) => (clip && state.takes[trackId]?.clipId === clip.id ? state.takes[trackId] : undefined))
+  const recorded = useRecordStore((state) => (clip && state.takes[trackId]?.clipId === clip.id ? state.takes[trackId] : undefined))
+  // A take into a new clip draws the slot as recording; an overdub keeps it playing, with a red dot.
+  const take = recorded?.kind === 'slot' ? recorded : undefined
+  const overdub = recorded?.kind === 'overdub'
   const slot: SubjectOf<'slot'> = { kind: 'slot', trackId, scene }
   const subject: SubjectOf<'clip'> | null = clip && { kind: 'clip', trackId, clipId: clip.id }
   // A filled slot is a target too, so it shows that it refuses.
@@ -76,6 +79,7 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
         <InPlaceRename subject={subject} name={clip.name} label={`Name of ${clip.name}`} className={styles.launch}>
           <button className={styles.launch} onClick={() => runAction('clip.launch', subject, context)}>
             {playing ? '■' : '▶'} {clip.name}
+            {overdub && <span className={styles.overdubDot} role="img" aria-label="overdubbing" title="Overdubbing: what you play is added to this clip"> ●</span>}
           </button>
         </InPlaceRename>
         <button onClick={() => runAction('clip.edit', subject, context)} aria-label={`Edit ${clip.name}`}>

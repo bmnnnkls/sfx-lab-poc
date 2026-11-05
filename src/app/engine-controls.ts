@@ -1,5 +1,6 @@
 import type { AudioHost } from '@audio'
-import { type EngineControls, useControlStore, finishTouches, stopTakes } from '@state'
+import type { CountInStart } from '@core'
+import { type EngineControls, countInBars, useControlStore, finishTouches, stopTakes } from '@state'
 
 /**
  * Binds UI intents to engine commands. Every control starts audio first, so the
@@ -10,6 +11,11 @@ export const createEngineControls = (host: AudioHost): EngineControls => {
     void host.start()
     host.send(command)
   }
+  /** A start that records from a stopped transport counts in first, when a count-in is set. */
+  const start = (command: CountInStart, take?: { trackId: string; clipId: string }) => {
+    const bars = countInBars(take)
+    run(bars ? { type: 'transport/countIn', bars, then: command } : command)
+  }
 
   return {
     noteOn: (trackId, note, pitch, velocity) => run({ type: 'track/noteOn', trackId, note, pitch, velocity }),
@@ -17,11 +23,11 @@ export const createEngineControls = (host: AudioHost): EngineControls => {
     sustain: (sourceId, channel, down) => run({ type: 'notes/sustain', sourceId, channel, down }),
     releaseSource: (sourceId, channel) => run({ type: 'notes/releaseSource', sourceId, ...(channel === undefined ? {} : { channel }) }),
     panic: () => run({ type: 'notes/panic' }),
-    play: () => run({ type: 'transport/play' }),
+    play: () => start({ type: 'transport/play' }),
     stop: () => { finishTouches(); stopTakes(); useControlStore.getState().clear(); run({ type: 'transport/stop' }) },
-    launchClip: (trackId, clipId) => run({ type: 'clip/launch', trackId, clipId }),
+    launchClip: (trackId, clipId) => start({ type: 'clip/launch', trackId, clipId }, { trackId, clipId }),
     launchAutomation: (owner, slotId) => run({ type: 'automation/launch', owner, slotId }),
-    launchScene: (scene, trackIds) => run({ type: 'scene/launch', scene, ...(trackIds && { trackIds }) }),
+    launchScene: (scene, trackIds) => start({ type: 'scene/launch', scene, ...(trackIds && { trackIds }) }),
     stopTrack: (trackId) => run({ type: 'track/stop', trackId }),
     auditionNote: (trackId, pitch, velocity) => run({ type: 'track/audition', trackId, pitch, velocity }),
     playArrangement: (fromBeat = 0) => run({ type: 'arrangement/play', fromBeat }),

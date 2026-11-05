@@ -44,18 +44,19 @@ export class Metronome {
 
   /**
    * Adds the clicks of a block of `frames` samples at `offset` into the buffers. `fromBeat` is the transport's beat at
-   * the block's first sample, or null while it is stopped. A click starts on the first sample at or after its beat and
-   * runs on into the next blocks.
+   * the block's first sample, or null while it is stopped; a count-in passes its own beats (negative, up to 0) and
+   * `force`, which clicks them even while the metronome is off. A click starts on the first sample at or after its beat
+   * and runs on into the next blocks.
    */
-  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, fromBeat: number | null, beatsPerSample: number): void {
+  mixInto(left: Float32Array, right: Float32Array, offset: number, frames: number, fromBeat: number | null, beatsPerSample: number, force = false): void {
     if (fromBeat === null) this.lastBeat = -Infinity
     else if (fromBeat < this.lastBeat) this.lastBeat = -Infinity
-    if (this.on && fromBeat !== null && beatsPerSample > 0) {
+    if ((this.on || force) && fromBeat !== null && beatsPerSample > 0) {
       for (let beat = Math.max(Math.ceil(fromBeat - beatsPerSample), this.lastBeat + 1); ; beat++) {
         const frame = Math.ceil((beat - fromBeat) / beatsPerSample - 1e-6)
         if (frame < 0) continue
         if (frame >= frames) break
-        const hz = beat % BEATS_PER_BAR === 0 ? BAR_HZ : BEAT_HZ
+        const hz = ((beat % BEATS_PER_BAR) + BEATS_PER_BAR) % BEATS_PER_BAR === 0 ? BAR_HZ : BEAT_HZ
         this.clicks.push({ age: -frame, step: (2 * Math.PI * hz) / this.sampleRate })
         this.lastBeat = beat
       }

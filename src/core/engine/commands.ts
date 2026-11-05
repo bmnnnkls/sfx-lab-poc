@@ -5,6 +5,13 @@ import type { Patch } from '../patch'
 import type { ArrangementClip, AudioClip, Clip, SendLevels } from '../project'
 import type { SampleData, SampleLoop } from '../sample'
 
+/** What a count-in starts when it ends. */
+export type CountInStart =
+  | { readonly type: 'transport/play' }
+  | { readonly type: 'clip/launch'; readonly trackId: string; readonly clipId: string }
+  | { readonly type: 'scene/launch'; readonly scene: number; readonly trackIds?: readonly string[] }
+  | { readonly type: 'arrangement/play'; readonly fromBeat?: number }
+
 /** Everything the outside world can ask the engine to do. Plain data, safe to post across threads. */
 export type EngineCommand =
   | { readonly type: 'automation/launch'; readonly owner: import('../control').ControlOwner; readonly slotId: string | null }
@@ -22,6 +29,11 @@ export type EngineCommand =
   | { readonly type: 'transport/setTempo'; readonly bpm: number }
   /** Turns the click on or off, at `level` dB (−40 to 0). Not part of the project, so a bounce never has it. */
   | { readonly type: 'transport/metronome'; readonly on: boolean; readonly level: number }
+  /**
+   * From a stopped transport: clicks `bars` bars at the tempo, then runs `then` on the frame the count-in ends.
+   * Launches in `then` are queued at once, so they show as waiting. While playing, or with 0 bars, `then` runs at once.
+   */
+  | { readonly type: 'transport/countIn'; readonly bars: number; readonly then: CountInStart }
   | { readonly type: 'arrangement/set'; readonly clips: readonly ArrangementClip[] }
   | { readonly type: 'arrangement/play'; readonly fromBeat?: number }
   | { readonly type: 'arrangement/stop' }

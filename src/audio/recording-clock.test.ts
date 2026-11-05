@@ -17,3 +17,38 @@ it('timestamps UI stalls in the audio clock, retaining tempo segments for delaye
   expect(clock.beat(27)).toBe(1)
   expect(clock.beat(10.8)).toBeUndefined() // stale callback from the previous run
 })
+
+const countingIn = (beat: number, tempo = 120): EngineStatus => ({ ...status(0, tempo, false), countIn: { barsLeft: Math.ceil(-beat / 4), beat } })
+
+it('runs through a count-in at its negative beats, and on through the start', () => {
+  const clock = new RecordingClock()
+  clock.update(status(0, 120, false), 9)
+  expect(clock.beat(9.5)).toBeUndefined()
+  // A one-bar count-in from 10 s: beats −4 to 0 over 2 s at 120 BPM.
+  clock.update(countingIn(-4), 10)
+  expect(clock.beat(10)).toBe(-4)
+  expect(clock.beat(11.875)).toBeCloseTo(-0.25)
+  clock.update(countingIn(-2), 11)
+  // The start, stamped at its own frame (the worklet's clock edge), carries on from 0.
+  clock.update(status(0), 12)
+  expect(clock.beat(12.5)).toBe(1)
+  // Before the count-in there is still nothing.
+  expect(clock.beat(9.9)).toBeUndefined()
+})
+
+it('jumps to an arrangement position at the start after a count-in', () => {
+  const clock = new RecordingClock()
+  clock.update(countingIn(-4), 10)
+  clock.update(status(16), 12)
+  expect(clock.beat(11.5)).toBeCloseTo(-1)
+  expect(clock.beat(12.25)).toBeCloseTo(16.5)
+})
+
+it('a stop during a count-in leaves nothing after it', () => {
+  const clock = new RecordingClock()
+  clock.update(countingIn(-8), 10)
+  clock.update(status(0, 120, false), 11)
+  expect(clock.beat(11.5)).toBeUndefined()
+  // A note stamped in the count-in, read after the stop, can't reach a later take either.
+  expect(clock.beat(10.5)).toBeUndefined()
+})

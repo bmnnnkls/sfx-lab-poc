@@ -67,7 +67,7 @@ describe('the arrangement loop', () => {
     while (jumps < 10 && rendered < budget) {
       engine.render(left, right)
       rendered += chunk
-      const jump = engine.lastJump()
+      const jump = engine.lastClockEdge()
       if (jump) {
         jumps++
         expect(jump.beat).toBeGreaterThanOrEqual(1)

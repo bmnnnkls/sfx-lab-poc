@@ -79,21 +79,36 @@
   color: var(--text-dim);
 }
 
-/* ♩ and its ▾, joined. */
-.metronome {
+/* ● Rec and its ▾, joined. */
+.joined {
   display: flex;
 }
 
-.metronome > button:first-child {
+.joined > button:first-child {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
 
-.metronome > button:last-child {
+.joined > button:last-child {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
   border-left: none;
   padding-inline: 4px;
+}
+
+.recording {
+  color: var(--record);
+  border-color: var(--record);
+}
+
+/* ▶ while a count-in runs: lit, but dimmed, since the transport hasn't started yet. */
+.countingIn {
+  opacity: 0.6;
+}
+
+.countIn {
+  color: var(--record);
+  font-variant-numeric: tabular-nums;
 }
 
 .recordFeedback {

@@ -163,3 +163,29 @@ test('a recorded take plays back on the beats it was played; the click is live a
     expect(Math.max(...Array.from(wav.subarray(from, to), Math.abs))).toBeLessThan(1e-6)
   }
 })
+
+test('a count-in clicks four beats a beat apart with the metronome off, then the take starts and the clicks stop', async ({ page }) => {
+  await page.addInitScript((project) => localStorage.setItem('sfxlab:project', project), serializeProject(synthProject()))
+  await page.addInitScript(() => localStorage.setItem('sfxlab:record', JSON.stringify({ countInBars: 1 })))
+  await installMidiPorts(page); await installCapture(page)
+  await page.goto('/')
+  const rate = await page.evaluate(() => new AudioContext().sampleRate)
+  await expect(page.getByRole('button', { name: 'Metronome', exact: true })).toHaveAttribute('aria-pressed', 'false')
+  // Wake the audio first (an empty transport start and stop), so the capture runs before the count-in begins.
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.__recordSamples?.length ?? 0)).toBeGreaterThan(4096)
+  await page.getByRole('button', { name: 'Stop', exact: true }).first().click()
+
+  const session = viewRoot(page, 'Session')
+  await session.getByRole('button', { name: 'Arm Rec synth for recording', exact: true }).click()
+  await page.evaluate(() => { window.__recordSamples = [] })
+  await session.getByRole('button', { name: 'Record a clip here', exact: true }).first().click()
+  await expect(page.getByRole('status', { name: 'Count-in' })).toHaveText('Count-in 1')
+  await expect(session.locator('[data-recording]')).toHaveAttribute('data-recording', 'recording', { timeout: 5000 })
+  // Two more beats of the take itself, where nothing clicks.
+  await expect.poll(() => page.evaluate(() => window.__recordSamples.length), { timeout: 10_000 }).toBeGreaterThan(rate * 3.2)
+  const clicks = risingEdges(await page.evaluate(() => window.__recordSamples), 0.05, 2000)
+  expect(clicks).toHaveLength(4)
+  for (let i = 1; i < clicks.length; i++) expect(Math.abs(clicks[i]! - clicks[i - 1]! - rate / RATE_BEATS)).toBeLessThanOrEqual(32)
+  await page.getByRole('button', { name: 'Stop', exact: true }).first().click()
+})

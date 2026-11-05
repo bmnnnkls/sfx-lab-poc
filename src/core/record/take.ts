@@ -25,6 +25,16 @@ export interface TakeRange {
   readonly end?: number
   /** How early a note may start and count as at `start` (`EARLY_BEATS`). */
   readonly early?: number
+  /**
+   * Overdub: the notes go into a clip `length` beats long that started playing at `anchor`, so a note is placed at
+   * `(on - anchor) mod length` and cut at the clip's end. Without it, notes are relative to `start` and nothing wraps.
+   */
+  readonly loop?: TakeLoop
+}
+
+export interface TakeLoop {
+  readonly anchor: number
+  readonly length: number
 }
 
 interface Paired {
@@ -81,17 +91,25 @@ const pair = (events: readonly TakeEvent[]): Paired[] => {
   return notes
 }
 
-const toNote = (note: Paired, { id, start, end = Infinity, early = EARLY_BEATS }: TakeRange, close: number): Note | null => {
+const toNote = (note: Paired, { id, start, end = Infinity, early = EARLY_BEATS, loop }: TakeRange, close: number): Note | null => {
   if (note.on < start - early - 1e-9 || note.on >= end) return null
   const from = Math.max(note.on, start)
   const to = Math.min(note.off ?? close, end)
-  return { id: takeNoteId(id, note.index), pitch: note.pitch, start: from - start, duration: Math.max(MIN_NOTE_BEATS, to - from), velocity: note.velocity }
+  const duration = Math.max(MIN_NOTE_BEATS, to - from)
+  if (!loop || !(loop.length > 0)) return { id: takeNoteId(id, note.index), pitch: note.pitch, start: from - start, duration, velocity: note.velocity }
+  const { anchor, length } = loop
+  let at = (from - anchor) % length
+  if (at < 0) at += length
+  if (at > length - 1e-9) at = 0
+  // A note held across the loop's end stops at the clip's end: the part after the wrap isn't recorded.
+  const room = length - at
+  return { id: takeNoteId(id, note.index), pitch: note.pitch, start: at, duration: Math.min(duration, room), velocity: note.velocity }
 }
 
 const ordered = (notes: Note[]): Note[] => notes.sort((a, b) => a.start - b.start || a.pitch - b.pitch)
 
 /**
- * The notes a take made, relative to its start: a note held or sustained at `end` ends there; a note-on within `early`
+ * The notes a take made, relative to its start (or, with `loop`, placed in the clip by pass): a note held or sustained at `end` ends there; a note-on within `early`
  * before `start` starts at `start`, earlier ones are dropped, and so are notes starting at or after `end`.
  */
 export const takeNotes = (events: readonly TakeEvent[], range: TakeRange & { readonly end: number }): Note[] =>

@@ -5,7 +5,8 @@ import { usePersistenceStore } from '../persistence-store'
 import { selectCanRedo, selectCanUndo, useProjectStore } from '../project-store'
 import { useStatusStore } from '../status-store'
 import { useTouchStore } from '../touch-store'
-import { FIXED_LENGTHS, type FixedLength, useRecordSettings } from '../record-settings'
+import { COUNT_IN_BARS, type CountInBars, FIXED_LENGTHS, type FixedLength, useRecordSettings } from '../record-settings'
+import { useRecordStore } from '../record-store'
 import { LIBRARY_COMMANDS } from './library-commands'
 import type { Command } from './types'
 
@@ -40,7 +41,26 @@ export const METRONOME_LEVELS = [0, -6, -12, -18, -24, -30, -40] as const
 /** How a fixed length is named: *Off*, *1 bar*, *4 bars*. */
 export const fixedLengthTitle = (bars: FixedLength): string => (bars === 0 ? 'Off' : `${bars} bar${bars === 1 ? '' : 's'}`)
 
+/** How a count-in is named: *Off*, *1 bar*, *2 bars*. */
+export const countInTitle = (bars: CountInBars): string => (bars === 0 ? 'Off' : `${bars} bar${bars === 1 ? '' : 's'}`)
+
 const recordCommands: readonly Command[] = [
+  {
+    id: 'transport.record',
+    category: 'Transport',
+    title: 'Toggle recording',
+    label: () => (useRecordStore.getState().rec ? 'Turn recording off' : 'Turn recording on'),
+    tooltip: 'Record: overdub what you play into the clips playing on armed tracks',
+    run: () => useRecordStore.getState().setRec(!useRecordStore.getState().rec),
+  },
+  {
+    id: 'transport.count-in',
+    category: 'Transport',
+    title: 'Count-in',
+    tooltip: 'Bars clicked before a take that starts from a stopped transport',
+    choices: () => COUNT_IN_BARS.map((bars) => ({ id: String(bars), title: countInTitle(bars), checked: useRecordSettings.getState().countInBars === bars })),
+    run: (_context, choice) => { if (choice !== undefined) useRecordSettings.getState().setCountIn(Number(choice) as CountInBars) },
+  },
   {
     id: 'transport.metronome',
     category: 'Transport',
@@ -128,7 +148,8 @@ export const STATE_COMMANDS: readonly Command[] = [
     id: 'transport.play-stop',
     category: 'Transport',
     title: 'Play or stop',
-    run: ({ engine }) => (useStatusStore.getState().status?.playing ? engine.stop() : engine.play()),
+    // A count-in is a start under way: Space stops it, as it stops playing.
+    run: ({ engine }) => { const status = useStatusStore.getState().status; if (status?.playing || status?.countIn) engine.stop(); else engine.play() },
   },
   { id: 'transport.play', category: 'Transport', title: 'Play', run: ({ engine }) => engine.play() },
   { id: 'transport.stop', category: 'Transport', title: 'Stop', run: ({ engine }) => engine.stop() },

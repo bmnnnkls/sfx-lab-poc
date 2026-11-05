@@ -60,5 +60,5 @@ export const LIBRARY_MENU: readonly CommandMenuItem[] = [
   'view.show.library',
 ]
 
-/** ♩'s ▾ in the transport bar: the metronome and the record settings, until ● Rec has a menu of its own. */
-export const RECORD_MENU: readonly CommandMenuItem[] = ['transport.metronome', SEPARATOR, 'transport.metronome-level', 'transport.fixed-length']
+/** ● Rec's ▾ in the transport bar: the record settings. */
+export const RECORD_MENU: readonly CommandMenuItem[] = ['transport.fixed-length', 'transport.count-in', 'transport.metronome-level']

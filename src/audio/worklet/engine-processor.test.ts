@@ -143,3 +143,38 @@ it("stamps a loop jump with its own frame's time, so the recording clock follows
   expect(clock.beat(10.005)).toBeCloseTo(0.01)
   expect(clock.beat(10.012)).toBeCloseTo(0.004)
 })
+
+it("stamps the start after a count-in with its own frame's time, and the clock runs through the count-in", async () => {
+  const messages: WorkletMessage[] = []
+  class Shell {
+    port = { onmessage: (_event: { data: HostMessage }) => {}, postMessage: (message: WorkletMessage) => messages.push(message) }
+  }
+  let Processor: new () => Shell & { process(input: Float32Array[][], output: Float32Array[][]): boolean } = undefined!
+  vi.resetModules()
+  vi.stubGlobal('sampleRate', 8000); vi.stubGlobal('currentTime', 10)
+  vi.stubGlobal('AudioWorkletProcessor', Shell)
+  vi.stubGlobal('registerProcessor', (_name: string, factory: typeof Processor) => { Processor = factory })
+  await import('./engine-processor')
+  const processor = new Processor(), output = [[new Float32Array(128), new Float32Array(128)]]
+  const send = (command: import('@core').EngineCommand) => processor.port.onmessage({ data: { kind: 'command', command } })
+  processor.port.onmessage({ data: { kind: 'prepare' } })
+  // 97 bpm at 8 kHz: a bar is 19793.8 frames, so the start is frame 19794, 82 frames into the 155th call.
+  send({ type: 'transport/setTempo', bpm: 97 })
+  send({ type: 'transport/countIn', bars: 1, then: { type: 'transport/play' } })
+  messages.length = 0
+  for (let call = 0; call < 170; call++) {
+    vi.stubGlobal('currentTime', 10 + (call * 128) / 8000)
+    processor.process([], output)
+  }
+  const start = 10 + 19794 / 8000
+  expect(messages.filter((message) => message.kind === 'clock').at(-1)).toMatchObject({ audioTime: start, clock: { beat: 0, playing: true } })
+  const clock = new RecordingClock()
+  for (const message of messages) {
+    if (message.kind === 'clock') clock.update(message.clock, message.audioTime)
+    else if (message.kind === 'status') clock.update(message.status, message.audioTime!)
+  }
+  const beat = 60 / 97
+  expect(clock.beat(10)).toBeCloseTo(-4)
+  expect(clock.beat(start - beat / 8)).toBeCloseTo(-1 / 8, 3)
+  expect(clock.beat(start + beat)).toBeCloseTo(1, 3)
+})
