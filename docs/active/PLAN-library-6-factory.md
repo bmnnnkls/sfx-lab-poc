@@ -217,3 +217,27 @@ Signed off 2026-11-04: every row as proposed.
 * **Step 2:** checked in the preview (dev build, Low Light) with the Library at 280 px in the sidebar: the root, *Drums*
   open, *Clap*'s details and menu, *Add as new track*, then Sounds on the new track (*From the library · Clap*) and the
   details' "Used on Clap". The empty Library at 280 × 200 and 280 × 420 in a throwaway spec's screenshots.
+* **Step 3:** `copyLibraryEntries(from, to, ids, folderId)` copies a folder with its live folders and items, an item
+  with its live presets, and a preset with its sound, so the copy is whole; the revisions they use get new ids, and so
+  do the preset states. What was inside a copied folder stays inside its copy; the rest lands in `folderId`. Names
+  stay (as an Alt-drag into another folder keeps them). The folder, item and revision caps are checked first.
+* **Step 3:** "the open My library folder" is kept in the store as `mineFolder`: making a My library row (or a root)
+  active sets it, and a Factory row keeps it, so `openFolder()` while a Factory row is active is the folder open before.
+  Saves made then go there too.
+* **Step 3:** *Copy to My library* sits in the `edit` group before *Export*, on Factory items and folders; a Factory
+  folder's details have it as their main button. A Factory row dragged onto *My library* or one of its live folders is
+  copied (`drop.factory-item-on-folder` and its kin, always a copy); the trash and the Factory take none. Both report
+  "Copied Kick to My library" with *Show*, which makes the copy active and names it in place, as a save's *Show* does.
+* **Step 3:** a Factory row's drop target is null, which `useDropTarget` marks `data-drop="refuse"` while a drag is over
+  it: the smoke checks that, and that nothing changed.
+* **Step 3:** the round trip is in `library-transfer.test.ts`: *Effects* and *Kick* copied into a folder, exported as an
+  `.sfxlib`, staged and imported, give the same items and revision signatures, with no `factory:` id left.
+* **Step 3:** `library-factory.smoke.spec.ts` has four cases: the folders and the root's place (and *Preview Kick*, and
+  a menu without *Rename*, *Duplicate*, *Move to* or *Trash*); *Bass* dragged onto Lead, then Sounds' *From the library
+  · Bass* (the phase 5 gap's smoke case); nothing dropping onto *Drums*; and *Copy to My library* by menu (renamed *My
+  kick* through *Show*) and by a drag (*Sub*), both still there after a reload.
+* **Step 3:** checked in the preview (dev build, Low Light, Library at 280 px in the sidebar): *Copy to My library* on
+  the Factory's *Kick* (toast, *Show* naming it in place); after a reload, with the Library not yet shown, selecting the
+  Factory-linked track made Sounds load the Factory and list *From the library · Clap*. The sidebar can't be widened
+  past its maximum, so the wide layout (tree beside details) was checked in a throwaway spec's screenshot, docked in the
+  panel.

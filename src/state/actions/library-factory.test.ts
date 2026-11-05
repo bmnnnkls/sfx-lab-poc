@@ -47,11 +47,11 @@ beforeEach(() => {
 
 describe('Factory items and folders', () => {
   it('are used, never edited: no Rename, Duplicate, Move or Trash', () => {
-    expect(titles(item(KICK))).toEqual(['Preview', 'Insert new instrument track', 'Replace selected graph', 'Export as .sfxlib…'])
-    expect(titles(item('factory:clips/low-light/groove-kick'))).toEqual(['Preview', 'Insert new instrument track', 'Insert into Bass', 'Replace clip in Bass', 'Export as .sfxlib…'])
-    expect(titles(item('factory:effects/returns/room'))).toEqual(['Preview', 'Insert new instrument track', 'Replace selected graph', 'Export as .sfxlib…'])
-    expect(titles(folder('factory:drums'))).toEqual(['Open', 'Export as .sfxlib…'])
-    expect(titles(folder('factory:effects/returns'))).toEqual(['Open', 'Export as .sfxlib…'])
+    expect(titles(item(KICK))).toEqual(['Preview', 'Insert new instrument track', 'Replace selected graph', 'Copy to My library', 'Export as .sfxlib…'])
+    expect(titles(item('factory:clips/low-light/groove-kick'))).toEqual(['Preview', 'Insert new instrument track', 'Insert into Bass', 'Replace clip in Bass', 'Copy to My library', 'Export as .sfxlib…'])
+    expect(titles(item('factory:effects/returns/room'))).toEqual(['Preview', 'Insert new instrument track', 'Replace selected graph', 'Copy to My library', 'Export as .sfxlib…'])
+    expect(titles(folder('factory:drums'))).toEqual(['Open', 'Copy to My library', 'Export as .sfxlib…'])
+    expect(titles(folder('factory:effects/returns'))).toEqual(['Open', 'Copy to My library', 'Export as .sfxlib…'])
     // A personal folder keeps its whole menu.
     expect(titles(folder('mine-folder'))).toEqual(['Open', 'Rename', 'New folder inside', 'Duplicate', 'Move to', 'Export as .sfxlib…', 'Trash'])
   })
@@ -85,10 +85,51 @@ describe('Factory items and folders', () => {
     expect(dropFor(item('factory:bass/sub'), { kind: 'track', trackId: bass.id }, context())?.id).toBe('drop.library-item-on-track')
     expect(dropFor(item('factory:effects/master/dj-filter'), { kind: 'master' }, context())?.id).toBe('drop.library-item-on-master')
     expect(dropFor(item('factory:effects/master/dj-filter'), { kind: 'track', trackId: bass.id }, context())).toBeUndefined()
-    // A Factory folder takes nothing, and a Factory item isn't moved into My library (step 3 copies it).
+    // A Factory folder takes nothing.
     expect(dropFor(item(KICK), folder('factory:bass'), context())).toBeUndefined()
+    expect(dropFor(folder('factory:drums'), folder('factory:bass'), context())).toBeUndefined()
     expect(dropFor({ kind: 'track', trackId: bass.id }, folder('factory:bass'), context())).toBeUndefined()
     expect(dropFor(item(KICK), { kind: 'library-root', root: 'trash' }, context())).toBeUndefined()
+  })
+})
+
+describe('copying from the Factory', () => {
+  /** A library over the store's own catalog, as storage would keep it. */
+  const stored = () => {
+    let catalog = useLibraryStore.getState().catalog
+    return { ...library, read: async () => catalog, update: async (edit: (value: LibraryCatalog) => LibraryCatalog) => (catalog = edit(catalog)) } as unknown as PersonalLibrary
+  }
+
+  it('Copy to My library copies into the My library folder open before the Factory row, and Show reveals the copy', async () => {
+    const value = stored(), copy = fakeContext({ library: value })
+    useLibraryStore.getState().setActive({ kind: 'folder', id: 'mine-folder' })
+    useLibraryStore.getState().setActive({ kind: 'item', id: KICK })
+    const reports: unknown[] = []
+    await runAction('library-item.copy-to-mine', item(KICK), copy, { report: (_kind, text, action) => reports.push([text, action?.label]) })
+    expect(reports).toEqual([['Copied Kick to Mine', 'Show']])
+    const kick = useLibraryStore.getState().catalog.items.find((candidate) => candidate.name === 'Kick')!
+    expect(kick).toMatchObject({ folderId: 'mine-folder', content: { kind: 'instrument' } })
+    expect(kick.id.startsWith('factory:')).toBe(false)
+    // The copy is the library's own: it renames, moves and trashes.
+    expect(titles(item(kick.id))).toEqual(['Preview', 'Rename', 'Duplicate', 'Insert new instrument track', 'Replace selected graph', 'Move to', 'Export as .sfxlib…', 'Trash'])
+    // A Factory folder copies with what's in it; with My library's root active, to the top level.
+    useLibraryStore.getState().setActive({ kind: 'root', id: 'mine' })
+    useLibraryStore.getState().setActive({ kind: 'folder', id: 'factory:drums' })
+    await runAction('library-folder.copy-to-mine', folder('factory:drums'), copy)
+    const drums = useLibraryStore.getState().catalog.folders.find((candidate) => candidate.name === 'Drums')!
+    expect(drums.parentId).toBeNull()
+    expect(useLibraryStore.getState().catalog.items.filter((candidate) => candidate.folderId === drums.id)).toHaveLength(8)
+  })
+
+  it('a Factory row dragged onto My library or one of its folders is copied there; the trash takes none', async () => {
+    const copy = fakeContext({ library: stored() })
+    const onFolder = dropFor(item('factory:bass/sub'), folder('mine-folder'), copy)
+    expect(onFolder?.id).toBe('drop.factory-item-on-folder')
+    expect(onFolder?.effect(item('factory:bass/sub'), folder('mine-folder'), { alt: false })).toBe('copy')
+    expect(dropFor(folder('factory:bass'), { kind: 'library-root', root: 'mine' }, copy)?.id).toBe('drop.factory-folder-on-root')
+    expect(dropFor(folder('factory:bass'), { kind: 'library-root', root: 'trash' }, copy)).toBeUndefined()
+    await onFolder!.run(item('factory:bass/sub'), folder('mine-folder'), copy, { alt: false })
+    expect(useLibraryStore.getState().catalog.items.map((candidate) => [candidate.name, candidate.folderId])).toEqual([['Sub', 'mine-folder']])
   })
 })
 

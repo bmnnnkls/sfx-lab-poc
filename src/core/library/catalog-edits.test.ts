@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { duplicateLibraryFolder, emptyLibrary, libraryItemDuplicate, moveLibraryEntry, saveLibraryFolder, saveLibraryItem, trashLibraryEntry, type LibraryCatalog, type LibraryItem } from './index'
+import { copyLibraryEntries, duplicateLibraryFolder, emptyLibrary, libraryItemDuplicate, moveLibraryEntry, saveLibraryFolder, saveLibraryItem, trashLibraryEntry, type LibraryCatalog, type LibraryItem } from './index'
 
 const revision = { id: 'rev', payload: { kind: 'instrument', modules: [], sampleIds: ['s'] } } as unknown as LibraryCatalog['revisions'][number]
 const sound = (id: string, folderId: string | null): LibraryItem => ({ id, name: id, folderId, content: { kind: 'instrument', revisionId: 'rev', state: {} } } as unknown as LibraryItem)
@@ -84,5 +84,61 @@ describe('duplicating library entries', () => {
     const folders = { ...c, folders: [...c.folders, ...Array.from({ length: 1024 - c.folders.length - 1 }, (_, n) => ({ id: `f${n}`, name: 'F', parentId: null }))] }
     expect(() => duplicateLibraryFolder(folders, 'drums', null)).toThrow(/folder limit/)
     expect(duplicateLibraryFolder(folders, 'pads', null).folders).toHaveLength(1024)
+  })
+})
+
+describe('copying from another catalog (the Factory)', () => {
+  /** A source like the Factory's: Drums > Kicks with Kick and its preset Tight, a Pad at the top, Old in its trash. */
+  const source = (): LibraryCatalog => {
+    let c: LibraryCatalog = { ...emptyLibrary(), revisions: [{ ...revision, id: 'f:rev' }, { ...revision, id: 'f:unused' }], samples: [{ id: 's' } as LibraryCatalog['samples'][number]] }
+    c = saveLibraryFolder(c, 'Drums', null, 'f:drums')
+    c = saveLibraryFolder(c, 'Kicks', 'f:drums', 'f:kicks')
+    const own = (item: LibraryItem): LibraryItem => ({ ...item, content: { ...item.content, revisionId: 'f:rev', state: { id: `f:state/${item.id}`, revisionId: 'f:rev' } } } as LibraryItem)
+    for (const item of [sound('f:kick', 'f:kicks'), preset('f:tight', 'f:kick', 'f:kicks'), sound('f:pad', null), sound('f:old', 'f:kicks')]) c = saveLibraryItem(c, own(item))
+    return trashLibraryEntry(c, 'f:old')
+  }
+  const mine = () => saveLibraryFolder(emptyLibrary(), 'Mine', null, 'mine')
+  const added = (before: LibraryCatalog, after: LibraryCatalog) => ({
+    folders: after.folders.filter((f) => !before.folders.some((known) => known.id === f.id)),
+    items: after.items.filter((i) => !before.items.some((known) => known.id === i.id)),
+    revisions: after.revisions.filter((r) => !before.revisions.some((known) => known.id === r.id)),
+  })
+
+  it('copies a folder with its live contents, its revisions and samples, under new ids, into the destination', () => {
+    const to = mine(), next = copyLibraryEntries(source(), to, ['f:drums'], 'mine')
+    const copy = added(to, next)
+    expect(copy.folders.map((f) => f.name)).toEqual(['Drums', 'Kicks'])
+    const drums = copy.folders.find((f) => f.name === 'Drums')!, kicks = copy.folders.find((f) => f.name === 'Kicks')!
+    expect([drums.parentId, kicks.parentId]).toEqual(['mine', drums.id])
+    // The trashed Old stays behind; Kick and its preset come, in the copy of Kicks.
+    expect(copy.items.map((i) => [i.name, i.folderId === kicks.id])).toEqual([['f:kick', true], ['f:tight', true]])
+    const kick = copy.items.find((i) => i.name === 'f:kick')!, tight = copy.items.find((i) => i.name === 'f:tight')!
+    // One revision, used by both, under a new id; the unused one isn't copied.
+    expect(copy.revisions).toHaveLength(1)
+    const id = copy.revisions[0]!.id
+    expect(kick.content).toMatchObject({ revisionId: id, state: { revisionId: id } })
+    expect(tight.content).toMatchObject({ kind: 'preset', assetId: kick.id, revisionId: id, state: { revisionId: id } })
+    const ids = [...copy.folders.map((f) => f.id), ...copy.items.map((i) => i.id), id, ...copy.items.map((i) => (i.content as { state: { id: string } }).state.id)]
+    expect(ids.some((value) => value.startsWith('f:'))).toBe(false)
+    expect(next.samples.map((sample) => sample.id)).toEqual(['s'])
+  })
+
+  it('copies an item with its presets, and a preset with its sound, into the destination folder', () => {
+    const to = mine()
+    const kick = added(to, copyLibraryEntries(source(), to, ['f:kick'], null))
+    expect(kick.items.map((i) => [i.name, i.folderId])).toEqual([['f:kick', null], ['f:tight', null]])
+    const tight = added(to, copyLibraryEntries(source(), to, ['f:tight'], 'mine'))
+    expect(tight.items.map((i) => [i.name, i.folderId])).toEqual([['f:kick', 'mine'], ['f:tight', 'mine']])
+    expect(added(to, copyLibraryEntries(source(), to, ['f:pad'], 'mine')).items.map((i) => i.name)).toEqual(['f:pad'])
+  })
+
+  it('refuses a destination that is gone, nothing to copy, and anything past the caps, before writing', () => {
+    expect(() => copyLibraryEntries(source(), mine(), ['f:kick'], 'gone')).toThrow('Destination folder is unavailable')
+    expect(() => copyLibraryEntries(source(), mine(), ['f:old'], null)).toThrow('Nothing to copy')
+    const full: LibraryCatalog = { ...mine(), items: Array.from({ length: 4095 }, (_, i) => sound(`m${i}`, null)) }
+    expect(() => copyLibraryEntries(source(), full, ['f:kick'], null)).toThrow('Library item limit reached (4096)')
+    expect(copyLibraryEntries(source(), full, ['f:pad'], null).items).toHaveLength(4096)
+    const folders: LibraryCatalog = { ...mine(), folders: Array.from({ length: 1023 }, (_, i) => ({ id: `d${i}`, name: 'D', parentId: null })) }
+    expect(() => copyLibraryEntries(source(), folders, ['f:drums'], null)).toThrow('Library folder limit reached (1024)')
   })
 })

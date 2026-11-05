@@ -1,10 +1,10 @@
-import { type ControlOwner, type LibraryBundleSelection, type LibraryCatalog, type LibraryItem, type SnapshotScope, type Track, EFFECT_INPUTS, duplicateLibraryFolder, isFactoryId, libraryItemDuplicate, moveLibraryEntry, saveLibraryFolder, trashLibraryEntry } from '@core'
+import { type ControlOwner, type LibraryBundleSelection, type LibraryCatalog, type LibraryItem, type SnapshotScope, type Track, EFFECT_INPUTS, copyLibraryEntries, duplicateLibraryFolder, isFactoryId, libraryItemDuplicate, moveLibraryEntry, saveLibraryFolder, trashLibraryEntry } from '@core'
 import { useLayoutStore } from '../layout-store'
 import { catalogOf, fromOf, openFolder, useLibraryStore } from '../library-store'
 import { useSelectionStore } from '../selection-store'
 import { project, trackOf } from './lookup'
 import { renameAction, startRename } from './rename'
-import type { Action, ActionChoice, ActionContext, SubjectOf } from './types'
+import type { Action, ActionChoice, ActionContext, ActionReport, SubjectOf } from './types'
 
 type ItemSubject = SubjectOf<'library-item'>
 type FolderSubject = SubjectOf<'library-folder'>
@@ -19,6 +19,43 @@ const folderOf = ({ folderId }: FolderSubject) => catalogOf(folderId).folders.fi
 export const editLibrary = async (context: ActionContext, edit: (catalog: LibraryCatalog) => LibraryCatalog, message: string) => {
   useLibraryStore.getState().setCatalog(await context.library.update(edit))
   return message
+}
+
+/**
+ * Copies Factory items or folders into My library's `folderId` (null: the top level), as editable entries with new ids
+ * (`copyLibraryEntries`): *Copy to My library*, and a Factory row dragged onto My library. Reports "Copied Kick to
+ * Drums", with *Show*, which makes the copy active and names it in place.
+ */
+export const copyToMine = async (ids: readonly string[], folderId: string | null, context: ActionContext): Promise<ActionReport> => {
+  const { factory } = useLibraryStore.getState()
+  if (!factory) throw new Error('The Factory is still loading')
+  let known = new Set<string>()
+  const next = await context.library.update((value) => {
+    known = new Set([...value.folders.map((folder) => folder.id), ...value.items.map((item) => item.id)])
+    return copyLibraryEntries(factory, value, ids, folderId)
+  })
+  useLibraryStore.getState().setCatalog(next)
+  const first = ids[0] ?? ''
+  const name = [...factory.items, ...factory.folders].find((entry) => entry.id === first)?.name ?? 'Factory sound'
+  const where = folderId === null ? 'My library' : (next.folders.find((folder) => folder.id === folderId)?.name ?? 'My library')
+  // The copy to show: the top folder copied, or else the first item that isn't a preset.
+  const folder = next.folders.find((candidate) => !known.has(candidate.id) && candidate.parentId === folderId)
+  const item = next.items.find((candidate) => !known.has(candidate.id) && candidate.content.kind !== 'preset')
+  // As a save's *Show*: the copy becomes active, named in place.
+  const show = folder
+    ? () => {
+        useLibraryStore.getState().setActive({ kind: 'folder', id: folder.id })
+        useLayoutStore.getState().revealView('library')
+        startRename({ kind: 'library-folder', folderId: folder.id }, { ...context, origin: 'library' })
+      }
+    : item
+      ? () => {
+          useLibraryStore.getState().reveal(item.id)
+          startRename({ kind: 'library-item', itemId: item.id }, { ...context, origin: 'library' })
+        }
+      : undefined
+  const message = `Copied ${ids.length > 1 ? `${ids.length} things` : name} to ${where}`
+  return show ? { message, action: { label: 'Show', run: show } } : { message }
 }
 
 /** Whether an item can be inserted as a new instrument track: an instrument, or a preset of one. */
@@ -242,6 +279,14 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     run: (subject, context, choice) => editLibrary(context, (value) => moveLibraryEntry(value, subject.itemId, destinationOf(choice)), 'Moved'),
   },
   {
+    id: 'library-item.copy-to-mine',
+    title: 'Copy to My library',
+    group: 'edit',
+    applies: (subject) => live(subject) && isFactoryId(subject.itemId),
+    // Into the My library folder open before the Factory row was chosen.
+    run: (subject, context) => copyToMine([subject.itemId], openFolder(), context),
+  },
+  {
     id: 'library-item.export',
     title: 'Export as .sfxlib…',
     group: 'edit',
@@ -321,6 +366,13 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     applies: editableFolder,
     choices: (subject) => folderChoices(folderOf(subject)?.parentId ?? null, subject.folderId),
     run: ({ folderId }, context, choice) => editLibrary(context, (value) => moveLibraryEntry(value, folderId, destinationOf(choice)), 'Moved'),
+  },
+  {
+    id: 'library-folder.copy-to-mine',
+    title: 'Copy to My library',
+    group: 'edit',
+    applies: (subject) => liveFolder(subject) && isFactoryId(subject.folderId),
+    run: (subject, context) => copyToMine([subject.folderId], openFolder(), context),
   },
   {
     id: 'library-folder.export',

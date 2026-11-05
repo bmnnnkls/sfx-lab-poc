@@ -176,6 +176,7 @@ export const LibraryDetails = ({ catalog: personal, factory, active, busy, onRun
         <p className={styles.facts}>{plural(items, 'item')} · {plural(folders, 'folder')}</p>
         <div className={styles.buttons}>
           {folder.trashed && <button className={styles.primary} disabled={busy} onClick={() => onRun('library-folder.restore', subject)}>Restore</button>}
+          {inFactory && <button className={styles.primary} disabled={busy} title="An editable copy, with everything in it, in the My library folder open before" onClick={() => onRun('library-folder.copy-to-mine', subject)}>Copy to My library</button>}
           <More subject={subject} label={`More for ${folder.name}`} />
         </div>
       </article>

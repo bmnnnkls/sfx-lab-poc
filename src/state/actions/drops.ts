@@ -3,7 +3,7 @@ import { catalogOf, useLibraryStore } from '../library-store'
 import { useProjectStore } from '../project-store'
 import { canRunAction, runAction, type RunOptions, settle } from '.'
 import { canPasteClipOnLane, pasteClipOnLane } from './lane'
-import { editLibrary, graphFitsOwner, insertionScope, insertLibraryClipAt, libraryClipFitsSlot, replaceGraph } from './library'
+import { copyToMine, editLibrary, graphFitsOwner, insertionScope, insertLibraryClipAt, libraryClipFitsSlot, replaceGraph } from './library'
 import { type LibrarySource, libraryNameOf, routingRefusal, saveToLibrary } from './library-save'
 import { project, sessionClipOf, trackOf } from './lookup'
 import { projectGraphItem } from './project-graph'
@@ -160,6 +160,29 @@ const libraryMoves = (['library-folder', 'library-root'] as const).flatMap((targ
       if (alt && !trashed) return editLibrary(context, (value) => duplicateLibraryFolder(value, payload.folderId, destinationOf(place)), 'Copied')
       return editLibrary(context, (value) => moveLibraryEntry(value, payload.folderId, destinationOf(place)), trashed ? 'Restored' : 'Moved')
     },
+  }),
+])
+
+/**
+ * Factory items and folders dragged onto *My library* or one of its live folders: copied there, always (the Factory is
+ * read-only), the toast's *Show* revealing the copy. Nothing drops onto the Factory.
+ */
+const factoryCopies = (['library-folder', 'library-root'] as const).flatMap((target) => [
+  define<'library-item', typeof target>({
+    id: `drop.factory-item-on-${target === 'library-folder' ? 'folder' : 'root'}`,
+    payload: 'library-item',
+    target,
+    accepts: (payload, place) => isFactoryId(payload.itemId) && !!libraryItemOf(payload) && livePlace(place),
+    effect: copies,
+    run: (payload, place, context) => copyToMine([payload.itemId], destinationOf(place), context),
+  }),
+  define<'library-folder', typeof target>({
+    id: `drop.factory-folder-on-${target === 'library-folder' ? 'folder' : 'root'}`,
+    payload: 'library-folder',
+    target,
+    accepts: (payload, place) => isFactoryId(payload.folderId) && catalogOf(payload.folderId).folders.some((folder) => folder.id === payload.folderId) && livePlace(place),
+    effect: copies,
+    run: (payload, place, context) => copyToMine([payload.folderId], destinationOf(place), context),
   }),
 ])
 
@@ -505,6 +528,7 @@ export const drops: readonly Drop[] = [
   }),
   ...trackMoves,
   ...libraryMoves,
+  ...factoryCopies,
   ...libraryTrash,
   ...librarySaves,
   ...projectGraphDrops,

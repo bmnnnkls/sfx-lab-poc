@@ -36,6 +36,11 @@ interface LibraryViewState {
    * the rows above it. Null shows *My library*.
    */
   readonly active: LibraryRowRef | null
+  /**
+   * The My library folder open when a Factory row became active (null: the top level), so a copy or a save made while
+   * the Factory is open goes there.
+   */
+  readonly mineFolder: string | null
   /** The selected items, for *Export selection…*. */
   readonly selected: readonly string[]
   /** The item being previewed, whose row shows ■. */
@@ -60,18 +65,21 @@ export const useLibraryStore = create<LibraryViewState>((set) => ({
   factory: null,
   factoryNotes: {},
   active: null,
+  mineFolder: null,
   selected: [],
   previewing: null,
   request: null,
   projectExpanded: { epoch: -1, keys: new Set() },
   setCatalog: (catalog) => set({ catalog }),
-  setActive: (active) => set({ active }),
+  // A row of My library (or a root) sets the folder a Factory copy goes to; a Factory row keeps it.
+  setActive: (active) => set((state) => (inFactory(active) ? { active } : { active, mineFolder: openFolderOf({ ...state, active }) })),
   select: (selected) => set({ selected }),
   setPreviewing: (previewing) => set({ previewing }),
   setRequest: (request) => set({ request }),
   setProjectExpanded: (keys) => set({ projectExpanded: { epoch: useProjectStore.getState().documentEpoch, keys } }),
   reveal: (itemId) => {
-    set({ active: { kind: 'item', id: itemId }, selected: [itemId] })
+    const active: LibraryRowRef = { kind: 'item', id: itemId }
+    set((state) => (inFactory(active) ? { active, selected: [itemId] } : { active, selected: [itemId], mineFolder: openFolderOf({ ...state, active }) }))
     useLayoutStore.getState().revealView('library')
   },
 }))
@@ -82,12 +90,17 @@ const NONE: ReadonlySet<string> = new Set()
 export const projectExpandedOf = ({ projectExpanded }: Pick<LibraryViewState, 'projectExpanded'>, epoch: number): ReadonlySet<string> =>
   projectExpanded.epoch === epoch ? projectExpanded.keys : NONE
 
+/** Whether a row is the Factory's: its root, or a folder or item of it. */
+const inFactory = (active: LibraryRowRef | null): boolean => !!active && (active.kind === 'root' ? active.id === 'factory' : (active.kind === 'folder' || active.kind === 'item') && isFactoryId(active.id))
+
 /**
- * The folder open in the Library, where new things are saved: the active folder, or the folder of the active item
- * (its sound's, for a preset). Null, the top level, for a root, or anything trashed or gone.
+ * The folder open in My library, where new things are saved and Factory things copied: the active folder, or the folder
+ * of the active item (its sound's, for a preset); while a Factory row is active, the one open before (`mineFolder`).
+ * Null, the top level, for a root, or anything trashed or gone.
  */
-export const openFolderOf = ({ catalog, active }: Pick<LibraryViewState, 'catalog' | 'active'>): string | null => {
+export const openFolderOf = ({ catalog, active, mineFolder = null }: Pick<LibraryViewState, 'catalog' | 'active'> & { readonly mineFolder?: string | null }): string | null => {
   const live = (id: string | null) => (id !== null && catalog.folders.some((folder) => folder.id === id && !folder.trashed) ? id : null)
+  if (inFactory(active)) return live(mineFolder)
   if (active?.kind === 'folder') return live(active.id)
   if (active?.kind !== 'item') return null
   const item = catalog.items.find((candidate) => candidate.id === active.id && !candidate.trashed)

@@ -134,3 +134,55 @@ export const duplicateLibraryFolder = (catalog: LibraryCatalog, id: string, pare
   ]
   return { ...catalog, folders: [...catalog.folders, ...copies], items: [...catalog.items, ...itemCopies] }
 }
+
+/**
+ * Copies items and folders of another catalog (`from`: the Factory's) into `folderId` of `to` (null: the top level), as
+ * new, editable entries: a folder with its live folders and items inside, an item with its live presets (and a preset
+ * with its sound), the revisions they use and the sample metadata those need, all under new ids. Folders keep their
+ * shape; an item copied on its own lands in `folderId`, a preset beside its sound. Names stay. Checks the folder, item and
+ * revision caps before writing anything. The copy shares nothing with `from`, so `from` can go.
+ */
+export const copyLibraryEntries = (from: LibraryCatalog, to: LibraryCatalog, ids: readonly string[], folderId: string | null): LibraryCatalog => {
+  folderExists(to, folderId)
+  const liveFolders = from.folders.filter(f => !f.trashed), live = from.items.filter(i => !i.trashed)
+  const folderIds = new Set<string>()
+  for (const id of ids) if (liveFolders.some(f => f.id === id)) for (const inside of folderAndDescendants({ ...from, folders: liveFolders }, id)) folderIds.add(inside)
+  const itemIds = new Set(live.filter(i => ids.includes(i.id) || (i.folderId !== null && folderIds.has(i.folderId))).map(i => i.id))
+  if (itemIds.size === 0 && folderIds.size === 0) throw new Error('Nothing to copy')
+  // A sound takes its presets, and a preset its sound, so the copy is whole.
+  for (const item of live) if (item.content.kind === 'preset' && (itemIds.has(item.id) || itemIds.has(item.content.assetId))) { itemIds.add(item.id); itemIds.add(item.content.assetId) }
+  const items = live.filter(i => itemIds.has(i.id))
+  if (items.some(i => i.content.kind === 'preset' && !items.some(s => s.id === (i.content as { assetId: string }).assetId))) throw new Error('A preset\'s sound is unavailable')
+  const folders = liveFolders.filter(f => folderIds.has(f.id))
+  const revisionIds = new Set(items.flatMap(i => 'revisionId' in i.content ? [i.content.revisionId] : []))
+  const revisions = from.revisions.filter(r => revisionIds.has(r.id))
+  if (revisions.length !== revisionIds.size) throw new Error('Asset revision is missing')
+  if (to.folders.length + folders.length > LIMITS.folders) throw new Error(`Library folder limit reached (${LIMITS.folders})`)
+  if (to.items.length + items.length > LIMITS.items) throw new Error(`Library item limit reached (${LIMITS.items})`)
+  if (to.revisions.length + revisions.length > 4096) throw new Error('Library revision limit reached (4096)')
+  const newFolder = new Map(folders.map(f => [f.id, createId('folder')]))
+  const newItem = new Map(items.map(i => [i.id, createId('item')]))
+  const newRevision = new Map(revisions.map(r => [r.id, createId('revision')]))
+  // The top of what is copied goes into `folderId`; what was inside a copied folder stays inside its copy.
+  const placed = (parentId: string | null) => (parentId !== null && newFolder.has(parentId) ? newFolder.get(parentId)! : folderId)
+  const soundOf = (item: LibraryItem) => (item.content.kind === 'preset' ? items.find(s => s.id === (item.content as { assetId: string }).assetId) : undefined)
+  const sampleIds = new Set([...revisions.flatMap(r => r.payload.sampleIds), ...items.flatMap(i => i.content.kind === 'sample' ? [i.content.sampleId] : i.content.kind === 'audio-clip' ? [i.content.clip.sampleId] : [])])
+  const missing = [...sampleIds].filter(id => !from.samples.some(s => s.id === id) && !to.samples.some(s => s.id === id))
+  if (missing.length) throw new Error(`Missing sample metadata: ${missing.join(', ')}`)
+  const copiedFolders: LibraryFolder[] = folders.map(f => ({ id: newFolder.get(f.id)!, name: f.name, parentId: placed(f.parentId) }))
+  const copiedItems: LibraryItem[] = items.map(i => {
+    const content = i.content
+    const where = placed((soundOf(i) ?? i).folderId)
+    if (!('revisionId' in content)) return { id: newItem.get(i.id)!, name: i.name, folderId: where, content }
+    const revisionId = newRevision.get(content.revisionId)!
+    const state = { ...content.state, id: createId('preset'), revisionId }
+    return { id: newItem.get(i.id)!, name: i.name, folderId: where, content: content.kind === 'preset' ? { ...content, revisionId, assetId: newItem.get(content.assetId)!, state } : { ...content, revisionId, state } }
+  })
+  return {
+    ...to,
+    folders: [...to.folders, ...copiedFolders],
+    items: [...to.items, ...copiedItems],
+    revisions: [...to.revisions, ...revisions.map(r => ({ ...r, id: newRevision.get(r.id)! }))],
+    samples: [...to.samples, ...from.samples.filter(s => sampleIds.has(s.id) && !to.samples.some(known => known.id === s.id))],
+  }
+}
