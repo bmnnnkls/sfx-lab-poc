@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Engine, type EngineCommand, type MidiMapping, type Patch, createDemoProject, controlFromNormalized, diffProject, resolveControlTarget } from '@core'
 import { type EngineControls, editMidiMappings, useControlStore, useMidiStore, useProjectStore, useSelectionStore } from '@state'
+import { createMidiControls } from './midi-controls'
 import { createMidiInput } from './midi-input'
 
 const port = (id = 'keys') => ({ id, name: id, state: 'connected', onmidimessage: null, close: vi.fn(async () => {}) }) as unknown as MIDIInput
@@ -259,4 +260,53 @@ it('allows an unrelated held momentary release while a different source assignme
   expect(resolveControlTarget(useProjectStore.getState().project, held)).toMatchObject({ baseValue: 0 })
   expect(useProjectStore.getState().project.master.volume).toBeUndefined()
   dispose()
+})
+
+describe('CC writes once per frame', () => {
+  const cc = (value: number) => ({ kind: 'cc' as const, channel: 1, cc: 21, value })
+  const frames = () => {
+    const waiting: (() => void)[] = []
+    return { schedule: (flush: () => void) => { waiting.push(flush) }, waiting, run: () => waiting.splice(0).forEach((flush) => flush()) }
+  }
+
+  it('writes only the latest value of a burst, as one edit, with its feedback', () => {
+    editMidiMappings(() => [mapping({ pickup: false })])
+    const frame = frames(), controls = createMidiControls(frame.schedule)
+    const before = useProjectStore.getState().project, count = useProjectStore.getState().history.past.length
+    for (const value of [10, 20, 30, 40]) controls.receive('keys', 'keys', cc(value))
+    expect(frame.waiting).toHaveLength(1)
+    expect(useProjectStore.getState().project).toBe(before)
+    expect(useMidiStore.getState().feedback.binding).toBeUndefined()
+    frame.run()
+    expect(useProjectStore.getState().project.master.volume).toBeCloseTo(40 / 127, 6)
+    expect(useProjectStore.getState().history.past).toHaveLength(count + 1)
+    expect(useMidiStore.getState().feedback.binding).toEqual({ state: 'active', value: expect.closeTo(40 / 127, 6) })
+    controls.receive('keys', 'keys', cc(50))
+    expect(frame.waiting).toHaveLength(1)
+    frame.run()
+    expect(useProjectStore.getState().project.master.volume).toBeCloseTo(50 / 127, 6)
+  })
+
+  it('picks up on every message, and a waiting value does not count as a manual edit', () => {
+    useProjectStore.getState().setMasterVolume(0.5)
+    editMidiMappings(() => [mapping()])
+    const frame = frames(), controls = createMidiControls(frame.schedule)
+    controls.receive('keys', 'keys', cc(10)); controls.receive('keys', 'keys', cc(60))
+    frame.run()
+    expect(useMidiStore.getState().feedback.binding?.state).toBe('pickup')
+    expect(useProjectStore.getState().project.master.volume).toBe(0.5)
+    // Crossing the value takes over; later messages in the same frame follow it.
+    controls.receive('keys', 'keys', cc(70)); controls.receive('keys', 'keys', cc(80)); controls.receive('keys', 'keys', cc(90))
+    frame.run()
+    expect(useProjectStore.getState().project.master.volume).toBeCloseTo(90 / 127, 6)
+  })
+
+  it('writes a waiting value before releasing its source, and drops it on reset', () => {
+    editMidiMappings(() => [mapping({ pickup: false })])
+    const frame = frames(), controls = createMidiControls(frame.schedule)
+    controls.receive('keys', 'keys', cc(64)); controls.release('keys')
+    expect(useProjectStore.getState().project.master.volume).toBeCloseTo(64 / 127, 6)
+    controls.receive('keys', 'keys', cc(127)); controls.reset(); frame.run()
+    expect(useProjectStore.getState().project.master.volume).toBeCloseTo(64 / 127, 6)
+  })
 })

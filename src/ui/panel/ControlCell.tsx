@@ -17,9 +17,8 @@ export interface CellActions {
   resize(size: ControlSize): void
   /** Turn a slider upright or sideways. */
   setHorizontal(horizontal: boolean): void
+  /** Takes it off the board; the node stays in the graph (deleting it is the graph's job). */
   hide(): void
-  /** Deletes the node: it goes from the graph too. */
-  remove(): void
   /** Move by one place (-1 earlier, 1 later). */
   move(delta: -1 | 1): void
   /** The control with this id was dropped on this one. */
@@ -124,9 +123,6 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, colum
           )}
           <button aria-label={`Hide ${title}`} title="Hide from the panel (it stays in the graph)" onClick={actions.hide}>
             ◌
-          </button>
-          <button aria-label={`Remove ${title}`} title="Delete the control node, in the graph too" onClick={actions.remove}>
-            ×
           </button>
           <RenameField className={styles.rename} name={node.name ?? ''} placeholder={title} label={`Name of ${title}`} allowEmpty onCommit={actions.rename} />
         </div>

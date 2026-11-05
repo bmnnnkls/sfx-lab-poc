@@ -71,6 +71,11 @@
   inset: 0;
 }
 
+/* The selected track's lane (or its collapsed group's, or a selected group's own) is lighter, as its header is marked. */
+.lane[data-selected] > .row {
+  background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
 /* A track's or a group's header, at the left while the timeline scrolls. */
 .header {
   position: sticky;

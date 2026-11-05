@@ -82,6 +82,7 @@ export {
   type PanelKind,
   controlKindFor,
   defaultPanelSize,
+  discardPanelEdits,
   movePanelControl,
   numberPanel,
   panelItems,

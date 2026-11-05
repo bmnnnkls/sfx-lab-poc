@@ -167,6 +167,12 @@ Things that shipped without the check their plan asked for.
 - **C6 MIDI note names on suitable controls; right-click to create an XY control paired with another parameter.**
 - **C7 Animated node pictures and audio-rate parameter sockets** (telemetry needed).
 - **C8 Open a pinned panel in Panel mode**: the mode lives in `ui`'s `localStorage`, so *Open* can't choose it yet.
+- **C9 Control groups on a panel**: a frame with a label, direction and items per line (user testing 6,
+  [review](active/REVIEW-user-testing-2026-11.md)).
+- **C10 Pin parts of a panel**: single controls, groups, module uses and controls inside modules, shown under their
+  instrument (user testing 7; groups need C9).
+- **C11 Control ports on module uses**: a wire into a module's control replaces it and hides it on panels (user
+  testing 8).
 
 ## Graph and note workflow
 
@@ -176,6 +182,13 @@ Things that shipped without the check their plan asked for.
 - **G4 An explicit send-notes-only control.**
 - **G5 Feedback cycles in graph routing** behind an explicit delay boundary (cycles are refused today).
 - **G6 Launch quantisation other than one bar; triplet grids in the piano roll.**
+
+## MIDI
+
+- **M1 MIDI input per track**: a device and channel per track instead of following the selection (user testing 10,
+  [review](active/REVIEW-user-testing-2026-11.md)).
+- **M2 Recording MIDI clips** into Session slots and the Arrangement: arm, metronome, count-in, overdub (user testing
+  11; needs M1).
 
 ## Documentation
 

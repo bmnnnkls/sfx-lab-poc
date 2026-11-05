@@ -1,6 +1,8 @@
 .scroller {
   height: 100%;
   overflow: auto;
+  /* What scrolls into view lands beside the sticky scene column, not behind it. */
+  scroll-padding-inline-end: 66px;
 }
 
 /*
@@ -243,6 +245,24 @@
 .empty {
   grid-template-columns: 1fr;
   opacity: 0.55;
+}
+
+/* A column's header or cell, wrapped so it can be found and marked; the wrapper draws nothing. */
+.column {
+  display: contents;
+}
+
+/*
+ * The selected column's cells are lighter, as its header's border is accented. `:where` keeps this as weak as a
+ * single class, so a playing or queued cell (below) still wins.
+ */
+:where(.column[data-selected]) .slot {
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+:where(.column[data-selected]) .empty {
+  opacity: 0.8;
 }
 
 .launch {

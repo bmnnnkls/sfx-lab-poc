@@ -29,6 +29,16 @@ missing IDs never bind by a guessed device name. Right-click panel controls and 
 Escape cancels. Shared-definition controls do not offer project-instance learning. Wired/missing targets explain their
 unavailability and remain inert rather than overriding graph-owned parameters.
 
+**One write per frame.** Every CC message is read at once (pickup, crossing, the value it would set), but a continuous
+value is written only once per animation frame, the latest one per mapping, with the feedback for that frame
+(`createMidiControls(schedule)`, `nextFrame`: a frame, or 50 ms when frames stop in a hidden tab; at once where there
+are no frames, as in unit tests). A value written to the project is an edit (history, a project diff for the engine,
+panels re-rendered), and a knob sends tens to a hundred messages a second, which kept the main thread busy enough to
+delay notes, as pointer drags would without `frame-throttle.ts`. A value waiting to be written counts as where the
+control is, so pickup doesn't rearm on its own output. Switches and selectors are written at once (a momentary press has
+a begin and an end), and a source that is released writes its waiting value first; a reset drops it. Each mapping
+resolves its target (which flattens the graph) once per project, not per message.
+
 Continuous CC uses current effective-value pickup (crossing or half a 7-bit step), including controls with numeric
 snapping. External/manual edits and reconnect rearm pickup. Scales and snapping use `core/control`; switch/selector states
 are immediate and momentary switches follow a CC64 threshold. Common control gestures coalesce bursts within 800 ms

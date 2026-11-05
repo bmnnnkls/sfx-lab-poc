@@ -77,7 +77,13 @@ A group is always a folder, and can also sum its tracks into a **bus** ([round
   tree. One row is in the tab order; ↑ ↓ Home End move, → and ← expand and collapse a group (its `collapsed` flag) or move
   to the first child and the parent, Enter selects a track or a group, a bus's row has a *bus* tag, **Alt+↑ and Alt+↓** run *Move up* and *Move down*. A row
   drags onto another: before or after by halves, into a group by its middle third. Each row has an eye; a hidden row is
-  dimmed, with a dot lit while it sounds. A toolbar has *Show all*, *Collapse all* and *Expand all*.
+  dimmed, with a dot lit while it sounds. A toolbar has *Show all*, *Collapse all* and *Expand all*. Choosing a row (a
+  click, Enter or Space) also asks the Session and Arrangement views to scroll it into view: `requestReveal` in the
+  selection store, a request with a serial that each view answers (`useRevealRequest`, `ui/shared/reveal.ts`), so a view
+  shown later still lands on the last row chosen. The views mark their columns and lanes with `data-reveal`
+  (`t:<id>`, `g:<id>`) and scroll the first that exists of the row and then its groups from the innermost out
+  (`revealKeys`), so a track in a collapsed group lands on that group's column or lane. The scroll is by the least that
+  shows it, beside the sticky scene column and under the ruler (the scrollers' `scroll-padding`).
 * **In the other views.** The session grid and the mixer draw `visibleRows` through `groupedColumns` and `bandsOf`
   (`ui/shared/group-columns.ts`): an expanded group is a band over its members, one row of bands per level, and members
   carry a stripe of its colour; a collapsed group is one column. In the session grid that column's cell per scene
@@ -87,6 +93,10 @@ A group is always a folder, and can also sum its tracks into a **bus** ([round
   narrow strip when collapsed (see "Mixer"). In the session grid, a bus group's band and collapsed header have the bus's
   volume slider, and a muted group's name is struck through. The arrangement draws a group lane before its members;
   collapsed, it shows their regions as thin bars. Hidden tracks have no column, strip or lane, and still play.
+  **The selection** is lighter in both: in the session grid the selected track's cells, a collapsed group's that holds
+  it, every column of a selected group and, with the master selected, the master's cells (each column's header and cells
+  sit in a `display: contents` wrapper carrying `data-selected`; a playing or queued cell keeps its own colour); in the
+  arrangement the selected track's lane, a selected group's own lane, or a collapsed group's that holds the track.
 * **Hidden sound.** The grid's corner shows how many tracks are hidden, lit while one sounds (`useSounding`: its peak in
   the status above -60 dB, after mute and solo); it reveals the Tracks view. Both it and the tree's dot subscribe through
   a boolean selector, so the status's 30 updates a second render nothing until that changes.

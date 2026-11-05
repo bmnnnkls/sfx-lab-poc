@@ -6,6 +6,7 @@ import {
   createControlFor,
   createNode,
   createXyFor,
+  discardPanelEdits,
   movePanelControl,
   numberPanel,
   panelItems,
@@ -20,6 +21,25 @@ const empty: Patch = { nodes: [], connections: [] }
 const named = (type: string, id: string, extra: Record<string, unknown> = {}) => ({ ...createNode(type, 0, 0), id, ...extra })
 const build = (...nodes: ReturnType<typeof named>[]): Patch => nodes.reduce(addNode, empty)
 const ids = (patch: Patch) => panelItems(patch, []).map((item) => item.node.id)
+
+describe('discardPanelEdits', () => {
+  it('puts back the board as it was, keeping the values turned since', () => {
+    const before = build(named('gain', 'g'), named('control', 'a'), named('control', 'b'))
+    let now = createControlFor(before, [], 'g', 'gain', { at: { x: 0, y: 200 } })!.patch
+    now = setPanelShow(resizePanelControl(movePanelControl(now, [], 'b', 0), [], 'a', 'L'), [], 'b', false)
+    now = { ...now, nodes: now.nodes.map((node) => (node.id === 'a' ? { ...node, name: 'Tone', params: { ...node.params, value: 0.25 } } : node)) }
+    const back = discardPanelEdits(before, now)
+    expect(back.nodes.map((node) => node.id)).toEqual(['g', 'a', 'b'])
+    expect(back.connections).toEqual(before.connections)
+    expect(panelItems(back, []).map((item) => [item.node.id, item.size, item.shown])).toEqual([['a', 'S', true], ['b', 'S', true]])
+    expect(back.nodes[1]).toEqual({ ...before.nodes[1], params: { ...before.nodes[1]!.params, value: 0.25 } })
+  })
+
+  it('is the same patch when nothing was edited', () => {
+    const patch = build(named('control', 'a'))
+    expect(discardPanelEdits(patch, patch)).toBe(patch)
+  })
+})
 
 describe('panelItems', () => {
   it('is the control nodes and nothing else, in patch order until something is ordered', () => {

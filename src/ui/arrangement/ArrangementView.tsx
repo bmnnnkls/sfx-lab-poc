@@ -13,6 +13,7 @@ import { type CSSProperties, Fragment, type ReactNode, useRef, useState } from '
 import { viewTitles } from '../layout/view-titles'
 import { useDropTarget } from '../shared/drag'
 import { ActionMenu, useFocusSubjects } from '../shared/menu'
+import { revealKey, useRevealRequest } from '../shared/reveal'
 import { ArrangementHeader } from './ArrangementHeader'
 import { ArrangementMarkLines, ArrangementMarks } from './ArrangementMarks'
 import { ArrangementPlayhead, ArrangementPosition, PositionMark } from './ArrangementPlayhead'
@@ -98,6 +99,8 @@ export const ArrangementView = () => {
   const headerWidth = useArrangementView((state) => state.headerWidth)
   // The selection store's: a region deleted from its menu (or by undo) is still named there, and shows as nothing.
   const selected = useSelectionStore((state) => state.regionId)
+  const selectedTrack = useSelectionStore((state) => state.trackId)
+  const selectedGroup = useSelectionStore((state) => state.groupId)
   const view = useRef<HTMLDivElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
   /** Where an empty lane was right-clicked, so "add" places the clip there. */
@@ -117,6 +120,8 @@ export const ArrangementView = () => {
   const selection = selectedRegion ? regionZoom(selectedRegion, arrangement) : loop ? loopZoom(loop) : null
 
   useFollowPause(scroller)
+  // Choosing a row in the Tracks view scrolls its lane (or its collapsed group's) into view.
+  useRevealRequest(scroller)
   // The focused timeline is the timeline at the position: the palette lists *Add marker here* and the loop there.
   useFocusSubjects(scroller, () => [{ kind: 'arrangement-timeline', beat: useArrangementView.getState().position }])
   const follow = useArrangementView((state) => state.follow)
@@ -272,7 +277,13 @@ export const ArrangementView = () => {
           {rows.map((row) => {
             if (row.kind === 'group') {
               return (
-                <div key={row.group.id} className={`${styles.lane} ${styles.groupLane}`} style={{ '--group': `var(--group-${row.group.colour})` } as CSSProperties}>
+                <div
+                  key={row.group.id}
+                  className={`${styles.lane} ${styles.groupLane}`}
+                  data-reveal={revealKey('group', row.group.id)}
+                  // A collapsed group's lane stands for the selected track inside it.
+                  data-selected={row.group.id === selectedGroup || (row.group.collapsed === true && selectedTrack !== null && row.trackIds.includes(selectedTrack)) || undefined}
+                  style={{ '--group': `var(--group-${row.group.colour})` } as CSSProperties}>
                   <ArrangementHeader row={row} />
                   <GroupRow trackIds={row.trackIds} collapsed={row.group.collapsed === true} regions={arrangement} pxPerBeat={pxPerBeat} width={width} />
                 </div>
@@ -280,7 +291,7 @@ export const ArrangementView = () => {
             }
             const track = row.track
             return (
-              <div key={track.id} className={styles.lane}>
+              <div key={track.id} className={styles.lane} data-reveal={revealKey('track', track.id)} data-selected={track.id === selectedTrack || undefined}>
                 <ArrangementHeader row={row} />
                 <LaneRow trackId={track.id} pxPerBeat={pxPerBeat} width={width}>
                   <ActionMenu subject={{ kind: 'lane', trackId: track.id, beat: placedAt }}>

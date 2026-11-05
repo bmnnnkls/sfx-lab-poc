@@ -179,6 +179,24 @@ export const numberPanel = (patch: Patch, modules: ModuleLibrary): Patch => {
   return changed ? { ...patch, nodes } : patch
 }
 
+/**
+ * The board as it was when editing began (`before`), keeping the values turned since: what *Cancel* in the panel's edit
+ * mode puts back. Edit mode changes the board (adds controls and their wires, hides, sizes, orders, renames) but no
+ * node's parameters other than a control's value or a module use's values for its controls, so a node in both keeps its
+ * current parameters. The same patch when nothing changed.
+ */
+export const discardPanelEdits = (before: Patch, now: Patch): Patch => {
+  if (before === now) return now
+  const latest = new Map(now.nodes.map((node) => [node.id, node]))
+  return {
+    ...before,
+    nodes: before.nodes.map((node) => {
+      const current = latest.get(node.id)
+      return current && current.type === node.type && current.params !== node.params ? { ...node, params: current.params } : node
+    }),
+  }
+}
+
 /** Where a new panel-made node goes on the canvas: a row below everything, so it is out of the way but findable. */
 export const spotBelow = (patch: Patch, index = 0): { x: number; y: number } => ({
   x: 40 + (index % 6) * 196,
