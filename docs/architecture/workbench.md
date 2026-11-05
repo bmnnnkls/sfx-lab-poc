@@ -166,7 +166,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
 * **Subjects.** What was right-clicked is a `Subject`: a small value with a `kind` and ids, never a component or a DOM
   element. The kinds: `track` (instrument, audio and return tracks), `group` (a group of tracks), `master`, `clip` (a session clip), `slot` (an
   empty session cell), `automation-slot`, `scene`, `sample`, `library-item`, `library-folder`, `library-root` (*My library* or the
-  Library's trash), `nodes`, `canvas`,
+  Library's trash), `project-graph` (an owner's instrument, effects or notes under the Library's *This project*: an
+  owner and a domain), `nodes`, `canvas`,
   `module`, `region`, `lane`, `control` (a panel control or a mixer value), `sound` (a snapshot or preset), `pin` (a
   pinned front panel: an owner and a graph), `sample-selection` (a Wave editor pane's lanes: its sample's
   selection and cursor in that pane, and the clipboard, read from the stores), and `sample-marker`, `sample-region` and
@@ -449,7 +450,8 @@ Things picked up in one view land in another. A drop is "paste here": it runs a 
 action's *Paste* runs, so every drop has a menu twin and the two can't drift apart.
 
 * **Payloads and targets are subjects.** What is dragged is a `DragPayload`: a `clip` (a session clip), a `sample`, a
-  `sound` (a project preset; snapshots don't drag), a `library-item`, a `library-folder`, a `track` or a `group`. Where
+  `sound` (a project preset; snapshots don't drag), a `library-item`, a `library-folder`, a `track`, a `group` or a `project-graph` (a graph
+  of an owner, from the Library's *This project*). Where
   it lands is a `DropTarget`: a `slot`, a `lane` (with the snapped beat under the pointer), a `track` or a `group` (with
   the `edge` the pointer is on: before, after, or a group's middle third, inside), the `master`, a `canvas` (with the
   canvas point), or in the Library's tree a `library-folder` or a `library-root`. A
@@ -470,6 +472,7 @@ action's *Paste* runs, so every drop has a menu twin and the two can't drift apa
 | Project preset | | | Recalls it, in its own domain, when the track's graph matches its revision | On a bus, when its effects match | When the master's effects match | |
 | Library item | A clip of the track's kind: as the Library's *Insert into empty slot* | | An instrument, note effect, audio effect or preset: replaces that graph (*Replace selected graph* with this owner) | On a bus: an audio effect made from Group in, or an effects preset | An audio effect or effects preset | The same into this graph, when its kind matches and the canvas is at the top level |
 | Track, group | | | Moves it before or after the track (`moveTrack`, `moveGroup`), into that track's group | Before, after or inside it | | |
+| Graph of the project | | | Copies it onto this track's graph of the same kind, when it fits (an instrument onto an instrument track, effects onto a track of the same input); its own track refuses | Effects of a bus onto another bus | | The same into this graph, of another owner |
 
 In the Library's tree:
 
@@ -484,6 +487,7 @@ In the Library's tree:
 | Session clip | Saves the clip there | The same | Refuses |
 | Sample | Adds the sample there | The same | Refuses |
 | Project preset | Saves it on its own there (`captureLibraryPreset`) | The same | Refuses |
+| Graph of the project | Saves it there, as its owner's save for that graph does | The same | Refuses |
 
 A drop where the thing already is does nothing and refuses. The menu twins are *Move to ▸*, *Duplicate*, *Trash* and
 *Restore*; the drops onto the trash run the *Trash* actions themselves. A thing from the project is saved with
@@ -492,6 +496,13 @@ A drop where the thing already is does nothing and refuses. The menu twins are *
 `trackAudio`, `trackNotes`, found by `externalRoutingIn`) is refused up front with the reason: "Uses Track audio from
 Kick". A capture that still fails when it runs (sample bytes missing) reports its reason in the toast. A trashed folder
 takes nothing from the project.
+
+A graph of the project (a `project-graph` payload, dragged from *This project*) copies onto another owner as a library
+insert: `projectGraphItem` captures it into a throwaway catalog, `graphFitsOwner(item, owner, catalog)` checks the
+fit, and `PersonalLibrary.insert(…, catalog)` copies it with fresh node IDs, its own modules and its presets, in one
+undo step. A drag asks on every move, so the capture is memoized per project object and graph, and a graph that reads
+another track is never captured: every target refuses it with its reason, and it still drags so the target can say
+so. A header's side (`edge`) is for tracks and groups being moved; a graph, like a library item, lands on either.
 
 Everything else refuses: an occupied slot, a track of the other kind, a library clip on a lane, a canvas inside a
 module, an effect made for another input (`trackIn`, `returnIn`, `masterIn`, `groupIn`), a preset on a graph that
@@ -518,7 +529,7 @@ group into itself or deeper than four levels, and a move that would make the mix
   the session grid and the mixer, y in the tree and the arrangement) and shows as `data-edge` while a track or a group is
   over it. Presets and library items land on the track as before and ignore the edge.
 * **Sources and targets.** Sources: a filled session slot, a sample row, a project preset's row in Sounds, a library
-  item's or folder's row, a Tracks tree row, a track's name (session header, mixer strip, lane name; not the whole header, whose
+  item's or folder's row, a graph, clip, sample or preset row under *This project*, a Tracks tree row, a track's name (session header, mixer strip, lane name; not the whole header, whose
   slider keeps its gesture) and a group's band, collapsed header, strip or lane. Targets: every session slot (a filled one shows `refuse`), a lane's whole row (so a drop over a region
   lands too), the session header, the mixer strip, the lane name, the master's header and strip, a graph
   editor's canvas, and the Library's folder and root rows. Resting a drag on the Library's tab or activity-bar button

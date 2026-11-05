@@ -62,7 +62,11 @@ one tree of folders, items and presets with drag and drop, *Save to library* in 
 clips and samples, compact details and a bundle review dialog. **Phase 2 is done** (2026-11-05,
 [plan](active/PLAN-library-2-entry-points.md)): a *Library* menu in the transport bar whose entries are commands, a
 project preset saved on its own, and tracks, groups, clips, samples and presets dragged onto library folders, with
-external routing refused up front and the reason shown. Phases 3–7 are planned.
+external routing refused up front and the reason shown. **Phase 3 is done** (2026-11-05,
+[plan](active/PLAN-library-3-this-project.md)): the tree's first root, *This project*, shows the open project's
+tracks, buses and master with their graphs, presets and clips, and its samples and modules, live and read-only; a graph
+saves, previews, shows, copies to a new track or is dragged onto another owner, and one that reads another track says
+why it can't. Phases 4–7 are planned.
 
 ## Accepted limits
 

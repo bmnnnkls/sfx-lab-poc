@@ -108,6 +108,12 @@ Collected here as the phases go, and reported at each phase's end:
 * Any label or wording the session was unsure of, listed with the screen it's on.
 * **The transport bar wraps earlier** (phase 2): with the *Library* button its buttons go to a second line below about
   1250 px of window width, instead of about 1175 px.
+* **Wording to look at** (phase 3), in the Library's *This project*: the details ("Bass instrument · Instrument ·
+  This project", "1 sound" on a track, "16 tracks · 68 clips · no samples. Drag a sound, clip or sample onto a folder to
+  save it to the library." on the root), *Show*'s tooltip ("Select it and open its Instrument view"), and the group bus
+  row's name ("Drums bus"). A clip row's *Show* is the clip's own *Edit notes*.
+* **Listening** (phase 3): copy Low Light's stab onto a new track and play both; the copy's graph is checked by tests,
+  not by ear.
 * **Wording to look at** (phase 2): the Library menu's disabled reasons ("Select an instrument track", "Sum the group
   to a bus first", "Bass has no note effects") and the drop refusals ("Uses Track audio from Kick", "Uses a Send to
   Echo"), in the transport bar's *Library* menu and on the Library's rows during a drag.

@@ -130,8 +130,8 @@ refuses external routing in the revision and missing sample metadata, and `Perso
 folderId)` runs the same sample-bytes preflight as the other saves. A snapshot has no graph of its own and can't be
 saved.
 
-The Library view is one tree (`ui/library/library-tree.ts` for the rows and keys, `LibraryTree.tsx`): *My library* and
-*Trash*, folders first and then items in each folder by name with numbers in order, and each sound's presets under it,
+The Library view is one tree (`ui/library/library-tree.ts` for the rows and keys, `LibraryTree.tsx`): *This project*
+(below), *My library* and *Trash*, folders first and then items in each folder by name with numbers in order, and each sound's presets under it,
 wherever their own folder points. A preset whose sound is trashed or gone shows as an item in its own folder. The trash
 shows what was trashed at its top-most level, a folder with its contents. A search or a type filter shows the matches,
 the folders above them and a matching preset's sound, all open; a preset also matches on its sound's name, and the trash
@@ -146,6 +146,38 @@ on Bass* for effects, *Insert into scene n of Bass* for a clip (the first empty 
 *Add to project* for a sample, *Restore* for anything trashed; a button that can't run is disabled with the reason
 beside it. An empty library says how things get in and offers to save the selected instrument. When the active row
 goes to the trash, the view moves on to its folder.
+
+**This project** is the tree's first root, named after the open project (◆ *Low Light*) and collapsed until opened.
+Its rows are built live from the project store and never stored (`projectRows`, from `projectModel(project)`): each
+clip track in Tracks order, then the returns, the group buses (*Drums bus*) and the master; under each owner its
+*Instrument*, *Effects* and *Notes* graphs that hold a node other than their ends (or have presets), each graph's
+project presets under it, and a track's session clips under *Clips*; then *Samples* and *Modules*. A graph that reads
+another track shows ⚠, with the reason as the row's tooltip (`routingRefusalIn`, the wording the drops use: "Uses Track
+audio from Kick"); an instrument's includes its note graph, since saving the instrument takes the notes along. Nothing
+is captured to build them: names, counts and a node-type scan. `projectModel` is memoized on the project object, and a
+project whose rows are unchanged (a value edited, a knob dragged) gets the previous model back, so the tree, which
+selects it, doesn't re-render. What is open under the root is kept in the library store per loaded project (its
+`documentEpoch`), so another project starts collapsed. Search and the type filter cover the root while it is open, as
+with the trash: an owner's name is matched by the rows under it, a graph is its kind (instrument, audio or note
+effect), clips, samples and presets theirs, and modules match search only.
+
+The root is read-only as a library: owner, clip, sample, preset and module rows are the project's own subjects, with
+their own menus (*Rename* renames in place in the row, as in their views); owners don't drag. A graph row is a
+`project-graph { owner, domain }` subject (`state/actions/project-graph.ts`) with *Preview*, *Show* (`openPinnedEditor`:
+selects the owner and shows its Instrument, Effects or Notes view), *Save to library* and, for an instrument, *Copy to
+new track* ("Bass copy"); a graph that reads another track refuses all but *Show*, with the reason. Clip, sample, preset
+and graph rows drag (see [workbench.md](workbench.md#drag-and-drop)). A graph row shows ▶ (Space previews it) unless it
+is refused, Enter saves it, and the details describe any row of the root.
+
+**A source catalog.** Copying and previewing a graph capture it into a throwaway catalog: `projectGraphItem(project,
+owner, domain, name)` runs `captureLibraryAsset` into `emptyLibrary()` and gives the item the ID
+`project:track:<id>:patch` (`group:<id>`, `master`). `PersonalLibrary.insert(item, destination, scene?, replaceClip?,
+from?)` and `preview(item, onStop?, from?)` read `from` instead of storage, and check sample bytes against it the same
+way, so a sampled instrument's bytes are found in the project's sample storage. A copy is a library insert: fresh node
+IDs, its own modules and the source's compatible presets (the inserted sound's own state among them), one undo step, and
+a `libraryOrigins` record naming the throwaway ID, informational as origins are. `graphFitsOwner(item, owner, from?)`
+reads `from` too. The library item's *Preview* and the graph's share `previewLibraryItem(item, context, from?)`, so ■
+stays on the latest preview of either.
 
 `state/library-store.ts` holds the catalog, the active row, the selected items, the item being previewed and a request
 for the view (an export to review, an import to pick), which the menus set and the view takes. The open folder, where

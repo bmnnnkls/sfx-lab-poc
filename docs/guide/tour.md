@@ -89,7 +89,10 @@ Right-click the **Bass** track name and choose **Save to library ▸ Instrument 
 way, and clips and samples save from their own menus. The **Library** menu in the top bar saves whatever is selected,
 and you can drag a track, clip, sample or preset straight onto a Library folder (rest it on the Library's tab first if
 the Library is hidden). A preset saved on its own becomes a new sound. In the Library, the presets you saved for a
-sound sit under it.
+sound sit under it. At the top of the Library, the project's own root (◆ *Low Light*) lists every track's
+instrument, effects and notes, its clips and the samples: drag one onto a folder to save it, or onto another track to
+copy the sound there, or right-click it for **Copy to new track**. A ⚠ says a sound can't leave the project (it
+listens to another track).
 Drag sounds and folders onto folders to sort them (hold Alt to copy), or onto **Trash**; drag them back out to
 restore them. **▶** or Space previews a sound on its own, and Enter puts it into the project: an instrument as a new
 track, a clip into the first empty slot. Share a folder with **Export as .sfxlib…** from its menu, and open one by

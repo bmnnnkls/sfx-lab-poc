@@ -1,7 +1,8 @@
 ---
-status: active
-date: 2026-11-04
-note: "Phase 3 of SPEC-library-ux.md: the This project root in the Library tree, live from the project, read-only, with save, copy, preview and show. Decisions signed off 2026-11-04."
+status: done
+date: 2026-11-05
+shipped_in: architecture/library-and-presets.md
+note: "Phase 3 of SPEC-library-ux.md, built on feat/library-improvements: the This project root in the Library tree, live from the project, read-only, with save, copy, preview and show, and a source catalog for insert and preview. Also shipped in architecture/workbench.md. Stays in active/ until phase 7 archives the round."
 ---
 # Library phase 3: *This project* in the Library
 
@@ -221,3 +222,7 @@ Signed off 2026-11-04: every row as proposed.
   unit test checks that a value edit gives the same model); *Copy to new track* on Bass showed "Bass copy" at once.
   Copying the stab and playing both was not listened to (no audio in the preview); the copy's graph is checked by the
   unit and smoke tests.
+* **Step 4:** the notes are sorted: the root, the `project-graph` subject and the source catalog into
+  `library-and-presets.md`; the subject, the payload and the drop rows into `workbench.md`; decisions 94–99; a gotcha
+  (a header always carries an `edge`); Firefox and Safari for dragging out of the root in backlog V2; STATUS, the tour,
+  and the runbook's queue for the user (wording, and listening to a copied stab).

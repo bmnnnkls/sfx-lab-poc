@@ -117,6 +117,9 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   while its menu is open until that store is added there. *(library phase 2)*
 * **A browser shows no tooltip during a drag.** A drop target's `title` alone is invisible while something is dragged
   over it; draw the reason too (`data-drop-reason`), as the Library's tree rows do. *(library phase 2)*
+* **A session header or Tracks row always carries an `edge`** (`useEdgeTarget`), even when what is dragged isn't a
+  track or a group. A drop that checks for no edge never lands on a header; only track and group moves read it.
+  *(library phase 3)*
 * **Two panes asking for one sample in the same tick decode it twice**, since each pane's `loading` is its own and
   neither holds a copy yet. `openAudio` waits on one decode per sample (`decodeWorking`). *(round 11c-3)*
 * **A second pane without a sample of its own follows the first,** so whatever moves the first moves it too. Code
