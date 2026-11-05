@@ -348,7 +348,8 @@ the master's rows wait for 12c's lanes. **12b is done** 2026-11-04; see its
 mark lane under the ruler (DOM elements, not a canvas), the engine looping the arrangement sample-accurately, one seek
 that releases what was sounding for the loop's jump and a click in the ruler while playing, M, L, `[` and `]`, and
 format v13. **12c's [plan](PLAN-round-12c-timeline-automation.md)** (automation lanes on the timeline for every owner,
-groups with a bus included, region lanes playing, format v14) is waiting for sign-off; 12d is to plan. The outline below is what the spec
+groups with a bus included, region lanes playing, format v14) is signed off
+2026-11-05, every decision as proposed, and ready to build; 12d is to plan. The outline below is what the spec
 started from.
 
 Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACKLOG.md).

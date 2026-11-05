@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-11-05
-note: "Part 3 of the round 12 spec: automation lanes on the timeline for every owner, groups with a bus included; region lanes playing; returns' and the master's rows; Clip's playhead and lanes for a region. Waiting for sign-off."
+note: "Part 3 of the round 12 spec: automation lanes on the timeline for every owner, groups with a bus included; region lanes playing; returns' and the master's rows; Clip's playhead and lanes for a region. Signed off 2026-11-05, every decision as proposed."
 ---
 # Round 12c: automation on the timeline
 
-Status: **plan, waiting for sign-off.** Written 2026-11-05. No code was changed. Part of the
+Status: **plan, signed off 2026-11-05, every decision as proposed.** Written 2026-11-05. No code was changed. Part of the
 [UI redesign](../archive/ui-redesign/README.md). Carries out part 3 of the signed-off
 [round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested split): its § 3, automation lanes on the timeline,
 the returns' and the master's rows that [12a's plan](../archive/ui-redesign/PLAN-round-12a-timeline-frame.md) moved
@@ -339,6 +339,8 @@ ports). Steps 2 and 6 also run `npm run test:audio`.
   filter sweep. What isn't done joins BACKLOG V11.
 
 ## Decisions to sign off
+
+Signed off 2026-11-05: every row as proposed.
 
 | Question | Proposed | Alternative |
 |---|---|---|
