@@ -1,12 +1,17 @@
 ---
-status: active
+status: done
 date: 2026-11-05
-note: "Part 1 of the MIDI recording spec: arm, recording into an empty Session slot, the metronome, latency. Signed off 2026-11-05, every decision as proposed; not started."
+shipped_in: architecture/midi.md
+note: "Part 1 of the MIDI recording spec, done: arm, recording into an empty Session slot, the metronome, latency. Not checked with a real keyboard (backlog V5)."
 ---
 # MIDI recording, part 1: Session recording
 
-Status: **plan, signed off** 2026-11-05, every decision as proposed; not started. Written 2026-11-05 on `feat/user-testing-quick-wins` at `608c10d`. Carries out
-part 1 of the signed-off [MIDI recording spec](SPEC-midi-recording.md) (§ Parts). The spec's decisions are settled and
+Status: **done** 2026-11-05 on `imp/midi-recording-part1-b60ea0`. Signed off 2026-11-05, every decision as proposed.
+Shipped in [midi](../../architecture/midi.md#recording-notes-into-a-clip),
+[clips-and-arrangement](../../architecture/clips-and-arrangement.md#recording-into-a-slot) and
+[mixing-and-routing](../../architecture/mixing-and-routing.md#the-master-bus); not checked with a real keyboard
+([BACKLOG](../../BACKLOG.md) V5). Written 2026-11-05 on `feat/user-testing-quick-wins` at `608c10d`. Carries out
+part 1 of the signed-off [MIDI recording spec](../../active/SPEC-midi-recording.md) (§ Parts). The spec's decisions are settled and
 not repeated here; this plan adds only the ones it raises (§ Decisions to sign off). Where it differs from the spec,
 it says so.
 
@@ -28,7 +33,7 @@ After this part you can record a MIDI keyboard into a new clip in the Session:
 
 ## Inventory
 
-What part 1 touches, beyond the [spec's inventory](SPEC-midi-recording.md#inventory).
+What part 1 touches, beyond the [spec's inventory](../../active/SPEC-midi-recording.md#inventory).
 
 ### Engine
 
@@ -212,4 +217,34 @@ Signed off 2026-11-05: every decision as proposed.
 
 ## Changes made while implementing
 
-(Filled in while building.)
+* **The record clock (step 3).** `AudioHost.recordingBeat` read `currentTime`, which moves by the output callback (256
+  frames, 5.3 ms, in Chromium on macOS) and sometimes two at once, so notes were placed up to 8 ms off. It now reads the
+  render clock through `getOutputTimestamp`: the median offset of recent output timestamps from `performance.now()`,
+  plus `currentTime`'s lead over that, the top of the readings' spread (`renderLead`). Touch reads the same clock.
+* **The output latency (step 3).** Chromium's `outputLatency` flips between estimates 8 ms apart while playing, which
+  moved single notes by 8 ms. `outputLatency()` is the median of the last 64 readings, sampled with each status.
+* **A note at the very start (step 3).** With the latency taken off, a note played right after a take started from a
+  stopped transport fell before the transport ran, where the clock has no beat, and was dropped. `recordBeat` then
+  counts back from the event's own beat at the tempo, so it lands just before the start and counts as on it (the early
+  rule). Found by the smoke test.
+* **The take model (step 1).** A sustained note ends when its pitch is played again, so a clip never holds two of one
+  pitch from one key. 5000 notes in a clip (`MAX_TAKE_NOTES`, the file format's limit) end the take with a notice, as the
+  spec says.
+* **The recorder (step 5).** Undo and redo reach the recorder through a hook in the project store (`guardHistory`), as
+  the project store can't import the recorder. The take's edits commit with no merge window (the default 800 ms would
+  split a take). A take that waits more than 2 s without its clip reported queued or playing is given up (a status sent
+  before the engine had the launch says nothing). A press before the take has started ends it a bar after its start.
+  ● on another slot of a recording track ends the take at the next bar, where the new one starts. Disarming a recording
+  track ends its take at the next bar. ■ on the track, or another clip launched, ends the take where the clip stopped.
+  Arming shows *Press ● on an empty slot to record*.
+* **The view (step 7).** The preference key is `sfxlab:record`, as every other key is `sfxlab:…` (the plan said
+  `sfxlab.record`). The session header's ■, ● and × are narrower, so a name keeps its room in a 150 px column.
+  *Record a clip here* is in an empty slot's menu, disabled until the track is armed, and a recording clip's menu has
+  *Stop recording*. The commands are `transport.metronome`, `transport.metronome-level` and `transport.fixed-length`;
+  the latency offset is a field in MIDI settings only. Command menus didn't show a choice's check mark
+  (`menuEntriesOf` dropped `checked`); they do now.
+* **Tests (step 8).** The fake MIDI ports take a timestamp (`sendMidi(page, bytes, id, timeStamp)`). The audio test
+  places notes by timestamps a beat and a beat and a half apart and checks the recorded spacing and the playback's
+  (which can't tie a beat to `performance.now()` from the page, so the absolute placement is left to the unit tests
+  and V5); it checks the click's live spacing within 32 frames, since the bar's higher click crosses a threshold a few
+  samples sooner (the engine's unit tests pin the frames).

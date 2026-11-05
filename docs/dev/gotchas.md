@@ -77,6 +77,13 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 
 ## Browsers and the DOM
 
+* **`AudioContext.currentTime` moves in steps of the output callback** (256 frames, 5.3 ms, in Chromium on macOS), and
+  Chromium sometimes renders two callbacks at once. A clock read straight from it placed recorded notes up to a step
+  off. `AudioHost.recordingBeat` reads the render clock through `getOutputTimestamp` instead. *(MIDI recording part 1)*
+* **Chromium's `outputLatency` flips between estimates 8 ms apart** while it plays, and is 0 for the first tens of ms.
+  Read once per event, it moved recorded notes by 8 ms at random; `AudioHost.outputLatency()` is the median of recent
+  readings. *(MIDI recording part 1)*
+
 * **Wheel and mouse events report whole pixels** in Chromium (pointer events keep the fraction). A canvas at a
   fractional offset zooms up to 1 px off the cursor. `PatchCanvas` zooms at the last pointer position. *(round 2)*
 * **Chromium on macOS fires `contextmenu` for the Menu key, not for Shift+F10.** `ContextMenu` handles Shift+F10

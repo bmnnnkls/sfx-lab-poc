@@ -52,6 +52,16 @@ The piano roll, groove tools, audio clips and the arrangement timeline.
   `useStoredState` (guarded, validated, falls back to defaults). The panel's height is part of the saved layout (see
   [Layout and navigation](workbench.md#layout-and-navigation)).
 
+## Recording into a slot
+
+An armed instrument track ([midi](midi.md#recording-notes-into-a-clip)) shows **●** in its empty slots instead of +
+(*Create clip* stays in the slot's menu). Pressing ● makes a clip there and launches it, so it records from the next
+bar; the slot blinks red while the take waits for the bar and is red with ● and the clip's name while it records.
+Pressing it again ends the take at the next bar: the clip's length is set to the bars recorded at the press, and since a
+playing clip loops by `(beat - startBeat) mod lengthBeats`, it loops from there in time. Notes reach the clip as they
+end, so a piano roll open on it shows them arriving. The arm ● is on the session header (after ■) and on the
+arrangement header (after M S); recording into the timeline is not built yet.
+
 ## Groove: quantize, swing, humanize
 
 Pure functions in `core/project/groove.ts`, applied by the **Groove** dropdown (and `Q`, and the context menu) to the

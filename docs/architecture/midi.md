@@ -1,6 +1,6 @@
 # MIDI
 
-Parsing, held-note input to the engine, browser MIDI devices and MIDI learn.
+Parsing, held-note input to the engine, browser MIDI devices, MIDI learn and recording notes into clips.
 
 ## Browser MIDI input and learn
 
@@ -18,7 +18,8 @@ Each note-on allocates a per-press ID. Physical note-offs consume FIFO queues pe
 already an off from the parser. Input lifecycle changes (disconnect, disable) release affected sources. CC64 drives source/channel sustain; reserved CC120–127
 release that source/channel. Project document-epoch changes discard adapter queues and panic, even with identical IDs.
 Visible Panic clears queues/pedals/generated events without stopping transport; Stop also forgets physical ownership.
-Fresh presses are required after cleanup. The held-note engine retains release/effect tails. Notes never edit a project.
+Fresh presses are required after cleanup. The held-note engine retains release/effect tails. Live notes edit a project
+only through the recorder, into a clip being recorded ([Recording notes into a clip](#recording-notes-into-a-clip)).
 
 ## Where live notes go (track inputs)
 
@@ -33,8 +34,13 @@ by one key-up); only when none matches does the followed track get it, if it has
 allows. So a pad controller on channel 10 plays its drum track only, and the keyboard plays whatever is selected. CCs
 are not routed this way: a mapping names its own device and channel.
 
+**Armed tracks** hear the keyboard too: `MidiFollow.armed` lists them, and a note no track's own input takes goes to the
+followed track and every armed track without an input of its own, each once, under the same channel rule. So arming
+two following tracks layers them, and recording a track never needs it selected. A track with its own input keeps its
+rule whether armed or not.
+
 A held press remembers the notes it started. When routing changes (`liveNoteRouting`: the followed track, the
-selection channel and every track's input), each held note whose track no longer takes its press gets a note-off and
+selection channel, the armed tracks and every track's input), each held note whose track no longer takes its press gets a note-off and
 the rest keep sounding, so a pad held on a track's own input outlives a click on another track; a sustained note
 released this way stays until the pedal comes up. The device is matched by id only; `deviceName` shows an input that
 isn't connected, as for mappings. Inputs are set in MIDI settings (*Track inputs*: *Follows the selection*, *Any
@@ -42,6 +48,66 @@ input* or a device, and a channel), one undo step each, and a track with its own
 tag on its session header. The field is optional and needs no format bump (an older build drops it and the track
 follows the selection again); the sanitizer drops an input whose device or channel is malformed, with a warning,
 rather than widen it to any device or any channel. Library items and presets don't carry it; *Duplicate* copies it.
+
+## Recording notes into a clip
+
+`state/record-store` records what reaches armed tracks, after the touch recorder's pattern: a transient arm, takes
+held outside the project, feedback text, document-epoch checks, and edits committed through `useProjectStore` under a
+merge key.
+
+* **Arming** (`useRecordStore.arm`, the `track.arm` action, ● on the session and arrangement headers) is transient: not
+  saved, not an undo step. Only instrument tracks arm; a removed track drops out, and a new document disarms everything.
+  Disarming a track that is recording ends its take at the next bar.
+* **A take** starts from an empty slot of an armed track (`recordInSlot`, the `slot.record` action, ● in the slot): it
+  makes `Clip <scene + 1>` there, as long as the fixed length or 64 bars, launches it, and records from the launch
+  boundary the status reports (`playingClipId` and `startBeat`), so from a stopped transport it starts at beat 0 at once.
+  There is one take per track; pressing ● on another slot of a recording track ends the first at the next bar, where
+  the second starts. A take whose clip the engine never reports queued or playing is given up after 2 s.
+* **Events.** `app/midi-input` passes each note-on and note-off it sends to a track (`recordNote`) and the sustain
+  pedal (`recordPedal`), each with its beat from the record clock. The take keeps them in transport beats; one with no
+  beat (the transport stopped) is dropped, so nothing played before a stopped transport starts is kept.
+* **The take model** (`core/record/take.ts`, pure and shared with the later parts): `takeNotes(events, { id, start, end })`
+  pairs ons and offs per source, channel and pitch in order (a repeated pitch is two notes); a note released under its
+  source and channel's pedal ends when the pedal comes up, or when its pitch is played again; a note held at the end
+  ends there. A note-on up to a sixteenth before the start (`EARLY_BEATS`) starts on it, earlier ones are dropped, and so
+  are notes at or after the end. The shortest note is 1/128 beat. Velocity is the parser's 0..1. `finishedNotes`
+  returns those whose end is known. Note ids are the take's id and the note-on's arrival index, so they stay the same
+  while the take writes them.
+* **Writing.** After each event, the notes that have ended and aren't in the clip yet are added (`setClipNotes`) under
+  the merge key `record:<take id>` with no merge window, as is the clip's creation and its final length: the piano roll
+  shows notes as they end, autosave keeps them, and the take is one undo step unless another edit comes between.
+  At 5000 notes in the clip the take ends with a notice.
+* **Ending.** Pressing the slot again (`endTake`, the `clip.stop-recording` action) ends the take at the next bar at
+  least a quarter beat ahead, and at least a bar after its start; the clip's length is set **at the press**, so the
+  engine loops there without a gap, and when the status passes the end the held notes are closed there and written. A
+  fixed length (1 to 16 bars) ends it by itself, and so does 64 bars (`MAX_CLIP_BEATS`), with a notice. ■ on the track
+  or another clip launched ends it where the clip stopped. Stopping the transport ends every take at once (`stopTakes`
+  from `EngineControls.stop`, or a status that reports it stopped): held notes close at the stop, and the clip is
+  rounded up to the bar. The clip keeps playing and looping after a take ends. Undo and redo end every take first, as
+  of now (`guardHistory` in the project store), so the whole take is undone. A new document drops takes unwritten.
+* **Feedback** in the transport bar, after ♩: *Recording Bass, Lead*, *Recorded 4 bars into Clip 3*, *64 bars reached:
+  the take ended*, *Arm a track to record into it*.
+
+**The record clock** (`state/record-clock.ts`, connected in `app/project-sync` beside the touch clock):
+`recordBeat(timestamp)` is `AudioHost.recordingBeat` at the event's age plus the latency to take off
+(`recordLatencyMs`): the output latency the host reports and the manual offset. You play to what you hear, which lags
+the transport by that much, so a positive offset places notes earlier. When that time falls before the transport
+started (a note played just after a start), the note is counted back from its own beat at the tempo, so it lands just
+before the take's start and counts as on it.
+
+* `AudioHost.outputLatency()` is the context's `outputLatency` plus `baseLatency` (each 0 where not reported), read with
+  each status and taken as the median of the last 64 readings: Chromium's estimate flips between values 8 ms apart.
+* `AudioHost.recordingBeat` reads the render clock between the steps of `currentTime`, which moves by the output
+  callback (256 frames, 5.3 ms, in Chromium on macOS): the output timestamp (`getOutputTimestamp`) pairs the audio clock
+  with `performance.now()`, its offset is the median of recent pairs, and `currentTime`'s lead over it is the top of the
+  readings' spread (`renderLead`: the median plus half the 10th-to-90th percentile spread). Without an output timestamp
+  it is `currentTime`. Touch recording reads the same clock.
+
+**Settings** (`state/record-settings.ts`, kept per browser in `localStorage` under `sfxlab:record` by
+`useRecordSettingsStorage`, validated field by field on load): the metronome and its level, the fixed length (*Off*, 1,
+2, 4, 8, 16 bars) and the latency offset (−50 to +50 ms, *Latency offset (ms)* in MIDI settings). ♩ in the transport bar
+toggles the metronome (`transport.metronome`); its ▾ holds the level (`transport.metronome-level`) and the fixed length
+(`transport.fixed-length`) until ● Rec has a menu of its own. None of it is in the project.
 
 `app/midi-controls` learns eligible absolute CC0–119 except sustain. Confirmation consumes the first CC without editing
 the sound. An occupied source opens an explicit reassign/cancel decision; one source maps to one target, while separate
@@ -72,12 +138,15 @@ structured `ControlTarget`. No browser object or permission/route setting is sav
 IDs/names at 256 and target paths at 32; it rejects invalid selectors, reserved CCs and duplicate IDs/sources with warnings,
 and keeps well-formed unavailable references visible. Explicit v2→v3 migration removes formerly unknown mapping fields;
 v1/v2/v3 fixtures verify compatibility. Group/unlink remap learned targets with saved control values. Project packages and
-autosave use the same format; mapping CRUD is undoable. No note recording or later library slice is included in MIDI slice 2b; clip automation is described above.
+autosave use the same format; mapping CRUD is undoable.
 
 Fake-port unit and production browser tests cover permissions/late grants, learn/cancel/conflicts, device lifecycle,
 routing, channel conversion, source ownership, effective pickup, scale/snapping, momentary/nested/wired controls, history
 and Low Light DJ-filter reload. The real-output audio test replaces only browser ports, exercising the parser, adapter,
-commands and actual worklet. **No manual physical keyboard/controller check was performed.**
+commands and actual worklet. Recording has the same: a smoke test arms, records into a slot, ends, undoes, redoes and
+reloads, and an audio test checks that a take stamped on known intervals is placed and played back on them, within a
+render quantum, and that the metronome is live but not in an export. **No manual physical keyboard/controller check
+was performed**, for recording either.
 
 ## Held-note engine input
 

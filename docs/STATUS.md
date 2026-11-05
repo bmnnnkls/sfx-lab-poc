@@ -23,7 +23,7 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 | Stereo, sends and returns, master bus, mixer, Track audio | Shipped | [mixing-and-routing](architecture/mixing-and-routing.md) |
 | Track groups, group buses, Tracks tree | Shipped (redesign rounds 7–8) | [tracks-and-groups](architecture/tracks-and-groups.md) |
 | Automation (clip, return and master), touch recording | Shipped; no automation on groups yet | [control-and-automation](architecture/control-and-automation.md) |
-| Browser MIDI input and learn | Shipped; physical hardware not verified | [midi](architecture/midi.md) |
+| Browser MIDI input and learn; recording into Session slots, the metronome | Shipped; physical hardware not verified; overdub, count-in and Arrangement recording to plan | [midi](architecture/midi.md) |
 | Arrangement timeline: headers, zoom, snap, a position, follow, keys, markers, the loop brace and the transport looping it | Shipped (rounds 12a and 12b); automation lanes and recording are the rest of round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
 | Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse, markers, regions, the sampler's loop, snap, *Revert to original*, a second pane, a spectrogram, band selection and spectral edits) | Shipped (round 11 done) | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
 | Snapshots, presets, personal library, `.sfxlib` bundles | Shipped | [library-and-presets](architecture/library-and-presets.md) |
@@ -55,6 +55,13 @@ two ([archive/ui-redesign](archive/ui-redesign/README.md)).
 
 Outside the redesign, [active/SPEC-effects-round-2.md](active/SPEC-effects-round-2.md) has parts 1–2 done, and
 part 3 (Waveshaper and Crusher) is ready to build.
+
+**MIDI recording part 1 is done** (2026-11-05, [plan](archive/midi-recording/PLAN-midi-recording-1-session.md),
+[spec](active/SPEC-midi-recording.md)): arm instrument tracks (● on their headers, or their menu), and ● on an armed
+track's empty slot records the keyboard into a new clip from the next bar; pressing it again ends the take at the next
+bar and the clip loops. A fixed length, a metronome (♩, never in an export), latency compensation and a manual offset;
+a take is one undo step. Part 2 (● Rec, overdub, count-in) and part 3 (the Arrangement) are to plan. Not checked: a
+real keyboard (V5).
 
 **The library UX round is done** (2026-11-05, on `feat/library-improvements`, not merged;
 [spec, plans and runbook](archive/library-ux/SPEC-library-ux.md)). The Library is one tree with four roots: *This
