@@ -129,6 +129,8 @@ count-in and takes (about a week). Depends on 10 (arming implies an input route)
 
 ## Order
 
+Note 11 has a spec: [SPEC-midi-recording](SPEC-midi-recording.md) (signed off 2026-11-05, every decision as proposed).
+
 1. 1-5 and 9 together (this branch).
 2. 10, then 11.
 3. 6, then 7.
