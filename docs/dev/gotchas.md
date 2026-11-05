@@ -24,6 +24,12 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **`getByLabel` matches part of a label.** The arrangement's ruler, labelled "Bars and beats", made the export dialog's
   `getByLabel('Bars')` find two elements. Pass `exact: true`, or name things so they don't contain another's label.
   *(round 12a)*
+* **Moving an automated control right after ▶ authors its base.** A gesture overrides a control only once the status
+  reports its lane playing (`playback` readouts), up to 33 ms after ▶; a spec waits for the mixer's *Read:* first.
+  *(round 12c)*
+* **A focus given from a menu entry is taken back** as the menu closes, unless the action says `takesFocus`; and an
+  element in a view revealed in the same update is still hidden when its effect runs, so it tries for a few frames
+  (*Show automation on timeline*). *(round 12c)*
 * **Two drags in quick succession can be one undo step.** History merges edits with the same merge key within 800 ms,
   and a spec drags faster than a hand: drawing the loop brace and resizing it at once undid together. A gesture that
   must be its own step uses a key of its own (the mark lane's `arr-loop:<n>`). *(round 12b)*
@@ -112,6 +118,10 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 
 ## Architecture
 
+* **A selector must not return a new empty list.** `timelineLanesOf` returns one constant for an owner without lanes; a
+  fresh `[]` each call makes a store selector loop. *(round 12c)*
+* **`core/automation` reaches `core/project` through its index only**, values included (`MAX_TIMELINE_BEATS`): the
+  architecture test checks every import. *(round 12c)*
 * **`ui` can't import zustand.** A narrower subscription is a hook in `state` (`useProjectSelect`). *(round 9)*
 * **Never subscribe a component to the whole transport status or the whole project** when it shows only part of
   it. The status store updates about 30 times a second, and `tests/status-subscriptions.test.ts` fails on a `ui`

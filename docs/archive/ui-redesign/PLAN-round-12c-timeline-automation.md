@@ -1,17 +1,18 @@
 ---
-status: active
-date: 2026-11-05
-note: "Part 3 of the round 12 spec: automation lanes on the timeline for every owner, groups with a bus included; region lanes playing; returns' and the master's rows; Clip's playhead and lanes for a region. Signed off 2026-11-05, every decision as proposed."
+status: done
+date: 2026-11-06
+shipped_in: architecture/control-and-automation.md
+note: "Part 3 of the round 12 spec: automation lanes on the timeline for every owner, groups with a bus included; region lanes playing; returns' and the master's rows; Clip's playhead and lanes for a region; format v14. Signed off 2026-11-05, every decision as proposed; done 2026-11-06 on imp/round-12c, on top of feat/midi-recording. The hand pass is BACKLOG V11."
 ---
 # Round 12c: automation on the timeline
 
-Status: **plan, signed off 2026-11-05, every decision as proposed.** Written 2026-11-05. No code was changed. Part of the
-[UI redesign](../archive/ui-redesign/README.md). Carries out part 3 of the signed-off
-[round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested split): its § 3, automation lanes on the timeline,
-the returns' and the master's rows that [12a's plan](../archive/ui-redesign/PLAN-round-12a-timeline-frame.md) moved
+Status: **done** 2026-11-06; the plan was signed off 2026-11-05, every decision as proposed. Written 2026-11-05. Part of
+the [UI redesign](README.md). Carries out part 3 of the signed-off
+[round 12 spec](../../active/SPEC-round-12-arrangement-editor.md) (§ Suggested split): its § 3, automation lanes on the timeline,
+the returns' and the master's rows that [12a's plan](PLAN-round-12a-timeline-frame.md) moved
 here, and the field § 5 adds. The inventory was taken on `main` at `397460c` (rounds 12a and 12b done, `feat/ui-redesign`
 merged into `main`). The spec's decisions are settled and not repeated here; this plan only adds the ones it raises.
-Where it differs from the spec or from [12b's plan](../archive/ui-redesign/PLAN-round-12b-markers-and-loop.md), it says
+Where it differs from the spec or from [12b's plan](PLAN-round-12b-markers-and-loop.md), it says
 so.
 
 ## Goal
@@ -40,7 +41,7 @@ Automation can be drawn on the arrangement and plays with it. After this part:
 
 ## Inventory
 
-What 12c touches, beyond the [spec's inventory](SPEC-round-12-arrangement-editor.md#inventory) and 12a's and 12b's.
+What 12c touches, beyond the [spec's inventory](../../active/SPEC-round-12-arrangement-editor.md#inventory) and 12a's and 12b's.
 
 ### The model and the files
 
@@ -307,8 +308,8 @@ ports). Steps 2 and 6 also run `npm run test:audio`.
 7. **Docs and the profile.** `architecture/control-and-automation.md` (timeline lanes, groups as automation owners),
    `architecture/clips-and-arrangement.md` (rows, lanes, region lanes, Clip for a region), `architecture/persistence.md`,
    `reference/formats-and-versions.md`; this plan's "Changes made while implementing", sorted per
-   [doc-workflow](../dev/doc-workflow.md); STATUS (and its stale *not merged* line) and BACKLOG (U2); the profile and the
-   measure in [baselines](../reference/baselines.md).
+   [doc-workflow](../../dev/doc-workflow.md); STATUS (and its stale *not merged* line) and BACKLOG (U2); the profile and the
+   measure in [baselines](../../reference/baselines.md).
 
 ## Behavior changes
 
@@ -424,3 +425,36 @@ Signed off 2026-11-05: every row as proposed.
 * **Touch on a region's own lanes says it doesn't record there**, in Clip, instead of asking to launch the clip.
 * **"Sounds the same placed on the timeline"** is an engine test (session scene against arrangement, same output),
   not a real-worklet spec: step 2's audio spec already holds the worklet to the offline engine for timeline lanes.
+
+### Step 7: docs, the profile and the measure
+
+* **The measure** (`tests/measure/timeline-automation.measure.test.ts`, a test that runs only with `MEASURE=1`, since
+  the engine's cost is a Node figure, not a browser one): timeline lanes on 16 tracks cost 0.687 ms a block against
+  0.708 for the same lanes in session clips, within the plan's 10%; the no-lane arrangement matches the commit before
+  the round on its best runs (0.261 and 0.260 ms), the machine's load (13 to 25) making single runs vary by up to 70%.
+  The signature of an edit with 16 owners' dense lanes takes 2.65 ms, under the plan's 4 ms, so the compile is not
+  memoized. Figures in [baselines](../../reference/baselines.md#audio-engine).
+* **`tempo.audio.spec.ts`'s pingPong test fails on this branch and on the commit before the round**, alone and in the
+  suite: a capture chunk is missing (frame 3456 where 3584 was expected), not a wrong sample. Not this round's; it is
+  on `feat/midi-recording` as it was handed over.
+* **The UI profile was not run.** `scripts/profile-status.cjs` has the `lanes` setup the plan asked for, but it needs a
+  dev server and a preview server from the round's own checkout, and this session could only start the preview tool's
+  servers in the main checkout. BACKLOG V14.
+* **Existing specs that pinned what changed:** the context-menus spec's track, master and group menus (*Show automation
+  lanes*, a bus's *Show automation*), and linked-selection's "no automation toggle for a region".
+* The Library smoke test "a clip's scenes" failed twice and passed once over the round's runs, on code this round
+  doesn't touch (a Delete in the Library tree): flaky, not this round's.
+
+### Where the notes went
+
+* Invariants (timeline lanes, which lane plays, the engine's source per mode, the compile, the files, the lanes in the
+  view, Clip for a region) are in [control-and-automation](../../architecture/control-and-automation.md#timeline-automation),
+  [clips-and-arrangement](../../architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) and
+  [persistence](../../architecture/persistence.md).
+* Decisions 140 to 148 in [decisions](../../decisions/README.md).
+* Gotchas: moving an automated control right after ▶, focus given from a menu entry, a selector's empty list, imports
+  between `core` modules ([gotchas](../../dev/gotchas.md)); canvas attributes and the `MEASURE=1` test
+  ([verification](../../dev/verification.md)).
+* The measure in [baselines](../../reference/baselines.md); the v14 row in
+  [formats and versions](../../reference/formats-and-versions.md); the hand pass in [BACKLOG](../../BACKLOG.md) V11 and
+  the profile in V14.

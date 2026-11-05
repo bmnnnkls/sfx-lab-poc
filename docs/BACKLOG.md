@@ -10,12 +10,12 @@ Reconciled with the code on 2026-10-31 (`feat/ui-redesign` after round 11c, part
 
 Planned round by round. Each round gets a plan in [`active/`](active/) before it starts.
 
-- **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline (groups are
-  control owners but not automation owners yet), recording into the arrangement (touch recording on the timeline).
+- **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline, recording into
+  the arrangement (touch recording on the timeline).
   [Spec](active/SPEC-round-12-arrangement-editor.md) signed off 2026-11-01; 12a is done
   ([plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)), and so is 12b, markers and the loop
-  ([plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)); [12c's plan](active/PLAN-round-12c-timeline-automation.md)
-  (automation on the timeline) is signed off 2026-11-05 and ready to build; 12d (touch into the arrangement) is to plan.
+  ([plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)), and 12c, automation on the timeline
+  ([plan](archive/ui-redesign/PLAN-round-12c-timeline-automation.md)); 12d (touch into the arrangement) is to plan.
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
   Samples and the Library, library samples, several things at once outside the Library (the Library's tree drags
@@ -79,7 +79,9 @@ Things that shipped without the check their plan asked for.
   (markers, drawing the brace, its body and edges, auto-scroll past the side, Alt), rename in place, a marker's and the
   brace's menu with Shift+F10, the brace dimmed and lit in both themes, and listening to a loop of a few bars with held
   notes and an unwarped audio region across the jump, and to a click in the ruler while playing (notes cut, audio
-  rejoining in phase).
+  rejoining in phase). Round 12c adds: drawing, dragging and box-selecting points on a timeline lane with a trackpad and
+  a mouse, at high and low zoom; the lanes and the corner twisty in both themes and at 120 px; *+ Lane*'s picker by
+  keyboard; and listening to a bus fader lane and a region's own filter sweep on the timeline.
 - **V12 Library listening pass** (library round): each Factory instrument and effect auditioned once (▶ in the
   Library; the tests check only that every instrument is finite, audible and not blown up, before and after a
   Randomize roll), and a copy of Low Light's stab on a new track played beside the original.
@@ -92,6 +94,10 @@ Things that shipped without the check their plan asked for.
   keeps the morph slider across selections; the empty Library at 280 × 200 puts *Save Bass to library* before the hint;
   the Factory's content choices (*Hook stab* for a Groove stab, *Pluck* without its arpeggiator, two *Hall*s told apart
   by their descriptions).
+- **V14 Profile round 12c's timeline lanes** (round 12c): `scripts/profile-status.cjs` has a `lanes` setup (Bass's and
+  the master's lanes open, a fader lane with three points each, the arrangement playing), not run yet: it needs a dev
+  server and a preview server from the round's checkout. Compare with 12b's `editor` 87 and `loop` 87 component renders
+  a second; the lanes subscribe to the project, not the status, so they should add none.
 
 ## Performance
 

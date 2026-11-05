@@ -45,14 +45,15 @@ undo restores its starting value. Shared-definition panels keep the graph editor
 `EffectiveValue` outputs show active Read/override values, show the base in a tooltip and provide re-enable/release. The pure
 `effectiveControlReadouts` helper returns only active compatible overrides rather than every parameter on every frame.
 
-**A group as an owner** (round 8). A group's bus has a fader, pan, sends and an insert graph in domain `fx`; they resolve,
+**A group as an owner.** A group's bus has a fader, pan, sends and an insert graph in domain `fx`; they resolve,
 enumerate, edit (`editControlBase` writes back to the bus) and project (`projectWithControlValues`) like a track's. A
 folder has nothing to control: its targets are missing, "The group has no bus". `patch` and `notes` are incompatible, as
 on a return. Panel controls, MIDI learn, snapshots and presets (`SnapshotScope { owner: group, domain: 'fx' }`), sample
-bindings and the bounce reach a bus; automation does not yet. A group has no clips or session cells to hold a lane, so
-the automation parsers keep refusing a group owner with their unsupported-owner warning, *Show automation* is disabled
-on a group's control, and touch on one authors its base. `ungroup`, `removeGroup` and a group losing its last track drop
-the control values and mappings its bus owned; switching the bus off keeps them, unavailable, for undo.
+bindings, the bounce and automation on the arrangement's timeline (below) reach a bus. A group has no clips or session
+cells to hold a lane, so the clip and slot parsers keep refusing a group owner with their unsupported-owner warning,
+*Show automation in clip* is not offered on a group's control, and touch on one authors its base. `ungroup`,
+`removeGroup` and a group losing its last track drop the control values, mappings and timeline lanes its bus owned;
+switching the bus off keeps them, unavailable, for undo.
 
 This control foundation is reused by MIDI and clip automation below. Snapshots and project presets ship in slice 4 below; library insertion ships in slice 5 below. Touch recording is described below. Manual overrides reach the engine through main-thread commands; lane evaluation follows its beat clock.
 The existing panel shows directly nested controls; deeper paths are supported by the control API and saved values,
@@ -163,6 +164,44 @@ through its MessagePort after a silent readiness check; the tests require the co
 samples. This avoids legacy ScriptProcessor startup/underflow capture loss. The AudioWorklet contract was checked
 through Context7 against the current Web Audio specification. Simulated MIDI/manual tests cover all owner kinds;
 no physical MIDI hardware check has been performed.
+
+## Timeline automation
+
+Automation lanes on the arrangement's timeline, in beats from the song's start, for every owner: tracks, returns, the
+master and groups with a bus (`core/automation/timeline.ts`).
+
+* **Model.** `Project.arrangementAutomation` is one `TimelineLanes { owner, lanes, open? }` per owner. The lanes are
+  ordinary `AutomationLane`s with every clip-lane rule (normalized values, linear or hold, sorted, at most 64 lanes and
+  2048 points, one lane per target), over `[0, MAX_TIMELINE_BEATS]`. `timelineOwnerAllowed` is the one predicate for
+  who may own lanes: a track or return that exists, the master, a group with a bus. `open` is the lanes twisty, a view
+  field written with `editView` and carried across undo by `withViewOf`; an entry with no lanes is kept only while open.
+* **Edits.** `setTimelineLanes(project, owner, lanes)` keeps the owner's own targets, canonical, and refuses an owner
+  not allowed; `editTimelineAutomation` makes it one undo step, a point drag merging under its gesture key. Lanes
+  belong to owners, not regions: moving a track, a group or a region changes none. `removeTrack` drops the track's entry
+  and lanes elsewhere that reference it (a send to a removed return); `withoutGroups` drops a removed group's;
+  `setGroupBus(false)` keeps them, unavailable; `duplicateTrack` copies them onto the copy with fresh ids.
+* **Which lane plays.** In arrangement mode, per target, at most one source: a timeline lane of its owner while it is
+  enabled and has points; else a lane of the region playing on its track at the beat (the newest start under it),
+  evaluated at the region's phase, wrapped while it loops up to its loop end; else the base. In session mode timeline
+  and region lanes don't play. A region moved to another track has its own lanes' owner rewritten (`movedTo`), as a
+  session clip's.
+* **Engine.** `compileTimelineAutomation(project)` compiles the owners' lanes and every region's own lanes (with
+  start, end or loop end, and clip length) against the current specs, and the note graphs they need;
+  `automation/configure` carries it as `timeline`, from `diffProject` and `project-sync` alike, so the bounce plays
+  them too. `ArrangementAutomation` (`core/engine/arrangement-automation.ts`) finds the regions under a beat once and
+  keeps them while the beat stays in their span, so the per-sample `tick` searches nothing; a seek or a loop jump lands
+  outside the span and finds them again. `EngineAutomation.setArrangement` follows the engine's mode: switching
+  restores what the other source wrote, and into the arrangement the session's queues stop. `configured` counts only
+  the current mode's lanes, so a project with none there keeps the fast block path. The constant-range proof for note
+  lanes treats a region edge or a wrap inside a range as not constant. Overrides win over timeline lanes as over clip
+  lanes, and last until *Read* or ■.
+* **Files.** Since format v14 (`sanitizeTimelineAutomation`): an entry of a missing owner is dropped, a duplicate owner
+  skipped, a lane naming another owner warned about and kept unavailable, `open` kept only for a real `true`; a group's
+  entry stays while the group exists, bus or not. A region's own lanes are read with its track as their owner.
+* **In the view** ([the arrangement](clips-and-arrangement.md#the-arrangement-clips-on-a-timeline)): lanes under each
+  owner's row. *Show automation on timeline* (on any control, a group's included) reveals the Arrangement, opens the
+  owner's lanes, adds the lane if missing and gives it the focus; *Show automation in clip* is the session clip or slot
+  route above. The point gestures are shared with the clip editor (`ui/automation/point-gestures.ts`).
 
 ## Touch automation recording
 

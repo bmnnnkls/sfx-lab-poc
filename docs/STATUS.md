@@ -8,8 +8,10 @@ Where the project stands, in one page. Updated 2026-11-05. Update it whenever a 
 * **`main`** deploys to GitHub Pages on every push. It holds the performance-and-library work, the compressor and the
   demo-release candidate (project v9 at that point). The demo release has **not been tagged**: the
   human listening pass and the tag are still open ([BACKLOG](BACKLOG.md) V9).
-* **`feat/ui-redesign`** is the working branch for the workbench redesign: rounds 1 to 11
-  are done on it and it is not merged into `main` yet. It writes project format **v13**, which `main`'s build refuses to open.
+* **`feat/ui-redesign`**, the workbench redesign up to round 12b, is merged into `main` (`7d299bf`), which writes
+  project format **v13**.
+* **`feat/midi-recording`** holds MIDI recording parts 1 to 3 on top of `main`, not merged. Round 12c is built on it, on
+  `imp/round-12c`, not merged either; it writes format **v14**, which `main`'s build refuses to open.
 
 Current file and storage versions are in [reference/formats-and-versions.md](reference/formats-and-versions.md).
 
@@ -22,9 +24,9 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 | Control nodes, front panels, pinned panels | Shipped | [control-nodes-and-panels](architecture/control-nodes-and-panels.md) |
 | Stereo, sends and returns, master bus, mixer, Track audio | Shipped | [mixing-and-routing](architecture/mixing-and-routing.md) |
 | Track groups, group buses, Tracks tree | Shipped (redesign rounds 7–8) | [tracks-and-groups](architecture/tracks-and-groups.md) |
-| Automation (clip, return and master), touch recording | Shipped; no automation on groups yet | [control-and-automation](architecture/control-and-automation.md) |
+| Automation (clip, return and master, and on the arrangement's timeline for every owner, group buses included), touch recording | Shipped (the timeline lanes in round 12c); touch into the timeline is round 12d | [control-and-automation](architecture/control-and-automation.md) |
 | Browser MIDI input and learn; recording into Session slots and the Arrangement, overdub, count-in, the metronome | Shipped; physical hardware not verified | [midi](architecture/midi.md) |
-| Arrangement timeline: headers, zoom, snap, a position, follow, keys, markers, the loop brace and the transport looping it | Shipped (rounds 12a and 12b); automation lanes and recording are the rest of round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
+| Arrangement timeline: headers, zoom, snap, a position, follow, keys, markers, the loop brace and the transport looping it, rows for returns and the master, automation lanes, a region's own lanes playing | Shipped (rounds 12a to 12c); touch recording into it is the rest of round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
 | Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse, markers, regions, the sampler's loop, snap, *Revert to original*, a second pane, a spectrogram, band selection and spectral edits) | Shipped (round 11 done) | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
 | Snapshots, presets, personal library, `.sfxlib` bundles | Shipped | [library-and-presets](architecture/library-and-presets.md) |
 | Workbench: docking shell, views, layouts, actions, drag and drop, command palette, keys | Shipped (redesign rounds 1–6, 9–10) | [workbench](architecture/workbench.md) |
@@ -47,9 +49,11 @@ two ([archive/ui-redesign](archive/ui-redesign/README.md)).
    beat, a grid and snap, a position to play from, follow, view keys, and the timeline geometry shared with the wave
    editor. **12b is done** (2026-11-04, [plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)): a mark lane
    under the ruler with markers and a loop brace, the engine looping the arrangement sample-accurately, a seek while
-   playing that releases held notes and restarts audio in phase, M, L, `[` and `]`, and format v13. The [plan for 12c](active/PLAN-round-12c-timeline-automation.md)
-   (automation on the timeline, groups included, format v14) is signed off (2026-11-05, every decision as proposed) and ready to build; 12d (touch recording into the
-   arrangement) is to plan.
+   playing that releases held notes and restarts audio in phase, M, L, `[` and `]`, and format v13. **12c is done**
+   (2026-11-06, on `imp/round-12c` on top of `feat/midi-recording`, [plan](archive/ui-redesign/PLAN-round-12c-timeline-automation.md)):
+   automation lanes on the timeline for every owner, groups with a bus included, under each owner's row; rows for returns
+   and the master; a region's own lanes playing inside it; *Show automation on timeline*; Clip showing a region's lanes
+   and playhead; format v14. 12d (touch recording into the arrangement) is to plan.
 2. **Round 13: visual refresh and themes.**
 3. **Merge `feat/ui-redesign` into `main`.** Decide whether this happens before round 12, and clear the verification
    debt first ([BACKLOG](BACKLOG.md#verification-debt)).

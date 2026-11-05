@@ -30,8 +30,8 @@ test("clicking a region shows its own copy in Clip, and a note added there chang
   const clip = await openView(page, 'Clip')
   await region.click()
   await expect(clip.getByText('Bass / Root · arrangement, bar 3', { exact: true })).toBeVisible()
-  // No automation toggle for a region yet.
-  await expect(clip.getByRole('group', { name: 'Clip view' })).toHaveCount(0)
+  // A region has the automation toggle too (round 12c), showing its notes first.
+  await expect(clip.getByRole('group', { name: 'Clip view' }).getByRole('button', { name: 'Notes / waveform', exact: true })).toHaveAttribute('aria-pressed', 'true')
   const notes = await notesIn(clip).count()
   const marks = await region.locator('span').count()
   await drawNote(page, clip)
