@@ -75,6 +75,9 @@ export * from './arrangement-transport'
 export { editAutomationSlot, editOwnerAutomation } from './automation-store'
 
 export * from './touch-store'
+export { type RecordedNote, type TakeState, type TakeView, cancelRecords, endTake, endTakesNow, reconcileRecords, recordInSlot, recordNote, recordPedal, stopTakes, useRecordStore } from './record-store'
+export { recordBeat, recordLatencyMs, setRecordClock, transportBeat } from './record-clock'
+export { DEFAULT_RECORD_SETTINGS, FIXED_LENGTHS, type FixedLength, LATENCY_OFFSET_MS, type RecordSettings, recordSettingsOf, useRecordSettings } from './record-settings'
 export * from './preset-actions'
 
 export * from './library'

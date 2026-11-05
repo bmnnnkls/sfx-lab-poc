@@ -11,6 +11,8 @@ export type TakeEvent =
 
 /** How early a note may be played and still count as on the take's first beat: a sixteenth. */
 export const EARLY_BEATS = 0.25
+/** The most notes a take writes into a clip: as many as a clip holds (the file format's `LIMITS.notesPerClip`). */
+export const MAX_TAKE_NOTES = 5000
 /** The shortest note a take writes: a press and release inside one render quantum still makes a note. */
 export const MIN_NOTE_BEATS = 1 / 128
 

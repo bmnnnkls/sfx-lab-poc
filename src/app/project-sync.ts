@@ -1,10 +1,17 @@
 import type { AudioHost } from '@audio'
 import { controlTargetKey, compileAutomation, diffProject, projectWithControlValues, resolveControlTarget } from '@core'
-import { useControlStore, useProjectStore, useStatusStore, setTouchClock, reconcileTouches, cancelTouches } from '@state'
+import { useControlStore, useProjectStore, useRecordSettings, useStatusStore, setTouchClock, reconcileTouches, cancelTouches, setRecordClock, reconcileRecords, cancelRecords } from '@state'
 
 /** Keeps the engine mirroring the project document and feeds engine status back to the UI. */
 export const connectEngine = (host: AudioHost): (() => void) => {
   setTouchClock(host.recordingBeat ? (agoMs) => host.recordingBeat(agoMs) : undefined)
+  setRecordClock(host.recordingBeat ? (agoMs) => host.recordingBeat(agoMs) : undefined, host.outputLatency ? () => host.outputLatency() : undefined)
+  // The click is a browser preference, not part of the project: sent apart from the diff, so a bounce never has it.
+  const metronome = ({ metronome: on, metronomeLevel: level }: ReturnType<typeof useRecordSettings.getState>) => host.send({ type: 'transport/metronome', on, level })
+  metronome(useRecordSettings.getState())
+  const stopMetronome = useRecordSettings.subscribe((state, previous) => {
+    if (state.metronome !== previous.metronome || state.metronomeLevel !== previous.metronomeLevel) metronome(state)
+  })
   const sendDiff = (prev: Parameters<typeof diffProject>[0], next: Parameters<typeof diffProject>[1]) => {
     for (const command of diffProject(prev, next, false)) host.send(command)
   }
@@ -47,6 +54,7 @@ export const connectEngine = (host: AudioHost): (() => void) => {
   })
   const stopStatus = host.onStatus((status) => {
     reconcileTouches(status)
+    reconcileRecords(status)
     useStatusStore.getState().setStatus(status)
     useControlStore.setState({ playback: status.automation ?? [] })
     if (status.automationOverrideRevision === overrideRevision && status.automationOverrides) {
@@ -60,6 +68,8 @@ export const connectEngine = (host: AudioHost): (() => void) => {
 
   return () => {
     cancelTouches(); setTouchClock()
+    cancelRecords(); setRecordClock()
+    stopMetronome()
     host.send({ type: 'notes/panic' })
     stopProject()
     stopControls()

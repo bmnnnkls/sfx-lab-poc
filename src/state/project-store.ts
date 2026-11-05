@@ -107,6 +107,10 @@ import { useSelectionStore } from './selection-store'
 
 const DEFAULT_CLIP_BEATS = 4
 
+let historyGuard: (() => void) | undefined
+/** Runs before every undo and redo: the recorder ends its takes there, so a take is whole when it is undone. */
+export const guardHistory = (guard?: () => void): void => { historyGuard = guard }
+
 interface ProjectActions {
   /** Loads a project as the starting point (app startup): history begins empty. */
   resetProject(project: Project): void
@@ -336,8 +340,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       ...withHistory(commit(state.history, project, { now: Date.now() })),
       documentEpoch: state.documentEpoch + 1,
     })),
-    undo: () => set((state) => restored(state, undo(state.history))),
-    redo: () => set((state) => restored(state, redo(state.history))),
+    undo: () => { historyGuard?.(); set((state) => restored(state, undo(state.history))) },
+    redo: () => { historyGuard?.(); set((state) => restored(state, redo(state.history))) },
 
     setName: (name) => edit((project) => setProjectName(project, name), 'name'),
     setTempo: (bpm) => edit((project) => setTempo(project, bpm), 'tempo'),
