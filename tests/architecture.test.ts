@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { SMOKE_GROUPS } from './browser/groups'
 
 /**
  * Enforces the layering described in docs/architecture/overview.md:
@@ -142,8 +143,8 @@ describe('architecture', () => {
 
   it('drags and drops through ui/shared/drag, except the drags that stay inside one view', () => {
     const dragRoot = join(SRC, 'ui', 'shared', 'drag') + sep
-    // The panel's control reorder, the Samples file drop, and the region toggles, which cancel drags.
-    const allowed = new Set(['ui/panel/ControlCell.tsx', 'ui/samples/SamplesPanel.tsx', 'ui/layout/RegionToggles.tsx'])
+    // The panel's control reorder, the Samples and Library file drops, and the region toggles, which cancel drags.
+    const allowed = new Set(['ui/panel/ControlCell.tsx', 'ui/samples/SamplesPanel.tsx', 'ui/library/LibraryPanel.tsx', 'ui/layout/RegionToggles.tsx'])
     const withoutComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
     const usesDrag = (source: string) => /\bdataTransfer\b|\bdraggable\b|\bonDrag\w*|\bonDrop\b/.test(withoutComments(source))
     const violations = sourceFiles
@@ -184,5 +185,19 @@ describe('architecture', () => {
       }
     }
     expect(violations).toEqual([])
+  })
+
+  it('keeps every browser spec in a folder that a Playwright project runs', () => {
+    const browser = resolve(import.meta.dirname, 'browser')
+    const specs = (readdirSync(browser, { recursive: true }) as string[]).filter((file) => file.endsWith('.spec.ts'))
+    expect(specs.length).toBeGreaterThan(0)
+    const folderOf = (file: string): string => (file.includes(sep) ? file.split(sep)[0]! : '')
+    const misplaced = specs.filter((file) => {
+      const smokeGroup = (SMOKE_GROUPS as readonly string[]).includes(folderOf(file)) && file.split(sep).length === 2
+      if (file.endsWith('.smoke.spec.ts')) return !smokeGroup
+      if (file.endsWith('.audio.spec.ts')) return folderOf(file) !== 'audio' || file.split(sep).length !== 2
+      return true
+    })
+    expect(misplaced, 'smoke specs go in a group folder (tests/browser/groups.ts), audio specs in audio/').toEqual([])
   })
 })

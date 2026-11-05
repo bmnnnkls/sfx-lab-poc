@@ -4,9 +4,9 @@ import { groupTrack, setGroupBus, createEmptyProject, createTrack, createAudioTr
 import { createNode, createModuleUse, type ModuleDefinition } from '../patch'
 import { parseProject, serializeProject } from '../persistence'
 import { editControlBase, enumerateControlTargets, resolveControlTarget } from '../control'
-import { editSampleBinding, enumerateSampleTargets, recallProjectPreset, resolveSampleTarget, saveProjectPreset } from '../preset'
+import { assetSignature, captureAsset, editSampleBinding, enumerateSampleTargets, recallProjectPreset, resolveSampleTarget, saveProjectPreset } from '../preset'
 import { renderProject } from '../engine'
-import { emptyLibrary, captureLibraryAsset, insertLibraryAsset, saveLibraryFolder, saveLibraryItem, trashLibraryEntry, browseLibrary, captureLibraryClip, insertLibraryClip, captureLibrarySample, libraryPreviewProject } from './index'
+import { emptyLibrary, captureLibraryAsset, insertLibraryAsset, saveLibraryFolder, saveLibraryItem, trashLibraryEntry, browseLibrary, captureLibraryClip, insertLibraryClip, captureLibrarySample, captureLibraryPreset, libraryPreviewProject } from './index'
 const sample = (letter: string) => ({ id: letter.repeat(64), name: letter, extension: 'wav', sampleRate: 8000, channels: 1, bytes: 16000, durationSeconds: 1 })
 const load = (project: Project) => { const result = parseProject(serializeProject(project)); if (!result.ok) throw new Error(result.error); expect(result.warnings).toEqual([]); return result.project }
 const setup = () => {
@@ -114,6 +114,51 @@ describe('library catalog', () => {
     expect(loaded.presets?.filter(p => p.scope.domain === 'fx')).toHaveLength(3)
   })
 })
+describe('a project preset saved on its own', () => {
+  /** The fixture with two instrument presets on its first track, Warm and Bright. */
+  const twoPresets = () => {
+    const p = setup()
+    const next = saveProjectPreset(saveProjectPreset(p, scopeOf(p), 'Warm'), scopeOf(p), 'Bright')
+    return { project: next, warm: next.presets!.find(preset => preset.name === 'Warm')! }
+  }
+
+  it("is a new sound from the preset's own revision, even after its owner was rewired", () => {
+    const { project, warm } = twoPresets()
+    const track = project.tracks[0] as InstrumentTrack
+    const rewired = { ...project, tracks: [{ ...track, patch: { ...track.patch, nodes: [...track.patch.nodes, createNode('gain', 0, 0)] } }, ...project.tracks.slice(1)] }
+    const own = project.assetRevisions!.find(revision => revision.id === warm.revisionId)!
+    expect(assetSignature(captureAsset(rewired, scopeOf(rewired)))).not.toBe(own.signature)
+    const catalog = captureLibraryPreset(emptyLibrary(), rewired, warm.id, null)
+    const item = catalog.items[0]!, content = item.content
+    if (content.kind !== 'instrument') throw new Error('Expected an instrument')
+    expect(item.name).toBe('Warm')
+    expect(catalog.revisions).toHaveLength(1)
+    expect(catalog.revisions[0]!).toMatchObject({ id: content.revisionId, signature: own.signature })
+    expect(catalog.revisions[0]!.id).not.toBe(own.id)
+    expect(content.state).toEqual({ ...warm, revisionId: content.revisionId })
+    // Inserted, it is the preset's graph and recalls its values with no issues.
+    const inserted = insertLibraryAsset(createEmptyProject(), catalog, item, { mode: 'new-track' }).project
+    const added = inserted.tracks.at(-1) as InstrumentTrack
+    expect(added.patch.nodes).toHaveLength(track.patch.nodes.length)
+    expect(recallProjectPreset(inserted, inserted.presets!.at(-1)!).issues).toEqual([])
+  })
+
+  it('holds that one preset only, with its samples', () => {
+    const { project, warm } = twoPresets()
+    const catalog = captureLibraryPreset(emptyLibrary(), project, warm.id, null)
+    expect(catalog.items.map(item => item.content.kind)).toEqual(['instrument'])
+    expect(new Set(catalog.samples.map(info => info.id))).toEqual(new Set(catalog.revisions[0]!.payload.sampleIds))
+  })
+
+  it('refuses external routing in the revision, a missing preset, and missing sample metadata', () => {
+    const { project, warm } = twoPresets()
+    const routed = { ...project, assetRevisions: project.assetRevisions!.map(revision => revision.id !== warm.revisionId || revision.payload.kind !== 'instrument' ? revision : { ...revision, payload: { ...revision.payload, noteGraph: { ...revision.payload.noteGraph, nodes: [...revision.payload.noteGraph.nodes, createNode('trackNotes', 0, 0)] } } }) }
+    expect(() => captureLibraryPreset(emptyLibrary(), routed, warm.id, null)).toThrow(/external/)
+    expect(() => captureLibraryPreset(emptyLibrary(), project, 'gone', null)).toThrow(/no longer in the project/)
+    expect(() => captureLibraryPreset(emptyLibrary(), { ...project, samples: [] }, warm.id, null)).toThrow(/Missing sample metadata/)
+  })
+})
+
 describe('portable library clips and samples', () => {
   it('copies MIDI notes and portable mixer lanes with fresh identities, refuses occupied slots and reports incompatible graph lanes', () => {
     let p = createEmptyProject(), track = p.tracks[0] as InstrumentTrack

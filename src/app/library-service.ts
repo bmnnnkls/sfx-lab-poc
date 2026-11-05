@@ -1,5 +1,6 @@
 import type { PersonalLibrary } from '@state'
 import type { LibraryStorage, SampleStorage } from '@storage'
+import { loadFactoryLibrary } from './factory-library'
 
 /** Load catalog workflows only when the Library is opened; cancellation also covers the pending module load. */
 export const createDeferredPersonalLibrary = (storage: LibraryStorage, samples: SampleStorage): PersonalLibrary => {
@@ -11,12 +12,21 @@ export const createDeferredPersonalLibrary = (storage: LibraryStorage, samples: 
     saveAsset: async (...args) => (await load()).saveAsset(...args),
     saveClip: async (...args) => (await load()).saveClip(...args),
     saveSample: async (...args) => (await load()).saveSample(...args),
+    savePreset: async (...args) => (await load()).savePreset(...args),
+    addPresetToSound: async (presetId) => (await load()).addPresetToSound(presetId),
     stageBundle: async bytes => (await load()).stageBundle(bytes),
     importBundle: async stage => (await load()).importBundle(stage),
     prepareBundle: async (...args) => (await load()).prepareBundle(...args),
     exportBundle: async (...args) => (await load()).exportBundle(...args),
     insert: async (...args) => (await load()).insert(...args),
-    preview: async item => { const token = ++generation, ready = await load(); return token === generation ? ready.preview(item) : 'cancelled' },
+    preview: async (item, onStop, from) => {
+      const token = ++generation, ready = await load()
+      if (token === generation) return ready.preview(item, onStop, from)
+      onStop?.()
+      return 'cancelled'
+    },
     stopPreview: () => { generation++; service?.stopPreview() },
+    // The Factory needs none of the library's code: it loads on its own.
+    factory: loadFactoryLibrary,
   }
 }

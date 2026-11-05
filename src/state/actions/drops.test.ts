@@ -199,7 +199,7 @@ describe('library items', () => {
     catalog = captureLibraryAsset(catalog, project(), { owner: { kind: 'track', trackId: bass }, domain: 'fx' }, 'Track fx', null)
     catalog = captureLibraryAsset(catalog, project(), { owner: { kind: 'master' }, domain: 'fx' }, 'Master fx', null)
     catalog = captureLibraryClip(catalog, project(), bass, clipOf('Bass', 0)!.id, 'Riff', null)
-    useLibraryStore.setState({ catalog, openFolder: null })
+    useLibraryStore.setState({ catalog, active: null })
   })
 
   it('replace the instrument of the track they are dropped on, reported to the toasts', async () => {

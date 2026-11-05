@@ -18,7 +18,8 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
   into the arrangement) are to plan.
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
-  Samples, library samples, several things at once.
+  Samples and the Library, library samples, several things at once outside the Library (the Library's tree drags
+  several items since library phase 7).
 - **U5 Track copy and paste between projects, and *Duplicate group*** (rounds 5 and 7 left it). It needs modules and
   samples to come along, as the Library does.
 - **U6 Grouping several tracks at once**: needs a track multi-selection first.
@@ -36,7 +37,10 @@ Things that shipped without the check their plan asked for.
   [round 10's notes](archive/ui-redesign/PLAN-round-10-commands-and-keys.md#changes-made-while-implementing). Change any
   default a browser keeps.
 - **V2 Firefox and Safari passes for the redesign**: container queries and sticky scrolling (round 4), Shift+F10
-  (round 5), float WAV copies and stereo MP3 (rounds 11a and 11b).
+  (round 5), float WAV copies and stereo MP3 (rounds 11a and 11b), the Library tree's drag and drop and spring-open
+  (library phase 1), dragging tracks, groups, clips, samples and presets onto the Library with its refusal reason
+  (library phase 2), dragging graphs, clips, samples and presets out of the Library's *This project* (library phase 3), dragging a
+  preset row out of Sounds (library phase 4), dragging several library items at once (library phase 7).
 - **V3 Make V1 and V2 possible**: install Firefox, and download the Playwright Firefox and WebKit builds that match the
   installed Playwright version.
 - **V4 Listening passes for 11a, 11b and 11c-2**: an old project with a stereo file; reverse used by a clip, a region
@@ -72,6 +76,18 @@ Things that shipped without the check their plan asked for.
   brace's menu with Shift+F10, the brace dimmed and lit in both themes, and listening to a loop of a few bars with held
   notes and an unwarped audio region across the jump, and to a click in the ruler while playing (notes cut, audio
   rejoining in phase).
+- **V12 Library listening pass** (library round): each Factory instrument and effect auditioned once (▶ in the
+  Library; the tests check only that every instrument is finite, audible and not blown up, before and after a
+  Randomize roll), and a copy of Low Light's stab on a new track played beside the original.
+- **V13 Library wording and layout review** (library round): the labels, tooltips and reports each phase was unsure
+  of, listed with their screens in the [runbook's queue](archive/library-ux/RUNBOOK-library.md#queued-for-the-user-never-blocking): the Library menu's disabled reasons and drop
+  refusals, *This project*'s details, Sounds' empty state, kind labels and tooltips, the library link's wording, the
+  Factory's root, details, descriptions and clip names, and phase 7's *Cut*, *Copy* (beside *Copy to My library* on
+  Factory rows), *Paste here*, "Drop one sound at a time" and the hint. Also: with the *Library* button the transport
+  bar wraps below about 1250 px instead of 1175 px; Sounds' header at 280 px ends a long owner name in an ellipsis and
+  keeps the morph slider across selections; the empty Library at 280 × 200 puts *Save Bass to library* before the hint;
+  the Factory's content choices (*Hook stab* for a Groove stab, *Pluck* without its arpeggiator, two *Hall*s told apart
+  by their descriptions).
 
 ## Performance
 
@@ -86,6 +102,9 @@ Things that shipped without the check their plan asked for.
 - **P3 Profile idle-track inserts and sends and dense automated note graphs** with reproducible measurements. CPU
   figures in old exploration notes are not a benchmark.
 - **P4 Lazy example loading**, measured against the current chunk graph.
+- **P6 Library code loads eagerly.** `core/library` is in the eager `core` chunk because the state layer and the UI
+  import it (`linkOf`, `graphFitsOwner`, `insertionScope`, the drops). Moving those behind the lazy library service
+  would load it only when needed; measure what it saves first (library phase 5).
 - **P5 The in-place edit of a long sample blocks the main thread**: on 120 s of stereo, one task of 100 to 130 ms
   (applying the edit, encoding the WAV and hashing it), with the spectrogram on or off (round 11d-1's measure). Move
   the encode and the hash to a worker, or split them into tasks.
@@ -128,6 +147,14 @@ Things that shipped without the check their plan asked for.
 - **L4 Module usage in the module list** (the module editor already lists uses).
 - **L5 More example modules (idea E8), saving a personal module example, and the drum-machine example (idea E5)** with
   independent sampler pads.
+- **L6 Sample choices beside the sampler's own sample picker.** Sounds lists a graph's per-use sample choices under
+  *Sample choices*; they belong in the Instrument view's property editor, where the shared default is picked (library
+  phase 4 left them in Sounds, collapsed).
+- **L7 Factory presets.** The Factory's sounds have no presets yet (library phase 6, signed off): a content pass would
+  add a few per sound, as rows of `FACTORY_CONTENT` with their states, recallable from Sounds through the link.
+- **L8 Sidechain-ready Factory sounds.** Low Light's Bass, Stab, Arp, Drone and Echo duck under the Kick through *Track
+  audio*, which the library can't hold, so the Factory has them without the duck (and Low Light's Echo not at all). A
+  duck that takes its key from a send or a sidechain input chosen on insert would let them come whole.
 
 ## Controls and panels
 

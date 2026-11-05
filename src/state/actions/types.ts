@@ -2,6 +2,7 @@ import type { ControlOwner, ControlTarget, PatchTarget, TrackGraph } from '@core
 import type { EngineControls } from '../engine-controls'
 import type { ViewId } from '../layout-store'
 import type { PersonalLibrary } from '../library'
+import type { NoticeAction } from '../persistence-store'
 import type { SampleLibrary } from '../sample-library'
 import type { WavePane } from '../wave-panes'
 
@@ -18,13 +19,16 @@ export type Subject =
   | { readonly kind: 'sample'; readonly sampleId: string }
   | { readonly kind: 'library-item'; readonly itemId: string }
   | { readonly kind: 'library-folder'; readonly folderId: string }
+  | { readonly kind: 'library-root'; readonly root: 'mine' | 'trash' } // a root of the Library's tree
+  | { readonly kind: 'project-graph'; readonly owner: ControlOwner; readonly domain: 'patch' | 'fx' | 'notes' } // a graph under This project
   | { readonly kind: 'nodes'; readonly target: PatchTarget; readonly path: readonly string[]; readonly nodeIds: readonly string[] }
   | { readonly kind: 'canvas'; readonly target: PatchTarget; readonly path: readonly string[]; readonly at: { readonly x: number; readonly y: number } }
   | { readonly kind: 'module'; readonly moduleId: string }
   | { readonly kind: 'region'; readonly regionId: string }
   | { readonly kind: 'lane'; readonly trackId: string; readonly beat: number }
   | { readonly kind: 'control'; readonly targets: readonly ControlTarget[] }
-  | { readonly kind: 'sound'; readonly soundId: string; readonly preset: boolean }
+  // `onto`: the owner Sounds' rows recall onto (the selection); without it, a preset recalls onto its own owner.
+  | { readonly kind: 'sound'; readonly soundId: string; readonly preset: boolean; readonly onto?: ControlOwner }
   | { readonly kind: 'pin'; readonly owner: ControlOwner; readonly graph: TrackGraph } // a front panel in the Pinned view
   | { readonly kind: 'sample-selection'; readonly sampleId: string; readonly pane: WavePane } // a Wave editor pane's lanes: its selection and cursor
   | { readonly kind: 'sample-marker'; readonly sampleId: string; readonly pane: WavePane; readonly markerId: string } // in a pane's mark lane
@@ -60,6 +64,12 @@ export interface ActionChoice {
   readonly checked?: boolean
 }
 
+/** What an asynchronous action resolves with: a message, and a button for its toast (*Show*). */
+export interface ActionReport {
+  readonly message: string
+  readonly action?: NoticeAction
+}
+
 /** What an edit key does to the focused thing: Delete, ⌘D, ⌘C, ⌘X, ⌘V and F2. */
 export type Verb = 'delete' | 'duplicate' | 'copy' | 'cut' | 'paste' | 'rename'
 
@@ -93,5 +103,5 @@ export interface Action<S extends Subject = Subject> {
   choices?(subject: S, context: ActionContext): readonly ActionChoice[]
   readonly inline?: boolean | ((subject: S, context: ActionContext) => boolean)
   /** An asynchronous action resolves with a message to show, or throws one. */
-  run(subject: S, context: ActionContext, choice?: string): void | Promise<string | void>
+  run(subject: S, context: ActionContext, choice?: string): void | Promise<string | ActionReport | void>
 }

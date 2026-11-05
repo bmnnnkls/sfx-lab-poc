@@ -82,6 +82,36 @@ Click **✎** on a clip to open it in **Clip**, the piano roll:
   paste, delete, crop and insert silence with a crossfade at every join. Turn on **Edits make copies** to keep the
   original instead.
 
+## Keep sounds in the library
+
+Right-click the **Bass** track name and choose **Save to library ▸ Instrument + notes**. The toast says where it went;
+**Show** opens the **Library** with the new sound ready to rename. Buses and the master save their effects the same
+way, and clips and samples save from their own menus. The **Library** menu in the top bar saves whatever is selected,
+and you can drag a track, clip, sample or preset straight onto a Library folder (rest it on the Library's tab first if
+the Library is hidden). A preset saved on its own becomes a new sound. In the Library, the presets you saved for a
+sound sit under it. At the top of the Library, the project's own root (◆ *Low Light*) lists every track's
+instrument, effects and notes, its clips and the samples: drag one onto a folder to save it, or onto another track to
+copy the sound there, or right-click it for **Copy to new track**. A ⚠ says a sound can't leave the project (it
+listens to another track).
+Drag sounds and folders onto folders to sort them (hold Alt to copy), or onto **Trash**; drag them back out to
+restore them. **▶** or Space previews a sound on its own, and Enter puts it into the project: an instrument as a new
+track, a clip into the first empty slot. Share a folder with **Export as .sfxlib…** from its menu, and open one by
+dropping the file on the Library.
+
+Under *My library*, **🔒 Factory** holds ready-made sounds, effects and clips taken from the two examples, and a few
+starters: open **Drums**, press **▶** on **Kick**, and drag it onto a track. Factory sounds can't be changed in place;
+right-click one and choose **Copy to My library** (or drag it onto one of your folders) for a copy of your own.
+To tidy up, ⇧-click a range of sounds and drag them onto a folder together, or cut them with **⌘X**, click a folder
+and paste with **⌘V**; **⌘C** then **⌘V** copies instead, Factory sounds included.
+
+**Sounds** (secondary sidebar) keeps sounds inside the project, for whatever is selected. Its tabs follow the editor
+you have open. **+ Save preset** keeps the graph's sound for this and other tracks with the same graph; **+ Snapshot**
+remembers the knob positions here. Both are named after the track (*Bass 1*), ready to rename. Click a row to recall
+it; right-click a snapshot for **Set as A** and another for **Set as B**, and the **Morph** slider blends between them.
+**⋯ ▸ Show all in project** lists every sound in the project. A sound that came from the library also shows **From
+the library**, with that library sound's presets, even ones added since; click one to recall it. **Save to library** on
+a preset of such a sound adds it to the library sound.
+
 ## Arrange
 
 Open **Arrangement** (activity bar, or Tab). Drag a session clip onto a lane, or right-click an empty lane to place

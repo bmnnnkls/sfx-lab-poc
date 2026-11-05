@@ -43,6 +43,16 @@ scenes) and *Glass Rain* (a self-composing ambient piece, 92 BPM, six scenes). A
 * **In the app.** `exampleProjects` is the registry; *File -> Examples* lists them (and the starter), `ProjectFiles.loadExample(id)`
   replaces the project (through the same one-slot backup as every other replace) and shows what to try as an info toast that stays 30 seconds,
   and a first visit opens on `FLAGSHIP_EXAMPLE`. The bundle grew by about 64 kB (18 kB gzipped).
+* **They feed the Factory library.** The Library's read-only *Factory* root is captured from these two projects and a
+  few starters (`examples/factory/`: `createFactoryCatalog`, from the `FACTORY_CONTENT` table, with stable `factory:`
+  ids), lazily, the first time the Library opens; see [library-and-presets.md](library-and-presets.md). So a change to an
+  example's voice changes its Factory sound too, and its id stays as long as the table's folder and name do. What reads
+  another track (the Kick duck, Glass Rain's arp notes, Low Light's Echo) is left out, and *Pluck* is Low Light's Arp
+  instrument with its note graph swapped for a plain one (`plainNotes`). The starters (`examples/factory/starters.ts`:
+  Basic synth, FM bell, Noise sweep, Sine sub, Synced delay, Low cut, Widener) are written in the same DSL under the same
+  rules. `examples/factory/factory.test.ts` holds the Factory to the same bar: the same JSON every build, the library's
+  strict checks, every item inserting into the starter project with no warnings, every instrument sounding before and
+  after a Randomize roll, and every effect starting from the input its folder says.
 * **Tests.** `examples.test.ts` (both examples: deterministic, loads back identical with no warnings, well formed, every graph acyclic, every
   reference resolves, a panel everywhere), `builder.test.ts` (the DSL), `low-light.test.ts` and `glass-rain.test.ts` (what each claims:
   the kick is the same on every hit, the bass really ducks, the Cut and Throw buttons work, every note is in the key, the scale module only

@@ -32,7 +32,7 @@ export const INITIAL: PaletteState = { query: '', active: 0 }
 /** How many commands run in this session the palette remembers, newest first. */
 export const RECENT_LIMIT = 8
 
-export const CATEGORY_ORDER: readonly CommandCategory[] = ['View', 'Layout', 'File', 'Transport', 'Track', 'Edit', 'Help']
+export const CATEGORY_ORDER: readonly CommandCategory[] = ['View', 'Layout', 'File', 'Transport', 'Track', 'Library', 'Edit', 'Help']
 
 /** The recent list after running a row: commands only, newest first, without repeats. */
 export const withRecent = (recent: readonly string[], row: PaletteRow): readonly string[] =>

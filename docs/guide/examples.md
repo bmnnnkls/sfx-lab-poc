@@ -87,6 +87,18 @@ Six scenes, from fog to storm and back. Nobody typed the melodies here: the clip
 
 ---
 
+## Factory sounds
+
+The Library's **🔒 Factory** folder (after *My library*) holds the sounds of both examples, taken apart: the drums, the
+basses, the organ stab with its chord, the pad, the self-playing bells, drops and ticks, the textures, the returns'
+reverbs and echo, both masters, the stab's chord and the arp as note effects, a dozen clips of Low Light's groove and
+drop and Glass Rain's pad, and five starters (*Basic synth*, *FM bell*, *Noise sweep*, *Sine sub*, *Synced delay*) to build
+from. Press **▶** on any of them to hear it, drag it onto a track (or use **Add as new track**) to use it, and choose
+**Copy to My library** (or drag it onto a folder of yours) for a copy you can rename, move and change. The Factory itself
+never changes. The sidechained sounds come without their duck, since that listens to the Kick track.
+
+---
+
 ## For the curious
 
 * The whole of both is in `src/core/examples`: `builder.ts` is the small language the patches are written in (nodes by name, wires as `"osc.out>filt.in"`, a loud error for a wire that does not fit), `score.ts` writes notes as text (`X... x.o.`), and each example has its voices, its modules, its mix and its arrangement in separate files. `ARCHITECTURE.md` has the rules they follow.

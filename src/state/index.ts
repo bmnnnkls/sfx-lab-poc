@@ -49,7 +49,8 @@ export { useMidiStore, useMidi, MidiProvider, editMidiMappings, type MidiService
 export * from './automation-store'
 export * from './actions'
 export { useRenameStore, sameSubject, type Renaming } from './rename-store'
-export { useLibraryStore } from './library-store'
+export { type RecalledMark, type SoundsTab, editorTabOf, isStillRecalled, morphPair, scopeState, soundsTabsOf, tabFor, useSoundsStore } from './sounds-store'
+export { type LibraryRequest, type LibraryRowRef, type ProjectExpansion, catalogOf, fromOf, loadFactory, openFolder, openFolderOf, projectExpandedOf, useLibraryStore } from './library-store'
 export { createClipboard, subscribeToClipboards, useClipboard, type Clipboard } from './clipboard'
 export { audioClipboard, copyWaveSelection } from './audio-clipboard'
 export {
@@ -78,6 +79,7 @@ export * from './preset-actions'
 
 export * from './library'
 export * from './actions/drops'
+export { routingRefusalIn } from './actions/library-save'
 
 export * from './commands'
 export * from './wave-marks'

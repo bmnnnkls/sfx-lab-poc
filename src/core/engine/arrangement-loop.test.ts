@@ -57,11 +57,14 @@ describe('the arrangement loop', () => {
     engine.apply({ type: 'arrangement/setLoop', loop: { from: 1, to: 2 } })
     engine.apply({ type: 'arrangement/play', fromBeat: 0.5 })
     const passFrames = Math.ceil(1 / step) // a pass is 29691 frames, at most
+    const budget = 11 * passFrames + 2 * 4096
     let rendered = 0
     let jumps = 0
     const left = new Float32Array(chunk)
     const right = new Float32Array(chunk)
-    while (jumps < 10) {
+    // The frame budget is the loop's guard, not an expect per block: in blocks of 1 that is ~300k expects,
+    // which alone pushed this case past the 5 s timeout on CI runners.
+    while (jumps < 10 && rendered < budget) {
       engine.render(left, right)
       rendered += chunk
       const jump = engine.lastJump()
@@ -70,8 +73,9 @@ describe('the arrangement loop', () => {
         expect(jump.beat).toBeGreaterThanOrEqual(1)
         expect(jump.beat).toBeLessThan(1 + step)
       }
-      expect(rendered).toBeLessThan(11 * passFrames + 2 * 4096)
     }
+    expect(jumps).toBe(10)
+    expect(rendered).toBeLessThan(budget)
     // The position is where an endless timeline would be, less ten loop lengths: no sample was lost or added.
     expect(engine.status().beat).toBeCloseTo(0.5 + rendered * step - 10, 9)
   })

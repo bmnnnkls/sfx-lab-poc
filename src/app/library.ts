@@ -1,12 +1,16 @@
 import { decodeAudio } from '@audio'
-import { bytesKeyOf, type LibraryCatalog, type LibraryItem, type Project, type SampleData, captureLibraryAsset, captureLibraryClip, captureLibrarySample, insertLibraryAsset, insertLibraryClip, libraryDependencies, libraryPreviewProject, Bounce, commit } from '@core'
+import { bytesKeyOf, type LibraryCatalog, type LibraryItem, type Project, type SampleData, captureLibraryAsset, captureLibraryClip, captureLibraryPreset, captureLibrarySample, presetLink, presetToLibrary, insertLibraryAsset, insertLibraryClip, libraryDependencies, libraryPreviewProject, Bounce, commit } from '@core'
 import { type PersonalLibrary, useProjectStore } from '@state'
 import { type LibraryStorage, type SampleStorage, stageLibraryBundle, commitLibraryBundle, exportLibraryBundle, downloadFile } from '@storage'
+import { loadFactoryLibrary } from './factory-library'
 
 /** All reusable payloads become copies in the document. Catalog edits never enter project history. */
 export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleStorage): PersonalLibrary => {
-  let generation = 0, context: AudioContext | undefined, source: AudioBufferSourceNode | undefined
-  const stopPreview = () => { generation++; if (source?.buffer) source.stop(); source?.disconnect(); source = undefined; if (context && context.state !== 'closed') void context.close(); context = undefined }
+  let generation = 0, context: AudioContext | undefined, source: AudioBufferSourceNode | undefined, onStopped: (() => void) | undefined
+  const stopPreview = () => {
+    generation++; if (source?.buffer) source.stop(); source?.disconnect(); source = undefined; if (context && context.state !== 'closed') void context.close(); context = undefined
+    const stopped = onStopped; onStopped = undefined; stopped?.()
+  }
   const ensureBytes = async (catalog: LibraryCatalog, item: LibraryItem) => {
     for (const id of libraryDependencies(catalog, item).sampleIds) {
       const info = catalog.samples.find(s => s.id === id)
@@ -27,11 +31,14 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
     useProjectStore.setState({ project, history: commit(state.history, project, { now: Date.now() }) })
   }
   return {
-    read: storage.read, update: storage.update, stopPreview,
+    read: storage.read, update: storage.update, stopPreview, factory: loadFactoryLibrary,
     stageBundle: stageLibraryBundle,
     importBundle: stage => { stopPreview(); return commitLibraryBundle(storage, stage) },
-    prepareBundle: async (selection, name) => {
-      const exported = await exportLibraryBundle(await storage.read(), selection, name, samples.get, true)
+    prepareBundle: async (selection, name, extra) => {
+      const stored = await storage.read()
+      // The Factory's ids are its own, so its records sit beside the personal ones without colliding.
+      const catalog = extra ? { ...stored, folders: [...stored.folders, ...extra.folders], items: [...stored.items, ...extra.items], revisions: [...stored.revisions, ...extra.revisions], samples: [...stored.samples, ...extra.samples.filter(s => !stored.samples.some(known => known.id === s.id))] } : stored
+      const exported = await exportLibraryBundle(catalog, selection, name, samples.get, true)
       return stageLibraryBundle(exported.bytes)
     },
     exportBundle: async (stage, partial) => {
@@ -42,8 +49,16 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
     saveAsset: (scope, name, folder) => save((catalog, project) => captureLibraryAsset(catalog, project, scope, name, folder)),
     saveClip: (track, clip, name, folder) => save((catalog, project) => captureLibraryClip(catalog, project, track, clip, name, folder)),
     saveSample: (id, name, folder) => save((catalog, project) => captureLibrarySample(catalog, project, id, name, folder)),
-    insert: async (selected, destination, scene = 0, replaceClip = false) => {
-      const catalog = await storage.read(), item = catalog.items.find(i => i.id === selected.id && !i.trashed)
+    savePreset: (id, folder) => save((catalog, project) => captureLibraryPreset(catalog, project, id, folder)),
+    addPresetToSound: (id) => save((catalog, project) => {
+      const preset = project.presets?.find(p => p.id === id)
+      if (!preset) throw new Error('The preset is no longer in the project')
+      const origin = presetLink(project, preset)
+      if (!origin) throw new Error('This preset is not of a library sound')
+      return presetToLibrary(project, catalog, origin, preset).catalog
+    }),
+    insert: async (selected, destination, scene = 0, replaceClip = false, from) => {
+      const catalog = from ?? await storage.read(), item = catalog.items.find(i => i.id === selected.id && !i.trashed)
       if (!item) throw new Error('Library item was removed; refresh the catalog')
       await ensureBytes(catalog, item)
       const project = useProjectStore.getState().project
@@ -62,15 +77,16 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
       const result = insertLibraryAsset(project, catalog, item, destination)
       commitProject(result.project); return 'Asset and presets copied into project'
     },
-    preview: async selected => {
+    preview: async (selected, onStop, from) => {
       stopPreview()
+      onStopped = onStop
       const token = generation
       // Create/resume during the click gesture, before asynchronous storage/decode work.
       const previewContext = new AudioContext(), localSource = previewContext.createBufferSource()
       context = previewContext; source = localSource
       try {
         await previewContext.resume()
-        const catalog = await storage.read(), item = catalog.items.find(i => i.id === selected.id && !i.trashed)
+        const catalog = from ?? await storage.read(), item = catalog.items.find(i => i.id === selected.id && !i.trashed)
         if (!item) throw new Error('Item is unavailable')
         await ensureBytes(catalog, item)
         const decoded: SampleData[] = []

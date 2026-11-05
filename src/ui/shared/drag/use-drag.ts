@@ -1,4 +1,4 @@
-import { type DragPayload, type DropTarget, dropFor, runDrop } from '@state'
+import { type DragPayload, type DropTarget, dropFor, refusalFor, runDrop } from '@state'
 import type { DragEvent, HTMLAttributes } from 'react'
 import { useActionContext } from '../menu'
 import { DRAG_TYPE, endDrag, mark, ourDrag, startDrag, unmark } from './current-drag'
@@ -28,8 +28,8 @@ export type TargetOf = DropTarget | null | ((event: DragEvent<HTMLElement>) => D
 
 /**
  * The props that make an element a drop target. It looks only at drags of ours, so anything else passes through; for
- * those it asks the drop list, shows `data-drop="accept"` or `"refuse"`, and stops the event, so the innermost target
- * wins. `onOver` sees each accepted `dragover`, for a marker of where it would land.
+ * those it asks the drop list, shows `data-drop="accept"` or `"refuse"` (with the reason, when a drop gives one, as
+ * the tooltip and `data-drop-reason`), and stops the event, so the innermost target wins. `onOver` sees each accepted `dragover`, for a marker of where it would land.
  */
 export const useDropTarget = (target: TargetOf, onOver?: (event: DragEvent<HTMLElement>, target: DropTarget) => void): DropProps => {
   const context = useActionContext()
@@ -41,7 +41,7 @@ export const useDropTarget = (target: TargetOf, onOver?: (event: DragEvent<HTMLE
     const resolved = resolve(event)
     const drop = resolved && dropFor(payload, resolved, context)
     if (!resolved || !drop) {
-      mark(event.currentTarget, 'refuse')
+      mark(event.currentTarget, 'refuse', resolved ? refusalFor(payload, resolved, context) : undefined)
       return
     }
     event.preventDefault()

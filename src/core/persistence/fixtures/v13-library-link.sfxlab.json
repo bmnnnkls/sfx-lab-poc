@@ -1,0 +1,1298 @@
+{
+  "format": "sfx-lab-project",
+  "version": 13,
+  "project": {
+    "name": "Library link",
+    "tempo": 120,
+    "sceneCount": 4,
+    "samples": [
+      {
+        "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "name": "a",
+        "extension": "wav",
+        "durationSeconds": 1,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bytes": 16000
+      },
+      {
+        "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "name": "b",
+        "extension": "wav",
+        "durationSeconds": 1,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bytes": 16000
+      }
+    ],
+    "modules": [
+      {
+        "id": "module_q5m22gv9",
+        "name": "Sample voice",
+        "patch": {
+          "nodes": [
+            {
+              "id": "node_dwbdv62h",
+              "type": "sampler",
+              "x": 0,
+              "y": 0,
+              "params": {
+                "mode": 0,
+                "root": 60,
+                "start": 0,
+                "tune": 0
+              },
+              "sampleId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            {
+              "id": "node_arpylhsp",
+              "type": "control",
+              "x": 0,
+              "y": 0,
+              "params": {
+                "value": 100,
+                "min": 20,
+                "max": 20000,
+                "curve": 1,
+                "step": 0,
+                "default": 0.5
+              }
+            },
+            {
+              "id": "node_rc9c2t6n",
+              "type": "switch",
+              "x": 0,
+              "y": 0,
+              "params": {
+                "on": 0,
+                "mode": 0,
+                "offValue": 0,
+                "onValue": 1,
+                "pulse": 0.05
+              }
+            },
+            {
+              "id": "node_xaisl6jo",
+              "type": "switch",
+              "x": 0,
+              "y": 0,
+              "params": {
+                "on": 0,
+                "mode": 1,
+                "offValue": 0,
+                "onValue": 1,
+                "pulse": 0.05
+              }
+            }
+          ],
+          "connections": []
+        },
+        "inputs": [],
+        "outputs": [
+          {
+            "id": "node_dwbdv62h:out",
+            "label": "Out",
+            "inner": {
+              "node": "node_dwbdv62h",
+              "port": "out"
+            }
+          }
+        ],
+        "knobs": []
+      }
+    ],
+    "master": {
+      "fx": {
+        "nodes": [
+          {
+            "id": "node_8z8syjgm",
+            "type": "masterIn",
+            "x": 20,
+            "y": 40,
+            "params": {}
+          },
+          {
+            "id": "node_vghlzisv",
+            "type": "trackOut",
+            "x": 620,
+            "y": 40,
+            "params": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "wire_h1n27cc8",
+            "from": {
+              "node": "node_8z8syjgm",
+              "port": "out"
+            },
+            "to": {
+              "node": "node_vghlzisv",
+              "port": "in"
+            }
+          }
+        ]
+      }
+    },
+    "tracks": [
+      {
+        "kind": "instrument",
+        "id": "track_pt5yv8cs",
+        "name": "Track 1",
+        "volume": 0.8,
+        "fx": {
+          "nodes": [
+            {
+              "id": "node_xpj641i4",
+              "type": "trackIn",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_3sr32xmv",
+              "type": "trackOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_ykqqajor",
+              "from": {
+                "node": "node_xpj641i4",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_3sr32xmv",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "sends": {},
+        "voices": 8,
+        "patch": {
+          "nodes": [
+            {
+              "id": "node_38m1tqg4",
+              "type": "note",
+              "x": 20,
+              "y": 120,
+              "params": {}
+            },
+            {
+              "id": "node_naq6evdv",
+              "type": "oscillator",
+              "x": 220,
+              "y": 40,
+              "params": {
+                "waveform": 1,
+                "frequency": 220,
+                "detune": 0,
+                "pitchAmount": 2
+              }
+            },
+            {
+              "id": "node_mko4fle0",
+              "type": "filter",
+              "x": 420,
+              "y": 40,
+              "params": {
+                "mode": 0,
+                "cutoff": 2000,
+                "resonance": 0.707,
+                "cvAmount": 2,
+                "keyTrack": 0,
+                "gain": 0,
+                "slope": 0
+              }
+            },
+            {
+              "id": "node_yj0pj4dg",
+              "type": "envelope",
+              "x": 220,
+              "y": 260,
+              "params": {
+                "attack": 0.01,
+                "decay": 0.15,
+                "sustain": 0.6,
+                "release": 0.25
+              }
+            },
+            {
+              "id": "node_tpjg7fl8",
+              "type": "gain",
+              "x": 620,
+              "y": 120,
+              "params": {
+                "gain": 0.3
+              }
+            },
+            {
+              "id": "node_2xihetht",
+              "type": "delay",
+              "x": 820,
+              "y": 120,
+              "params": {
+                "time": 0.3,
+                "feedback": 0.4,
+                "mix": 0.35,
+                "sync": 0,
+                "division": 0
+              }
+            },
+            {
+              "id": "node_3ax0cqhr",
+              "type": "output",
+              "x": 1020,
+              "y": 150,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_ujtw3hjs",
+              "from": {
+                "node": "node_38m1tqg4",
+                "port": "frequency"
+              },
+              "to": {
+                "node": "node_naq6evdv",
+                "port": "freq"
+              }
+            },
+            {
+              "id": "wire_9gkne1rz",
+              "from": {
+                "node": "node_38m1tqg4",
+                "port": "gate"
+              },
+              "to": {
+                "node": "node_yj0pj4dg",
+                "port": "gate"
+              }
+            },
+            {
+              "id": "wire_ksosoyox",
+              "from": {
+                "node": "node_naq6evdv",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_mko4fle0",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_w5hflij8",
+              "from": {
+                "node": "node_mko4fle0",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_tpjg7fl8",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_hyo90l3r",
+              "from": {
+                "node": "node_yj0pj4dg",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_tpjg7fl8",
+                "port": "cv"
+              }
+            },
+            {
+              "id": "wire_yc9x7nz7",
+              "from": {
+                "node": "node_tpjg7fl8",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_2xihetht",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_gqrkg2iq",
+              "from": {
+                "node": "node_2xihetht",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_3ax0cqhr",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "noteGraph": {
+          "nodes": [
+            {
+              "id": "node_gh2sanq0",
+              "type": "clipNotes",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_uytxh0r7",
+              "type": "noteOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_m2qlwprs",
+              "from": {
+                "node": "node_gh2sanq0",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_uytxh0r7",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "clips": [
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      {
+        "kind": "instrument",
+        "id": "track_la9pvoui",
+        "name": "Big bass",
+        "volume": 0.8,
+        "fx": {
+          "nodes": [
+            {
+              "id": "node_6l4v6plz",
+              "type": "trackIn",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_phlfakwf",
+              "type": "trackOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_pyd303z1",
+              "from": {
+                "node": "node_6l4v6plz",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_phlfakwf",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "sends": {},
+        "voices": 8,
+        "patch": {
+          "nodes": [
+            {
+              "id": "node_vphu9j77",
+              "type": "module",
+              "moduleId": "module_q5m22gv9",
+              "x": 0,
+              "y": 0,
+              "params": {}
+            },
+            {
+              "id": "node_w58yb2hd",
+              "type": "module",
+              "moduleId": "module_q5m22gv9",
+              "x": 0,
+              "y": 0,
+              "params": {}
+            }
+          ],
+          "connections": []
+        },
+        "noteGraph": {
+          "nodes": [
+            {
+              "id": "node_6juy62gj",
+              "type": "clipNotes",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_xbpfdp4b",
+              "type": "noteOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_yt8ehjo8",
+              "from": {
+                "node": "node_6juy62gj",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_xbpfdp4b",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "clips": [
+          null,
+          null,
+          null,
+          null
+        ]
+      }
+    ],
+    "sampleBindings": [
+      {
+        "target": {
+          "kind": "graph",
+          "owner": {
+            "kind": "track",
+            "trackId": "track_la9pvoui"
+          },
+          "domain": "patch",
+          "path": [
+            {
+              "nodeId": "node_vphu9j77",
+              "moduleId": "module_q5m22gv9"
+            }
+          ],
+          "nodeId": "node_dwbdv62h",
+          "nodeType": "sampler"
+        },
+        "sampleId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "target": {
+          "kind": "graph",
+          "owner": {
+            "kind": "track",
+            "trackId": "track_la9pvoui"
+          },
+          "domain": "patch",
+          "path": [
+            {
+              "nodeId": "node_w58yb2hd",
+              "moduleId": "module_q5m22gv9"
+            }
+          ],
+          "nodeId": "node_dwbdv62h",
+          "nodeType": "sampler"
+        },
+        "sampleId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "assetRevisions": [
+      {
+        "id": "revision_awmr70p0",
+        "payload": {
+          "kind": "instrument",
+          "patch": {
+            "nodes": [
+              {
+                "id": "node_vphu9j77",
+                "type": "module",
+                "moduleId": "module_q5m22gv9",
+                "x": 0,
+                "y": 0,
+                "params": {}
+              },
+              {
+                "id": "node_w58yb2hd",
+                "type": "module",
+                "moduleId": "module_q5m22gv9",
+                "x": 0,
+                "y": 0,
+                "params": {}
+              }
+            ],
+            "connections": []
+          },
+          "noteGraph": {
+            "nodes": [
+              {
+                "id": "node_6juy62gj",
+                "type": "clipNotes",
+                "x": 20,
+                "y": 40,
+                "params": {}
+              },
+              {
+                "id": "node_xbpfdp4b",
+                "type": "noteOut",
+                "x": 620,
+                "y": 40,
+                "params": {}
+              }
+            ],
+            "connections": [
+              {
+                "id": "wire_yt8ehjo8",
+                "from": {
+                  "node": "node_6juy62gj",
+                  "port": "out"
+                },
+                "to": {
+                  "node": "node_xbpfdp4b",
+                  "port": "in"
+                }
+              }
+            ]
+          },
+          "voices": 8,
+          "modules": [
+            {
+              "id": "module_q5m22gv9",
+              "name": "Sample voice",
+              "patch": {
+                "nodes": [
+                  {
+                    "id": "node_dwbdv62h",
+                    "type": "sampler",
+                    "x": 0,
+                    "y": 0,
+                    "params": {
+                      "mode": 0,
+                      "root": 60,
+                      "start": 0,
+                      "tune": 0
+                    },
+                    "sampleId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  {
+                    "id": "node_arpylhsp",
+                    "type": "control",
+                    "x": 0,
+                    "y": 0,
+                    "params": {
+                      "value": 100,
+                      "min": 20,
+                      "max": 20000,
+                      "curve": 1,
+                      "step": 0,
+                      "default": 0.5
+                    }
+                  },
+                  {
+                    "id": "node_rc9c2t6n",
+                    "type": "switch",
+                    "x": 0,
+                    "y": 0,
+                    "params": {
+                      "on": 0,
+                      "mode": 0,
+                      "offValue": 0,
+                      "onValue": 1,
+                      "pulse": 0.05
+                    }
+                  },
+                  {
+                    "id": "node_xaisl6jo",
+                    "type": "switch",
+                    "x": 0,
+                    "y": 0,
+                    "params": {
+                      "on": 0,
+                      "mode": 1,
+                      "offValue": 0,
+                      "onValue": 1,
+                      "pulse": 0.05
+                    }
+                  }
+                ],
+                "connections": []
+              },
+              "inputs": [],
+              "outputs": [
+                {
+                  "id": "node_dwbdv62h:out",
+                  "label": "Out",
+                  "inner": {
+                    "node": "node_dwbdv62h",
+                    "port": "out"
+                  }
+                }
+              ],
+              "knobs": []
+            }
+          ],
+          "sampleIds": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ]
+        },
+        "signature": "[\"instrument\",[{\"nodes\":[{\"id\":\"node_vphu9j77\",\"type\":\"module\",\"moduleId\":\"module_q5m22gv9\",\"stereo\":false,\"bypassed\":false},{\"id\":\"node_w58yb2hd\",\"type\":\"module\",\"moduleId\":\"module_q5m22gv9\",\"stereo\":false,\"bypassed\":false}],\"connections\":[]},{\"nodes\":[{\"id\":\"node_6juy62gj\",\"type\":\"clipNotes\",\"stereo\":false,\"bypassed\":false},{\"id\":\"node_xbpfdp4b\",\"type\":\"noteOut\",\"stereo\":false,\"bypassed\":false}],\"connections\":[[\"node_6juy62gj\",\"out\",\"node_xbpfdp4b\",\"in\"]]},8],[[\"module_q5m22gv9\",[],[[\"node_dwbdv62h:out\",\"node_dwbdv62h\",\"out\"]],[],{\"nodes\":[{\"id\":\"node_arpylhsp\",\"type\":\"control\",\"stereo\":false,\"bypassed\":false,\"config\":{\"curve\":1,\"default\":0.5,\"max\":20000,\"min\":20,\"step\":0}},{\"id\":\"node_dwbdv62h\",\"type\":\"sampler\",\"stereo\":false,\"bypassed\":false},{\"id\":\"node_rc9c2t6n\",\"type\":\"switch\",\"stereo\":false,\"bypassed\":false,\"config\":{\"mode\":0,\"offValue\":0,\"onValue\":1,\"pulse\":0.05}},{\"id\":\"node_xaisl6jo\",\"type\":\"switch\",\"stereo\":false,\"bypassed\":false,\"config\":{\"mode\":1,\"offValue\":0,\"onValue\":1,\"pulse\":0.05}}],\"connections\":[]}]]]"
+      }
+    ],
+    "presets": [
+      {
+        "id": "preset_dzxwusrj",
+        "name": "Big bass",
+        "scope": {
+          "owner": {
+            "kind": "track",
+            "trackId": "track_la9pvoui"
+          },
+          "domain": "patch"
+        },
+        "values": [
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "mode"
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "root"
+            },
+            "value": 60
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "start"
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "tune"
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_arpylhsp",
+              "nodeType": "control",
+              "paramId": "value"
+            },
+            "value": 100
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_rc9c2t6n",
+              "nodeType": "switch",
+              "paramId": "on"
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "mode"
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "root"
+            },
+            "value": 60
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "start"
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "tune"
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_arpylhsp",
+              "nodeType": "control",
+              "paramId": "value"
+            },
+            "value": 100
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_rc9c2t6n",
+              "nodeType": "switch",
+              "paramId": "on"
+            },
+            "value": 0
+          }
+        ],
+        "revisionId": "revision_awmr70p0",
+        "samples": [
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler"
+            },
+            "sampleId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ],
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler"
+            },
+            "sampleId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      {
+        "id": "preset_dv4cina4",
+        "name": "Preset A",
+        "scope": {
+          "owner": {
+            "kind": "track",
+            "trackId": "track_la9pvoui"
+          },
+          "domain": "patch"
+        },
+        "values": [
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "mode",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "root",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 60
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "start",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "tune",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_arpylhsp",
+              "nodeType": "control",
+              "paramId": "value",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 100
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_rc9c2t6n",
+              "nodeType": "switch",
+              "paramId": "on",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "mode",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "root",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 60
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "start",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "paramId": "tune",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 0
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_arpylhsp",
+              "nodeType": "control",
+              "paramId": "value",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 100
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_rc9c2t6n",
+              "nodeType": "switch",
+              "paramId": "on",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "value": 0
+          }
+        ],
+        "revisionId": "revision_awmr70p0",
+        "samples": [
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "path": [
+                {
+                  "nodeId": "node_vphu9j77",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "sampleId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "target": {
+              "kind": "graph",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_la9pvoui"
+              },
+              "domain": "patch",
+              "nodeId": "node_dwbdv62h",
+              "nodeType": "sampler",
+              "path": [
+                {
+                  "nodeId": "node_w58yb2hd",
+                  "moduleId": "module_q5m22gv9"
+                }
+              ]
+            },
+            "sampleId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    ],
+    "libraryOrigins": [
+      {
+        "itemId": "item_u51cqwzj",
+        "revisionId": "revision_xefqtblt",
+        "trackId": "track_la9pvoui",
+        "domain": "patch",
+        "owner": {
+          "kind": "track",
+          "trackId": "track_la9pvoui"
+        },
+        "link": {
+          "shape": "aa497171acb0b78e",
+          "nodes": [
+            [
+              "left",
+              "node_vphu9j77"
+            ],
+            [
+              "right",
+              "node_w58yb2hd"
+            ],
+            [
+              "node_480f2w8e",
+              "node_6juy62gj"
+            ],
+            [
+              "node_b3fn3vus",
+              "node_xbpfdp4b"
+            ],
+            [
+              "sample",
+              "node_dwbdv62h"
+            ],
+            [
+              "knob",
+              "node_arpylhsp"
+            ],
+            [
+              "toggle",
+              "node_rc9c2t6n"
+            ],
+            [
+              "button",
+              "node_xaisl6jo"
+            ]
+          ],
+          "modules": [
+            [
+              "m",
+              "module_q5m22gv9"
+            ]
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import 'fake-indexeddb/auto'
 import { zipSync, strToU8 } from 'fflate'
-import { noteGraphFrom, createSamplerPatch, createModuleUse, enumerateSampleTargets, editSampleBinding, type ModuleDefinition, captureLibraryAsset, captureLibraryClip, captureLibrarySample, createEmptyProject, createAudioTrack, createAudioClip, createClip, createNote, emptyLibrary, saveLibraryFolder, mergeLibraryBundle, validateLibraryCatalog, saveProjectPreset, insertLibraryAsset, insertLibraryClip, parseProject, serializeProject, recallProjectPreset, trashLibraryEntry, type Project, type LibraryCatalog, type LibraryBundleManifest, type InstrumentTrack } from '@core'
+import { copyLibraryEntries, loadFactoryModule, noteGraphFrom, createSamplerPatch, createModuleUse, enumerateSampleTargets, editSampleBinding, type ModuleDefinition, captureLibraryAsset, captureLibraryClip, captureLibrarySample, createEmptyProject, createAudioTrack, createAudioClip, createClip, createNote, emptyLibrary, saveLibraryFolder, mergeLibraryBundle, validateLibraryCatalog, saveProjectPreset, insertLibraryAsset, insertLibraryClip, parseProject, serializeProject, recallProjectPreset, trashLibraryEntry, type Project, type LibraryCatalog, type LibraryBundleManifest, type InstrumentTrack } from '@core'
 import { createMemoryLibraryStorage, createLibraryStorage } from './library-storage'
 import { createMemorySampleStorage, createIndexedDbSampleStorage } from './sample-storage'
 import { exportLibraryBundle, stageLibraryBundle, commitLibraryBundle, LIBRARY_ARCHIVE_LIMITS } from './library-transfer'
@@ -36,6 +36,23 @@ const fixture = async () => {
 }
 
 describe('library bundle exchange', () => {
+  it('a Factory folder copied into My library exports as an .sfxlib and imports back the same, with nothing of the Factory left', async () => {
+    const factory = (await loadFactoryModule()).createFactoryCatalog()
+    const storage = createMemoryLibraryStorage(new Map())
+    const copied = await storage.update((catalog) => copyLibraryEntries(factory, saveLibraryFolder(catalog, 'Mine', null, 'mine'), ['factory:effects', 'factory:drums/kick'], 'mine'))
+    expect(JSON.stringify(copied)).not.toContain('factory:')
+    const file = await exportLibraryBundle(copied, { folderIds: ['mine'] }, 'Mine', async () => undefined)
+    const stage = await stageLibraryBundle(file.bytes)
+    expect(stage.missing).toEqual([])
+    const shape = (c: LibraryCatalog) => c.items.map((item) => [item.name, item.content.kind, 'revisionId' in item.content ? c.revisions.find((revision) => revision.id === (item.content as { revisionId: string }).revisionId)?.signature : undefined]).sort()
+    expect(shape(stage.manifest.catalog)).toEqual(shape(copied))
+    // Effects holds three track effects, four returns and two masters; Kick came on its own.
+    expect(stage.manifest.catalog.items).toHaveLength(3 + 4 + 2 + 1)
+    const imported = await commitLibraryBundle(createMemoryLibraryStorage(new Map()), stage)
+    expect(shape(imported)).toEqual(shape(copied))
+    expect(imported.folders.map((folder) => folder.name).sort()).toEqual(['Effects', 'Master', 'Mine', 'Mine', 'Returns', 'Tracks'])
+  })
+
   it('retains v1 bundles with absent delay division and exchanges new synced divisions', async () => {
     const raw = JSON.parse(readFileSync(new URL('../core/persistence/fixtures/v7-delay-timing.sfxlab.json', import.meta.url), 'utf8'))
     const loaded = parseProject(JSON.stringify(raw)); if (!loaded.ok) throw new Error(loaded.error)

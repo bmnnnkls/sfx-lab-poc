@@ -6,6 +6,9 @@ import { enumerateSampleTargets, editSampleBinding, resolveSampleTarget } from '
 import { captureSnapshot, inSnapshotScope, recallSnapshot } from './snapshots'
 import type { AssetPayload, AssetRevision, ProjectPreset, RecallIssue, SnapshotScope } from './types'
 
+/** The node types that read another track: an asset can't carry them, so a capture refuses them. */
+export const EXTERNAL_ROUTING: readonly string[] = ['send', 'trackAudio', 'trackNotes']
+
 /** Only the transitive closure belongs to an asset. Reject external routing rather than silently rebinding it. */
 export const captureAsset = (project: Project, scope: SnapshotScope): AssetPayload => {
   if (scope.domain === 'track') throw new Error('Choose Instrument, Effects or Notes for a preset')
@@ -14,7 +17,7 @@ export const captureAsset = (project: Project, scope: SnapshotScope): AssetPaylo
   const modules: ModuleDefinition[] = [], seen = new Set<string>(), visiting = new Set<string>(), samples = new Set<string>()
   const walk = (patch: Patch) => {
     for (const node of patch.nodes) {
-      if (['send', 'trackAudio', 'trackNotes'].includes(node.type)) throw new Error('Presets require graphs without external track routing')
+      if (EXTERNAL_ROUTING.includes(node.type)) throw new Error('Presets require graphs without external track routing')
       if (node.sampleId) samples.add(node.sampleId)
       if (node.type === 'module' && node.moduleId && visiting.has(node.moduleId)) throw new Error('Cyclic module dependency')
       if (node.type === 'module' && node.moduleId && !seen.has(node.moduleId)) {
@@ -71,11 +74,22 @@ export const canRecallProjectPreset = (project: Project, preset: ProjectPreset, 
   try { return assetSignature(captureAsset(project, scope)) === revision.signature } catch { return false }
 }
 export const recallProjectPreset = (project: Project, preset: ProjectPreset, scope = preset.scope) => {
-  const issues: RecallIssue[] = []
   const revision = project.assetRevisions?.find(r => r.id === preset.revisionId)
   if (!revision) throw new Error('Preset asset revision is missing')
+  return recallPresetState(project, preset, scope, payload => assetSignature(payload) === revision.signature, 'Graph differs from the preset asset revision; save a new preset revision')
+}
+
+/**
+ * Recalls a preset's values and sample choices onto `scope`, taking the graph's shape from the scope's current graph
+ * rather than from a stored revision: `matches` checks it (a library link's shape, say), and `refusal` is thrown when
+ * it doesn't. The preset's `revisionId` isn't read. An instrument's state spans its notes too.
+ */
+export const recallPresetState = (project: Project, preset: ProjectPreset, scope: SnapshotScope, matches: (payload: AssetPayload) => boolean, refusal = 'Graph differs from the preset') => {
+  const issues: RecallIssue[] = []
   if (scope.domain !== preset.scope.domain) throw new Error('Preset graph kind does not match this scope')
-  if (assetSignature(captureAsset(project, scope)) !== revision.signature) throw new Error('Graph differs from the preset asset revision; save a new preset revision')
+  const current = captureAsset(project, scope)
+  if (!matches(current)) throw new Error(refusal)
+  const revision = { payload: current }
   const remap = <T extends { readonly owner: SnapshotScope['owner'] }>(target: T): T => ({ ...target, owner: scope.owner })
   // Instrument state spans patch + notes; each sub-scope is still validated by recallSnapshot.
   let next = project

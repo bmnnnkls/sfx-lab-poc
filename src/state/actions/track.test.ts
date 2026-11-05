@@ -20,10 +20,10 @@ beforeEach(() => {
 
 describe('track', () => {
   it("offers what applies to the track's kind", () => {
-    const edits = ['Rename', 'Duplicate', 'Group', 'Move to group', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo']
-    expect(titles({ kind: 'track', trackId: track('Bass').id })).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Pin panel', 'Show automation', ...edits, 'Delete'])
-    expect(titles({ kind: 'track', trackId: track('Kick').id })).toEqual(['Stop', 'Open effects', 'Pin panel', 'Show automation', ...edits, 'Delete'])
-    expect(titles({ kind: 'track', trackId: 'ret' })).toEqual(['Open effects', 'Pin panel', 'Show automation', 'Rename', 'Duplicate', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo', 'Delete'])
+    const edits = (save: string) => ['Rename', 'Duplicate', save, 'Group', 'Move to group', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo']
+    expect(titles({ kind: 'track', trackId: track('Bass').id })).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Pin panel', 'Show automation', ...edits('Save to library'), 'Delete'])
+    expect(titles({ kind: 'track', trackId: track('Kick').id })).toEqual(['Stop', 'Open effects', 'Pin panel', 'Show automation', ...edits('Save effects to library'), 'Delete'])
+    expect(titles({ kind: 'track', trackId: 'ret' })).toEqual(['Open effects', 'Pin panel', 'Show automation', 'Rename', 'Duplicate', 'Save effects to library', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo', 'Delete'])
   })
 
   it('stops the track and opens its views', () => {
@@ -71,7 +71,7 @@ describe('track', () => {
 
 describe('master', () => {
   it('opens its effects and shows its automation', () => {
-    expect(titles({ kind: 'master' })).toEqual(['Open effects', 'Pin effects panel', 'Show automation'])
+    expect(titles({ kind: 'master' })).toEqual(['Open effects', 'Pin effects panel', 'Show automation', 'Save effects to library'])
     runAction('master.open-effects', { kind: 'master' }, fakeContext())
     expect(useSelectionStore.getState().master).toBe(true)
     runAction('master.show-automation', { kind: 'master' }, fakeContext())

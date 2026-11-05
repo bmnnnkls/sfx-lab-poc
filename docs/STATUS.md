@@ -1,6 +1,6 @@
 # Status
 
-Where the project stands, in one page. Updated 2026-11-04. Update it whenever a round or a piece of work lands
+Where the project stands, in one page. Updated 2026-11-05. Update it whenever a round or a piece of work lands
 (see [dev/doc-workflow.md](dev/doc-workflow.md)).
 
 ## Branches and releases
@@ -56,6 +56,16 @@ two ([archive/ui-redesign](archive/ui-redesign/README.md)).
 Outside the redesign, [active/SPEC-effects-round-2.md](active/SPEC-effects-round-2.md) has parts 1–2 done, and
 part 3 (Waveshaper and Crusher) is ready to build.
 
+**The library UX round is done** (2026-11-05, on `feat/library-improvements`, not merged;
+[spec, plans and runbook](archive/library-ux/SPEC-library-ux.md)). The Library is one tree with four roots: *This
+project* (the open project's graphs, presets, clips and samples, live), *My library*, a read-only *Factory* of 49
+sounds, effects and clips from the examples, loaded lazily, and *Trash*. Things get in from every menu, the transport
+bar's *Library* menu and by dragging, with external routing refused and the reason shown; they drag out onto tracks,
+slots and graphs, several at once inside the tree, and cut, copy and paste with ⌘X, ⌘C and ⌘V. Sounds shows the
+selection's presets and snapshots, and *From the library* the presets of the library sound it came from, through a
+link that survives duplicates and copies and saves new presets back. Not checked: the listening pass and the wording
+review (backlog V12, V13), Firefox and Safari (V2).
+
 ## Accepted limits
 
 These were accepted on purpose and are not bugs to rediscover. The evidence is in
@@ -83,3 +93,4 @@ Each of these is a backlog item:
 * Manual listening passes for rounds 11a and 11b, and a looped sampler (11c-2). The bounce hashes and audio specs stand
   in for them.
 * Physical MIDI keyboards and controllers.
+* The library round's listening pass and its wording and layout review (V12, V13).

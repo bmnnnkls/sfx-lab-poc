@@ -32,6 +32,7 @@ import {
   doubleClip,
   duplicateScene,
   duplicateTrack,
+  carryLibraryLinks,
   insertScene,
   removeScene,
   editPatchAt,
@@ -120,7 +121,7 @@ interface ProjectActions {
   /** Adds a return track: a place for other tracks to send sound to, with its own effects. */
   addReturnTrack(): void
   removeTrack(trackId: string): void
-  /** Adds a copy of a track right after it (see `duplicateTrack`); returns its id, or null at the track limit. */
+  /** Adds a copy of a track right after it (see `duplicateTrack`), with its library links; returns its id, or null at the track limit. */
   duplicateTrack(trackId: string): string | null
   /** Renames a track; an empty name keeps the old one. */
   setTrackName(trackId: string, name: string): void
@@ -352,7 +353,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     removeTrack: (trackId) => edit((project) => removeTrack(project, trackId)),
     duplicateTrack: (trackId) => {
       const result = duplicateTrack(get().project, trackId)
-      if (result.trackId) edit(() => result.project)
+      // The copy keeps the original's node IDs, so its library links carry as they are.
+      if (result.trackId) edit(() => carryLibraryLinks(result.project, trackId, result.trackId!))
       return result.trackId
     },
     setTrackName: (trackId, name) => edit((project) => setTrackName(project, trackId, name)),

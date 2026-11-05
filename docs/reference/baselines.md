@@ -135,6 +135,26 @@ main thread, one task.
 a region at beat 4000 and one at 0 at the closest zoom (256 px a beat) make each lane 1,025,976 px wide. Five seconds
 of sideways wheel scrolls and ⌘-wheel zooms out and back in gave no long task (none over 50 ms).
 
+## Library tree
+
+The near-limit case of `tests/browser/library/library-tree.smoke.spec.ts` (2026-11-05, library phase 1, production build,
+Chromium 156 via Playwright, Apple M3 Pro, load averages 6 to 8, `ba349a2`): a catalog of 1024 folders (32 top-level, 31 inside
+each) and 4096 items (a quarter presets). A search matching 238 rows took 28–36 ms to the next frame, clearing it (a full
+re-render of the collapsed tree, 34 rows) 14–21 ms, and opening a top-level folder 14–19 ms. Raw numbers in
+[measurements/library-tree-near-limit.json](../measurements/library-tree-near-limit.json). The threshold for
+virtualizing the tree is 100 ms.
+
+Redone in library phase 7 (2026-11-05, `f25c5a3`, same machine, load averages 7 to 11), with a second pass that opens
+*This project* and the Factory as well (83 rows, four roots searched together): over three runs every search,
+re-render and folder opening took **9–36 ms** (the collapsed tree alone: search 26–36, clear 13–20, expand 9–20; all
+roots open: search 22–33, clear 14–28, expand 10–18). The JSON now holds this run, with phase 1's ranges in its note.
+
+The Factory catalog (library phase 6, 2026-11-05, `95ad59a`, the main development machine): 49 items, 14 folders and 37
+revisions, **524 900 bytes** of JSON. `createFactoryCatalog` took **80, 96 and 103 ms** in Chromium on the dev build
+(three cold loads in the app's preview pane, read from the `sfxlab:factory-catalog` performance measure) and 85–150 ms
+in Node under Vitest (the first build of a process the slower); `validateLibraryCatalog` on it about 75 ms. The plan's
+threshold for building it in an idle callback is 150 ms.
+
 ## Audio engine
 
 The F1 capacity campaign (2026-10-19) is the most recent engine measurement. Its accepted results (first callback
@@ -154,3 +174,36 @@ After the vendor chunk split, the main chunk went from 705.5 kB to 400.1 kB, Rea
 85.8 kB, and the audio worklet 117.8 kB (slice 1, 2026-10). These numbers predate the redesign; measure again before
 using them ([BACKLOG](../BACKLOG.md#performance) P4). The spectrum worker is its own chunk, 106.5 kB (round 11d-1,
 2026-10-31), 109.6 kB with the band edits (round 11d-2): it imports `@core`'s index.
+
+With `src/core` in its own chunk (library phase 5, 2026-11-05, `df33d91`, `npm run build` on the main development
+machine, gzipped sizes from Vite's report): `core` 123.0 kB, `state` 29.7 kB (146.9 before), main `index` 112.3 kB
+(114.8 before); the eager total grew about 2.9 kB, under 1 kB of it the step's own code. The lazy `library` chunk
+(the library service) stays 3.7 kB. At the end of phase 5 (`d2d50d4`): `core` 123.7 kB, `state` 30.0 kB,
+`index` 112.9 kB, `LibraryPanel` 10.4 kB.
+
+With the Factory (library phase 6, 2026-11-05, gzipped, against `cb124ef`): a lazy `factory` chunk of 16.9 kB (5.4 kB
+gzipped), not preloaded; `index` 112.9 → 112.3 kB, `core` 123.7 → 124.9, `state` 30.0 → 30.7, `LibraryPanel` 10.4 → 11.0,
+`library` 1.8 → 1.9. `vite build` takes about 0.4 s after `tsc`.
+
+With the library clipboard, multi-drag and the hint (library phase 7, 2026-11-05, gzipped, against `7a00065`): `index`
+112.28 → 112.33 kB, `state` 30.18 → 32.35, `LibraryPanel` 10.94 → 11.46; `core`, `factory` and `library` unchanged.
+
+## Project files
+
+Library links (library phase 5, 2026-11-05): Low Light with ten of its instruments saved and inserted again as linked
+sounds (26 tracks, 282 pairs) is 510 331 bytes, against 501 329 with the links stripped: 9 002 bytes, 1.8 %, about
+900 bytes a link. It loads without warnings and reads back identical; measured with a throwaway Vitest file running
+`captureLibraryAsset` and `insertLibraryAsset` on the example.
+
+## Test suites
+
+The main development machine (12 logical cores), on `feat/library-improvements`:
+
+* **`npm test`** (2026-11-04, `953d72d` with library work in progress): 246 files in 29 s wall, 107 s summed over
+  files. The wall time is set by `core/examples/low-light.test.ts` (28 s) and `glass-rain.test.ts` (24 s), most of it
+  their *cannot be broken by Randomize* tests (14 s and 17 s); `core/engine` is another 35 s summed, spread over 33 files.
+* **`test:smoke`**: 229 tests summed to about 250 s on one worker (2026-11-04, the run's HTML report). On two workers
+  (2026-11-05, `204821d` plus the worker change), 235 tests passed in 148 s wall, 278 s summed. The longest files then
+  were `arrangement` (33 s), `views-at-min-size` (28 s), `wave-editor` (25 s), `wave-marks` (22 s) and `automation`
+  (20 s). A probe on six workers (2026-11-04) took 101 s wall.
+* `tsc --noEmit` and `vite build` take about 3 s together.

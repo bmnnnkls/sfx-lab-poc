@@ -35,7 +35,7 @@ describe('the group menu with buses', () => {
   })
 
   it('offers a bus Open effects and Remove bus, which says it discards the effects', () => {
-    expect(titles('Drums')).toEqual(['Collapse', 'Open effects', 'Pin effects panel', 'Rename', 'Remove bus', 'Mute', 'Solo', 'Colour', 'Move up', 'Move down', 'Hide tracks', 'Ungroup', 'Delete group and tracks'])
+    expect(titles('Drums')).toEqual(['Collapse', 'Open effects', 'Pin effects panel', 'Rename', 'Remove bus', 'Save effects to library', 'Mute', 'Solo', 'Colour', 'Move up', 'Move down', 'Hide tracks', 'Ungroup', 'Delete group and tracks'])
     expect(items('Drums').find((item) => item.id === 'group.bus')!.tooltip).toMatch(/discard the bus's effects/)
   })
 
@@ -89,7 +89,7 @@ describe('drops on a group', () => {
     const owner = { kind: 'group' as const, groupId: group('Drums').id }
     let catalog: LibraryCatalog = captureLibraryAsset(emptyLibrary(), project(), { owner, domain: 'fx' }, 'Bus fx', null)
     catalog = captureLibraryAsset(catalog, project(), { owner: { kind: 'track', trackId: track('Bass').id }, domain: 'fx' }, 'Track fx', null)
-    useLibraryStore.setState({ catalog, openFolder: null })
+    useLibraryStore.setState({ catalog, active: null })
   })
 
   const item = (name: string): DragPayload => ({ kind: 'library-item', itemId: useLibraryStore.getState().catalog.items.find((entry) => entry.name === name)!.id })

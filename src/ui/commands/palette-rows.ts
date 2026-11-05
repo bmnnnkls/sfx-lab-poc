@@ -1,4 +1,4 @@
-import { type Command, type CommandContext, describeActions, sameSubject, type Subject, subjectName } from '@state'
+import { type Command, type CommandContext, commandTooltip, describeActions, sameSubject, type Subject, subjectName } from '@state'
 import type { PaletteRow } from './palette-model'
 
 /** The rows of the commands that apply and are meant for the palette: one per choice for a command with choices. */
@@ -9,10 +9,10 @@ export const commandRows = (commands: readonly Command[], context: CommandContex
     const label = command.label?.(context) ?? command.title
     const base = { takesFocus: false, category: command.category }
     if (!command.choices) {
-      const key = keyOf(command.id)
+      const key = keyOf(command.id), tooltip = commandTooltip(command, context)
       return [{
         ...base, id: `command:${command.id}`, label: `${command.category}: ${label}`, enabled,
-        ...(key && { key }), ...(command.tooltip && { tooltip: command.tooltip }), target: { kind: 'command', command: command.id },
+        ...(key && { key }), ...(tooltip && { tooltip }), target: { kind: 'command', command: command.id },
       }]
     }
     return command.choices(context).map((choice) => ({

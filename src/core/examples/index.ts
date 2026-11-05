@@ -47,3 +47,9 @@ export const findExampleProject = (id: string): ExampleProject | undefined => ex
 
 /** The example a first visit opens on. */
 export const FLAGSHIP_EXAMPLE = 'low-light'
+
+/**
+ * The Factory library's code (`./factory`), loaded on demand: it captures the examples into a catalog, which only the
+ * Library needs, so it stays out of the code the app starts with.
+ */
+export const loadFactoryModule = () => import('./factory')

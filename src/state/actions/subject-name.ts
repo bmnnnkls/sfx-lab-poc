@@ -1,17 +1,10 @@
-import { BEATS_PER_BAR, type ControlOwner, controlTargetLabel, nodeTitles, patchAt } from '@core'
-import { useLibraryStore } from '../library-store'
+import { BEATS_PER_BAR, controlTargetLabel, nodeTitles, patchAt } from '@core'
+import { catalogOf } from '../library-store'
 import { markerTitle } from './arrangement-marks'
 import { GRAPH_TITLES } from './pin'
 import { editTargetOf } from './nodes'
-import { project, sessionClipOf, trackOf } from './lookup'
+import { ownerName, project, sessionClipOf, trackOf } from './lookup'
 import type { Subject } from './types'
-
-const ownerName = (owner: ControlOwner): string =>
-  owner.kind === 'master'
-    ? 'Master'
-    : owner.kind === 'group'
-      ? project().groups?.find((group) => group.id === owner.groupId)?.name ?? 'Group'
-      : trackOf(owner.trackId)?.name ?? 'Track'
 
 const sampleOf = (sampleId: string) => project().samples?.find((sample) => sample.id === sampleId)
 const sampleName = (sampleId: string) => sampleOf(sampleId)?.name ?? 'sample'
@@ -44,9 +37,13 @@ export const subjectName = (subject: Subject): string => {
     case 'sample':
       return project().samples?.find((sample) => sample.id === subject.sampleId)?.name ?? 'Sample'
     case 'library-item':
-      return useLibraryStore.getState().catalog.items.find((item) => item.id === subject.itemId)?.name ?? 'Library item'
+      return catalogOf(subject.itemId).items.find((item) => item.id === subject.itemId)?.name ?? 'Library item'
     case 'library-folder':
-      return useLibraryStore.getState().catalog.folders.find((folder) => folder.id === subject.folderId)?.name ?? 'Folder'
+      return catalogOf(subject.folderId).folders.find((folder) => folder.id === subject.folderId)?.name ?? 'Folder'
+    case 'library-root':
+      return subject.root === 'mine' ? 'My library' : 'Trash'
+    case 'project-graph':
+      return `${ownerName(subject.owner)} ${GRAPH_TITLES[subject.domain].toLowerCase()}`
     case 'nodes': {
       if (subject.nodeIds.length !== 1) return `${subject.nodeIds.length} nodes`
       const patch = patchAt(project(), editTargetOf(subject))

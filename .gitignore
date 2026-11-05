@@ -4,3 +4,7 @@ dist
 .DS_Store
 playwright-report/
 test-results/
+
+.vscode/settings.json
+
+*.tmp.md

@@ -4,10 +4,10 @@ Recipes for the changes made most often. Each names every place that must change
 
 **Add a command** — one that needs only `state` goes in `STATE_COMMANDS` (`state/commands/state-commands.ts`), one
 that opens a dialog, moves the DOM focus or reads `ui`'s data in `UI_COMMANDS` (`ui/commands/ui-commands.ts`). Give it
-a stable id (keys are saved by it), a category and a title; `label` when a menu should say something else now. It shows
-in the palette and the shortcuts dialog at once; add it to a list in `ui/commands/menus.ts` to put it in a menu. An
-action on a thing is not a command: add it to its kind's list in `state/actions/`, with a `verb` if an edit key should
-run it.
+a stable id (keys are saved by it), a category and a title; `label` when a menu should say something else now, and a
+`tooltip` (a function of the context when it says why the command is disabled). It shows in the palette and the
+shortcuts dialog at once; add it to a list in `ui/commands/menus.ts` to put it in a menu. An action on a thing is not a
+command: add it to its kind's list in `state/actions/`, with a `verb` if an edit key should run it.
 
 **Add a key** — a row in `DEFAULT_KEYS` (`ui/commands/keybindings.ts`): the command, the key (`mod+alt+x`), the Apple
 key if it differs (`ctrl+mod+x`), and a scope if not `outside-text`. Never a key a browser keeps; check the new key by
@@ -28,7 +28,7 @@ launcher queue need no changes (the return track was added this way; TypeScript 
 
 **Add a UI feature** — new folder under `ui/`, read state via `@state` hooks. A new view gets an id in `ViewId`
 (`state/layout-store.ts`), a place in a group of `DEFAULT_LAYOUT` there, and an entry in `ui/layout/views.ts` with its
-title (and tooltip) in `ui/layout/view-titles.ts`; add the title and id to `tests/browser/fixtures.ts`. Saved layouts
+title (and tooltip) in `ui/layout/view-titles.ts`; add the title and id to `tests/browser/support/fixtures.ts`. Saved layouts
 get the new view in its default region on their next load. Code that should show it calls `revealView` or an intent in
 `state/navigation.ts`, never a tab setter.
 

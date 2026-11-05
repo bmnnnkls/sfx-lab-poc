@@ -2,6 +2,7 @@ import { MidiSettings } from '../midi/MidiSettings'
 import { MAX_TEMPO, MIN_TEMPO } from '@core'
 import { useEngineControls, useLayoutStore, useProjectStore, useStatusStore, useTouchStore } from '@state'
 import { useKeyLabel, withKey } from '../commands/CommandHost'
+import { LibraryMenu } from '../commands/LibraryMenu'
 import { ViewMenu } from '../commands/ViewMenu'
 import { FileMenu } from '../file-menu/FileMenu'
 import { HistoryButtons } from '../history-buttons/HistoryButtons'
@@ -70,6 +71,7 @@ export const TransportBar = () => {
       <HistoryButtons />
       <FileMenu />
       <ViewMenu />
+      <LibraryMenu />
       <MidiSettings />
     </header>
   )

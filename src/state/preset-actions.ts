@@ -1,4 +1,4 @@
-import { type Project, type Snapshot, type ProjectPreset, type SnapshotScope, type ControlValue, commit, controlTargetKey, controlToNormalized, resolveControlTarget, recallSnapshot, recallProjectPreset, stepRecallLane, automationSlotsOf, setAutomationSlot, setClipAutomation, MAX_AUTOMATION_LANES } from '@core'
+import { type LinkedOrigin, type Project, type Snapshot, type ProjectPreset, presetFromLibrary, recallLinkedPreset, type SnapshotScope, type ControlValue, commit, controlTargetKey, controlToNormalized, resolveControlTarget, recallSnapshot, recallProjectPreset, stepRecallLane, automationSlotsOf, setAutomationSlot, setClipAutomation, MAX_AUTOMATION_LANES } from '@core'
 import { useProjectStore } from './project-store'
 import { useTouchStore, touchBeatNow, touchDestination, finishTouches } from './touch-store'
 import { useStatusStore } from './status-store'
@@ -27,10 +27,20 @@ const recordRecall = (project: Project, changes: readonly ControlValue[]): Proje
   return next
 }
 /** Bases, discrete sample state and all recorded steps enter one history transaction. Read stays authoritative. */
-export const recallSavedSound = (sound: Snapshot | ProjectPreset, scope?: SnapshotScope): string => {
+export const recallSavedSound = (sound: Snapshot | ProjectPreset, scope?: SnapshotScope): string =>
+  recallWith((project) => ('revisionId' in sound ? recallProjectPreset(project, sound, scope) : recallSnapshot(project, sound)))
+
+/**
+ * Recalls a library sound's state (its own, or a preset's) onto the owner a link names, as an ordinary recall: one undo
+ * step, Touch and Read as for any recall. The graph isn't replaced, so its automation and mappings stay.
+ */
+export const recallLinkedSound = (origin: LinkedOrigin, state: ProjectPreset): string =>
+  recallWith((project) => recallLinkedPreset(project, origin, presetFromLibrary(origin, state)))
+
+const recallWith = (recall: (project: Project) => ReturnType<typeof recallSnapshot>): string => {
   finishTouches()
   const store = useProjectStore.getState()
-  const result = 'revisionId' in sound ? recallProjectPreset(store.project, sound, scope) : recallSnapshot(store.project, sound)
+  const result = recall(store.project)
   // Record against the old bases, before recall changes them.
   const recorded = recordRecall(store.project, result.applied)
   const project = recorded === store.project ? result.project : { ...result.project, tracks: result.project.tracks.map(t => {

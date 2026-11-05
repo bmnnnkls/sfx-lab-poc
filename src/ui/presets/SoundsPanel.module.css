@@ -1,0 +1,44 @@
+.panel { height: 100%; overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box; }
+
+/* The header: the owner, the graph's tabs and ⋯ on one line; the owner's name gives way (to an ellipsis) at 280 px. */
+.header { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.owner { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabs { display: inline-flex; flex: none; }
+.tabs button { padding: 1px 5px; font-size: 11px; border-radius: 0; margin-inline-start: -1px; }
+.tabs button:first-child { border-radius: var(--radius) 0 0 var(--radius); margin-inline-start: 0; }
+.tabs button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.tabs button[aria-selected='true'] { color: var(--bg); background: var(--accent); border-color: var(--accent); position: relative; }
+.more { flex: 0 0 auto; padding: 1px 6px; line-height: 1.2; }
+
+.header, .status, .buttons, .morph, .samples { flex: none; }
+/* The rows scroll; the buttons, the morph and the sample choices stay below them. */
+.sounds { flex: 0 1 auto; min-height: 48px; overflow: auto; }
+
+.status { display: block; min-height: 16px; font-size: 12px; color: var(--accent); overflow-wrap: anywhere; }
+.empty { margin: 0; font-size: 12px; color: var(--text-dim); }
+
+.group h3 { margin: 4px 0; font-size: 12px; font-weight: 600; color: var(--text-dim); }
+.list { margin: 0; padding: 0; list-style: none; }
+.row { display: flex; align-items: center; gap: 6px; min-height: 24px; padding: 0 4px; border: 1px solid transparent; border-radius: var(--radius); cursor: default; user-select: none; }
+.row:hover { background: var(--panel-raised); }
+.row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.mark { flex: 0 0 10px; color: var(--accent); font-size: 9px; text-align: center; }
+.name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kind { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim); font-size: 11px; }
+.end { color: var(--accent); font-weight: 600; }
+/* For screen readers only. */
+.hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Morph: A's name, the slider, B's name. */
+.morph { display: flex; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 12px; }
+.morph input { flex: 1 1 80px; min-width: 60px; }
+.endName { flex: 0 1 auto; min-width: 0; max-width: 35%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim); }
+
+.samples { font-size: 12px; }
+.samples summary { cursor: pointer; color: var(--text-dim); }
+.samples p { margin: 4px 0; color: var(--text-dim); }
+.sample { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 3px 0; }
+.sample span { flex: 1 1 120px; min-width: 0; overflow-wrap: anywhere; }
+.sample select { flex: 0 1 auto; min-width: 0; max-width: 100%; }

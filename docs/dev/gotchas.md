@@ -44,8 +44,11 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **`npx playwright test` serves whatever `dist/` holds.** Its web server is `vite preview`, so a spec run that way
   tests the last build: run `vite build` first (`npm run test:smoke` does). *(round 11c-2)*
 * **Two browser-test runs at once collide**: they share port 4173 and `test-results/`, so one can't start its server
-  or loses its trace files ("ENOENT … .trace"), which reads like a failed test. Run them one after the other.
-  *(round 11c-2)*
+  or loses its trace files ("ENOENT … .trace"), which reads like a failed test. Run them one after the other. Two
+  checkouts (worktrees) have their own `test-results/`; give one of them another port with `PW_PORT`. *(round 11c-2)*
+* **A spec outside the group folders doesn't run.** Each Playwright project reads only its own folder, so a spec at
+  `tests/browser/` itself or in a new folder runs in no project; `tests/architecture.test.ts` catches it. A new group
+  goes in `tests/browser/groups.ts`.
 * **The unit tests beside a smoke run fail its timed specs**: `vitest` starts a worker per file, and specs with bounded
   waits (the library's isolated previews, the spectrogram following an edit) time out. Don't run anything heavy while
   the smoke tests run. *(round 11d-2)*
@@ -65,6 +68,12 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   that shows the result (`/^0:01\.00\d$/`), and allow the pixel a drag starts in.
 * **A spec that imports from another spec runs that spec's tests too.** Put shared helpers in a plain module
   (`marked-sample.ts`, `preset-project.ts`). *(round 11c-3)*
+* **`openView(page, 'Instrument')` is ambiguous while Sounds shows**: Sounds has a tab named *Instrument* too, so the
+  layout tab's locator finds two. Open the editor from the track's menu (*Open instrument*) and take
+  `viewRoot(page, 'Instrument')`. *(library phase 5)*
+* **Factory names repeat.** With the Factory open, `treeRow(panel, 'Bass')` finds both its *Bass* folder and the *Bass*
+  item inside, and after *Copy to My library* there are two *Kick* rows (My library's first). Match an item by its exact
+  name and a folder by its label with the count (`'Bass, 2 items'`). *(library phase 6)*
 
 ## Browsers and the DOM
 
@@ -107,8 +116,41 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   it rewrites an old envelope to. *(round 12b)*
 * **An element inside another with the same pointer handlers gets each event twice**, once as it bubbles: the loop
   brace's edges stop their moves and releases there. *(round 12b)*
+* **Subjects are compared as JSON** (`sameSubject`), so key order counts: a row's in-place rename shows only for a
+  subject built like the one that started it. Build a `sound` subject with `soundSubject(soundId, preset, onto?)`.
+  *(library phase 4)*
 * **`ActionMenu` draws no menu without a subject.** A trigger whose subject depends on the pointer (the mark lane)
   always needs one, or a right-click there opens nothing. *(round 11c-2)*
+* **The lazy library service lists every method by hand** (`app/library-service.ts`). A parameter added to
+  `PersonalLibrary` is dropped there silently until the wrapper passes it on: the Library's ■ never turned back into
+  ▶, because `preview`'s new `onStop` didn't reach the library. *(library phase 1)*
+* **`library.ts` can't import the drops**: `drops.ts` imports it. Library actions that need the drop table (*Paste
+  here*) live in `library-clipboard.ts`, and `actions/index.ts` merges them into the lists in group order
+  (`merged`). *(library phase 7)*
+* **An edit key can mean something else in the Library.** `clip.cut` doesn't apply where the context's `origin` is the
+  Library, and `clip.copy` there fills the library clipboard too; `sound.copy` and `sample.copy` apply only there. A
+  test of a verb sets `origin` (`fakeContext({ origin: 'library' })`). *(library phase 7)*
+* **`runVerb` doesn't wait** for an asynchronous action: a unit test that pastes by the verb waits a tick before it
+  reads the catalog, or runs the action with `runAction`, which returns the promise. *(library phase 7)*
+* **Menu tests list every entry**: the unit tests' `titles(...)` and `context-menus.smoke.spec.ts`'s `menuEntries`.
+  A new action on a subject changes them; that's the menu changing, not a test weakened. *(library phase 7)*
+* **A menu built from commands re-renders only on the stores `useCommandEntries` follows** (layout, persistence,
+  project, Touch, selection, library). A command whose label, tooltip or state reads another store shows stale text
+  while its menu is open until that store is added there. *(library phase 2)*
+* **A browser shows no tooltip during a drag.** A drop target's `title` alone is invisible while something is dragged
+  over it; draw the reason too (`data-drop-reason`), as the Library's tree rows do. *(library phase 2)*
+* **A build chunk group can't make statically imported code lazy.** Leaving `src/core/library` out of the `core`
+  group still put it in an eager chunk, since the state layer and the UI import it; only a dynamic `import()` (the
+  library service) loads lazily. Measure the chunk list before and after a `codeSplitting` change. *(library phase 5)*
+* **A build chunk group captures dynamically imported code too.** Without its exclusion, the `core` group took
+  `core/examples/factory` into the eager `core` chunk (about 4.8 kB gzipped) and left a 0.18 kB `factory` stub, though
+  only a dynamic `import()` reaches it. A lazy module under a group's path needs a negative lookahead in the group's
+  test. *(library phase 6)*
+* **A test outside `core/examples` gets the Factory with `await loadFactoryModule()`.** `state`, `ui` and `app` may
+  import `@core` only, and `core/examples/factory` isn't in its index (that would make it eager). *(library phase 6)*
+* **A session header or Tracks row always carries an `edge`** (`useEdgeTarget`), even when what is dragged isn't a
+  track or a group. A drop that checks for no edge never lands on a header; only track and group moves read it.
+  *(library phase 3)*
 * **Two panes asking for one sample in the same tick decode it twice**, since each pane's `loading` is its own and
   neither holds a copy yet. `openAudio` waits on one decode per sample (`decodeWorking`). *(round 11c-3)*
 * **A second pane without a sample of its own follows the first,** so whatever moves the first moves it too. Code

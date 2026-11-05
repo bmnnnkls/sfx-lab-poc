@@ -32,7 +32,7 @@ export interface InstrumentSpec {
 
 /** The graphs a track starts with, with ids that are the same every time (the app's own defaults take random ones). */
 const plainFx = (): Patch => patchOf([{ id: 'in', type: 'trackIn' }, { id: 'out', type: 'trackOut' }], ['in.out>out.in'], { prefix: 'fx_' })
-const plainNotes = (): Patch => patchOf([{ id: 'clip', type: 'clipNotes' }, { id: 'out', type: 'noteOut' }], ['clip.out>out.in'], { prefix: 'ng_' })
+export const plainNotes = (): Patch => patchOf([{ id: 'clip', type: 'clipNotes' }, { id: 'out', type: 'noteOut' }], ['clip.out>out.in'], { prefix: 'ng_' })
 
 export const instrumentTrack = (spec: InstrumentSpec, sceneCount: number): InstrumentTrack => {
   const base = createTrack(spec.name, sceneCount, spec.patch, spec.voices)

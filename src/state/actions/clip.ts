@@ -4,7 +4,8 @@ import { openClip, openSampleEditor } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { useStatusStore } from '../status-store'
 import { project, sessionClipOf, trackOf } from './lookup'
-import { clipClipboard } from './clipboards'
+import { clipClipboard, copyToLibraryClipboard } from './clipboards'
+import { saveToLibrary } from './library-save'
 import { renameAction } from './rename'
 import type { Action, SubjectOf } from './types'
 
@@ -115,17 +116,30 @@ export const clipActions: readonly Action<ClipSubject>[] = [
     },
   },
   {
+    id: 'clip.save-to-library',
+    title: 'Save to library',
+    group: 'edit',
+    applies: ({ trackId, clipId }) => !!sessionClipOf(trackId, clipId),
+    run: ({ trackId, clipId }, context) => saveToLibrary({ kind: 'clip', trackId, clipId }, context),
+  },
+  {
     id: 'clip.copy',
     verb: 'copy',
     title: 'Copy',
     group: 'clipboard',
-    run: ({ trackId, clipId }) => copyClip(trackId, clipId),
+    // In the Library (a row of This project) it goes on the library's clipboard too, so *Paste here* saves it there.
+    run: ({ trackId, clipId }, { origin }) => {
+      copyClip(trackId, clipId)
+      if (origin === 'library') copyToLibraryClipboard([{ kind: 'clip', trackId, clipId }])
+    },
   },
   {
     id: 'clip.cut',
     verb: 'cut',
     title: 'Cut',
     group: 'clipboard',
+    // The Library's rows of This project can't be cut: a library cut is a move, and the project isn't a folder.
+    applies: (_subject, { origin }) => origin !== 'library',
     run: (subject) => {
       copyClip(subject.trackId, subject.clipId)
       deleteClip(subject)

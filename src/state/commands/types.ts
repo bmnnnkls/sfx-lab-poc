@@ -1,7 +1,7 @@
 import type { ActionChoice, ActionContext, Subject } from '../actions'
 import type { ProjectFiles } from '../project-files'
 
-export type CommandCategory = 'View' | 'Layout' | 'File' | 'Transport' | 'Track' | 'Edit' | 'Help'
+export type CommandCategory = 'View' | 'Layout' | 'File' | 'Transport' | 'Track' | 'Library' | 'Edit' | 'Help'
 
 /** What a command runs with: an action's context, the project's files, and what the keyboard focus is on. */
 export interface CommandContext extends ActionContext {
@@ -19,7 +19,8 @@ export interface Command {
   readonly title: string
   /** What a menu or the palette shows now, when it differs from the title: *Hide panel*. */
   readonly label?: (context: CommandContext) => string
-  readonly tooltip?: string
+  /** What it does, or why it is disabled now (*Select an instrument track*). */
+  readonly tooltip?: string | ((context: CommandContext) => string | undefined)
   /** Styled as destructive in a menu (*Delete layout*). */
   readonly danger?: boolean
   /** It moves the focus to a dialog or field of its own, so a menu doesn't take it back as it closes. */

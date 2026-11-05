@@ -1,6 +1,7 @@
 import { GROUP_COLOURS, type GroupColour, type TrackItem, findGroup, neighbourPlace, setGroupBus, tracksInGroup } from '@core'
 import { openGroupEffects } from '../navigation'
 import { useProjectStore } from '../project-store'
+import { saveEffectsAction } from './library-save'
 import { project } from './lookup'
 import { effectsPinAction } from './pin'
 import { renameAction } from './rename'
@@ -66,6 +67,7 @@ export const groupActions: readonly Action<GroupSubject>[] = [
     enabled: (subject) => setGroupBus(project(), subject.groupId, !groupOf(subject)?.bus) !== project(),
     run: (subject) => useProjectStore.getState().setGroupBus(subject.groupId, !groupOf(subject)?.bus),
   },
+  saveEffectsAction<GroupSubject>('group.save-effects-to-library', ({ groupId }) => ({ kind: 'group', groupId }), (subject) => groupOf(subject)?.bus !== undefined),
   {
     id: 'group.mute',
     title: (subject) => (groupOf(subject)?.muted ? 'Unmute' : 'Mute'),

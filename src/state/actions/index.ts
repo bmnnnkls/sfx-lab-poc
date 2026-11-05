@@ -5,11 +5,13 @@ import { clipActions } from './clip'
 import { controlActions } from './control'
 import { groupActions } from './group'
 import { laneActions } from './lane'
-import { libraryFolderActions, libraryItemActions } from './library'
+import { libraryFolderActions, libraryItemActions, libraryRootActions } from './library'
+import { libraryFolderClipboardActions, libraryItemClipboardActions, libraryRootClipboardActions } from './library-clipboard'
 import { masterActions } from './master'
 import { moduleActions } from './module'
 import { canvasActions, nodeActions } from './nodes'
 import { pinActions } from './pin'
+import { projectGraphActions } from './project-graph'
 import { regionActions } from './region'
 import { sampleActions } from './sample'
 import { sampleLoopActions } from './sample-loop'
@@ -20,21 +22,29 @@ import { sceneActions } from './scene'
 import { slotActions } from './slot'
 import { soundActions } from './sound'
 import { trackActions } from './track'
-import type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf } from './types'
+import type { NoticeAction } from '../persistence-store'
+import type { Action, ActionChoice, ActionContext, ActionReport, Subject, SubjectKind, SubjectOf } from './types'
 
-export type { Action, ActionChoice, ActionContext, Subject, SubjectKind, SubjectOf, Verb } from './types'
+export type { Action, ActionChoice, ActionContext, ActionReport, Subject, SubjectKind, SubjectOf, Verb } from './types'
 export { runVerb, verbTarget } from './verbs'
 export { subjectName } from './subject-name'
 export { duplicateSessionClip, placeOnArrangement } from './clip'
 export { commitRename, startRename } from './rename'
-export { graphFitsOwner, insertLibraryClipAt, insertionScope, isInstrumentItem, libraryClipFitsSlot, replaceGraph } from './library'
+export { clipTrackFor, graphFitsOwner, insertLibraryClipAt, insertionScope, isInstrumentItem, libraryClipFitsSlot, replaceGraph } from './library'
 export { canPasteClipOnLane, pasteClipOnLane } from './lane'
+export { copyName, projectGraphItem, projectGraphItemId } from './project-graph'
 export { canPasteClipInSlot, pasteClipInSlot } from './slot'
-export { canRecallPresetOn, recallPresetOn } from './sound'
-export { automationSlotClipboard, clipClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes } from './clipboards'
+export { canRecallPresetOn, nextSoundName, recallablePresets, recallPresetOn, saveSound, soundSubject } from './sound'
+export { automationSlotClipboard, clipClipboard, libraryClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes, type LibraryClip, type LibraryClipEntry } from './clipboards'
 export { editTargetOf, graphKeyOf } from './nodes'
 export { processActions } from './sample-selection'
 export { markerTitle, toggleArrangementLoop } from './arrangement-marks'
+
+const GROUP_ORDER: readonly Action['group'][] = ['open', 'edit', 'clipboard', 'delete', 'process', 'marks', 'view']
+
+/** Two lists of one kind as one, in group order: `extra`'s entries after the entries of their group in `list`. */
+const merged = <S extends Subject>(list: readonly Action<S>[], extra: readonly Action<S>[]): readonly Action<S>[] =>
+  [...list, ...extra].map((action, index) => ({ action, index })).sort((a, b) => GROUP_ORDER.indexOf(a.action.group) - GROUP_ORDER.indexOf(b.action.group) || a.index - b.index).map(({ action }) => action)
 
 const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = {
   track: trackActions,
@@ -45,8 +55,10 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   'automation-slot': automationSlotActions,
   scene: sceneActions,
   sample: sampleActions,
-  'library-item': libraryItemActions,
-  'library-folder': libraryFolderActions,
+  'library-item': merged(libraryItemActions, libraryItemClipboardActions),
+  'library-folder': merged(libraryFolderActions, libraryFolderClipboardActions),
+  'library-root': merged(libraryRootActions, libraryRootClipboardActions),
+  'project-graph': projectGraphActions,
   nodes: nodeActions,
   canvas: canvasActions,
   module: moduleActions,
@@ -104,11 +116,14 @@ export const describeActions = (subject: Subject, context: ActionContext): reado
 export interface RunOptions {
   /** For an action with choices: the chosen one's id. */
   readonly choice?: string
-  /** Where an asynchronous action's message or error goes; the toasts by default. */
-  readonly report?: (kind: 'info' | 'error', message: string) => void
+  /**
+   * Where an asynchronous action's message or error goes; the toasts by default. `action` is the toast's button, which
+   * a status line leaves out.
+   */
+  readonly report?: (kind: 'info' | 'error', message: string, action?: NoticeAction) => void
 }
 
-const toToasts = (kind: 'info' | 'error', message: string) => usePersistenceStore.getState().notify(kind, message)
+const toToasts = (kind: 'info' | 'error', message: string, action?: NoticeAction) => usePersistenceStore.getState().notify(kind, message, [], action)
 
 /**
  * Runs an action on a subject, as a menu entry or a button does, unless it doesn't apply or isn't enabled now. An
@@ -132,11 +147,12 @@ export const canRunAction = (id: string, subject: Subject, context: ActionContex
 }
 
 /** Reports what an asynchronous action (or drop) resolves with, or the error it throws; the promise settles after that. */
-export const settle = (result: void | Promise<string | void>, report: RunOptions['report'] = toToasts): void | Promise<void> => {
+export const settle = (result: void | Promise<string | ActionReport | void>, report: RunOptions['report'] = toToasts): void | Promise<void> => {
   if (!result) return
   return result.then(
     (message) => {
-      if (message) report('info', message)
+      if (typeof message === 'string' && message) report('info', message)
+      else if (message && typeof message === 'object') report('info', message.message, message.action)
     },
     (error: unknown) => report('error', error instanceof Error ? error.message : String(error)),
   )

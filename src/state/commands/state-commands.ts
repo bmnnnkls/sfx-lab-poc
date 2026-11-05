@@ -5,6 +5,7 @@ import { usePersistenceStore } from '../persistence-store'
 import { selectCanRedo, selectCanUndo, useProjectStore } from '../project-store'
 import { useStatusStore } from '../status-store'
 import { useTouchStore } from '../touch-store'
+import { LIBRARY_COMMANDS } from './library-commands'
 import type { Command } from './types'
 
 /** The regions that can be hidden, by name: their toggles, the menus and the commands use these. */
@@ -118,4 +119,5 @@ export const STATE_COMMANDS: readonly Command[] = [
   verbCommand('cut'),
   verbCommand('paste'),
   verbCommand('rename'),
+  ...LIBRARY_COMMANDS,
 ]

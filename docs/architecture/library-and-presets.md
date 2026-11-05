@@ -22,10 +22,40 @@ clips, mixer routing and hardware mappings never enter assets/presets. Catalog i
 `sampleId` defaults, null explicitly silences a use. `projectWithSampleBindings` flattens affected graphs in the transient
 engine projection before numeric control values; live sync and offline bounce share it. Group/unlink rewrite binding
 routes, including uses of edited shared definitions. Removing samples clears active bindings; saved presets retain
-missing dependency references for diagnostics. The Sounds tab lists per-use bindings with reset-to-default, and root
-property sample pickers resolve/edit the same active binding. Shared-definition editors still edit shared defaults.
-Each snapshot and preset row in Sounds has a menu (*Recall*, *Update*, *Rename*, *Duplicate*, *Delete*) and renames in
-place; the *Sound name* field is for saving.
+missing dependency references for diagnostics. Sounds lists the selected graph's per-use bindings under a collapsed
+*Sample choices (n)*, each named by the node titles along its path, with *Default* to reset; root property sample
+pickers resolve/edit the same active binding. Shared-definition editors still edit shared defaults.
+
+**The Sounds view** (`ui/presets/SoundsPanel.tsx`) shows the presets and snapshots of the selection: the owner (a
+track, a group's bus or the master, or the first track when nothing is selected) and a tab for its graph. An
+instrument track has *Instrument*, *Effects*, *Notes* and *Track*; another track, a bus and the master have *Effects*
+and *Track* (`soundsTabsOf`). The rows are the presets that can be recalled onto that graph
+(`recallablePresets(project, owner, domain)`: the owner's own and other owners' whose revision signature matches,
+captured once per list) and the owner's snapshots of that domain. A row is a button named *Recall Bass 1*: a click,
+Enter or Space recalls it onto the selection, its menu has the rest (*Recall*, *Set as A*, *Set as B*, *Update*,
+*Save to library*, *Rename*, *Duplicate*, *Delete*), and a preset row drags onto a track whose graph matches it. Its
+kind label says *Preset* or *Snapshot*, with the owner for another owner's preset, and the morph's A and B. The row
+recalled last shows ● until its graph changes. *+ Save preset* (not on *Track*) and *+ Snapshot* save a sound named
+after its owner (*Bass 1*, `nextSoundName`) and start renaming it in place. The status line shows the save and a
+recall's report. ⋯ has *Show all in project*, a view preference kept per browser (`sfxlab:sounds-show-all`), which
+lists every sound under owner and graph headings, each recalling onto its own owner. With nothing to list, one line
+says what presets and snapshots are for. Below the project's sounds, a graph inserted from the library has **From the
+library · Big bass** (`ui/presets/LibrarySounds.tsx`; the link is described below): the library sound and its presets
+that fit, as rows *Recall Dark* described *Library sound* or *Library preset*, recalled onto the selection through the
+link, with the ● mark as for project sounds. A rewired graph shows "This sound has changed since it came from the
+library" and no rows; a trashed sound "The library sound is in the trash"; a graph without a link, or whose sound is
+gone, nothing. Not with *Show all*, nor on *Track*. The section reads the catalog itself (`library.read()`), since the
+library store's copy stays empty until the Library has been shown.
+
+The view's state is `state/sounds-store.ts`: `tab`, the morph's ends `a` and `b` (snapshot IDs), `showAll` and the
+`recalled` mark (the sound, the scope it went to, and `scopeState` of that scope just after; an instrument preset's
+covers its notes). The store follows the layout: when Instrument, Effects or Notes becomes visible, `tab` moves to its
+graph (`editorTabOf`), and a tab chosen by hand holds until then. It follows the project too: A, B and the mark go
+when their sound does. The morph's slider shows only while A and B pair up (`morphPair`: the same scope and targets).
+The `sound` subject carries `onto?: ControlOwner`: Sounds' rows set it to the selected owner, and `sound.recall`
+recalls a preset onto it in the preset's domain (disabled, with the reason, where its graph doesn't match). Without it
+a preset recalls onto its own owner; a snapshot always does. `soundSubject(soundId, preset, onto?)` builds the subject
+with its keys in one order, since the rename store compares subjects as JSON.
 
 `state/preset-actions` commits one recall to history. Normal Read recall edits authored bases, releases affected temporary
 overrides, leaves lane points alone and reports Read-controlled values. Armed recall finishes pending Touch gestures,
@@ -44,7 +74,8 @@ unreferenced revisions. No browser, storage adapter or library catalog code is n
 
 Verification includes partial recall, revision mismatch, shared defaults and independent overrides, explicit silence,
 group/unlink, Read/Touch atomic steps and lane-limit rejection, scope/scale/discrete/momentary morph rules, and hostile
-parsing/migrations. Production smoke saves/recalls/undoes/reloads two sounds and inspects morph UI. Real-output tests
+parsing/migrations. Production smoke saves two snapshots named in place, recalls them by click and Enter, undoes, reloads and morphs between
+rows set as A and B, and recalls a preset saved on one track onto a copy of it. Real-output tests
 recall numeric and sampled presets; two shared sample-instrument uses with different samples survive fresh reload and
 match offline output within 0.00002 amplitude. Physical MIDI hardware remains untested.
 
@@ -57,6 +88,16 @@ Capture includes compatible presets for the selected owner, transitive modules, 
 and every associated preset's sample choices. Missing modules/samples and external send/track taps are errors; cycles
 are refused. Catalog folders/items cap at 1024/4096. Deletion is recursive recoverable trash. Restore makes the parent
 path visible. Revisions and hash blobs are never automatically collected, preserving project references and undo.
+
+A preset belongs with its sound. `moveLibraryEntry(catalog, id, folderId)` moves an item with its live presets (all
+of them for a trashed sound, which restoring brings back), or a folder; it refuses a folder into itself or a folder
+inside it, a trashed or missing destination, and a preset on its own. Moving a trashed entry restores it where it
+lands, as one edit: the move comes first, so the restore walks the destination's path and the old parents stay in the
+trash. `libraryItemDuplicate` copies a live item and its presets, named "… copy" only beside the original;
+`duplicateLibraryFolder` deep-copies a live folder's live contents with new ids, sharing revisions and samples (they
+are immutable), and carries a preset when its sound is copied, wherever the preset was kept. Both check the caps
+before writing anything. An older catalog may hold a preset in another folder than its sound: the Library shows it
+under the sound, and the next move takes it along.
 
 `insertLibraryAsset` creates a new instrument track or replaces an explicit compatible graph. It remaps nodes, wires,
 module definitions, nested interfaces, derived exposed port/knob IDs and all their references, automatic module-control
@@ -85,8 +126,9 @@ publishing metadata or bytes. Bundle exchange now validates/stages before this t
 `app/library` bridges storage to the document via `state/PersonalLibrary`; successful insertion commits once to project
 history. Saves and catalog edits do not change that history. Missing bytes are preflighted before save/load. Project
 format **v7** adds optional bounded `libraryOrigins` (4096 records, ID fields 256 characters), known-field rebuilding,
-an explicit v6→v7 migration dropping formerly unknown origin fields and a committed v7 fixture. Origins are informational
-and never linked updates. Loaded project revisions/presets/sample metadata are self-contained for reload/package export.
+an explicit v6→v7 migration dropping formerly unknown origin fields and a committed v7 fixture. Origins are informational:
+a link on one (below) lets Sounds offer the library sound's presets, but the project never reads the library to play,
+and nothing updates a copy from the library. Loaded project revisions/presets/sample metadata are self-contained for reload/package export.
 
 `libraryPreviewProject` creates a temporary project with a test note/tone and the appropriate effect input. `app/library`
 renders it through a fresh `Bounce`/`Engine`, decodes its own samples and plays the bounded result on a separate
@@ -94,13 +136,170 @@ AudioContext/source. Generation tokens cancel asynchronous decoding/rendering; n
 and closes contexts, including before source start. Preview resolves explicitly as started/canceled; stale failures
 resolve as canceled while current failures remain errors. The panel gates busy/status/catalog updates by operation
 ownership, invalidating pending preview UI work on stop/navigation/unmount. Preview does not use the project engine, transport, history or
-autosave. `app/library-service` and `ui/library/LibraryPanel` load on demand to keep production chunks below the existing
-warning limit. The Library panel provides folder navigation, mixed lists, search/type filters, dependency/sample detail,
-explicit save/insert/replace, preview and recoverable trash controls. Items and folders have menus, and rename in
-place; the toolbar's name field is for saving. The catalog and the open folder are in `state/library-store.ts`, which
-the view and the library's actions keep current; the view's buttons run those actions and report on its status line. Bundle selection is reconciled against current
-nontrashed items, with hidden-selection counts and a clear action. Invalid scene inputs disable insertion; the core
-still enforces integer/range checks and occupied-slot replacement.
+autosave. A preview reports when it stops, by ending or by `stopPreview` (`preview(item, onStop)`), so the Library
+shows ■ on the item while it plays. `app/library-service` and `ui/library/LibraryPanel` load on demand to keep
+production chunks below the existing warning limit; the deferred service passes `onStop` on, and calls it for a
+preview cancelled while it loads.
+
+Things are saved where they are: a track's, bus's or the master's menu has *Save to library* (an instrument's ▸
+*Instrument + notes*, *Audio effects*, *Note effects*, the last only with a note graph) or *Save effects to library*,
+a session clip *Save to library* and a sample *Add to library* (`state/actions/library-save.ts`). The new item is
+named after its source (*Bass*, *Bass effects*, *Bass notes*, *Master effects*, the clip's or sample's name), goes into
+the folder open in the Library (the top level when it is gone or trashed) and is found as the one id the catalog
+didn't have before. The action resolves with "Saved Bass to Drums" and a *Show* button for its toast, which reveals
+the item in the Library and starts renaming it. A refused capture (a graph with a track's audio in it) reports its
+reason. The same saves are the transport bar's *Library* menu, run on the selection, and what dragging a track, group,
+session clip, sample or project preset onto a library folder does (into that folder; see
+[workbench.md](workbench.md#drag-and-drop)). `externalRoutingIn(project, scope)` (`core/preset/routing.ts`) finds the
+first `send`, `trackAudio` or `trackNotes` node a capture of a scope would read, in its graph, its modules and an
+instrument's note graph, with the track it reads, so a drop is refused before the capture runs.
+
+A project preset can be saved on its own: *Save to library* in its Sounds row menu, or the row dragged onto a folder.
+`captureLibraryPreset(catalog, project, presetId, folderId)` stores the preset's own revision from
+`project.assetRevisions` under a fresh id and makes a sound named after the preset whose `state` is the preset, with no
+preset items under it. It never reads the current graph, so it works after the preset's owner has been rewired. It
+refuses external routing in the revision and missing sample metadata, and `PersonalLibrary.savePreset(presetId,
+folderId)` runs the same sample-bytes preflight as the other saves. A snapshot has no graph of its own and can't be
+saved. A preset of a **linked** sound saves back instead: when `presetLink` finds the link its revision was saved
+through, and the library sound is there and not trashed, *Save to library* (`savePresetToLibrary` in
+`state/actions/sound.ts`) runs `PersonalLibrary.addPresetToSound(presetId)`, which adds it to that sound as a new
+preset and reports "Added *Deep* to *Big bass*" with *Show*. Otherwise it saves a sound of its own as above; its
+tooltip says which. A link to a Factory sound doesn't save back (the Factory is read-only), so its presets save as
+sounds of their own.
+
+The Library view is one tree (`ui/library/library-tree.ts` for the rows and keys, `LibraryTree.tsx`): *This project*
+(below), *My library*, the read-only *Factory* (below) and *Trash*, folders first and then items in each folder by name with numbers in order, and each sound's presets under it,
+wherever their own folder points. A preset whose sound is trashed or gone shows as an item in its own folder. The trash
+shows what was trashed at its top-most level, a folder with its contents. A search or a type filter shows the matches,
+the folders above them and a matching preset's sound, all open; a preset also matches on its sound's name, and the
+Factory and the trash are searched only while they are open. Rows are `ActionMenu` triggers, drag sources (not the
+roots), drop targets (My library's folders and roots; a Factory row's target is null, so it shows the refusal) and spring open under a resting drag (see [workbench.md](workbench.md#drag-and-drop)). The active row is the
+one Tab reaches and the details show; a click selects, ⇧ extends along the rows, ⌘ toggles; Enter runs the details'
+main button and Space previews or stops. A selected row of a selection of several drags them all (see
+[workbench.md](workbench.md#drag-and-drop)). **⌘X, ⌘C and ⌘V** use the library's own clipboard (`libraryClipboard`),
+apart from the project's: ⌘X (*Cut*) marks My library items and folders, dimmed (`data-cut`) until a paste or Esc;
+⌘C (*Copy*) takes My library's, the Factory's or one row of *This project* (a graph, a session clip, a sample or a
+project preset; there a clip's *Cut* doesn't apply, and *Copy* fills both clipboards); ⌘V (*Paste here*) on a folder or
+*My library* moves what was cut (and empties the clipboard) or copies what was copied, as dropping it there would. An
+item's cut or copy takes the selection when the item is in it; folders go one at a time. Several things land by
+`libraryLanding` (`state/actions/library-landing.ts`): the one-thing drop rule applied to each, all refused if one is,
+a preset whose sound lands too going with it, in one catalog update. The header is search, the type filter and ⋯ (*My library*'s menu and *Export
+selection…*). The status line shows only with something to say, and carries *Retry* after the catalog failed to read
+(an older tab holding the database). The details (`LibraryDetails.tsx`) show the kind, one line of facts, the samples,
+one main button and ⋯ for the rest: *Add as new track* for an instrument or a preset of one, *Replace effects (notes)
+on Bass* for effects, *Insert into scene n of Bass* for a clip (the first empty slot of the selected track of its kind),
+*Add to project* for a sample, *Restore* for anything trashed; a button that can't run is disabled with the reason
+beside it. An empty library says how things get in and offers to save the selected instrument. Until it is dismissed
+(once per browser, `sfxlab:library-use-hint-dismissed` in `localStorage`), a hint under the empty library's text and a
+live item's details says "Drag onto a track, a slot or a graph to use it." (`UseHint.tsx`). When the active row goes to
+the trash, the view moves on to its folder. The tree isn't virtualized: at 1024 folders and 4096 items it renders,
+searches and opens a folder in under 40 ms (see [baselines](../reference/baselines.md#library-tree)).
+
+**This project** is the tree's first root, named after the open project (◆ *Low Light*) and collapsed until opened.
+Its rows are built live from the project store and never stored (`projectRows`, from `projectModel(project)`): each
+clip track in Tracks order, then the returns, the group buses (*Drums bus*) and the master; under each owner its
+*Instrument*, *Effects* and *Notes* graphs that hold a node other than their ends (or have presets), each graph's
+project presets under it, and a track's session clips under *Clips*; then *Samples* and *Modules*. A graph that reads
+another track shows ⚠, with the reason as the row's tooltip (`routingRefusalIn`, the wording the drops use: "Uses Track
+audio from Kick"); an instrument's includes its note graph, since saving the instrument takes the notes along. Nothing
+is captured to build them: names, counts and a node-type scan. `projectModel` is memoized on the project object, and a
+project whose rows are unchanged (a value edited, a knob dragged) gets the previous model back, so the tree, which
+selects it, doesn't re-render. What is open under the root is kept in the library store per loaded project (its
+`documentEpoch`), so another project starts collapsed. Search and the type filter cover the root while it is open, as
+with the trash: an owner's name is matched by the rows under it, a graph is its kind (instrument, audio or note
+effect), clips, samples and presets theirs, and modules match search only.
+
+The root is read-only as a library: owner, clip, sample, preset and module rows are the project's own subjects, with
+their own menus (*Rename* renames in place in the row, as in their views); owners don't drag. A graph row is a
+`project-graph { owner, domain }` subject (`state/actions/project-graph.ts`) with *Preview*, *Show* (`openPinnedEditor`:
+selects the owner and shows its Instrument, Effects or Notes view), *Save to library* and, for an instrument, *Copy to
+new track* ("Bass copy"); a graph that reads another track refuses all but *Show*, with the reason. Clip, sample, preset
+and graph rows drag (see [workbench.md](workbench.md#drag-and-drop)). A graph row shows ▶ (Space previews it) unless it
+is refused, Enter saves it, and the details describe any row of the root.
+
+**A source catalog.** Copying and previewing a graph capture it into a throwaway catalog: `projectGraphItem(project,
+owner, domain, name)` runs `captureLibraryAsset` into `emptyLibrary()` and gives the item the ID
+`project:track:<id>:patch` (`group:<id>`, `master`). `PersonalLibrary.insert(item, destination, scene?, replaceClip?,
+from?)` and `preview(item, onStop?, from?)` read `from` instead of storage, and check sample bytes against it the same
+way, so a sampled instrument's bytes are found in the project's sample storage. A copy is a library insert: fresh node
+IDs, its own modules and the source's compatible presets (the inserted sound's own state among them), one undo step, and
+a `libraryOrigins` record. The insert's destination names the scope it was captured from (`carry`), so the copy's
+origin carries the source's live library link, composed with the copy's own maps, rather than naming the throwaway
+ID; a source without a live link gives a copy without one. `graphFitsOwner(item, owner, from?)`
+reads `from` too. The library item's *Preview* and the graph's share `previewLibraryItem(item, context, from?)`, so ■
+stays on the latest preview of either.
+
+**The library link** (`core/library/link.ts`). `insertLibraryAsset` keeps what `copyAsset` mapped: an origin records
+the `owner` (beside `trackId`, still written for older readers) and an optional `link { shape, nodes, modules }`: the
+library node and module IDs paired with the project's, and `shape`, a 64-bit hash (`stableHash64`, 16 hex digits) of the
+inserted graph's `assetSignature` (`linkShape`). Preset targets name leaf nodes only (an exposed knob is its inner
+node's parameter), so the two maps are all a preset needs. `linkOf(project, owner, domain)` gives the latest linked
+origin whose shape matches the owner's graph now (`live`), or else the latest one (not live: the graph was rewired);
+knob changes don't touch the signature, so they don't break it. `linkedSounds(catalog, origin)` gives the library sound
+(an origin naming a preset resolves to its sound), whether it is trashed, and its states that fit: the sound and its
+live presets whose revision has the signature of the revision the origin names. `presetFromLibrary(origin, state)`
+puts a state's targets through the maps forward, onto the linked owner, and `recallLinkedPreset` recalls it through
+`recallPresetState`, which takes the shape from the owner's current graph instead of a stored revision (and runs the same
+body as `recallProjectPreset`); `recallLinkedSound` in `state/preset-actions` makes that one undo step, with Touch and
+Read as for any recall. The graph isn't replaced, so its automation and MIDI mappings stay. Saving back is the inverse:
+`presetLink(project, preset)` finds the link whose shape is the preset's own revision's (so a preset saved before a
+rewire still saves back), and `presetToLibrary` puts the targets through the maps backward onto the sound's own owner
+and revision, in the sound's folder, adding the sample metadata it needs; it refuses a gone or trashed sound.
+Duplicating a track carries its links as they are (`carryLibraryLinks`, run by the project store's `duplicateTrack`),
+since a duplicate keeps node IDs; removing a track leaves its origins. A link past `LINK_LIMITS` (2048 node pairs, 128
+module pairs, 16 384 pairs across the file) isn't written, and the sanitizer drops one with a warning. Links for sounds
+inserted before links existed aren't guessed. The Library's details show "Used on Bass, Bass copy" for a sound that
+owners of the open project are linked to, live.
+
+**The Factory** is a read-only root after *My library* (🔒 *Factory*, collapsed until opened): ready-made sounds,
+effects, note effects and clips, built from code by `createFactoryCatalog()` (`core/examples/factory/`) and the same on
+every build. One table, `FACTORY_CONTENT`, says what it holds: each row a folder path, a name, a source (an owner's
+*Instrument*, *Effects* or *Notes* graph, or a session clip, of Low Light, Glass Rain or `createStarters()`, a small
+project holding the starter graphs written with the examples' DSL) and a line for the details. Each row is captured
+with `captureLibraryAsset` or `captureLibraryClip` into a fresh catalog, and `withStableIds(catalog, 'factory', keys)`
+then renames folders, items, revisions and preset states to stable paths and rewrites every reference: a folder
+`factory:effects/returns`, an item `factory:effects/returns/room` (a row's `key` in place of its name, where two items
+share one: `hall-low-light`), a revision `factory:rev/…`, a preset state `factory:state/…`; it throws when two items
+would share a path. Node and module IDs come from the examples, which are deterministic, so the catalog's JSON is the
+same on every build. Nothing that reads another track is in it (no Kick duck, no Track notes). The descriptions are a
+side table, `factoryNotes` (by item id, from the table's `note` column), so the catalog format is unchanged.
+`FACTORY_PREFIX` and `isFactoryId` (`core/library/factory.ts`) let any id say whether it is the Factory's.
+
+The Factory's code is a chunk of its own: `loadFactoryModule()` (`core/examples/index.ts`) imports it dynamically, the
+`core` chunk group leaves `core/examples/factory/` out, and `app/factory-library.ts` builds the catalog once, the first
+time it is asked for (timed as the `sfxlab:factory-catalog` performance measure). `PersonalLibrary.factory()` serves
+it (the lazy wrapper does so without loading the library's own chunk), and `loadFactory(load)` in the library store
+keeps it (`factory`, `factoryNotes`) and loads only once, a failure letting the next call try again. The Library asks
+on mount; Sounds asks when the selection's link names a Factory item. Until it is there the root reads *Loading
+Factory…*.
+
+Factory items are used like library items and never edited. `catalogOf(id)` and `fromOf(id)` (library store) send a
+`factory:` id to the Factory's catalog: the actions, the drops, `graphFitsOwner`, `libraryClipFitsSlot` and
+`subjectName` read items through them, and every insert and preview passes `from`. A Factory item has *Preview*, the
+inserts (*Insert new instrument track*, *Replace selected graph*, a clip's *Insert into* and *Replace clip in*), *Copy to
+My library* and *Export as .sfxlib…*; a Factory folder *Open*, *Copy to My library* and *Export*; the root no menu.
+Rename, move, duplicate and trash don't apply. Its rows drag onto tracks, slots and canvases as library rows do; nothing
+drops onto them. *Export* reads the Factory beside storage (`prepareBundle(selection, name, extra)`), whose ids can't
+collide with the personal ones. The details show the item's line, *Instrument · Factory*, and for a folder *Copy to My
+library* as the main button. A sound inserted from the Factory links to its Factory item like any other, so Sounds'
+*From the library* and the details' "Used on" read a `factory:` origin in the Factory's catalog.
+
+**Copying** makes an editable copy. `copyLibraryEntries(from, to, ids, folderId)` (`core/library/catalog.ts`) copies
+folders with their live folders and items inside, items with their live presets and presets with their sound, the
+revisions they use and the sample metadata those need, all under new ids (preset states too); what was inside a copied
+folder stays inside its copy, the rest lands in `folderId`, and names stay. It checks the folder, item and revision caps
+before writing. *Copy to My library* copies into the My library folder open before (below); a Factory row dragged onto
+*My library* or one of its live folders is copied there (always a copy). Both report "Copied Kick to My library" with
+*Show*, which makes the copy active and names it in place, as a save's *Show* does.
+
+`state/library-store.ts` holds the catalog, the Factory's, the active row, the selected items, the item being previewed
+and a request for the view (an export to review, an import to pick), which the menus set and the view takes. The open
+folder, where saves go and Factory copies land, is derived from the active row (`openFolderOf`: the active folder, or
+the active item's, its sound's for a preset). While a Factory row is active it is the My library folder open before
+(`mineFolder`, which a My library row or root sets as it becomes active, and a Factory row keeps). The view's buttons run the library's actions and report on its status line; menus report to the toasts.
+Selected items that leave (trashed, gone) leave the selection. The scene choices for a clip (*Insert into Bass ▸*,
+*Replace clip in Bass ▸*) disable the scenes that can't take it, with the reason; the core still enforces range checks
+and occupied-slot replacement.
 
 Verification covers full nested interface/control/sample remapping and preset recalls after reload, independent project
 package export after catalog changes/deletion, one-step insertion undo, duplicate names/cycles, conservative retention,
@@ -125,7 +324,10 @@ uses bounded incremental fflate inflation and actual-output/CRC checks. Limits c
 bytes, each entry, entry count, JSON size/objects/values/depth and module expansion. The complete format, strict ZIP
 subset and budgets are in [reference/library-bundle.md](../reference/library-bundle.md).
 
-Library review displays items/folders/dependencies/bytes/conflicts/missing files before export or import. Partial
+Library review is a modal dialog (`BundleDialog.tsx`, *Bundle review*), opened by *Export as .sfxlib…* on an item or
+folder, ⋯ ▸ *Export all…* or *Export selection…*, *Import .sfxlib…* (the view's hidden file input), or an `.sfxlib`
+dropped on the view. It says in a sentence what the bundle holds and where an import goes, warns about missing
+samples, and lists items, revisions and samples under *Details*, before export or import. Partial
 export requires an explicit checkbox and manifest/filename markers. Partial imports can be reviewed but cannot commit.
 Cancel/staging never write storage. Confirmed import always creates a fresh named root; repeated imports add independent
 copies. `library-storage` compares existing hash bytes inside the same serialized read/write transaction, retains equal
