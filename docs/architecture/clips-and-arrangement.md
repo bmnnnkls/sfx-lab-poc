@@ -62,6 +62,11 @@ playing clip loops by `(beat - startBeat) mod lengthBeats`, it loops from there 
 end, so a piano roll open on it shows them arriving. The arm ● is on the session header (after ■) and on the
 arrangement header (after M S); recording into the timeline is not built yet.
 
+With a **count-in** set, ● from a stopped transport queues the clip at once (the slot blinks) and the transport starts
+after the count-in, so the clip starts on beat 0; ■ during the count-in removes the clip again. With **● Rec** on, a
+clip playing on an armed track is **overdubbed**: its slot keeps playing, with a red dot after its name, and what is
+played is added to it ([midi](midi.md#overdub-and-count-in)).
+
 ## Groove: quantize, swing, humanize
 
 Pure functions in `core/project/groove.ts`, applied by the **Groove** dropdown (and `Q`, and the context menu) to the
@@ -188,9 +193,10 @@ Arrangement), and Tab switches views like in Ableton.
   jump starts its events at `from` (`eventsFrom`), so a note on the loop's first beat sounds on every pass. Playback
   from before the brace runs into it and then loops; from after it, it plays on and never loops. The jump goes through
   `seekArrangement`, so notes held across it are released at it and audio restarts in phase.
-* **The clock after a jump.** `Engine.lastJump()` is the frame and beat of the latest jump in a `render` call; the
-  worklet posts a clock packet stamped with that frame's own time (`currentTime + frame / sampleRate`), and after every
-  `arrangement/` command, as after `transport/` ones, so the recording clock anchors the jump where it happened.
+* **The clock after a jump.** `Engine.lastClockEdge()` is the frame and beat of the latest jump in a `render` call (a
+  loop jump, or the start after a count-in); the worklet posts a clock packet stamped with that frame's own time
+  (`currentTime + frame / sampleRate`), and after every `arrangement/` command, as after `transport/` ones, so the
+  recording clock anchors the jump where it happened.
 * **The bounce ignores the loop**: after `diffProject`, it sends `arrangement/setLoop { loop: null }`, so an export
   renders the whole timeline once.
 * **The view's layout** (`ui/arrangement/`). A toolbar over **one scroller** for both axes. Its content is a grid of the

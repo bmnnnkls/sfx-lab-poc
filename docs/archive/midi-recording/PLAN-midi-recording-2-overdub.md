@@ -1,13 +1,18 @@
 ---
-status: active
+status: done
 date: 2026-11-05
-note: "Part 2 of the MIDI recording spec: ● Rec, Session overdub, count-in, the ● Rec menu. Signed off 2026-11-05, every decision as proposed; not built yet."
+shipped_in: architecture/midi.md
+note: "Part 2 of the MIDI recording spec, done: ● Rec, Session overdub, count-in, the ● Rec menu. Not checked with a real keyboard (backlog V5)."
 ---
 # MIDI recording, part 2: overdub and count-in
 
-Status: **plan, signed off** 2026-11-05, every decision as proposed. Written 2026-11-05 on `imp/midi-recording-part1-b60ea0` at
-`78d38e6`, after [part 1](../archive/midi-recording/PLAN-midi-recording-1-session.md) (done, not merged). Carries out
-part 2 of the signed-off [MIDI recording spec](SPEC-midi-recording.md#parts). The spec's decisions 1 to 16 and part 1's
+Status: **done** 2026-11-05 on `imp/ecstatic-lehmann-5efb9d` (on top of part 1, neither merged). Signed off 2026-11-05,
+every decision as proposed. Shipped in [midi](../../architecture/midi.md#overdub-and-count-in),
+[clips-and-arrangement](../../architecture/clips-and-arrangement.md#recording-into-a-slot) and
+[mixing-and-routing](../../architecture/mixing-and-routing.md#the-master-bus); not checked with a real keyboard
+([BACKLOG](../../BACKLOG.md) V5). Written 2026-11-05 on `imp/midi-recording-part1-b60ea0` at `78d38e6`, after
+[part 1](PLAN-midi-recording-1-session.md). Carries out part 2 of the signed-off
+[MIDI recording spec](../../active/SPEC-midi-recording.md#parts). The spec's decisions 1 to 16 and part 1's
 P1 to P6 are settled and not repeated; this plan adds only the ones it raises. Where it differs from the spec, it says
 so.
 
@@ -27,8 +32,8 @@ After this part:
 
 ## Inventory
 
-What part 2 builds on, beyond the [spec's inventory](SPEC-midi-recording.md#inventory) and
-[midi.md](../architecture/midi.md#recording-notes-into-a-clip).
+What part 2 builds on, beyond the [spec's inventory](../../active/SPEC-midi-recording.md#inventory) and
+[midi.md](../../architecture/midi.md#recording-notes-into-a-clip).
 
 ### The take model (`core/record/take.ts`)
 
@@ -309,3 +314,21 @@ Signed off 2026-11-05: every decision as proposed.
 | O5 | During a count-in | **Launches join it** (they start with the transport). **■ cancels** it and the take, and **removes the empty clip** made for the take | Launches start the transport at once and cancel the count-in; ■ keeps the empty clip, as part 1 does when a take ends before it starts |
 | O6 | A relaunch or a length change during an overdub | **Ends the take and opens another** (two undo steps), as a touch capture does; the spec said one step per ● Rec on to off, per clip | One take across relaunches, with an anchor and length per segment |
 | O7 | ● Rec in the Arrangement before part 3 | **Turns on and records nothing**, with *Recording into the Arrangement isn't available yet* as feedback | Disabled in Arrangement mode until part 3; or ship parts 2 and 3 together |
+
+## Changes made while implementing
+
+* **The engine (step 2).** A launch in `then`, or one sent during the count-in, is queued on its launcher at once, in
+  session mode, and the transport starts at the end; `transport/play` during a count-in does nothing (the transport is
+  about to start), and `arrangement/play` during it becomes what it starts. A launcher started after a count-in can
+  report `startBeat` as −0.
+* **The recorder (step 5).** A take that follows another at a boundary (a slot take flowing into overdub, a relaunch,
+  another clip replacing the first) is given the old take's events and records from the boundary with no early
+  notes, because the status that reports the boundary comes up to 33 ms after it: notes played in between would
+  otherwise be lost. ● on an empty slot of a track that is overdubbing ends the overdub at the press, not at the next
+  bar (one take per track). Undo during an overdub ends it first, as for a slot take, and the next status opens a new
+  one. ■ during a count-in says *Count-in stopped: nothing recorded*.
+* **The view (step 6).** ● Rec's ▾ is named *Recording settings*. During a count-in, the readout *Count-in 2* takes the
+  feedback's place.
+* **Tests (step 7).** As in part 1, the audio test can't tie a captured frame to `performance.now()`, so it checks the
+  count-in's four clicks a beat apart with ♩ off and silence after them; the placement of notes in and after a
+  count-in is pinned by the unit tests (the clock, the worklet's stamp, the recorder).

@@ -65,7 +65,8 @@ merge key.
   the second starts. A take whose clip the engine never reports queued or playing is given up after 2 s.
 * **Events.** `app/midi-input` passes each note-on and note-off it sends to a track (`recordNote`) and the sustain
   pedal (`recordPedal`), each with its beat from the record clock. The take keeps them in transport beats; one with no
-  beat (the transport stopped) is dropped, so nothing played before a stopped transport starts is kept.
+  beat (the transport stopped) is dropped, so nothing played before a stopped transport starts is kept, except during a
+  count-in (below).
 * **The take model** (`core/record/take.ts`, pure and shared with the later parts): `takeNotes(events, { id, start, end })`
   pairs ons and offs per source, channel and pitch in order (a repeated pitch is two notes); a note released under its
   source and channel's pedal ends when the pedal comes up, or when its pitch is played again; a note held at the end
@@ -88,6 +89,38 @@ merge key.
 * **Feedback** in the transport bar, after ♩: *Recording Bass, Lead*, *Recorded 4 bars into Clip 3*, *64 bars reached:
   the take ended*, *Arm a track to record into it*.
 
+### Overdub and count-in
+
+* **● Rec** (`useRecordStore.setRec`, `transport.record`, F9, ● *Rec* in the transport bar) is transient like the arm.
+  While it is on and the engine plays the Session, every **armed track with a clip playing or queued** has an
+  **overdub take** on that clip (`TakeKind` `'overdub'`; a part of the recorder beside the slot takes, one take per
+  track). With nothing armed it says *Armed tracks: none*; with nothing playing, *Launch a clip on an armed track to
+  overdub*; in the Arrangement it records nothing yet and says so.
+* **Where notes go.** An overdub records from the latest of: ● Rec going on, the track's arm, and the clip's start (the
+  launcher's `startBeat`). It counts the clip's passes from that start: the take model's `loop: { anchor, length }`
+  places a note at `(beat - anchor) mod length` and cuts a note held across the clip's end at the end. A note up to a
+  sixteenth early counts as on the first beat only when the take starts with the clip; a punch-in in mid-clip keeps
+  nothing from before it. Notes are written as they end, under the take's merge key, so a note plays from the next
+  pass on; an overdub that records nothing makes no edit.
+* **Ending.** ● Rec off, disarming, the clip stopped, replaced or relaunched, a new clip length, the transport stopped,
+  the Arrangement taking over, undo or redo, or 5000 notes end it, closing held notes there. A relaunch or a new length
+  moves where the passes fall, so the take ends and a new one (a new undo step) starts. A take into a slot that ends
+  while ● Rec is on goes on as an overdub of its clip from its end. At such a boundary the new take is given the old
+  one's events and records from the boundary with no early notes, so a note played just after it isn't lost and one
+  just before isn't recorded twice. ● on an empty slot of an overdubbing track ends the overdub at the press.
+* **Count-in** (*Off*, 1 or 2 bars, in ● Rec's menu). `countInBars(start)` is the bars to count in: the setting, from a
+  stopped transport that isn't counting in already, when ● Rec is on or the start launches a slot take's clip.
+  `app/engine-controls` wraps ▶, clip and scene launches with it, sending `transport/countIn { bars, then }`
+  ([mixing-and-routing](mixing-and-routing.md#the-master-bus)). The engine queues a launch at once, so the take sees its
+  clip waiting and doesn't give up; launches during the count-in join it; the status reports `countIn: { barsLeft,
+  beat }`, which the transport bar shows (*Count-in 2*, ▶ dimmed). ■ or Space during it cancels it: a slot take drops,
+  and the empty clip made for it goes in the same undo step (*Count-in stopped: nothing recorded*).
+* **The clock through a count-in.** The status and clock packets carry the count-in's beat, from −4 × bars up to 0, and
+  the recording clock runs on it as a segment of its own (its beats may be negative there), so a note played in the
+  count-in has a beat, and one within a sixteenth of the first beat counts as on it. The start lands inside a render
+  call; the engine reports its frame as a clock edge (`lastClockEdge`), and the worklet stamps it with that frame's
+  time, as it does a loop jump.
+
 **The record clock** (`state/record-clock.ts`, connected in `app/project-sync` beside the touch clock):
 `recordBeat(timestamp)` is `AudioHost.recordingBeat` at the event's age plus the latency to take off
 (`recordLatencyMs`): the output latency the host reports and the manual offset. You play to what you hear, which lags
@@ -105,9 +138,10 @@ before the take's start and counts as on it.
 
 **Settings** (`state/record-settings.ts`, kept per browser in `localStorage` under `sfxlab:record` by
 `useRecordSettingsStorage`, validated field by field on load): the metronome and its level, the fixed length (*Off*, 1,
-2, 4, 8, 16 bars) and the latency offset (−50 to +50 ms, *Latency offset (ms)* in MIDI settings). ♩ in the transport bar
-toggles the metronome (`transport.metronome`); its ▾ holds the level (`transport.metronome-level`) and the fixed length
-(`transport.fixed-length`) until ● Rec has a menu of its own. None of it is in the project.
+2, 4, 8, 16 bars), the count-in (*Off*, 1, 2 bars) and the latency offset (−50 to +50 ms, *Latency offset (ms)* in MIDI
+settings). ♩ in the transport bar toggles the metronome (`transport.metronome`); ● Rec's ▾ holds the fixed length
+(`transport.fixed-length`), the count-in (`transport.count-in`) and the metronome level (`transport.metronome-level`).
+None of it is in the project.
 
 `app/midi-controls` learns eligible absolute CC0–119 except sustain. Confirmation consumes the first CC without editing
 the sound. An occupied source opens an explicit reassign/cancel decision; one source maps to one target, while separate
@@ -145,7 +179,9 @@ routing, channel conversion, source ownership, effective pickup, scale/snapping,
 and Low Light DJ-filter reload. The real-output audio test replaces only browser ports, exercising the parser, adapter,
 commands and actual worklet. Recording has the same: a smoke test arms, records into a slot, ends, undoes, redoes and
 reloads, and an audio test checks that a take stamped on known intervals is placed and played back on them, within a
-render quantum, and that the metronome is live but not in an export. **No manual physical keyboard/controller check
+render quantum, and that the metronome is live but not in an export. Overdub and count-in have smoke tests (● Rec by F9
+and the button, two passes into one clip as one undo step, ■ during a count-in, a take after one), and an audio test
+checks a count-in's four clicks a beat apart with the metronome off. **No manual physical keyboard/controller check
 was performed**, for recording either.
 
 ## Held-note engine input

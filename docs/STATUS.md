@@ -60,8 +60,12 @@ part 3 (Waveshaper and Crusher) is ready to build.
 [spec](active/SPEC-midi-recording.md)): arm instrument tracks (● on their headers, or their menu), and ● on an armed
 track's empty slot records the keyboard into a new clip from the next bar; pressing it again ends the take at the next
 bar and the clip loops. A fixed length, a metronome (♩, never in an export), latency compensation and a manual offset;
-a take is one undo step. Part 2 (● Rec, overdub, count-in) and part 3 (the Arrangement) are to plan. Not checked: a
-real keyboard (V5).
+a take is one undo step. Part 3 (the Arrangement) is to plan. Not checked: a real keyboard (V5).
+
+**MIDI recording part 2 is done** (2026-11-05, on `imp/ecstatic-lehmann-5efb9d`, with part 1, neither merged;
+[plan](archive/midi-recording/PLAN-midi-recording-2-overdub.md)): ● Rec (F9) overdubs what you play into the clips
+playing on armed tracks, pass after pass, each overdub one undo step; a count-in of 1 or 2 bars clicks before a take
+from a stopped transport; ● Rec's menu holds the fixed length, the count-in and the metronome level.
 
 **The library UX round is done** (2026-11-05, on `feat/library-improvements`, not merged;
 [spec, plans and runbook](archive/library-ux/SPEC-library-ux.md)). The Library is one tree with four roots: *This

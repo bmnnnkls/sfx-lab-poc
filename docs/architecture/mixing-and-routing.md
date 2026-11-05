@@ -154,6 +154,10 @@ sends to it; it just processes what the tracks and returns have summed.
   to 0, default −12) sets it; it starts off and is not part of the project, so `diffProject` never sends it: the
   browser preference is sent by `app/project-sync`, and a bounce, which builds its own engine from the project, never
   clicks.
+* **The count-in** (`transport/countIn { bars, then }`) clicks through the same metronome, at its level, **even while it
+  is off**: the count-in's own beats, −4 × bars up to −1, the bar's first beat higher. While it runs the transport is
+  stopped, so clips are silent and live notes sound; at its end the block is split and `then` (▶, a clip or scene
+  launch, or an arrangement play) starts the transport on that exact frame. A bounce never sends it.
 
 ## Mixer
 
