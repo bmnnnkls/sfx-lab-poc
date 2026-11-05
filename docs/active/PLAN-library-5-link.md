@@ -6,7 +6,7 @@ note: "Phase 5 of SPEC-library-ux.md (C1): remember how a library sound's IDs we
 # Library phase 5: the link between a track and its library sound
 
 Phase 5 of [SPEC-library-ux.md](SPEC-library-ux.md) (§ 4.3, D11). It needs [phase 4](PLAN-library-4-sounds.md)'s Sounds
-view. Inventory taken at `9b4f2cd`. Re-check it at the branch tip before step 1.
+view. Inventory taken at `9b4f2cd`, re-checked at `9d9d6e1` (see *Changes made while implementing*).
 
 ## Goal
 
@@ -25,12 +25,19 @@ inserted before this phase.
 
 ## Inventory
 
-* `copyAsset(payload, owner)` (`core/library/assets.ts:28`) builds `nodes: Map<old, new>` and
+* `copyAsset(payload, owner)` (`core/library/assets.ts:49`, not exported) builds `nodes: Map<old, new>` and
   `modules: Map<old, new>` with `createId`. Interface ports and knobs are mapped **by index** into the copied module
   (`copied.knobs[knobIndex]`, `copied[direction][index]`). It returns the payload and a `target()` mapper, and the
   maps are then dropped.
+* **Preset targets name leaf nodes only.** A graph target is `{ owner, domain, path: [{ nodeId, moduleId }], nodeId,
+  nodeType, paramId }`, and `graph-param.ts` turns an exposed knob into its inner node's parameter, so no target holds
+  a knob or port ID. `copyAsset`'s `target()` maps `nodeId` and the path only. The node and module maps are therefore
+  all a library preset needs; ports and knobs by index matter only for copying the payload itself.
 * `insertLibraryAsset` copies **all** the item's presets, with `copy.target`, into `project.presets` under a new
   project revision. It records `libraryOrigins: { itemId, revisionId (the library's), trackId?, domain }`.
+* **Project graphs go through it too** (phase 3): *Copy to new track* and a graph dropped on another owner call
+  `library.insert(item, …, from)` with a throwaway catalog from `projectGraphItem`, whose item ID is
+  `project:track:<id>:patch`. Those inserts write an origin naming that ID.
 * `assetSignature(payload)` includes node and module IDs, so a project copy never matches its library revision.
 * `deleteProjectPreset` prunes revisions no preset references, so a project revision may not outlive its presets.
   The link therefore can't rely on a project revision ID.
@@ -38,8 +45,19 @@ inserted before this phase.
   group mute and solo, and pins all stayed at version 10, and scene names never bumped. The sanitizer rebuilds known
   fields only, so an older build drops an unknown field silently. For a link that only loses the link, which is
   harmless. `sanitize-library-origins.ts` bounds origins at 4096, with IDs of up to 256 characters.
-* `track.duplicate` runs `duplicateTrack(trackId)` in the project store. Whether it keeps node IDs decides how a
-  duplicate keeps its link. Check this in step 1.
+  `readControlOwner` (`sanitize-control-values.ts`) reads an owner.
+* **`duplicateTrack`** (`core/project/track-duplicate.ts`) keeps the track's graphs as they are, so the copy's node
+  IDs and module uses are the original's; it leaves out presets and snapshots. A duplicate's link is the original's
+  with the owner moved; no maps to compose.
+* **Sounds** is phase 4's `SoundsPanel` (`ui/presets/SoundsPanel.tsx`), which replaced `PresetsPanel`. Its list is
+  one `<section>` *In this project* inside the scrolling `.sounds` box; the library section goes beside it.
+  `recallablePresets` captures the owner's graph once per project change. A preset row's *Save to library* is
+  `sound.save-to-library` (`state/actions/sound.ts`), calling `saveToLibrary({ kind: 'preset' })`.
+  `recallSavedSound(sound, scope)` (`state/preset-actions.ts`) does a recall's undo step, Touch and Read handling.
+* **The catalog in the UI:** `useLibraryStore.catalog` stays empty until the Library has been shown (the service
+  loads lazily), so Sounds reads it (`library.read()`) when the selection has a link.
+* **Specs** are in group folders since `60e7025`: `tests/browser/library/presets.smoke.spec.ts` and
+  `tests/browser/audio/automation.audio.spec.ts`.
 
 ## Design
 
@@ -144,3 +162,20 @@ Signed off 2026-11-04: every row as proposed.
 | Owners | **`owner` on origins, `trackId` kept** | Buses and the master link too. |
 | Duplicate track | **Carries the link** | Otherwise duplicating a sound silently loses its library presets. |
 | Old projects | **No link, no repair** | A guessed mapping could recall onto the wrong nodes. |
+
+## Changes made while implementing
+
+* **Inventory re-checked** at `9d9d6e1` (phase 4 plus the smoke-groups merge). The code had moved in five places, now
+  in the inventory: `copyAsset`'s line, preset targets holding no knob or port IDs, project-graph copies going through
+  `insertLibraryAsset`, `duplicateTrack` keeping node IDs (so a duplicate needs no composed maps), and Sounds being
+  `SoundsPanel`, whose catalog has to be read.
+* **Step 1:** `LibraryLink` and `LINK_LIMITS` are in `core/library/types.ts`; `stableHash64` and `linkShape(payload)`
+  in `core/library/link.ts`. The hash is two 32-bit lanes mixed with `Math.imul` (cyrb53's scheme kept to 64 bits),
+  synchronous, since Sounds checks liveness on every project change.
+* **Step 1:** the sanitizer keeps the origin when it drops a link, and warns: "Invalid library link dropped" (a bad
+  shape, list or pair), "Library link dropped: over 2048 nodes or 128 modules", "Library link dropped: links limited
+  to 16384 pairs". An owner that isn't one is dropped with "Invalid library origin owner dropped". A `shape` must be
+  16 lowercase hex digits.
+* **Step 1:** the fixture `v13-library-link.sfxlab.json` is v6-presets' sampler inserted as *Big bass* into an empty
+  project, with its real maps (8 nodes, 1 module).
+

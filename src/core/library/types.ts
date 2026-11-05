@@ -1,7 +1,7 @@
 import type { AssetRevision, ProjectPreset } from '../preset'
 import type { AudioClip, Clip } from '../project'
 import type { SampleInfo } from '../sample'
-import type { ControlTarget } from '../control'
+import type { ControlOwner, ControlTarget } from '../control'
 import type { AutomationLane } from '../automation'
 
 export interface LibraryFolder { readonly id: string; readonly name: string; readonly parentId: string | null; readonly trashed?: boolean }
@@ -26,5 +26,32 @@ export interface LibraryCatalog {
   readonly samples: readonly SampleInfo[]
 }
 export const emptyLibrary = (): LibraryCatalog => ({ version: LIBRARY_CATALOG_VERSION, folders: [], items: [], revisions: [], samples: [] })
-/** Informational origin only. The project never consults the library to play or reload. */
-export interface LibraryOrigin { readonly itemId: string; readonly revisionId?: string; readonly trackId?: string; readonly domain?: 'patch' | 'notes' | 'fx'; readonly clipId?: string }
+/**
+ * How a library sound's IDs were mapped when it was inserted, so its library presets recall onto the copy and the
+ * copy's presets save back. Targets name nodes and modules only (a leaf node's parameter), so ports and knobs need no
+ * map of their own.
+ */
+export interface LibraryLink {
+  /** A stable 64-bit hash (hex) of the inserted graph's assetSignature: the link is live while the owner's graph hashes the same. */
+  readonly shape: string
+  /** Library node id → project node id. */
+  readonly nodes: readonly (readonly [string, string])[]
+  /** Library module id → project module id. */
+  readonly modules: readonly (readonly [string, string])[]
+}
+/** The bounds of links in a project file: per link, and every link's pairs together. */
+export const LINK_LIMITS = { nodes: 2048, modules: 128, pairs: 16384 } as const
+/**
+ * Where something in the project came from in the library. The project never consults the library to play or reload;
+ * a `link` only lets Sounds offer the library sound's presets. `owner` generalizes `trackId`, which is still written
+ * for older readers.
+ */
+export interface LibraryOrigin {
+  readonly itemId: string
+  readonly revisionId?: string
+  readonly trackId?: string
+  readonly owner?: ControlOwner
+  readonly domain?: 'patch' | 'notes' | 'fx'
+  readonly clipId?: string
+  readonly link?: LibraryLink
+}
