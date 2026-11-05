@@ -1,5 +1,7 @@
 import {
   type Clip,
+  type ControlOwner,
+  setTimelineLanesOpen,
   type ClipRef,
   type History,
   type MidiTrackInput,
@@ -292,6 +294,8 @@ interface ProjectActions {
   removeArrangementLoop(): void
   /** Turns looping on or off: a view edit, saved and not undone. */
   setArrangementLoopEnabled(enabled: boolean): void
+  /** Opens or closes an owner's lanes under its row on the timeline: a view edit, saved and not undone. */
+  setTimelineLanesOpen(owner: ControlOwner, open: boolean): void
 }
 
 export interface ProjectState extends ProjectActions {
@@ -491,6 +495,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     setArrangementLoop: (range, mergeKey) => edit((project) => setArrangementLoop(project, range), mergeKey),
     removeArrangementLoop: () => edit(removeArrangementLoop),
     setArrangementLoopEnabled: (enabled) => editView((project) => setArrangementLoopEnabled(project, enabled)),
+    setTimelineLanesOpen: (owner, open) => editView((project) => setTimelineLanesOpen(project, owner, open)),
   }
 })
 

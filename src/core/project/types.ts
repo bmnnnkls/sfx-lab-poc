@@ -188,6 +188,14 @@ export interface GroupBus {
 }
 
 /** The saveable document. Everything the user authors lives here. */
+/** One owner's automation lanes on the arrangement's timeline. */
+export interface TimelineLanes {
+  readonly owner: import('../control').ControlOwner
+  readonly lanes: readonly AutomationLane[]
+  /** The lanes are shown under the owner's row: a view field, saved and not undone. */
+  readonly open?: boolean
+}
+
 export interface Project {
   readonly libraryOrigins?: readonly import('../library').LibraryOrigin[]
   readonly snapshots?: readonly Snapshot[]
@@ -225,4 +233,9 @@ export interface Project {
   readonly arrangementMarkers?: readonly import('./arrangement-marks').ArrangementMarker[]
   /** The loop brace on the arrangement's timeline; absent when none is drawn. */
   readonly arrangementLoop?: import('./arrangement-marks').ArrangementLoop
+  /**
+   * Automation lanes on the arrangement's timeline, in beats from the song's start: one entry per owner (a track, a
+   * return, the master or a group with a bus), absent when there are none. Since format v14.
+   */
+  readonly arrangementAutomation?: readonly TimelineLanes[]
 }

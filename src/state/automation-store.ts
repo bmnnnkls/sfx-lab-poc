@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { type AutomationLane, type ControlTarget, commit, controlTargetKey, setClipAutomation, automationSlotsOf, setAutomationSlot, type ControlOwner, type AutomationSlot } from '@core'
+import { type AutomationLane, type ControlTarget, commit, controlTargetKey, setClipAutomation, automationSlotsOf, setAutomationSlot, setTimelineLanes, type ControlOwner, type AutomationSlot } from '@core'
 import { useProjectStore } from './project-store'
 import { useLayoutStore } from './layout-store'
 import { openAutomationSlot } from './navigation'
@@ -52,4 +52,12 @@ export const editOwnerAutomation = (owner: ControlOwner, clipId: string, lanes: 
   const slot = slots?.[scene]
   if (slot) editAutomationSlot(owner, scene, { ...slot, automation: lanes }, key)
   else if (owner.kind === 'track') editClipAutomation(owner.trackId, clipId, lanes, key)
+}
+
+/** Sets an owner's lanes on the timeline: one undo step, a drag's edits merging under its `key`. */
+export const editTimelineAutomation = (owner: ControlOwner, lanes: readonly AutomationLane[], key?: string) => {
+  const store = useProjectStore.getState()
+  const project = setTimelineLanes(store.project, owner, lanes)
+  if (project === store.project) return
+  useProjectStore.setState({ project, history: commit(store.history, project, { key, now: Date.now(), mergeWindowMs: Infinity }) })
 }

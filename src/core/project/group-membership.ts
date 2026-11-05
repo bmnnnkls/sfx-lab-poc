@@ -1,3 +1,4 @@
+import { pruneTimelineLanes } from '../automation'
 import type { Patch } from '../patch'
 import type { GroupBus, Project, TrackGroup } from './types'
 
@@ -24,7 +25,7 @@ export const withoutGroups = (project: Project, gone: ReadonlySet<string>): Proj
   const owned = (entry: { readonly target: { readonly owner: { readonly kind: string; readonly groupId?: string } } }) =>
     entry.target.owner.kind === 'group' && gone.has(entry.target.owner.groupId!)
   const groups = project.groups.filter((group) => !gone.has(group.id))
-  const { groups: _gone, ...rest } = project
+  const { groups: _gone, ...rest } = pruneTimelineLanes(project, (owner) => owner.kind === 'group' && gone.has(owner.groupId))
   return {
     ...rest,
     ...(project.controlValues && { controlValues: project.controlValues.filter((entry) => !owned(entry)) }),

@@ -353,3 +353,16 @@ Signed off 2026-11-05: every row as proposed.
 | Subjects | **One `timeline-lane` kind;** selected points use the lane's keys, a segment's interpolation is in the lane's menu at the clicked beat | Also an `automation-point` subject, with *Delete* and *Linear / Hold* in its own menu |
 | Returns' and the master's lane row when closed | **28 px, empty,** as a group row; it holds nothing until its lanes open | 56 px, as a track row, so the rows line up with the session's |
 | *Show automation* on a header | **A *Show / Hide automation lanes* entry** in each owner's menu beside today's *Show automation*; a bus group gets `group.show-automation` | Today's `track.show-automation` opens the timeline lanes when the Arrangement is showing |
+
+## Changes made while implementing
+
+### Step 1: the model and format v14
+
+* **Built on `feat/midi-recording`** (`29fdc4e`, MIDI recording parts 1 to 3 with this plan merged), as asked, not on
+  `main`. That branch is still at v13, so the bump to v14 stands.
+* **Three tests outside `core/persistence` pinned the version** (`project-storage`, `library-link`, and
+  `arrangement-marks`' "saves as v13"); they now check against `CURRENT_VERSION`, so the next bump doesn't touch them.
+* **`core/automation` reaches `core/project` only through its index**, values included (`MAX_TIMELINE_BEATS`), as the
+  architecture test requires.
+* The sanitizer keeps an open entry with no lanes (a return opened to add one), and drops a closed empty one, as the
+  edits do.

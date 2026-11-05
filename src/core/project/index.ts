@@ -13,6 +13,7 @@ export type {
   GroupBus,
   GroupColour,
   WarpMode,
+  TimelineLanes,
 } from './types'
 export { isAudioTrack, isInstrumentTrack, isReturnTrack } from './track-kind'
 export {

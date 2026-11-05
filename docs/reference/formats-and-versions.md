@@ -8,7 +8,7 @@ version changes, update this table in the same commit. How saving and migrations
 
 | What | Version | Constant | Where it's kept |
 |---|---:|---|---|
-| Project file (`.sfxlab.json`, and the project inside a `.sfxlab` package) | **13** | `CURRENT_VERSION` in `core/persistence/format.ts` | `localStorage` `sfxlab:project`, export files |
+| Project file (`.sfxlab.json`, and the project inside a `.sfxlab` package) | **14** | `CURRENT_VERSION` in `core/persistence/format.ts` | `localStorage` `sfxlab:project`, export files |
 | Library bundle manifest (`.sfxlib`) | **2** | `LIBRARY_BUNDLE_VERSION` in `core/library/bundle.ts` | export files ([format](library-bundle.md)) |
 | Library catalog | **2** | `LIBRARY_CATALOG_VERSION` in `core/library/types.ts` | IndexedDB, and inside bundles |
 | Library IndexedDB database | **3** | `LIBRARY_DATABASE_VERSION` in `storage/library-database.ts` | IndexedDB (samples, catalog, edit log) |
@@ -38,6 +38,7 @@ committed fixture in `core/persistence/fixtures/`.
 | 11 | A sample's `origin`, `markers` and `regions` (stereo samples, wave editor) | `v11-sample-markers` |
 | 12 | A sample's `loop` (what a sampler in *loop* mode repeats) and `lineage` (the original's facts and each in-place edit's position map, for *Revert to original*) | `v12-sample-lineage` |
 | 13 | The arrangement's `arrangementMarkers` and `arrangementLoop` (the loop brace, and whether playback repeats it); later, without a bump: a library origin's `owner` and `link` (node and module maps and a shape hash, bounded by `LINK_LIMITS` in `core/library/types.ts`: 2048 node pairs, 128 module pairs, 16 384 pairs in a file) | `v13-arrangement-marks`, `v13-library-link` |
+| 14 | The arrangement's `arrangementAutomation`: automation lanes on the timeline, one entry per owner (a track, a return, the master or a group with a bus), in beats from the song's start up to `MAX_TIMELINE_BEATS`, with `open` (the lanes twisty, a view field). A region's own lanes are now checked against its track | `v14-timeline-automation` |
 
 Fields added without a bump (as in v10) are dropped silently by builds that predate them. Use that only when the
 file is never worse for losing the field; otherwise bump.

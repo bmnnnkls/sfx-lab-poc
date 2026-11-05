@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { LINK_LIMITS } from '../library'
+import { CURRENT_VERSION } from './format'
 import { parseProject, serializeProject } from './index'
 
 const text = () => readFileSync(new URL('./fixtures/v13-library-link.sfxlab.json', import.meta.url), 'utf8')
@@ -28,7 +29,7 @@ describe('format v13: the optional library link', () => {
     expect(origin!.link!.nodes.length).toBeGreaterThan(0)
     expect(origin!.link!.modules).toHaveLength(1)
     const saved = serializeProject(project)
-    expect(JSON.parse(saved).version).toBe(13)
+    expect(JSON.parse(saved).version).toBe(CURRENT_VERSION)
     expect(parseOk(saved).project).toEqual(project)
   })
 

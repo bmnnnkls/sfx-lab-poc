@@ -21,6 +21,7 @@ import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
 import { sanitizeArrangement, sanitizeArrangementMarks } from './sanitize-arrangement'
+import { sanitizeTimelineAutomation } from './sanitize-timeline-automation'
 import { sanitizeAudioClip } from './sanitize-audio-clip'
 import { sanitizeClip } from './sanitize-clip'
 import { repairGroupOrder, sanitizeGroups } from './sanitize-groups'
@@ -162,6 +163,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
   const midiMappings = sanitizeMidiMappings(raw.midiMappings, warn)
   const arrangement = sanitizeArrangement(raw.arrangement, new Set(tracks.map((track) => track.id)), sampleIds, warn)
   const marks = sanitizeArrangementMarks(raw.arrangementMarkers, raw.arrangementLoop, warn)
+  const timelineAutomation = sanitizeTimelineAutomation(raw.arrangementAutomation, { tracks, groups }, warn)
   const project = repairGroupOrder({
     ...sanitizePresetFields(raw, sampleIds, warn),
     ...(libraryOrigins && { libraryOrigins }),
@@ -176,6 +178,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     ...(arrangement && { arrangement }),
     ...(marks.markers && { arrangementMarkers: marks.markers }),
     ...(marks.loop && { arrangementLoop: marks.loop }),
+    ...(timelineAutomation && { arrangementAutomation: timelineAutomation }),
     // Files from before the master bus existed have none: the mix passes through untouched.
     master: {
       ...(isRecord(raw.master) && raw.master.automationSlots !== undefined && { automationSlots: sanitizeAutomationSlots(raw.master.automationSlots, sceneCount, { kind: 'master' }, warn) }),

@@ -28,11 +28,10 @@ describe('format v13: markers and the loop on the arrangement', () => {
     expect(project.arrangement![0]!.loop).toBe(true)
   })
 
-  it('round-trips, and saves as v13', () => {
+  it('round-trips, and saves as the current version', () => {
     const { project } = parseOk(fixture('v13-arrangement-marks.sfxlab.json'))
     const text = serializeProject(project)
-    expect(CURRENT_VERSION).toBe(13)
-    expect(JSON.parse(text).version).toBe(13)
+    expect(JSON.parse(text).version).toBe(CURRENT_VERSION)
     expect(parseOk(text).project).toEqual(project)
   })
 

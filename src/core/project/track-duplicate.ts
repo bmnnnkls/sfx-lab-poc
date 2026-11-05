@@ -1,4 +1,4 @@
-import type { AutomationLane } from '../automation'
+import { type AutomationLane, copyTimelineLanes } from '../automation'
 import type { ControlTarget } from '../control'
 import { createId } from '../shared'
 import { MAX_TRACKS } from './edit'
@@ -53,10 +53,12 @@ export const duplicateTrack = (project: Project, trackId: string): { project: Pr
   const tracks = [...project.tracks.slice(0, index + 1), copy, ...project.tracks.slice(index + 1)]
   const controlValues = project.controlValues?.filter((entry) => ownedBy(entry.target, trackId)).map((entry) => ({ ...entry, target: moveOwner(entry.target, trackId, id) }))
   const sampleBindings = project.sampleBindings?.filter((entry) => ownedBy(entry.target, trackId)).map((entry) => ({ ...entry, target: moveOwner(entry.target, trackId, id) }))
+  // The original's timeline lanes come along onto the copy, as its clip lanes do.
+  const withLanes = copyTimelineLanes(project, { kind: 'track', trackId }, { kind: 'track', trackId: id }, (target) => moveOwner(target, trackId, id))
   return {
     trackId: id,
     project: {
-      ...project,
+      ...withLanes,
       tracks,
       ...(controlValues?.length && { controlValues: [...project.controlValues!, ...controlValues] }),
       ...(sampleBindings?.length && { sampleBindings: [...project.sampleBindings!, ...sampleBindings] }),
