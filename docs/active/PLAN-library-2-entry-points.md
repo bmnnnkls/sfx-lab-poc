@@ -1,7 +1,8 @@
 ---
-status: active
-date: 2026-11-04
-note: "Phase 2 of SPEC-library-ux.md: the Library menu and its commands, and dropping tracks, groups, clips, samples and presets from other views onto library folders. Decisions signed off 2026-11-04."
+status: done
+date: 2026-11-05
+shipped_in: architecture/workbench.md
+note: "Phase 2 of SPEC-library-ux.md, built on feat/library-improvements: the Library menu and its commands, a project preset saved on its own, and tracks, groups, clips, samples and presets dragged onto library folders. Also shipped in architecture/library-and-presets.md. Stays in active/ until phase 7 archives the round."
 ---
 # Library phase 2: the Library menu and dragging things in
 
@@ -195,3 +196,15 @@ Signed off 2026-11-04: every row as proposed.
   gone sample refuse silently too.
 * **Step 3:** the smoke for a refused track uses Low Light's *Echo* return (its *Kick duck* reads the Kick's audio);
   its Tracks row is named "Echo, return".
+* **Step 3:** with the *Library* button, the transport bar's buttons wrap to a second line below about 1250 px of
+  window width (about 1175 px before). The bar already wraps by design (`flex-wrap`), so it was left as it is; queued
+  for the user to judge.
+* **Manual checks** (dev build, Chromium): every save entry with nothing, an instrument, an audio track, a return, a
+  bus, a folder group, the master, a clip and a sample selected (unit-tested, and the menu seen with nothing and with
+  Bass); keys set on *Save instrument* and *Save effects* in the shortcuts dialog ran both saves on Bass; a preset saved
+  from its Sounds row showed as a new sound with *Show*. Inserting a saved Low Light preset into a fresh project is
+  covered by the unit test that inserts and recalls it; it was not repeated by hand.
+* **Step 4:** the notes are sorted: the menu, the drops and the single-preset save into `workbench.md` and
+  `library-and-presets.md`; decisions 89–93; two gotchas (a command menu follows only the stores `useCommandEntries`
+  reads; a browser shows no tooltip during a drag); Firefox and Safari for dragging into the Library in backlog V2;
+  STATUS, the tour and `dev/common-changes.md`.

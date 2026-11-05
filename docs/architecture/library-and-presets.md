@@ -116,7 +116,19 @@ named after its source (*Bass*, *Bass effects*, *Bass notes*, *Master effects*, 
 the folder open in the Library (the top level when it is gone or trashed) and is found as the one id the catalog
 didn't have before. The action resolves with "Saved Bass to Drums" and a *Show* button for its toast, which reveals
 the item in the Library and starts renaming it. A refused capture (a graph with a track's audio in it) reports its
-reason.
+reason. The same saves are the transport bar's *Library* menu, run on the selection, and what dragging a track, group,
+session clip, sample or project preset onto a library folder does (into that folder; see
+[workbench.md](workbench.md#drag-and-drop)). `externalRoutingIn(project, scope)` (`core/preset/routing.ts`) finds the
+first `send`, `trackAudio` or `trackNotes` node a capture of a scope would read, in its graph, its modules and an
+instrument's note graph, with the track it reads, so a drop is refused before the capture runs.
+
+A project preset can be saved on its own: *Save to library* in its Sounds row menu, or the row dragged onto a folder.
+`captureLibraryPreset(catalog, project, presetId, folderId)` stores the preset's own revision from
+`project.assetRevisions` under a fresh id and makes a sound named after the preset whose `state` is the preset, with no
+preset items under it. It never reads the current graph, so it works after the preset's owner has been rewired. It
+refuses external routing in the revision and missing sample metadata, and `PersonalLibrary.savePreset(presetId,
+folderId)` runs the same sample-bytes preflight as the other saves. A snapshot has no graph of its own and can't be
+saved.
 
 The Library view is one tree (`ui/library/library-tree.ts` for the rows and keys, `LibraryTree.tsx`): *My library* and
 *Trash*, folders first and then items in each folder by name with numbers in order, and each sound's presets under it,

@@ -112,6 +112,11 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **The lazy library service lists every method by hand** (`app/library-service.ts`). A parameter added to
   `PersonalLibrary` is dropped there silently until the wrapper passes it on: the Library's ■ never turned back into
   ▶, because `preview`'s new `onStop` didn't reach the library. *(library phase 1)*
+* **A menu built from commands re-renders only on the stores `useCommandEntries` follows** (layout, persistence,
+  project, Touch, selection, library). A command whose label, tooltip or state reads another store shows stale text
+  while its menu is open until that store is added there. *(library phase 2)*
+* **A browser shows no tooltip during a drag.** A drop target's `title` alone is invisible while something is dragged
+  over it; draw the reason too (`data-drop-reason`), as the Library's tree rows do. *(library phase 2)*
 * **Two panes asking for one sample in the same tick decode it twice**, since each pane's `loading` is its own and
   neither holds a copy yet. `openAudio` waits on one decode per sample (`decodeWorking`). *(round 11c-3)*
 * **A second pane without a sample of its own follows the first,** so whatever moves the first moves it too. Code

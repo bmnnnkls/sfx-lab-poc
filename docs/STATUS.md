@@ -59,7 +59,10 @@ part 3 (Waveshaper and Crusher) is ready to build.
 The library UX round ([spec](active/SPEC-library-ux.md), [runbook](active/RUNBOOK-library.md)) runs on
 `feat/library-improvements`. **Phase 1 is done** (2026-11-05, [plan](active/PLAN-library-1-tree.md)): the Library is
 one tree of folders, items and presets with drag and drop, *Save to library* in the menus of tracks, buses, the master,
-clips and samples, compact details and a bundle review dialog. Phases 2–7 are planned.
+clips and samples, compact details and a bundle review dialog. **Phase 2 is done** (2026-11-05,
+[plan](active/PLAN-library-2-entry-points.md)): a *Library* menu in the transport bar whose entries are commands, a
+project preset saved on its own, and tracks, groups, clips, samples and presets dragged onto library folders, with
+external routing refused up front and the reason shown. Phases 3–7 are planned.
 
 ## Accepted limits
 

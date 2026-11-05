@@ -86,7 +86,10 @@ Click **✎** on a clip to open it in **Clip**, the piano roll:
 
 Right-click the **Bass** track name and choose **Save to library ▸ Instrument + notes**. The toast says where it went;
 **Show** opens the **Library** with the new sound ready to rename. Buses and the master save their effects the same
-way, and clips and samples save from their own menus. In the Library, the presets you saved for a sound sit under it.
+way, and clips and samples save from their own menus. The **Library** menu in the top bar saves whatever is selected,
+and you can drag a track, clip, sample or preset straight onto a Library folder (rest it on the Library's tab first if
+the Library is hidden). A preset saved on its own becomes a new sound. In the Library, the presets you saved for a
+sound sit under it.
 Drag sounds and folders onto folders to sort them (hold Alt to copy), or onto **Trash**; drag them back out to
 restore them. **▶** or Space previews a sound on its own, and Enter puts it into the project: an instrument as a new
 track, a clip into the first empty slot. Share a folder with **Export as .sfxlib…** from its menu, and open one by

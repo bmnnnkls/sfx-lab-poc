@@ -106,6 +106,11 @@ Collected here as the phases go, and reported at each phase's end:
 * **Browsers**: drag and drop and spring-open in Firefox and Safari. The specs run in Chromium only.
 * **Physical MIDI** is untouched by this round (backlog V5).
 * Any label or wording the session was unsure of, listed with the screen it's on.
+* **The transport bar wraps earlier** (phase 2): with the *Library* button its buttons go to a second line below about
+  1250 px of window width, instead of about 1175 px.
+* **Wording to look at** (phase 2): the Library menu's disabled reasons ("Select an instrument track", "Sum the group
+  to a bus first", "Bass has no note effects") and the drop refusals ("Uses Track audio from Kick", "Uses a Send to
+  Echo"), in the transport bar's *Library* menu and on the Library's rows during a drag.
 
 ## Decisions made in the plans
 

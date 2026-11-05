@@ -258,8 +258,8 @@ right-clicked; what can be done to it lives in `state/actions/`.
 * **Focus after a rename.** Radix returns the focus to the trigger as a menu closes. `ActionMenu` and `PopupMenu`
   prevent that after an entry that `takesFocus` (an in-place rename, *Add node…*, an edit's settings popover;
   `notingFocus`).
-* **Popups stay.** The *+* add-track popup, the empty audio slot's *+*, File, View and the *Layout* menu are menus of
-  a place, not of a thing. File, View and *Layout* are built from commands (§ Commands and keys). The empty audio slot's *+* runs the same *Add audio clip* action as its right-click submenu.
+* **Popups stay.** The *+* add-track popup, the empty audio slot's *+*, File, View, Library and the *Layout* menu are
+  menus of a place, not of a thing. File, View, Library and *Layout* are built from commands (§ Commands and keys). The empty audio slot's *+* runs the same *Add audio clip* action as its right-click submenu.
 * **View-local menus stay local.** The piano roll's (it acts on the note selection and the hover beat) and an input
   port's (*Create knob* needs `GraphEditor`'s `createControl`) build their entries through `ContextMenu`. The rule in
   `tests/architecture.test.ts`: outside `ui/shared/menu`, only `PianoRoll`, `GraphEditor` and `NodeView` may import
@@ -366,13 +366,14 @@ Everything the app can do from a menu can be found by name and run from the keyb
 `state/actions/`; commands are what has no subject.
 
 * **Commands** (`state/commands/`). A `Command` has a stable `id` (`view.show.mixer`, `layout.toggle.panel`: key
-  overrides are saved by it), a `category` (View, Layout, File, Transport, Track, Edit, Help), a `title` (*Toggle
-  panel*) and a `label` for now (*Hide panel*), `applies`, `enabled`, `choices` (one palette row each), `danger`,
+  overrides are saved by it), a `category` (View, Layout, File, Transport, Track, Library, Edit, Help), a `title`
+  (*Toggle panel*), a `label` for now (*Hide panel*), a `tooltip` that may be a function of the context (why it is
+  disabled now: `commandTooltip`), `applies`, `enabled`, `choices` (one palette row each), `danger`,
   `takesFocus`, `repeat` (a held key runs it again: undo and redo), `palette: false` (the edit verbs) and `bindable:
   false` (*Load layout*, whose choices are names). `runCommand` runs nothing that doesn't apply or isn't enabled and
   reports like `runAction`. `CommandContext` is an `ActionContext` with the project's `files` and `focus`, the
   subjects the keyboard focus is on. `STATE_COMMANDS` holds those that need only `state` (regions, maximize, reset,
-  files, examples, transport, Touch, undo, adding tracks, the edit verbs); `viewCommands(viewTitles)` makes the 13
+  files, examples, transport, Touch, undo, adding tracks, the edit verbs, and `LIBRARY_COMMANDS`); `viewCommands(viewTitles)` makes the 13
   *Show …* commands; `ui/commands/ui-commands.ts` has those that move the DOM focus or open dialogs (F6's, the palette,
   the shortcuts, *Save layout as…*, *Export audio*, the presets, the named layouts). `ui/commands/registry.ts` joins
   them into `COMMANDS`.
@@ -423,7 +424,17 @@ Everything the app can do from a menu can be found by name and run from the keyb
   choices, submenus and separators into `MenuEntry`s, each with its key (drawn, `aria-hidden`, not part of its name).
   `useCommandEntries` builds them while a `PopupMenu` is open, following the stores. File (`FILE_MENU`), View
   (`VIEW_MENU`: the palette, the shortcuts, *Show ▸* every view, the region toggles, maximize, *Layouts ▸*) and the
-  status bar's *Layout* (`LAYOUT_MENU`) are lists in `ui/commands/menus.ts`.
+  status bar's *Layout* (`LAYOUT_MENU`) are lists in `ui/commands/menus.ts`, and so is *Library* (`LIBRARY_MENU`),
+  between View and MIDI.
+* **The Library menu's commands** (`state/commands/library-commands.ts`). The five saves (*Save instrument of Bass to
+  library*, *Save effects of Bass to library* (*of Master*, *of Drums bus*), *Save note effects of …*, *Save clip
+  "Backbeat" to library*, *Add sample "Kick" to library*) find their subject in the selection store and run that
+  subject's own *Save to library* action through `runAction`: `enabled` is `canRunAction`. With nothing of the right
+  kind selected a save shows its title, disabled, with the reason as its tooltip ("Select an instrument track", "Sum
+  the group to a bus first", "Bass has no note effects"). *New folder* runs the open folder's *New folder inside*, or
+  *My library*'s at the top level; *Import .sfxlib…* runs *My library*'s; *Export library…* reads the catalog from
+  storage and asks the Library to review an export of all of *My library*. The Library takes a request when it mounts,
+  so one made while it was never shown waits for it.
 * **Keyboard shortcuts** (`KeyboardShortcuts`, a `<dialog>`): a search, then every bindable command by category with its
   keys, *Change* (records the next key, Escape cancels; it replaces the command's keys), *Remove* and *Reset*; *Reset
   all*. A refused key says why, a used key warns, a moved key names the command that lost it. `VIEW_KEYS` lists the
@@ -467,9 +478,20 @@ In the Library's tree:
 | Item | Moves it there with its presets (`moveLibraryEntry`); Alt copies it (`libraryItemDuplicate`); a trashed one is restored there | The same, at the top level | *Trash*, with its presets; a trashed one refuses |
 | Folder | Moves it inside, never into itself or a folder inside it; Alt deep-copies it (`duplicateLibraryFolder`); a trashed one is restored there | The same, at the top level | *Trash*, with its contents; a trashed one refuses |
 | Preset under its sound | Refuses: it goes where its sound goes | Refuses | *Trash* |
+| Instrument track | Saves *Instrument + notes* there | The same, at the top level | Refuses |
+| Audio or return track | Saves its effects there | The same | Refuses |
+| Group | With a bus, saves the bus's effects; a folder group refuses: "Sum the group to a bus first" | The same | Refuses |
+| Session clip | Saves the clip there | The same | Refuses |
+| Sample | Adds the sample there | The same | Refuses |
+| Project preset | Saves it on its own there (`captureLibraryPreset`) | The same | Refuses |
 
 A drop where the thing already is does nothing and refuses. The menu twins are *Move to ▸*, *Duplicate*, *Trash* and
-*Restore*; the drops onto the trash run the *Trash* actions themselves.
+*Restore*; the drops onto the trash run the *Trash* actions themselves. A thing from the project is saved with
+`saveToLibrary(source, context, into)` into the folder dropped on, not the open one, always as a copy, and the toast's
+*Show* reveals it; the menu twins are its *Save to library* entries. A graph that reads another track (`send`,
+`trackAudio`, `trackNotes`, found by `externalRoutingIn`) is refused up front with the reason: "Uses Track audio from
+Kick". A capture that still fails when it runs (sample bytes missing) reports its reason in the toast. A trashed folder
+takes nothing from the project.
 
 Everything else refuses: an occupied slot, a track of the other kind, a library clip on a lane, a canvas inside a
 module, an effect made for another input (`trackIn`, `returnIn`, `masterIn`, `groupIn`), a preset on a graph that
@@ -482,12 +504,15 @@ group into itself or deeper than four levels, and a move that would make the mix
   threshold, so a click still launches, opens or selects. `useDropTarget(target)` takes a subject, or a function of
   the event for a lane's beat and a canvas's point. It looks only at drags carrying our type, so flexlayout's tab
   drags, files and the panel's control reorder pass through. It asks `dropFor`, prevents the default and sets
-  `dropEffect` when a drop accepts, and on `drop` calls `runDrop` with `useActionContext()`.
+  `dropEffect` when a drop accepts, and on `drop` calls `runDrop` with `useActionContext()`. When none accepts, it asks
+  `refusalFor`, the reason a drop of those kinds gives (its `refusal`), if any.
 * **The current drag is a module variable,** not a store: `dragover` can't read `dataTransfer`'s data, only its types.
   The window ends it on `dragend` and, a task after the target's handler, on `drop`, both in the capture phase.
 * **Feedback without rendering.** The target under the pointer gets `data-drop="accept"` or `"refuse"`, set on the
   element and cleared on leave, on drop and when another target takes over; a lane also gets `--drop-at`, where its
-  marker is drawn. No target subscribes to anything, so a drag re-renders nothing. The innermost target stops
+  marker is drawn. A refusal with a reason also sets it as the target's `title` and `data-drop-reason`; the target's
+  own title comes back when the mark goes. A browser shows no tooltip during a drag, so a Library tree row draws the
+  reason at its end, in place of its count. No target subscribes to anything, so a drag re-renders nothing. The innermost target stops
   `dragover` and `drop`, refused ones too, so it decides.
 * **Track and group targets** use `useEdgeTarget(subject, axis)`: the edge comes from the pointer along the axis (x in
   the session grid and the mixer, y in the tree and the arrangement) and shows as `data-edge` while a track or a group is
@@ -496,7 +521,8 @@ group into itself or deeper than four levels, and a move that would make the mix
   item's or folder's row, a Tracks tree row, a track's name (session header, mixer strip, lane name; not the whole header, whose
   slider keeps its gesture) and a group's band, collapsed header, strip or lane. Targets: every session slot (a filled one shows `refuse`), a lane's whole row (so a drop over a region
   lands too), the session header, the mixer strip, the lane name, the master's header and strip, a graph
-  editor's canvas, and the Library's folder and root rows.
+  editor's canvas, and the Library's folder and root rows. Resting a drag on the Library's tab or activity-bar button
+  shows the Library, so a Tracks row or a session clip reaches a folder even while the Library is hidden.
 * **Spring-open rows.** `useSpringOpen(open)` opens a closed Library row (a folder, a sound with presets, a root) once
   a drag of ours has rested on it for `SPRING_LOAD_MS`; leaving it, dropping or ending the drag first cancels.
   `mergeDragProps` runs several sets of drag props on one element, so a tree row that is a source, a target and springs
@@ -510,5 +536,5 @@ group into itself or deeper than four levels, and a move that would make the mix
   its own type `application/x-sfxlab-control`), `SamplesPanel` and `LibraryPanel` (operating-system files, `Files`
   only: audio files, and an `.sfxlib` to review) and `RegionToggles` (which cancels drags) may use `dataTransfer`, `draggable` or `onDrag…`/`onDrop` handlers.
 * **Not yet.** Dragging regions out of the arrangement, drops that make tracks, files outside Samples and the Library,
-  library samples, dragging tracks, clips, samples or presets onto library folders, several things at once, keyboard and touch drags (the menus cover both), and popout windows (turned off). Checked
+  library samples, several things at once, keyboard and touch drags (the menus cover both), and popout windows (turned off). Checked
   in Chromium only.
