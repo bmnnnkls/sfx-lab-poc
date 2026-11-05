@@ -46,8 +46,8 @@ beforeEach(() => {
 
 describe('library items', () => {
   it('offers a clip its scenes on the selected track of its kind, and a trashed item only Restore', async () => {
-    expect(titles(item('Riff'))).toEqual(['Preview', 'Rename', 'Duplicate', 'Insert new instrument track', 'Insert into Bass', 'Replace clip in Bass', 'Move to', 'Export as .sfxlib…', 'Trash'])
-    expect(titles(item('Synth'))).toEqual(['Preview', 'Rename', 'Duplicate', 'Insert new instrument track', 'Replace selected graph', 'Move to', 'Export as .sfxlib…', 'Trash'])
+    expect(titles(item('Riff'))).toEqual(['Preview', 'Rename', 'Duplicate', 'Insert new instrument track', 'Insert into Bass', 'Replace clip in Bass', 'Move to', 'Export as .sfxlib…', 'Cut', 'Copy', 'Trash'])
+    expect(titles(item('Synth'))).toEqual(['Preview', 'Rename', 'Duplicate', 'Insert new instrument track', 'Replace selected graph', 'Move to', 'Export as .sfxlib…', 'Cut', 'Copy', 'Trash'])
     useLibraryStore.setState({ catalog: (catalog = trashLibraryEntry(catalog, id('Riff'))) })
     expect(titles(item('Riff'))).toEqual(['Restore'])
   })
@@ -114,7 +114,7 @@ describe('library roots', () => {
 
   it('are named My library and Trash, and offer a new folder, import and export, or restoring everything', async () => {
     expect([subjectName(mine), subjectName(trash)]).toEqual(['My library', 'Trash'])
-    expect(titles(mine)).toEqual(['New folder', 'Import .sfxlib…', 'Export all…'])
+    expect(titles(mine)).toEqual(['New folder', 'Import .sfxlib…', 'Export all…', 'Paste here'])
     expect(titles(trash)).toEqual(['Restore all'])
     expect(entry(trash, 'library-root.restore-all')?.enabled).toBe(false)
     await runAction('library-root.import', mine, context())

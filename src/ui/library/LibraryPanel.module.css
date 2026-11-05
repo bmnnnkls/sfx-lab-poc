@@ -31,6 +31,8 @@
 .row.active { background: var(--panel-raised); border-color: var(--border); }
 .row.active.selected { background: var(--accent-soft); }
 .row.trashed .name { color: var(--text-dim); }
+/* Cut, until pasted or Esc. */
+.row[data-cut] .glyph, .row[data-cut] .name { opacity: 0.45; }
 .row[data-drop='accept'] { border-color: var(--accent); background: var(--accent-soft); }
 .row[data-drop='refuse'] { cursor: no-drop; }
 /* Why a drag can't land here (a track reading another track's audio): a tooltip doesn't show during a drag. */

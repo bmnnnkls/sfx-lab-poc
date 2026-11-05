@@ -24,15 +24,16 @@ export const editLibrary = async (context: ActionContext, edit: (catalog: Librar
 /**
  * Copies Factory items or folders into My library's `folderId` (null: the top level), as editable entries with new ids
  * (`copyLibraryEntries`): *Copy to My library*, and a Factory row dragged onto My library. Reports "Copied Kick to
- * Drums", with *Show*, which makes the copy active and names it in place.
+ * Drums", with *Show*, which makes the copy active and names it in place. `also` is an edit of My library made in the
+ * same update, first, with the message to report in place of that one (several things landing at once).
  */
-export const copyToMine = async (ids: readonly string[], folderId: string | null, context: ActionContext): Promise<ActionReport> => {
+export const copyToMine = async (ids: readonly string[], folderId: string | null, context: ActionContext, also?: { readonly edit: (catalog: LibraryCatalog) => LibraryCatalog; readonly message: string }): Promise<ActionReport> => {
   const { factory } = useLibraryStore.getState()
   if (!factory) throw new Error('The Factory is still loading')
   let known = new Set<string>()
   const next = await context.library.update((value) => {
     known = new Set([...value.folders.map((folder) => folder.id), ...value.items.map((item) => item.id)])
-    return copyLibraryEntries(factory, value, ids, folderId)
+    return copyLibraryEntries(factory, also ? also.edit(value) : value, ids, folderId)
   })
   useLibraryStore.getState().setCatalog(next)
   const first = ids[0] ?? ''
@@ -54,7 +55,7 @@ export const copyToMine = async (ids: readonly string[], folderId: string | null
           startRename({ kind: 'library-item', itemId: item.id }, { ...context, origin: 'library' })
         }
       : undefined
-  const message = `Copied ${ids.length > 1 ? `${ids.length} things` : name} to ${where}`
+  const message = also?.message ?? `Copied ${ids.length > 1 ? `${ids.length} things` : name} to ${where}`
   return show ? { message, action: { label: 'Show', run: show } } : { message }
 }
 
@@ -182,7 +183,7 @@ const requestExport = (selection: LibraryBundleSelection, name: string) => {
 }
 
 /** When the active row went to the trash, the Library moves on to `folderId` (null: *My library*). */
-const moveOffTrash = (folderId: string | null) => {
+export const moveOffTrash = (folderId: string | null): void => {
   const { active, setActive } = useLibraryStore.getState()
   const trashed = active?.kind === 'folder' ? folderOf({ kind: 'library-folder', folderId: active.id })?.trashed : active?.kind === 'item' ? itemOf({ kind: 'library-item', itemId: active.id })?.trashed : false
   if (trashed) setActive(folderId === null ? null : { kind: 'folder', id: folderId })

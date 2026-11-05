@@ -1,6 +1,7 @@
 import { openClip, openSampleEditor, openTrackView } from '../navigation'
 import { useProjectStore } from '../project-store'
 import { useSampleStore } from '../sample-store'
+import { copyToLibraryClipboard } from './clipboards'
 import { saveToLibrary } from './library-save'
 import { project } from './lookup'
 import { renameAction } from './rename'
@@ -61,6 +62,15 @@ export const sampleActions: readonly Action<SampleSubject>[] = [
     group: 'edit',
     applies: (subject) => !!sampleOf(subject),
     run: ({ sampleId }, context) => saveToLibrary({ kind: 'sample', sampleId }, context),
+  },
+  {
+    id: 'sample.copy',
+    verb: 'copy',
+    title: 'Copy',
+    group: 'clipboard',
+    // A sample row of This project, in the Library: onto the library's clipboard, so *Paste here* saves it.
+    applies: (subject, { origin }) => origin === 'library' && !!sampleOf(subject),
+    run: ({ sampleId }) => copyToLibraryClipboard([{ kind: 'sample', sampleId }]),
   },
   {
     id: 'sample.remove',

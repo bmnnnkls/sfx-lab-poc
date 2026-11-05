@@ -27,19 +27,19 @@ describe('a graph of This project', () => {
   })
 
   it('offers an instrument Preview, Show, Save to library and Copy to new track; effects and notes no copy', () => {
-    expect(entries(graph('Bass', 'patch'))).toEqual(['Preview', 'Show', 'Save to library', 'Copy to new track'])
-    expect(entries(graph('Bass', 'fx'))).toEqual(['Preview', 'Show', 'Save to library'])
-    expect(entries(graph('Bass', 'notes'))).toEqual(['Preview', 'Show', 'Save to library'])
-    expect(entries({ kind: 'project-graph', owner: { kind: 'master' }, domain: 'fx' })).toEqual(['Preview', 'Show', 'Save to library'])
+    expect(entries(graph('Bass', 'patch'))).toEqual(['Preview', 'Show', 'Save to library', 'Copy to new track', 'Copy'])
+    expect(entries(graph('Bass', 'fx'))).toEqual(['Preview', 'Show', 'Save to library', 'Copy'])
+    expect(entries(graph('Bass', 'notes'))).toEqual(['Preview', 'Show', 'Save to library', 'Copy'])
+    expect(entries({ kind: 'project-graph', owner: { kind: 'master' }, domain: 'fx' })).toEqual(['Preview', 'Show', 'Save to library', 'Copy'])
     // An audio track has no instrument to show.
     expect(entries(graph('Kick', 'patch'))).toEqual([])
   })
 
   it('refuses saving, copying and previewing what reads another track, with the reason; Show still works', () => {
     useProjectStore.getState().resetProject(findExampleProject('low-light')!.create())
-    expect(entries(graph('Bass', 'fx'))).toEqual(['Preview (Uses Track audio from Kick)', 'Show', 'Save to library (Uses Track audio from Kick)'])
+    expect(entries(graph('Bass', 'fx'))).toEqual(['Preview (Uses Track audio from Kick)', 'Show', 'Save to library (Uses Track audio from Kick)', 'Copy (Uses Track audio from Kick)'])
     useProjectStore.getState().resetProject(findExampleProject('glass-rain')!.create())
-    expect(entries(graph('Arp', 'patch'))).toEqual(['Preview (Uses Track notes from Pad)', 'Show', 'Save to library (Uses Track notes from Pad)', 'Copy to new track (Uses Track notes from Pad)'])
+    expect(entries(graph('Arp', 'patch'))).toEqual(['Preview (Uses Track notes from Pad)', 'Show', 'Save to library (Uses Track notes from Pad)', 'Copy to new track (Uses Track notes from Pad)', 'Copy (Uses Track notes from Pad)'])
   })
 
   it('shows its owner selected and its editor', () => {

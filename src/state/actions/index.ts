@@ -6,6 +6,7 @@ import { controlActions } from './control'
 import { groupActions } from './group'
 import { laneActions } from './lane'
 import { libraryFolderActions, libraryItemActions, libraryRootActions } from './library'
+import { libraryFolderClipboardActions, libraryItemClipboardActions, libraryRootClipboardActions } from './library-clipboard'
 import { masterActions } from './master'
 import { moduleActions } from './module'
 import { canvasActions, nodeActions } from './nodes'
@@ -34,10 +35,16 @@ export { canPasteClipOnLane, pasteClipOnLane } from './lane'
 export { copyName, projectGraphItem, projectGraphItemId } from './project-graph'
 export { canPasteClipInSlot, pasteClipInSlot } from './slot'
 export { canRecallPresetOn, nextSoundName, recallablePresets, recallPresetOn, saveSound, soundSubject } from './sound'
-export { automationSlotClipboard, clipClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes } from './clipboards'
+export { automationSlotClipboard, clipClipboard, libraryClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes, type LibraryClip, type LibraryClipEntry } from './clipboards'
 export { editTargetOf, graphKeyOf } from './nodes'
 export { processActions } from './sample-selection'
 export { markerTitle, toggleArrangementLoop } from './arrangement-marks'
+
+const GROUP_ORDER: readonly Action['group'][] = ['open', 'edit', 'clipboard', 'delete', 'process', 'marks', 'view']
+
+/** Two lists of one kind as one, in group order: `extra`'s entries after the entries of their group in `list`. */
+const merged = <S extends Subject>(list: readonly Action<S>[], extra: readonly Action<S>[]): readonly Action<S>[] =>
+  [...list, ...extra].map((action, index) => ({ action, index })).sort((a, b) => GROUP_ORDER.indexOf(a.action.group) - GROUP_ORDER.indexOf(b.action.group) || a.index - b.index).map(({ action }) => action)
 
 const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = {
   track: trackActions,
@@ -48,9 +55,9 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   'automation-slot': automationSlotActions,
   scene: sceneActions,
   sample: sampleActions,
-  'library-item': libraryItemActions,
-  'library-folder': libraryFolderActions,
-  'library-root': libraryRootActions,
+  'library-item': merged(libraryItemActions, libraryItemClipboardActions),
+  'library-folder': merged(libraryFolderActions, libraryFolderClipboardActions),
+  'library-root': merged(libraryRootActions, libraryRootClipboardActions),
   'project-graph': projectGraphActions,
   nodes: nodeActions,
   canvas: canvasActions,

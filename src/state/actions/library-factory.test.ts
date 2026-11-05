@@ -47,13 +47,13 @@ beforeEach(() => {
 
 describe('Factory items and folders', () => {
   it('are used, never edited: no Rename, Duplicate, Move or Trash', () => {
-    expect(titles(item(KICK))).toEqual(['Preview', 'Insert new instrument track', 'Replace selected graph', 'Copy to My library', 'Export as .sfxlib…'])
-    expect(titles(item('factory:clips/low-light/groove-kick'))).toEqual(['Preview', 'Insert new instrument track', 'Insert into Bass', 'Replace clip in Bass', 'Copy to My library', 'Export as .sfxlib…'])
-    expect(titles(item('factory:effects/returns/room'))).toEqual(['Preview', 'Insert new instrument track', 'Replace selected graph', 'Copy to My library', 'Export as .sfxlib…'])
-    expect(titles(folder('factory:drums'))).toEqual(['Open', 'Copy to My library', 'Export as .sfxlib…'])
-    expect(titles(folder('factory:effects/returns'))).toEqual(['Open', 'Copy to My library', 'Export as .sfxlib…'])
+    expect(titles(item(KICK))).toEqual(['Preview', 'Insert new instrument track', 'Replace selected graph', 'Copy to My library', 'Export as .sfxlib…', 'Copy'])
+    expect(titles(item('factory:clips/low-light/groove-kick'))).toEqual(['Preview', 'Insert new instrument track', 'Insert into Bass', 'Replace clip in Bass', 'Copy to My library', 'Export as .sfxlib…', 'Copy'])
+    expect(titles(item('factory:effects/returns/room'))).toEqual(['Preview', 'Insert new instrument track', 'Replace selected graph', 'Copy to My library', 'Export as .sfxlib…', 'Copy'])
+    expect(titles(folder('factory:drums'))).toEqual(['Open', 'Copy to My library', 'Export as .sfxlib…', 'Copy'])
+    expect(titles(folder('factory:effects/returns'))).toEqual(['Open', 'Copy to My library', 'Export as .sfxlib…', 'Copy'])
     // A personal folder keeps its whole menu.
-    expect(titles(folder('mine-folder'))).toEqual(['Open', 'Rename', 'New folder inside', 'Duplicate', 'Move to', 'Export as .sfxlib…', 'Trash'])
+    expect(titles(folder('mine-folder'))).toEqual(['Open', 'Rename', 'New folder inside', 'Duplicate', 'Move to', 'Export as .sfxlib…', 'Cut', 'Copy', 'Paste here', 'Trash'])
   })
 
   it('are named, and read, from the Factory catalog', () => {
@@ -111,7 +111,7 @@ describe('copying from the Factory', () => {
     expect(kick).toMatchObject({ folderId: 'mine-folder', content: { kind: 'instrument' } })
     expect(kick.id.startsWith('factory:')).toBe(false)
     // The copy is the library's own: it renames, moves and trashes.
-    expect(titles(item(kick.id))).toEqual(['Preview', 'Rename', 'Duplicate', 'Insert new instrument track', 'Replace selected graph', 'Move to', 'Export as .sfxlib…', 'Trash'])
+    expect(titles(item(kick.id))).toEqual(['Preview', 'Rename', 'Duplicate', 'Insert new instrument track', 'Replace selected graph', 'Move to', 'Export as .sfxlib…', 'Cut', 'Copy', 'Trash'])
     // A Factory folder copies with what's in it; with My library's root active, to the top level.
     useLibraryStore.getState().setActive({ kind: 'root', id: 'mine' })
     useLibraryStore.getState().setActive({ kind: 'folder', id: 'factory:drums' })

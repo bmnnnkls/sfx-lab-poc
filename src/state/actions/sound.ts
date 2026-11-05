@@ -2,6 +2,7 @@ import { type ControlOwner, type Project, type ProjectPreset, type SnapshotScope
 import { useLibraryStore } from '../library-store'
 import { editPresetProject, recallSavedSound } from '../preset-actions'
 import { scopeState, useSoundsStore } from '../sounds-store'
+import { copyToLibraryClipboard } from './clipboards'
 import { saveToLibrary } from './library-save'
 import { ownerName, project } from './lookup'
 import { renameAction, startRename } from './rename'
@@ -175,6 +176,15 @@ export const soundActions: readonly Action<SoundSubject>[] = [
     group: 'edit',
     applies: exists,
     run: (subject) => saved((value) => (subject.preset ? duplicateProjectPreset(value, presetOf(subject)!) : duplicateSnapshot(value, snapshotOf(subject)!))),
+  },
+  {
+    id: 'sound.copy',
+    verb: 'copy',
+    title: 'Copy',
+    group: 'clipboard',
+    // A preset row of This project, in the Library: onto the library's clipboard, so *Paste here* saves it.
+    applies: (subject, { origin }) => origin === 'library' && subject.preset && exists(subject),
+    run: ({ soundId, preset }) => copyToLibraryClipboard([{ kind: 'sound', soundId, preset }]),
   },
   {
     id: 'sound.delete',

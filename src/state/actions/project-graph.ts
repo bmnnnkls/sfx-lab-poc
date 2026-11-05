@@ -1,5 +1,6 @@
 import { type ControlOwner, type LibraryCatalog, type LibraryItem, type Project, type SnapshotScope, captureLibraryAsset, controlGraph, emptyLibrary } from '@core'
 import { openPinnedEditor } from '../navigation'
+import { copyToLibraryClipboard } from './clipboards'
 import { previewLibraryItem } from './library'
 import { libraryNameOf, routingRefusal, saveToLibrary } from './library-save'
 import { project } from './lookup'
@@ -87,5 +88,16 @@ export const projectGraphActions: readonly Action<GraphSubject>[] = [
       const { catalog, item } = projectGraphItem(project(), subject.owner, subject.domain, copyName(subject))
       return library.insert(item, { mode: 'new-track', carry: { owner: subject.owner, domain: subject.domain } }, undefined, undefined, catalog)
     },
+  },
+  {
+    id: 'project-graph.copy',
+    verb: 'copy',
+    title: 'Copy',
+    group: 'clipboard',
+    applies: exists,
+    enabled: (subject) => !refusal(subject),
+    tooltip: (subject) => refusal(subject) ?? 'Paste it on a library folder to save it there',
+    // Onto the library's clipboard: *Paste here* on a folder saves it, as dropping it there does.
+    run: ({ owner, domain }) => copyToLibraryClipboard([{ kind: 'project-graph', owner, domain }]),
   },
 ]

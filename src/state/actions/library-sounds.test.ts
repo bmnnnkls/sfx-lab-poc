@@ -68,7 +68,7 @@ describe('library', () => {
   })
 
   it('offers what an item can do, and only Restore in the trash', async () => {
-    expect(titles(item)).toEqual(['Preview', 'Rename', 'Duplicate', 'Insert new instrument track', 'Add sample to project', 'Move to', 'Export as .sfxlib…', 'Trash'])
+    expect(titles(item)).toEqual(['Preview', 'Rename', 'Duplicate', 'Insert new instrument track', 'Add sample to project', 'Move to', 'Export as .sfxlib…', 'Cut', 'Copy', 'Trash'])
     expect(describeActions(item, context()).find((entry) => entry.id === 'library-item.insert-track')?.enabled).toBe(false)
     await runAction('library-item.trash', item, context())
     expect(useLibraryStore.getState().catalog.items[0]?.trashed).toBe(true)
@@ -88,7 +88,7 @@ describe('library', () => {
   })
 
   it('opens folders, makes one inside and names it in place, and trashes one with its contents', async () => {
-    expect(titles(folder)).toEqual(['Open', 'Rename', 'New folder inside', 'Duplicate', 'Move to', 'Export as .sfxlib…', 'Trash'])
+    expect(titles(folder)).toEqual(['Open', 'Rename', 'New folder inside', 'Duplicate', 'Move to', 'Export as .sfxlib…', 'Cut', 'Copy', 'Paste here', 'Trash'])
     runAction('library-folder.open', folder, context())
     expect(openFolder()).toBe('leads')
     await runAction('library-folder.new-folder', folder, fakeContext({ library, origin: 'library' }))
