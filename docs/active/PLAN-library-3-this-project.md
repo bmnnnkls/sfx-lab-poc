@@ -205,3 +205,19 @@ Signed off 2026-11-04: every row as proposed.
   with ⋯ for its menu; the root's say how many tracks, clips and samples the project holds.
 * **Step 2:** checked in the preview on Low Light: the graph row's menu, its details (Bass instrument; Bass effects
   refused with "Uses Track audio from Kick"), and *Copy to new track*, whose "Bass copy" shows under the root at once.
+* **Step 3:** `graphFitsOwner(item, owner, from?)` reads `from` in place of the store's catalog. A drag asks on every
+  move, so the throwaway capture is memoized per project object, owner and graph, and a graph that reads another track
+  is never captured (`routingRefusal` first).
+* **Step 3:** a session header (and a Tracks row) is an edge target, which always says the side the pointer is on; the
+  side is for tracks and groups being moved, so a graph lands on either side, as a library item does.
+* **Step 3:** effects copy only to an owner of the same input (`EFFECT_INPUTS`): a track's effects onto another clip
+  track, a return's onto a return, a bus's onto a bus. The master's effects have nowhere else to go. A routed graph is
+  refused on every target with its reason; its own owner refuses it without one.
+* **Step 3:** a refused graph still drags, so the folder or *My library* it is over can say why.
+* **Step 3:** *Show* on a clip row is the clip's own *Edit notes* (its existing menu, as signed off); the smoke checks
+  that it opens the clip. The smoke reads a track's instrument by the titles of its nodes in the Instrument view.
+* **Manual checks** (dev build, Chromium): Low Light with the root and two tracks open, at a wide window and at 280 px;
+  30 volume steps on a track made no change to the tree's DOM (React DevTools isn't available in the preview; the
+  unit test checks that a value edit gives the same model); *Copy to new track* on Bass showed "Bass copy" at once.
+  Copying the stab and playing both was not listened to (no audio in the preview); the copy's graph is checked by the
+  unit and smoke tests.

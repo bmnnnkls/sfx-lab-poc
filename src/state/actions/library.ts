@@ -52,11 +52,12 @@ export const replaceGraph = (item: LibraryItem, scope: SnapshotScope, { library 
 /**
  * Whether a library instrument, effect or preset can replace a graph of `owner`: an instrument or note effect on an
  * instrument track, an audio effect on a track, a bus or the master whose input it was made for (`EFFECT_INPUTS`).
+ * The item is read in the store's catalog, or in `from` (a throwaway capture of a graph of the project).
  */
-export const graphFitsOwner = (item: LibraryItem, owner: ControlOwner): boolean => {
+export const graphFitsOwner = (item: LibraryItem, owner: ControlOwner, from: LibraryCatalog = catalog()): boolean => {
   const content = item.content
   if (item.trashed || !('revisionId' in content)) return false
-  const payload = catalog().revisions.find((revision) => revision.id === content.revisionId)?.payload
+  const payload = from.revisions.find((revision) => revision.id === content.revisionId)?.payload
   const track = owner.kind === 'track' ? trackOf(owner.trackId) : undefined
   const bus = owner.kind === 'group' ? project().groups?.find((group) => group.id === owner.groupId)?.bus : undefined
   if (!payload || (owner.kind === 'track' && !track) || (owner.kind === 'group' && !bus)) return false

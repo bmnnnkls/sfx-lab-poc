@@ -1,17 +1,18 @@
-import { type ControlOwner, type LibraryCatalog, type SnapshotScope, type TrackItem, type TrackPlace, canMoveGroup, canMoveTrack, duplicateLibraryFolder, libraryItemDuplicate, moveLibraryEntry } from '@core'
+import { type ControlOwner, type LibraryCatalog, type LibraryItem, type Project, type SnapshotScope, type TrackItem, type TrackPlace, canMoveGroup, canMoveTrack, duplicateLibraryFolder, libraryItemDuplicate, moveLibraryEntry } from '@core'
 import { useLibraryStore } from '../library-store'
 import { useProjectStore } from '../project-store'
 import { canRunAction, runAction, type RunOptions, settle } from '.'
 import { canPasteClipOnLane, pasteClipOnLane } from './lane'
 import { editLibrary, graphFitsOwner, insertionScope, insertLibraryClipAt, libraryClipFitsSlot, replaceGraph } from './library'
-import { type LibrarySource, routingRefusal, saveToLibrary } from './library-save'
+import { type LibrarySource, libraryNameOf, routingRefusal, saveToLibrary } from './library-save'
 import { project, sessionClipOf, trackOf } from './lookup'
+import { projectGraphItem } from './project-graph'
 import { canPasteClipInSlot, pasteClipInSlot } from './slot'
 import { canRecallPresetOn, recallPresetOn } from './sound'
 import type { ActionContext, ActionReport, SubjectOf } from './types'
 
 /** What is dragged: the subject of the thing picked up. It holds ids, read when it lands. */
-export type DragPayload = SubjectOf<'clip' | 'sample' | 'sound' | 'library-item' | 'library-folder' | 'track' | 'group'>
+export type DragPayload = SubjectOf<'clip' | 'sample' | 'sound' | 'library-item' | 'library-folder' | 'track' | 'group' | 'project-graph'>
 
 /**
  * Where it lands: the subject of the place under the pointer. A lane carries the beat, a canvas the point, a track or
@@ -240,6 +241,104 @@ const librarySaves = (['library-folder', 'library-root'] as const).flatMap((targ
   ),
 )
 
+type GraphPayload = SubjectOf<'project-graph'>
+const sameOwner = (a: ControlOwner, b: ControlOwner) => JSON.stringify(a) === JSON.stringify(b)
+
+/**
+ * A graph of the project captured as a throwaway item, memoized on the project, since a drag asks on every move. Null
+ * when the capture refuses it (it reads another track) or the graph is gone.
+ */
+const captures = new WeakMap<Project, Map<string, { readonly catalog: LibraryCatalog; readonly item: LibraryItem } | null>>()
+const capturedGraph = ({ owner, domain }: GraphPayload) => {
+  const value = project()
+  const known = captures.get(value) ?? new Map()
+  captures.set(value, known)
+  const key = JSON.stringify([owner, domain])
+  if (!known.has(key)) {
+    let captured: { catalog: LibraryCatalog; item: LibraryItem } | null = null
+    try {
+      if (!routingRefusal({ owner, domain })) captured = projectGraphItem(value, owner, domain, libraryNameOf({ kind: 'asset', scope: { owner, domain } }))
+    } catch {
+      captured = null
+    }
+    known.set(key, captured)
+  }
+  return known.get(key)!
+}
+
+/** Whether a graph of the project can be copied onto `owner`'s graph of the same domain: another owner it fits. */
+const graphCopyFits = (payload: GraphPayload, owner: ControlOwner) => {
+  if (sameOwner(payload.owner, owner)) return false
+  const captured = capturedGraph(payload)
+  return !!captured && graphFitsOwner(captured.item, owner, captured.catalog)
+}
+
+/** Copies a graph of the project onto `owner`'s, as a library insert: fresh node IDs, its own modules and presets. */
+const copyGraphOnto = (payload: GraphPayload, owner: ControlOwner, { library }: ActionContext) => {
+  const { catalog, item } = capturedGraph(payload)!
+  return library.insert(item, { mode: 'replace', scope: { owner, domain: payload.domain } }, undefined, undefined, catalog)
+}
+
+/**
+ * A graph of *This project* dragged out of the Library: onto a library folder or *My library* it is saved there; onto
+ * another track, a bus, the master or a canvas it is copied onto that owner's graph of the same kind, when it fits
+ * (whichever side of a header it is over: the side is for tracks and groups being moved). A
+ * graph that reads another track is refused, with the reason; its own owner refuses it silently.
+ */
+const projectGraphDrops = [
+  ...(['library-folder', 'library-root'] as const).map((target) =>
+    define<'project-graph', typeof target>({
+      id: `drop.project-graph-on-library-${target === 'library-folder' ? 'folder' : 'root'}`,
+      payload: 'project-graph',
+      target,
+      accepts: (payload, place) => livePlace(place) && !!capturedGraph(payload),
+      refusal: (payload, place) => (livePlace(place) ? routingRefusal(payload) : undefined),
+      effect: copies,
+      run: (payload, place, context) => saveToLibrary({ kind: 'asset', scope: { owner: payload.owner, domain: payload.domain } }, context, destinationOf(place)),
+    }),
+  ),
+  define<'project-graph', 'track'>({
+    id: 'drop.project-graph-on-track',
+    payload: 'project-graph',
+    target: 'track',
+    accepts: (payload, track) => graphCopyFits(payload, trackOwner(track.trackId)),
+    refusal: (payload) => routingRefusal(payload),
+    effect: copies,
+    run: (payload, track, context) => copyGraphOnto(payload, trackOwner(track.trackId), context),
+  }),
+  define<'project-graph', 'master'>({
+    id: 'drop.project-graph-on-master',
+    payload: 'project-graph',
+    target: 'master',
+    accepts: (payload) => payload.domain === 'fx' && graphCopyFits(payload, MASTER),
+    refusal: (payload) => routingRefusal(payload),
+    effect: copies,
+    run: (payload, _master, context) => copyGraphOnto(payload, MASTER, context),
+  }),
+  define<'project-graph', 'group'>({
+    id: 'drop.project-graph-on-group',
+    payload: 'project-graph',
+    target: 'group',
+    accepts: (payload, group) => payload.domain === 'fx' && graphCopyFits(payload, groupOwner(group.groupId)),
+    refusal: (payload) => routingRefusal(payload),
+    effect: copies,
+    run: (payload, group, context) => copyGraphOnto(payload, groupOwner(group.groupId), context),
+  }),
+  define<'project-graph', 'canvas'>({
+    id: 'drop.project-graph-on-canvas',
+    payload: 'project-graph',
+    target: 'canvas',
+    // Into this graph when it is the same kind of graph, of another owner.
+    accepts: (payload, canvas) => {
+      const graph = canvasGraph(canvas)
+      return !!graph && graph.domain === payload.domain && graphCopyFits(payload, graph.owner)
+    },
+    refusal: (payload) => routingRefusal(payload),
+    effect: copies,
+    run: (payload, canvas, context) => copyGraphOnto(payload, canvasGraph(canvas)!.owner, context),
+  }),
+]
+
 /** Every drop, by what is dragged and where it lands. Nothing else decides what a drop does. */
 export const drops: readonly Drop[] = [
   define<'clip', 'slot'>({
@@ -407,6 +506,7 @@ export const drops: readonly Drop[] = [
   ...libraryMoves,
   ...libraryTrash,
   ...librarySaves,
+  ...projectGraphDrops,
 ]
 
 /**

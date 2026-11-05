@@ -66,9 +66,12 @@ export const subjectOf = (row: LibraryRow): Subject | null =>
     ? row.root === 'project' ? null : { kind: 'library-root', root: row.root }
     : row.kind === 'folder' ? { kind: 'library-folder', folderId: row.id } : row.kind === 'project' ? projectSubject(row.entry) : { kind: 'library-item', itemId: row.id }
 
-/** What a row of *This project* drags: a session clip, a sample or a preset, as from their own views. */
+/**
+ * What a row of *This project* drags: a graph (a refused one too, so its targets can say why), a session clip, a sample
+ * or a preset, as from their own views.
+ */
 const projectPayload = (entry: ProjectEntry, subject: Subject | null): DragPayload | null =>
-  entry.kind === 'clip' || entry.kind === 'sample' || entry.kind === 'project-preset' ? (subject as DragPayload) : null
+  entry.kind === 'graph' || entry.kind === 'clip' || entry.kind === 'sample' || entry.kind === 'project-preset' ? (subject as DragPayload) : null
 
 /** The words after a row's name in its label: *8 items* under a heading, *2 presets* on a graph. */
 const countLabel = (row: LibraryRow, count: number) => {
