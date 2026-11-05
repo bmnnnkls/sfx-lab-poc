@@ -58,7 +58,7 @@ test('a track renames and duplicates from its menu, in the session grid and the 
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
   await session.getByRole('button', { name: 'Bass', exact: true }).click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Pin panel▸', 'Show automation', '—', 'Rename', 'Duplicate', 'Save to library▸', 'Group', 'Move to group▸', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo', '—', 'Delete'])
+  expect(await menuEntries(page)).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Pin panel▸', 'Show automation', '—', 'Rename', 'Duplicate', 'Save to library▸', 'Group', 'Move to group▸', 'Move up', 'Move down', 'Hide', 'Arm for recording', 'Mute', 'Solo', '—', 'Delete'])
   await page.getByRole('menuitem', { name: 'Rename', exact: true }).click()
   const field = session.getByRole('textbox', { name: 'Name of Bass', exact: true })
   await expect(field).toBeFocused()
@@ -136,7 +136,7 @@ test('a clip copies into an empty slot and onto a lane', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'Copy', exact: true }).click()
   // The first empty MIDI slot is Lead's in scene 2.
   await session.getByRole('button', { name: 'Create clip', exact: true }).first().click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Create clip', '—', 'Paste'])
+  expect(await menuEntries(page)).toEqual(['Create clip', 'Record a clip here', '—', 'Paste'])
   await page.getByRole('menuitem', { name: 'Paste', exact: true }).click()
   await expect(session.getByRole('button', { name: '▶ Root', exact: true })).toHaveCount(2)
 
@@ -341,7 +341,7 @@ test("tracks offer their panels to pin and unpin, and a pin's header has its own
   expect(await menuEntries(page)).toEqual(['Instrument', 'Effects', 'Notes'])
   await page.getByRole('menuitem', { name: 'Notes', exact: true }).click()
   await bass.click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Pin panel▸', 'Unpin notes panel', 'Show automation', '—', 'Rename', 'Duplicate', 'Save to library▸', 'Group', 'Move to group▸', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo', '—', 'Delete'])
+  expect(await menuEntries(page)).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Pin panel▸', 'Unpin notes panel', 'Show automation', '—', 'Rename', 'Duplicate', 'Save to library▸', 'Group', 'Move to group▸', 'Move up', 'Move down', 'Hide', 'Arm for recording', 'Mute', 'Solo', '—', 'Delete'])
   await page.keyboard.press('Escape')
 
   // An audio track has one panel: one entry, which turns into Unpin.
