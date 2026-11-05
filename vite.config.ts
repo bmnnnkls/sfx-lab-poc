@@ -18,8 +18,9 @@ export default defineConfig({
             { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
             { name: 'ui-vendor', test: /node_modules[\\/](@radix-ui|@floating-ui)[\\/]/ },
             { name: 'layout-vendor', test: /node_modules[\\/]flexlayout-react[\\/]/ },
-            // The pure model, apart from the state layer, so neither passes the warning limit.
-            { name: 'core', test: /[\\/]src[\\/]core[\\/]/ },
+            // The pure model, apart from the state layer, so neither passes the warning limit. The Factory library's code
+            // (core/examples/factory) stays out: it is imported dynamically, and a group would pull it into this eager chunk.
+            { name: 'core', test: /[\\/]src[\\/]core[\\/](?!examples[\\/]factory[\\/])/ },
           ],
         },
       },

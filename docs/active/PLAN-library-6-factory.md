@@ -36,6 +36,17 @@ their own (backlog L2).
 * **Capture makes random IDs**: `captureLibraryAsset` and `captureLibraryClip` use `createId` for items, revisions and
   preset states. Node and module IDs inside payloads come from the example code, so those are already stable.
 * Phase 3 gives `insert` and `preview` a `from` catalog.
+* **Re-checked at `cb124ef`** (phase 5's tip). The code had moved in six places:
+  * `vite.config.ts` has a `core` chunk group (phase 5) that takes every module under `src/core/`, so a lazily imported
+    `core/examples/factory` would land in the eager `core` chunk unless the group's test leaves it out.
+  * The architecture test lets `app` import only `@core` itself, not a subpath, so the dynamic import lives in core
+    (`loadFactoryModule` in `core/examples/index.ts`) and `app/factory-library.ts` calls it.
+  * Phase 5's link readers take one catalog: Sounds' `LibrarySounds` reads `useLibraryStore`'s `catalog` (filled by
+    `library.read()`), and the details' "Used on" the same; both need the Factory catalog for a `factory:` origin.
+  * The tree's roots are `LibraryRoot = 'project' | 'mine' | 'trash'`; actions and drops read items through
+    `useLibraryStore.getState().catalog` (`itemOf`, `libraryItemOf`, `graphFitsOwner`'s default, `subjectName`).
+  * Low Light's Stab has no clip in the Groove scene (its clips are in Stab, Hook, Break, Build and Drop).
+  * Capturing an instrument takes its note graph along, so Low Light's Arp instrument carries its arpeggiator.
 
 ## Design
 
@@ -141,3 +152,34 @@ Signed off 2026-11-04: every row as proposed.
 | Content | **The table above**: instruments without the duck, Low Light's Echo left out, 12 clips, 5 starters | Content can grow later without code changes beyond the table. |
 | Presets | **None in the first cut** | A content pass, in the backlog. |
 | Copy | **`copyLibraryEntries` into the open or dropped-on folder** | |
+
+## Changes made while implementing
+
+* **Inventory re-checked** at `cb124ef`; the six places the code had moved are in the inventory above.
+* **Step 1:** ids are slugs of the names: a folder `factory:effects/returns`, an item `factory:effects/returns/room`, a
+  revision `factory:rev/effects/returns/room`, a preset state `factory:state/effects/returns/room`. A table row can give
+  a `key` for the last part, which is how the two *Hall*s are `hall-low-light` and `hall-glass-rain`; `withStableIds`
+  throws when two items would share a path. Folders get their stable ids when made; items, revisions and states are
+  renamed after capture, as the plan says.
+* **Step 1:** *Clips / Low Light* takes the Stab's clip from Hook (scene 4), since it has none in Groove; the clips are
+  named by scene and part (*Groove kick*, *Hook stab*, *Drop hats*), since the examples' clip names repeat (*Four on
+  the floor*). Glass Rain's are *Fog chords* and *Storm chords*.
+* **Step 1:** *Pluck* is captured with the Arp's note graph swapped for a plain one (a `plainNotes` source flag), so it
+  is the voice alone; the arpeggiator is the *Sixteenth arp* note effect. *Organ stab* keeps its chord notes, as the
+  table says.
+* **Step 1:** *Haze and Hush* is one item, Glass Rain's master graph. *Low cut* and *Widener* (in *Effects / Tracks*) are
+  written with the starters' DSL too, so `starters.ts` holds seven graphs, five of them in *Starters*. The starters live
+  on the tracks of a small project (`createStarters`), so every row is captured the same way: by owner and graph.
+* **Step 1:** the description table is `factoryNotes`, built from the content table's `note` column by id
+  (`factoryIdOf`); the catalog stays as it is.
+* **Step 1:** the Starter project is `createDemoProject`. Every item inserts there (effects onto a track, a new return
+  or the master by their input, note effects onto a track's notes, clips into a new track) and the project saves and
+  opens with no warnings. Instruments play a note held for two bars (Glass Rain's own test needs two bars for a rain
+  that Randomize slowed down), before and after `randomizeParams` with seed 7.
+* **Step 1: measured.** The catalog is 49 items, 14 folders and 37 revisions; its JSON is **524 900 bytes**. Building it
+  takes 85–150 ms in Node (the first build of a process is the slower), and `validateLibraryCatalog` on it about 75 ms.
+* **Step 1:** the `core` chunk group's test leaves out `src/core/examples/factory/` (a negative lookahead), so the
+  Factory lands in a chunk of its own once step 2 imports it. Until then the loader is unused and tree-shaken: the
+  build's chunks are as before (gzipped, before → after: `index` 112.92 → 112.17 kB, `core` 123.70 → 124.39,
+  `LibraryPanel` 10.42, `library` 1.78).
+
