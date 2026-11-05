@@ -50,7 +50,7 @@ export {
   type ArrangementLoop,
   type ArrangementMarker,
 } from './arrangement-marks'
-export { arrangementRows, type ArrangementRow } from './arrangement-rows'
+export { arrangementRows, isRegionRow, type ArrangementRow } from './arrangement-rows'
 export { MAX_TIMELINE_BEATS } from './limits'
 export {
   SAMPLE_USES,

@@ -644,3 +644,25 @@
   flex: none;
   padding: 1px 5px;
 }
+
+/* A return's and the master's rows: no regions, only a place for their lanes. */
+.ownerHeader,
+.ownerRow {
+  height: 28px;
+}
+
+.ownerRow {
+  background: color-mix(in srgb, var(--panel) 60%, transparent);
+}
+
+.lanesTwisty {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+}
+
+.laneCount {
+  font-size: 10px;
+  color: var(--text-dim);
+}

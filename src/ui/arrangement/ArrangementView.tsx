@@ -103,6 +103,9 @@ export const ArrangementView = () => {
   const recordingRegions = useRecordingRegions()
   const selectedTrack = useSelectionStore((state) => state.trackId)
   const selectedGroup = useSelectionStore((state) => state.groupId)
+  const selectedMaster = useSelectionStore((state) => state.master)
+  // Returns and the master always have rows; with no clip track shown, the view says why it is empty instead.
+  const hasClipRows = rows.some((row) => row.kind === 'track' || row.kind === 'group')
   const view = useRef<HTMLDivElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
   /** Where an empty lane was right-clicked, so "add" places the clip there. */
@@ -276,7 +279,18 @@ export const ArrangementView = () => {
           <div className={styles.markLines} style={{ width }} aria-hidden>
             <ArrangementMarkLines pxPerBeat={pxPerBeat} />
           </div>
-          {rows.map((row) => {
+          {hasClipRows && rows.map((row) => {
+            if (row.kind === 'master' || row.kind === 'return') {
+              // A return's and the master's rows hold no regions: nothing is dropped on them.
+              const key = row.kind === 'master' ? 'master' : row.track.id
+              const isSelected = row.kind === 'master' ? selectedMaster : row.track.id === selectedTrack
+              return (
+                <div key={key} className={styles.lane} data-reveal={row.kind === 'master' ? 'master' : revealKey('track', row.track.id)} data-selected={isSelected || undefined} data-owner-row={key}>
+                  <ArrangementHeader row={row} />
+                  <div className={`${styles.row} ${styles.ownerRow}`} style={{ width }} />
+                </div>
+              )
+            }
             if (row.kind === 'group') {
               return (
                 <div
@@ -338,14 +352,14 @@ export const ArrangementView = () => {
               </div>
             )
           })}
-          {rows.length > 0 && (
+          {hasClipRows && (
             <div className={styles.overlay} style={{ width }} aria-hidden>
               <ArrangementPosition pxPerBeat={pxPerBeat} />
               <ArrangementPlayhead pxPerBeat={pxPerBeat} scroller={scroller} />
             </div>
           )}
         </div>
-        {rows.length === 0 && (hiddenTracks ? (
+        {!hasClipRows && (hiddenTracks ? (
           <div className={styles.empty}>
             <p>Every track is hidden. Hidden tracks still play.</p>
             <button onClick={() => useProjectStore.getState().showAllTracks()}>Show all tracks</button>
