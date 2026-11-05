@@ -28,7 +28,7 @@ launcher queue need no changes (the return track was added this way; TypeScript 
 
 **Add a UI feature** — new folder under `ui/`, read state via `@state` hooks. A new view gets an id in `ViewId`
 (`state/layout-store.ts`), a place in a group of `DEFAULT_LAYOUT` there, and an entry in `ui/layout/views.ts` with its
-title (and tooltip) in `ui/layout/view-titles.ts`; add the title and id to `tests/browser/fixtures.ts`. Saved layouts
+title (and tooltip) in `ui/layout/view-titles.ts`; add the title and id to `tests/browser/support/fixtures.ts`. Saved layouts
 get the new view in its default region on their next load. Code that should show it calls `revealView` or an intent in
 `state/navigation.ts`, never a tab setter.
 

@@ -147,7 +147,7 @@ regions without knowing where they are docked (the [UI redesign](../archive/ui-r
   offers an action instead (*Import samples…*, *Open effects*, *Show session*) that calls `revealView` or an intent,
   because the other view may be docked anywhere, or already visible. Where a label must name a view, it takes the
   title from `viewTitles`.
-* **Browser tests** open views only through `openView(page, title)` in `tests/browser/fixtures.ts`, which clicks
+* **Browser tests** open views only through `openView(page, title)` in `tests/browser/support/fixtures.ts`, which clicks
   the view's tab and returns its root once visible; look inside that root, since hidden views stay in the DOM
   (`viewRoot(page, title)` finds a root without showing it); on a collapsed panel it clicks the open tab to expand
   it. `dragView` and `dragViewToSidebar` dock a tab with the stepped mouse moves flexlayout needs; `tabStrip`

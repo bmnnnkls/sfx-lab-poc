@@ -137,7 +137,7 @@ of sideways wheel scrolls and ⌘-wheel zooms out and back in gave no long task 
 
 ## Library tree
 
-The near-limit case of `tests/browser/library-tree.smoke.spec.ts` (2026-11-05, library phase 1, production build,
+The near-limit case of `tests/browser/library/library-tree.smoke.spec.ts` (2026-11-05, library phase 1, production build,
 Chromium 156 via Playwright, Apple M3 Pro, load averages 6 to 8, `ba349a2`): a catalog of 1024 folders (32 top-level, 31 inside
 each) and 4096 items (a quarter presets). A search matching 238 rows took 28–36 ms to the next frame, clearing it (a full
 re-render of the collapsed tree, 34 rows) 14–21 ms, and opening a top-level folder 14–19 ms. Raw numbers in
@@ -163,3 +163,16 @@ After the vendor chunk split, the main chunk went from 705.5 kB to 400.1 kB, Rea
 85.8 kB, and the audio worklet 117.8 kB (slice 1, 2026-10). These numbers predate the redesign; measure again before
 using them ([BACKLOG](../BACKLOG.md#performance) P4). The spectrum worker is its own chunk, 106.5 kB (round 11d-1,
 2026-10-31), 109.6 kB with the band edits (round 11d-2): it imports `@core`'s index.
+
+## Test suites
+
+The main development machine (12 logical cores), on `feat/library-improvements`:
+
+* **`npm test`** (2026-11-04, `953d72d` with library work in progress): 246 files in 29 s wall, 107 s summed over
+  files. The wall time is set by `core/examples/low-light.test.ts` (28 s) and `glass-rain.test.ts` (24 s), most of it
+  their *cannot be broken by Randomize* tests (14 s and 17 s); `core/engine` is another 35 s summed, spread over 33 files.
+* **`test:smoke`**: 229 tests summed to about 250 s on one worker (2026-11-04, the run's HTML report). On two workers
+  (2026-11-05, `204821d` plus the worker change), 235 tests passed in 148 s wall, 278 s summed. The longest files then
+  were `arrangement` (33 s), `views-at-min-size` (28 s), `wave-editor` (25 s), `wave-marks` (22 s) and `automation`
+  (20 s). A probe on six workers (2026-11-04) took 101 s wall.
+* `tsc --noEmit` and `vite build` take about 3 s together.
