@@ -144,6 +144,12 @@ re-render of the collapsed tree, 34 rows) 14–21 ms, and opening a top-level fo
 [measurements/library-tree-near-limit.json](../measurements/library-tree-near-limit.json). The threshold for
 virtualizing the tree is 100 ms.
 
+The Factory catalog (library phase 6, 2026-11-05, `95ad59a`, the main development machine): 49 items, 14 folders and 37
+revisions, **524 900 bytes** of JSON. `createFactoryCatalog` took **80, 96 and 103 ms** in Chromium on the dev build
+(three cold loads in the app's preview pane, read from the `sfxlab:factory-catalog` performance measure) and 85–150 ms
+in Node under Vitest (the first build of a process the slower); `validateLibraryCatalog` on it about 75 ms. The plan's
+threshold for building it in an idle callback is 150 ms.
+
 ## Audio engine
 
 The F1 capacity campaign (2026-10-19) is the most recent engine measurement. Its accepted results (first callback
@@ -169,6 +175,10 @@ machine, gzipped sizes from Vite's report): `core` 123.0 kB, `state` 29.7 kB (14
 (114.8 before); the eager total grew about 2.9 kB, under 1 kB of it the step's own code. The lazy `library` chunk
 (the library service) stays 3.7 kB. At the end of phase 5 (`d2d50d4`): `core` 123.7 kB, `state` 30.0 kB,
 `index` 112.9 kB, `LibraryPanel` 10.4 kB.
+
+With the Factory (library phase 6, 2026-11-05, gzipped, against `cb124ef`): a lazy `factory` chunk of 16.9 kB (5.4 kB
+gzipped), not preloaded; `index` 112.9 → 112.3 kB, `core` 123.7 → 124.9, `state` 30.0 → 30.7, `LibraryPanel` 10.4 → 11.0,
+`library` 1.8 → 1.9. `vite build` takes about 0.4 s after `tsc`.
 
 ## Project files
 

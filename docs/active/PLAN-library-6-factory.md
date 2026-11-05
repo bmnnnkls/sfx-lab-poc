@@ -1,7 +1,8 @@
 ---
-status: active
-date: 2026-11-04
-note: "Phase 6 of SPEC-library-ux.md: a read-only Factory library built from the example projects and a few new starter sounds, lazily loaded, copied into My library on demand. Decisions signed off 2026-11-04."
+status: done
+date: 2026-11-05
+shipped_in: architecture/library-and-presets.md
+note: "Phase 6 of SPEC-library-ux.md: a read-only Factory library built from the example projects and five starters, lazily loaded in its own chunk, copied into My library on demand. Decisions signed off 2026-11-04. Shipped in 95ad59a, 03d629e, b23d256 and the docs commit; the listening pass is queued for the user."
 ---
 # Library phase 6: the Factory library
 
@@ -213,7 +214,9 @@ Signed off 2026-11-04: every row as proposed.
   closed root, "Factory, 49 items".
 * **Step 2: chunks.** The Factory is its own lazy chunk, `factory` 16.91 kB (5.38 kB gzipped), not preloaded. Gzipped,
   against `cb124ef`: `index` 112.92 → 112.28 kB, `LibraryPanel` 10.42 → 10.94, `state` 29.97 → 30.18, `core` 123.70 →
-  124.50, `library` 1.78 → 1.85; each under the 2 kB the plan allows. `vite build` takes about 0.35–0.41 s.
+  124.50, `library` 1.78 → 1.85; each under the 2 kB the plan allows. `vite build` takes about 0.35–0.41 s. Checked
+  in a throwaway worktree: without the group's exclusion, the Factory's code goes into the eager `core` chunk (129.28 kB
+  gzipped) and `factory` is a 0.18 kB stub, so the exclusion is needed.
 * **Step 2:** checked in the preview (dev build, Low Light) with the Library at 280 px in the sidebar: the root, *Drums*
   open, *Clap*'s details and menu, *Add as new track*, then Sounds on the new track (*From the library · Clap*) and the
   details' "Used on Clap". The empty Library at 280 × 200 and 280 × 420 in a throwaway spec's screenshots.
@@ -241,3 +244,11 @@ Signed off 2026-11-04: every row as proposed.
   Factory-linked track made Sounds load the Factory and list *From the library · Clap*. The sidebar can't be widened
   past its maximum, so the wide layout (tree beside details) was checked in a throwaway spec's screenshot, docked in the
   panel.
+* **Step 4:** the notes are sorted: the Factory, its loading, the read-only actions, copying and `mineFolder` into
+  `library-and-presets.md`; that the examples feed it, and the starters, into `example-projects.md`; a *Factory sounds*
+  section in `guide/examples.md` and a paragraph in the tour; decisions 112–118; three gotchas (Factory names repeat in
+  specs; a chunk group captures dynamically imported code; tests outside `core/examples` load it with
+  `loadFactoryModule`); the catalog's size and build time and the
+  chunks in `baselines.md`; the `factory` chunk and the `library` smoke group's paths in `verification.md`; backlog L7
+  (Factory presets) and L8 (sidechain-ready sounds); STATUS; and the runbook's queue for the user (the listening pass,
+  wording, content choices, the empty Library).

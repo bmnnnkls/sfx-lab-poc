@@ -27,7 +27,7 @@ load-sensitive, and `test:browser` runs them after the smoke groups, so the two 
 | `workbench` | Docking and layout, every view at its minimum size, context menus, pinned panels, drag and drop between views | `ui/layout`, `ui/commands`, `ui/file-menu`, `ui/shared`, `ui/controls`, `ui/panel`, `ui/pinned`, any `.css` |
 | `timeline` | The arrangement and its marks, automation, the Tracks tree, group buses | `ui/arrangement`, the clip editors, `ui/automation`, `ui/tracks`, `ui/mixer`, `core/automation`, clips and groups in `core/project` |
 | `samples` | The wave editor, its marks, panes and spectrogram | `ui/wave-editor`, `ui/samples`, `state/wave-*`, `core/sample`, `core/spectrum`, `audio/spectrum*` |
-| `library` | The Library tree, *This project*, Sounds and presets, bundles | `ui/library`, `ui/presets`, `core/library`, `core/preset`, `storage/library-*`, `app/library*` |
+| `library` | The Library tree, *This project*, the Factory, Sounds and presets, bundles | `ui/library`, `ui/presets`, `core/library`, `core/preset`, `core/examples/factory`, `storage/library-*`, `app/library*`, `app/factory-library.ts` |
 
 When to run what:
 
@@ -73,7 +73,9 @@ permissions. Only main builds the deployment with its repository base path and p
 
 Production bundling uses Vite 8's `build.rolldownOptions.output.codeSplitting.groups`: React, React DOM and Scheduler
 form a `react` chunk; Radix and Floating UI form `ui-vendor`; flexlayout forms `layout-vendor`; and `src/core`, the
-pure model, forms `core`, so neither it nor the state layer passes the warning limit. Package-boundary patterns support
+pure model, forms `core`, so neither it nor the state layer passes the warning limit; its test leaves out
+`src/core/examples/factory/`, the Factory library's code, which `loadFactoryModule` imports dynamically into a lazy
+`factory` chunk. Package-boundary patterns support
 both path separators.
 These eagerly loaded dependencies have independent content hashes and Vite emits module-preload links; the audio
 worklet and the spectrum worker are separate chunks (sizes in [baselines](../reference/baselines.md#bundle)). Total JavaScript transfer is essentially unchanged: the benefit is independent

@@ -71,6 +71,9 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **`openView(page, 'Instrument')` is ambiguous while Sounds shows**: Sounds has a tab named *Instrument* too, so the
   layout tab's locator finds two. Open the editor from the track's menu (*Open instrument*) and take
   `viewRoot(page, 'Instrument')`. *(library phase 5)*
+* **Factory names repeat.** With the Factory open, `treeRow(panel, 'Bass')` finds both its *Bass* folder and the *Bass*
+  item inside, and after *Copy to My library* there are two *Kick* rows (My library's first). Match an item by its exact
+  name and a folder by its label with the count (`'Bass, 2 items'`). *(library phase 6)*
 
 ## Browsers and the DOM
 
@@ -129,6 +132,12 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **A build chunk group can't make statically imported code lazy.** Leaving `src/core/library` out of the `core`
   group still put it in an eager chunk, since the state layer and the UI import it; only a dynamic `import()` (the
   library service) loads lazily. Measure the chunk list before and after a `codeSplitting` change. *(library phase 5)*
+* **A build chunk group captures dynamically imported code too.** Without its exclusion, the `core` group took
+  `core/examples/factory` into the eager `core` chunk (about 4.8 kB gzipped) and left a 0.18 kB `factory` stub, though
+  only a dynamic `import()` reaches it. A lazy module under a group's path needs a negative lookahead in the group's
+  test. *(library phase 6)*
+* **A test outside `core/examples` gets the Factory with `await loadFactoryModule()`.** `state`, `ui` and `app` may
+  import `@core` only, and `core/examples/factory` isn't in its index (that would make it eager). *(library phase 6)*
 * **A session header or Tracks row always carries an `edge`** (`useEdgeTarget`), even when what is dragged isn't a
   track or a group. A drop that checks for no edge never lands on a header; only track and group moves read it.
   *(library phase 3)*

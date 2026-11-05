@@ -72,7 +72,11 @@ click, A and B for the morph are set from rows, saving names a sound after its o
 *Show all in project* lists everything. **Phase 5 is done** (2026-11-05, [plan](active/PLAN-library-5-link.md)): a
 library sound inserted into a project keeps a link (its ID maps and a hash of its graph's shape), so Sounds shows *From
 the library* with that sound's presets to recall, a project preset saves back into it, duplicates and copies keep the
-link, and the Library's details say where a sound is used; a rewired graph says so. Phases 6–7 are planned.
+link, and the Library's details say where a sound is used; a rewired graph says so. **Phase 6 is done** (2026-11-05,
+[plan](active/PLAN-library-6-factory.md)): a read-only *Factory* root after *My library* holds 49 sounds, effects, note
+effects and clips captured from Low Light, Glass Rain and five starters, with stable ids and a line each, loaded in
+its own chunk the first time the Library opens; they preview, insert, drag and link like library sounds, and *Copy to
+My library* (or a drag onto a folder) makes an editable copy. Phase 7 is planned.
 
 ## Accepted limits
 

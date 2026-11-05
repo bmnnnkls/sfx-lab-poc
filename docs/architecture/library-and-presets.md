@@ -164,15 +164,16 @@ saved. A preset of a **linked** sound saves back instead: when `presetLink` find
 through, and the library sound is there and not trashed, *Save to library* (`savePresetToLibrary` in
 `state/actions/sound.ts`) runs `PersonalLibrary.addPresetToSound(presetId)`, which adds it to that sound as a new
 preset and reports "Added *Deep* to *Big bass*" with *Show*. Otherwise it saves a sound of its own as above; its
-tooltip says which.
+tooltip says which. A link to a Factory sound doesn't save back (the Factory is read-only), so its presets save as
+sounds of their own.
 
 The Library view is one tree (`ui/library/library-tree.ts` for the rows and keys, `LibraryTree.tsx`): *This project*
-(below), *My library* and *Trash*, folders first and then items in each folder by name with numbers in order, and each sound's presets under it,
+(below), *My library*, the read-only *Factory* (below) and *Trash*, folders first and then items in each folder by name with numbers in order, and each sound's presets under it,
 wherever their own folder points. A preset whose sound is trashed or gone shows as an item in its own folder. The trash
 shows what was trashed at its top-most level, a folder with its contents. A search or a type filter shows the matches,
-the folders above them and a matching preset's sound, all open; a preset also matches on its sound's name, and the trash
-is searched only while it is open. Rows are `ActionMenu` triggers, drag sources (not the roots), drop targets (folders
-and roots) and spring open under a resting drag (see [workbench.md](workbench.md#drag-and-drop)). The active row is the
+the folders above them and a matching preset's sound, all open; a preset also matches on its sound's name, and the
+Factory and the trash are searched only while they are open. Rows are `ActionMenu` triggers, drag sources (not the
+roots), drop targets (My library's folders and roots; a Factory row's target is null, so it shows the refusal) and spring open under a resting drag (see [workbench.md](workbench.md#drag-and-drop)). The active row is the
 one Tab reaches and the details show; a click selects, ⇧ extends along the rows, ⌘ toggles; Enter runs the details'
 main button and Space previews or stops. The header is search, the type filter and ⋯ (*My library*'s menu and *Export
 selection…*). The status line shows only with something to say, and carries *Retry* after the catalog failed to read
@@ -239,10 +240,52 @@ module pairs, 16 384 pairs across the file) isn't written, and the sanitizer dro
 inserted before links existed aren't guessed. The Library's details show "Used on Bass, Bass copy" for a sound that
 owners of the open project are linked to, live.
 
-`state/library-store.ts` holds the catalog, the active row, the selected items, the item being previewed and a request
-for the view (an export to review, an import to pick), which the menus set and the view takes. The open folder, where
-saves go, is derived from the active row (`openFolderOf`: the active folder, or the active item's, its sound's for a
-preset). The view's buttons run the library's actions and report on its status line; menus report to the toasts.
+**The Factory** is a read-only root after *My library* (🔒 *Factory*, collapsed until opened): ready-made sounds,
+effects, note effects and clips, built from code by `createFactoryCatalog()` (`core/examples/factory/`) and the same on
+every build. One table, `FACTORY_CONTENT`, says what it holds: each row a folder path, a name, a source (an owner's
+*Instrument*, *Effects* or *Notes* graph, or a session clip, of Low Light, Glass Rain or `createStarters()`, a small
+project holding the starter graphs written with the examples' DSL) and a line for the details. Each row is captured
+with `captureLibraryAsset` or `captureLibraryClip` into a fresh catalog, and `withStableIds(catalog, 'factory', keys)`
+then renames folders, items, revisions and preset states to stable paths and rewrites every reference: a folder
+`factory:effects/returns`, an item `factory:effects/returns/room` (a row's `key` in place of its name, where two items
+share one: `hall-low-light`), a revision `factory:rev/…`, a preset state `factory:state/…`; it throws when two items
+would share a path. Node and module IDs come from the examples, which are deterministic, so the catalog's JSON is the
+same on every build. Nothing that reads another track is in it (no Kick duck, no Track notes). The descriptions are a
+side table, `factoryNotes` (by item id, from the table's `note` column), so the catalog format is unchanged.
+`FACTORY_PREFIX` and `isFactoryId` (`core/library/factory.ts`) let any id say whether it is the Factory's.
+
+The Factory's code is a chunk of its own: `loadFactoryModule()` (`core/examples/index.ts`) imports it dynamically, the
+`core` chunk group leaves `core/examples/factory/` out, and `app/factory-library.ts` builds the catalog once, the first
+time it is asked for (timed as the `sfxlab:factory-catalog` performance measure). `PersonalLibrary.factory()` serves
+it (the lazy wrapper does so without loading the library's own chunk), and `loadFactory(load)` in the library store
+keeps it (`factory`, `factoryNotes`) and loads only once, a failure letting the next call try again. The Library asks
+on mount; Sounds asks when the selection's link names a Factory item. Until it is there the root reads *Loading
+Factory…*.
+
+Factory items are used like library items and never edited. `catalogOf(id)` and `fromOf(id)` (library store) send a
+`factory:` id to the Factory's catalog: the actions, the drops, `graphFitsOwner`, `libraryClipFitsSlot` and
+`subjectName` read items through them, and every insert and preview passes `from`. A Factory item has *Preview*, the
+inserts (*Insert new instrument track*, *Replace selected graph*, a clip's *Insert into* and *Replace clip in*), *Copy to
+My library* and *Export as .sfxlib…*; a Factory folder *Open*, *Copy to My library* and *Export*; the root no menu.
+Rename, move, duplicate and trash don't apply. Its rows drag onto tracks, slots and canvases as library rows do; nothing
+drops onto them. *Export* reads the Factory beside storage (`prepareBundle(selection, name, extra)`), whose ids can't
+collide with the personal ones. The details show the item's line, *Instrument · Factory*, and for a folder *Copy to My
+library* as the main button. A sound inserted from the Factory links to its Factory item like any other, so Sounds'
+*From the library* and the details' "Used on" read a `factory:` origin in the Factory's catalog.
+
+**Copying** makes an editable copy. `copyLibraryEntries(from, to, ids, folderId)` (`core/library/catalog.ts`) copies
+folders with their live folders and items inside, items with their live presets and presets with their sound, the
+revisions they use and the sample metadata those need, all under new ids (preset states too); what was inside a copied
+folder stays inside its copy, the rest lands in `folderId`, and names stay. It checks the folder, item and revision caps
+before writing. *Copy to My library* copies into the My library folder open before (below); a Factory row dragged onto
+*My library* or one of its live folders is copied there (always a copy). Both report "Copied Kick to My library" with
+*Show*, which makes the copy active and names it in place, as a save's *Show* does.
+
+`state/library-store.ts` holds the catalog, the Factory's, the active row, the selected items, the item being previewed
+and a request for the view (an export to review, an import to pick), which the menus set and the view takes. The open
+folder, where saves go and Factory copies land, is derived from the active row (`openFolderOf`: the active folder, or
+the active item's, its sound's for a preset). While a Factory row is active it is the My library folder open before
+(`mineFolder`, which a My library row or root sets as it becomes active, and a Factory row keeps). The view's buttons run the library's actions and report on its status line; menus report to the toasts.
 Selected items that leave (trashed, gone) leave the selection. The scene choices for a clip (*Insert into Bass ▸*,
 *Replace clip in Bass ▸*) disable the scenes that can't take it, with the reason; the core still enforces range checks
 and occupied-slot replacement.

@@ -102,7 +102,8 @@ Record each one under the plan's **Changes made while implementing**, one line p
 
 Collected here as the phases go, and reported at each phase's end:
 
-* **Listening pass** on the Factory sounds (phase 6).
+* **Listening pass** on the Factory sounds (phase 6): each instrument and effect auditioned once (▶ in the Library).
+  The tests check only that every instrument is finite, audible and not blown up, before and after a Randomize roll.
 * **Browsers**: drag and drop and spring-open in Firefox and Safari. The specs run in Chromium only.
 * **Physical MIDI** is untouched by this round (backlog V5).
 * Any label or wording the session was unsure of, listed with the screen it's on.
@@ -127,6 +128,17 @@ Collected here as the phases go, and reported at each phase's end:
   "Added Deep to Big bass"; in the Library's details, "Used on Bass, Bass copy".
 * **The build's chunks changed** (phase 5): `src/core` is its own chunk (`core`), as chosen when the `state` chunk passed
   500 kB. Leaving the library's core code out of it was measured and changed nothing (backlog P6).
+* **Wording to look at** (phase 6), in the Library: the root's tooltip ("Read-only: copy a sound to My library to change
+  it") and details ("49 items · 14 folders. Ready-made sounds, effects and clips from the examples. Use them as they
+  are, or copy one to My library to change it."), *Loading Factory…*, the kind label "Instrument · Factory", the 49 item
+  descriptions (`core/examples/factory/content.ts`), the clip names (*Groove kick*, *Hook stab*, *Fog chords*), the
+  report "Copied Kick to My library", and the folder button's tooltip "An editable copy, with everything in it, in the
+  My library folder open before".
+* **Content choices** (phase 6): *Hook stab* stands in for a Groove stab (the Stab has no Groove clip); *Pluck* is the
+  Arp's voice without its arpeggiator; the two returns named *Hall* in *Effects / Returns* are told apart only by their
+  descriptions.
+* **The empty Library** (phase 6): *Save Bass to library* now comes before the hint, so it stays in sight at 280 × 200
+  with the Factory's root above it.
 * **Wording to look at** (phase 2): the Library menu's disabled reasons ("Select an instrument track", "Sum the group
   to a bus first", "Bass has no note effects") and the drop refusals ("Uses Track audio from Kick", "Uses a Send to
   Echo"), in the transport bar's *Library* menu and on the Library's rows during a drag.

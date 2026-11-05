@@ -137,6 +137,11 @@ Things that shipped without the check their plan asked for.
 - **L6 Sample choices beside the sampler's own sample picker.** Sounds lists a graph's per-use sample choices under
   *Sample choices*; they belong in the Instrument view's property editor, where the shared default is picked (library
   phase 4 left them in Sounds, collapsed).
+- **L7 Factory presets.** The Factory's sounds have no presets yet (library phase 6, signed off): a content pass would
+  add a few per sound, as rows of `FACTORY_CONTENT` with their states, recallable from Sounds through the link.
+- **L8 Sidechain-ready Factory sounds.** Low Light's Bass, Stab, Arp, Drone and Echo duck under the Kick through *Track
+  audio*, which the library can't hold, so the Factory has them without the duck (and Low Light's Echo not at all). A
+  duck that takes its key from a send or a sidechain input chosen on insert would let them come whole.
 
 ## Controls and panels
 

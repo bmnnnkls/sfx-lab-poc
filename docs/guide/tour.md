@@ -98,6 +98,10 @@ restore them. **▶** or Space previews a sound on its own, and Enter puts it in
 track, a clip into the first empty slot. Share a folder with **Export as .sfxlib…** from its menu, and open one by
 dropping the file on the Library.
 
+Under *My library*, **🔒 Factory** holds ready-made sounds, effects and clips taken from the two examples, and a few
+starters: open **Drums**, press **▶** on **Kick**, and drag it onto a track. Factory sounds can't be changed in place;
+right-click one and choose **Copy to My library** (or drag it onto one of your folders) for a copy of your own.
+
 **Sounds** (secondary sidebar) keeps sounds inside the project, for whatever is selected. Its tabs follow the editor
 you have open. **+ Save preset** keeps the graph's sound for this and other tracks with the same graph; **+ Snapshot**
 remembers the knob positions here. Both are named after the track (*Bass 1*), ready to rename. Click a row to recall
