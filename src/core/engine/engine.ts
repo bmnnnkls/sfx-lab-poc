@@ -15,6 +15,7 @@ import { GroupBusRuntime } from './group-bus-runtime'
 import { type MixChannel, mixState } from './mix-state'
 import type { MixContext, PlayableTrack, ScheduledAction, PlaybackMode } from './playable-track'
 import { ReturnTrackRuntime } from './return-track-runtime'
+import { Metronome } from './metronome'
 import { SamplePreview } from './sample-preview'
 import type { EngineStatus } from './status'
 import { clipSource, liveSource } from './live-notes'
@@ -44,6 +45,8 @@ export class Engine {
   private readonly tracks = new Map<string, PlayableTrack>()
   private readonly samples = new SampleBank()
   private readonly preview: SamplePreview
+  /** Clicks the beats while the transport plays; mixed after the master, and off unless told (so a bounce never clicks). */
+  private readonly metronome: Metronome
   private peak = 0
   private noteBeat = 0
   /** The master fader, applied after the master graph and before the soft clip. */
@@ -85,6 +88,7 @@ export class Engine {
   constructor(private readonly sampleRate: number) {
     this.transport = new Transport(sampleRate)
     this.preview = new SamplePreview(sampleRate)
+    this.metronome = new Metronome(sampleRate)
     this.master = new FxGraph(createDefaultMasterGraph(), sampleRate, this.samples)
   }
 
@@ -131,6 +135,9 @@ export class Engine {
         break
       case 'transport/stop':
         this.stopTransport()
+        break
+      case 'transport/metronome':
+        this.metronome.set(command.on, command.level)
         break
       case 'transport/setTempo':
         this.transport.setTempo(command.bpm)
@@ -293,7 +300,11 @@ export class Engine {
       // A block never crosses the loop's end: it stops on the last sample before it, and the position jumps back.
       const toLoopEnd = this.playbackMode === 'arrangement' && this.transport.playing ? this.transport.framesToLoopEnd() : null
       if (toLoopEnd !== null) frames = Math.min(frames, toLoopEnd)
+      const fromBeat = this.transport.playing ? this.transport.positionBeats : null
+      const beatsPerSample = this.transport.beatsPerSample
       this.renderBlock(left, right, offset, frames)
+      // The click is not part of the mix: it comes after the master graph and fader, as the preview does.
+      this.metronome.mixInto(left, right, offset, frames, fromBeat, beatsPerSample)
       offset += frames
       const beat = toLoopEnd === null ? null : this.transport.loopJump()
       if (beat !== null) {

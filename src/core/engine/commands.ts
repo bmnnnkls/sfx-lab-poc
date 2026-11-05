@@ -20,6 +20,8 @@ export type EngineCommand =
   | { readonly type: 'transport/play' }
   | { readonly type: 'transport/stop' }
   | { readonly type: 'transport/setTempo'; readonly bpm: number }
+  /** Turns the click on or off, at `level` dB (−40 to 0). Not part of the project, so a bounce never has it. */
+  | { readonly type: 'transport/metronome'; readonly on: boolean; readonly level: number }
   | { readonly type: 'arrangement/set'; readonly clips: readonly ArrangementClip[] }
   | { readonly type: 'arrangement/play'; readonly fromBeat?: number }
   | { readonly type: 'arrangement/stop' }

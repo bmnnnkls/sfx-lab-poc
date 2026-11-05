@@ -1,4 +1,5 @@
 export { Engine } from './engine'
+export { METRONOME_DEFAULT_DB, METRONOME_MAX_DB, METRONOME_MIN_DB } from './metronome'
 export type { EngineCommand } from './commands'
 export type { EngineStatus, PreviewStatus } from './status'
 export { ArrangementPlayer, ArrangementNotes, ArrangementAudio } from './arrangement-player'
