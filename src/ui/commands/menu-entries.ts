@@ -1,4 +1,4 @@
-import { type Command, type CommandContext, runCommand, useLayoutStore, usePersistenceStore, useProjectStore, useTouchStore } from '@state'
+import { type Command, type CommandContext, commandTooltip, runCommand, useLayoutStore, useLibraryStore, usePersistenceStore, useProjectStore, useSelectionStore, useTouchStore } from '@state'
 import type { MenuEntry } from '../shared/menu'
 import { useKeybindingsContext } from './CommandHost'
 import { keysOf } from './keybindings'
@@ -62,19 +62,20 @@ export const menuEntriesOf = (
       return inline ? choices : [{ kind: 'submenu', label, entries: choices }]
     }
     const key = keyOf(command.id)
+    const tooltip = commandTooltip(command, context)
     return [{
       ...common,
       label,
       disabled: !enabled,
       ...(key && { shortcut: key }),
-      ...(command.tooltip && { tooltip: command.tooltip }),
+      ...(tooltip && { tooltip }),
       onSelect: () => run(command),
     }]
   }))
 
 /**
  * A menu's entries from commands, for `PopupMenu`'s builder: called only while the menu is open, it follows what the
- * labels and states read (the regions, the backup, undo, Touch, the named layouts) while it stays open.
+ * labels and states read (the regions, the backup, undo, Touch, the selection, the library, the named layouts) while it stays open.
  */
 export const useCommandEntries = (items: readonly CommandMenuItem[]): readonly MenuEntry[] => {
   const { bindings, services } = useKeybindingsContext()
@@ -88,6 +89,8 @@ export const useCommandEntries = (items: readonly CommandMenuItem[]): readonly M
   usePersistenceStore(signature)
   useProjectStore(signature)
   useTouchStore(signature)
+  useSelectionStore(signature)
+  useLibraryStore(signature)
   useLayoutNames()
   return menuEntriesOf(items, context, keyOf)
 }

@@ -7,7 +7,8 @@ note: "Phase 2 of SPEC-library-ux.md: the Library menu and its commands, and dro
 
 Phase 2 of [SPEC-library-ux.md](SPEC-library-ux.md) (D3, D16). It builds on
 [phase 1](PLAN-library-1-tree.md): the save actions, the `library-root` subject, the `library-folder` drop target and
-the store's `request` already exist. Inventory taken at `9b4f2cd`. Re-check it against the branch tip before step 1.
+the store's `request` already exist. Inventory taken at `9b4f2cd`, re-checked at `5b51762` (see "Changes made while
+implementing").
 
 ## Goal
 
@@ -38,6 +39,13 @@ the library sound it came from (phase 5).
 * **Drag sources in other views**: a filled session slot (`clip`), a sample row (`sample`), a preset row in Sounds
   (`sound` with `preset: true`), a Tracks tree row, a track's name and a group's band (`track`, `group`). The master
   is not a drag source.
+* **Phase 1's saves**: `saveToLibrary(source, context)` in `state/actions/library-save.ts` saves into the open folder
+  and resolves with an `ActionReport` (a *Show* button). The subject actions are `track.save-to-library` (instrument
+  tracks, choices `patch`, `fx`, `notes`), `track.save-effects-to-library` (audio and return), `group.save-effects-to-library`
+  (a bus), `master.save-effects-to-library`, `clip.save-to-library` and `sample.add-to-library`. The `library-root`
+  subject has *New folder* (top level), *Import .sfxlib…* and *Export all…*; a folder has *New folder inside*.
+* **The Library panel already consumes `request` on mount** (its effect runs on mount as well as on change), so step 1
+  only relies on it.
 * **Capture**: `captureLibraryAsset(catalog, project, scope, name, folderId)` captures the current graph with every
   compatible project preset. There is no capture of a single preset, but `project.assetRevisions` holds each preset's
   revision payload, so one can be built without reading the current graph.
@@ -148,3 +156,20 @@ Signed off 2026-11-04: every row as proposed.
 | A project preset dropped or saved | **A new library sound from the preset's own revision, with that preset only** | Until phase 5 links it to the sound it came from. |
 | Refusing up front | **Scan for external routing in `accepts`** | Cheap (node types only), and shared with phase 3. |
 | *Export library…* | **Exports all of My library** through the bundle dialog | Selection and folders export from the tree. |
+
+## Changes made while implementing
+
+* **Inventory re-checked** at `5b51762`. Phase 1 had already made the save actions, the `library-root` subject and
+  consuming `request` on mount, so the plan stood; the inventory now names them. `5b51762` touched only the README and
+  `.claude/settings.json`.
+* **Step 1:** a command's `tooltip` can be a function of the context (`commandTooltip`), so a disabled save says why
+  ("Select an instrument track", "Sum the group to a bus first", "Pad has no note effects"). The menus and the palette
+  read it the same way.
+* **Step 1:** `useCommandEntries` follows the selection and library stores too, so an open Library menu relabels as the
+  selection changes.
+* **Step 1:** *Save effects* on an instrument track runs `track.save-to-library` with the `fx` choice; on an audio or
+  return track, a bus or the master, their own *Save effects to library*. A group's label is "of Drums bus".
+* **Step 1:** *New folder* runs the open folder's *New folder inside*, or *My library*'s *New folder* at the top level.
+* **Step 1:** *Export library…* reads the catalog from storage first, since the store's copy is empty until the Library
+  has been shown; an empty library says "My library is empty".
+* **Step 1:** the *Library* category sits between *Track* and *Edit* in the palette and the shortcuts dialog.

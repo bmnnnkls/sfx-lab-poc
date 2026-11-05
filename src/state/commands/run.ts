@@ -15,3 +15,7 @@ export const runCommand = (command: Command, context: CommandContext, choice?: s
   if (!canRunCommand(command, context, choice)) return
   return settle(command.run(context, choice), report)
 }
+
+/** A command's tooltip now: its own text, or what it says for this context (why it is disabled). */
+export const commandTooltip = (command: Command, context: CommandContext): string | undefined =>
+  typeof command.tooltip === 'function' ? command.tooltip(context) : command.tooltip

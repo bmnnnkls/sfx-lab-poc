@@ -44,3 +44,18 @@ export const VIEW_MENU: readonly CommandMenuItem[] = [
   SEPARATOR,
   { submenu: 'Layouts', items: LAYOUTS },
 ]
+
+/** Library, after View: the saves of what is selected, then what *My library*'s own menu does, then the view. */
+export const LIBRARY_MENU: readonly CommandMenuItem[] = [
+  'library.save-instrument',
+  'library.save-effects',
+  'library.save-notes',
+  'library.save-clip',
+  'library.save-sample',
+  SEPARATOR,
+  'library.new-folder',
+  'library.import',
+  'library.export',
+  SEPARATOR,
+  'view.show.library',
+]

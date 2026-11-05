@@ -1,5 +1,7 @@
 import type { Page } from '@playwright/test'
-import { test, expect, openView, viewRoot } from './fixtures'
+import { emptyLibrary, saveLibraryFolder } from '../../src/core'
+import { exportLibraryBundle } from '../../src/storage'
+import { test, expect, libraryPanel, openView, treeRow, viewRoot } from './fixtures'
 
 /** The region keys' modifiers: ⌃⌘ on macOS, Ctrl+Alt elsewhere. */
 const REGION = process.platform === 'darwin' ? 'Control+Meta' : 'Control+Alt'
@@ -182,4 +184,33 @@ test('the palette lists the saved layouts to load, and loads a built-in one', as
   await page.keyboard.press('Enter')
   await expect(viewRoot(page, 'Clip')).toBeVisible()
   await expect(viewRoot(page, 'Session')).toBeVisible()
+})
+
+test('the Library menu names what it saves, says why an entry is disabled, saves the selection, and imports a bundle', async ({ page }) => {
+  const catalog = saveLibraryFolder(emptyLibrary(), 'Shared', null, 'shared')
+  const file = await exportLibraryBundle(catalog, { folderIds: ['shared'] }, 'Shared', async () => undefined)
+  await page.goto('/?starter')
+  const session = await openView(page, 'Session')
+  await session.getByRole('button', { name: 'Lead', exact: true }).click()
+  const libraryButton = page.getByRole('banner').getByRole('button', { name: 'Library', exact: true })
+  await libraryButton.click()
+  const menu = page.getByRole('menu')
+  await expect(menu.getByRole('menuitem', { name: 'Save effects of Lead to library', exact: true })).toBeEnabled()
+  const clip = menu.getByRole('menuitem', { name: 'Save clip to library', exact: true })
+  await expect(clip).toBeDisabled()
+  await expect(clip).toHaveAttribute('title', 'Select a session clip')
+  await menu.getByRole('menuitem', { name: 'Save instrument of Lead to library', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Saved Lead to My library' })).toBeVisible()
+
+  // The Library has never been shown: the request waits for it, and it opens the file picker once it mounts.
+  const chooser = page.waitForEvent('filechooser')
+  await libraryButton.click()
+  await page.getByRole('menuitem', { name: 'Import .sfxlib…', exact: true }).click()
+  await (await chooser).setFiles({ name: file.fileName, mimeType: file.mimeType, buffer: Buffer.from(file.bytes) })
+  const review = page.getByRole('dialog', { name: 'Bundle review' })
+  await expect(review).toContainText('It goes into a new folder called Shared')
+  await review.getByRole('button', { name: 'Import', exact: true }).click()
+  const panel = libraryPanel(page)
+  await expect(treeRow(panel, 'Shared')).toBeVisible()
+  await expect(treeRow(panel, 'Lead')).toBeVisible()
 })

@@ -1,4 +1,5 @@
 export type { Command, CommandCategory, CommandContext } from './types'
-export { canRunCommand, runCommand } from './run'
+export { canRunCommand, commandTooltip, runCommand } from './run'
+export { LIBRARY_COMMANDS } from './library-commands'
 export { selectionSubjects } from './selection-subjects'
 export { REGION_NAMES, STATE_COMMANDS, viewCommands } from './state-commands'
