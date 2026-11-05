@@ -3,6 +3,7 @@ import { type LibraryRowRef, type Subject, clipTrackFor, graphFitsOwner, inserti
 import { PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import { type ProjectEntry, projectModel, projectNodeOf } from './library-tree'
 import styles from './LibraryPanel.module.css'
+import { UseHint } from './UseHint'
 
 /** What a kind is called in the details and the type filter. */
 export const KIND_NAMES: Record<LibraryItem['content']['kind'], string> = {
@@ -160,6 +161,7 @@ export const LibraryDetails = ({ catalog: personal, factory, active, busy, onRun
           {primary.refusal && <small className={styles.refusal}>{primary.refusal}</small>}
           <More subject={subject} label={`More for ${item.name}`} />
         </div>
+        {!item.trashed && <UseHint />}
       </article>
     )
   }
@@ -297,6 +299,7 @@ const EmptyLibrary = ({ busy, onRun }: Pick<LibraryDetailsProps, 'busy' | 'onRun
         </button>
       )}
       <p>Right-click a track, clip or sample and choose <em>Save to library</em>, or drop an <code>.sfxlib</code> file here.</p>
+      <UseHint />
     </article>
   )
 }

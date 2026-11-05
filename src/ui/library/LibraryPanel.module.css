@@ -61,6 +61,11 @@
 .primary { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .refusal { color: var(--text-dim); }
 .empty p { margin: 8px 0 0; font-size: 12px; color: var(--text-dim); }
+/* The first-run hint, until dismissed. */
+.hint { display: flex; align-items: flex-start; gap: 6px; margin: 8px 0 0; padding: 6px 8px; font-size: 12px; color: var(--text); background: var(--accent-soft); border: 1px solid var(--border); border-radius: var(--radius); }
+.hint span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.hintClose { flex: none; padding: 0 4px; line-height: 1.2; color: var(--text-dim); background: none; border: none; cursor: pointer; }
+.hintClose:hover, .hintClose:focus-visible { color: var(--text); }
 
 /* Bundle review. */
 .dialog { width: 440px; max-width: calc(100% - 32px); max-height: calc(100% - 64px); padding: 0; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55); }

@@ -112,3 +112,13 @@ Signed off 2026-11-04: every row as proposed.
   measures twice: as phase 1 did, and with *This project* and the Factory open too (83 rows, four roots searched
   together). Three runs, every search, re-render and folder opening took 9–36 ms (phase 1: 14–36), under the 100 ms
   threshold, so the tree isn't virtualized. The numbers are in `docs/measurements/library-tree-near-limit.json`.
+* **Step 4:** the hint is `ui/library/UseHint.tsx`, an `<aside>` named *Hint* with "Drag onto a track, a slot or a graph
+  to use it." and × (*Dismiss hint*, tooltip "Don't show this again"). It shows in the empty Library under its text, and
+  under the details of any live item, My library's or the Factory's, until dismissed. Dismissing it is kept in
+  `localStorage` under `sfxlab:library-use-hint-dismissed` with guarded access (a page that can't store keeps it
+  dismissed until reload), read through `useSyncExternalStore` so every copy goes at once. It's the view's, since
+  `state` doesn't touch `localStorage`.
+* **Step 4:** checked at 280 px in the sidebar and docked wide in the panel (dev preview and a throwaway spec's
+  screenshots); at 280 × 200 *Save Bass to library* stays in sight and the hint scrolls below the text. Chunks,
+  gzipped: `LibraryPanel` 11.18 → 11.46 kB; the build is warning-free. The smoke case is in
+  `library-tree.smoke.spec.ts`.
