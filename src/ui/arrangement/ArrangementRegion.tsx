@@ -23,6 +23,8 @@ interface RegionProps extends React.ComponentPropsWithRef<'div'> {
   region: ArrangementClip
   pxPerBeat: number
   selected: boolean
+  /** Being recorded into: drawn red, and not moved or resized (a change would end the take). */
+  recording?: boolean
   onSelect(): void
 }
 
@@ -54,7 +56,7 @@ const AUTO_SCROLL_EDGE = 24
  * one undo step. Pressing it selects it; double-click or Enter opens its own copy in Clip. A looping region shows
  * a repeat badge; the view draws the span it repeats over (up to the next region) beside it.
  */
-export const ArrangementRegion = ({ region, pxPerBeat, selected, onSelect, ...domProps }: RegionProps) => {
+export const ArrangementRegion = ({ region, pxPerBeat, selected, recording = false, onSelect, ...domProps }: RegionProps) => {
   const update = useProjectStore((state) => state.updateArrangementClip)
   const drag = useRef<DragState | null>(null)
 
@@ -62,6 +64,7 @@ export const ArrangementRegion = ({ region, pxPerBeat, selected, onSelect, ...do
     if (event.button !== 0) return
     event.stopPropagation()
     onSelect()
+    if (recording) return
     const scroller = event.currentTarget.closest<HTMLElement>('[data-scroll]')
     drag.current = {
       startX: event.clientX,
@@ -167,10 +170,12 @@ export const ArrangementRegion = ({ region, pxPerBeat, selected, onSelect, ...do
   return (
     <div
       {...domProps}
-      className={`${styles.region} ${selected ? styles.selected : ''}`}
+      className={`${styles.region} ${selected ? styles.selected : ''} ${recording ? styles.recording : ''}`}
       style={{ left: region.startBeat * pxPerBeat, width }}
       data-testid="arrangement-region"
       data-looping={looping ? 'true' : undefined}
+      data-recording={recording || undefined}
+      title={recording ? 'Recording into this region' : undefined}
       tabIndex={0}
       onDoubleClick={() => openRegion(region.id)}
       onKeyDown={(event) => {
@@ -208,14 +213,14 @@ export const ArrangementRegion = ({ region, pxPerBeat, selected, onSelect, ...do
           ))}
         </div>
       )}
-      <div
+      {!recording && <div
         className={styles.handle}
         data-testid="arrangement-region-handle"
         onPointerDown={(event) => startDrag(event, true)}
         onPointerMove={onMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-      />
+      />}
     </div>
   )
 }

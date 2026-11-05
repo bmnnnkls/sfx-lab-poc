@@ -58,7 +58,7 @@ const hasNoteEffects = (trackId: string) => {
 const volume = (trackId: string): ControlTarget => ({ kind: 'mixer', owner: { kind: 'track', trackId }, control: 'volume' })
 
 /** What arming does, for the arm buttons and the menu entry. */
-export const ARM_TOOLTIP = 'Arm for recording: an armed track hears the keyboard and records into a slot you press ● on'
+export const ARM_TOOLTIP = 'Arm for recording: an armed track hears the keyboard, records into a slot you press ● on, and with ● Rec on records into the Arrangement'
 
 /** An instrument, audio or return track. */
 export const trackActions: readonly Action<TrackSubject>[] = [

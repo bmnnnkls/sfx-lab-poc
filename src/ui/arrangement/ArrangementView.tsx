@@ -18,6 +18,7 @@ import { ArrangementHeader } from './ArrangementHeader'
 import { ArrangementMarkLines, ArrangementMarks } from './ArrangementMarks'
 import { ArrangementPlayhead, ArrangementPosition, PositionMark } from './ArrangementPlayhead'
 import { ArrangementRegion } from './ArrangementRegion'
+import { RecordingOutline, useRecordingRegions } from './RecordingOutline'
 import { ArrangementRuler } from './ArrangementRuler'
 import { HeaderSplitter } from './HeaderSplitter'
 import { BEATS_PER_BAR, MIN_BARS, TRAILING_BARS } from './timeline-constants'
@@ -99,6 +100,7 @@ export const ArrangementView = () => {
   const headerWidth = useArrangementView((state) => state.headerWidth)
   // The selection store's: a region deleted from its menu (or by undo) is still named there, and shows as nothing.
   const selected = useSelectionStore((state) => state.regionId)
+  const recordingRegions = useRecordingRegions()
   const selectedTrack = useSelectionStore((state) => state.trackId)
   const selectedGroup = useSelectionStore((state) => state.groupId)
   const view = useRef<HTMLDivElement>(null)
@@ -324,12 +326,14 @@ export const ArrangementView = () => {
                             region={region}
                             pxPerBeat={pxPerBeat}
                             selected={selected === region.id}
+                            recording={recordingRegions.has(region.id)}
                             onSelect={() => useSelectionStore.getState().selectRegion(region.id, region.trackId)}
                           />
                         </ActionMenu>
                       </Fragment>
                     )
                   })}
+                  <RecordingOutline trackId={track.id} pxPerBeat={pxPerBeat} />
                 </LaneRow>
               </div>
             )

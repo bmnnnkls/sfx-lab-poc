@@ -53,7 +53,7 @@ export const TransportBar = () => {
       <button aria-label="Arm Touch automation" aria-pressed={touch.armed} title={withKey("Record controls into each owner's playing clip or automation slot", touchKey)} className={touch.armed ? styles.active : undefined} onClick={() => touch.arm(!touch.armed)}>● Touch</button>
       {touch.armed && <output className={styles.touchFeedback} title={touch.feedback} role="status">{touch.feedback}</output>}
       <div className={styles.joined}>
-        <button aria-label="Record" aria-pressed={rec} className={rec ? styles.recording : undefined} title={withKey('Record: overdub what you play into the clips playing on armed tracks', recordKey)} onClick={() => useRecordStore.getState().setRec(!rec)}>
+        <button aria-label="Record" aria-pressed={rec} className={rec ? styles.recording : undefined} title={withKey('Record: overdub into the clips playing on armed tracks in the Session, record new regions in the Arrangement', recordKey)} onClick={() => useRecordStore.getState().setRec(!rec)}>
           ● Rec
         </button>
         <PopupMenu entries={recordEntries}>

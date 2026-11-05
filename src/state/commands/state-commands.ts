@@ -50,7 +50,7 @@ const recordCommands: readonly Command[] = [
     category: 'Transport',
     title: 'Toggle recording',
     label: () => (useRecordStore.getState().rec ? 'Turn recording off' : 'Turn recording on'),
-    tooltip: 'Record: overdub what you play into the clips playing on armed tracks',
+    tooltip: 'Record: overdub into the clips playing on armed tracks in the Session, record new regions in the Arrangement',
     run: () => useRecordStore.getState().setRec(!useRecordStore.getState().rec),
   },
   {

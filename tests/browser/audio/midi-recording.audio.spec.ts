@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { createDemoProject, serializeProject } from '../../../src/core'
-import { test, expect, expectSaved, openFileMenu, viewRoot } from '../support/fixtures'
+import { test, expect, expectSaved, openFileMenu, openView, viewRoot } from '../support/fixtures'
 import { installMidiPorts, sendMidi } from '../support/midi-ports'
 
 /*
@@ -188,4 +188,57 @@ test('a count-in clicks four beats a beat apart with the metronome off, then the
   expect(clicks).toHaveLength(4)
   for (let i = 1; i < clicks.length; i++) expect(Math.abs(clicks[i]! - clicks[i - 1]! - rate / RATE_BEATS)).toBeLessThanOrEqual(32)
   await page.getByRole('button', { name: 'Stop', exact: true }).first().click()
+})
+
+test('two passes of a one-bar loop brace record into one region that plays back where each note was played', async ({ page }) => {
+  await page.addInitScript((project) => localStorage.setItem('sfxlab:project', project), serializeProject({ ...synthProject(), arrangementLoop: { from: 0, to: 4, enabled: true } }))
+  await installMidiPorts(page); await installCapture(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'MIDI', exact: true }).click()
+  await page.getByRole('button', { name: 'Enable MIDI', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'MIDI settings', exact: true })).toContainText('MIDI: enabled')
+  await page.getByRole('button', { name: 'Close MIDI settings' }).click()
+  const rate = await page.evaluate(() => new AudioContext().sampleRate)
+  const quantum = (128 / rate) * RATE_BEATS
+
+  const arrangement = await openView(page, 'Arrangement')
+  await arrangement.getByRole('button', { name: 'Arm Rec synth for recording', exact: true }).click()
+  await page.getByRole('button', { name: 'Record', exact: true }).click()
+  await arrangement.getByRole('button', { name: 'Play arrangement', exact: true }).click()
+  await expect(arrangement.getByTestId('arrangement-recording-outline')).toBeVisible()
+  // Two notes 2.5 s apart: five beats at 120 BPM, so one beat apart in the bar, a pass later.
+  const base = await page.evaluate(() => performance.now() + 100)
+  await page.waitForTimeout(2800)
+  for (const at of [0, 2500]) {
+    await sendMidi(page, [0x90, 60, 127], 'keys', base + at)
+    await sendMidi(page, [0x80, 60, 0], 'keys', base + at + 100)
+  }
+  await arrangement.getByRole('button', { name: 'Stop', exact: true }).click()
+  await expectSaved(page)
+  const region = await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('sfxlab:project') ?? '{}') as { project?: { arrangement?: Array<{ startBeat: number; content: { lengthBeats: number; notes: SavedNote[] } }> } }
+    return saved.project?.arrangement ?? []
+  })
+  expect(region).toHaveLength(1)
+  expect(region[0]).toMatchObject({ startBeat: 0, content: { lengthBeats: 4 } })
+  const notes = [...region[0]!.content.notes]
+  expect(notes).toHaveLength(2)
+  const apart = (((notes[1]!.start - notes[0]!.start) % 4) + 4) % 4
+  // The second pass's note is a beat after the first's (or, sorted the other way, three beats).
+  expect(Math.min(Math.abs(apart - 1), Math.abs(apart - 3))).toBeLessThanOrEqual(quantum + 0.002)
+
+  // Played back with ● Rec off: the two notes, pass after pass, one and three beats apart.
+  await page.getByRole('button', { name: 'Record', exact: true }).click()
+  await page.evaluate(() => { window.__recordSamples = [] })
+  await arrangement.getByRole('button', { name: 'Play arrangement', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.__recordSamples.length), { timeout: 20_000 }).toBeGreaterThan(rate * 4.5)
+  const onsets = risingEdges(await page.evaluate(() => window.__recordSamples)).map((frame) => (frame / rate) * RATE_BEATS)
+  expect(onsets.length).toBeGreaterThanOrEqual(3)
+  const sorted = notes.map((n) => n.start).sort((a, b) => a - b)
+  const gaps = [sorted[1]! - sorted[0]!, 4 - (sorted[1]! - sorted[0]!)]
+  for (let i = 1; i < onsets.length; i++) {
+    const gap = onsets[i]! - onsets[i - 1]!
+    expect(Math.min(...gaps.map((expected) => Math.abs(gap - expected)))).toBeLessThanOrEqual(quantum)
+  }
+  await arrangement.getByRole('button', { name: 'Stop', exact: true }).click()
 })

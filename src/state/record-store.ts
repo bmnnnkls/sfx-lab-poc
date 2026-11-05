@@ -178,8 +178,8 @@ const recFeedback = () => {
   if (useRecordStore.getState().armed.length === 0) return 'Armed tracks: none'
   if (takes.size) return recordingText()
   const status = useStatusStore.getState().status
-  if (status?.mode === 'arrangement') return status.playing ? 'Recording from here' : 'Press ▶ on the Arrangement to record'
-  return 'Launch a clip on an armed track to overdub'
+  if (!status?.playing) return 'Launch a clip on an armed track, or press ▶ on the Arrangement, to record'
+  return status.mode === 'arrangement' ? 'Recording from here' : 'Launch a clip on an armed track to overdub'
 }
 
 /** The next bar at least `margin` beats after `beat`. */
@@ -795,6 +795,17 @@ const openRegionTakes = (status: EngineStatus) => {
     opened = true
   }
   if (opened) { publish(); recording() }
+}
+
+/** Whether a region is being recorded into: the view draws it red and won't move, resize or delete it. */
+export const isRecordingRegion = (regionId: string): boolean => [...takes.values()].some((take) => take.region?.segments.includes(regionId))
+
+/** *Stop recording* on a region: its track's take ends now, and no new one opens on it until ● Rec, ▶ or the arm. */
+export const stopRecordingRegion = (regionId: string): void => {
+  const take = [...takes.values()].find((candidate) => candidate.region?.segments.includes(regionId))
+  if (!take) return
+  blocked.add(take.trackId)
+  endRegion(take, beatNow())
 }
 
 /** A region being recorded that something else changed or removed ends its take there, leaving the region as it is. */

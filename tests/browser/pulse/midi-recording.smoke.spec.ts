@@ -136,7 +136,7 @@ test('● Rec overdubs a playing clip on an armed track, pass after pass, as one
   await page.locator('body').click({ position: { x: 1, y: 1 } })
   await page.keyboard.press('F9')
   await expect(rec).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('status', { name: 'Recording' })).toHaveText('Launch a clip on an armed track to overdub')
+  await expect(page.getByRole('status', { name: 'Recording' })).toHaveText('Launch a clip on an armed track, or press ▶ on the Arrangement, to record')
   await rec.click()
   await expect(rec).toHaveAttribute('aria-pressed', 'false')
 
@@ -193,4 +193,69 @@ test('a count-in clicks a bar before a take from a stopped transport, and ■ du
   const clip = await openView(page, 'Clip')
   await expect(clip.locator('[data-note-id]')).toHaveCount(1)
   await page.getByRole('button', { name: 'Stop', exact: true }).first().click()
+})
+
+test('with ● Rec on, ▶ on the arrangement records an armed track into a new region, as one undo step', async ({ page }) => {
+  await page.addInitScript((saved) => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject({ ...project(), tempo: 240 }))
+  await installMidiPorts(page)
+  await page.goto('/')
+  await enableMidi(page)
+  const arrangement = await openView(page, 'Arrangement')
+  await arrangement.getByRole('button', { name: 'Arm Keys synth for recording', exact: true }).click()
+  const rec = page.getByRole('button', { name: 'Record', exact: true })
+  await rec.click()
+  await expect(page.getByRole('status', { name: 'Recording' })).toHaveText('Launch a clip on an armed track, or press ▶ on the Arrangement, to record')
+  const regions = arrangement.getByTestId('arrangement-region')
+  await expect(regions).toHaveCount(0)
+
+  await arrangement.getByRole('button', { name: 'Play arrangement', exact: true }).click()
+  await expect(page.getByRole('status', { name: 'Recording' })).toHaveText('Recording Keys synth')
+  // Before the first note, an outline shows what records; the region appears red with the note, and grows.
+  await expect(arrangement.getByTestId('arrangement-recording-outline')).toBeVisible()
+  await sendMidi(page, [0x90, 60, 100]); await page.waitForTimeout(150); await sendMidi(page, [0x80, 60, 0])
+  await expect(regions).toHaveCount(1)
+  await expect(regions.first()).toHaveAttribute('data-recording', 'true')
+  const width = (await regions.first().boundingBox())!.width
+  await page.waitForTimeout(1200) // more than a bar at 240 BPM
+  await sendMidi(page, [0x90, 64, 100]); await page.waitForTimeout(150); await sendMidi(page, [0x80, 64, 0])
+  await expect.poll(async () => (await regions.first().boundingBox())!.width).toBeGreaterThan(width)
+  await expect(regions.first().locator('[class*="noteRect"]')).toHaveCount(2)
+
+  await arrangement.getByRole('button', { name: 'Stop', exact: true }).click()
+  await expect(regions.first()).not.toHaveAttribute('data-recording')
+  await expect(page.getByRole('status', { name: 'Recording' })).toHaveText(/^Recorded \d+ bars? on Keys synth$/)
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(regions).toHaveCount(0)
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  await expect(regions).toHaveCount(1)
+  await expectSaved(page)
+  await page.reload()
+  await expect((await openView(page, 'Arrangement')).getByTestId('arrangement-region').locator('[class*="noteRect"]')).toHaveCount(2)
+})
+
+test('with the loop brace on, two passes record into one region', async ({ page }) => {
+  await page.addInitScript((saved) => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) },
+    serializeProject({ ...project(), tempo: 240, arrangementLoop: { from: 0, to: 4, enabled: true } }))
+  await installMidiPorts(page)
+  await page.goto('/')
+  await enableMidi(page)
+  const arrangement = await openView(page, 'Arrangement')
+  await arrangement.getByRole('button', { name: 'Arm Keys synth for recording', exact: true }).click()
+  await page.getByRole('button', { name: 'Record', exact: true }).click()
+  await arrangement.getByRole('button', { name: 'Play arrangement', exact: true }).click()
+  await expect(page.getByRole('status', { name: 'Recording' })).toHaveText('Recording Keys synth')
+  // The outline shows once the transport runs: a note before that has no beat yet.
+  await expect(arrangement.getByTestId('arrangement-recording-outline')).toBeVisible()
+  await sendMidi(page, [0x90, 60, 100]); await page.waitForTimeout(100); await sendMidi(page, [0x80, 60, 0])
+  // A bar is a second at 240 BPM: the next note is in the second pass.
+  await page.waitForTimeout(1100)
+  await sendMidi(page, [0x90, 67, 100]); await page.waitForTimeout(100); await sendMidi(page, [0x80, 67, 0])
+  const regions = arrangement.getByTestId('arrangement-region')
+  await expect(regions).toHaveCount(1)
+  await expect(regions.first().locator('[class*="noteRect"]')).toHaveCount(2)
+  await arrangement.getByRole('button', { name: 'Stop', exact: true }).click()
+  await regions.first().dblclick()
+  const clip = await openView(page, 'Clip')
+  await expect(clip.locator('[data-note-id]')).toHaveCount(2)
+  await expect(clip.getByLabel('Clip length in beats')).toHaveValue('4')
 })

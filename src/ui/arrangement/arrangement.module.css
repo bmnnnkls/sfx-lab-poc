@@ -200,6 +200,28 @@
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+/* A region being recorded into: red, like a recording slot, and not draggable. */
+.region.recording {
+  border-color: var(--record);
+  background: color-mix(in srgb, var(--record) 16%, var(--bg));
+  cursor: default;
+}
+
+.region.recording .noteRect {
+  background: var(--record);
+}
+
+/* What an armed track records before its first note (or past its last region): an outline up to the playhead. */
+.recordingOutline {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  border: 1px dashed var(--record);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--record) 8%, transparent);
+  pointer-events: none;
+}
+
 .notes {
   position: absolute;
   inset: 14px 2px 2px 2px;
