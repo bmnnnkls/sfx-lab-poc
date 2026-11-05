@@ -56,6 +56,7 @@ export const menuEntriesOf = (
         label: choice.title,
         disabled: !enabled || choice.enabled === false,
         ...(choice.tooltip && { tooltip: choice.tooltip }),
+        ...(choice.checked !== undefined && { checked: choice.checked }),
         onSelect: () => run(command, choice.id),
       }))
       if (choices.length === 0) return []

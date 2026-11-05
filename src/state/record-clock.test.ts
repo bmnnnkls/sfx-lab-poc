@@ -29,6 +29,15 @@ describe('the record clock', () => {
     expect(recordBeat(10_500)).toBeCloseTo(8 + 30 / 500)
     expect(transportBeat()).toBe(8)
   })
+
+
+  it('counts a note played just after the transport started, but heard before it, back from its own beat', () => {
+    vi.spyOn(performance, 'now').mockReturnValue(10_000)
+    // The transport started 10 ms ago, at beat 0: anything earlier has no beat.
+    setRecordClock((agoMs) => (agoMs <= 10 ? (10 - agoMs) / 500 : undefined), () => 0.03)
+    expect(recordBeat(10_000)).toBeCloseTo(10 / 500 - 30 / 500)
+    expect(recordBeat(9_980)).toBeUndefined()
+  })
 })
 
 describe('the record settings', () => {

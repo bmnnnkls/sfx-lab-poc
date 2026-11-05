@@ -1,4 +1,5 @@
 import { useRecordSettings } from './record-settings'
+import { useStatusStore } from './status-store'
 
 type BeatReader = (agoMs: number) => number | undefined
 let beatAt: BeatReader | undefined
@@ -27,5 +28,11 @@ export const recordLatencyMs = (): number => (latency?.() ?? 0) * 1000 + useReco
  */
 export const recordBeat = (timestamp: number = performance.now()): number | undefined => {
   if (!beatAt) return undefined
-  return beatAt(Math.max(0, performance.now() - timestamp) + recordLatencyMs())
+  const ago = Math.max(0, performance.now() - timestamp), latency = recordLatencyMs()
+  const beat = beatAt(ago + latency)
+  if (beat !== undefined || latency <= 0) return beat
+  // Played just after the transport started, heard as before it: counted back from the event's own beat, at the
+  // tempo, so it lands just before the start (where a take counts it as on its first beat).
+  const played = beatAt(ago)
+  return played === undefined ? undefined : played - (latency / 60_000) * (useStatusStore.getState().status?.tempo ?? 120)
 }
