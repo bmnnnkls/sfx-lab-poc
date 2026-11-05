@@ -50,7 +50,7 @@ export * from './automation-store'
 export * from './actions'
 export { useRenameStore, sameSubject, type Renaming } from './rename-store'
 export { type RecalledMark, type SoundsTab, editorTabOf, isStillRecalled, morphPair, scopeState, soundsTabsOf, tabFor, useSoundsStore } from './sounds-store'
-export { type LibraryRequest, type LibraryRowRef, type ProjectExpansion, openFolder, openFolderOf, projectExpandedOf, useLibraryStore } from './library-store'
+export { type LibraryRequest, type LibraryRowRef, type ProjectExpansion, catalogOf, fromOf, loadFactory, openFolder, openFolderOf, projectExpandedOf, useLibraryStore } from './library-store'
 export { createClipboard, subscribeToClipboards, useClipboard, type Clipboard } from './clipboard'
 export { audioClipboard, copyWaveSelection } from './audio-clipboard'
 export {

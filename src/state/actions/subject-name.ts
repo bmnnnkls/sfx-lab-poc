@@ -1,5 +1,5 @@
 import { BEATS_PER_BAR, controlTargetLabel, nodeTitles, patchAt } from '@core'
-import { useLibraryStore } from '../library-store'
+import { catalogOf } from '../library-store'
 import { markerTitle } from './arrangement-marks'
 import { GRAPH_TITLES } from './pin'
 import { editTargetOf } from './nodes'
@@ -37,9 +37,9 @@ export const subjectName = (subject: Subject): string => {
     case 'sample':
       return project().samples?.find((sample) => sample.id === subject.sampleId)?.name ?? 'Sample'
     case 'library-item':
-      return useLibraryStore.getState().catalog.items.find((item) => item.id === subject.itemId)?.name ?? 'Library item'
+      return catalogOf(subject.itemId).items.find((item) => item.id === subject.itemId)?.name ?? 'Library item'
     case 'library-folder':
-      return useLibraryStore.getState().catalog.folders.find((folder) => folder.id === subject.folderId)?.name ?? 'Folder'
+      return catalogOf(subject.folderId).folders.find((folder) => folder.id === subject.folderId)?.name ?? 'Folder'
     case 'library-root':
       return subject.root === 'mine' ? 'My library' : 'Trash'
     case 'project-graph':

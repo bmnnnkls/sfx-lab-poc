@@ -183,3 +183,37 @@ Signed off 2026-11-04: every row as proposed.
   build's chunks are as before (gzipped, before → after: `index` 112.92 → 112.17 kB, `core` 123.70 → 124.39,
   `LibraryPanel` 10.42, `library` 1.78).
 
+* **Step 2:** the dynamic import is `loadFactoryModule` in `core/examples/index.ts` (the architecture test lets `app`
+  import `@core` only); `app/factory-library.ts` loads it and builds the catalog once, timed as the
+  `sfxlab:factory-catalog` performance measure. `PersonalLibrary.factory()` serves it, and the lazy wrapper does so
+  without loading the library's own chunk. `loadFactory(load)` (state) puts it in the store once (`factory`,
+  `factoryNotes`); a failed load lets the next call try again. The Library calls it on mount, Sounds for a Factory link.
+* **Step 2: measured** in Chromium on the dev build, three cold loads: **80, 96 and 103 ms**, under the 150 ms threshold,
+  so the catalog is built as the chunk arrives, with no idle callback. While the chunk loads, the root reads
+  *Loading Factory…*.
+* **Step 2:** `catalogOf(id)` and `fromOf(id)` (in `library-store.ts`) send a `factory:` id to the Factory's catalog:
+  the actions, the drops, `graphFitsOwner`'s default, `libraryClipFitsSlot` and `subjectName` read items through them,
+  and every insert and preview passes `fromOf`. A Factory item keeps *Preview*, *Insert new instrument track*, *Replace
+  selected graph* (or a clip's *Insert into* and *Replace clip in*) and *Export as .sfxlib…*; a Factory folder *Open*
+  and *Export*. The root has no menu.
+* **Step 2:** *Export* of Factory items or folders reads the Factory beside storage: `prepareBundle(selection, name,
+  extra?)` takes its catalog, whose ids can't collide with the personal ones.
+* **Step 2:** the root sits between *My library* and *Trash*, collapsed at first, and is searched only while open, as
+  the trash and *This project* are (so a search keeps My library's rows, and the existing specs theirs). Its glyph is
+  🔒, its tooltip "Read-only: copy a sound to My library to change it". Its rows drag, and nothing drops on them.
+* **Step 2:** the details say *Instrument · Factory* and show the item's line from `factoryNotes` above its facts; a
+  folder is *Folder · Factory*; the root counts its items and folders and says what it is.
+* **Step 2: the gap phase 5 found.** Sounds' *From the library* reads the catalog of the link's item: the Factory's for
+  a `factory:` origin (loading it), so a Factory sound lists itself as *Library sound*; the details' "Used on" reads the
+  item's own catalog the same way. *Save to library* on a preset of a Factory-linked sound saves a sound of its own,
+  since the Factory is read-only: the save-back ignores Factory links, and its tooltip says so. The unit test is in
+  `library-factory.test.ts`; the smoke case is in step 3's spec.
+* **Step 2:** with a fourth root, the empty Library's *Save Bass to library* left the box at 280 × 200
+  (`views-at-min-size`), so the button now comes before the hint. The library tree spec's search labels gain the
+  closed root, "Factory, 49 items".
+* **Step 2: chunks.** The Factory is its own lazy chunk, `factory` 16.91 kB (5.38 kB gzipped), not preloaded. Gzipped,
+  against `cb124ef`: `index` 112.92 → 112.28 kB, `LibraryPanel` 10.42 → 10.94, `state` 29.97 → 30.18, `core` 123.70 →
+  124.50, `library` 1.78 → 1.85; each under the 2 kB the plan allows. `vite build` takes about 0.35–0.41 s.
+* **Step 2:** checked in the preview (dev build, Low Light) with the Library at 280 px in the sidebar: the root, *Drums*
+  open, *Clap*'s details and menu, *Add as new track*, then Sounds on the new track (*From the library · Clap*) and the
+  details' "Used on Clap". The empty Library at 280 × 200 and 280 × 420 in a throwaway spec's screenshots.

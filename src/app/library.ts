@@ -2,6 +2,7 @@ import { decodeAudio } from '@audio'
 import { bytesKeyOf, type LibraryCatalog, type LibraryItem, type Project, type SampleData, captureLibraryAsset, captureLibraryClip, captureLibraryPreset, captureLibrarySample, presetLink, presetToLibrary, insertLibraryAsset, insertLibraryClip, libraryDependencies, libraryPreviewProject, Bounce, commit } from '@core'
 import { type PersonalLibrary, useProjectStore } from '@state'
 import { type LibraryStorage, type SampleStorage, stageLibraryBundle, commitLibraryBundle, exportLibraryBundle, downloadFile } from '@storage'
+import { loadFactoryLibrary } from './factory-library'
 
 /** All reusable payloads become copies in the document. Catalog edits never enter project history. */
 export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleStorage): PersonalLibrary => {
@@ -30,11 +31,14 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
     useProjectStore.setState({ project, history: commit(state.history, project, { now: Date.now() }) })
   }
   return {
-    read: storage.read, update: storage.update, stopPreview,
+    read: storage.read, update: storage.update, stopPreview, factory: loadFactoryLibrary,
     stageBundle: stageLibraryBundle,
     importBundle: stage => { stopPreview(); return commitLibraryBundle(storage, stage) },
-    prepareBundle: async (selection, name) => {
-      const exported = await exportLibraryBundle(await storage.read(), selection, name, samples.get, true)
+    prepareBundle: async (selection, name, extra) => {
+      const stored = await storage.read()
+      // The Factory's ids are its own, so its records sit beside the personal ones without colliding.
+      const catalog = extra ? { ...stored, folders: [...stored.folders, ...extra.folders], items: [...stored.items, ...extra.items], revisions: [...stored.revisions, ...extra.revisions], samples: [...stored.samples, ...extra.samples.filter(s => !stored.samples.some(known => known.id === s.id))] } : stored
+      const exported = await exportLibraryBundle(catalog, selection, name, samples.get, true)
       return stageLibraryBundle(exported.bytes)
     },
     exportBundle: async (stage, partial) => {

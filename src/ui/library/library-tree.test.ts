@@ -196,3 +196,33 @@ describe('this project rows', () => {
     expect(projectModel(renamed)).not.toBe(model)
   })
 })
+
+describe('the Factory root', () => {
+  const factory = {
+    folders: [folder('factory:drums', 'Drums', null), folder('factory:effects', 'Effects', null), folder('factory:effects/returns', 'Returns', 'factory:effects')],
+    items: [item('factory:drums/kick', 'Kick', 'factory:drums'), item('factory:effects/returns/hall', 'Hall', 'factory:effects/returns', 'audio-effect')],
+  } as unknown as Parameters<typeof libraryRows>[0]
+
+  it('sits after My library and before the trash, read from its own catalog, and is searched only while open', () => {
+    const rows = libraryRows(catalog, { expanded: new Set(['factory', folderKey('factory:effects')]) }, factory)
+    expect(rows.filter((row) => row.level === 1).map((row) => row.key)).toEqual(['mine', 'factory', 'trash'])
+    expect(names(rows.filter((row) => row.root === 'factory'))).toEqual(['Factory', '  Drums', '  Effects', '    Returns'])
+    expect(rows.find((row) => row.key === 'factory')).toMatchObject({ kind: 'root', count: 2, hasChildren: true, expanded: true })
+    expect(rows.find((row) => row.name === 'Returns')).toMatchObject({ kind: 'folder', root: 'factory', parent: folderKey('factory:effects') })
+    // Closed, a search leaves it alone; open, it finds Hall.
+    expect(libraryRows(catalog, { expanded: new Set(), query: 'hall' }, factory).filter((row) => row.root === 'factory').map((row) => row.name)).toEqual(['Factory'])
+    expect(names(libraryRows(catalog, { expanded: new Set(['factory']), query: 'hall' }, factory).filter((row) => row.root === 'factory'))).toEqual(['Factory', '  Effects', '    Returns', '      Hall'])
+  })
+
+  it('says it is loading until its catalog is there, and has no root without one', () => {
+    expect(libraryRows(catalog, { expanded: new Set(['factory']) }, null).find((row) => row.key === 'factory')).toMatchObject({ name: 'Loading Factory…', hasChildren: false, count: 0 })
+    expect(libraryRows(catalog, { expanded: INITIAL_EXPANDED }).some((row) => row.key === 'factory')).toBe(false)
+  })
+
+  it("expands a Factory row's folders and the Factory root to show it", () => {
+    expect(ancestorsOf(catalog, itemKey('factory:effects/returns/hall'), factory)).toEqual([folderKey('factory:effects/returns'), folderKey('factory:effects'), 'factory'])
+    // Before it has loaded, a Factory row is a missing entry.
+    expect(ancestorsOf(catalog, itemKey('factory:effects/returns/hall'), null)).toEqual([])
+    expect([...expandedFor(catalog, INITIAL_EXPANDED, itemKey('factory:drums/kick'), factory)]).toEqual(['mine', folderKey('factory:drums'), 'factory'])
+  })
+})

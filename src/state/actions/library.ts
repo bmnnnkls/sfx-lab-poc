@@ -1,6 +1,6 @@
-import { type ControlOwner, type LibraryBundleSelection, type LibraryCatalog, type LibraryItem, type SnapshotScope, type Track, EFFECT_INPUTS, duplicateLibraryFolder, libraryItemDuplicate, moveLibraryEntry, saveLibraryFolder, trashLibraryEntry } from '@core'
+import { type ControlOwner, type LibraryBundleSelection, type LibraryCatalog, type LibraryItem, type SnapshotScope, type Track, EFFECT_INPUTS, duplicateLibraryFolder, isFactoryId, libraryItemDuplicate, moveLibraryEntry, saveLibraryFolder, trashLibraryEntry } from '@core'
 import { useLayoutStore } from '../layout-store'
-import { openFolder, useLibraryStore } from '../library-store'
+import { catalogOf, fromOf, openFolder, useLibraryStore } from '../library-store'
 import { useSelectionStore } from '../selection-store'
 import { project, trackOf } from './lookup'
 import { renameAction, startRename } from './rename'
@@ -11,8 +11,9 @@ type FolderSubject = SubjectOf<'library-folder'>
 type RootSubject = SubjectOf<'library-root'>
 
 const catalog = () => useLibraryStore.getState().catalog
-const itemOf = ({ itemId }: ItemSubject) => catalog().items.find((item) => item.id === itemId)
-const folderOf = ({ folderId }: FolderSubject) => catalog().folders.find((folder) => folder.id === folderId)
+/** An item or folder of the personal library or the Factory, by its id. */
+const itemOf = ({ itemId }: ItemSubject) => catalogOf(itemId).items.find((item) => item.id === itemId)
+const folderOf = ({ folderId }: FolderSubject) => catalogOf(folderId).folders.find((folder) => folder.id === folderId)
 
 /** Edits the catalog through the library and keeps the store's copy current; resolves with `message`. */
 export const editLibrary = async (context: ActionContext, edit: (catalog: LibraryCatalog) => LibraryCatalog, message: string) => {
@@ -47,14 +48,15 @@ export const insertionScope = (item: LibraryItem, domain: SnapshotScope['domain'
 
 /** Replaces a graph by a library instrument, effect or preset: *Replace selected graph*, and an item dropped on a track or a canvas. */
 export const replaceGraph = (item: LibraryItem, scope: SnapshotScope, { library }: ActionContext): Promise<string> =>
-  library.insert(item, { mode: 'replace', scope })
+  library.insert(item, { mode: 'replace', scope }, undefined, undefined, fromOf(item.id))
 
 /**
  * Whether a library instrument, effect or preset can replace a graph of `owner`: an instrument or note effect on an
  * instrument track, an audio effect on a track, a bus or the master whose input it was made for (`EFFECT_INPUTS`).
- * The item is read in the store's catalog, or in `from` (a throwaway capture of a graph of the project).
+ * The item is read in its catalog (the personal one or the Factory's), or in `from` (a throwaway capture of a graph of the
+ * project).
  */
-export const graphFitsOwner = (item: LibraryItem, owner: ControlOwner, from: LibraryCatalog = catalog()): boolean => {
+export const graphFitsOwner = (item: LibraryItem, owner: ControlOwner, from: LibraryCatalog = catalogOf(item.id)): boolean => {
   const content = item.content
   if (item.trashed || !('revisionId' in content)) return false
   const payload = from.revisions.find((revision) => revision.id === content.revisionId)?.payload
@@ -71,14 +73,16 @@ export const libraryClipFitsSlot = (item: LibraryItem, trackId: string, scene: n
   const content = item.content, track = trackOf(trackId)
   if (item.trashed || (content.kind !== 'midi-clip' && content.kind !== 'audio-clip') || !track || track.kind === 'return' || !!track.clips[scene]) return false
   if ((track.kind === 'instrument') !== (content.kind === 'midi-clip')) return false
-  return content.kind === 'midi-clip' || [...project().samples, ...catalog().samples].some((sample) => sample.id === content.clip.sampleId)
+  return content.kind === 'midi-clip' || [...project().samples, ...catalogOf(item.id).samples].some((sample) => sample.id === content.clip.sampleId)
 }
 
 /** Inserts a library clip into an empty slot of `owner`'s: the Library's *Insert into empty slot*, and a clip dropped on a slot. */
 export const insertLibraryClipAt = (item: LibraryItem, owner: ControlOwner, scene: number, { library }: ActionContext): Promise<string> =>
-  library.insert(item, { mode: 'replace', scope: { owner, domain: 'patch' } }, scene)
+  library.insert(item, { mode: 'replace', scope: { owner, domain: 'patch' } }, scene, undefined, fromOf(item.id))
 
 const live = (subject: ItemSubject) => !!itemOf(subject) && !itemOf(subject)?.trashed
+/** A live item of the personal library: the Factory's are used and copied, never edited. */
+const editable = (subject: ItemSubject) => live(subject) && !isFactoryId(subject.itemId)
 const isClip = (item: LibraryItem | undefined) => item?.content.kind === 'audio-clip' || item?.content.kind === 'midi-clip'
 const sceneName = (scene: number): string => project().sceneNames?.[scene] || `Scene ${scene + 1}`
 
@@ -175,16 +179,16 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     applies: live,
     run: async (subject, context) => {
       const item = itemOf(subject)
-      if (item) return previewLibraryItem(item, context)
+      if (item) return previewLibraryItem(item, context, fromOf(item.id))
     },
   },
-  renameAction('library-item', live),
+  renameAction('library-item', editable),
   {
     id: 'library-item.duplicate',
     verb: 'duplicate',
     title: 'Duplicate',
     group: 'edit',
-    applies: live,
+    applies: editable,
     // The copy takes the item's presets along.
     run: (subject, context) => editLibrary(context, (value) => libraryItemDuplicate(value, subject.itemId), 'Library saved'),
   },
@@ -193,8 +197,8 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     title: 'Insert new instrument track',
     group: 'edit',
     applies: live,
-    enabled: (subject) => isInstrumentItem(catalog(), itemOf(subject)!),
-    run: (subject, { library }) => library.insert(itemOf(subject)!, { mode: 'new-track' }),
+    enabled: (subject) => isInstrumentItem(catalogOf(subject.itemId), itemOf(subject)!),
+    run: (subject, { library }) => library.insert(itemOf(subject)!, { mode: 'new-track' }, undefined, undefined, fromOf(subject.itemId)),
   },
   {
     id: 'library-item.replace',
@@ -225,7 +229,7 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     choices: (subject) => sceneChoices(itemOf(subject)!, true),
     run: (subject, { library }, choice) => {
       const item = itemOf(subject)!, track = clipTrackFor(item)
-      if (track && choice !== undefined) return library.insert(item, { mode: 'replace', scope: { owner: { kind: 'track', trackId: track.id }, domain: 'patch' } }, Number(choice), true)
+      if (track && choice !== undefined) return library.insert(item, { mode: 'replace', scope: { owner: { kind: 'track', trackId: track.id }, domain: 'patch' } }, Number(choice), true, fromOf(item.id))
     },
   },
   {
@@ -233,7 +237,7 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     title: 'Move to',
     group: 'edit',
     // A preset goes where its sound goes.
-    applies: (subject) => live(subject) && itemOf(subject)?.content.kind !== 'preset',
+    applies: (subject) => editable(subject) && itemOf(subject)?.content.kind !== 'preset',
     choices: (subject) => folderChoices(itemOf(subject)?.folderId ?? null),
     run: (subject, context, choice) => editLibrary(context, (value) => moveLibraryEntry(value, subject.itemId, destinationOf(choice)), 'Moved'),
   },
@@ -251,7 +255,7 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     title: 'Trash',
     group: 'delete',
     danger: true,
-    applies: live,
+    applies: editable,
     // Its presets go with it; the trash keeps their dependencies and sample bytes. The Library moves on to its folder.
     run: async (subject, context) => {
       context.library.stopPreview()
@@ -271,6 +275,8 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
 ]
 
 const liveFolder = (subject: FolderSubject) => !!folderOf(subject) && !folderOf(subject)?.trashed
+/** A live folder of the personal library: the Factory's open and export, and that is all. */
+const editableFolder = (subject: FolderSubject) => liveFolder(subject) && !isFactoryId(subject.folderId)
 
 /** Makes a folder called "New folder" in `parentId`, makes it active and names it in place. */
 const newFolder = async (parentId: string | null, context: ActionContext) => {
@@ -289,12 +295,12 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     applies: liveFolder,
     run: ({ folderId }) => useLibraryStore.getState().setActive({ kind: 'folder', id: folderId }),
   },
-  renameAction('library-folder', liveFolder),
+  renameAction('library-folder', editableFolder),
   {
     id: 'library-folder.new-folder',
     title: 'New folder inside',
     group: 'edit',
-    applies: liveFolder,
+    applies: editableFolder,
     takesFocus: true,
     // Made as "New folder", opened and named in place.
     run: ({ folderId }, context) => newFolder(folderId, context),
@@ -304,7 +310,7 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     verb: 'duplicate',
     title: 'Duplicate',
     group: 'edit',
-    applies: liveFolder,
+    applies: editableFolder,
     // A deep copy beside it, sharing revisions and samples.
     run: ({ folderId }, context) => editLibrary(context, (value) => duplicateLibraryFolder(value, folderId, folderOf({ kind: 'library-folder', folderId })?.parentId ?? null), 'Library saved'),
   },
@@ -312,7 +318,7 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     id: 'library-folder.move',
     title: 'Move to',
     group: 'edit',
-    applies: liveFolder,
+    applies: editableFolder,
     choices: (subject) => folderChoices(folderOf(subject)?.parentId ?? null, subject.folderId),
     run: ({ folderId }, context, choice) => editLibrary(context, (value) => moveLibraryEntry(value, folderId, destinationOf(choice)), 'Moved'),
   },
@@ -330,7 +336,7 @@ export const libraryFolderActions: readonly Action<FolderSubject>[] = [
     title: 'Trash',
     group: 'delete',
     danger: true,
-    applies: liveFolder,
+    applies: editableFolder,
     run: async ({ folderId }, context) => {
       const message = await editLibrary(context, (value) => trashLibraryEntry(value, folderId), 'Moved to the trash with its contents')
       moveOffTrash(folderOf({ kind: 'library-folder', folderId })?.parentId ?? null)

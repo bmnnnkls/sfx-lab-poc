@@ -30,6 +30,9 @@ const projectGlyph = (entry: ProjectEntry): string | undefined => {
   }
 }
 
+/** The glyph before a root: *This project*'s diamond, the Factory's lock. */
+const ROOT_GLYPHS: Partial<Record<LibraryRow['root'], string>> = { project: '◆', factory: '🔒' }
+
 /** A row's key for the store's active row, and back. */
 export const keyOf = (ref: LibraryRowRef | null): RowKey => (!ref ? 'mine' : ref.kind === 'root' || ref.kind === 'project' ? ref.id : ref.kind === 'folder' ? folderKey(ref.id) : itemKey(ref.id))
 export const refOf = (row: LibraryRow): LibraryRowRef =>
@@ -55,15 +58,15 @@ const projectSubject = (entry: ProjectEntry): Subject | null => {
  * its throwaway item's id; undefined for the rest.
  */
 export const previewIdOf = (row: LibraryRow): string | undefined => {
-  if (row.kind === 'item' || row.kind === 'preset') return row.root === 'mine' ? row.id : undefined
+  if (row.kind === 'item' || row.kind === 'preset') return row.root === 'mine' || row.root === 'factory' ? row.id : undefined
   if (row.kind === 'project' && row.entry.kind === 'graph' && !row.entry.reason) return projectGraphItemId(row.entry.owner, row.entry.domain)
   return undefined
 }
 
-/** The subject a row's menu and keys act on; none for *This project*'s root or a heading. */
+/** The subject a row's menu and keys act on; none for *This project*'s root, the Factory's or a heading. */
 export const subjectOf = (row: LibraryRow): Subject | null =>
   row.kind === 'root'
-    ? row.root === 'project' ? null : { kind: 'library-root', root: row.root }
+    ? row.root === 'project' || row.root === 'factory' ? null : { kind: 'library-root', root: row.root }
     : row.kind === 'folder' ? { kind: 'library-folder', folderId: row.id } : row.kind === 'project' ? projectSubject(row.entry) : { kind: 'library-item', itemId: row.id }
 
 /**
@@ -94,21 +97,24 @@ interface RowProps {
   onRename(subject: Subject, name: string): void
 }
 
-/** One row: its menu, a drag source (but a root), a drop target (a folder or a root), and spring-opening when closed. */
+/**
+ * One row: its menu, a drag source (but a root), a drop target (a folder or a root of the personal library; the Factory
+ * is read-only), and spring-opening when closed.
+ */
 const NO_SUBJECT: Subject = { kind: 'master' }
 
 const Row = ({ row, item, active, focusable, selected, previewing, onChoose, onToggle, onExpand, onPreview, onRename }: RowProps) => {
   const subject = subjectOf(row)
   const renaming = useRenaming(subject ?? NO_SUBJECT) && subject !== null
   const payload: DragPayload | null = renaming || row.kind === 'root' ? null : row.kind === 'project' ? projectPayload(row.entry, subject) : (subject as DragPayload)
-  const target: DropTarget | null = (row.kind === 'root' && row.root !== 'project') || row.kind === 'folder' ? (subject as DropTarget) : null
+  const target: DropTarget | null = (row.kind === 'root' || row.kind === 'folder') && row.root !== 'project' && row.root !== 'factory' ? (subject as DropTarget) : null
   const drag = useDragSource(payload)
   const drop = useDropTarget(target)
   const spring = useSpringOpen(row.hasChildren && !row.expanded ? () => onExpand(row) : null)
   const count = row.kind === 'root' || row.kind === 'folder' || row.kind === 'project' ? row.count : 0
   const playable = previewIdOf(row) !== undefined
   const label = count > 0 ? `${row.name}, ${countLabel(row, count)}` : row.name
-  const glyph = item ? GLYPHS[item.content.kind] : row.kind === 'project' ? projectGlyph(row.entry) : row.kind === 'root' && row.root === 'project' ? '◆' : undefined
+  const glyph = item ? GLYPHS[item.content.kind] : row.kind === 'project' ? projectGlyph(row.entry) : row.kind === 'root' ? ROOT_GLYPHS[row.root] : undefined
   // Why a graph can't be saved or copied: it reads another track.
   const reason = row.kind === 'project' && row.entry.kind === 'graph' ? row.entry.reason : undefined
   return (
@@ -119,8 +125,8 @@ const Row = ({ row, item, active, focusable, selected, previewing, onChoose, onT
         aria-selected={active || selected}
         aria-expanded={row.hasChildren ? row.expanded : undefined}
         aria-label={label}
-        aria-description={reason}
-        title={reason}
+        aria-description={reason ?? (row.kind === 'root' && row.root === 'factory' ? 'Read-only' : undefined)}
+        title={reason ?? (row.kind === 'root' && row.root === 'factory' ? 'Read-only: copy a sound to My library to change it' : undefined)}
         tabIndex={focusable ? 0 : -1}
         className={`${styles.row} ${active ? styles.active : ''} ${selected ? styles.selected : ''} ${row.root === 'trash' && row.kind !== 'root' ? styles.trashed : ''}`}
         style={{ paddingInlineStart: 4 + (row.level - 1) * 14 }}
@@ -173,6 +179,8 @@ const Row = ({ row, item, active, focusable, selected, previewing, onChoose, onT
 
 interface LibraryTreeProps {
   readonly catalog: LibraryCatalog
+  /** The Factory's catalog; null while it loads. */
+  readonly factory: LibraryCatalog | null
   readonly query: string
   readonly kind: string
   readonly active: LibraryRowRef | null
@@ -188,13 +196,13 @@ interface LibraryTreeProps {
 
 /**
  * The library as one tree (the WAI-ARIA tree view pattern): *This project* (the open project's sounds, clips and
- * samples, live and read-only as a library; collapsed until opened, and kept open per project), then *My library* and
- * *Trash*, folders, items and the presets under their sound. The active row is the one Tab reaches and the details show; the arrows move it, Right and Left
+ * samples, live and read-only as a library; collapsed until opened, and kept open per project), then *My library*, the
+ * read-only *Factory* (collapsed until opened) and *Trash*, folders, items and the presets under their sound. The active row is the one Tab reaches and the details show; the arrows move it, Right and Left
  * expand and collapse, Enter runs its primary action and Space previews. A click makes a row active and selects it,
  * ⇧ extends the selection along the rows and ⌘ toggles a row. Rows drag onto folders and the roots, and a closed row
  * springs open under a resting drag.
  */
-export const LibraryTree = ({ catalog, query, kind, active, selected, previewing, onActivate, onPrimary, onPreview, onRename }: LibraryTreeProps) => {
+export const LibraryTree = ({ catalog, factory, query, kind, active, selected, previewing, onActivate, onPrimary, onPreview, onRename }: LibraryTreeProps) => {
   // *This project*'s rows change with its edits, but not with a value's (a knob dragged): `projectModel` says.
   const model = useProjectStore((state) => projectModel(state.project))
   const epoch = useProjectStore((state) => state.documentEpoch)
@@ -215,8 +223,8 @@ export const LibraryTree = ({ catalog, query, kind, active, selected, previewing
   const focusAfterKey = useRef(false)
   const activeKey = keyOf(active)
   // A row made active from outside (Show, a new folder) shows: the rows above it expand.
-  useEffect(() => setExpanded((now) => expandedFor(catalog, now, activeKey)), [activeKey])
-  const rows = [...projectRows(model, { expanded, query, kind }), ...libraryRows(catalog, { expanded, query, kind })]
+  useEffect(() => setExpanded((now) => expandedFor(catalog, now, activeKey, factory)), [activeKey, factory])
+  const rows = [...projectRows(model, { expanded, query, kind }), ...libraryRows(catalog, { expanded, query, kind }, factory)]
   // The row Tab reaches: the active one, or the first while the active one is hidden (filtered out, collapsed away).
   const focusKey = rows.some((row) => row.key === activeKey) ? activeKey : rows[0]?.key
   useEffect(() => {
@@ -224,7 +232,7 @@ export const LibraryTree = ({ catalog, query, kind, active, selected, previewing
     focusAfterKey.current = false
     tree.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus()
   })
-  const items = new Map(catalog.items.map((item) => [item.id, item]))
+  const items = new Map([...catalog.items, ...(factory?.items ?? [])].map((item) => [item.id, item]))
   const rowItem = (row: LibraryRow) => (row.kind === 'item' || row.kind === 'preset' ? items.get(row.id) : undefined)
   const itemIds = (list: readonly LibraryRow[]) => list.filter((row) => row.kind === 'item' || row.kind === 'preset').map((row) => (row as { id: string }).id)
 

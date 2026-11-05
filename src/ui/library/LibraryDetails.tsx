@@ -1,5 +1,5 @@
-import { type ControlOwner, EFFECT_INPUTS, type LibraryCatalog, type LibraryItem, type Project, libraryDependencies, linkOf, originOwner } from '@core'
-import { type LibraryRowRef, type Subject, clipTrackFor, graphFitsOwner, insertionScope, libraryClipFitsSlot, subjectName, useProjectStore, useSelectionStore } from '@state'
+import { type ControlOwner, EFFECT_INPUTS, type LibraryCatalog, type LibraryItem, type Project, isFactoryId, libraryDependencies, linkOf, originOwner } from '@core'
+import { type LibraryRowRef, type Subject, clipTrackFor, graphFitsOwner, insertionScope, libraryClipFitsSlot, subjectName, useLibraryStore, useProjectStore, useSelectionStore } from '@state'
 import { PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import { type ProjectEntry, projectModel, projectNodeOf } from './library-tree'
 import styles from './LibraryPanel.module.css'
@@ -116,17 +116,23 @@ const More = ({ subject, label }: { subject: Subject; label: string }) => {
 
 interface LibraryDetailsProps {
   readonly catalog: LibraryCatalog
+  /** The Factory's catalog; null while it loads. */
+  readonly factory: LibraryCatalog | null
   readonly active: LibraryRowRef | null
   readonly busy: boolean
   onRun(id: string, subject: Subject, choice?: string): void
 }
 
 /** What the active row is, in one line of facts, with its main button and ⋯ for the rest. */
-export const LibraryDetails = ({ catalog, active, busy, onRun }: LibraryDetailsProps) => {
+export const LibraryDetails = ({ catalog: personal, factory, active, busy, onRun }: LibraryDetailsProps) => {
   // The main button names the selected track, so it follows the project and the selection.
   const project = useProjectStore((state) => state.project)
+  const notes = useLibraryStore((state) => state.factoryNotes)
   useSelectionStore((state) => [state.trackId, state.groupId, state.master].join())
-  const live = catalog.items.filter((item) => !item.trashed)
+  // A Factory row's details read the Factory's catalog; everything else the personal one.
+  const inFactory = (active?.kind === 'item' || active?.kind === 'folder') && isFactoryId(active.id)
+  const catalog = inFactory ? (factory ?? { ...personal, folders: [], items: [] }) : personal
+  const live = personal.items.filter((item) => !item.trashed)
   const item = active?.kind === 'item' ? catalog.items.find((candidate) => candidate.id === active.id) : undefined
   const folder = active?.kind === 'folder' ? catalog.folders.find((candidate) => candidate.id === active.id) : undefined
   if (item) {
@@ -134,12 +140,14 @@ export const LibraryDetails = ({ catalog, active, busy, onRun }: LibraryDetailsP
     const primary = primaryOf(catalog, item)
     const used = usedOn(project, catalog, item)
     const samples = libraryDependencies(catalog, item).sampleIds.map((id) => catalog.samples.find((sample) => sample.id === id) ?? { id, name: 'Missing sample', durationSeconds: 0 })
+    const kind = item.trashed ? `${KIND_NAMES[item.content.kind]} · in the trash` : inFactory ? `${KIND_NAMES[item.content.kind]} · Factory` : KIND_NAMES[item.content.kind]
     return (
       <article className={styles.details} aria-label="Library details">
         <header className={styles.detailsHead}>
           <h3>{item.name}</h3>
-          <span className={styles.kind}>{item.trashed ? `${KIND_NAMES[item.content.kind]} · in the trash` : KIND_NAMES[item.content.kind]}</span>
+          <span className={styles.kind}>{kind}</span>
         </header>
+        {inFactory && notes[item.id] && <p className={styles.note}>{notes[item.id]}</p>}
         <p className={styles.facts}>{factsOf(catalog, item)}</p>
         {used.length > 0 && <p className={styles.facts}>Used on {used.join(', ')}</p>}
         {samples.length > 0 && item.content.kind !== 'sample' && (
@@ -163,7 +171,7 @@ export const LibraryDetails = ({ catalog, active, busy, onRun }: LibraryDetailsP
       <article className={styles.details} aria-label="Library details">
         <header className={styles.detailsHead}>
           <h3>{folder.name}</h3>
-          <span className={styles.kind}>{folder.trashed ? 'Folder · in the trash' : 'Folder'}</span>
+          <span className={styles.kind}>{folder.trashed ? 'Folder · in the trash' : inFactory ? 'Folder · Factory' : 'Folder'}</span>
         </header>
         <p className={styles.facts}>{plural(items, 'item')} · {plural(folders, 'folder')}</p>
         <div className={styles.buttons}>
@@ -182,6 +190,15 @@ export const LibraryDetails = ({ catalog, active, busy, onRun }: LibraryDetailsP
         <div className={styles.buttons}>
           <More subject={{ kind: 'library-root', root: 'trash' }} label="More for Trash" />
         </div>
+      </article>
+    )
+  }
+  if (active?.kind === 'root' && active.id === 'factory') {
+    const items = factory?.items.filter((candidate) => candidate.content.kind !== 'preset').length ?? 0
+    return (
+      <article className={styles.details} aria-label="Library details">
+        <header className={styles.detailsHead}><h3>Factory</h3><span className={styles.kind}>Read-only</span></header>
+        <p className={styles.facts}>{factory ? `${plural(items, 'item')} · ${plural(factory.folders.length, 'folder')}. ` : 'Loading… '}Ready-made sounds, effects and clips from the examples. Use them as they are, or copy one to My library to change it.</p>
       </article>
     )
   }
@@ -272,12 +289,13 @@ const EmptyLibrary = ({ busy, onRun }: Pick<LibraryDetailsProps, 'busy' | 'onRun
   const instrument = project.tracks.find((track) => track.id === selected && track.kind === 'instrument') ?? project.tracks.find((track) => track.kind === 'instrument')
   return (
     <article className={`${styles.details} ${styles.empty}`} aria-label="Library details">
-      <p>Right-click a track, clip or sample and choose <em>Save to library</em>, or drop an <code>.sfxlib</code> file here.</p>
+      {/* The button first: in a short view it stays in sight under the tree's roots. */}
       {instrument && (
         <button className={styles.primary} disabled={busy} onClick={() => onRun('track.save-to-library', { kind: 'track', trackId: instrument.id }, 'patch')}>
           Save {instrument.name} to library
         </button>
       )}
+      <p>Right-click a track, clip or sample and choose <em>Save to library</em>, or drop an <code>.sfxlib</code> file here.</p>
     </article>
   )
 }

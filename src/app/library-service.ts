@@ -1,5 +1,6 @@
 import type { PersonalLibrary } from '@state'
 import type { LibraryStorage, SampleStorage } from '@storage'
+import { loadFactoryLibrary } from './factory-library'
 
 /** Load catalog workflows only when the Library is opened; cancellation also covers the pending module load. */
 export const createDeferredPersonalLibrary = (storage: LibraryStorage, samples: SampleStorage): PersonalLibrary => {
@@ -25,5 +26,7 @@ export const createDeferredPersonalLibrary = (storage: LibraryStorage, samples: 
       return 'cancelled'
     },
     stopPreview: () => { generation++; service?.stopPreview() },
+    // The Factory needs none of the library's code: it loads on its own.
+    factory: loadFactoryLibrary,
   }
 }

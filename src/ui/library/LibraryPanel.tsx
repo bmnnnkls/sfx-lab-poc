@@ -1,5 +1,5 @@
-import { type LibraryBundleSelection, type LibraryBundleStage, type LibraryCatalog } from '@core'
-import { type LibraryRowRef, type Subject, commitRename, runAction, useLibraryStore, usePersonalLibrary, useSelectionStore } from '@state'
+import { type LibraryBundleSelection, type LibraryBundleStage, type LibraryCatalog, isFactoryId } from '@core'
+import { type LibraryRowRef, type Subject, catalogOf, commitRename, loadFactory, runAction, useLibraryStore, usePersonalLibrary, useSelectionStore } from '@state'
 import { type DragEvent, useEffect, useRef, useState } from 'react'
 import { PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import { BundleDialog } from './BundleDialog'
@@ -22,7 +22,7 @@ const isBundleFile = (file: File) => file.name.toLowerCase().endsWith('.sfxlib')
  */
 export const LibraryPanel = () => {
   const library = usePersonalLibrary(), context = useActionContext()
-  const catalog = useLibraryStore((s) => s.catalog), setCatalog = useLibraryStore((s) => s.setCatalog)
+  const catalog = useLibraryStore((s) => s.catalog), setCatalog = useLibraryStore((s) => s.setCatalog), factory = useLibraryStore((s) => s.factory)
   const active = useLibraryStore((s) => s.active), selected = useLibraryStore((s) => s.selected), previewing = useLibraryStore((s) => s.previewing), request = useLibraryStore((s) => s.request)
   const selection = useSelectionStore()
   const [query, setQuery] = useState(''), [kind, setKind] = useState('')
@@ -59,6 +59,10 @@ export const LibraryPanel = () => {
     })
     return () => { current = false; operationId.current++; previewOperation.current = false; setBusy(false); library.stopPreview(); useLibraryStore.getState().setPreviewing(null) }
   }, [library])
+  // The Factory loads on the first mount: its code is a chunk of its own, and its catalog is built from the examples.
+  useEffect(() => {
+    loadFactory(() => library.factory()).catch((error: unknown) => setMessage(`The Factory didn't load: ${error instanceof Error ? error.message : String(error)}`))
+  }, [library])
   const activeKey = active ? `${active.kind}:${active.id}` : ''
   useEffect(() => { stopPreview() }, [library, query, kind, activeKey, selection.trackId, selection.master, selection.groupId, selection.clipId])
   /** Runs one of the library's actions from here: busy while it runs, its message on the status line. */
@@ -81,15 +85,18 @@ export const LibraryPanel = () => {
       return
     }
     if (row.kind !== 'item' && row.kind !== 'preset') return
-    const item = catalog.items.find((candidate) => candidate.id === row.id)
+    const source = catalogOf(row.id)
+    const item = source.items.find((candidate) => candidate.id === row.id)
     if (!item) return
-    const action = primaryOf(catalog, item)
+    const action = primaryOf(source, item)
     if (!action.refusal) act(action.id, { kind: 'library-item', itemId: row.id }, action.choice)
     else setMessage(action.refusal)
   }
   const reviewExport = (selection: LibraryBundleSelection, name: string) => run(async () => {
     stopPreview(); setBundle(null)
-    setBundle({ stage: await library.prepareBundle(selection, name), exporting: true })
+    // A selection that reaches into the Factory reads its catalog beside storage's.
+    const extra = [...(selection.itemIds ?? []), ...(selection.folderIds ?? [])].some(isFactoryId) ? (useLibraryStore.getState().factory ?? undefined) : undefined
+    setBundle({ stage: await library.prepareBundle(selection, name, extra), exporting: true })
     return 'Review the bundle before downloading'
   })
   const stage = (file: File) => void run(async () => {
@@ -107,9 +114,9 @@ export const LibraryPanel = () => {
   }, [request])
   // Items that are gone, or in the trash, leave the selection.
   useEffect(() => {
-    const available = new Set(catalog.items.filter((item) => !item.trashed).map((item) => item.id))
-    if (selected.some((id) => !available.has(id))) useLibraryStore.getState().select(selected.filter((id) => available.has(id)))
-  }, [catalog, selected])
+    const available = new Set([...catalog.items, ...(factory?.items ?? [])].filter((item) => !item.trashed).map((item) => item.id))
+    if (selected.some((id) => !available.has(id) && !(isFactoryId(id) && !factory))) useLibraryStore.getState().select(selected.filter((id) => available.has(id)))
+  }, [catalog, factory, selected])
 
   const activate = (ref: LibraryRowRef, items: readonly string[]) => {
     useLibraryStore.getState().setActive(ref)
@@ -146,7 +153,7 @@ export const LibraryPanel = () => {
         <PopupMenu entries={() => [
           ...useActionEntries({ kind: 'library-root', root: 'mine' }, context),
           { kind: 'separator' as const },
-          { label: `Export selection…${selected.length > 1 ? ` (${selected.length})` : ''}`, disabled: selected.length === 0 || busy, takesFocus: true, onSelect: () => void reviewExport({ itemIds: selected }, selected.length === 1 ? (catalog.items.find((item) => item.id === selected[0])?.name ?? 'Selection') : 'Selection') },
+          { label: `Export selection…${selected.length > 1 ? ` (${selected.length})` : ''}`, disabled: selected.length === 0 || busy, takesFocus: true, onSelect: () => void reviewExport({ itemIds: selected }, selected.length === 1 ? (catalogOf(selected[0]!).items.find((item) => item.id === selected[0])?.name ?? 'Selection') : 'Selection') },
         ]}>
           <button className={styles.more} aria-label="Library actions" title="Library actions">⋯</button>
         </PopupMenu>
@@ -164,9 +171,9 @@ export const LibraryPanel = () => {
       }} />
       <div className={styles.columns}>
         <div className={styles.treeColumn}>
-          <LibraryTree catalog={catalog} query={query} kind={kind} active={active} selected={selected} previewing={previewing} onActivate={activate} onPrimary={primary} onPreview={preview} onRename={rename} />
+          <LibraryTree catalog={catalog} factory={factory} query={query} kind={kind} active={active} selected={selected} previewing={previewing} onActivate={activate} onPrimary={primary} onPreview={preview} onRename={rename} />
         </div>
-        <LibraryDetails catalog={catalog} active={active} busy={busy} onRun={act} />
+        <LibraryDetails catalog={catalog} factory={factory} active={active} busy={busy} onRun={act} />
       </div>
       {bundle && (
         <BundleDialog

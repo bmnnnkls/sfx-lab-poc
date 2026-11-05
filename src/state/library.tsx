@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { LibraryCatalog, LibraryItem, SnapshotScope, AssetDestination, LibraryBundleSelection, LibraryBundleStage } from '@core'
+import type { FactoryLibrary, LibraryCatalog, LibraryItem, SnapshotScope, AssetDestination, LibraryBundleSelection, LibraryBundleStage } from '@core'
 export interface PersonalLibrary {
   read(): Promise<LibraryCatalog>
   update(edit: (catalog: LibraryCatalog) => LibraryCatalog): Promise<LibraryCatalog>
@@ -22,9 +22,12 @@ export interface PersonalLibrary {
   preview(item: LibraryItem, onStop?: () => void, from?: LibraryCatalog): Promise<'started' | 'cancelled'>
   stageBundle(bytes: Uint8Array): Promise<LibraryBundleStage>
   importBundle(stage: LibraryBundleStage): Promise<LibraryCatalog>
-  prepareBundle(selection: LibraryBundleSelection, name: string): Promise<LibraryBundleStage>
+  /** Stages an export for review. `extra`: another catalog the selection may reach into (the Factory's), read beside storage's. */
+  prepareBundle(selection: LibraryBundleSelection, name: string, extra?: LibraryCatalog): Promise<LibraryBundleStage>
   exportBundle(stage: LibraryBundleStage, allowPartial: boolean): Promise<string>
   stopPreview(): void
+  /** The read-only Factory: its code loads on the first call, and its catalog is built then. */
+  factory(): Promise<FactoryLibrary>
 }
 const Context = createContext<PersonalLibrary | null>(null)
 export const PersonalLibraryProvider = Context.Provider

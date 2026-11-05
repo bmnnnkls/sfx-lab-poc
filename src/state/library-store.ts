@@ -1,4 +1,4 @@
-import { type LibraryBundleSelection, type LibraryCatalog, emptyLibrary } from '@core'
+import { type FactoryLibrary, type LibraryBundleSelection, type LibraryCatalog, emptyLibrary, isFactoryId } from '@core'
 import { create } from 'zustand'
 import { useLayoutStore } from './layout-store'
 import { useProjectStore } from './project-store'
@@ -27,6 +27,10 @@ export type LibraryRequest = { readonly kind: 'export'; readonly selection: Libr
 interface LibraryViewState {
   /** The catalog as last read or written; the Library view and the library's actions both keep it current. */
   readonly catalog: LibraryCatalog
+  /** The read-only Factory catalog, once loaded (`loadFactory`); null until then. */
+  readonly factory: LibraryCatalog | null
+  /** A line per Factory item, by id, for the details. */
+  readonly factoryNotes: Readonly<Record<string, string>>
   /**
    * The row the details show and the tree focuses. A new value from outside the tree (`reveal`) makes the tree expand
    * the rows above it. Null shows *My library*.
@@ -53,6 +57,8 @@ interface LibraryViewState {
 /** The personal library as the UI sees it. The library itself lives in storage, behind `PersonalLibrary`. */
 export const useLibraryStore = create<LibraryViewState>((set) => ({
   catalog: emptyLibrary(),
+  factory: null,
+  factoryNotes: {},
   active: null,
   selected: [],
   previewing: null,
@@ -92,3 +98,35 @@ export const openFolderOf = ({ catalog, active }: Pick<LibraryViewState, 'catalo
 
 /** The folder open in the Library now. */
 export const openFolder = (): string | null => openFolderOf(useLibraryStore.getState())
+
+const EMPTY = emptyLibrary()
+
+/** The catalog an id lives in: the Factory's for a `factory:` id (empty until it has loaded), the personal one otherwise. */
+export const catalogOf = (id: string, state: Pick<LibraryViewState, 'catalog' | 'factory'> = useLibraryStore.getState()): LibraryCatalog =>
+  isFactoryId(id) ? (state.factory ?? EMPTY) : state.catalog
+
+/** The catalog to insert or preview an item from, when it isn't storage's: the Factory's, for a Factory item. */
+export const fromOf = (id: string): LibraryCatalog | undefined => (isFactoryId(id) ? (useLibraryStore.getState().factory ?? undefined) : undefined)
+
+let loadingFactory: Promise<LibraryCatalog> | undefined
+
+/**
+ * Loads the Factory into the store once (its code is a lazy chunk, and the catalog is built from the examples on the
+ * way); later calls get the same promise. A failure lets the next call try again.
+ */
+export const loadFactory = (load: () => Promise<FactoryLibrary>): Promise<LibraryCatalog> => {
+  const known = useLibraryStore.getState().factory
+  if (known) return Promise.resolve(known)
+  loadingFactory ??= load().then(
+    ({ catalog, notes }) => {
+      useLibraryStore.setState({ factory: catalog, factoryNotes: notes })
+      return catalog
+    },
+    (error: unknown) => {
+      loadingFactory = undefined
+      throw error
+    },
+  )
+  return loadingFactory
+}
+

@@ -1,6 +1,6 @@
-import { type ControlOwner, type LibraryItem, type ProjectPreset, controlOwnerId, linkOf, linkedSounds } from '@core'
+import { type ControlOwner, type LibraryItem, type ProjectPreset, controlOwnerId, isFactoryId, linkOf, linkedSounds } from '@core'
 import { type KeyboardEvent, useEffect, useId, useMemo } from 'react'
-import { isStillRecalled, recallLinkedSound, scopeState, useLibraryStore, useProjectStore, useSoundsStore } from '@state'
+import { isStillRecalled, loadFactory, recallLinkedSound, scopeState, useLibraryStore, useProjectStore, useSoundsStore } from '@state'
 import { useActionContext } from '../shared/menu'
 import styles from './SoundsPanel.module.css'
 
@@ -35,24 +35,26 @@ const LibraryRow = ({ item, sound, hint, recalled, onRecall }: { item: LibraryIt
 /**
  * *From the library · Big bass*: the library sound the selection's graph was inserted from, and its presets, recalled
  * onto it through the link. Shows a line instead when the graph has been rewired since, or the sound is in the trash;
- * nothing when the graph has no link, or the sound is gone. It reads the catalog, which stays empty until the Library
- * has been shown.
+ * nothing when the graph has no link, or the sound is gone. It reads the catalog the link's item is in: the personal one
+ * (empty in the store until the Library has been shown, so it reads it), or the Factory's (loaded on the way).
  */
 export const LibrarySounds = ({ owner, domain, ownerName, onReport }: LibrarySoundsProps) => {
   const project = useProjectStore((state) => state.project)
-  const catalog = useLibraryStore((state) => state.catalog)
   const mark = useSoundsStore((state) => state.recalled)
   const { library } = useActionContext()
   const ownerKey = JSON.stringify(owner)
   const link = useMemo(() => linkOf(project, owner, domain), [project, ownerKey, domain])
   const itemId = link?.origin.itemId
+  const factory = !!itemId && isFactoryId(itemId)
+  const catalog = useLibraryStore((state) => (factory ? state.factory : state.catalog))
   useEffect(() => {
     if (!itemId) return
     let current = true
-    library.read().then((value) => { if (current) useLibraryStore.getState().setCatalog(value) }).catch(() => undefined)
+    if (isFactoryId(itemId)) loadFactory(() => library.factory()).catch(() => undefined)
+    else library.read().then((value) => { if (current) useLibraryStore.getState().setCatalog(value) }).catch(() => undefined)
     return () => { current = false }
   }, [itemId, library])
-  if (!link) return null
+  if (!link || !catalog) return null
   const { sound, trashed, states } = linkedSounds(catalog, link.origin)
   if (!sound) return null
   const scope = { owner, domain }

@@ -1,5 +1,5 @@
-import { type ControlOwner, type LibraryCatalog, type LibraryItem, type Project, type SnapshotScope, type TrackItem, type TrackPlace, canMoveGroup, canMoveTrack, duplicateLibraryFolder, libraryItemDuplicate, moveLibraryEntry } from '@core'
-import { useLibraryStore } from '../library-store'
+import { type ControlOwner, type LibraryCatalog, type LibraryItem, type Project, type SnapshotScope, type TrackItem, type TrackPlace, canMoveGroup, canMoveTrack, duplicateLibraryFolder, isFactoryId, libraryItemDuplicate, moveLibraryEntry } from '@core'
+import { catalogOf, useLibraryStore } from '../library-store'
 import { useProjectStore } from '../project-store'
 import { canRunAction, runAction, type RunOptions, settle } from '.'
 import { canPasteClipOnLane, pasteClipOnLane } from './lane'
@@ -44,7 +44,8 @@ const define = <P extends DragPayload['kind'], T extends DropTarget['kind']>(dro
 
 const copies = () => 'copy' as const
 const presetOf = ({ soundId, preset }: SubjectOf<'sound'>) => (preset ? project().presets?.find((candidate) => candidate.id === soundId) : undefined)
-const libraryItemOf = ({ itemId }: SubjectOf<'library-item'>) => useLibraryStore.getState().catalog.items.find((item) => item.id === itemId)
+/** A library item of the personal library or the Factory, by its id. */
+const libraryItemOf = ({ itemId }: SubjectOf<'library-item'>) => catalogOf(itemId).items.find((item) => item.id === itemId)
 const trackOwner = (trackId: string): ControlOwner => ({ kind: 'track', trackId })
 const MASTER: ControlOwner = { kind: 'master' }
 const groupOwner = (groupId: string): ControlOwner => ({ kind: 'group', groupId })
@@ -133,7 +134,7 @@ const libraryMoves = (['library-folder', 'library-root'] as const).flatMap((targ
     target,
     accepts: (payload, place) => {
       const item = libraryItemOf(payload)
-      if (!item || item.content.kind === 'preset' || !livePlace(place)) return false
+      if (!item || isFactoryId(item.id) || item.content.kind === 'preset' || !livePlace(place)) return false
       return !!item.trashed || item.folderId !== destinationOf(place)
     },
     effect: (payload, place, modifiers) => (libraryItemOf(payload)?.trashed ? 'move' : altCopies(payload, place, modifiers)),

@@ -1,4 +1,4 @@
-import { type ControlOwner, type Project, type ProjectPreset, type SnapshotScope, assetSignature, canRecallProjectPreset, captureAsset, captureSnapshot, controlOwnerId, deleteProjectPreset, deleteSnapshot, duplicateProjectPreset, duplicateSnapshot, linkedSounds, presetLink, putSnapshot, saveProjectPreset } from '@core'
+import { type ControlOwner, type Project, type ProjectPreset, type SnapshotScope, assetSignature, canRecallProjectPreset, captureAsset, captureSnapshot, controlOwnerId, deleteProjectPreset, deleteSnapshot, duplicateProjectPreset, duplicateSnapshot, isFactoryId, linkedSounds, presetLink, putSnapshot, saveProjectPreset } from '@core'
 import { useLibraryStore } from '../library-store'
 import { editPresetProject, recallSavedSound } from '../preset-actions'
 import { scopeState, useSoundsStore } from '../sounds-store'
@@ -75,10 +75,14 @@ export const recallablePresets = (value: Project, owner: ControlOwner, domain: S
 export const recallPresetOn = (preset: ProjectPreset, owner: ControlOwner, domain: SnapshotScope['domain'] = preset.scope.domain): string =>
   recallSavedSound(preset, { owner, domain })
 
-/** The library link a project preset saves back through: its own revision's shape is the link's (`presetLink`). */
+/**
+ * The library link a project preset saves back through: its own revision's shape is the link's (`presetLink`). A link to
+ * a Factory sound isn't one: the Factory is read-only, so its presets save as a sound of their own.
+ */
 const linkOfPreset = (presetId: string) => {
   const value = project(), preset = value.presets?.find((candidate) => candidate.id === presetId)
-  return preset ? presetLink(value, preset) : undefined
+  const origin = preset ? presetLink(value, preset) : undefined
+  return origin && !isFactoryId(origin.itemId) ? origin : undefined
 }
 
 /**

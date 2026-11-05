@@ -1,8 +1,8 @@
-import { type ControlOwner, type LibraryCatalog, type LibraryFolder, type LibraryItem, type Project, controlGraph, trackRows } from '@core'
+import { type ControlOwner, type LibraryCatalog, type LibraryFolder, type LibraryItem, type Project, controlGraph, isFactoryId, trackRows } from '@core'
 import { routingRefusalIn } from '@state'
 
-/** The tree's roots: the open project (*This project*), the live library and the trash. */
-export type LibraryRoot = 'project' | 'mine' | 'trash'
+/** The tree's roots: the open project (*This project*), the live library, the read-only Factory and the trash. */
+export type LibraryRoot = 'project' | 'mine' | 'factory' | 'trash'
 
 /** A row's key, unique in the tree and stable across renders: a root's name, `f:` a folder id, `i:` an item id. */
 export type RowKey = string
@@ -122,11 +122,15 @@ const filterNodes = (nodes: readonly Node[], query: string, kind: string, sound?
   return kept
 }
 
+/** What the Factory root is named while its catalog is loading: the row says so. */
+export const FACTORY_LOADING = 'Loading Factory…'
+
 /**
- * The rows the tree shows, depth first: *My library*, then the trash, each with what is under its expanded rows. With
- * a query or a kind, the matches and the rows above them, all expanded; the trash is searched only while it is open.
+ * The rows the tree shows, depth first: *My library*, the Factory and the trash, each with what is under its expanded
+ * rows. With a query or a kind, the matches and the rows above them, all expanded; the Factory and the trash are searched
+ * only while they are open. `factory`: its catalog, null while it loads (the root says so), or undefined for no root.
  */
-export const libraryRows = (catalog: Pick<LibraryCatalog, 'folders' | 'items'>, { expanded, query = '', kind = '' }: RowOptions): LibraryRow[] => {
+export const libraryRows = (catalog: Pick<LibraryCatalog, 'folders' | 'items'>, { expanded, query = '', kind = '' }: RowOptions, factory?: Pick<LibraryCatalog, 'folders' | 'items'> | null): LibraryRow[] => {
   const filtering = query.trim() !== '' || kind !== ''
   const needle = query.trim().toLocaleLowerCase()
   const rows: LibraryRow[] = []
@@ -143,12 +147,15 @@ export const libraryRows = (catalog: Pick<LibraryCatalog, 'folders' | 'items'>, 
     }
     if (isExpanded) for (const child of node.children) visit(child, node.key, level + 1, root)
   }
-  for (const root of ['mine', 'trash'] as const) {
-    const all = nodesOf(catalog, root)
+  const roots = factory === undefined ? (['mine', 'trash'] as const) : (['mine', 'factory', 'trash'] as const)
+  for (const root of roots) {
+    // The Factory's nodes are its live ones, as My library's are.
+    const all = root === 'factory' ? (factory ? nodesOf(factory, 'mine') : []) : nodesOf(catalog, root)
     const searched = filtering && (root === 'mine' || expanded.has(root))
     const shown = searched ? filterNodes(all, needle, kind) : all
     const isExpanded = shown.length > 0 && (expanded.has(root) || searched)
-    rows.push({ kind: 'root', key: root, parent: null, level: 1, name: root === 'mine' ? 'My library' : 'Trash', root, count: countItems(shown), hasChildren: shown.length > 0, expanded: isExpanded })
+    const name = root === 'mine' ? 'My library' : root === 'trash' ? 'Trash' : factory ? 'Factory' : FACTORY_LOADING
+    rows.push({ kind: 'root', key: root, parent: null, level: 1, name, root, count: countItems(shown), hasChildren: shown.length > 0, expanded: isExpanded })
     if (isExpanded) for (const node of shown) visit(node, root, 2, root)
   }
   return rows
@@ -297,9 +304,14 @@ export const projectRows = (model: ProjectModel, { expanded, query = '', kind = 
   return rows
 }
 
-/** The keys above a row, nearest first: its sound, its folders and its root. Empty for a root or a missing entry. */
-export const ancestorsOf = (catalog: Pick<LibraryCatalog, 'folders' | 'items'>, key: RowKey): RowKey[] => {
-  if (key === 'mine' || key === 'trash') return []
+/**
+ * The keys above a row, nearest first: its sound, its folders and its root. Empty for a root or a missing entry. A
+ * Factory row's are read in `factory`.
+ */
+export const ancestorsOf = (personal: Pick<LibraryCatalog, 'folders' | 'items'>, key: RowKey, factory?: Pick<LibraryCatalog, 'folders' | 'items'> | null): RowKey[] => {
+  if (key === 'mine' || key === 'trash' || key === 'factory') return []
+  const inFactory = (key.startsWith('i:') || key.startsWith('f:')) && isFactoryId(key.slice(2))
+  const catalog = inFactory ? (factory ?? { folders: [], items: [] }) : personal
   const item = key.startsWith('i:') ? catalog.items.find((candidate) => candidate.id === key.slice(2)) : undefined
   const folder = key.startsWith('f:') ? catalog.folders.find((candidate) => candidate.id === key.slice(2)) : undefined
   const entry = item ?? folder
@@ -319,13 +331,13 @@ export const ancestorsOf = (catalog: Pick<LibraryCatalog, 'folders' | 'items'>, 
     ancestors.push(folderKey(parent))
     parent = live(parent)!.parentId
   }
-  ancestors.push(trashed ? 'trash' : 'mine')
+  ancestors.push(inFactory ? 'factory' : trashed ? 'trash' : 'mine')
   return ancestors
 }
 
 /** `expanded` with the rows above `key` expanded too, so it shows; the same set when they already are. */
-export const expandedFor = (catalog: Pick<LibraryCatalog, 'folders' | 'items'>, expanded: ReadonlySet<RowKey>, key: RowKey): ReadonlySet<RowKey> => {
-  const wanted = ancestorsOf(catalog, key)
+export const expandedFor = (catalog: Pick<LibraryCatalog, 'folders' | 'items'>, expanded: ReadonlySet<RowKey>, key: RowKey, factory?: Pick<LibraryCatalog, 'folders' | 'items'> | null): ReadonlySet<RowKey> => {
+  const wanted = ancestorsOf(catalog, key, factory)
   return wanted.every((ancestor) => expanded.has(ancestor)) ? expanded : new Set([...expanded, ...wanted])
 }
 
