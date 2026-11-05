@@ -256,7 +256,7 @@ test('samples and sounds have menus', async ({ page }) => {
   await sounds.getByRole('button', { name: 'Save snapshot', exact: true }).click()
   // The row's label; the morph's two lists name the snapshot too.
   await sounds.getByText(/^Loud · Master/).first().click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Recall', '—', 'Update', 'Rename', 'Duplicate', '—', 'Delete'])
+  expect(await menuEntries(page)).toEqual(['Recall', '—', 'Set as A', 'Set as B', '—', 'Update', 'Rename', 'Duplicate', '—', 'Delete'])
   await page.getByRole('menuitem', { name: 'Duplicate', exact: true }).click()
   await expect(sounds.getByRole('button', { name: 'Recall Loud copy', exact: true })).toBeVisible()
 })

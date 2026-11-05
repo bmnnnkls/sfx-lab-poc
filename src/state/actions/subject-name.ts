@@ -1,17 +1,10 @@
-import { BEATS_PER_BAR, type ControlOwner, controlTargetLabel, nodeTitles, patchAt } from '@core'
+import { BEATS_PER_BAR, controlTargetLabel, nodeTitles, patchAt } from '@core'
 import { useLibraryStore } from '../library-store'
 import { markerTitle } from './arrangement-marks'
 import { GRAPH_TITLES } from './pin'
 import { editTargetOf } from './nodes'
-import { project, sessionClipOf, trackOf } from './lookup'
+import { ownerName, project, sessionClipOf, trackOf } from './lookup'
 import type { Subject } from './types'
-
-const ownerName = (owner: ControlOwner): string =>
-  owner.kind === 'master'
-    ? 'Master'
-    : owner.kind === 'group'
-      ? project().groups?.find((group) => group.id === owner.groupId)?.name ?? 'Group'
-      : trackOf(owner.trackId)?.name ?? 'Track'
 
 const sampleOf = (sampleId: string) => project().samples?.find((sample) => sample.id === sampleId)
 const sampleName = (sampleId: string) => sampleOf(sampleId)?.name ?? 'sample'

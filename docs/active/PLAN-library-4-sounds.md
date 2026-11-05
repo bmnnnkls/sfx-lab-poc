@@ -7,7 +7,7 @@ note: "Phase 4 of SPEC-library-ux.md: Sounds shows the presets and snapshots of 
 
 Phase 4 of [SPEC-library-ux.md](SPEC-library-ux.md) (§ 4.1, D9, D10). It doesn't depend on phases 1–3 except for
 phase 2's *Save to library* on a preset row, which it keeps. Phase 5 adds the *From the library* section. Inventory
-taken at `9b4f2cd`. Re-check it at the branch tip before step 1.
+taken at `9b4f2cd`, re-checked at `e598c47`.
 
 ## Goal
 
@@ -49,14 +49,16 @@ Instrument property editor (later; noted in the backlog).
 * **The button and the menu disagree**: a preset row's *Recall preset X* button calls
   `recallPresetOn(s, scope.owner, scope.domain)` (the view's scope), while `sound.recall` recalls onto the preset's own
   scope. `workbench.md` documents this as an exception.
-* `state/actions/sound.ts`: *Recall*, *Update*, *Rename*, *Duplicate* and *Delete*, with `canRecallPresetOn` and
-  `recallPresetOn`. The `sound` subject is `{ kind: 'sound', soundId, preset }`.
+* `state/actions/sound.ts`: *Recall*, *Update*, *Save to library* (phase 2, presets only), *Rename*, *Duplicate* and
+  *Delete*, with `canRecallPresetOn` and `recallPresetOn`. The `sound` subject is `{ kind: 'sound', soundId, preset }`.
+  An owner's name was drawn by two copies of `ownerName` (`subject-name.ts`, `library-save.ts`).
 * Morph uses `morphSnapshots(project, left, right, amount)` and `useControlGesture()`, whose pointer, key, blur and
   unmount cleanup must be kept.
 * **Specs** that use the view: `presets.smoke.spec.ts` (2 tests: *Sound scope*, *Sound name*, *Save snapshot*,
-  *Recall …*, *Snapshot A/B*, *Snapshot morph*), `views-at-min-size.smoke.spec.ts:89`, `layout.smoke.spec.ts:6`,
-  `context-menus.smoke.spec.ts:239` and `drag-and-drop.smoke.spec.ts:319` (*Sound scope*), and the `preset-project.ts`
-  fixture.
+  *Recall …*, *Snapshot A/B*, *Snapshot morph*), `views-at-min-size.smoke.spec.ts:89`, `layout.smoke.spec.ts:6`
+  (*Sound name* kept while hidden), `context-menus.smoke.spec.ts:253`, `drag-and-drop.smoke.spec.ts:251` and `:311`
+  (*Sound name*, *Save as preset*, *Recall preset …*), `library-tree.smoke.spec.ts:20` (two presets saved by name), and
+  `automation.audio.spec.ts:61` and `:99` (*Recall preset …*, on the `preset-project.ts` fixture's Sweep).
 
 ## Design
 
@@ -78,8 +80,8 @@ has *Effects* and *Track* only.
 * **The `sound` subject gains `onto?: ControlOwner`.** Sounds' rows set it to the selected owner, and `sound.recall`
   recalls onto `onto` when it's given, in the row's domain. The drag payload and other menus are unchanged. This
   removes the button-versus-menu exception, so `workbench.md` loses that paragraph.
-* New `sound` actions: *Set as A*, *Set as B* (snapshots only, the `sounds-store`), and phase 2's *Save to library*
-  (presets).
+* New `sound` actions: *Set as A*, *Set as B* (snapshots only, the `sounds-store`). Phase 2's *Save to library*
+  (presets) is already there.
 * `nextSoundName(project, ownerName)`: the first *Bass n* not used by a snapshot or preset of that owner.
 * **Saving** runs through `editPresetProject`, as today, then `startRename` on the new sound's row.
 
@@ -142,3 +144,27 @@ Signed off 2026-11-04: every row as proposed.
 | A/B | **Row actions into a small store**; the slider shows only for a compatible pair | |
 | Names | ***Bass 1*, *Bass 2*…, then rename in place** | Same as D4 for the library. |
 | Sample choices | **Stay in Sounds, collapsed, with readable names**; moving them is a backlog item | |
+
+## Changes made while implementing
+
+* **Inventory re-checked** at `e598c47`. The view and its actions were as listed; the code had moved in three places,
+  now in the inventory: phase 2 had already added *Save to library* to a preset's menu, more specs use the view
+  (`library-tree`, a second `drag-and-drop` case, `automation.audio`), and the `preset-project.ts` fixture is used
+  through `automation.audio`, not by the view's own specs.
+* **Step 1:** `nextSoundName(project, owner)` takes the owner, not its name, since only that owner's sounds count;
+  `ownerName` is one helper in `actions/lookup.ts` now, in place of two copies. A group's sounds are *Drums 1*.
+* **Step 1:** `soundSubject(soundId, preset, onto?)` builds the subject with its keys in one order, since
+  `sameSubject` compares JSON: a row's in-place rename has to match the subject a save or its menu started it with.
+* **Step 1:** `saveSound(kind, scope, context, onto?)` (in `sound.ts`) names, saves through `editPresetProject` and
+  starts the rename with origin `sounds`, and reports "Saved Bass 1".
+* **Step 1:** `sound.recall` with `onto` is disabled when the owner's graph isn't the preset's, with the tooltip
+  "Lead's graph isn't this preset's". A snapshot ignores `onto`: it holds its own owner's controls, and Sounds lists only
+  the selected owner's.
+* **Step 1:** *Set as A* and *Set as B* sit in the `open` group after *Recall*, set apart by a separator (the action
+  lists keep group order, so the `view` group would put them last).
+* **Step 1:** the store keeps the ● mark too (`recalled`: the sound, the scope it went to, and `scopeState` of that
+  scope just after). The mark holds while the scope's controls are unchanged; an instrument preset's covers its notes.
+  `sound.recall` sets it, so the menu's *Recall* marks the row as a click does.
+* **Step 1:** the store follows the layout (`editorTabOf`) and the project (A, B and the mark go with their sound) by
+  subscriptions in `sounds-store.ts`, so the tab is right even before Sounds is first shown. `state` doesn't touch
+  `localStorage` (as `wave-edit-settings` says), so the view keeps *Show all* per browser.

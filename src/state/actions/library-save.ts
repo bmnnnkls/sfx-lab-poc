@@ -1,6 +1,6 @@
 import { type ControlOwner, type Project, type SnapshotScope, externalRoutingIn } from '@core'
 import { openFolder, useLibraryStore } from '../library-store'
-import { project, sessionClipOf, trackOf } from './lookup'
+import { ownerName, project, sessionClipOf } from './lookup'
 import { startRename } from './rename'
 import type { Action, ActionContext, ActionReport, Subject } from './types'
 
@@ -10,9 +10,6 @@ export type LibrarySource =
   | { readonly kind: 'clip'; readonly trackId: string; readonly clipId: string }
   | { readonly kind: 'sample'; readonly sampleId: string }
   | { readonly kind: 'preset'; readonly presetId: string }
-
-const ownerName = (owner: ControlOwner) =>
-  owner.kind === 'master' ? 'Master' : owner.kind === 'group' ? (project().groups?.find((group) => group.id === owner.groupId)?.name ?? 'Group') : (trackOf(owner.trackId)?.name ?? 'Track')
 
 /**
  * The name a save gives the new item, after its source: *Bass* for an instrument, *Bass effects*, *Bass notes*,

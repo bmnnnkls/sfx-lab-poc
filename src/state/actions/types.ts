@@ -27,7 +27,8 @@ export type Subject =
   | { readonly kind: 'region'; readonly regionId: string }
   | { readonly kind: 'lane'; readonly trackId: string; readonly beat: number }
   | { readonly kind: 'control'; readonly targets: readonly ControlTarget[] }
-  | { readonly kind: 'sound'; readonly soundId: string; readonly preset: boolean }
+  // `onto`: the owner Sounds' rows recall onto (the selection); without it, a preset recalls onto its own owner.
+  | { readonly kind: 'sound'; readonly soundId: string; readonly preset: boolean; readonly onto?: ControlOwner }
   | { readonly kind: 'pin'; readonly owner: ControlOwner; readonly graph: TrackGraph } // a front panel in the Pinned view
   | { readonly kind: 'sample-selection'; readonly sampleId: string; readonly pane: WavePane } // a Wave editor pane's lanes: its selection and cursor
   | { readonly kind: 'sample-marker'; readonly sampleId: string; readonly pane: WavePane; readonly markerId: string } // in a pane's mark lane

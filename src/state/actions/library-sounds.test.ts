@@ -116,7 +116,7 @@ describe('sound', () => {
     const snapshot = captureSnapshot(project(), { owner: { kind: 'track', trackId: bass.id }, domain: 'track' }, 'Loud')
     useProjectStore.getState().resetProject(putSnapshot(project(), snapshot))
     const sound: Subject = { kind: 'sound', soundId: snapshot.id, preset: false }
-    expect(titles(sound)).toEqual(['Recall', 'Update', 'Rename', 'Duplicate', 'Delete'])
+    expect(titles(sound)).toEqual(['Recall', 'Set as A', 'Set as B', 'Update', 'Rename', 'Duplicate', 'Delete'])
     const reported: string[] = []
     await runAction('sound.recall', sound, fakeContext(), { report: (_kind, text) => reported.push(text) })
     expect(reported[0]).toMatch(/controls recalled/)
