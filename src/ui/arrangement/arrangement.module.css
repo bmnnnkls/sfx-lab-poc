@@ -666,3 +666,82 @@
   font-size: 10px;
   color: var(--text-dim);
 }
+
+/* A clip track's lanes twisty: in its tall header's bottom-left corner, out of the row of name and buttons. */
+.cornerTwisty {
+  position: absolute;
+  left: var(--twisty-left, 2px);
+  bottom: 2px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+/* An automation lane under its owner's row, and the row that adds one. */
+.automationHeader,
+.automationRow {
+  height: 40px;
+}
+
+.automationHeader {
+  gap: 4px;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--panel) 85%, var(--bg));
+}
+
+.automationHeader .headerName {
+  font-weight: 500;
+}
+
+.automationRow {
+  background-color: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+/* The visible part of a lane, kept at the timeline's left edge while it scrolls, as the ruler is. */
+.laneCanvas {
+  position: sticky;
+  left: var(--header-width);
+  display: block;
+  height: 40px;
+  cursor: crosshair;
+}
+
+.laneCanvas:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.laneNote {
+  color: var(--warning, #d88);
+  font-weight: 700;
+}
+
+.readButton {
+  padding: 0 4px;
+  font-size: 10px;
+}
+
+.addLaneHeader,
+.addLaneRow {
+  height: 24px;
+}
+
+.addLaneHeader button {
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.lanePicker {
+  position: sticky;
+  left: var(--header-width);
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  height: 24px;
+  padding: 0 6px;
+}
+
+.lanePicker input,
+.lanePicker select {
+  font-size: 11px;
+  max-width: 180px;
+}

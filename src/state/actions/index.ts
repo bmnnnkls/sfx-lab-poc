@@ -1,5 +1,6 @@
 import { usePersistenceStore } from '../persistence-store'
 import { arrangementLoopActions, arrangementMarkerActions, arrangementTimelineActions } from './arrangement-marks'
+import { timelineLaneActions } from './timeline-lane'
 import { automationSlotActions } from './automation-slot'
 import { clipActions } from './clip'
 import { controlActions } from './control'
@@ -40,6 +41,7 @@ export { automationSlotClipboard, clipClipboard, libraryClipboard, nodeClipboard
 export { editTargetOf, graphKeyOf } from './nodes'
 export { processActions } from './sample-selection'
 export { markerTitle, toggleArrangementLoop } from './arrangement-marks'
+export { readLane, showControl, timelineLaneOf } from './timeline-lane'
 
 const GROUP_ORDER: readonly Action['group'][] = ['open', 'edit', 'clipboard', 'delete', 'process', 'marks', 'view']
 
@@ -75,6 +77,7 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   'arrangement-marker': arrangementMarkerActions,
   'arrangement-loop': arrangementLoopActions,
   'arrangement-timeline': arrangementTimelineActions,
+  'timeline-lane': timelineLaneActions,
 }
 
 /** The actions of a subject's kind, in menu order. Nothing else picks actions. */

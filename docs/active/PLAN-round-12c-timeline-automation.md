@@ -396,3 +396,18 @@ Signed off 2026-11-05: every row as proposed.
 * **The clip editor's grid snap moved into the gestures**: the pointer is read unsnapped, and a press and a drag snap
   through `snapPointBeat`, which Alt skips. A drag's distance is still the snapped pointer less the snapped press, as
   before.
+
+### Step 5: the timeline lanes
+
+* **A clip track's lanes twisty sits in its header's bottom-left corner**, under the indent, not in the row of name and
+  buttons: at the 120 px minimum the twisty pushed the name to nothing beside M, S and ● (the views-at-min-size spec
+  caught it). Returns, the master and groups have 28 px rows and keep it inline.
+* **Delete on a lane's body always acts on its points**, never on the lane: the body takes Delete and Backspace before
+  the verb keys, with or without a selection. Delete on the lane's header still deletes the lane (the verb).
+* ***+ Lane* opens a search field and a list in the lane's row**, the timeline part, since the header column is too
+  narrow at 120 px for the clip editor's picker.
+* **A drawn canvas carries its points as attributes** (`data-beats`, `data-holds`, `data-selected-count`), so the
+  browser specs check what the canvas shows without reading pixels.
+* **Test technique:** a spec that overrides an automated control must wait for the first status with the lane's
+  readout (the mixer's *Read:* text) before moving it; a move before that authors the base, as for an unautomated
+  control.

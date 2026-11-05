@@ -20,9 +20,11 @@ const sameOwner = (a: ControlOwner, b: ControlOwner) => automationOwnerKey(a) ==
 export const timelineEntryOf = (project: Pick<Project, 'arrangementAutomation'>, owner: ControlOwner): TimelineLanes | undefined =>
   project.arrangementAutomation?.find((entry) => sameOwner(entry.owner, owner))
 
-/** The owner's timeline lanes; none when it has no entry. */
+const NO_LANES: readonly AutomationLane[] = []
+
+/** The owner's timeline lanes; none when it has no entry (always the same empty list, so a selector can return it). */
 export const timelineLanesOf = (project: Pick<Project, 'arrangementAutomation'>, owner: ControlOwner): readonly AutomationLane[] =>
-  timelineEntryOf(project, owner)?.lanes ?? []
+  timelineEntryOf(project, owner)?.lanes ?? NO_LANES
 
 /** Lanes as the timeline keeps them: the owner's own targets, one lane per target and id, at most 64, points canonical. */
 export const canonicalTimelineLanes = (owner: ControlOwner, lanes: readonly AutomationLane[]): AutomationLane[] => {

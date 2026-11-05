@@ -20,6 +20,7 @@ import { ArrangementPlayhead, ArrangementPosition, PositionMark } from './Arrang
 import { ArrangementRegion } from './ArrangementRegion'
 import { RecordingOutline, useRecordingRegions } from './RecordingOutline'
 import { ArrangementRuler } from './ArrangementRuler'
+import { TimelineLanes } from './TimelineLanes'
 import { HeaderSplitter } from './HeaderSplitter'
 import { BEATS_PER_BAR, MIN_BARS, TRAILING_BARS } from './timeline-constants'
 import { gridSpacing } from './timeline-geometry'
@@ -285,16 +286,26 @@ export const ArrangementView = () => {
               const key = row.kind === 'master' ? 'master' : row.track.id
               const isSelected = row.kind === 'master' ? selectedMaster : row.track.id === selectedTrack
               return (
-                <div key={key} className={styles.lane} data-reveal={row.kind === 'master' ? 'master' : revealKey('track', row.track.id)} data-selected={isSelected || undefined} data-owner-row={key}>
-                  <ArrangementHeader row={row} />
-                  <div className={`${styles.row} ${styles.ownerRow}`} style={{ width }} />
-                </div>
+                <Fragment key={key}>
+                  <div className={styles.lane} data-reveal={row.kind === 'master' ? 'master' : revealKey('track', row.track.id)} data-selected={isSelected || undefined} data-owner-row={key}>
+                    <ArrangementHeader row={row} />
+                    <div className={`${styles.row} ${styles.ownerRow}`} style={{ width }} />
+                  </div>
+                  <TimelineLanes
+                    owner={row.kind === 'master' ? { kind: 'master' } : { kind: 'track', trackId: row.track.id }}
+                    name={row.kind === 'master' ? 'Master' : row.track.name}
+                    scroller={scroller}
+                    pxPerBeat={pxPerBeat}
+                    width={width}
+                    depth={0}
+                  />
+                </Fragment>
               )
             }
             if (row.kind === 'group') {
               return (
+                <Fragment key={row.group.id}>
                 <div
-                  key={row.group.id}
                   className={`${styles.lane} ${styles.groupLane}`}
                   data-reveal={revealKey('group', row.group.id)}
                   // A collapsed group's lane stands for the selected track inside it.
@@ -303,11 +314,14 @@ export const ArrangementView = () => {
                   <ArrangementHeader row={row} />
                   <GroupRow trackIds={row.trackIds} collapsed={row.group.collapsed === true} regions={arrangement} pxPerBeat={pxPerBeat} width={width} />
                 </div>
+                {row.group.bus && <TimelineLanes owner={{ kind: 'group', groupId: row.group.id }} name={row.group.name} scroller={scroller} pxPerBeat={pxPerBeat} width={width} depth={row.depth} />}
+                </Fragment>
               )
             }
             const track = row.track
             return (
-              <div key={track.id} className={styles.lane} data-reveal={revealKey('track', track.id)} data-selected={track.id === selectedTrack || undefined}>
+              <Fragment key={track.id}>
+              <div className={styles.lane} data-reveal={revealKey('track', track.id)} data-selected={track.id === selectedTrack || undefined}>
                 <ArrangementHeader row={row} />
                 <LaneRow trackId={track.id} pxPerBeat={pxPerBeat} width={width}>
                   <ActionMenu subject={{ kind: 'lane', trackId: track.id, beat: placedAt }}>
@@ -350,6 +364,8 @@ export const ArrangementView = () => {
                   <RecordingOutline trackId={track.id} pxPerBeat={pxPerBeat} />
                 </LaneRow>
               </div>
+              <TimelineLanes owner={{ kind: 'track', trackId: track.id }} name={track.name} scroller={scroller} pxPerBeat={pxPerBeat} width={width} depth={row.depth} />
+              </Fragment>
             )
           })}
           {hasClipRows && (

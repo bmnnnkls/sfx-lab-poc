@@ -63,3 +63,67 @@ test('a box drawn with Ctrl selects points in the clip editor', async ({ page })
   await page.getByRole('button', { name: 'Delete points', exact: true }).click()
   await expect(page.locator('[data-point-id]')).toHaveCount(1)
 })
+
+/** Groups Lead and makes the group sum to a bus, from the Tracks view. */
+const leadInBus = async (page: Page) => {
+  const tree = (await openView(page, 'Tracks')).getByRole('tree', { name: 'Tracks' })
+  for (const [row, entry] of [['Lead', 'Group'], ['Group 1, group of 1 track', 'Sum to a bus']] as const) {
+    await tree.getByRole('treeitem', { name: row, exact: true }).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: entry, exact: true }).click()
+  }
+}
+
+test("a bus's fader lane on the timeline: added, drawn, dragged and undone, held, played and overridden, deleted", async ({ page }) => {
+  await page.goto('/?starter')
+  await leadInBus(page)
+  const arrangement = await openView(page, 'Arrangement')
+  await arrangement.getByLabel('Grid').selectOption('bar')
+  await arrangement.getByRole('button', { name: 'Show automation lanes of Group 1', exact: true }).click()
+  await arrangement.getByRole('button', { name: 'Add an automation lane to Group 1', exact: true }).click()
+  await arrangement.getByLabel('Target for a new lane of Group 1').selectOption({ label: 'Mixer / volume' })
+  const lane = arrangement.getByRole('application', { name: 'Mixer / volume lane', exact: true })
+  await expect(lane).toBeVisible()
+
+  // Three points on bars 1, 2 and 3 (24 px a beat, the grid on bars).
+  const box = (await lane.boundingBox())!
+  for (const [x, y] of [[3, 30], [4 * 24 + 4, 10], [8 * 24 - 4, 20]]) await page.mouse.click(box.x + x!, box.y + y!)
+  await expect(lane).toHaveAttribute('data-beats', '0,4,8')
+
+  // The middle one dragged two bars on, then undone in one step.
+  await page.mouse.move(box.x + 4 * 24, box.y + 10)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 12 * 24 + 5, box.y + 10, { steps: 8 })
+  await page.mouse.up()
+  await expect(lane).toHaveAttribute('data-beats', '0,8,12')
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(lane).toHaveAttribute('data-beats', '0,4,8')
+
+  // The first segment held, from its menu.
+  await lane.click({ button: 'right', position: { x: 2 * 24, y: 36 } })
+  await page.getByRole('menuitem', { name: 'Hold segment', exact: true }).click()
+  await expect(lane).toHaveAttribute('data-holds', '1')
+
+  // Off and on again.
+  const enabled = arrangement.getByRole('checkbox', { name: 'Enable Mixer / volume', exact: true })
+  await enabled.uncheck()
+  await enabled.check()
+
+  // Playing, the fader follows the lane: moved by hand it is overridden until Read.
+  await arrangement.getByRole('button', { name: 'Play arrangement', exact: true }).click()
+  const mixer = await openView(page, 'Mixer')
+  const bus = mixer.getByRole('region', { name: 'Group 1 bus', exact: true })
+  await expect(bus.getByText(/^Read: /)).toBeVisible()
+  await bus.getByRole('slider', { name: 'Group 1 fader', exact: true }).fill('0.3')
+  const read = arrangement.getByRole('button', { name: 'Read', exact: true })
+  await expect(read).toBeVisible()
+  await read.click()
+  await expect(read).toHaveCount(0)
+  await arrangement.getByRole('button', { name: 'Stop', exact: true }).click()
+
+  // Deleted from its header's menu, and back with undo.
+  await arrangement.locator('[data-timeline-lane]').getByText('Mixer / volume', { exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Delete lane', exact: true }).click()
+  await expect(lane).toHaveCount(0)
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(lane).toHaveAttribute('data-beats', '0,4,8')
+})

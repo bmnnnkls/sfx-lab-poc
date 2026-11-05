@@ -25,12 +25,12 @@ export const TrackHeader = ({ track, depth, stripe, owner = false }: { track: Tr
     <ActionMenu subject={subject}>
       <div
         className={`${styles.header} ${owner ? styles.ownerHeader : ''} ${selected ? styles.selectedHeader : ''} ${route.muted ? styles.mutedHeader : ''}`}
-        style={{ paddingInlineStart: 8 + depth * 10, ...(stripe && { '--group': `var(--group-${stripe})` }) } as CSSProperties}
+        style={{ paddingInlineStart: 8 + depth * 10, '--twisty-left': `${depth * 10 + 2}px`, ...(stripe && { '--group': `var(--group-${stripe})` }) } as CSSProperties}
         data-stripe={stripe}
         {...drop}
         {...drag}
       >
-        <LanesTwisty owner={{ kind: 'track', trackId: track.id }} name={track.name} />
+        <LanesTwisty owner={{ kind: 'track', trackId: track.id }} name={track.name} corner={!owner} />
         <span
           className={styles.headerName}
           tabIndex={0}

@@ -37,6 +37,8 @@ export type Subject =
   | { readonly kind: 'arrangement-marker'; readonly markerId: string } // in the arrangement's mark lane
   | { readonly kind: 'arrangement-loop' } // the arrangement's loop brace
   | { readonly kind: 'arrangement-timeline'; readonly beat: number } // the mark lane's empty space, or the focused timeline
+  // An automation lane on the arrangement's timeline; `beat`: where its body was right-clicked, for the segment there.
+  | { readonly kind: 'timeline-lane'; readonly owner: ControlOwner; readonly laneId: string; readonly beat?: number }
 
 export type SubjectKind = Subject['kind']
 export type SubjectOf<K extends SubjectKind> = Extract<Subject, { kind: K }>
