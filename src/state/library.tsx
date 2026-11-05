@@ -8,9 +8,16 @@ export interface PersonalLibrary {
   saveSample(sampleId: string, name: string, folderId: string | null): Promise<LibraryCatalog>
   /** A project preset on its own: a new sound from the preset's own revision, holding only that preset. */
   savePreset(presetId: string, folderId: string | null): Promise<LibraryCatalog>
-  insert(item: LibraryItem, destination: AssetDestination, scene?: number, replaceClip?: boolean): Promise<string>
-  /** Plays an item in an isolated engine; `onStop` is called once it stops, by ending or by `stopPreview`. */
-  preview(item: LibraryItem, onStop?: () => void): Promise<'started' | 'cancelled'>
+  /**
+   * Copies an item into the project. `from` is a catalog to read the item from instead of storage: a throwaway capture
+   * of a graph of the project (*Copy to new track*, a graph dropped on another owner), or Factory's.
+   */
+  insert(item: LibraryItem, destination: AssetDestination, scene?: number, replaceClip?: boolean, from?: LibraryCatalog): Promise<string>
+  /**
+   * Plays an item in an isolated engine, read from storage or from `from`; `onStop` is called once it stops, by ending
+   * or by `stopPreview`.
+   */
+  preview(item: LibraryItem, onStop?: () => void, from?: LibraryCatalog): Promise<'started' | 'cancelled'>
   stageBundle(bytes: Uint8Array): Promise<LibraryBundleStage>
   importBundle(stage: LibraryBundleStage): Promise<LibraryCatalog>
   prepareBundle(selection: LibraryBundleSelection, name: string): Promise<LibraryBundleStage>

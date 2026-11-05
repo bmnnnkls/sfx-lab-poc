@@ -10,6 +10,7 @@ import { masterActions } from './master'
 import { moduleActions } from './module'
 import { canvasActions, nodeActions } from './nodes'
 import { pinActions } from './pin'
+import { projectGraphActions } from './project-graph'
 import { regionActions } from './region'
 import { sampleActions } from './sample'
 import { sampleLoopActions } from './sample-loop'
@@ -30,6 +31,7 @@ export { duplicateSessionClip, placeOnArrangement } from './clip'
 export { commitRename, startRename } from './rename'
 export { clipTrackFor, graphFitsOwner, insertLibraryClipAt, insertionScope, isInstrumentItem, libraryClipFitsSlot, replaceGraph } from './library'
 export { canPasteClipOnLane, pasteClipOnLane } from './lane'
+export { copyName, projectGraphItem, projectGraphItemId } from './project-graph'
 export { canPasteClipInSlot, pasteClipInSlot } from './slot'
 export { canRecallPresetOn, recallPresetOn } from './sound'
 export { automationSlotClipboard, clipClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes } from './clipboards'
@@ -49,6 +51,7 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   'library-item': libraryItemActions,
   'library-folder': libraryFolderActions,
   'library-root': libraryRootActions,
+  'project-graph': projectGraphActions,
   nodes: nodeActions,
   canvas: canvasActions,
   module: moduleActions,

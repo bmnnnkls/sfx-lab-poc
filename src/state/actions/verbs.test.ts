@@ -24,6 +24,7 @@ const VERBS: Readonly<Record<SubjectKind, Partial<Record<Verb, string>>>> = {
   'library-item': { delete: 'library-item.trash', duplicate: 'library-item.duplicate', rename: 'library-item.rename' },
   'library-folder': { delete: 'library-folder.trash', duplicate: 'library-folder.duplicate', rename: 'library-folder.rename' },
   'library-root': {},
+  'project-graph': {},
   nodes: { delete: 'nodes.delete', duplicate: 'nodes.duplicate', copy: 'nodes.copy', cut: 'nodes.cut', rename: 'nodes.rename' },
   canvas: { paste: 'canvas.paste' },
   module: { delete: 'module.delete', rename: 'module.rename' },

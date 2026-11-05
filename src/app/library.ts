@@ -46,8 +46,8 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
     saveClip: (track, clip, name, folder) => save((catalog, project) => captureLibraryClip(catalog, project, track, clip, name, folder)),
     saveSample: (id, name, folder) => save((catalog, project) => captureLibrarySample(catalog, project, id, name, folder)),
     savePreset: (id, folder) => save((catalog, project) => captureLibraryPreset(catalog, project, id, folder)),
-    insert: async (selected, destination, scene = 0, replaceClip = false) => {
-      const catalog = await storage.read(), item = catalog.items.find(i => i.id === selected.id && !i.trashed)
+    insert: async (selected, destination, scene = 0, replaceClip = false, from) => {
+      const catalog = from ?? await storage.read(), item = catalog.items.find(i => i.id === selected.id && !i.trashed)
       if (!item) throw new Error('Library item was removed; refresh the catalog')
       await ensureBytes(catalog, item)
       const project = useProjectStore.getState().project
@@ -66,7 +66,7 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
       const result = insertLibraryAsset(project, catalog, item, destination)
       commitProject(result.project); return 'Asset and presets copied into project'
     },
-    preview: async (selected, onStop) => {
+    preview: async (selected, onStop, from) => {
       stopPreview()
       onStopped = onStop
       const token = generation
@@ -75,7 +75,7 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
       context = previewContext; source = localSource
       try {
         await previewContext.resume()
-        const catalog = await storage.read(), item = catalog.items.find(i => i.id === selected.id && !i.trashed)
+        const catalog = from ?? await storage.read(), item = catalog.items.find(i => i.id === selected.id && !i.trashed)
         if (!item) throw new Error('Item is unavailable')
         await ensureBytes(catalog, item)
         const decoded: SampleData[] = []

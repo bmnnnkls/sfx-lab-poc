@@ -5,7 +5,7 @@ import { PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import { BundleDialog } from './BundleDialog'
 import { KIND_NAMES, LibraryDetails, primaryOf } from './LibraryDetails'
 import type { LibraryRow } from './library-tree'
-import { LibraryTree } from './LibraryTree'
+import { LibraryTree, previewIdOf, subjectOf } from './LibraryTree'
 import styles from './LibraryPanel.module.css'
 
 const BUNDLE_LIMIT = 128 * 1024 * 1024
@@ -67,11 +67,19 @@ export const LibraryPanel = () => {
     return false
   }, preview)
   const preview = (row: LibraryRow) => {
-    if (row.kind !== 'item' && row.kind !== 'preset') return
-    if (previewing === row.id) return stopPreview()
-    act('library-item.preview', { kind: 'library-item', itemId: row.id }, undefined, true)
+    const id = previewIdOf(row)
+    if (id === undefined) return
+    if (previewing === id) return stopPreview()
+    if (row.kind === 'project') act('project-graph.preview', subjectOf(row)!, undefined, true)
+    else act('library-item.preview', { kind: 'library-item', itemId: id }, undefined, true)
   }
   const primary = (row: LibraryRow) => {
+    // A graph of This project: Save to library, or why it can't be saved.
+    if (row.kind === 'project' && row.entry.kind === 'graph') {
+      if (row.entry.reason) setMessage(row.entry.reason)
+      else act('project-graph.save-to-library', subjectOf(row)!)
+      return
+    }
     if (row.kind !== 'item' && row.kind !== 'preset') return
     const item = catalog.items.find((candidate) => candidate.id === row.id)
     if (!item) return

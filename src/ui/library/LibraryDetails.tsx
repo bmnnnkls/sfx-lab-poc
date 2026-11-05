@@ -1,6 +1,7 @@
 import { type ControlOwner, EFFECT_INPUTS, type LibraryCatalog, type LibraryItem, libraryDependencies } from '@core'
 import { type LibraryRowRef, type Subject, clipTrackFor, graphFitsOwner, insertionScope, libraryClipFitsSlot, subjectName, useProjectStore, useSelectionStore } from '@state'
 import { PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
+import { type ProjectEntry, projectModel, projectNodeOf } from './library-tree'
 import styles from './LibraryPanel.module.css'
 
 /** What a kind is called in the details and the type filter. */
@@ -164,6 +165,7 @@ export const LibraryDetails = ({ catalog, active, busy, onRun }: LibraryDetailsP
       </article>
     )
   }
+  if (active?.kind === 'project' || (active?.kind === 'root' && active.id === 'project')) return <ProjectDetails rowKey={active.id} busy={busy} onRun={onRun} />
   if (live.length === 0) return <EmptyLibrary busy={busy} onRun={onRun} />
   // As the tree counts: presets under their sound aren't items of their own.
   const rows = live.filter((candidate) => candidate.content.kind !== 'preset' || !live.some((sound) => sound.id === (candidate.content as { assetId: string }).assetId)).length
@@ -171,6 +173,74 @@ export const LibraryDetails = ({ catalog, active, busy, onRun }: LibraryDetailsP
     <article className={styles.details} aria-label="Library details">
       <header className={styles.detailsHead}><h3>My library</h3></header>
       <p className={styles.facts}>{plural(rows, 'item')} · {plural(catalog.folders.filter((candidate) => !candidate.trashed).length, 'folder')}</p>
+    </article>
+  )
+}
+
+const TRACK_KINDS = { instrument: 'Instrument track', audio: 'Audio track', return: 'Return track' } as const
+const GRAPH_KINDS = { patch: 'Instrument', fx: 'Audio effect', notes: 'Note effect' } as const
+const HEADINGS = { clips: 'clip', samples: 'sample', modules: 'module' } as const
+
+/** The subject of a row of This project, as the tree gives it its menu. */
+const entrySubject = (entry: ProjectEntry): Subject | null => {
+  switch (entry.kind) {
+    case 'owner': return entry.owner.kind === 'track' ? { kind: 'track', trackId: entry.owner.trackId } : entry.owner.kind === 'group' ? { kind: 'group', groupId: entry.owner.groupId } : { kind: 'master' }
+    case 'graph': return { kind: 'project-graph', owner: entry.owner, domain: entry.domain }
+    case 'project-preset': return { kind: 'sound', soundId: entry.presetId, preset: true }
+    case 'clip': return { kind: 'clip', trackId: entry.trackId, clipId: entry.clipId }
+    case 'sample': return { kind: 'sample', sampleId: entry.sampleId }
+    case 'module': return { kind: 'module', moduleId: entry.moduleId }
+    case 'heading': return null
+  }
+}
+
+/**
+ * A row of This project: what it is, a line of facts, and ⋯ for its menu. A graph's main button saves it to the
+ * library, or says why it can't (it reads another track).
+ */
+const ProjectDetails = ({ rowKey, busy, onRun }: { readonly rowKey: string } & Pick<LibraryDetailsProps, 'busy' | 'onRun'>) => {
+  const project = useProjectStore((state) => state.project)
+  const model = projectModel(project)
+  if (rowKey === 'project') {
+    const clips = project.tracks.reduce((sum, track) => sum + (track.kind === 'return' ? 0 : track.clips.filter(Boolean).length), 0)
+    return (
+      <article className={styles.details} aria-label="Library details">
+        <header className={styles.detailsHead}><h3>{model.name}</h3><span className={styles.kind}>This project</span></header>
+        <p className={styles.facts}>{plural(project.tracks.length, 'track')} · {plural(clips, 'clip')} · {plural(project.samples.length, 'sample')}. Drag a sound, clip or sample onto a folder to save it to the library.</p>
+      </article>
+    )
+  }
+  const found = projectNodeOf(model, rowKey)
+  if (!found) return <article className={styles.details} aria-label="Library details"><p className={styles.facts}>This row is no longer in the project.</p></article>
+  const { node, above } = found
+  const entry = node.entry, subject = entrySubject(entry)
+  const owner = above.find((candidate) => candidate.entry.kind === 'owner')?.name
+  const title = entry.kind === 'graph' ? subjectName(subject!) : node.name
+  const kind =
+    entry.kind === 'owner'
+      ? entry.owner.kind === 'master' ? 'Master' : entry.owner.kind === 'group' ? 'Group bus' : TRACK_KINDS[project.tracks.find((track) => entry.owner.kind === 'track' && track.id === entry.owner.trackId)?.kind ?? 'instrument']
+      : entry.kind === 'graph' ? GRAPH_KINDS[entry.domain]
+        : entry.kind === 'project-preset' ? 'Preset'
+          : entry.kind === 'clip' ? KIND_NAMES[entry.clipKind]
+            : entry.kind === 'sample' ? 'Sample' : entry.kind === 'module' ? 'Module' : 'In this project'
+  const facts =
+    entry.kind === 'graph' ? [plural(entry.presets, 'preset'), ...(entry.reason ? [entry.reason] : [])].join(' · ')
+      : entry.kind === 'heading' ? plural(node.children.length, HEADINGS[entry.heading])
+        : entry.kind === 'owner' ? plural(node.children.filter((child) => child.entry.kind === 'graph').length, 'sound')
+          : owner ? `In ${owner}` : 'In this project'
+  return (
+    <article className={styles.details} aria-label="Library details">
+      <header className={styles.detailsHead}><h3>{title}</h3><span className={styles.kind}>{kind} · This project</span></header>
+      <p className={styles.facts}>{facts}</p>
+      <div className={styles.buttons}>
+        {entry.kind === 'graph' && (
+          <>
+            <button className={styles.primary} disabled={busy || !!entry.reason} title={entry.reason ?? 'A copy goes into the folder open in the library'} onClick={() => onRun('project-graph.save-to-library', subject!)}>Save to library</button>
+            {entry.reason && <small className={styles.refusal}>{entry.reason}</small>}
+          </>
+        )}
+        {subject && <More subject={subject} label={`More for ${title}`} />}
+      </div>
     </article>
   )
 }

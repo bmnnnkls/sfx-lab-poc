@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createEmptyProject, createHistory, createAudioTrack, createClip, createNote, saveProjectPreset, saveLibraryFolder, trashLibraryEntry, parseProject, serializeProject, type InstrumentTrack } from '@core'
-import { useProjectStore } from '@state'
+import { addSamplerTrack, addSamples, bytesKeyOf, createEmptyProject, createHistory, createAudioTrack, createClip, createNote, saveProjectPreset, saveLibraryFolder, trashLibraryEntry, parseProject, serializeProject, type InstrumentTrack } from '@core'
+import { projectGraphItem, useProjectStore } from '@state'
 import { createMemoryLibraryStorage, createMemorySampleStorage, exportProject, importProject, sha256Hex } from '@storage'
 import { createPersonalLibrary } from './library'
 const setup = () => {
@@ -141,4 +141,46 @@ it('the deferred library passes a preview its stop callback, and calls it for a 
   await expect(deferred.preview(item, () => stops.push('second'))).rejects.toThrow()
   deferred.stopPreview()
   expect(stops).toEqual(['first', 'second'])
+})
+
+describe('a source catalog in place of storage', () => {
+  it('copies a graph of the project to a new track in one undo step, leaving the library alone', async () => {
+    const { project, scope } = setup(), storage = createMemoryLibraryStorage(), library = createPersonalLibrary(storage, createMemorySampleStorage())
+    const { catalog, item } = projectGraphItem(project, scope.owner, 'patch', 'Track copy')
+    expect(await library.insert(item, { mode: 'new-track' }, undefined, undefined, catalog)).toBe('Asset and presets copied into project')
+    const copied = useProjectStore.getState().project
+    expect(copied.tracks.map(t => t.name)).toEqual([...project.tracks.map(t => t.name), 'Track copy'])
+    expect(copied.presets?.filter(p => p.scope.owner.kind === 'track' && p.scope.owner.trackId === copied.tracks.at(-1)!.id).map(p => p.name)).toEqual(['Track copy', 'One', 'Two'])
+    expect(useProjectStore.getState().history.past).toHaveLength(1)
+    useProjectStore.getState().undo()
+    expect(useProjectStore.getState().project.tracks).toHaveLength(project.tracks.length)
+    expect((await storage.read()).items).toEqual([])
+  })
+
+  it("previews a sampled instrument of the project, finding its bytes in the project's sample storage", async () => {
+    const bytes = Uint8Array.of(9, 8, 7, 6), sampleId = await sha256Hex(bytes)
+    const sample = { id: sampleId, name: 'Hit', extension: 'wav', durationSeconds: 0.01, sampleRate: 8000, channels: 1, bytes: 4 }
+    const project = addSamplerTrack(addSamples(createEmptyProject(), [sample]), sample)
+    useProjectStore.getState().resetProject(project)
+    const owner = { kind: 'track' as const, trackId: project.tracks.at(-1)!.id }
+    const { catalog, item } = projectGraphItem(project, owner, 'patch', 'Hit')
+    const samples = createMemorySampleStorage(), library = createPersonalLibrary(createMemoryLibraryStorage(), samples)
+    class FakeContext {
+      state = 'running'; destination = {}
+      source = { buffer: undefined as unknown, disconnect: () => {}, stop: () => {}, connect: () => {}, start: () => {}, onended: undefined as unknown }
+      async resume() {}
+      async close() { this.state = 'closed' }
+      createBufferSource() { return this.source }
+      createBuffer() { return { copyToChannel: () => {} } }
+    }
+    class FakeOffline { async decodeAudioData() { return { duration: 0.01, numberOfChannels: 1, sampleRate: 8000, getChannelData: () => new Float32Array(80).fill(0.5) } } }
+    const previous = { AudioContext: globalThis.AudioContext, OfflineAudioContext: globalThis.OfflineAudioContext }
+    Object.assign(globalThis, { AudioContext: FakeContext, OfflineAudioContext: FakeOffline })
+    try {
+      await expect(library.preview(item, undefined, catalog)).rejects.toThrow('Sample bytes missing')
+      await samples.put(bytesKeyOf(sample), bytes)
+      expect(await library.preview(item, undefined, catalog)).toBe('started')
+      library.stopPreview()
+    } finally { Object.assign(globalThis, previous) }
+  })
 })

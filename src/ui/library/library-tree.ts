@@ -248,6 +248,19 @@ export const projectModel = (project: Project): ProjectModel => {
   return model
 }
 
+/** The row of *This project* with `key`, and the rows above it, nearest first; undefined when it is gone. */
+export const projectNodeOf = (model: ProjectModel, key: RowKey): { readonly node: ProjectNode; readonly above: readonly ProjectNode[] } | undefined => {
+  const find = (nodes: readonly ProjectNode[], above: readonly ProjectNode[]): { node: ProjectNode; above: readonly ProjectNode[] } | undefined => {
+    for (const node of nodes) {
+      if (node.key === key) return { node, above }
+      const found = find(node.children, [node, ...above])
+      if (found) return found
+    }
+    return undefined
+  }
+  return find(model.nodes, [])
+}
+
 /**
  * With a query or a kind, only the matches and the rows above them. An owner's name is matched by the rows under it
  * (a search for *Bass* shows Bass's graphs, presets and clips), a heading's never; modules match search only.

@@ -17,9 +17,9 @@ export const createDeferredPersonalLibrary = (storage: LibraryStorage, samples: 
     prepareBundle: async (...args) => (await load()).prepareBundle(...args),
     exportBundle: async (...args) => (await load()).exportBundle(...args),
     insert: async (...args) => (await load()).insert(...args),
-    preview: async (item, onStop) => {
+    preview: async (item, onStop, from) => {
       const token = ++generation, ready = await load()
-      if (token === generation) return ready.preview(item, onStop)
+      if (token === generation) return ready.preview(item, onStop, from)
       onStop?.()
       return 'cancelled'
     },

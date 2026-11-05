@@ -149,6 +149,22 @@ const moveOffTrash = (folderId: string | null) => {
 /** Counts the previews started, so a stopped one clears ■ only while it is the latest. */
 let previews = 0
 
+/**
+ * Previews a library item, from storage or from `from` (a throwaway catalog: a graph of This project). Its row shows ■
+ * until this preview stops; starting another stops this one first.
+ */
+export const previewLibraryItem = async (item: LibraryItem, { library }: ActionContext, from?: LibraryCatalog): Promise<string | void> => {
+  const preview = ++previews
+  useLibraryStore.getState().setPreviewing(item.id)
+  const stopped = () => { if (preview === previews) useLibraryStore.getState().setPreviewing(null) }
+  try {
+    if ((await library.preview(item, stopped, from)) === 'started') return 'Preview in isolated engine · effects use a test tone'
+  } catch (error) {
+    stopped()
+    throw error
+  }
+}
+
 /** An item of the personal library. Its actions are asynchronous and resolve with what they did. */
 export const libraryItemActions: readonly Action<ItemSubject>[] = [
   {
@@ -156,19 +172,9 @@ export const libraryItemActions: readonly Action<ItemSubject>[] = [
     title: 'Preview',
     group: 'open',
     applies: live,
-    // The item's row shows ■ until this preview stops; starting another stops this one first.
-    run: async (subject, { library }) => {
+    run: async (subject, context) => {
       const item = itemOf(subject)
-      if (!item) return
-      const preview = ++previews
-      useLibraryStore.getState().setPreviewing(item.id)
-      const stopped = () => { if (preview === previews) useLibraryStore.getState().setPreviewing(null) }
-      try {
-        if ((await library.preview(item, stopped)) === 'started') return 'Preview in isolated engine · effects use a test tone'
-      } catch (error) {
-        stopped()
-        throw error
-      }
+      if (item) return previewLibraryItem(item, context)
     },
   },
   renameAction('library-item', live),

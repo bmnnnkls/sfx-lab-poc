@@ -104,7 +104,7 @@ The `clip`, `sample` and `sound` payloads already drop onto library folders (pha
 
 ### The library service takes a source catalog
 
-`PersonalLibrary.insert(item, destination, scene?, replaceClip?, from?)` and `preview(item, from?)`. `from` is a
+`PersonalLibrary.insert(item, destination, scene?, replaceClip?, from?)` and `preview(item, onStop?, from?)`. `from` is a
 catalog to read instead of storage, and `ensureBytes` checks bytes against it the same way. `state` wraps the
 throwaway capture in one helper, `projectGraphItem(project, owner, domain)`, which returns `{ catalog, item }`.
 Factory (phase 6) passes its catalog the same way.
@@ -188,3 +188,20 @@ Signed off 2026-11-04: every row as proposed.
   (*Demo project*): a new row, not a dropped case.
 * **Step 1:** checked in the preview on Low Light at a wide window and with the Library at 280 px in the sidebar: the
   rows, ⚠ and counts fit. The app has one (dark) theme, so light looks the same, as phase 1 found.
+* **Step 2:** `preview` takes `from` after phase 1's `onStop`: `preview(item, onStop?, from?)`. The lazy wrapper passes
+  it on (the phase 1 gotcha).
+* **Step 2:** `projectGraphItem(project, owner, domain, name)` returns `{ catalog, item }` and lives in
+  `state/actions/project-graph.ts` with the actions; the item's ID is `project:track:<id>:patch` (or `group:<id>`,
+  `master`), so a copy's origin names it and the row's ■ follows it.
+* **Step 2:** the library item's *Preview* and the graph's share one helper, `previewLibraryItem(item, context, from?)`,
+  so the count that keeps ■ on the latest preview covers both.
+* **Step 2:** the menu: *Preview* and *Show* (open), *Save to library* and *Copy to new track* (edit). A graph that reads
+  another track has *Preview*, *Save* and *Copy* disabled with the reason as their tooltip; *Show* stays. *Show*
+  is `openPinnedEditor`: it selects the owner and shows its Instrument, Effects or Notes view.
+* **Step 2:** a library insert makes the inserted sound's own state a preset too, so *Copy to new track* of Bass with
+  one preset gives "Bass copy" two: *Bass copy* and the preset.
+* **Step 2:** a graph row shows ▶ (and Space previews it) unless it is refused. Enter, and the details' main button,
+  run *Save to library*; a refused graph says why on the status line. The details show what any row of the root is,
+  with ⋯ for its menu; the root's say how many tracks, clips and samples the project holds.
+* **Step 2:** checked in the preview on Low Light: the graph row's menu, its details (Bass instrument; Bass effects
+  refused with "Uses Track audio from Kick"), and *Copy to new track*, whose "Bass copy" shows under the root at once.

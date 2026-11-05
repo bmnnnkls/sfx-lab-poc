@@ -1,5 +1,5 @@
 import type { ControlOwner, LibraryCatalog, LibraryItem } from '@core'
-import { type DragPayload, type DropTarget, type LibraryRowRef, type Subject, projectExpandedOf, useLibraryStore, useProjectStore } from '@state'
+import { type DragPayload, type DropTarget, type LibraryRowRef, type Subject, projectExpandedOf, projectGraphItemId, useLibraryStore, useProjectStore } from '@state'
 import { type KeyboardEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeDragProps, useDragSource, useDropTarget, useSpringOpen } from '../shared/drag'
 import { ActionMenu } from '../shared/menu'
@@ -41,12 +41,23 @@ const ownerSubject = (owner: ControlOwner): Subject => (owner.kind === 'track' ?
 const projectSubject = (entry: ProjectEntry): Subject | null => {
   switch (entry.kind) {
     case 'owner': return ownerSubject(entry.owner)
+    case 'graph': return { kind: 'project-graph', owner: entry.owner, domain: entry.domain }
     case 'project-preset': return { kind: 'sound', soundId: entry.presetId, preset: true }
     case 'clip': return { kind: 'clip', trackId: entry.trackId, clipId: entry.clipId }
     case 'sample': return { kind: 'sample', sampleId: entry.sampleId }
     case 'module': return { kind: 'module', moduleId: entry.moduleId }
     default: return null
   }
+}
+
+/**
+ * What a row previews: an item or preset of the library by its id, or a graph of *This project* that can be saved by
+ * its throwaway item's id; undefined for the rest.
+ */
+export const previewIdOf = (row: LibraryRow): string | undefined => {
+  if (row.kind === 'item' || row.kind === 'preset') return row.root === 'mine' ? row.id : undefined
+  if (row.kind === 'project' && row.entry.kind === 'graph' && !row.entry.reason) return projectGraphItemId(row.entry.owner, row.entry.domain)
+  return undefined
 }
 
 /** The subject a row's menu and keys act on; none for *This project*'s root or a heading. */
@@ -92,7 +103,7 @@ const Row = ({ row, item, active, focusable, selected, previewing, onChoose, onT
   const drop = useDropTarget(target)
   const spring = useSpringOpen(row.hasChildren && !row.expanded ? () => onExpand(row) : null)
   const count = row.kind === 'root' || row.kind === 'folder' || row.kind === 'project' ? row.count : 0
-  const playable = row.kind === 'item' || row.kind === 'preset'
+  const playable = previewIdOf(row) !== undefined
   const label = count > 0 ? `${row.name}, ${countLabel(row, count)}` : row.name
   const glyph = item ? GLYPHS[item.content.kind] : row.kind === 'project' ? projectGlyph(row.entry) : row.kind === 'root' && row.root === 'project' ? '◆' : undefined
   // Why a graph can't be saved or copied: it reads another track.
@@ -136,7 +147,7 @@ const Row = ({ row, item, active, focusable, selected, previewing, onChoose, onT
             <span className={styles.name}>{row.name}</span>
           </InPlaceRename>
         )}
-        {playable && row.root === 'mine' && (
+        {playable && (
           <button
             className={styles.play}
             tabIndex={-1}
@@ -242,7 +253,7 @@ export const LibraryTree = ({ catalog, query, kind, active, selected, previewing
     }
     if (row && event.key === ' ') {
       event.preventDefault()
-      if (row.kind === 'item' || row.kind === 'preset') onPreview(row)
+      if (row.kind === 'item' || row.kind === 'preset' || previewIdOf(row)) onPreview(row)
       return
     }
     const move = treeKey(rows, activeKey, expanded, event.key)
@@ -266,7 +277,7 @@ export const LibraryTree = ({ catalog, query, kind, active, selected, previewing
           active={row.key === activeKey}
           focusable={row.key === focusKey}
           selected={(row.kind === 'item' || row.kind === 'preset') && selected.includes(row.id)}
-          previewing={(row.kind === 'item' || row.kind === 'preset') && previewing === row.id}
+          previewing={previewing !== null && previewIdOf(row) === previewing}
           onChoose={choose}
           onToggle={toggle}
           onExpand={expand}

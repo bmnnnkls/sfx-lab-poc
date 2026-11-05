@@ -49,6 +49,8 @@ export const subjectName = (subject: Subject): string => {
       return useLibraryStore.getState().catalog.folders.find((folder) => folder.id === subject.folderId)?.name ?? 'Folder'
     case 'library-root':
       return subject.root === 'mine' ? 'My library' : 'Trash'
+    case 'project-graph':
+      return `${ownerName(subject.owner)} ${GRAPH_TITLES[subject.domain].toLowerCase()}`
     case 'nodes': {
       if (subject.nodeIds.length !== 1) return `${subject.nodeIds.length} nodes`
       const patch = patchAt(project(), editTargetOf(subject))
