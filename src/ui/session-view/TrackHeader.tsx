@@ -7,6 +7,7 @@ import { useDragSource, useEdgeTarget } from '../shared/drag'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import styles from './SessionView.module.css'
+import { describeTrackInput, trackInputTag } from '../midi/track-input'
 
 /** A track's column header. `stripe` is the colour of the group it is in. */
 export const TrackHeader = ({ track, stripe }: { track: Track; stripe?: GroupColour }) => {
@@ -39,6 +40,9 @@ export const TrackHeader = ({ track, stripe }: { track: Track; stripe?: GroupCol
           {track.name}
           {track.kind === 'audio' && <span className={styles.audioTag}> audio</span>}
           {track.kind === 'return' && <span className={styles.audioTag}> return</span>}
+          {track.kind === 'instrument' && track.midiInput && (
+            <span className={styles.audioTag} data-tooltip={`MIDI input: ${describeTrackInput(track.midiInput)}. Set in MIDI settings.`}> {trackInputTag(track.midiInput)}</span>
+          )}
         </button>
       </InPlaceRename>
       {soundEffects.length > 0 && (

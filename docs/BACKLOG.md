@@ -185,10 +185,9 @@ Things that shipped without the check their plan asked for.
 
 ## MIDI
 
-- **M1 MIDI input per track**: a device and channel per track instead of following the selection (user testing 10,
-  [review](active/REVIEW-user-testing-2026-11.md)).
 - **M2 Recording MIDI clips** into Session slots and the Arrangement: arm, metronome, count-in, overdub (user testing
-  11; needs M1).
+  11, [review](active/REVIEW-user-testing-2026-11.md)). Arming would build on the track inputs.
+- **M3 A track's MIDI input on its header or mixer strip**: it is set in MIDI settings only, and the header shows a tag.
 
 ## Documentation
 

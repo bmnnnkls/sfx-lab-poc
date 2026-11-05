@@ -15,6 +15,7 @@ import {
   type Project,
   type Track,
 } from '../project'
+import { sanitizeMidiTrackInput } from '../midi'
 import { type ModuleDefinition, createDefaultFxGraph, createDefaultMasterGraph, createDefaultNoteGraph, createDefaultReturnGraph } from '../patch'
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
@@ -95,6 +96,8 @@ const sanitizeTrack = (
   const clips = Array.from({ length: sceneCount }, (_, scene) =>
     sanitizeClip(rawClips[scene], where, usedClipIds, warn, { kind: 'track', trackId: id }),
   )
+  const midiInput = raw.midiInput === undefined ? undefined : sanitizeMidiTrackInput(raw.midiInput)
+  if (raw.midiInput !== undefined && midiInput === undefined) warn(`${where}: invalid MIDI input dropped; the track follows the selection`)
 
   return {
     kind: 'instrument',
@@ -110,6 +113,8 @@ const sanitizeTrack = (
       ? sanitizePatch(raw.noteGraph, where, sampleIds, modules, warn, 'notes')
       : createDefaultNoteGraph(),
     clips,
+    // Absent: the track follows the selection, as in files from before track inputs.
+    ...(midiInput && { midiInput }),
   }
 }
 

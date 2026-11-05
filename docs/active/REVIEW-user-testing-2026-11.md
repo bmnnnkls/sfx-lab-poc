@@ -1,7 +1,7 @@
 ---
 status: active
 date: 2026-11-05
-note: "1-5 and 9 built on feat/user-testing-quick-wins (not merged); 6-8, 10 and 11 are backlog items C9-C11, M1-M2; 9 not checked on a physical controller (V5)."
+note: "1-5, 9 and 10 built on feat/user-testing-quick-wins (not merged); 6-8 and 11 are backlog items C9-C11 and M2; 9 not checked on a physical controller (V5)."
 ---
 # User testing feedback, November 2026
 
@@ -160,3 +160,11 @@ and [midi](../architecture/midi.md); decisions 124-127 in [decisions](../decisio
   every message for pickup and writes once per frame. A value waiting to be written is treated as where the control is,
   otherwise pickup would rearm on its own output (unit-tested). The legacy `docs/browser-checks/panel.mjs` was updated
   for Cancel and not run.
+* **10.** Built with following the selection kept as the default, as asked: a track without an input of its own
+  behaves as before. A track's own input takes precedence (decision 128): a note that matches any track's own input
+  goes only to such tracks, so pads on channel 10 don't also play the selected synth. The old global *Channel* setting
+  became the followed track's channel (*Selection channel*); mapped CCs ignore it, since a mapping names its channel.
+  Routing changes now release only the notes they take away (decision 129), by note-off rather than `releaseSource`;
+  the lifecycle unit test was updated for that. Set in MIDI settings only, with a tag on the session header; a picker
+  on the header or the mixer strip is backlog M3. Tests: core routing and file round trip, adapter layering and held
+  notes, a smoke test for the settings, undo and reload, and a real-worklet audio test.

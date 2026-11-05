@@ -1,6 +1,6 @@
 import type { Snapshot, SampleBinding, AssetRevision, ProjectPreset } from '../preset'
 import type { AutomationLane } from '../automation'
-import type { MidiMapping } from '../midi'
+import type { MidiMapping, MidiTrackInput } from '../midi'
 import type { ControlValue } from '../control'
 import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
@@ -102,6 +102,12 @@ export interface InstrumentTrack extends TrackBase {
   readonly noteGraph: Patch
   /** One slot per scene (row) of the session grid; null = empty slot. */
   readonly clips: readonly (Clip | null)[]
+  /**
+   * Where live MIDI notes come from: absent, the track follows the selection (it plays while it is the selected or the
+   * pinned instrument); set, it always listens to that input and channel (`{}` is any input, any channel), whatever is
+   * selected.
+   */
+  readonly midiInput?: MidiTrackInput
 }
 
 /** Plays audio clips (library samples) straight to the mix. */

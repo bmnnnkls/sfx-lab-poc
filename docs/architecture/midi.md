@@ -15,12 +15,33 @@ on 2026-10-17; secure context and browser permission are required. No output por
 
 The adapter reuses `parseMidiMessage` and converts its musician channels (1–16) once at the engine boundary (0–15).
 Each note-on allocates a per-press ID. Physical note-offs consume FIFO queues per input/channel/pitch; zero velocity is
-already an off from the parser. Default routing follows the selected instrument, or one pinned instrument. Selection of
-an audio/return/master destination routes no notes. Pinning keeps input stable while navigating elsewhere. Destination,
-filter and input lifecycle changes release affected sources. CC64 drives source/channel sustain; reserved CC120–127
+already an off from the parser. Input lifecycle changes (disconnect, disable) release affected sources. CC64 drives source/channel sustain; reserved CC120–127
 release that source/channel. Project document-epoch changes discard adapter queues and panic, even with identical IDs.
 Visible Panic clears queues/pedals/generated events without stopping transport; Stop also forgets physical ownership.
 Fresh presses are required after cleanup. The held-note engine retains release/effect tails. Notes never edit a project.
+
+## Where live notes go (track inputs)
+
+An instrument track **follows the selection** by default: it plays while it is the selected instrument, or the one
+pinned as the destination in MIDI settings (pinning keeps input stable while navigating elsewhere; selecting an
+audio or return track or the master routes no notes). The *Selection channel* setting is the followed track's: it
+listens to that channel only. A track can instead have **its own input**, `InstrumentTrack.midiInput` (`MidiTrackInput`
+in `core/midi/track-input.ts`: a device id, or any, and a channel, or any), which it always listens to, selected or
+not. `liveNoteTracks(project, deviceId, channel, follow)` (`core/project/midi-routes.ts`) decides each note-on: every
+track whose own input matches gets it (several tracks on one input make a layer, each note with its own id, released
+by one key-up); only when none matches does the followed track get it, if it has no input of its own and the channel
+allows. So a pad controller on channel 10 plays its drum track only, and the keyboard plays whatever is selected. CCs
+are not routed this way: a mapping names its own device and channel.
+
+A held press remembers the notes it started. When routing changes (`liveNoteRouting`: the followed track, the
+selection channel and every track's input), each held note whose track no longer takes its press gets a note-off and
+the rest keep sounding, so a pad held on a track's own input outlives a click on another track; a sustained note
+released this way stays until the pedal comes up. The device is matched by id only; `deviceName` shows an input that
+isn't connected, as for mappings. Inputs are set in MIDI settings (*Track inputs*: *Follows the selection*, *Any
+input* or a device, and a channel), one undo step each, and a track with its own input has a `midi` or `midi <channel>`
+tag on its session header. The field is optional and needs no format bump (an older build drops it and the track
+follows the selection again); the sanitizer drops an input whose device or channel is malformed, with a warning,
+rather than widen it to any device or any channel. Library items and presets don't carry it; *Duplicate* copies it.
 
 `app/midi-controls` learns eligible absolute CC0–119 except sustain. Confirmation consumes the first CC without editing
 the sound. An occupied source opens an explicit reassign/cancel decision; one source maps to one target, while separate

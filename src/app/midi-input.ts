@@ -1,4 +1,4 @@
-import { type LiveNoteAddress, parseMidiMessage } from '@core'
+import { type LiveNoteAddress, type MidiFollow, liveNoteRouting, liveNoteTracks, parseMidiMessage } from '@core'
 import { type EngineControls, type MidiService, useMidiStore, useProjectStore, useSelectionStore } from '@state'
 import { createMidiControls } from './midi-controls'
 
@@ -9,27 +9,47 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
   let generation = 0, serial = 0, enabled = false
   const ports = new Map<string, MIDIInput>()
   const closing = new Set<MIDIInput>()
-  const keys = new Map<string, { trackId: string; note: LiveNoteAddress }[]>()
+  /** Per input, channel and pitch: each held press, with the notes it started (one per track it went to). */
+  const keys = new Map<string, { trackId: string; note: LiveNoteAddress }[][]>()
   const cc = createMidiControls()
   const sourceId = (id: string) => `midi:${id}`
   const release = (id: string, channel?: number) => {
     controls.releaseSource(sourceId(id), channel)
     cc.release(id, channel)
-    for (const [key, presses] of keys) if (presses.some((p) => p.note.sourceId === sourceId(id) && (channel === undefined || p.note.channel === channel))) keys.delete(key)
+    for (const [key, presses] of keys) if (presses.some((press) => press.some((p) => p.note.sourceId === sourceId(id) && (channel === undefined || p.note.channel === channel)))) keys.delete(key)
   }
   const releaseAll = () => { for (const id of ports.keys()) release(id); cc.reset() }
-  const destination = () => {
-    const state = useMidiStore.getState()
-    const id = state.pinnedTrackId ?? useSelectionStore.getState().trackId
-    return useProjectStore.getState().project.tracks.find((track) => track.id === id && track.kind === 'instrument')?.id
+  /**
+   * After a routing change, releases each held note whose track no longer takes its press (the key-up would not find
+   * it), and keeps the rest sounding: a pad held on a track's own input outlives a click on another track.
+   */
+  const reroute = () => {
+    const project = useProjectStore.getState().project, now = follow()
+    for (const [key, presses] of keys) {
+      const [portId, channel] = JSON.parse(key) as [string, number, number]
+      const taking = new Set(liveNoteTracks(project, portId, channel, now))
+      const kept = presses
+        .map((press) => press.filter(({ trackId, note }) => taking.has(trackId) || (controls.noteOff(trackId, note), false)))
+        .filter((press) => press.length > 0)
+      if (kept.length > 0) keys.set(key, kept)
+      else keys.delete(key)
+    }
   }
+  /** The track that follows the selection: the pinned instrument, else the selected one; and the channel it listens to. */
+  const follow = (): MidiFollow => {
+    const state = useMidiStore.getState()
+    return { trackId: state.pinnedTrackId ?? useSelectionStore.getState().trackId, channel: state.channel }
+  }
+  /** Changes whenever where a note would go may change; held notes are released then. */
+  const routing = () => liveNoteRouting(useProjectStore.getState().project, follow())
   const receive = (port: MIDIInput, data: ArrayLike<number>, timestamp?: number) => {
     const settings = useMidiStore.getState()
     if (!enabled || ports.get(port.id) !== port || port.state !== 'connected' || settings.disabledInputs.includes(port.id)) return
     const message = parseMidiMessage(data)
     if (!message) return
     const channel = message.channel - 1
-    if (settings.channel !== null && channel !== settings.channel) return
+    // The channel setting is the followed track's: notes on other channels may still be for a track's own input, and a
+    // mapped CC names its channel itself.
     if (message.kind === 'cc') {
       if (message.cc === 64) controls.sustain(sourceId(port.id), channel, message.value >= 64)
       else if (message.cc >= 120) release(port.id, channel)
@@ -38,16 +58,18 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
     }
     const key = JSON.stringify([port.id, channel, message.note])
     if (message.kind === 'noteOn') {
-      const trackId = destination()
-      if (!trackId) return
-      const note = { sourceId: sourceId(port.id), channel, noteId: `press:${++serial}` }
-      keys.set(key, [...(keys.get(key) ?? []), { trackId, note }])
-      controls.noteOn(trackId, note, message.note, message.velocity)
+      const trackIds = liveNoteTracks(useProjectStore.getState().project, port.id, channel, follow())
+      if (trackIds.length === 0) return
+      const press = ++serial
+      // One note per track, each with its own id, so a layer releases as one press.
+      const notes = trackIds.map((trackId, index) => ({ trackId, note: { sourceId: sourceId(port.id), channel, noteId: index === 0 ? `press:${press}` : `press:${press}:${index}` } }))
+      keys.set(key, [...(keys.get(key) ?? []), notes])
+      for (const { trackId, note } of notes) controls.noteOn(trackId, note, message.note, message.velocity)
     } else {
       const presses = keys.get(key)
       const press = presses?.shift()
       if (!presses?.length) keys.delete(key)
-      if (press) controls.noteOff(press.trackId, press.note)
+      for (const { trackId, note } of press ?? []) controls.noteOff(trackId, note)
     }
   }
   const detach = (id: string, port: MIDIInput) => {
@@ -93,18 +115,19 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
     panic() { keys.clear(); cc.release(); cc.reset(); useMidiStore.getState().cancelLearn(); controls.panic() },
   }
   const connect = () => {
-    let route = destination()
-    const selection = useSelectionStore.subscribe(() => { const next = destination(); if (route !== next) { releaseAll(); route = next } })
+    let route = routing()
+    const changed = () => { const next = routing(); if (route !== next) { reroute(); route = next } }
+    const selection = useSelectionStore.subscribe(changed)
     const settings = useMidiStore.subscribe((next, prev) => {
-      if (next.channel !== prev.channel || next.pinnedTrackId !== prev.pinnedTrackId) { releaseAll(); route = destination() }
+      if (next.channel !== prev.channel || next.pinnedTrackId !== prev.pinnedTrackId) changed()
       if (next.disabledInputs !== prev.disabledInputs) refresh()
     })
     const project = useProjectStore.subscribe((next, prev) => {
-      if (next.documentEpoch !== prev.documentEpoch) { keys.clear(); cc.reset(); controls.panic(); useMidiStore.getState().cancelLearn(); useMidiStore.setState({ pinnedTrackId: null }); route = destination() }
+      if (next.documentEpoch !== prev.documentEpoch) { keys.clear(); cc.reset(); controls.panic(); useMidiStore.getState().cancelLearn(); useMidiStore.setState({ pinnedTrackId: null }); route = routing() }
       else {
         const pinned = useMidiStore.getState().pinnedTrackId
         if (pinned && !next.project.tracks.some((t) => t.id === pinned && t.kind === 'instrument')) useMidiStore.setState({ pinnedTrackId: null })
-        if (route !== destination()) { releaseAll(); route = destination() }
+        changed()
       }
       if (next.project.midiMappings !== prev.project.midiMappings) cc.reconcile(next.project.midiMappings ?? [])
     })

@@ -2,6 +2,7 @@ import {
   type Clip,
   type ClipRef,
   type History,
+  type MidiTrackInput,
   type ModuleDefinition,
   type Note,
   type Patch,
@@ -71,6 +72,7 @@ import {
   setTrackPan,
   setTrackSoloed,
   setTrackVoices,
+  setTrackMidiInput,
   setTrackSend,
   setTrackVolume,
   undo,
@@ -198,6 +200,8 @@ interface ProjectActions {
    */
   updateAudioClip(ref: ClipRef, changes: AudioClipChanges): void
   setTrackVoices(trackId: string, voices: number): void
+  /** Gives an instrument track its own MIDI input, or (undefined) lets it follow the selection again. One undo step. */
+  setTrackMidiInput(trackId: string, input: MidiTrackInput | undefined): void
   /**
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
    * Rapid edits sharing a `mergeKey` (a slider or node drag) collapse into one undo step.
@@ -416,6 +420,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         `audio:${ref.kind === 'region' ? ref.regionId : ref.clipId}:${Object.keys(changes).sort().join(',')}`,
       ),
     setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
+    setTrackMidiInput: (trackId, input) => edit((project) => setTrackMidiInput(project, trackId, input)),
 
     updatePatch: (trackId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { trackId }, change), mergeKey),

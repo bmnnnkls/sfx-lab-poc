@@ -55,11 +55,16 @@ describe('browser MIDI lifecycle with fake ports', () => {
     const p = port(), c = controls(), a = fakeAccess(p), adapter = createMidiInput(c, async () => a), dispose = adapter.connect()
     await adapter.enable(); send(p, [0x90, 60, 127])
     useMidiStore.setState({ channel: 1 })
-    expect(c.releaseSource).toHaveBeenCalledWith('midi:keys', undefined)
+    // The held note no longer reaches its track: it is released there.
+    expect(c.noteOff).toHaveBeenCalledWith(vi.mocked(c.noteOn).mock.calls[0]![0], vi.mocked(c.noteOn).mock.calls[0]![1])
+    vi.mocked(c.noteOff).mockClear()
     send(p, [0x90, 61, 127]); expect(c.noteOn).toHaveBeenCalledTimes(1)
     useMidiStore.setState({ channel: null, pinnedTrackId: useProjectStore.getState().project.tracks[0]!.id })
     useSelectionStore.getState().selectMaster(); send(p, [0x90, 62, 127]); expect(c.noteOn).toHaveBeenCalledTimes(2)
     useMidiStore.setState({ pinnedTrackId: null }); send(p, [0x90, 63, 127]); expect(c.noteOn).toHaveBeenCalledTimes(2)
+    // Unpinning took the held 62 away from its track.
+    expect(c.noteOff).toHaveBeenCalledWith(vi.mocked(c.noteOn).mock.calls[1]![0], vi.mocked(c.noteOn).mock.calls[1]![1])
+    vi.mocked(c.noteOff).mockClear()
     useMidiStore.setState({ disabledInputs: ['keys'] }); expect(p.onmidimessage).toBeNull(); expect(p.close).toHaveBeenCalled()
     useMidiStore.setState({ disabledInputs: [] }); await Promise.resolve(); await Promise.resolve(); expect(p.onmidimessage).not.toBeNull()
     Object.assign(p, { state: 'disconnected' }); a.onstatechange?.call(a, {} as MIDIConnectionEvent)
@@ -308,5 +313,52 @@ describe('CC writes once per frame', () => {
     expect(useProjectStore.getState().project.master.volume).toBeCloseTo(64 / 127, 6)
     controls.receive('keys', 'keys', cc(127)); controls.reset(); frame.run()
     expect(useProjectStore.getState().project.master.volume).toBeCloseTo(64 / 127, 6)
+  })
+})
+
+describe('track inputs', () => {
+  const instruments = () => useProjectStore.getState().project.tracks.filter((track) => track.kind === 'instrument').map((track) => track.id)
+
+  it('sends a channel to the track listening on it, and the rest to the selected track', async () => {
+    const [selected, drums] = instruments() as [string, string]
+    useSelectionStore.getState().selectTrack(selected)
+    useProjectStore.getState().setTrackMidiInput(drums, { channel: 9 })
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0x99, 36, 100]); send(p, [0x90, 60, 100])
+    expect(vi.mocked(c.noteOn).mock.calls.map((call) => [call[0], call[2]])).toEqual([[drums, 36], [selected, 60]])
+    dispose()
+  })
+
+  it('layers tracks on one input, and one key-up releases every layer', async () => {
+    const [selected, a, b] = instruments() as [string, string, string]
+    useSelectionStore.getState().selectTrack(selected)
+    useProjectStore.getState().setTrackMidiInput(a, { deviceId: 'keys' })
+    useProjectStore.getState().setTrackMidiInput(b, { deviceId: 'keys', channel: 0 })
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0x90, 60, 100]); send(p, [0x80, 60, 0])
+    const ons = vi.mocked(c.noteOn).mock.calls
+    expect(ons.map((call) => call[0])).toEqual([a, b])
+    expect(ons[0]![1].noteId).not.toBe(ons[1]![1].noteId)
+    expect(vi.mocked(c.noteOff).mock.calls).toEqual(ons.map((call) => [call[0], call[1]]))
+    dispose()
+  })
+
+  it("keeps a held note on a track's own input through a selection change, and releases it when the input changes", async () => {
+    const [selected, other, drums] = instruments() as [string, string, string]
+    useSelectionStore.getState().selectTrack(selected)
+    useProjectStore.getState().setTrackMidiInput(drums, { channel: 9 })
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0x99, 36, 100]); send(p, [0x90, 60, 100])
+    useSelectionStore.getState().selectTrack(other)
+    expect(vi.mocked(c.noteOff).mock.calls.map((call) => call[0])).toEqual([selected])
+    useProjectStore.getState().setTrackMidiInput(drums, { channel: 8 })
+    expect(vi.mocked(c.noteOff).mock.calls.map((call) => call[0])).toEqual([selected, drums])
+    expect(c.releaseSource).not.toHaveBeenCalled()
+    send(p, [0x89, 36, 0]); send(p, [0x80, 60, 0])
+    expect(c.noteOff).toHaveBeenCalledTimes(2)
+    dispose()
   })
 })
