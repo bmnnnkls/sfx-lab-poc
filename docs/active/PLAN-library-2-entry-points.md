@@ -173,3 +173,11 @@ Signed off 2026-11-04: every row as proposed.
 * **Step 1:** *Export library…* reads the catalog from storage first, since the store's copy is empty until the Library
   has been shown; an empty library says "My library is empty".
 * **Step 1:** the *Library* category sits between *Track* and *Edit* in the palette and the shortcuts dialog.
+* **Step 2:** the saved revision gets a fresh id, as every capture's does, since the project's revision id may already
+  be in the catalog from an earlier save of the same preset. Its signature is the preset's.
+* **Step 2:** the sound's `state` is the preset itself (its `revisionId` pointed at the stored revision); no preset
+  items are added under it.
+* **Step 2:** `EXTERNAL_ROUTING` (`send`, `trackAudio`, `trackNotes`) is one list in `core/preset/assets.ts`, used by
+  `captureAsset` and `captureLibraryPreset`.
+* **Step 2:** `PersonalLibrary.savePreset(presetId, folderId)` takes no name: the item is named after the preset.
+  *Save to library* on a preset row has a tooltip saying what it makes; a snapshot row doesn't offer it.

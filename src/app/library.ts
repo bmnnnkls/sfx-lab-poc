@@ -1,5 +1,5 @@
 import { decodeAudio } from '@audio'
-import { bytesKeyOf, type LibraryCatalog, type LibraryItem, type Project, type SampleData, captureLibraryAsset, captureLibraryClip, captureLibrarySample, insertLibraryAsset, insertLibraryClip, libraryDependencies, libraryPreviewProject, Bounce, commit } from '@core'
+import { bytesKeyOf, type LibraryCatalog, type LibraryItem, type Project, type SampleData, captureLibraryAsset, captureLibraryClip, captureLibraryPreset, captureLibrarySample, insertLibraryAsset, insertLibraryClip, libraryDependencies, libraryPreviewProject, Bounce, commit } from '@core'
 import { type PersonalLibrary, useProjectStore } from '@state'
 import { type LibraryStorage, type SampleStorage, stageLibraryBundle, commitLibraryBundle, exportLibraryBundle, downloadFile } from '@storage'
 
@@ -45,6 +45,7 @@ export const createPersonalLibrary = (storage: LibraryStorage, samples: SampleSt
     saveAsset: (scope, name, folder) => save((catalog, project) => captureLibraryAsset(catalog, project, scope, name, folder)),
     saveClip: (track, clip, name, folder) => save((catalog, project) => captureLibraryClip(catalog, project, track, clip, name, folder)),
     saveSample: (id, name, folder) => save((catalog, project) => captureLibrarySample(catalog, project, id, name, folder)),
+    savePreset: (id, folder) => save((catalog, project) => captureLibraryPreset(catalog, project, id, folder)),
     insert: async (selected, destination, scene = 0, replaceClip = false) => {
       const catalog = await storage.read(), item = catalog.items.find(i => i.id === selected.id && !i.trashed)
       if (!item) throw new Error('Library item was removed; refresh the catalog')

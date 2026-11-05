@@ -6,6 +6,9 @@ import { enumerateSampleTargets, editSampleBinding, resolveSampleTarget } from '
 import { captureSnapshot, inSnapshotScope, recallSnapshot } from './snapshots'
 import type { AssetPayload, AssetRevision, ProjectPreset, RecallIssue, SnapshotScope } from './types'
 
+/** The node types that read another track: an asset can't carry them, so a capture refuses them. */
+export const EXTERNAL_ROUTING: readonly string[] = ['send', 'trackAudio', 'trackNotes']
+
 /** Only the transitive closure belongs to an asset. Reject external routing rather than silently rebinding it. */
 export const captureAsset = (project: Project, scope: SnapshotScope): AssetPayload => {
   if (scope.domain === 'track') throw new Error('Choose Instrument, Effects or Notes for a preset')
@@ -14,7 +17,7 @@ export const captureAsset = (project: Project, scope: SnapshotScope): AssetPaylo
   const modules: ModuleDefinition[] = [], seen = new Set<string>(), visiting = new Set<string>(), samples = new Set<string>()
   const walk = (patch: Patch) => {
     for (const node of patch.nodes) {
-      if (['send', 'trackAudio', 'trackNotes'].includes(node.type)) throw new Error('Presets require graphs without external track routing')
+      if (EXTERNAL_ROUTING.includes(node.type)) throw new Error('Presets require graphs without external track routing')
       if (node.sampleId) samples.add(node.sampleId)
       if (node.type === 'module' && node.moduleId && visiting.has(node.moduleId)) throw new Error('Cyclic module dependency')
       if (node.type === 'module' && node.moduleId && !seen.has(node.moduleId)) {

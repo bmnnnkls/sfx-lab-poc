@@ -1,5 +1,6 @@
 import { type ControlOwner, type ProjectPreset, type SnapshotScope, canRecallProjectPreset, captureSnapshot, deleteProjectPreset, deleteSnapshot, duplicateProjectPreset, duplicateSnapshot, putSnapshot, saveProjectPreset } from '@core'
 import { editPresetProject, recallSavedSound } from '../preset-actions'
+import { saveToLibrary } from './library-save'
 import { project } from './lookup'
 import { renameAction } from './rename'
 import type { Action, SubjectOf } from './types'
@@ -51,6 +52,15 @@ export const soundActions: readonly Action<SoundSubject>[] = [
         const snapshot = snapshotOf(subject)!
         return putSnapshot(value, captureSnapshot(value, snapshot.scope, snapshot.name, snapshot.id))
       }),
+  },
+  {
+    id: 'sound.save-to-library',
+    title: 'Save to library',
+    group: 'edit',
+    tooltip: () => "A new library sound from this preset's own graph, holding only this preset",
+    // A snapshot has no graph of its own to save.
+    applies: (subject) => subject.preset && exists(subject),
+    run: ({ soundId }, context) => saveToLibrary({ kind: 'preset', presetId: soundId }, context),
   },
   renameAction('sound', exists),
   {

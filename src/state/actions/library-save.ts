@@ -4,18 +4,19 @@ import { project, sessionClipOf, trackOf } from './lookup'
 import { startRename } from './rename'
 import type { Action, ActionContext, ActionReport, Subject } from './types'
 
-/** What is saved: a graph of an owner, a session clip, or a project sample. */
+/** What is saved: a graph of an owner, a session clip, a project sample, or a project preset on its own. */
 export type LibrarySource =
   | { readonly kind: 'asset'; readonly scope: SnapshotScope }
   | { readonly kind: 'clip'; readonly trackId: string; readonly clipId: string }
   | { readonly kind: 'sample'; readonly sampleId: string }
+  | { readonly kind: 'preset'; readonly presetId: string }
 
 const ownerName = (owner: ControlOwner) =>
   owner.kind === 'master' ? 'Master' : owner.kind === 'group' ? (project().groups?.find((group) => group.id === owner.groupId)?.name ?? 'Group') : (trackOf(owner.trackId)?.name ?? 'Track')
 
 /**
  * The name a save gives the new item, after its source: *Bass* for an instrument, *Bass effects*, *Bass notes*,
- * *Master effects*, a clip's or a sample's own name.
+ * *Master effects*, a clip's, a sample's or a preset's own name.
  */
 export const libraryNameOf = (source: LibrarySource): string => {
   switch (source.kind) {
@@ -27,6 +28,8 @@ export const libraryNameOf = (source: LibrarySource): string => {
       return sessionClipOf(source.trackId, source.clipId)?.clip.name || 'Clip'
     case 'sample':
       return project().samples.find((sample) => sample.id === source.sampleId)?.name ?? 'Sample'
+    case 'preset':
+      return project().presets?.find((preset) => preset.id === source.presetId)?.name ?? 'Preset'
   }
 }
 
@@ -47,7 +50,9 @@ export const saveToLibrary = async (source: LibrarySource, context: ActionContex
       ? await library.saveAsset(source.scope, name, folderId)
       : source.kind === 'clip'
         ? await library.saveClip(source.trackId, source.clipId, name, folderId)
-        : await library.saveSample(source.sampleId, name, folderId)
+        : source.kind === 'sample'
+          ? await library.saveSample(source.sampleId, name, folderId)
+          : await library.savePreset(source.presetId, folderId)
   useLibraryStore.getState().setCatalog(next)
   // The new item is the one id the catalog didn't have before; an asset's presets come with it.
   const known = new Set(before.items.map((item) => item.id))

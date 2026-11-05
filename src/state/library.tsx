@@ -6,6 +6,8 @@ export interface PersonalLibrary {
   saveAsset(scope: SnapshotScope, name: string, folderId: string | null): Promise<LibraryCatalog>
   saveClip(trackId: string, clipId: string, name: string, folderId: string | null): Promise<LibraryCatalog>
   saveSample(sampleId: string, name: string, folderId: string | null): Promise<LibraryCatalog>
+  /** A project preset on its own: a new sound from the preset's own revision, holding only that preset. */
+  savePreset(presetId: string, folderId: string | null): Promise<LibraryCatalog>
   insert(item: LibraryItem, destination: AssetDestination, scene?: number, replaceClip?: boolean): Promise<string>
   /** Plays an item in an isolated engine; `onStop` is called once it stops, by ending or by `stopPreview`. */
   preview(item: LibraryItem, onStop?: () => void): Promise<'started' | 'cancelled'>

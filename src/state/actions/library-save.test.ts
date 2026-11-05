@@ -1,4 +1,4 @@
-import { type LibraryCatalog, addTrack, captureLibraryAsset, captureLibraryClip, captureLibrarySample, createNode, createReturnTrack, emptyLibrary, groupTrack, saveLibraryFolder, setGroupBus, trashLibraryEntry } from '@core'
+import { type LibraryCatalog, addTrack, captureLibraryAsset, captureLibraryClip, captureLibraryPreset, captureLibrarySample, captureSnapshot, putSnapshot, saveProjectPreset, createNode, createReturnTrack, emptyLibrary, groupTrack, saveLibraryFolder, setGroupBus, trashLibraryEntry } from '@core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useLayoutStore } from '../layout-store'
 import type { PersonalLibrary } from '../library'
@@ -21,6 +21,7 @@ const library = {
   saveAsset: async (scope, name, folder) => (catalog = captureLibraryAsset(catalog, project(), scope, name, folder)),
   saveClip: async (trackId, clipId, name, folder) => (catalog = captureLibraryClip(catalog, project(), trackId, clipId, name, folder)),
   saveSample: async (sampleId, name, folder) => (catalog = captureLibrarySample(catalog, project(), sampleId, name, folder)),
+  savePreset: async (presetId, folder) => (catalog = captureLibraryPreset(catalog, project(), presetId, folder)),
 } as PersonalLibrary
 const context = () => fakeContext({ library })
 const saved = () => catalog.items.filter((item) => item.content.kind !== 'preset').map((item) => [item.name, item.folderId, item.content.kind])
@@ -102,5 +103,18 @@ describe('Save to library', () => {
     await runAction('track.save-effects-to-library', { kind: 'track', trackId: kickTrack.id }, context())
     expect(notices().at(-1)).toMatchObject({ kind: 'error', message: 'Presets require graphs without external track routing' })
     expect(saved()).toEqual([])
+  })
+
+  it("saves a project preset on its own, from Sounds; a snapshot has nothing to save", async () => {
+    const scope = { owner: { kind: 'track' as const, trackId: track('Bass').id }, domain: 'patch' as const }
+    const withSounds = saveProjectPreset(putSnapshot(project(), captureSnapshot(project(), scope, 'Snap', 'snap')), scope, 'Warm', 'warm')
+    useProjectStore.getState().resetProject(withSounds)
+    expect(entry({ kind: 'sound', soundId: 'snap', preset: false }, 'sound.save-to-library')).toBeUndefined()
+    expect(entry({ kind: 'sound', soundId: 'warm', preset: true }, 'sound.save-to-library')?.title).toBe('Save to library')
+    useLibraryStore.setState({ active: { kind: 'folder', id: 'kicks' } })
+    await runAction('sound.save-to-library', { kind: 'sound', soundId: 'warm', preset: true }, context())
+    expect(saved()).toEqual([['Warm', 'kicks', 'instrument']])
+    expect(catalog.items.some((item) => item.content.kind === 'preset')).toBe(false)
+    expect(notices().at(-1)).toMatchObject({ message: 'Saved Warm to Kicks', action: { label: 'Show' } })
   })
 })

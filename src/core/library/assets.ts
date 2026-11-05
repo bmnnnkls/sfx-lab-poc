@@ -1,6 +1,6 @@
 import { type ControlOwner, type ControlTarget, editControlBase } from '../control'
 import { type Patch, type ModuleDefinition } from '../patch'
-import { assetSignature, saveProjectPreset, editSampleBinding, resolveSampleTarget, type AssetPayload, type ProjectPreset, type SampleTarget, type SnapshotScope } from '../preset'
+import { EXTERNAL_ROUTING, assetSignature, saveProjectPreset, editSampleBinding, resolveSampleTarget, type AssetPayload, type ProjectPreset, type SampleTarget, type SnapshotScope } from '../preset'
 import { type Project, createTrack } from '../project'
 import { createId } from '../shared'
 import { saveLibraryItem } from './catalog'
@@ -19,6 +19,29 @@ export const captureLibraryAsset = (catalog: LibraryCatalog, project: Project, s
   next = saveLibraryItem(next, { id, name, folderId, content: { kind: revision.payload.kind, revisionId: revision.id, state } })
   for (const preset of presets) next = saveLibraryItem(next, { id: createId('item'), name: preset.name, folderId, content: { kind: 'preset', assetId: id, revisionId: revision.id, state: { ...preset, revisionId: revision.id } } })
   return next
+}
+
+/** The graphs of a revision's payload, its modules' included. */
+const payloadGraphs = (payload: AssetPayload): readonly Patch[] =>
+  [...(payload.kind === 'instrument' ? [payload.patch, payload.noteGraph] : [payload.graph]), ...payload.modules.map(m => m.patch)]
+
+/**
+ * Save one project preset on its own: a new library sound built from the preset's own revision, whose state is the
+ * preset, with no other presets. It never reads the current graph, so it works after the preset's owner was rewired.
+ */
+export const captureLibraryPreset = (catalog: LibraryCatalog, project: Project, presetId: string, folderId: string | null): LibraryCatalog => {
+  const preset = project.presets?.find(p => p.id === presetId)
+  if (!preset) throw new Error('The preset is no longer in the project')
+  const revision = project.assetRevisions?.find(r => r.id === preset.revisionId)
+  if (!revision) throw new Error('The preset has lost its revision')
+  if (payloadGraphs(revision.payload).some(graph => graph.nodes.some(node => EXTERNAL_ROUTING.includes(node.type)))) throw new Error('Presets require graphs without external track routing')
+  const sampleIds = new Set([...revision.payload.sampleIds, ...preset.samples.flatMap(s => s.sampleId ? [s.sampleId] : [])])
+  const missing = [...sampleIds].filter(id => !project.samples.some(s => s.id === id))
+  if (missing.length) throw new Error(`Missing sample metadata: ${missing.join(', ')}`)
+  // A fresh id, as every capture's: the project's revision id may already be in the catalog from an earlier save.
+  const stored = { ...revision, id: createId('revision'), payload: { ...revision.payload, sampleIds: [...sampleIds] } }
+  const next: LibraryCatalog = { ...catalog, revisions: [...catalog.revisions, stored], samples: [...catalog.samples, ...project.samples.filter(s => sampleIds.has(s.id) && !catalog.samples.some(known => known.id === s.id))] }
+  return saveLibraryItem(next, { id: createId('item'), name: preset.name, folderId, content: { kind: revision.payload.kind, revisionId: stored.id, state: { ...preset, revisionId: stored.id } } })
 }
 
 /** Remap the closure, including derived interface/knob IDs and every reference to those IDs. */

@@ -70,6 +70,19 @@ describe('personal library service', () => {
     await expect(library.saveSample(id, 'Missing', null)).rejects.toThrow(/bytes missing/)
     expect(await library.read()).toEqual(catalog)
   })
+
+  it('saves a project preset on its own after the same byte preflight', async () => {
+    const { project } = setup(), storage = createMemoryLibraryStorage(), samples = createMemorySampleStorage(), library = createPersonalLibrary(storage, samples)
+    const one = project.presets!.find(preset => preset.name === 'One')!
+    await library.savePreset(one.id, null)
+    expect((await library.read()).items.map(item => [item.name, item.content.kind])).toEqual([['One', 'instrument']])
+    // A preset whose revision uses a sample whose bytes aren't stored is refused, and the catalog stays as it was.
+    const id = 'b'.repeat(64), info = { id, name: 'Missing', extension: 'wav', sampleRate: 8000, bytes: 10, durationSeconds: 1, channels: 1 }
+    useProjectStore.getState().resetProject({ ...project, samples: [info], assetRevisions: project.assetRevisions!.map(revision => revision.id === one.revisionId ? { ...revision, payload: { ...revision.payload, sampleIds: [id] } } : revision) })
+    const catalog = await library.read()
+    await expect(library.savePreset(one.id, null)).rejects.toThrow(/bytes missing/)
+    expect(await library.read()).toEqual(catalog)
+  })
 })
 
 it('returns explicit cancellation for stale preview success/errors and keeps the newer audio context alive', async () => {

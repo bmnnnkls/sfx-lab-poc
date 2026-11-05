@@ -11,6 +11,7 @@ export const createDeferredPersonalLibrary = (storage: LibraryStorage, samples: 
     saveAsset: async (...args) => (await load()).saveAsset(...args),
     saveClip: async (...args) => (await load()).saveClip(...args),
     saveSample: async (...args) => (await load()).saveSample(...args),
+    savePreset: async (...args) => (await load()).savePreset(...args),
     stageBundle: async bytes => (await load()).stageBundle(bytes),
     importBundle: async stage => (await load()).importBundle(stage),
     prepareBundle: async (...args) => (await load()).prepareBundle(...args),
