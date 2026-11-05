@@ -27,6 +27,17 @@ export class AudioHost {
     return this.clock.beat(this.context.currentTime - agoMs / 1000)
   }
 
+  /**
+   * How long after the engine renders a sample it is heard, in seconds: the context's output latency plus its base
+   * latency, each 0 where the browser doesn't report it. Read when asked, since it changes with the output device.
+   */
+  outputLatency(): number {
+    const context = this.context
+    if (!context) return 0
+    const seconds = (value: number | undefined) => (typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0)
+    return seconds(context.outputLatency) + seconds(context.baseLatency)
+  }
+
   get isRunning(): boolean {
     return this.context?.state === 'running'
   }
