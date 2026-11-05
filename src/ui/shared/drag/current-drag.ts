@@ -12,13 +12,34 @@ let current: DragPayload | null = null
 /** The target showing `data-drop`: only the one under the pointer does. */
 let marked: HTMLElement | null = null
 
-export const mark = (element: HTMLElement | null, state?: 'accept' | 'refuse') => {
+/**
+ * Marks the target under the pointer as taking the drag or refusing it. A refusal with a reason shows it as the
+ * target's tooltip and in `data-drop-reason`, for a target to draw while the drag is on it (a tooltip doesn't show
+ * during a drag); the target's own tooltip comes back when the mark goes.
+ */
+export const mark = (element: HTMLElement | null, state?: 'accept' | 'refuse', reason?: string) => {
   if (marked && marked !== element) unmark(marked)
   marked = element
-  if (element && state) element.dataset.drop = state
+  if (!element || !state) return
+  element.dataset.drop = state
+  if (reason === element.dataset.dropReason) return
+  if (element.dataset.dropReason === undefined) element.dataset.dropTitle = element.title
+  if (reason) {
+    element.dataset.dropReason = reason
+    element.title = reason
+  } else restoreTitle(element)
+}
+
+const restoreTitle = (element: HTMLElement) => {
+  if (element.dataset.dropReason === undefined) return
+  element.title = element.dataset.dropTitle ?? ''
+  if (!element.title) element.removeAttribute('title')
+  delete element.dataset.dropReason
+  delete element.dataset.dropTitle
 }
 
 export const unmark = (element: HTMLElement) => {
+  restoreTitle(element)
   delete element.dataset.drop
   delete element.dataset.edge
   element.style.removeProperty('--drop-at')

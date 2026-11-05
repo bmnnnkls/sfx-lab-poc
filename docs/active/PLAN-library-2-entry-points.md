@@ -181,3 +181,17 @@ Signed off 2026-11-04: every row as proposed.
   `captureAsset` and `captureLibraryPreset`.
 * **Step 2:** `PersonalLibrary.savePreset(presetId, folderId)` takes no name: the item is named after the preset.
   *Save to library* on a preset row has a tooltip saying what it makes; a snapshot row doesn't offer it.
+* **Step 3:** `externalRoutingIn(project, scope)` lives in `core/preset/routing.ts` beside `captureAsset`, and scans
+  what a capture of that scope reads: the graph, its modules (nested ones too) and, for an instrument, its note graph.
+  It returns the node type and its `trackId`.
+* **Step 3:** a `Drop` can say why it refuses (`refusal`), and `refusalFor(payload, target, context)` asks the drops of
+  those kinds. The target then gets the reason as its `title` and in `data-drop-reason`, and its own title comes back
+  when the mark goes. Since a browser shows no tooltip during a drag, a Library tree row also draws the reason at its
+  end (in place of its count) while the drag is on it. The wording: "Uses Track audio from Kick", "Uses Track notes
+  from Pad", "Uses a Send to Echo", and "Sum the group to a bus first" for a folder group.
+* **Step 3:** `saveToLibrary(source, context, into?)` takes the folder dropped on (null for the top level); without it,
+  the open folder as before. A drop's `run` may resolve with an `ActionReport`, so a drop's toast has *Show* too.
+* **Step 3:** the trash and trashed folders refuse every project payload without a reason; a snapshot, a gone clip or a
+  gone sample refuse silently too.
+* **Step 3:** the smoke for a refused track uses Low Light's *Echo* return (its *Kick duck* reads the Kick's audio);
+  its Tracks row is named "Echo, return".

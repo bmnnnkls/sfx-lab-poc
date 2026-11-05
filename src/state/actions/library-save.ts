@@ -34,15 +34,15 @@ export const libraryNameOf = (source: LibrarySource): string => {
 }
 
 /**
- * Saves `source` into the folder open in the Library (the top level when there is none, or it is gone), named after
- * the source. Resolves with "Saved *Bass* to *Drums*" and a *Show* button, which shows the new item in the Library
+ * Saves `source` into `into` (a folder's id, or null for the top level: a drop's), else into the folder open in the
+ * Library (the top level when there is none, or it is gone), named after the source. Resolves with "Saved *Bass* to *Drums*" and a *Show* button, which shows the new item in the Library
  * and starts renaming it. A refused capture (a graph with a track's audio in it) throws its reason.
  */
-export const saveToLibrary = async (source: LibrarySource, context: ActionContext): Promise<ActionReport> => {
+export const saveToLibrary = async (source: LibrarySource, context: ActionContext, into?: string | null): Promise<ActionReport> => {
   const { library } = context
   const name = libraryNameOf(source)
   const before = await library.read()
-  const open = openFolder()
+  const open = into === undefined ? openFolder() : into
   const folder = before.folders.find((candidate) => candidate.id === open && !candidate.trashed)
   const folderId = folder?.id ?? null
   const next =

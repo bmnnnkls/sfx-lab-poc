@@ -1,13 +1,14 @@
-import { type ControlOwner, type LibraryCatalog, type TrackItem, type TrackPlace, canMoveGroup, canMoveTrack, duplicateLibraryFolder, libraryItemDuplicate, moveLibraryEntry } from '@core'
+import { type ControlOwner, type LibraryCatalog, type SnapshotScope, type TrackItem, type TrackPlace, canMoveGroup, canMoveTrack, duplicateLibraryFolder, externalRoutingIn, libraryItemDuplicate, moveLibraryEntry } from '@core'
 import { useLibraryStore } from '../library-store'
 import { useProjectStore } from '../project-store'
 import { canRunAction, runAction, type RunOptions, settle } from '.'
 import { canPasteClipOnLane, pasteClipOnLane } from './lane'
 import { editLibrary, graphFitsOwner, insertionScope, insertLibraryClipAt, libraryClipFitsSlot, replaceGraph } from './library'
-import { project, sessionClipOf } from './lookup'
+import { type LibrarySource, saveToLibrary } from './library-save'
+import { project, sessionClipOf, trackOf } from './lookup'
 import { canPasteClipInSlot, pasteClipInSlot } from './slot'
 import { canRecallPresetOn, recallPresetOn } from './sound'
-import type { ActionContext, SubjectOf } from './types'
+import type { ActionContext, ActionReport, SubjectOf } from './types'
 
 /** What is dragged: the subject of the thing picked up. It holds ids, read when it lands. */
 export type DragPayload = SubjectOf<'clip' | 'sample' | 'sound' | 'library-item' | 'library-folder' | 'track' | 'group'>
@@ -30,10 +31,12 @@ export interface Drop<P extends DragPayload = DragPayload, T extends DropTarget 
   readonly target: T['kind']
   /** Whether it can land here now. Refused drops show the "no drop" cursor. */
   accepts(payload: P, target: T, context: ActionContext): boolean
+  /** Why it can't land here now, when that is worth saying (*Uses Track audio from Kick*): the target's tooltip. */
+  refusal?(payload: P, target: T, context: ActionContext): string | undefined
   /** The cursor: a move, or a copy (Alt held, or a drop that always copies). */
   effect(payload: P, target: T, modifiers: DropModifiers): 'copy' | 'move'
-  /** An asynchronous drop resolves with a message to show, or throws one. */
-  run(payload: P, target: T, context: ActionContext, modifiers: DropModifiers): void | Promise<string | void>
+  /** An asynchronous drop resolves with a message to show (and a toast button), or throws one. */
+  run(payload: P, target: T, context: ActionContext, modifiers: DropModifiers): void | Promise<string | ActionReport | void>
 }
 
 const define = <P extends DragPayload['kind'], T extends DropTarget['kind']>(drop: Drop<SubjectOf<P>, SubjectOf<T>>): Drop => drop as unknown as Drop
@@ -177,6 +180,78 @@ const libraryTrash = [
     run: (payload, _root, context) => runAction('library-folder.trash', payload, context),
   }),
 ]
+
+/** What a node that reads another track is called, in a refusal. */
+const ROUTING_NAMES: Readonly<Record<string, string>> = { send: 'a Send', trackAudio: 'Track audio', trackNotes: 'Track notes' }
+
+/** Why a graph can't be saved: it reads another track (*Uses Track audio from Kick*), or undefined when it can. */
+export const routingRefusal = (scope: SnapshotScope): string | undefined => {
+  const routing = externalRoutingIn(project(), scope)
+  if (!routing) return undefined
+  const name = ROUTING_NAMES[routing.nodeType] ?? routing.nodeType
+  const track = routing.trackId === undefined ? undefined : trackOf(routing.trackId)?.name
+  if (!track) return `Uses ${name}`
+  return routing.nodeType === 'send' ? `Uses ${name} to ${track}` : `Uses ${name} from ${track}`
+}
+
+/** Payloads from the project that a library folder takes: saved there. */
+type SavedPayload = SubjectOf<'track' | 'group' | 'clip' | 'sample' | 'sound'>
+
+/**
+ * What dropping `payload` on the library saves, or why it can't: an instrument track's *Instrument + notes*, an audio
+ * or return track's or a bus's effects, a session clip, a sample, or a project preset on its own. Nothing to say
+ * when the thing is gone (a snapshot, a deleted clip).
+ */
+const savedSourceOf = (payload: SavedPayload): { readonly source: LibrarySource } | { readonly reason?: string } => {
+  const graph = (scope: SnapshotScope) => {
+    const reason = routingRefusal(scope)
+    return reason ? { reason } : { source: { kind: 'asset', scope } as const }
+  }
+  switch (payload.kind) {
+    case 'track': {
+      const track = trackOf(payload.trackId)
+      if (!track) return {}
+      return graph({ owner: trackOwner(track.id), domain: track.kind === 'instrument' ? 'patch' : 'fx' })
+    }
+    case 'group': {
+      const group = project().groups?.find((candidate) => candidate.id === payload.groupId)
+      if (!group) return {}
+      return group.bus ? graph({ owner: groupOwner(group.id), domain: 'fx' }) : { reason: 'Sum the group to a bus first' }
+    }
+    case 'clip':
+      return sessionClipOf(payload.trackId, payload.clipId) ? { source: { kind: 'clip', trackId: payload.trackId, clipId: payload.clipId } } : {}
+    case 'sample':
+      return project().samples.some((sample) => sample.id === payload.sampleId) ? { source: { kind: 'sample', sampleId: payload.sampleId } } : {}
+    case 'sound':
+      return presetOf(payload) ? { source: { kind: 'preset', presetId: payload.soundId } } : {}
+  }
+}
+
+/**
+ * Tracks, groups, session clips, samples and project presets dragged onto a library folder or *My library*: saved
+ * there, always as a copy, the toast's *Show* revealing the new item. The trash takes none of them. External routing
+ * is refused up front, with the reason as the target's tooltip.
+ */
+const librarySaves = (['library-folder', 'library-root'] as const).flatMap((target) =>
+  (['track', 'group', 'clip', 'sample', 'sound'] as const).map((payload) =>
+    define<SavedPayload['kind'], typeof target>({
+      id: `drop.${payload}-on-library-${target === 'library-folder' ? 'folder' : 'root'}`,
+      payload,
+      target,
+      accepts: (dragged, place) => livePlace(place) && 'source' in savedSourceOf(dragged),
+      refusal: (dragged, place) => {
+        if (!livePlace(place)) return undefined
+        const saved = savedSourceOf(dragged)
+        return 'reason' in saved ? saved.reason : undefined
+      },
+      effect: copies,
+      run: (dragged, place, context) => {
+        const saved = savedSourceOf(dragged)
+        if ('source' in saved) return saveToLibrary(saved.source, context, destinationOf(place))
+      },
+    }),
+  ),
+)
 
 /** Every drop, by what is dragged and where it lands. Nothing else decides what a drop does. */
 export const drops: readonly Drop[] = [
@@ -344,7 +419,22 @@ export const drops: readonly Drop[] = [
   ...trackMoves,
   ...libraryMoves,
   ...libraryTrash,
+  ...librarySaves,
 ]
+
+/**
+ * Why nothing takes `payload` on `target` now, when a drop of that kind says (*Sum the group to a bus first*); undefined
+ * when a drop accepts it, or none has a reason.
+ */
+export const refusalFor = (payload: DragPayload, target: DropTarget, context: ActionContext): string | undefined => {
+  if (dropFor(payload, target, context)) return undefined
+  for (const drop of drops) {
+    if (drop.payload !== payload.kind || drop.target !== target.kind) continue
+    const reason = drop.refusal?.(payload, target, context)
+    if (reason) return reason
+  }
+  return undefined
+}
 
 /** The drop that would land `payload` on `target` now, or undefined when nothing accepts it there. */
 export const dropFor = (payload: DragPayload, target: DropTarget, context: ActionContext): Drop | undefined =>

@@ -1,4 +1,4 @@
-import { test, expect, dragTo, libraryMenu, libraryPanel, openView, saveToLibrary, treeRow } from './fixtures'
+import { test, expect, dragTo, libraryMenu, libraryPanel, openExample, openView, saveToLibrary, treeRow } from './fixtures'
 import type { Locator, Page } from '@playwright/test'
 
 /** Makes a folder from a menu (⋯ or a folder's), named in place. */
@@ -112,6 +112,45 @@ test('the library is one tree: saved from a track, organised by dragging, search
   await soft.focus()
   await page.keyboard.press('Delete')
   await expect(treeRow(panel, 'Trash')).toHaveAttribute('aria-label', 'Trash, 1 item')
+})
+
+test('a session clip and a Tracks row dragged onto the library are saved there, through the Library tab', async ({ page }) => {
+  await page.goto('/?starter')
+  await openView(page, 'Library')
+  const panel = libraryPanel(page)
+  await newFolder(page, panel, 'Grooves')
+  const session = await openView(page, 'Session')
+  // The Library is hidden behind Samples: resting on its tab shows it, and the clip lands in the folder.
+  await openView(page, 'Samples')
+  const libraryTab = page.getByRole('tab', { name: 'Library', exact: true })
+  await dragTo(page, session.getByRole('button', { name: '▶ Root', exact: true }), treeRow(panel, 'Grooves'), { hold: libraryTab })
+  await expect(page.getByRole('status').filter({ hasText: 'Saved Root to Grooves' })).toBeVisible()
+  await expect(treeRow(panel, 'Grooves')).toHaveAttribute('aria-label', 'Grooves, 1 item')
+
+  // Tracks shares the Library's group: the row's view hides as the Library shows, and the drag goes on.
+  const tracks = await openView(page, 'Tracks')
+  await dragTo(page, tracks.getByRole('treeitem', { name: 'Lead', exact: true }), treeRow(panel, 'My library'), { hold: libraryTab })
+  await page.getByRole('status').filter({ hasText: 'Saved Lead to My library' }).getByRole('button', { name: 'Show', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await expect(treeRow(panel, 'Lead')).toHaveAttribute('aria-selected', 'true')
+})
+
+test('a return whose effects read Track audio is refused on the library, with the reason as the tooltip', async ({ page }) => {
+  await page.goto('/?starter')
+  await openExample(page, 'Low Light')
+  const tracks = await openView(page, 'Tracks')
+  const panel = libraryPanel(page)
+  const mine = treeRow(panel, 'My library')
+  await dragTo(page, tracks.getByRole('treeitem', { name: 'Echo, return', exact: true }), mine, {
+    hold: page.getByRole('tab', { name: 'Library', exact: true }),
+    whileOver: async () => {
+      await expect(mine).toHaveAttribute('data-drop', 'refuse')
+      await expect(mine).toHaveAttribute('title', 'Uses Track audio from Kick')
+    },
+  })
+  await expect(mine).not.toHaveAttribute('title', /Track audio/)
+  await expect(page.getByRole('status').filter({ hasText: /^Saved / })).toHaveCount(0)
+  await expect(treeRow(panel, 'Echo effects')).toHaveCount(0)
 })
 
 test('records production Chromium timings for a near-limit library: the collapsed tree, a search and opening a folder', async ({ page, browser }, testInfo) => {
