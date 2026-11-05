@@ -90,6 +90,14 @@ export class Engine {
    * count-in. The frame it fell on and the beat it went to.
    */
   private jump: { readonly frame: number; readonly beat: number } | null = null
+  /**
+   * The transport's run: one more at every start (from stopped, or a count-in's start) and every seek while playing,
+   * and the loop jumps within it (`lap`). Beats go back at a jump, so a recorder tells passes and runs apart by these.
+   */
+  private run = 0
+  private lap = 0
+  /** Set while a count-in's own start runs: it is part of the run the count-in began. */
+  private keepRun = false
   /** A count-in running: the beats left to click, and what starts when it ends. */
   private counting: { left: number; readonly bars: number; then: CountInStart } | null = null
 
@@ -114,6 +122,7 @@ export class Engine {
     switch (command.type) {
       case 'automation/launch':
         this.automation.launchSlot(command.owner, command.slotId)
+        if (!this.transport.playing) this.newRun()
         this.transport.play()
         break
       case 'automation/configure':
@@ -165,9 +174,11 @@ export class Engine {
         if (this.counting) { this.counting.then = command; break }
         // A seek while the arrangement plays releases what was sounding, as the loop's jump does.
         if (this.playbackMode === 'arrangement' && this.transport.playing) {
+          this.newRun()
           this.seekArrangement(command.fromBeat ?? 0)
           break
         }
+        this.newRun()
         this.playbackMode = 'arrangement'
         this.transport.seek(command.fromBeat ?? 0)
         this.transport.play()
@@ -321,6 +332,7 @@ export class Engine {
     if (this.transport.playing || (whole === 0 && !this.counting)) { this.apply(then); return }
     if (then.type === 'clip/launch' || then.type === 'scene/launch') this.queueLaunch(then)
     if (this.counting) { this.counting.then = then; return }
+    this.newRun()
     this.counting = { left: whole * COUNT_IN_BAR_BEATS, bars: whole, then }
   }
 
@@ -328,8 +340,20 @@ export class Engine {
   private endCountIn(): void {
     const then = this.counting!.then
     this.counting = null
-    if (then.type === 'arrangement/play') this.apply(then)
-    else this.playSession()
+    this.keepRun = true
+    try {
+      if (then.type === 'arrangement/play') this.apply(then)
+      else this.playSession()
+    } finally {
+      this.keepRun = false
+    }
+  }
+
+  /** A new run of the transport: a start or a seek. Not for a count-in's own start, which continues its run. */
+  private newRun(): void {
+    if (this.keepRun) return
+    this.run++
+    this.lap = 0
   }
 
   /** Fills `left`/`right` with audio, advancing the transport. Buffers may be any length. */
@@ -363,6 +387,7 @@ export class Engine {
       const beat = toLoopEnd === null ? null : this.transport.loopJump()
       if (beat !== null) {
         this.seekArrangement(beat, this.transport.loop!.from)
+        this.lap++
         this.jump = { frame: offset, beat }
       }
     }
@@ -382,9 +407,9 @@ export class Engine {
   }
 
   /** Clock-only snapshot: no readout traversal, peak reset or audio-state mutation. */
-  clock(): Pick<EngineStatus, 'tempo' | 'playing' | 'beat' | 'countIn'> {
+  clock(): Pick<EngineStatus, 'tempo' | 'playing' | 'beat' | 'countIn' | 'run' | 'lap'> {
     const countIn = this.countInStatus()
-    return { tempo: this.transport.tempo, playing: this.transport.playing, beat: this.transport.positionBeats, ...(countIn && { countIn }) }
+    return { tempo: this.transport.tempo, playing: this.transport.playing, beat: this.transport.positionBeats, run: this.run, lap: this.lap, ...(countIn && { countIn }) }
   }
 
   private countInStatus(): EngineStatus['countIn'] {
@@ -409,7 +434,7 @@ export class Engine {
     if (Object.keys(masterReadouts).length > 0) readouts.master = masterReadouts
     const preview = this.preview.position()
     const countIn = this.countInStatus()
-    return { ...(countIn && { countIn }), tempo: this.transport.tempo, masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, mode: this.playbackMode, beat: this.transport.positionBeats, peak, peaks, readouts, tracks, ...(preview && { preview }) }
+    return { ...(countIn && { countIn }), tempo: this.transport.tempo, masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, mode: this.playbackMode, beat: this.transport.positionBeats, run: this.run, lap: this.lap, peak, peaks, readouts, tracks, ...(preview && { preview }) }
   }
 
   /** Structural edits cancel the affected track and every transitive note reader, without touching unrelated tracks. */
@@ -453,6 +478,7 @@ export class Engine {
 
   /** Plays with the session launchers as the event source (switching back from the arrangement if needed). */
   private playSession(): void {
+    if (!this.transport.playing) this.newRun()
     this.sessionMode()
     this.transport.play()
   }

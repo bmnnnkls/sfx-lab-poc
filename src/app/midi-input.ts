@@ -1,5 +1,5 @@
-import { type LiveNoteAddress, type MidiFollow, liveNoteRouting, liveNoteTracks, parseMidiMessage } from '@core'
-import { type EngineControls, type MidiService, recordBeat, recordNote, recordPedal, useMidiStore, useProjectStore, useRecordStore, useSelectionStore } from '@state'
+import { type ClockPosition, type LiveNoteAddress, type MidiFollow, liveNoteRouting, liveNoteTracks, parseMidiMessage } from '@core'
+import { type EngineControls, type MidiService, recordNote, recordPosition, recordPedal, useMidiStore, useProjectStore, useRecordStore, useSelectionStore } from '@state'
 import { createMidiControls } from './midi-controls'
 
 /** Only this adapter holds browser access/port objects. enable is called by a user action. */
@@ -12,8 +12,10 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
   /** Per input, channel and pitch: each held press, with the notes it started (one per track it went to). */
   const keys = new Map<string, { trackId: string; note: LiveNoteAddress }[][]>()
   /** Each note goes to the recorder too, which keeps it when the track has a take. */
-  const record = (trackId: string, kind: 'on' | 'off', portId: string, channel: number, pitch: number, velocity: number, beat: number | undefined) =>
-    recordNote(trackId, kind === 'on' ? { kind, source: sourceId(portId), channel, pitch, velocity, beat } : { kind, source: sourceId(portId), channel, pitch, beat })
+  const record = (trackId: string, kind: 'on' | 'off', portId: string, channel: number, pitch: number, velocity: number, at: ClockPosition | undefined) => {
+    const when = { beat: at?.beat, ...(at && { lap: at.lap, run: at.run }) }
+    recordNote(trackId, kind === 'on' ? { kind, source: sourceId(portId), channel, pitch, velocity, ...when } : { kind, source: sourceId(portId), channel, pitch, ...when })
+  }
   const cc = createMidiControls()
   const sourceId = (id: string) => `midi:${id}`
   const release = (id: string, channel?: number) => {
@@ -27,7 +29,7 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
    * it), and keeps the rest sounding: a pad held on a track's own input outlives a click on another track.
    */
   const reroute = () => {
-    const project = useProjectStore.getState().project, now = follow(), beat = recordBeat()
+    const project = useProjectStore.getState().project, now = follow(), beat = recordPosition()
     for (const [key, presses] of keys) {
       const [portId, channel, pitch] = JSON.parse(key) as [string, number, number]
       const taking = new Set(liveNoteTracks(project, portId, channel, now))
@@ -59,7 +61,7 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
     if (message.kind === 'cc') {
       if (message.cc === 64) {
         controls.sustain(sourceId(port.id), channel, message.value >= 64)
-        recordPedal(sourceId(port.id), channel, message.value >= 64, recordBeat(timestamp))
+        recordPedal(sourceId(port.id), channel, message.value >= 64, recordPosition(timestamp))
       }
       else if (message.cc >= 120) release(port.id, channel)
       else cc.receive(port.id, port.name ?? port.id, message, timestamp)
@@ -73,7 +75,7 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
       // One note per track, each with its own id, so a layer releases as one press.
       const notes = trackIds.map((trackId, index) => ({ trackId, note: { sourceId: sourceId(port.id), channel, noteId: index === 0 ? `press:${press}` : `press:${press}:${index}` } }))
       keys.set(key, [...(keys.get(key) ?? []), notes])
-      const beat = recordBeat(timestamp)
+      const beat = recordPosition(timestamp)
       for (const { trackId, note } of notes) {
         controls.noteOn(trackId, note, message.note, message.velocity)
         record(trackId, 'on', port.id, channel, message.note, message.velocity, beat)
@@ -82,7 +84,7 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
       const presses = keys.get(key)
       const press = presses?.shift()
       if (!presses?.length) keys.delete(key)
-      const beat = recordBeat(timestamp)
+      const beat = recordPosition(timestamp)
       for (const { trackId, note } of press ?? []) {
         controls.noteOff(trackId, note)
         record(trackId, 'off', port.id, channel, message.note, 0, beat)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EARLY_BEATS, MIN_NOTE_BEATS, type TakeEvent, finishedNotes, takeNotes } from './take'
+import { EARLY_BEATS, MIN_NOTE_BEATS, type TakeEvent, finishedNotes, splitRegions, takeNotes } from './take'
 
 const on = (beat: number, pitch: number, velocity = 0.5, source = 'midi:a', channel = 0): TakeEvent => ({ beat, kind: 'on', source, channel, pitch, velocity })
 const off = (beat: number, pitch: number, source = 'midi:a', channel = 0): TakeEvent => ({ beat, kind: 'off', source, channel, pitch })
@@ -87,5 +87,55 @@ describe('takeNotes with a loop (overdub)', () => {
   it('finishedNotes places and cuts the same way', () => {
     const events = [on(11, 60), off(13, 60), on(13.5, 62)]
     expect(shape(finishedNotes(events, { id: 'take', start: 8, loop: { anchor: 8, length: 4 } }, 13.6))).toEqual([[60, 3, 1]])
+  })
+})
+
+describe('takeNotes into an arrangement region (a loop brace)', () => {
+  // The brace is beats 8 to 16; times are take time (beat + lap × 8), so pass 2 runs from 16 to 24.
+  const brace = { anchor: 8, length: 8 }
+  it.each<[string, TakeEvent[], (number[])[], { start: number; end?: number; early?: number; origin: number; noLoop?: boolean }]>([
+    ['a lead-in before the brace keeps its place, from the region start', [on(5, 60), off(6, 60)], [[60, 1, 1]], { start: 4, origin: 4 }],
+    ['passes 1 and 3 land on the brace by their place in it', [on(9, 60), off(9.5, 60), on(34, 62), off(34.5, 62)], [[60, 5, 0.5], [62, 6, 0.5]], { start: 4, origin: 4 }],
+    ['a note held across the jump is cut at the brace end', [on(15, 60), off(17, 60)], [[60, 3, 1]], { start: 12, origin: 12 }],
+    ['a lead-in note held into the brace is not cut at the brace start', [on(7, 60), off(9, 60)], [[60, 3, 2]], { start: 4, origin: 4 }],
+    ['a punch-in in pass 3 (take time already two passes on)', [on(30, 60), off(31, 60), on(36, 62), off(37, 62)], [[62, 4, 1], [60, 6, 1]], { start: 29, early: 0, origin: 8 }],
+    ['a brace that is not bar-aligned, with the region from the bar before it', [on(9.5, 60), off(10, 60), on(18, 62), off(18.5, 62)], [[60, 1.5, 0.5], [62, 2, 0.5]], { start: 9, origin: 8 }],
+  ])('%s', (_name, events, expected, { start, end = 64, early, origin }) => {
+    expect(shape(takeNotes(events, { id: 'take', start, end, ...(early !== undefined && { early }), loop: { ...brace, origin } }))).toEqual(expected)
+  })
+
+  it('a brace that is not bar-aligned wraps by its own length', () => {
+    // The brace 8.5 to 12 (3.5 beats), the region from beat 8.
+    const events = [on(13, 60), off(13.25, 60)] // pass 2 at 12 + 1 => 9.5 on the timeline
+    expect(shape(takeNotes(events, { id: 'take', start: 9, end: 40, loop: { anchor: 8.5, length: 3.5, origin: 8 } }))).toEqual([[60, 1.5, 0.25]])
+  })
+
+  it('without an origin, a loop places notes as an overdub does', () => {
+    const events = [on(9, 60), off(9.5, 60), on(18.5, 62), off(19, 62)]
+    expect(takeNotes(events, { id: 'take', start: 8, end: 40, loop: { anchor: 8, length: 4 } })).toEqual(takeNotes(events, { id: 'take', start: 8, end: 40, loop: { anchor: 8, length: 4, origin: 8 } }))
+  })
+})
+
+describe('splitRegions', () => {
+  const note = (id: string, start: number, duration: number) => ({ id, pitch: 60, start, duration, velocity: 0.5 })
+  const shaped = (regions: readonly (readonly { id: string; start: number; duration: number }[])[]) => regions.map((r) => r.map((n) => [n.id, +n.start.toFixed(6), +n.duration.toFixed(6)]))
+  it('keeps notes inside one region as they are', () => {
+    expect(shaped(splitRegions([note('a', 1, 1), note('b', 200, 4)]))).toEqual([[['a', 1, 1], ['b', 200, 4]]])
+  })
+  it('puts a later note in the next region, from its start', () => {
+    expect(shaped(splitRegions([note('a', 1, 1), note('b', 300, 2)]))).toEqual([[['a', 1, 1]], [['b', 44, 2]]])
+  })
+  it('splits a note held across the split in two', () => {
+    expect(shaped(splitRegions([note('a', 254, 4)]))).toEqual([[['a', 254, 2]], [['a~1', 0, 2]]])
+  })
+  it('a note held across two splits goes on in both', () => {
+    expect(shaped(splitRegions([note('a', 255, 258)], 256))).toEqual([[['a', 255, 1]], [['a~1', 0, 256]], [['a~2', 0, 1]]])
+  })
+  it('a note ending exactly on the split stays whole', () => {
+    expect(shaped(splitRegions([note('a', 252, 4)]))).toEqual([[['a', 252, 4]]])
+  })
+  it('leaves an empty region where nothing was played', () => {
+    const regions = splitRegions([note('a', 1, 1), note('b', 520, 1)])
+    expect(regions.map((r) => r.length)).toEqual([1, 0, 1])
   })
 })

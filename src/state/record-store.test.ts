@@ -416,15 +416,15 @@ describe('overdub', () => {
     expect(useRecordStore.getState().takes[BASS]).toBeUndefined()
   })
 
-  it('says when nothing is armed, and records nothing in the Arrangement', () => {
+  it('says when nothing is armed, and overdubs no clip while the Arrangement plays', () => {
     rec(true)
     expect(useRecordStore.getState().feedback).toBe('Armed tracks: none')
     rec(false)
     const playing = loop()
     tick(5, { [BASS]: playing }, true, { mode: 'arrangement' })
     rec(true)
-    expect(useRecordStore.getState().takes[BASS]).toBeUndefined()
-    expect(useRecordStore.getState().feedback).toBe("Recording into the Arrangement isn't available yet")
+    // The Arrangement records the armed track into a region instead (record-arrangement.test.ts).
+    expect(useRecordStore.getState().takes[BASS]?.kind).toBe('region')
   })
 })
 

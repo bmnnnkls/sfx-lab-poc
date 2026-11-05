@@ -1,6 +1,6 @@
 import type { AudioHost } from '@audio'
 import type { CountInStart } from '@core'
-import { type EngineControls, countInBars, useControlStore, finishTouches, stopTakes } from '@state'
+import { type EngineControls, countInBars, useControlStore, finishTouches, startArrangementTakes, stopTakes } from '@state'
 
 /**
  * Binds UI intents to engine commands. Every control starts audio first, so the
@@ -30,6 +30,8 @@ export const createEngineControls = (host: AudioHost): EngineControls => {
     launchScene: (scene, trackIds) => start({ type: 'scene/launch', scene, ...(trackIds && { trackIds }) }),
     stopTrack: (trackId) => run({ type: 'track/stop', trackId }),
     auditionNote: (trackId, pitch, velocity) => run({ type: 'track/audition', trackId, pitch, velocity }),
-    playArrangement: (fromBeat = 0) => run({ type: 'arrangement/play', fromBeat }),
+    // ▶ on the arrangement, or a seek while it plays: with ● Rec on, the armed tracks record from there (after a
+    // count-in from a stopped transport).
+    playArrangement: (fromBeat = 0) => { startArrangementTakes(fromBeat); start({ type: 'arrangement/play', fromBeat }) },
   }
 }

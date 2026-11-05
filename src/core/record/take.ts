@@ -9,6 +9,16 @@ export type TakeEvent =
   | { readonly beat: number; readonly kind: 'off'; readonly source: string; readonly channel: number; readonly pitch: number }
   | { readonly beat: number; readonly kind: 'pedal'; readonly source: string; readonly channel: number; readonly down: boolean }
 
+/**
+ * Where the transport was when something was played: its beat, and the run and the loop pass it was in
+ * (`EngineStatus.run` and `lap`). Within one run, `beat + lap × loop length` only goes forward.
+ */
+export interface ClockPosition {
+  readonly beat: number
+  readonly lap: number
+  readonly run: number
+}
+
 /** How early a note may be played and still count as on the take's first beat: a sixteenth. */
 export const EARLY_BEATS = 0.25
 /** The most notes a take writes into a clip: as many as a clip holds (the file format's `LIMITS.notesPerClip`). */
@@ -33,9 +43,19 @@ export interface TakeRange {
 }
 
 export interface TakeLoop {
+  /** Where the passes are counted from: an overdub's clip start, or the loop brace's start in the arrangement. */
   readonly anchor: number
+  /** How long a pass is: the clip's length, or the brace's. */
   readonly length: number
+  /**
+   * Where positions are counted from, on the same axis as `anchor`: the anchor by default (a clip), or an arrangement
+   * region's start, which may be before the brace (a lead-in) or anywhere in it.
+   */
+  readonly origin?: number
 }
+
+/** How long a region a take writes may be before it goes on in the next one: 64 bars (`MAX_CLIP_BEATS`). */
+export const REGION_BEATS = 256
 
 interface Paired {
   readonly index: number
@@ -97,13 +117,17 @@ const toNote = (note: Paired, { id, start, end = Infinity, early = EARLY_BEATS, 
   const to = Math.min(note.off ?? close, end)
   const duration = Math.max(MIN_NOTE_BEATS, to - from)
   if (!loop || !(loop.length > 0)) return { id: takeNoteId(id, note.index), pitch: note.pitch, start: from - start, duration, velocity: note.velocity }
-  const { anchor, length } = loop
-  let at = (from - anchor) % length
-  if (at < 0) at += length
-  if (at > length - 1e-9) at = 0
-  // A note held across the loop's end stops at the clip's end: the part after the wrap isn't recorded.
+  const { anchor, length, origin = anchor } = loop
+  // The first pass, and a lead-in before the anchor, keep their place; later passes wrap by the length. (Times only go
+  // forward within a take, so a later pass is always at or past `anchor + length`.)
+  let at = from - anchor
+  if (at > length - 1e-9) {
+    at %= length
+    if (at > length - 1e-9) at = 0
+  }
+  // A note held across the loop's end stops at the pass's end: the part after the wrap isn't recorded.
   const room = length - at
-  return { id: takeNoteId(id, note.index), pitch: note.pitch, start: at, duration: Math.min(duration, room), velocity: note.velocity }
+  return { id: takeNoteId(id, note.index), pitch: note.pitch, start: at + (anchor - origin), duration: Math.min(duration, room), velocity: note.velocity }
 }
 
 const ordered = (notes: Note[]): Note[] => notes.sort((a, b) => a.start - b.start || a.pitch - b.pitch)
@@ -118,3 +142,29 @@ export const takeNotes = (events: readonly TakeEvent[], range: TakeRange & { rea
 /** The notes whose end is known by `now`, for writing into the clip as they end. */
 export const finishedNotes = (events: readonly TakeEvent[], range: TakeRange, now: number): Note[] =>
   ordered(pair(events).flatMap((note) => (note.off !== undefined && note.off <= now ? (toNote(note, range, note.off) ?? []) : [])))
+
+/**
+ * Cuts a take's notes (positions from the first region's start) into regions `every` beats long, one after another:
+ * each region's notes relative to its own start. A note held across a split goes on in the next region, as a note of
+ * the same pitch and velocity from its start, with the id `<id>~<n>`, so playback still holds it.
+ */
+export const splitRegions = (notes: readonly Note[], every = REGION_BEATS): Note[][] => {
+  const regions: Note[][] = []
+  const into = (index: number, note: Note) => (regions[index] ??= []).push(note)
+  for (const note of notes) {
+    let index = Math.max(0, Math.floor(note.start / every + 1e-9))
+    let start = Math.max(0, note.start - index * every)
+    let left = note.duration
+    let part = 0
+    while (left > 1e-9) {
+      const duration = Math.min(left, every - start)
+      into(index, { ...note, id: part ? `${note.id}~${part}` : note.id, start, duration: part ? Math.max(MIN_NOTE_BEATS, duration) : duration })
+      left -= duration
+      index++
+      start = 0
+      part++
+    }
+  }
+  for (let i = 0; i < regions.length; i++) regions[i] = ordered(regions[i] ?? [])
+  return regions
+}

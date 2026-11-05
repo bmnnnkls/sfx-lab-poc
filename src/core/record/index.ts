@@ -1,1 +1,1 @@
-export { EARLY_BEATS, MAX_TAKE_NOTES, MIN_NOTE_BEATS, finishedNotes, takeNoteId, takeNotes, type TakeEvent, type TakeLoop, type TakeRange } from './take'
+export { EARLY_BEATS, MAX_TAKE_NOTES, MIN_NOTE_BEATS, REGION_BEATS, finishedNotes, splitRegions, takeNoteId, takeNotes, type ClockPosition, type TakeEvent, type TakeLoop, type TakeRange } from './take'

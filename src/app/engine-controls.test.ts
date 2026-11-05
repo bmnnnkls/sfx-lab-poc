@@ -36,3 +36,17 @@ it('counts in a start from a stopped transport with ● Rec on, and runs it at o
   c.play()
   expect(sent.pop()).toEqual({ type: 'transport/play' })
 })
+
+it('▶ on the arrangement counts in with ● Rec on from a stopped transport, and a seek while playing never does', () => {
+  const { sent, controls: c } = controls()
+  useStatusStore.getState().setStatus(status(false))
+  useRecordSettings.setState({ countInBars: 1 })
+  c.playArrangement(8)
+  expect(sent.pop()).toEqual({ type: 'arrangement/play', fromBeat: 8 })
+  useRecordStore.getState().setRec(true)
+  c.playArrangement(8)
+  expect(sent.pop()).toEqual({ type: 'transport/countIn', bars: 1, then: { type: 'arrangement/play', fromBeat: 8 } })
+  useStatusStore.getState().setStatus(status(true, { mode: 'arrangement', beat: 9 }))
+  c.playArrangement(20)
+  expect(sent.pop()).toEqual({ type: 'arrangement/play', fromBeat: 20 })
+})

@@ -23,6 +23,12 @@ export interface EngineStatus {
   /** What the tracks follow: the session's launchers, or the arrangement's timeline. */
   readonly mode: PlaybackMode
   readonly beat: number
+  /**
+   * The transport's run, one more at every start and every seek while playing, and the arrangement loop's jumps within
+   * it. A position on the timeline is `beat`; `beat + lap × loop length` only goes forward within a run.
+   */
+  readonly run?: number
+  readonly lap?: number
   /** Loudest output sample (0..1) since the previous status snapshot. */
   readonly peak: number
   /**

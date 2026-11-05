@@ -1,4 +1,4 @@
-import type { EngineCommand, EngineStatus } from '@core'
+import type { ClockPosition, EngineCommand, EngineStatus } from '@core'
 import { type HostMessage, PROCESSOR_NAME, type WorkletMessage } from './protocol'
 import { RecordingClock } from './recording-clock'
 import workletUrl from './worklet/engine-processor.ts?worker&url'
@@ -53,8 +53,13 @@ export class AudioHost {
 
   /** Audio-clock bridge: never extrapolate from animation frames or message arrival time. */
   recordingBeat(agoMs = 0): number | undefined {
+    return this.recordingPosition(agoMs)?.beat
+  }
+
+  /** The transport's beat `agoMs` before now, with the run and loop pass it was in (`RecordingClock.position`). */
+  recordingPosition(agoMs = 0): ClockPosition | undefined {
     if (!this.context || this.context.state !== 'running') return undefined
-    return this.clock.beat(this.audioNow() - agoMs / 1000)
+    return this.clock.position(this.audioNow() - agoMs / 1000)
   }
 
   /**

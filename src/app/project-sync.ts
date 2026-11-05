@@ -5,7 +5,7 @@ import { useControlStore, useProjectStore, useRecordSettings, useStatusStore, se
 /** Keeps the engine mirroring the project document and feeds engine status back to the UI. */
 export const connectEngine = (host: AudioHost): (() => void) => {
   setTouchClock(host.recordingBeat ? (agoMs) => host.recordingBeat(agoMs) : undefined)
-  setRecordClock(host.recordingBeat ? (agoMs) => host.recordingBeat(agoMs) : undefined, host.outputLatency ? () => host.outputLatency() : undefined)
+  setRecordClock(host.recordingPosition ? (agoMs) => host.recordingPosition(agoMs) : undefined, host.outputLatency ? () => host.outputLatency() : undefined)
   // The click is a browser preference, not part of the project: sent apart from the diff, so a bounce never has it.
   const metronome = ({ metronome: on, metronomeLevel: level }: ReturnType<typeof useRecordSettings.getState>) => host.send({ type: 'transport/metronome', on, level })
   metronome(useRecordSettings.getState())

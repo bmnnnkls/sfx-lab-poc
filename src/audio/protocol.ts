@@ -9,6 +9,6 @@ export type HostMessage = { readonly kind: 'command'; readonly command: EngineCo
 /** Audio thread -> main thread. */
 export type WorkletMessage =
   | { readonly kind: 'status'; readonly status: EngineStatus; readonly audioTime?: number }
-  | { readonly kind: 'clock'; readonly clock: Pick<EngineStatus, 'tempo' | 'playing' | 'beat' | 'countIn'>; readonly audioTime: number }
+  | { readonly kind: 'clock'; readonly clock: Pick<EngineStatus, 'tempo' | 'playing' | 'beat' | 'countIn' | 'run' | 'lap'>; readonly audioTime: number }
   | { readonly kind: 'ready' }
   | { readonly kind: 'preparation-error'; readonly message: string }

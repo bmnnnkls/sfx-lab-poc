@@ -52,3 +52,31 @@ it('a stop during a count-in leaves nothing after it', () => {
   // A note stamped in the count-in, read after the stop, can't reach a later take either.
   expect(clock.beat(10.5)).toBeUndefined()
 })
+
+const at = (beat: number, run: number, lap = 0): EngineStatus => ({ ...status(beat), run, lap })
+
+it('keeps the loop pass across a jump back, so a time before it reads the pass it was in', () => {
+  const clock = new RecordingClock()
+  // A brace from 8 to 12, playing from 8 at 10 s; the jump at 12 s (beat 12) goes back to 8 in pass 1.
+  clock.update(at(8, 3), 10)
+  clock.update(at(8, 3, 1), 12)
+  expect(clock.position(11.5)).toEqual({ beat: 11, run: 3, lap: 0 })
+  expect(clock.position(12.5)).toEqual({ beat: 9, run: 3, lap: 1 })
+  expect(clock.beat(12.5)).toBe(9)
+})
+
+it('a seek starts a new run, even to the same beat', () => {
+  const clock = new RecordingClock()
+  clock.update(at(4, 1), 10)
+  clock.update(at(6, 2), 11) // a seek to 6 at the very beat the old run reached
+  expect(clock.position(10.5)).toEqual({ beat: 5, run: 1, lap: 0 })
+  expect(clock.position(11.5)).toEqual({ beat: 7, run: 2, lap: 0 })
+})
+
+it('a count-in is part of the run it starts', () => {
+  const clock = new RecordingClock()
+  clock.update({ ...countingIn(-4), run: 5, lap: 0 }, 10)
+  clock.update(at(16, 5), 12)
+  expect(clock.position(11.5)).toEqual({ beat: -1, run: 5, lap: 0 })
+  expect(clock.position(12.5)).toEqual({ beat: 17, run: 5, lap: 0 })
+})
