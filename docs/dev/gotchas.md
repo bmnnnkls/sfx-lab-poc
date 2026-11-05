@@ -83,6 +83,9 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **Chromium's `outputLatency` flips between estimates 8 ms apart** while it plays, and is 0 for the first tens of ms.
   Read once per event, it moved recorded notes by 8 ms at random; `AudioHost.outputLatency()` is the median of recent
   readings. *(MIDI recording part 1)*
+* **A recorder's *Recording* feedback shows from the press, before the transport runs.** A fake MIDI note sent right
+  after ▶ has no beat yet and is dropped, so browser tests wait for the take to record (the slot's `data-recording`,
+  or the arrangement's red outline) before they play. *(MIDI recording part 3)*
 
 * **Wheel and mouse events report whole pixels** in Chromium (pointer events keep the fraction). A canvas at a
   fractional offset zooms up to 1 px off the cursor. `PatchCanvas` zooms at the last pointer position. *(round 2)*

@@ -23,7 +23,7 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 | Stereo, sends and returns, master bus, mixer, Track audio | Shipped | [mixing-and-routing](architecture/mixing-and-routing.md) |
 | Track groups, group buses, Tracks tree | Shipped (redesign rounds 7–8) | [tracks-and-groups](architecture/tracks-and-groups.md) |
 | Automation (clip, return and master), touch recording | Shipped; no automation on groups yet | [control-and-automation](architecture/control-and-automation.md) |
-| Browser MIDI input and learn; recording into Session slots, the metronome | Shipped; physical hardware not verified; overdub, count-in and Arrangement recording to plan | [midi](architecture/midi.md) |
+| Browser MIDI input and learn; recording into Session slots and the Arrangement, overdub, count-in, the metronome | Shipped; physical hardware not verified | [midi](architecture/midi.md) |
 | Arrangement timeline: headers, zoom, snap, a position, follow, keys, markers, the loop brace and the transport looping it | Shipped (rounds 12a and 12b); automation lanes and recording are the rest of round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
 | Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse, markers, regions, the sampler's loop, snap, *Revert to original*, a second pane, a spectrogram, band selection and spectral edits) | Shipped (round 11 done) | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
 | Snapshots, presets, personal library, `.sfxlib` bundles | Shipped | [library-and-presets](architecture/library-and-presets.md) |
@@ -57,15 +57,21 @@ Outside the redesign, [active/SPEC-effects-round-2.md](active/SPEC-effects-round
 part 3 (Waveshaper and Crusher) is ready to build.
 
 **MIDI recording part 1 is done** (2026-11-05, [plan](archive/midi-recording/PLAN-midi-recording-1-session.md),
-[spec](active/SPEC-midi-recording.md)): arm instrument tracks (● on their headers, or their menu), and ● on an armed
+[spec](archive/midi-recording/SPEC-midi-recording.md)): arm instrument tracks (● on their headers, or their menu), and ● on an armed
 track's empty slot records the keyboard into a new clip from the next bar; pressing it again ends the take at the next
 bar and the clip loops. A fixed length, a metronome (♩, never in an export), latency compensation and a manual offset;
-a take is one undo step. Part 3 (the Arrangement) is to plan. Not checked: a real keyboard (V5).
+a take is one undo step. Not checked: a real keyboard (V5).
 
 **MIDI recording part 2 is done** (2026-11-05, on `imp/ecstatic-lehmann-5efb9d`, with part 1, neither merged;
 [plan](archive/midi-recording/PLAN-midi-recording-2-overdub.md)): ● Rec (F9) overdubs what you play into the clips
 playing on armed tracks, pass after pass, each overdub one undo step; a count-in of 1 or 2 bars clicks before a take
 from a stopped transport; ● Rec's menu holds the fixed length, the count-in and the metronome level.
+
+**MIDI recording part 3 is done** (2026-11-05, on `imp/midi-recording-part3-plan`, on top of parts 1 and 2, none
+merged; [plan](archive/midi-recording/PLAN-midi-recording-3-arrangement.md)): with ● Rec on, ▶ on the arrangement
+records every armed track into a new region (red while it records), ● Rec punches in and out, the loop brace merges
+passes into one region, takes past 64 bars go on in the next region, and a count-in works there too. Takes recording at
+the same time are one undo step, in the Session too. Not checked: a real keyboard (V5).
 
 **The library UX round is done** (2026-11-05, on `feat/library-improvements`, not merged;
 [spec, plans and runbook](archive/library-ux/SPEC-library-ux.md)). The Library is one tree with four roots: *This

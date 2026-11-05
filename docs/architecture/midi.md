@@ -75,8 +75,11 @@ merge key.
   returns those whose end is known. Note ids are the take's id and the note-on's arrival index, so they stay the same
   while the take writes them.
 * **Writing.** After each event, the notes that have ended and aren't in the clip yet are added (`setClipNotes`) under
-  the merge key `record:<take id>` with no merge window, as is the clip's creation and its final length: the piano roll
-  shows notes as they end, autosave keeps them, and the take is one undo step unless another edit comes between.
+  the merge key `record:<pass>` with no merge window, as is the clip's creation and its final length: the piano roll
+  shows notes as they end, autosave keeps them, and the take is one undo step unless another edit comes between. A take
+  opened while others run joins their pass (`passFor`), so takes recording at the same time (layered tracks, every
+  armed track in the Arrangement) are one undo step together: two keys taking turns would split each other, since
+  history merges an edit only with the one just before it.
   At 5000 notes in the clip the take ends with a notice.
 * **Ending.** Pressing the slot again (`endTake`, the `clip.stop-recording` action) ends the take at the next bar at
   least a quarter beat ahead, and at least a bar after its start; the clip's length is set **at the press**, so the
@@ -95,7 +98,8 @@ merge key.
   While it is on and the engine plays the Session, every **armed track with a clip playing or queued** has an
   **overdub take** on that clip (`TakeKind` `'overdub'`; a part of the recorder beside the slot takes, one take per
   track). With nothing armed it says *Armed tracks: none*; with nothing playing, *Launch a clip on an armed track to
-  overdub*; in the Arrangement it records nothing yet and says so.
+  overdub*; while nothing plays, *Launch a clip on an armed track, or press ▶ on the Arrangement, to record*. In the
+  Arrangement it records new regions (below).
 * **Where notes go.** An overdub records from the latest of: ● Rec going on, the track's arm, and the clip's start (the
   launcher's `startBeat`). It counts the clip's passes from that start: the take model's `loop: { anchor, length }`
   places a note at `(beat - anchor) mod length` and cuts a note held across the clip's end at the end. A note up to a
@@ -121,8 +125,41 @@ merge key.
   call; the engine reports its frame as a clock edge (`lastClockEdge`), and the worklet stamps it with that frame's
   time, as it does a loop jump.
 
+### Recording into the Arrangement
+
+* **Arrangement takes** (`TakeKind` `'region'`, one per armed track). With ● Rec on, ▶ *Arrangement* and a seek while it
+  plays go through `EngineControls.playArrangement`, which calls `startArrangementTakes(P)` before it sends: the
+  arrangement takes running end there, and every armed track gets a queued take from P (a Session take on it ends).
+  Turning ● Rec on while the arrangement plays, arming a track then, or the next status after an undo or a brace change
+  opens a take from the transport's position, with no early notes (a punch-in). ● Rec off, disarming, ■, the Session
+  taking over, a brace change and undo or redo end them, closing held notes there.
+* **Take time.** Beats go back at a loop jump, and the take model pairs events in beat order, so an arrangement take
+  keeps its events in its own time, `beat + lap × brace length`, which only goes forward. The engine counts the jumps
+  (`lap`) and the starts and seeks (`run`) in `EngineStatus` and the clock packets; `RecordingClock.position` returns
+  `{ beat, lap, run }` and the adapter passes it with each note (`recordPosition`). A take started by ▶ or a seek adopts
+  the first run after the one current at the press, holding what is played until then, and keeps only events of its
+  run, so a note played just before a seek can't land in the take after it. A negative beat comes from a count-in and
+  counts back from P. A take that starts at or after the brace's end never loops.
+* **Regions.** The take model's `loop` takes the brace as anchor and length and the region's start as `origin`: a note
+  keeps its place on the first pass (and a lead-in before the brace), later passes wrap into the brace, and a note held
+  across the jump is cut at the brace's end (the engine releases it there too). A region runs from the start of the
+  bar recording began in to the end of the bar it ended in; once a take has looped, it is the brace exactly, extended
+  back to that bar when recording began before the brace. Past 64 bars the notes go on in the next region
+  (`splitRegions`, 256 beats each from the first region's start), a note held across the split continuing as a note
+  of its own (`<id>~1`). A region appears with its first note, so a track that played nothing gets none, and grows a
+  bar at a time while the playhead moves; each is written whole (`updateArrangementClip`) under the pass's key, so the
+  pass is one undo step. 5000 notes in a region, or the timeline's end, end the take with a notice.
+* **What it leaves alone.** Regions under the new one stay. A region being recorded that anything else changes or
+  removes ends its take there (`watchRegions`, comparing with what the take last wrote), and no new take opens on that
+  track until ● Rec, ▶ or the arm is pressed again; the view locks it (red, no drag or resize, *Loop* and *Delete*
+  disabled, *Stop recording* in its menu, `isRecordingRegion`). When a pass's last take ends, the selected track's new
+  region is selected, so the selected track and the routing stay, and the feedback says *Recorded 8 bars on Bass,
+  Lead*, or *Nothing played: no region made*.
+* **Count-in.** `playArrangement` goes through the same `start()` as ▶ and launches: from a stopped transport with
+  ● Rec on, `transport/countIn { then: arrangement/play }`. A seek never counts in. ■ during it drops the queued takes.
+
 **The record clock** (`state/record-clock.ts`, connected in `app/project-sync` beside the touch clock):
-`recordBeat(timestamp)` is `AudioHost.recordingBeat` at the event's age plus the latency to take off
+`recordPosition(timestamp)` is `AudioHost.recordingPosition` (the beat, run and loop pass) at the event's age plus the latency to take off
 (`recordLatencyMs`): the output latency the host reports and the manual offset. You play to what you hear, which lags
 the transport by that much, so a positive offset places notes earlier. When that time falls before the transport
 started (a note played just after a start), the note is counted back from its own beat at the tempo, so it lands just

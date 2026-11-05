@@ -1,14 +1,17 @@
 ---
-status: active
+status: done
 date: 2026-11-05
-note: "Signed off 2026-11-05, every decision as proposed. Recording MIDI notes into Session slots and the Arrangement (backlog M2, user testing 11); parts 1-2 done, part 3 planned and signed off, to build."
+shipped_in: architecture/midi.md
+note: "Recording MIDI notes into Session slots and the Arrangement (backlog M2, user testing 11): parts 1-3 done 2026-11-05. Not checked with a real keyboard (backlog V5)."
 ---
 # Recording MIDI clips (spec)
 
-Status: **spec, signed off** 2026-11-05, every decision as proposed. Parts 1 to 3 can now be planned, in order; parts 1 and 2 are done ([part 1](../archive/midi-recording/PLAN-midi-recording-1-session.md), [part 2](../archive/midi-recording/PLAN-midi-recording-2-overdub.md), 2026-11-05); part 3 is planned ([plan](PLAN-midi-recording-3-arrangement.md), signed off 2026-11-05). Written 2026-11-05 on `feat/user-testing-quick-wins` at `608c10d` (after
-per-track MIDI inputs). No code was changed. The item is [BACKLOG](../BACKLOG.md) M2, from
-[user testing](REVIEW-user-testing-2026-11.md) note 11: *"how can I record MIDI clips in sessions and directly in
-arrangement?"* It follows the shape of the [round 12 spec](SPEC-round-12-arrangement-editor.md).
+Status: **done** 2026-11-05: all three parts are built ([part 1](PLAN-midi-recording-1-session.md),
+[part 2](PLAN-midi-recording-2-overdub.md), [part 3](PLAN-midi-recording-3-arrangement.md)), none merged yet. Signed
+off 2026-11-05, every decision as proposed. Written 2026-11-05 on `feat/user-testing-quick-wins` at `608c10d` (after
+per-track MIDI inputs). No code was changed. The item is [BACKLOG](../../BACKLOG.md) M2, from
+[user testing](../../active/REVIEW-user-testing-2026-11.md) note 11: *"how can I record MIDI clips in sessions and directly in
+arrangement?"* It follows the shape of the [round 12 spec](../../active/SPEC-round-12-arrangement-editor.md).
 
 The plans for each part take their steps, tests and verification from here. Where a plan and this spec disagree
 later, the plan wins and says so.
@@ -40,7 +43,7 @@ After this work you can play a MIDI keyboard into the app and keep what you play
 * CC, pitch bend and aftertouch as clip data (clips hold notes only); the sustain pedal is folded into note lengths;
 * replacing or splitting the regions a new take lands on, comping takes, punch-in and -out points set ahead of time;
 * quantising while recording (the Groove panel does it afterwards);
-* MIDI clock and MIDI output ([BACKLOG](../BACKLOG.md) D1), MPE (D2).
+* MIDI clock and MIDI output ([BACKLOG](../../BACKLOG.md) D1), MPE (D2).
 
 ## Inventory
 
@@ -53,11 +56,11 @@ What exists at `608c10d`.
   64 bars of 4/4) and a clip holds at most **5000 notes** (`LIMITS.notesPerClip`).
 * **Slots.** `slot.create-clip` makes an empty clip in an empty slot of an instrument track and opens it
   (`state/actions/slot.ts`). Launching is queued to the next bar (`LaunchQueue`, one-bar quantisation; other values are
-  [BACKLOG](../BACKLOG.md) G6), and a playing clip loops by its length from the beat it started
+  [BACKLOG](../../BACKLOG.md) G6), and a playing clip loops by its length from the beat it started
   (`LauncherStatus.startBeat`). An edited clip is swapped in while it plays (`LaunchQueue.sync`): notes already started
   keep their identity, notes after the play position sound on this pass.
 * **Regions** are `{ id, trackId, startBeat, content, loop? }`, `content` a copy of a clip; regions may overlap and both
-  play; the timeline reaches 4096 beats ([clips-and-arrangement](../architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline)).
+  play; the timeline reaches 4096 beats ([clips-and-arrangement](../../architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline)).
   There is no split.
 * **Two playback modes.** The engine follows either the session's launchers or the arrangement
   (`EngineStatus.mode`); `arrangement/play` switches to the timeline, launching a clip switches back.
@@ -65,7 +68,7 @@ What exists at `608c10d`.
 ### Live notes
 
 * **Routing** (just shipped): a note-on goes to the tracks whose own input matches it, else to the selected or pinned
-  instrument if it follows the selection (`liveNoteTracks`, [midi](../architecture/midi.md#where-live-notes-go-track-inputs)).
+  instrument if it follows the selection (`liveNoteTracks`, [midi](../../architecture/midi.md#where-live-notes-go-track-inputs)).
   The adapter keeps each held press with the notes it started, per input, channel and pitch.
 * **Timestamps.** Each MIDI message carries the browser's event time (`MIDIMessageEvent.timeStamp`), which the adapter
   already passes on for CCs.

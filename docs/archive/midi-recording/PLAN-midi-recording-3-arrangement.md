@@ -1,15 +1,19 @@
 ---
-status: active
+status: done
 date: 2026-11-05
-note: "Part 3 of the MIDI recording spec: recording into the Arrangement. Signed off 2026-11-05, every decision as proposed; not built yet."
+shipped_in: architecture/midi.md
+note: "Part 3 of the MIDI recording spec, done: recording into the Arrangement. Not checked with a real keyboard (backlog V5)."
 ---
 # MIDI recording, part 3: recording into the Arrangement
 
-Status: **plan, signed off** 2026-11-05, every decision as proposed. Written 2026-11-05 on `imp/midi-recording-part3-plan`, branched from
-`imp/ecstatic-lehmann-5efb9d` at `83cc366` (parts 1 and 2 done, neither merged). No code was changed. Carries out
+Status: **done** 2026-11-05 on `imp/midi-recording-part3-plan` (on top of parts 1 and 2, none merged). Signed off
+2026-11-05, every decision as proposed. Shipped in [midi](../../architecture/midi.md#recording-into-the-arrangement)
+and [clips-and-arrangement](../../architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline); not
+checked with a real keyboard ([BACKLOG](../../BACKLOG.md) V5). Written 2026-11-05 on `imp/midi-recording-part3-plan`, branched from
+`imp/ecstatic-lehmann-5efb9d` at `83cc366` (parts 1 and 2 done, neither merged). Carries out
 part 3 of the signed-off [MIDI recording spec](SPEC-midi-recording.md#parts), after
-[part 1](../archive/midi-recording/PLAN-midi-recording-1-session.md) and
-[part 2](../archive/midi-recording/PLAN-midi-recording-2-overdub.md). The spec's decisions 1 to 16, part 1's P1 to P6
+[part 1](PLAN-midi-recording-1-session.md) and
+[part 2](PLAN-midi-recording-2-overdub.md). The spec's decisions 1 to 16, part 1's P1 to P6
 and part 2's O1 to O6 are settled and not repeated. This part replaces O7. It adds only the decisions it raises
 (A1 to A10). Where it differs from the spec, it says so.
 
@@ -30,8 +34,8 @@ Regions under the new one are left alone (spec decision 7). Takes per pass, comp
 
 ## Inventory
 
-What part 3 builds on, beyond [midi.md](../architecture/midi.md#recording-notes-into-a-clip) and
-[clips-and-arrangement.md](../architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline).
+What part 3 builds on, beyond [midi.md](../../architecture/midi.md#recording-notes-into-a-clip) and
+[clips-and-arrangement.md](../../architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline).
 
 ### Regions
 
@@ -310,3 +314,26 @@ Signed off 2026-11-05: every decision as proposed.
 | A8 | Undo steps when several tracks record | **One step per pass**: takes opened together share a key; and Session takes that overlap share one too, fixing parts 1 and 2's split steps | One step per track (still needs the interleaving fixed); or leave the Session as it is and log it in the backlog |
 | A9 | The new region's name and the selection | Content named after the **track** (*Bass*); at the end, the selected track's new region is **selected**, so the selected track and routing don't move | Named `Clip N`; or select the last region made on any track (moves the selected track) |
 | A10 | Editing a region while it records | **Locked in the view**; any other change to it (the palette, a script) ends its take and leaves the region as it is | Allow edits and keep writing (the take would overwrite them) |
+
+## Changes made while implementing
+
+* **The clock (step 3).** `setRecordClock` also takes a reader that returns a plain beat (as the tests give it), read as
+  run 0, pass 0. `recordBeat` is now `recordPosition`'s beat, and the MIDI adapter passes the whole position.
+* **The recorder (step 4).**
+  * A take joins the pass of any take already running, not only the takes opened in the same press. So a Session take
+    on a second track joins the first's undo step too, which is what fixes the split steps.
+  * A 64-bar segment gets its region only with its first note, so 64 empty bars make no empty region. Past the last
+    region's end, the red outline shows again up to the playhead.
+  * The plan's feedback for ● Rec while stopped in the Arrangement couldn't tell the two views apart, because the
+    engine's mode stays *session* until something plays. While nothing plays it now says *Launch a clip on an armed
+    track, or press ▶ on the Arrangement, to record*.
+  * The timeline's end ends the take with *The timeline ends here: the take ended*. A full region, the timeline's end
+    and *Stop recording* keep the track from opening a new take by itself, as a removed region does.
+* **The view (step 6).** *Loop* and *Delete* in a recording region's menu are disabled, with a tooltip. The arm's
+  tooltip and ● Rec's now name the Arrangement.
+* **Tests (step 7).**
+  * The feedback says *Recording* from the press, while the take waits for its run. A note sent before the transport
+    runs has no beat yet and is dropped (P3), so the browser tests wait for the outline, which shows only once the
+    take records.
+  * The part 1 audio test failed once in a run of the whole audio suite after 19 other tests, and passed 9 times out
+    of 9 on its own, with this part's audio test. It looks load-sensitive, like V7.

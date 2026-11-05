@@ -49,11 +49,13 @@ Things that shipped without the check their plan asked for.
 - **V5 Physical MIDI**: a keyboard and a controller, for permission, routing, sustain, disconnect and timing. Simulated
   ports and real-worklet tests exist. Recording too: a real keyboard at 90 and 140 BPM with the metronome, and that the
   latency offset nudges notes as expected (MIDI recording part 1); overdubbing a 2-bar loop at 90 and 140 BPM, and a
-  1-bar count-in with a downbeat played slightly early (part 2).
+  1-bar count-in with a downbeat played slightly early (part 2); recording 8 bars from bar 5 into the Arrangement,
+  punching in and out with F9, and a 2-bar loop brace over three passes, at 90 and 140 BPM (part 3).
 - **V6 Flaky smoke test**: `library.smoke.spec.ts`, the isolated preview case, reads the saved project right after
   loading the Starter, sometimes before the autosave has written it (2 failures in 5 runs on its own, round 8).
 - **V7 Load-sensitive audio test**: `tempo.audio.spec.ts`'s ping-pong case fails its tail-level check when the machine
-  is busy, because it times tempo edits from the page.
+  is busy, because it times tempo edits from the page. `midi-recording.audio.spec.ts`'s first case failed once the same
+  way, late in a run of the whole audio suite (MIDI recording part 3), and passes on its own.
 - **V8 Commit the measuring scripts** that rounds 4 and 11b used (`measure.cjs`, the in-place flow timing). Only
   `scripts/profile-status.cjs`, `scripts/measure-selection-levels.cjs` (round 11c-1) and
   `scripts/measure-revert-and-zero.cjs` (round 11c-2), `scripts/measure-second-pane.cjs` (round 11c-3) and
@@ -187,12 +189,6 @@ Things that shipped without the check their plan asked for.
 
 ## MIDI
 
-- **M2 Recording MIDI clips** into Session slots and the Arrangement: arm, metronome, count-in, overdub (user testing
-  11, [review](active/REVIEW-user-testing-2026-11.md)). [Spec](active/SPEC-midi-recording.md) signed off 2026-11-05, every
-  decision as proposed. Part 1 (Session recording: arm, the slot's ●, fixed length, the metronome, latency) is done
-  ([plan](archive/midi-recording/PLAN-midi-recording-1-session.md)), and so is part 2 (● Rec, overdub, count-in;
-  [plan](archive/midi-recording/PLAN-midi-recording-2-overdub.md)); part 3 (into the Arrangement) is to plan. Parts 1
-  and 2 by hand with a real keyboard are V5.
 - **M3 A track's MIDI input on its header or mixer strip**: it is set in MIDI settings only, and the header shows a tag.
 
 ## Documentation

@@ -196,7 +196,12 @@ Arrangement), and Tab switches views like in Ableton.
 * **The clock after a jump.** `Engine.lastClockEdge()` is the frame and beat of the latest jump in a `render` call (a
   loop jump, or the start after a count-in); the worklet posts a clock packet stamped with that frame's own time
   (`currentTime + frame / sampleRate`), and after every `arrangement/` command, as after `transport/` ones, so the
-  recording clock anchors the jump where it happened.
+  recording clock anchors the jump where it happened. The engine also counts the jumps since the run began (`lap`) and
+  the runs, one more at every start and every seek while playing (`run`), in the clock packets and the status, so the
+  recording clock can tell a pass, and a seek, from a beat that went back
+  ([midi](midi.md#recording-into-the-arrangement)).
+* **Recording into it.** With ● Rec on, ▶ records the armed tracks into new regions, drawn red and locked while they
+  record, with a dashed outline up to the playhead before the first note ([midi](midi.md#recording-into-the-arrangement)).
 * **The bounce ignores the loop**: after `diffProject`, it sends `arrangement/setLoop { loop: null }`, so an export
   renders the whole timeline once.
 * **The view's layout** (`ui/arrangement/`). A toolbar over **one scroller** for both axes. Its content is a grid of the

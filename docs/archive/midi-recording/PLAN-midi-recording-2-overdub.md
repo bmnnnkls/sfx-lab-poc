@@ -12,7 +12,7 @@ every decision as proposed. Shipped in [midi](../../architecture/midi.md#overdub
 [mixing-and-routing](../../architecture/mixing-and-routing.md#the-master-bus); not checked with a real keyboard
 ([BACKLOG](../../BACKLOG.md) V5). Written 2026-11-05 on `imp/midi-recording-part1-b60ea0` at `78d38e6`, after
 [part 1](PLAN-midi-recording-1-session.md). Carries out part 2 of the signed-off
-[MIDI recording spec](../../active/SPEC-midi-recording.md#parts). The spec's decisions 1 to 16 and part 1's
+[MIDI recording spec](SPEC-midi-recording.md#parts). The spec's decisions 1 to 16 and part 1's
 P1 to P6 are settled and not repeated; this plan adds only the ones it raises. Where it differs from the spec, it says
 so.
 
@@ -32,7 +32,7 @@ After this part:
 
 ## Inventory
 
-What part 2 builds on, beyond the [spec's inventory](../../active/SPEC-midi-recording.md#inventory) and
+What part 2 builds on, beyond the [spec's inventory](SPEC-midi-recording.md#inventory) and
 [midi.md](../../architecture/midi.md#recording-notes-into-a-clip).
 
 ### The take model (`core/record/take.ts`)

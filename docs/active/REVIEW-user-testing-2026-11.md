@@ -1,7 +1,7 @@
 ---
 status: active
 date: 2026-11-05
-note: "1-5, 9 and 10 built on feat/user-testing-quick-wins (not merged); 6-8 and 11 are backlog items C9-C11 and M2; 9 not checked on a physical controller (V5)."
+note: "1-5, 9 and 10 built on feat/user-testing-quick-wins (not merged); 6-8 are backlog items C9-C11; 11 is built (MIDI recording, not merged); 9 not checked on a physical controller (V5)."
 ---
 # User testing feedback, November 2026
 
@@ -129,7 +129,7 @@ count-in and takes (about a week). Depends on 10 (arming implies an input route)
 
 ## Order
 
-Note 11 has a spec: [SPEC-midi-recording](SPEC-midi-recording.md) (signed off 2026-11-05, every decision as proposed).
+Note 11 has a spec: [SPEC-midi-recording](../archive/midi-recording/SPEC-midi-recording.md) (signed off 2026-11-05, every decision as proposed).
 
 1. 1-5 and 9 together (this branch).
 2. 10, then 11.

@@ -11,7 +11,7 @@ Shipped in [midi](../../architecture/midi.md#recording-notes-into-a-clip),
 [clips-and-arrangement](../../architecture/clips-and-arrangement.md#recording-into-a-slot) and
 [mixing-and-routing](../../architecture/mixing-and-routing.md#the-master-bus); not checked with a real keyboard
 ([BACKLOG](../../BACKLOG.md) V5). Written 2026-11-05 on `feat/user-testing-quick-wins` at `608c10d`. Carries out
-part 1 of the signed-off [MIDI recording spec](../../active/SPEC-midi-recording.md) (§ Parts). The spec's decisions are settled and
+part 1 of the signed-off [MIDI recording spec](SPEC-midi-recording.md) (§ Parts). The spec's decisions are settled and
 not repeated here; this plan adds only the ones it raises (§ Decisions to sign off). Where it differs from the spec,
 it says so.
 
@@ -33,7 +33,7 @@ After this part you can record a MIDI keyboard into a new clip in the Session:
 
 ## Inventory
 
-What part 1 touches, beyond the [spec's inventory](../../active/SPEC-midi-recording.md#inventory).
+What part 1 touches, beyond the [spec's inventory](SPEC-midi-recording.md#inventory).
 
 ### Engine
 
