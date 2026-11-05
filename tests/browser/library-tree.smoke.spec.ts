@@ -1,4 +1,4 @@
-import { test, expect, dragTo, libraryMenu, libraryPanel, openExample, openView, saveToLibrary, treeRow } from './fixtures'
+import { test, expect, dragTo, libraryMenu, libraryPanel, openExample, openView, saveSound, saveToLibrary, treeRow } from './fixtures'
 import type { Locator, Page } from '@playwright/test'
 
 /** Makes a folder from a menu (⋯ or a folder's), named in place. */
@@ -18,10 +18,7 @@ test('the library is one tree: saved from a track, organised by dragging, search
   // Lead with two presets.
   await session.getByRole('button', { name: 'Lead', exact: true }).click()
   const sounds = await openView(page, 'Sounds')
-  for (const name of ['Warm', 'Bright']) {
-    await sounds.getByLabel('Sound name', { exact: true }).fill(name)
-    await sounds.getByRole('button', { name: 'Save as preset', exact: true }).click()
-  }
+  for (const name of ['Warm', 'Bright']) await saveSound(page, sounds, 'preset', name)
   await saveToLibrary(page, session.getByRole('button', { name: 'Lead', exact: true }), 'Instrument + notes')
   await page.getByRole('status').filter({ hasText: 'Saved Lead to My library' }).getByRole('button', { name: 'Show', exact: true }).click()
   const panel = libraryPanel(page)

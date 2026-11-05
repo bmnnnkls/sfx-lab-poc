@@ -1,4 +1,4 @@
-import { type ControlOwner, type Project, type ProjectPreset, type SnapshotScope, canRecallProjectPreset, captureSnapshot, controlOwnerId, deleteProjectPreset, deleteSnapshot, duplicateProjectPreset, duplicateSnapshot, putSnapshot, saveProjectPreset } from '@core'
+import { type ControlOwner, type Project, type ProjectPreset, type SnapshotScope, assetSignature, canRecallProjectPreset, captureAsset, captureSnapshot, controlOwnerId, deleteProjectPreset, deleteSnapshot, duplicateProjectPreset, duplicateSnapshot, putSnapshot, saveProjectPreset } from '@core'
 import { editPresetProject, recallSavedSound } from '../preset-actions'
 import { scopeState, useSoundsStore } from '../sounds-store'
 import { saveToLibrary } from './library-save'
@@ -53,6 +53,22 @@ export const saveSound = (kind: 'preset' | 'snapshot', scope: SnapshotScope, con
 /** Whether a project preset can be recalled onto `owner`, in `domain`: the owner's graph matches the preset's revision. */
 export const canRecallPresetOn = (preset: ProjectPreset, owner: ControlOwner, domain: SnapshotScope['domain'] = preset.scope.domain): boolean =>
   canRecallProjectPreset(project(), preset, { owner, domain })
+
+/**
+ * The presets Sounds lists for `owner`'s `domain`: those whose graph matches the owner's, its own and other owners'.
+ * The owner's graph is captured once, not once per preset.
+ */
+export const recallablePresets = (value: Project, owner: ControlOwner, domain: SnapshotScope['domain']): readonly ProjectPreset[] => {
+  const presets = (value.presets ?? []).filter((preset) => preset.scope.domain === domain)
+  if (presets.length === 0 || domain === 'track') return []
+  let signature: string
+  try {
+    signature = assetSignature(captureAsset(value, { owner, domain }))
+  } catch {
+    return []
+  }
+  return presets.filter((preset) => value.assetRevisions?.find((revision) => revision.id === preset.revisionId)?.signature === signature)
+}
 
 /** Recalls a project preset onto `owner`, in its own domain by default: a preset dropped on a track. It reports what it recalled, or throws why it couldn't. */
 export const recallPresetOn = (preset: ProjectPreset, owner: ControlOwner, domain: SnapshotScope['domain'] = preset.scope.domain): string =>

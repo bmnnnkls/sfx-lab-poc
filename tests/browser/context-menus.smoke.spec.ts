@@ -1,4 +1,4 @@
-import { test, expect, libraryPanel, openView, saveToLibrary, treeRow, viewRoot } from './fixtures'
+import { test, expect, libraryPanel, openView, saveSound, saveToLibrary, treeRow, viewRoot } from './fixtures'
 
 /** The entries of the open menu, by name, with separators as '—'. */
 const menuEntries = async (page: import('@playwright/test').Page) =>
@@ -251,11 +251,9 @@ test('samples and sounds have menus', async ({ page }) => {
 
   await viewRoot(page, 'Session').getByText('Master', { exact: true }).first().click()
   const sounds = await openView(page, 'Sounds')
-  await sounds.getByLabel('Sound scope').selectOption('track')
-  await sounds.getByLabel('Sound name').fill('Loud')
-  await sounds.getByRole('button', { name: 'Save snapshot', exact: true }).click()
-  // The row's label; the morph's two lists name the snapshot too.
-  await sounds.getByText(/^Loud · Master/).first().click({ button: 'right' })
+  await sounds.getByRole('tab', { name: 'Track', exact: true }).click()
+  await saveSound(page, sounds, 'snapshot', 'Loud')
+  await sounds.getByRole('button', { name: 'Recall Loud', exact: true }).click({ button: 'right' })
   expect(await menuEntries(page)).toEqual(['Recall', '—', 'Set as A', 'Set as B', '—', 'Update', 'Rename', 'Duplicate', '—', 'Delete'])
   await page.getByRole('menuitem', { name: 'Duplicate', exact: true }).click()
   await expect(sounds.getByRole('button', { name: 'Recall Loud copy', exact: true })).toBeVisible()

@@ -42,8 +42,12 @@ export const scopeState = (project: Project, scope: SnapshotScope, withNotes = f
 /** Whether the recalled mark still holds: nothing in its graph changed since. */
 export const isStillRecalled = (project: Project, mark: RecalledMark, withNotes: boolean): boolean => scopeState(project, mark.scope, withNotes) === mark.state
 
-/** The tab Sounds shows for `owner`: a bus or the master has *Effects* and *Track* only. */
-export const tabFor = (tab: SoundsTab, owner: ControlOwner): SoundsTab => (owner.kind !== 'track' && (tab === 'patch' || tab === 'notes') ? 'fx' : tab)
+/** The tabs Sounds has for `owner`: an instrument track's four graphs; another track, a bus or the master has *Effects* and *Track*. */
+export const soundsTabsOf = (project: Project, owner: ControlOwner): readonly SoundsTab[] =>
+  owner.kind === 'track' && project.tracks.find((track) => track.id === owner.trackId)?.kind === 'instrument' ? ['patch', 'fx', 'notes', 'track'] : ['fx', 'track']
+
+/** The tab Sounds shows of `tabs`: the chosen one, or *Effects* where the owner has no instrument. */
+export const tabFor = (tab: SoundsTab, tabs: readonly SoundsTab[]): SoundsTab => (tabs.includes(tab) ? tab : 'fx')
 
 /** The tab of the editor that has just become visible, if one has (the last one listed when several have). */
 export const editorTabOf = (visible: readonly ViewId[], before: readonly ViewId[]): SoundsTab | undefined =>

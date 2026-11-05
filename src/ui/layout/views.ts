@@ -8,7 +8,7 @@ import { NoteEffectsPanel } from '../note-effects/NoteEffectsPanel'
 import { FxPanel } from '../patcher/FxPanel'
 import { Patcher } from '../patcher/Patcher'
 import { PinnedView } from '../pinned/PinnedView'
-import { PresetsPanel } from '../presets/PresetsPanel'
+import { SoundsPanel } from '../presets/SoundsPanel'
 import { SamplesPanel } from '../samples/SamplesPanel'
 import { SessionView } from '../session-view/SessionView'
 import { TracksView } from '../tracks/TracksView'
@@ -37,7 +37,7 @@ export const views: Readonly<Record<ViewId, ViewDescriptor>> = {
   clip: { title: viewTitles.clip, component: ClipEditor, minSize: viewMinSizes.clip },
   mixer: { title: viewTitles.mixer, tooltip: viewTooltips.mixer, component: MixerPanel, minSize: viewMinSizes.mixer },
   samples: { title: viewTitles.samples, component: SamplesPanel, minSize: viewMinSizes.samples },
-  sounds: { title: viewTitles.sounds, component: PresetsPanel, minSize: viewMinSizes.sounds },
+  sounds: { title: viewTitles.sounds, component: SoundsPanel, minSize: viewMinSizes.sounds },
   library: { title: viewTitles.library, component: LibraryView, minSize: viewMinSizes.library },
   tracks: { title: viewTitles.tracks, tooltip: viewTooltips.tracks, component: TracksView, minSize: viewMinSizes.tracks },
   pinned: { title: viewTitles.pinned, tooltip: viewTooltips.pinned, component: PinnedView, minSize: viewMinSizes.pinned },

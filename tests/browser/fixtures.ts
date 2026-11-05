@@ -191,6 +191,19 @@ export const saveToLibrary = async (page: Page, subject: Locator, choice?: strin
   await expect(page.getByRole('status').filter({ hasText: /^Saved .* to / }).last()).toBeVisible()
 }
 
+/**
+ * Saves a preset or a snapshot of the selection's graph in Sounds (*+ Save preset*, *+ Snapshot*), names it in the field
+ * that opens in its row, and resolves once its row is there.
+ */
+export const saveSound = async (page: Page, sounds: Locator, kind: 'preset' | 'snapshot', name: string) => {
+  await sounds.getByRole('button', { name: kind === 'preset' ? 'Save preset' : 'Save snapshot', exact: true }).click()
+  const field = sounds.getByRole('textbox', { name: /^Name of / })
+  await expect(field).toBeFocused()
+  await field.fill(name)
+  await page.keyboard.press('Enter')
+  await expect(sounds.getByRole('button', { name: `Recall ${name}`, exact: true })).toBeVisible()
+}
+
 /** The Library view's panel. */
 export const libraryPanel = (page: Page): Locator => page.getByRole('region', { name: 'Personal library' })
 

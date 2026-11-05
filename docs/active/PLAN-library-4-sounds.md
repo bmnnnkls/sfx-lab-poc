@@ -168,3 +168,35 @@ Signed off 2026-11-04: every row as proposed.
 * **Step 1:** the store follows the layout (`editorTabOf`) and the project (A, B and the mark go with their sound) by
   subscriptions in `sounds-store.ts`, so the tab is right even before Sounds is first shown. `state` doesn't touch
   `localStorage` (as `wave-edit-settings` says), so the view keeps *Show all* per browser.
+* **Step 2:** a row is an `li` holding a `role="button"` element (the `ActionMenu` trigger and, for a preset, the drag
+  source) named *Recall Bass 1*, described by its kind label (*Preset*, *Snapshot*, *Preset · Sweep* for another
+  owner's, the A and B badges, and "recalled" for screen readers). While it renames in place it drops the button role,
+  since a field can't sit inside a button. Click, Enter and Space recall; `data-recalled` marks the ● row.
+* **Step 2:** the tabs are an instrument track's *Instrument*, *Effects*, *Notes* and *Track*; an audio or return track
+  has *Effects* and *Track*, as a bus and the master do (`soundsTabsOf`). `tabFor` shows *Effects* where the chosen tab
+  isn't there, and the choice is kept for the next instrument track.
+* **Step 2:** the list of presets runs through `recallablePresets(project, owner, domain)`, which captures the owner's
+  graph once rather than once per preset (`canRecallPresetOn` per row would capture it 128 times on every knob move).
+* **Step 2:** the save buttons read *+ Save preset* and *+ Snapshot*, named *Save preset* and *Save snapshot* for
+  assistive tech and specs; their tooltips say what each keeps. The status line says "Saved Bass 1" and a recall's
+  report, as before.
+* **Step 2:** the rows scroll in their own box, so *+ Save preset*, the morph and the sample choices stay in view at
+  280 × 200. At 280 px the header keeps one line and the owner's name gives way to an ellipsis (its tooltip has it).
+* **Step 2:** *Show all in project* is a `PopupMenu` checkable entry under ⋯ (*Sounds actions*), a view preference, not
+  an action; the view keeps it in `localStorage` under `sfxlab:sounds-show-all` with guarded access. With it, the rows
+  are grouped under "Bass · Instrument" headings and recall onto their own owner.
+* **Step 2:** the morph shows wherever A and B are set and pair up, whatever the selection, as the plan has it; the
+  slider is named *Morph*, between A's and B's names. The sample choices' select is named *Sample for* and the path's node
+  titles; "Use shared default" reads *Default (Tone 1)*.
+* **Step 2:** specs: the presets spec's two cases are the snapshot case (save named in place, recall, Enter, undo, the
+  ● going with the undo, reload, *Set as A/B* and the morph) and a new preset case (saved on Sweep, listed and recalled
+  on its copy, not listed on Other, back with *Show all*). Today's in-place rename case is folded into the first, since
+  every save now starts one. `fixtures.ts` has `saveSound(page, sounds, kind, name)`. The layout spec's state kept while
+  hidden is the status line now (there is no name field), and `automation.audio` checks the sample choice's name.
+* **Step 2:** cost on Low Light (17 tracks, dev build): `recallablePresets` 0.13 ms; checking the ● mark
+  (`scopeState`) 3.5 ms, run on each project change only while a mark exists. Left as it is.
+* **Manual checks** (dev build, Chromium, Low Light): three Kick sounds saved, A and B set from rows, ● on recall; the
+  tab followed Effects and Notes being shown; *Show all*; Sounds at 280 px in the sidebar and at 300 px; a preset of the
+  Stab recalled with Touch armed while scene 3 played ("3 controls recalled"). An Enter pressed within a frame of
+  *+ Save preset* reaches the button before the name field takes the focus, and saves a second sound; a person doesn't
+  type that fast, and the specs wait for the field.

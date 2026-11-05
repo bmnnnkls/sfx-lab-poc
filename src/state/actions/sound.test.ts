@@ -5,7 +5,7 @@ import { editPresetProject } from '../preset-actions'
 import { useProjectStore } from '../project-store'
 import { sameSubject, useRenameStore } from '../rename-store'
 import { useSelectionStore } from '../selection-store'
-import { editorTabOf, isStillRecalled, morphPair, tabFor, useSoundsStore } from '../sounds-store'
+import { editorTabOf, isStillRecalled, morphPair, soundsTabsOf, tabFor, useSoundsStore } from '../sounds-store'
 import { describeActions, nextSoundName, runAction, saveSound, soundSubject } from '.'
 import { fakeContext, loadDemo } from './test-support'
 
@@ -159,10 +159,12 @@ describe('the sounds store', () => {
     expect(useSoundsStore.getState().tab).toBe('fx')
   })
 
-  it("shows a bus's or the master's effects for the instrument's tabs", () => {
-    expect(tabFor('patch', { kind: 'master' })).toBe('fx')
-    expect(tabFor('notes', { kind: 'group', groupId: 'g' })).toBe('fx')
-    expect(tabFor('track', { kind: 'master' })).toBe('track')
-    expect(tabFor('notes', owner('Bass'))).toBe('notes')
+  it("shows the effects of an owner without an instrument for the instrument's tabs", () => {
+    const bass = soundsTabsOf(project(), owner('Bass')), master = soundsTabsOf(project(), { kind: 'master' })
+    expect(bass).toEqual(['patch', 'fx', 'notes', 'track'])
+    expect(soundsTabsOf(project(), owner('Kick'))).toEqual(['fx', 'track'])
+    expect(tabFor('patch', master)).toBe('fx')
+    expect(tabFor('track', master)).toBe('track')
+    expect(tabFor('notes', bass)).toBe('notes')
   })
 })

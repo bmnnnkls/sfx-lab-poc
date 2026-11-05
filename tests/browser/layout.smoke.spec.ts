@@ -3,12 +3,15 @@ import { test, expect, dragView, dragViewToSidebar, openView, tabStrip, viewRoot
 test('a view keeps its state while it is hidden', async ({ page }) => {
   await page.goto('/?starter')
   const sounds = await openView(page, 'Sounds')
-  await sounds.getByLabel('Sound name', { exact: true }).fill('Kept while hidden')
+  // The status line is the view's own state.
+  await sounds.getByRole('button', { name: 'Save snapshot', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await expect(sounds.getByRole('status')).toHaveText('Saved Bass 1')
   // Clicking its open tab collapses the sidebar it is in.
   await page.getByRole('tab', { name: 'Sounds', exact: true }).click()
   await expect(sounds).toBeHidden()
   await openView(page, 'Sounds')
-  await expect(sounds.getByLabel('Sound name', { exact: true })).toHaveValue('Kept while hidden')
+  await expect(sounds.getByRole('status')).toHaveText('Saved Bass 1')
 })
 
 test('Sounds starts in the secondary sidebar, collapsed, and opens 300 px wide', async ({ page }) => {

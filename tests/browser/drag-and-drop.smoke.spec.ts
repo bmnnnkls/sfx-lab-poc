@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { test, expect, dragTo, dragView, libraryPanel, openView, saveToLibrary, treeRow, viewRoot } from './fixtures'
+import { test, expect, dragTo, dragView, libraryPanel, openView, saveSound, saveToLibrary, treeRow, viewRoot } from './fixtures'
 
 test('a view tab dragged across the session grid docks as before and changes no slot', async ({ page }) => {
   await page.goto('/?starter')
@@ -249,10 +249,8 @@ test('a project preset dropped on its own track recalls it, and a track with ano
   const session = await openView(page, 'Session')
   await session.getByRole('button', { name: 'Bass', exact: true }).click()
   const sounds = await openView(page, 'Sounds')
-  await sounds.getByLabel('Sound name', { exact: true }).fill('Warm')
-  await sounds.getByRole('button', { name: 'Save as preset', exact: true }).click()
-  const preset = sounds.getByRole('button', { name: 'Recall preset Warm', exact: true })
-  await expect(preset).toBeVisible()
+  await saveSound(page, sounds, 'preset', 'Warm')
+  const preset = sounds.getByRole('button', { name: 'Recall Warm', exact: true })
 
   const recalled = page.getByRole('status').filter({ hasText: 'controls recalled' })
   await dragTo(page, preset, session.getByRole('button', { name: 'Bass', exact: true }))
@@ -309,11 +307,10 @@ test("a bus's effects preset dropped on a bus strip recalls it, and a folder ref
   }
   await tree.getByRole('treeitem', { name: 'Group 1, group of 1 track', exact: true }).click()
   const sounds = await openView(page, 'Sounds')
-  await expect(sounds.getByLabel('Sound scope', { exact: true })).toHaveValue('fx')
-  await sounds.getByLabel('Sound name', { exact: true }).fill('Glue')
-  await sounds.getByRole('button', { name: 'Save as preset', exact: true }).click()
-  const preset = sounds.getByRole('button', { name: 'Recall preset Glue', exact: true })
-  await expect(preset).toBeVisible()
+  // A bus has no instrument: its tabs are Effects and Track.
+  await expect(sounds.getByRole('tab', { name: 'Effects', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await saveSound(page, sounds, 'preset', 'Glue')
+  const preset = sounds.getByRole('button', { name: 'Recall Glue', exact: true })
 
   const mixer = await openView(page, 'Mixer')
   const recalled = page.getByRole('status').filter({ hasText: 'controls recalled' })

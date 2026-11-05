@@ -59,8 +59,12 @@ test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after tras
     for (const s of sampleFixture.samples) await expect(page.getByRole('button', { name: `Preview ${s.info.name}`, exact: true })).toBeEnabled()
     await viewRoot(page, 'Session').getByText('Sweep', { exact: true }).first().click()
     await openView(page, 'Sounds')
-    await page.getByRole('button', { name: 'Recall preset Different sample', exact: true }).click()
+    await page.getByRole('button', { name: 'Recall Different sample', exact: true }).click()
     await expectSaved(page)
+    // The sample choice is named by the nodes along its path, and shows the recalled sample.
+    const sounds = viewRoot(page, 'Sounds')
+    await sounds.getByText('Sample choices (1)', { exact: true }).click()
+    await expect(sounds.getByRole('combobox', { name: /^Sample for .+ \/ .+$/ })).toHaveValue(sampleFixture.samples[1]!.info.id)
     if (libraryPreset) {
       await openView(page, 'Library')
       const panel = libraryPanel(page)
@@ -97,8 +101,8 @@ test(`the real worklet ${bundlePreset ? 'imported bundle sample asset after tras
   if (preset) {
     await viewRoot(page, 'Session').getByText('Sweep', { exact: true }).first().click()
     await openView(page, 'Sounds')
-    await page.getByRole('button', { name: 'Recall preset Warm', exact: true }).click()
-    await page.getByRole('button', { name: 'Recall preset Bright', exact: true }).click()
+    await page.getByRole('button', { name: 'Recall Warm', exact: true }).click()
+    await page.getByRole('button', { name: 'Recall Bright', exact: true }).click()
     await expect(page.getByRole('status').filter({ hasText: 'controls recalled' })).toBeVisible()
     await expectSaved(page)
     const saved = parseProject((await page.evaluate(() => localStorage.getItem('sfxlab:project')))!)

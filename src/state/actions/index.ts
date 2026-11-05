@@ -33,7 +33,7 @@ export { clipTrackFor, graphFitsOwner, insertLibraryClipAt, insertionScope, isIn
 export { canPasteClipOnLane, pasteClipOnLane } from './lane'
 export { copyName, projectGraphItem, projectGraphItemId } from './project-graph'
 export { canPasteClipInSlot, pasteClipInSlot } from './slot'
-export { canRecallPresetOn, nextSoundName, recallPresetOn, saveSound, soundSubject } from './sound'
+export { canRecallPresetOn, nextSoundName, recallablePresets, recallPresetOn, saveSound, soundSubject } from './sound'
 export { automationSlotClipboard, clipClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes } from './clipboards'
 export { editTargetOf, graphKeyOf } from './nodes'
 export { processActions } from './sample-selection'

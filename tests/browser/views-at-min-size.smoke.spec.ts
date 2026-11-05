@@ -86,7 +86,7 @@ const CASES: readonly Case[] = [
   {
     title: 'Sounds',
     min: TOOL_VIEW,
-    controls: (root) => [root.getByLabel('Sound name', { exact: true }), root.getByRole('button', { name: 'Save snapshot' })],
+    controls: (root) => [root.getByRole('tab', { name: 'Track', exact: true }), root.getByRole('button', { name: 'Sounds actions', exact: true }), root.getByRole('button', { name: 'Save snapshot', exact: true })],
   },
   {
     title: 'Clip',
