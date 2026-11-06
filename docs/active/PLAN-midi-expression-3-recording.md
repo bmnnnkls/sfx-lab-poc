@@ -6,7 +6,7 @@ note: "Part 3 of the pitch bend, aftertouch and CC spec: ● records pitch bend,
 # Pitch bend, aftertouch and CC, part 3: recording them
 
 Status: **plan, signed off** 2026-11-06, every decision as proposed. Written 2026-11-06 on `imp/spec-midi-expression` after part 1, with part 2
-planned ([plan](PLAN-midi-expression-2-lanes.md)) but not built; this part needs it. Carries out part 3 of the
+planned ([plan](../archive/midi-expression/PLAN-midi-expression-2-lanes.md)) and since built (2026-11-06); this part needs it. Carries out part 3 of the
 signed-off [pitch bend, aftertouch and CC spec](SPEC-midi-expression.md) (§ Recording, § Parts). The spec's decisions
 are settled and not repeated here; this plan adds only the ones it raises (§ Decisions to sign off). Where it differs
 from the spec, it says so.

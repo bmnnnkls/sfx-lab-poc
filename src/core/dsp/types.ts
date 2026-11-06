@@ -44,8 +44,13 @@ export interface ParamSpec {
   readonly unit?: string
   /** When present the parameter is an enum; its value is an index into this list. */
   readonly options?: readonly string[]
-  /** How to show the value: `midiNote` renders 60 as "C4", `midiCC` renders 1 as "1 Mod wheel". */
-  readonly format?: 'midiNote' | 'midiCC'
+  /**
+   * How to show the value: `midiNote` renders 60 as "C4", `midiCC` renders 1 as "1 Mod wheel", `midi7` renders 0 to 1
+   * as 0 to 127, `bend` renders −1 to 1 as semitones at `displayScale` ("+1.40 st").
+   */
+  readonly format?: 'midiNote' | 'midiCC' | 'midi7' | 'bend'
+  /** What a `bend` value is multiplied by when shown: the track's bend range in semitones. */
+  readonly displayScale?: number
   /**
    * The range of this parameter is not fixed: it is whatever the node's own parameters `min` and `max` say (a control
    * node's value lies between its min and max). `min` / `max` here are then only wide bounds; `liveSpec` resolves it.

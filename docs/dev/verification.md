@@ -13,7 +13,10 @@ storage, no retries, assertions with bounded waits, page/console error checks an
 There is one spec file per feature area (`*.smoke.spec.ts` for the UI, `*.audio.spec.ts` for real worklet output);
 `tests/browser/support/fixtures.ts` holds the shared helpers and view titles, and `viewRoot(page, title)` scopes a locator
 to one view. The audio project uses a sample-window tap derived from the legacy checks (`support/audio-tap.ts`) to
-measure real output through the worklet; it rejects an inactive tap. Legacy scenarios not yet migrated are listed in
+measure real output through the worklet; it rejects an inactive tap. The tap reports peaks over a window, not samples,
+so a pitch is read as a level: *Hz to MIDI* less 69, scaled (`support/expression-project.ts`). Gate such a level by
+the note when a clip loops: a patch without an envelope keeps a released voice sounding until the safety net frees it,
+and the passes' levels add up. Legacy scenarios not yet migrated are listed in
 [browser-checks](../browser-checks/README.md) ([BACKLOG](../BACKLOG.md) T1).
 
 Each smoke group is a folder and a project (`smoke-<group>`), listed in `tests/browser/groups.ts`;

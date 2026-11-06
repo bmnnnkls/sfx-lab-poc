@@ -25,6 +25,7 @@ import {
   useTimelineLaneRequest,
 } from '@state'
 import { type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject, useEffect, useRef, useState } from 'react'
+import { CcLaneField } from '../automation/CcLaneField'
 import { type PointGesture, type PointGrid, type PointerAt, copyPoints, dragPoints, pastePoints, pressPoints, removePoints } from '../automation/point-gestures'
 import { ActionMenu } from '../shared/menu'
 import { snapBeat, timelineSnapping } from './region-snap'
@@ -295,6 +296,15 @@ const AddLaneRow = ({ owner, name, lanes, width, depth }: { owner: ControlOwner;
     setPicking(false)
     setSearch('')
   }
+  // An instrument track's pitch bend, pressure and CCs come after its other controls, under their own heading.
+  const others = targets.flatMap((target, index) => (target.kind === 'expression' ? [] : [{ target, index }]))
+  const midi = targets.flatMap((target, index) => (target.kind === 'expression' ? [{ target, index }] : []))
+  const instrument = owner.kind === 'track' && project.tracks.find((track) => track.id === owner.trackId)?.kind === 'instrument' ? owner.trackId : undefined
+  const option = ({ target, index }: { target: ControlTarget; index: number }) => (
+    <option key={controlTargetKey(target)} value={index}>
+      {targetName(project, target)}
+    </option>
+  )
   return (
     <div className={`${styles.lane} ${styles.addLane}`}>
       <div className={`${styles.header} ${styles.addLaneHeader}`} style={{ paddingInlineStart: 18 + depth * 10 } as CSSProperties}>
@@ -317,12 +327,10 @@ const AddLaneRow = ({ owner, name, lanes, width, depth }: { owner: ControlOwner;
               <option value="" disabled>
                 {targets.length ? `${targets.length} target${targets.length === 1 ? '' : 's'}…` : 'No target left'}
               </option>
-              {targets.map((target, index) => (
-                <option key={controlTargetKey(target)} value={index}>
-                  {targetName(project, target)}
-                </option>
-              ))}
+              {others.map(option)}
+              {midi.length > 0 && <optgroup label="MIDI">{midi.map(option)}</optgroup>}
             </select>
+            {instrument && <CcLaneField trackId={instrument} lanes={lanes} onAdd={add} />}
             <button onClick={() => setPicking(false)}>Cancel</button>
           </div>
         )}

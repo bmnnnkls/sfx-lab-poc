@@ -50,6 +50,9 @@ History, autosave, import and export, and the signature canonicalization behind 
   `arrangementLoop` (v13, `sanitizeArrangementMarks`), `arrangementAutomation` (v14, `sanitizeTimelineAutomation`); see
   [the arrangement](clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) and
   [timeline automation](control-and-automation.md#timeline-automation).
+* **Lane targets:** since v15 a lane may name an instrument track's pitch bend, pressure or a CC
+  (`targetOf(raw, { allowExpression: true })`, which MIDI mappings, saved values and presets don't pass); see
+  [expression lanes](control-and-automation.md#expression-lanes-pitch-bend-pressure-and-cc).
 * **Autosave:** `app/autosave.ts` subscribes to the project store; `storage/autosaver.ts` debounces (500 ms)
   and flushes on tab hide / `pagehide`. The header shows Saved / Saving… / Not saved.
 * **Startup:** `app/services.ts` loads the saved project *before* the first render. With nothing saved, a first visit opens on

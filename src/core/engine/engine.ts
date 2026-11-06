@@ -5,7 +5,7 @@ import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
 import type { TapBoard } from '../notefx'
 import { createDefaultMasterGraph } from '../patch'
 import { SampleBank } from '../sample'
-import { isExpressionControl } from '../midi'
+import { type ExpressionControl, LANE_SOURCE, isExpressionControl } from '../midi'
 import type { LauncherStatus, NoteScope } from '../session'
 import { Transport } from '../transport'
 import { AudioBoard } from './audio-board'
@@ -40,7 +40,7 @@ export class Engine {
   private readonly automation = new EngineAutomation((target, value, baseValue) => this.writeAutomation(target, value, baseValue))
   private collecting: { frame: number; frames: number } | null = null
   /** Curves live until every audio subrun of their planning horizon has consumed them. */
-  private targetMetadata = new WeakMap<ControlTarget, { key: string; nodeId: string }>()
+  private targetMetadata = new WeakMap<ControlTarget, { key: string; nodeId: string; expression?: ExpressionControl }>()
   private readonly curves = new Map<string, { target: ControlTarget; values: Float64Array; baseValue: number; used: boolean }>()
   /** Reused per horizon; a queued launch may clear overrides before its earlier samples are mixed. */
   private readonly horizonEntryOverrides = new Map<string, number>()
@@ -646,6 +646,7 @@ export class Engine {
       const track = this.tracks.get(ownerId)
       if (!track) continue
       if (target.kind === 'graph') track.setAutomationCurve(flatControlNodeId(target), target.paramId, values, target.domain)
+      else if (target.kind === 'expression') continue
       else if (target.control === 'volume') { track.strip.volumeCurve = values; track.strip.volume = values[frames - 1]! }
       else if (target.control === 'pan') { track.strip.panCurve = values; track.strip.pan = values[frames - 1]! }
       else {
@@ -866,8 +867,17 @@ export class Engine {
   private writeAutomation(target: ControlTarget, value: number, baseValue = value): void {
     let metadata = this.targetMetadata.get(target)
     if (!metadata) {
-      metadata = { key: controlTargetKey(target), nodeId: target.kind === 'graph' ? flatControlNodeId(target) : '' }
+      metadata = {
+        key: controlTargetKey(target), nodeId: target.kind === 'graph' ? flatControlNodeId(target) : '',
+        ...(target.kind === 'expression' && { expression: target.control === 'cc' ? { cc: target.cc } : target.control }),
+      }
       this.targetMetadata.set(target, metadata)
+    }
+    // Pitch bend, pressure and CC go to the instrument at once, never into a curve: it reads them each block, as it
+    // reads a keyboard's. Within a planning horizon, the last value written is the one its block hears.
+    if (target.kind === 'expression') {
+      if (target.owner.kind === 'track') this.instrument(target.owner.trackId)?.express(LANE_SOURCE, 0, metadata.expression!, value)
+      return
     }
     if (this.collecting && !(target.kind === 'graph' && target.domain === 'notes')) {
       const key = metadata.key

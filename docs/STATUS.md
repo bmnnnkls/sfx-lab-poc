@@ -25,7 +25,7 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 | Stereo, sends and returns, master bus, mixer, Track audio | Shipped | [mixing-and-routing](architecture/mixing-and-routing.md) |
 | Track groups, group buses, Tracks tree | Shipped (redesign rounds 7–8) | [tracks-and-groups](architecture/tracks-and-groups.md) |
 | Automation (clip, return and master, and on the arrangement's timeline for every owner, group buses included), touch recording | Shipped (the timeline lanes in round 12c); touch into the timeline is round 12d | [control-and-automation](architecture/control-and-automation.md) |
-| Browser MIDI input and learn; recording into Session slots and the Arrangement, overdub, count-in, the metronome; pitch bend, pressure and unmapped CCs played live | Shipped; physical hardware not verified; expression lanes and recording them are parts 2 and 3 of the [spec](active/SPEC-midi-expression.md) | [midi](architecture/midi.md) |
+| Browser MIDI input and learn; recording into Session slots and the Arrangement, overdub, count-in, the metronome; pitch bend, pressure and unmapped CCs played live and drawn as lanes | Shipped; physical hardware not verified; recording them is part 3 of the [spec](active/SPEC-midi-expression.md) | [midi](architecture/midi.md) |
 | Arrangement timeline: headers, zoom, snap, a position, follow, keys, markers, the loop brace and the transport looping it, rows for returns and the master, automation lanes, a region's own lanes playing | Shipped (rounds 12a to 12c); touch recording into it is the rest of round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
 | Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse, markers, regions, the sampler's loop, snap, *Revert to original*, a second pane, a spectrogram, band selection and spectral edits) | Shipped (round 11 done) | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
 | Snapshots, presets, personal library, `.sfxlib` bundles | Shipped | [library-and-presets](architecture/library-and-presets.md) |
@@ -83,9 +83,15 @@ the same time are one undo step, in the Session too. Not checked: a real keyboar
 [spec](active/SPEC-midi-expression.md)): the pitch wheel bends what a keyboard plays by a per-track range (*Bend ±* in
 MIDI settings, ±2 by default); pressure (polyphonic pressure folded in) and the CCs no mapping takes reach patches
 through the Note node's *Pressure* and *Bend* and a new MIDI CC node; Panic, ■, a disconnect and routing put them back
-at rest. Parts 2 (expression lanes, format v15, [plan](active/PLAN-midi-expression-2-lanes.md)) and 3 (recording them,
-[plan](active/PLAN-midi-expression-3-recording.md)) are planned and signed off. Not checked: a real keyboard
-(V5).
+at rest. Part 3 (recording them, [plan](active/PLAN-midi-expression-3-recording.md)) is planned and signed off. Not
+checked: a real keyboard (V5).
+
+**Pitch bend, aftertouch and CC, part 2 is done** (2026-11-06, on `imp/spec-midi-expression`, not merged;
+[plan](archive/midi-expression/PLAN-midi-expression-2-lanes.md)): an instrument track's clips, regions and timeline can
+hold *Pitch bend*, *Pressure* and CC lanes (*+ Lane* has a **MIDI** group and *CC…* for any CC), shown in semitones and
+0 to 127. They play in the Session, the Arrangement and a bounce, back to rest when they stop; moving the wheel over a
+playing lane takes it over until *Read* or ■. Files save as **format v15**; library clips keep the lanes. Not checked:
+a real keyboard (V5).
 
 **The library UX round is done** (2026-11-05, on `feat/library-improvements`, not merged;
 [spec, plans and runbook](archive/library-ux/SPEC-library-ux.md)). The Library is one tree with four roots: *This

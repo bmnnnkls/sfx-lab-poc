@@ -1,6 +1,6 @@
-import { type ClockPosition, EXPRESSION_REST, type ExpressionControl, type LiveNoteAddress, MIDI_MAX, type MidiFollow, PressureFold, expressionKey, isExpressionCC, liveNoteRouting, liveNoteTracks, parseMidiMessage } from '@core'
-import { type EngineControls, type MidiService, recordNote, recordPosition, recordPedal, useMidiStore, useProjectStore, useRecordStore, useSelectionStore } from '@state'
-import { createMidiControls } from './midi-controls'
+import { type ClockPosition, EXPRESSION_REST, type ExpressionControl, type LiveNoteAddress, MIDI_MAX, type MidiFollow, PressureFold, controlTargetKey, expressionKey, expressionTarget, isExpressionCC, liveNoteRouting, liveNoteTracks, parseMidiMessage } from '@core'
+import { type EngineControls, type MidiService, recordNote, recordPosition, recordPedal, useControlStore, useMidiStore, useProjectStore, useRecordStore, useSelectionStore } from '@state'
+import { createMidiControls, nextFrame } from './midi-controls'
 
 /** Only this adapter holds browser access/port objects. enable is called by a user action. */
 export const createMidiInput = (controls: EngineControls, request: (() => Promise<MIDIAccess>) | undefined =
@@ -29,6 +29,29 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
     if (!found) folds.set(key, found = new PressureFold())
     return found
   }
+  /**
+   * Over a lane playing that control (or one it already took over), the live value is an override, as a mapped knob's
+   * is over a parameter's lane: the lane stays silent until *Read* or ■. The engine hears the value at once all the same;
+   * the override, which only says who owns the control, is written once per frame with the latest value, as a mapped
+   * CC's value is.
+   */
+  const overriding = new Map<string, { readonly target: ReturnType<typeof expressionTarget>; value: number }>()
+  let overrideScheduled = false
+  const flushOverrides = () => {
+    overrideScheduled = false
+    const pending = [...overriding.values()]
+    overriding.clear()
+    for (const { target, value } of pending) useControlStore.getState().setOverride(target, value)
+  }
+  const overrideLane = (trackId: string, control: ExpressionControl, value: number) => {
+    const target = expressionTarget(trackId, control), key = controlTargetKey(target)
+    const pending = overriding.get(key)
+    if (pending) { pending.value = value; return }
+    const state = useControlStore.getState()
+    if (!state.playback.some((entry) => controlTargetKey(entry.target) === key) && !state.overrides.some((entry) => controlTargetKey(entry.target) === key)) return
+    overriding.set(key, { target, value })
+    if (!overrideScheduled) { overrideScheduled = true; nextFrame(() => { if (overrideScheduled) flushOverrides() }) }
+  }
   /** The wheel, pressure or an unmapped CC goes where a note-on from that input and channel would. */
   const express = (portId: string, channel: number, control: ExpressionControl, value: number) => {
     const key = portChannel(portId, channel)
@@ -38,9 +61,12 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
     for (const trackId of liveNoteTracks(useProjectStore.getState().project, portId, channel, follow())) {
       entry.tracks.add(trackId)
       controls.expression(trackId, sourceId(portId), channel, control, value)
+      overrideLane(trackId, control, value)
     }
   }
   const forgetExpression = (portId?: string, channel?: number) => {
+    // Panic, disabling MIDI and a new document drop an override not yet written.
+    if (portId === undefined) { overriding.clear(); overrideScheduled = false }
     for (const map of [folds, expressed]) {
       for (const key of map.keys()) {
         const [p, ch] = JSON.parse(key) as [string, number]

@@ -1,14 +1,14 @@
 ---
 status: active
 date: 2026-11-06
-note: "Pitch bend, aftertouch and CC: played live, kept as automation lanes, recorded with the notes. Signed off 2026-11-06 (decisions 3 and 8 changed in review); part 1 done 2026-11-06; parts 2 and 3 planned and signed off."
+note: "Pitch bend, aftertouch and CC: played live, kept as automation lanes, recorded with the notes. Signed off 2026-11-06 (decisions 3 and 8 changed in review); parts 1 and 2 done 2026-11-06; part 3 planned and signed off."
 ---
 # Pitch bend, aftertouch and CC (spec)
 
-Status: **spec, signed off** 2026-11-06: decisions 3 and 8 changed in review, the rest as proposed. **Part 1 is done**
-(2026-11-06, [plan](../archive/midi-expression/PLAN-midi-expression-1-play.md)); parts 2
-([plan](PLAN-midi-expression-2-lanes.md)) and 3 ([plan](PLAN-midi-expression-3-recording.md)) are planned and signed off
-(2026-11-06). Written 2026-11-06 on `feat/midi-recording` at `9d6df92` (MIDI recording
+Status: **spec, signed off** 2026-11-06: decisions 3 and 8 changed in review, the rest as proposed. **Parts 1 and 2 are done**
+(2026-11-06, plans for [part 1](../archive/midi-expression/PLAN-midi-expression-1-play.md) and
+[part 2](../archive/midi-expression/PLAN-midi-expression-2-lanes.md)); part 3
+([plan](PLAN-midi-expression-3-recording.md)) is planned and signed off (2026-11-06). Written 2026-11-06 on `feat/midi-recording` at `9d6df92` (MIDI recording
 parts 1 to 3 and round 12c done). No code was changed. It picks up two items left out of
 [MIDI recording](../archive/midi-recording/SPEC-midi-recording.md): its out-of-scope line *"CC, pitch bend and
 aftertouch as clip data"* and its wish *"Recording CC, pitch bend and the pedal as clip data"*. The sustain pedal stays

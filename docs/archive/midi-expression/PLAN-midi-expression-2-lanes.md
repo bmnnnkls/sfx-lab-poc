@@ -1,13 +1,14 @@
 ---
-status: active
+status: done
 date: 2026-11-06
-note: "Part 2 of the pitch bend, aftertouch and CC spec: expression lanes (a new control target, drawn and played in clips, regions and on the timeline, live input overriding them, format v15). Signed off 2026-11-06, every decision as proposed."
+shipped_in: architecture/control-and-automation.md
+note: "Part 2 of the pitch bend, aftertouch and CC spec: expression lanes (a new control target, drawn and played in clips, regions and on the timeline, live input overriding them, format v15). Signed off 2026-11-06, every decision as proposed; built 2026-11-06. Not checked by hand with a real keyboard (BACKLOG V5)."
 ---
 # Pitch bend, aftertouch and CC, part 2: expression lanes
 
-Status: **plan, signed off** 2026-11-06, every decision as proposed. Written 2026-11-06 on `imp/spec-midi-expression` after part 1
-([plan](../archive/midi-expression/PLAN-midi-expression-1-play.md)). Carries out part 2 of the signed-off
-[pitch bend, aftertouch and CC spec](SPEC-midi-expression.md) (§ Expression lanes, § Persistence, § Parts). The spec's
+Status: **done** 2026-11-06 (plan signed off the same day, every decision as proposed). Written 2026-11-06 on `imp/spec-midi-expression` after part 1
+([plan](PLAN-midi-expression-1-play.md)). Carries out part 2 of the signed-off
+[pitch bend, aftertouch and CC spec](../../active/SPEC-midi-expression.md) (§ Expression lanes, § Persistence, § Parts). The spec's
 decisions are settled and not repeated here; this plan adds only the ones it raises (§ Decisions to sign off). Where it
 differs from the spec, it says so.
 
@@ -29,7 +30,7 @@ After this part an instrument track's clips, regions and timeline can hold **exp
 
 ## Inventory
 
-What part 2 touches, beyond the [spec's inventory](SPEC-midi-expression.md#inventory) and part 1.
+What part 2 touches, beyond the [spec's inventory](../../active/SPEC-midi-expression.md#inventory) and part 1.
 
 ### Control targets
 
@@ -183,4 +184,31 @@ Signed off 2026-11-06: every decision as proposed.
 
 ## Changes made while implementing
 
-None yet.
+* **The target (step 1).** `ExpressionTarget` is three members (pitch bend, pressure, a CC with its `cc`) rather than one
+  with a union `control`, so TypeScript narrows `cc` by `control`. The 58 branches on `kind` needed four changes beyond
+  the planned refusals: the engine's curve loop skips expression, the timeline lane's *Show control* reveals the
+  instrument, library clips carry the target as a mixer target is carried, and the bundle check. `ParamSpec` gains the
+  `bend` and `midi7` formats and `displayScale` (the track's bend range), so the view formats a value from its spec
+  alone, without the project. `expressionTarget(trackId, control)` turns a keyboard's control into its lane target.
+* **Playing (step 2).** Written at once, so within a planning horizon (a block, at most 128 frames) the last value
+  written is the one the instrument hears: the lane's value at the block's last sample, not its first. The bounce and
+  playback slice blocks alike, so they still match exactly.
+* **Persistence (step 3).** `sanitizeAutomation` takes whether the owner plays expression: MIDI clips (session and
+  regions) yes, audio clips and return and master slots no, the timeline per owner. A bend or pressure target that
+  carries a `cc` is an invalid lane. The fixture was written from a script and pretty-printed as the others are.
+* **The library (step 4).** A portable expression lane may carry no `graphSignature` or `nodeIndex`; the bundle check
+  refuses one that does, and `validateLibraryPayloads` refuses a CC the sanitizer would drop.
+* **Live over a lane (step 5).** The adapter also sets the override when one is already set, so later moves follow
+  after the lane stops reporting; the rest messages routing sends don't set one. The override is written once per frame
+  with the latest value (`nextFrame`, as mapped CCs are): each write re-diffs the effective project and sends
+  `automation/overrides`, and a wheel sends hundreds of messages a second. The sound doesn't wait for it.
+* **The view (step 6).** The two pickers keep their own handling of a target that has a lane: the clip editor lists it
+  (choosing it opens that lane), the timeline leaves it out. The plan said *listed but disabled*; *CC…* refuses a CC
+  that has a lane in both. The point value field leaves the point alone on a blur with no edit, since a 0 to 127
+  display would otherwise round the point.
+* **Tests (step 7).** The smoke tests are in the timeline group. The audio test holds the lane at +1 rather than
+  ramping it over a bar, since the tap reports peaks over a 2.6 s window, and compares the lane with the same bend from
+  the wheel; that a bounce matches playback is a unit test (the same `Engine` code). Its patch is gated by the note's
+  gate: without an envelope a released voice of a looping clip sounds on until the safety net frees it, and the levels
+  of successive passes added up. `tempo.audio.spec.ts` failed in the full audio run; repeated on its own it fails 4
+  of 8 runs here and 4 of 8 on the base commit (BACKLOG V7). Every other audio spec and all 259 smoke tests pass.

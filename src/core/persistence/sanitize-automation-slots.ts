@@ -16,7 +16,7 @@ export const sanitizeAutomationSlots = (raw: unknown, scenes: number, owner: Con
     if (!isRecord(slot) || typeof slot.id !== 'string' || !slot.id.length || slot.id.length > 256 || ids.has(slot.id)) { warn('Invalid automation slot skipped'); return null }
     ids.add(slot.id)
     const lengthBeats = clamp(finiteNumber(slot.lengthBeats, 4), LIMITS.clipBeats.min, LIMITS.clipBeats.max)
-    const automation = sanitizeAutomation(slot.automation, lengthBeats, warn, owner)
+    const automation = sanitizeAutomation(slot.automation, lengthBeats, warn, owner, false)
     return { id: slot.id, name: nonEmptyText(slot.name, 'Automation', 40), lengthBeats, ...(automation && { automation }) }
   })
 }

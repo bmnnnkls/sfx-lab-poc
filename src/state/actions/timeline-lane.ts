@@ -41,7 +41,7 @@ export const showControl = (target: ControlTarget): void => {
   if (owner.kind === 'master') selection.selectMaster()
   else if (owner.kind === 'group') selection.selectGroup(owner.groupId)
   else selection.selectTrack(owner.trackId)
-  useLayoutStore.getState().revealView(target.kind === 'mixer' ? 'mixer' : target.domain === 'patch' ? 'instrument' : target.domain === 'notes' ? 'notes' : 'effects')
+  useLayoutStore.getState().revealView(target.kind === 'mixer' ? 'mixer' : target.kind === 'expression' || target.domain === 'patch' ? 'instrument' : target.domain === 'notes' ? 'notes' : 'effects')
 }
 
 const segmentTitle = (interpolation: 'linear' | 'hold') => (interpolation === 'linear' ? 'Linear segment' : 'Hold segment')

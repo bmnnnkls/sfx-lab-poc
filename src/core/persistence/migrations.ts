@@ -5,6 +5,8 @@ type Migration = (project: unknown) => unknown
 
 /** `MIGRATIONS[n]` upgrades the `project` payload from format version n to n + 1. */
 const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  // v15 adds pitch bend, pressure and CC as lane targets on instrument tracks; a v14 file has none.
+  14: (project) => project,
   // v14 adds the arrangement's timeline automation lanes, optional; a v13 file has none.
   13: (project) => project,
   // v13 adds the arrangement's markers and loop brace, both optional; a v12 file has neither.

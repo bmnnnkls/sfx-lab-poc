@@ -3,6 +3,7 @@ import { type Patch, type PatchNode, describeNode, flattenPatch, resolveSpec } f
 import { type Project, busGroups, mixesAfter } from '../project'
 import { controlTargetKey, type ControlOwner, type ControlTarget, type ControlResolution } from './types'
 import { clampControlValue } from './values'
+import { expressionTargets, resolveExpressionTarget } from './expression'
 
 export const controlGraph = (project: Project, owner: ControlOwner, domain: 'patch' | 'notes' | 'fx'): Patch | undefined => {
   if (owner.kind === 'master') return domain === 'fx' ? project.master.fx : undefined
@@ -13,6 +14,7 @@ export const controlGraph = (project: Project, owner: ControlOwner, domain: 'pat
 export const flatControlNodeId = (target: Extract<ControlTarget, { kind: 'graph' }>): string => [...target.path.map((step) => step.nodeId), target.nodeId].join('/')
 
 export const resolveControlTarget = (project: Project, target: ControlTarget): ControlResolution => {
+  if (target.kind === 'expression') return resolveExpressionTarget(project, target)
   const owner = target.owner
   const track = owner.kind === 'track' ? project.tracks.find((track) => track.id === owner.trackId) : undefined
   if (target.owner.kind === 'track' && !track) return { status: 'missing', reason: 'Owner track is missing' }
@@ -87,6 +89,7 @@ export const enumerateControlTargets = (project: Project): ControlTarget[] => {
       targets.push({ kind: 'mixer', owner, control: 'pan' })
       if (owner.kind === 'group' || project.tracks.find((track) => track.id === owner.trackId)?.kind !== 'return') for (const bus of returns) targets.push({ kind: 'mixer', owner, control: 'send', returnId: bus.id })
     }
+    if (owner.kind === 'track') targets.push(...expressionTargets(project, owner.trackId))
     for (const domain of ['patch', 'notes', 'fx'] as const) {
       const walk = (patch: Patch, path: Extract<ControlTarget, { kind: 'graph' }>['path'], seen: ReadonlySet<string>) => {
         if (path.length > 32) return

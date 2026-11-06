@@ -8,8 +8,12 @@ export interface LibraryFolder { readonly id: string; readonly name: string; rea
 export interface PortableLane extends Omit<AutomationLane, 'target'> {
   readonly graphSignature?: string
   readonly nodeIndex?: number
-  readonly target: Omit<Extract<ControlTarget, { kind: 'graph' }>, 'owner'> | Omit<Extract<ControlTarget, { kind: 'mixer' }>, 'owner'>
+  readonly target: Omit<Extract<ControlTarget, { kind: 'graph' }>, 'owner'> | Omit<Extract<ControlTarget, { kind: 'mixer' }>, 'owner'> | PortableExpressionTarget
 }
+/** An expression lane's target without its owner: inserting the clip gives it the destination instrument track. */
+export type PortableExpressionTarget =
+  | { readonly kind: 'expression'; readonly control: 'pitchBend' | 'pressure' }
+  | { readonly kind: 'expression'; readonly control: 'cc'; readonly cc: number }
 export type LibraryContent =
   | { readonly kind: 'instrument' | 'audio-effect' | 'note-effect'; readonly revisionId: string; readonly state: ProjectPreset }
   | { readonly kind: 'preset'; readonly revisionId: string; readonly assetId: string; readonly state: ProjectPreset }

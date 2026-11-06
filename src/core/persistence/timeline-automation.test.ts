@@ -37,11 +37,10 @@ describe('format v14: automation lanes on the timeline', () => {
     expect(project.arrangement![0]!.content.automation).toHaveLength(1)
   })
 
-  it('round-trips, and saves as v14', () => {
+  it('round-trips, and saves as the current version', () => {
     const { project } = parseOk(fixture('v14-timeline-automation.sfxlab.json'))
     const text = serializeProject(project)
-    expect(CURRENT_VERSION).toBe(14)
-    expect(JSON.parse(text).version).toBe(14)
+    expect(JSON.parse(text).version).toBe(CURRENT_VERSION)
     expect(parseOk(text).project).toEqual(project)
   })
 

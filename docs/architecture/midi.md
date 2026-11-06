@@ -84,13 +84,23 @@ Each is 0 at rest.
   instrument items (a patch, a note graph and voices) and presets don't carry it.
 * **In patches:** the Note node's *Pressure* and *Bend* outputs and the MIDI CC node
   ([graphs and nodes](graphs-and-nodes.md#the-keyboards-wheel-pressure-and-ccs)).
+* **Lanes.** Clips, regions and the timeline can hold pitch bend, pressure and CC lanes, which write the same
+  expression from the engine under a source of their own (`LANE_SOURCE`), so a keyboard's release leaves them
+  ([expression lanes](control-and-automation.md#expression-lanes-pitch-bend-pressure-and-cc)). **Live input over a
+  lane:** when the adapter sends a control to a track whose lane for it is playing (`useControlStore.playback`), or that
+  it already took over, it also sets a control-store override for that track's expression target, once per frame with
+  the latest value (as a mapped CC's value is written). `track/expression` still goes at once, so the sound doesn't
+  wait for the round trip; the engine then skips the lane and holds the live
+  value until *Read* or ■, and the lane header shows the override. A source's release doesn't release an override, as
+  a mapped knob's doesn't. Routing's rest messages don't set one.
 * `describeMidiMessage` names the new kinds (*Bend +0.42 on ch 1*, *Pressure C4 80 on ch 1*); no view shows received
   messages.
 * **Tests.** Unit tests cover the parser, the fold, bending in the instrument and the engine, resets per source, the
   bend range in the project, diff and file, and the adapter's routing with fake ports. In the real worklet, an audio
   test reads a held note's bent pitch as a level (through *Hz to MIDI*) and checks a full bend at ranges 2 and 12, the
-  centre and ■; another checks the mod wheel reaching a MIDI CC node until Panic. **No physical keyboard or controller
-  was checked** ([BACKLOG](../BACKLOG.md) V5).
+  centre and ■; another checks the mod wheel reaching a MIDI CC node until Panic, and a third a clip's bend lane, the
+  wheel taking it over and *Re-enable automation* giving it back. **No physical keyboard or controller was checked**
+  ([BACKLOG](../BACKLOG.md) V5).
 
 ## Recording notes into a clip
 

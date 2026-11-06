@@ -52,12 +52,15 @@ Things that shipped without the check their plan asked for.
   1-bar count-in with a downbeat played slightly early (part 2); recording 8 bars from bar 5 into the Arrangement,
   punching in and out with F9, and a 2-bar loop brace over three passes, at 90 and 140 BPM (part 3). Pitch bend,
   aftertouch and CC (part 1): a real keyboard's wheel at bend ranges 2 and 12, channel and polyphonic pressure through
-  the Note node's *Pressure*, and a controller's mod wheel through a MIDI CC node.
+  the Note node's *Pressure*, and a controller's mod wheel through a MIDI CC node. Part 2: drawing a vibrato with a
+  CC 1 lane into a MIDI CC node on a real patch, and a real wheel taking over a bend lane until *Read*.
 - **V6 Flaky smoke test**: `library.smoke.spec.ts`, the isolated preview case, reads the saved project right after
   loading the Starter, sometimes before the autosave has written it (2 failures in 5 runs on its own, round 8).
 - **V7 Load-sensitive audio test**: `tempo.audio.spec.ts`'s ping-pong case fails its tail-level check when the machine
   is busy, because it times tempo edits from the page. `midi-recording.audio.spec.ts`'s first case failed once the same
-  way, late in a run of the whole audio suite (MIDI recording part 3), and passes on its own.
+  way, late in a run of the whole audio suite (MIDI recording part 3), and passes on its own. On 2026-11-06 both
+  `tempo.audio.spec.ts` cases also failed their capture check (a 128-frame chunk missing, `chunk.frame - start`) in 4 of
+  8 repeats on its own, on `090d93b` and on part 2 of MIDI expression alike.
 - **V8 Commit the measuring scripts** that rounds 4 and 11b used (`measure.cjs`, the in-place flow timing). Only
   `scripts/profile-status.cjs`, `scripts/measure-selection-levels.cjs` (round 11c-1) and
   `scripts/measure-revert-and-zero.cjs` (round 11c-2), `scripts/measure-second-pane.cjs` (round 11c-3) and

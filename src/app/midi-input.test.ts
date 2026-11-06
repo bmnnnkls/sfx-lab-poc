@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Engine, type EngineCommand, type MidiMapping, type Patch, createDemoProject, controlFromNormalized, diffProject, resolveControlTarget } from '@core'
-import { type EngineControls, cancelRecords, editMidiMappings, reconcileRecords, recordInSlot, setRecordClock, useControlStore, useMidiStore, useProjectStore, useRecordStore, useSelectionStore, useStatusStore } from '@state'
+import { Engine, type EngineCommand, type MidiMapping, type Patch, createDemoProject, controlFromNormalized, diffProject, expressionTarget, resolveControlTarget } from '@core'
+import { type EngineControls, cancelRecords, editMidiMappings, readLane, reconcileRecords, recordInSlot, setRecordClock, useControlStore, useMidiStore, useProjectStore, useRecordStore, useSelectionStore, useStatusStore } from '@state'
 import { createMidiControls } from './midi-controls'
 import { createMidiInput } from './midi-input'
 
@@ -420,6 +420,34 @@ describe('pitch bend, pressure and unmapped CCs', () => {
     // After it, a routing change has nothing of this channel's left to put back.
     useSelectionStore.getState().selectTrack(selected)
     expect(c.expression).not.toHaveBeenCalled()
+    dispose()
+  })
+
+  it('over a lane playing that control, takes the lane over until Read; elsewhere it only plays', async () => {
+    const [selected] = instruments() as [string]
+    useSelectionStore.getState().selectTrack(selected)
+    const bend = expressionTarget(selected, 'pitchBend')
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    // Nothing plays the wheel: it only goes to the engine.
+    send(p, [0xe0, 0, 96])
+    expect(useControlStore.getState().overrides).toEqual([])
+    // A bend lane plays (as the engine's status reports): the wheel overrides it, and the engine still hears it at once.
+    // The mod wheel has no lane playing, so it only plays.
+    useControlStore.setState({ playback: [{ target: bend, value: 0 }] })
+    vi.mocked(c.expression).mockClear()
+    send(p, [0xe0, 127, 127]); send(p, [0xb0, 1, 127])
+    expect(sent(c)).toEqual([[selected, 'midi:keys', 0, 'pitchBend', 1], [selected, 'midi:keys', 0, { cc: 1 }, 1]])
+    expect(useControlStore.getState().overrides).toEqual([{ target: bend, value: 1 }])
+    // Once overridden, later moves follow, even after the lane stops reporting.
+    useControlStore.setState({ playback: [] })
+    send(p, [0xe0, 0, 64])
+    expect(useControlStore.getState().overrides).toEqual([{ target: bend, value: 0 }])
+    // A key-up of the source leaves the override; Read gives the control back to its lane.
+    adapter.releaseNotes()
+    expect(useControlStore.getState().overrides).toHaveLength(1)
+    readLane(bend)
+    expect(useControlStore.getState().overrides).toEqual([])
     dispose()
   })
 })

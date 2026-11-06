@@ -30,7 +30,8 @@ export const sanitizeTimelineAutomation = (raw: unknown, project: Pick<Project, 
     const key = automationOwnerKey(owner)
     if (seen.has(key)) { warn(`Duplicate timeline automation of ${ownerName(owner)} skipped`); continue }
     seen.add(key)
-    const lanes = sanitizeAutomation(entry.lanes ?? [], MAX_TIMELINE_BEATS, warn, owner) ?? []
+    const instrument = owner.kind === 'track' && project.tracks.find((track) => track.id === owner.trackId)?.kind === 'instrument'
+    const lanes = sanitizeAutomation(entry.lanes ?? [], MAX_TIMELINE_BEATS, warn, owner, instrument) ?? []
     const open = entry.open === true
     if (!lanes.length && !open) continue
     entries.push({ owner, lanes, ...(open && { open: true }) })

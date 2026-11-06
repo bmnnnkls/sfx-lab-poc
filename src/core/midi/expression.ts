@@ -15,6 +15,12 @@ export const isExpressionCC = (cc: number): boolean => Number.isInteger(cc) && c
 /** Every control's value at rest: the wheel centred, no pressure, a CC at 0. */
 export const EXPRESSION_REST = 0
 
+/**
+ * The source an expression lane writes as: no keyboard has it, so a keyboard's release never puts a lane's value back
+ * at rest (the lane's own end does).
+ */
+export const LANE_SOURCE = 'lane'
+
 export const expressionKey = (control: ExpressionControl): string => (typeof control === 'string' ? control : `cc:${control.cc}`)
 
 export const isExpressionControl = (control: unknown): control is ExpressionControl =>

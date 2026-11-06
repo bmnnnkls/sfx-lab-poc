@@ -6,6 +6,8 @@ import type { Snapshot, SnapshotScope, RecallIssue } from './types'
 export const inSnapshotScope = (target: Pick<ControlTarget, 'kind' | 'owner'> & { readonly domain?: string }, scope: SnapshotScope): boolean =>
   target.owner.kind === scope.owner.kind && controlOwnerId(target.owner) === controlOwnerId(scope.owner) && (scope.domain === 'track' || (target.kind === 'graph' && target.domain === scope.domain))
 export const isSnapshotControl = (project: Project, target: ControlTarget): boolean => {
+  // Pitch bend, pressure and CC have no saved value to capture or recall.
+  if (target.kind === 'expression') return false
   const resolved = resolveControlTarget(project, target)
   if (resolved.status !== 'available' || !resolved.automatable) return false
   if (target.kind !== 'graph' || target.nodeType !== 'switch') return true

@@ -5,8 +5,8 @@ How a parameter is addressed and what value it effectively has, clip and return/
 ## Shared control targets and effective values
 
 `core/control` is the common framework-free control model. A `ControlTarget` names a track, group or master owner and
-either an instrument (`patch`), note (`notes`) or insert (`fx`) graph, or a mixer control (volume, pan, send with return
-ID). Returns use their track IDs; a group (`{ kind: 'group', groupId }`) is its bus. `controlOwnerId(owner)` is the id
+either an instrument (`patch`), note (`notes`) or insert (`fx`) graph, a mixer control (volume, pan, send with return
+ID), or an instrument track's pitch bend, pressure or a CC ([expression lanes](#expression-lanes-pitch-bend-pressure-and-cc)). Returns use their track IDs; a group (`{ kind: 'group', groupId }`) is its bus. `controlOwnerId(owner)` is the id
 an owner has in the project and the engine. Graph targets carry an ordered path of `{ nodeId, moduleId }` uses, the leaf node ID,
 expected node type and parameter ID. Names, panel order and canvas positions never enter identity. Canonical keys
 serialize these fields in a fixed order. Resolution checks every use before flattening and refuses ambiguous flat IDs;
@@ -202,6 +202,46 @@ master and groups with a bus (`core/automation/timeline.ts`).
   owner's row. *Show automation on timeline* (on any control, a group's included) reveals the Arrangement, opens the
   owner's lanes, adds the lane if missing and gives it the focus; *Show automation in clip* is the session clip or slot
   route above. The point gestures are shared with the clip editor (`ui/automation/point-gestures.ts`).
+
+## Expression lanes: pitch bend, pressure and CC
+
+What a keyboard plays besides notes ([MIDI](midi.md#pitch-bend-pressure-and-cc)) has lanes of its own on an
+instrument track: a third kind of control target, `{ kind: 'expression', owner, control: 'pitchBend' | 'pressure' | 'cc', cc? }`
+(`core/control/expression.ts`), `cc` present exactly for a CC, 0 to 119 but not 64. Its key adds `[control, cc]`.
+
+* **Resolution.** On an instrument track it is always available and automatable, linear, with base 0 (the rest value);
+  any other owner is incompatible (*Only an instrument track has pitch bend, pressure and CC*), as is a CC out of range.
+  The spec is the stored range: bend −1 to 1 with `format: 'bend'` and the track's bend range as `displayScale`, so
+  the view shows semitones (*+1.40 st*, *±0* at a range of 0); pressure and a CC 0 to 1 with `format: 'midi7'`, shown 0
+  to 127. Labels read *MIDI / Pitch bend*, *MIDI / Pressure*, *MIDI / CC 1 Mod wheel*.
+* **Enumeration.** `expressionTargets(project, trackId)` lists *Pitch bend*, *Pressure*, CC 1 and the CCs the track's
+  patch reads through MIDI CC nodes (modules included), once each; `enumerateControlTargets` includes them for every
+  instrument track. Any other CC is added by number.
+* **What has no part in it.** An expression target has no saved value: `editControlBase` refuses it,
+  `projectWithControlValues` and `effectiveControlReadouts` skip it (an override of one goes to the engine only),
+  snapshots and presets never capture it (`isSnapshotControl` is false), and a MIDI mapping can't name it.
+* **Owners follow** as for a mixer target: `remapControlTarget`, *Duplicate*, a region moved to another track
+  (`movedTo`) rewrite only the owner, and the lane shows unavailable on a track that isn't an instrument.
+* **Playing.** `compileLanes` compiles them like any lane, in clips, regions and the timeline, with the same precedence.
+  `Engine.writeAutomation` writes an expression target at once, never into a curve:
+  `TrackRuntime.express(LANE_SOURCE, 0, control, value)`, where `LANE_SOURCE` (`'lane'`) is a source no keyboard has,
+  so a keyboard's release never puts a lane's value back. Within a planning horizon the last value written is the one
+  the block hears (blocks are at most 128 frames). Deactivation writes the override or the base, so a stopping clip or
+  an ending region puts the control back at rest, and the bounce plays the lanes as playback does.
+* **Live input over a lane.** When a live control reaches a track whose lane for that control is playing
+  (`useControlStore.playback`), or is already overridden, `app/midi-input` also sets a control-store override (once
+  per frame, the latest value);
+  `track/expression` still goes at once. The engine then skips the lane and writes the override (as the lane source)
+  until *Read* or ■, and the lane header shows *Override*.
+* **Files.** Format v15 (`targetOf(raw, { allowExpression })`, which only lanes pass): a malformed expression target is
+  an invalid lane, skipped with a warning; one on an owner that isn't an instrument track (an audio clip, a return or
+  master slot, a non-instrument timeline owner) is kept with the *Unsupported automation owner* warning and doesn't play.
+  Library clips keep expression lanes as portable lanes without their owner, rebound to the destination instrument
+  track on insertion.
+* **In the view.** *+ Lane* in the clip editor and on the timeline list an instrument track's targets under a **MIDI**
+  heading, then **CC…**: a number field (`ui/automation/CcLaneField.tsx`) that adds that CC's lane, refusing 64, numbers
+  out of range and a CC that already has a lane. The point value field reads and takes the displayed unit (semitones,
+  0 to 127).
 
 ## Touch automation recording
 

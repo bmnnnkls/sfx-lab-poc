@@ -9,6 +9,7 @@ export type ControlEditResult = { readonly status: 'applied'; readonly project: 
 export const editControlBase = (project: Project, target: ControlTarget, value: number): ControlEditResult => {
   const resolved = resolveControlTarget(project, target)
   if (resolved.status !== 'available') return { ...resolved, project }
+  if (target.kind === 'expression') return { status: 'incompatible', project, reason: 'Pitch bend, pressure and CC have no saved value' }
   if (!Number.isFinite(value)) return { status: 'incompatible', project, reason: 'Value must be finite' }
   const next = clampControlValue(resolved.spec, value)
   if (next === resolved.baseValue) return { status: 'applied', project }
