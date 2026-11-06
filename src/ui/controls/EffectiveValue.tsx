@@ -16,7 +16,7 @@ export const EffectiveValue = ({ target }: { target: ControlTarget }) => {
   const destination = useStatusStore((s) => armed && !!touchDestination(useProjectStore.getState().project, target, s.status))
   const feedback = useMidiStore((state) => state.feedback)
   if (resolved.status !== 'available' || !resolved.automatable) return null
-  if (armed && !entry && !destination) return <output title="Play a clip or automation slot on this owner to record controls">Touch unavailable: no active destination</output>
+  if (armed && !entry && !destination) return <output title="Play a clip, an automation slot or the arrangement to record controls">Touch unavailable: no active destination</output>
   if (!entry && playback) return <output title={`Base: ${formatParam(resolved.spec, resolved.baseValue)}`}>Read: {formatParam(resolved.spec, playback.value)}</output>
   if (!entry) return mapping ? <output title="Current control value">MIDI: {feedback[mapping.id]?.state ?? (mapping.pickup ? 'pickup' : 'ready')} · {formatParam(resolved.spec, resolved.baseValue)}</output> : null
   return <output data-testid="effective-value" title={`Base: ${formatParam(resolved.spec, resolved.baseValue)}`}>{recording ? 'Touch recording' : playback ? 'Override' : 'Effective'}: {formatParam(resolved.spec, entry.value)} <button aria-label={playback ? "Re-enable automation" : "Release override"} onClick={() => { finishTargetTouch(target); useControlStore.getState().release(target) }}>↩</button></output>

@@ -715,6 +715,10 @@
   font-weight: 700;
 }
 
+.laneRecording {
+  color: var(--record);
+}
+
 .readButton {
   padding: 0 4px;
   font-size: 10px;

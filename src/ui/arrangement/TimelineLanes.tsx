@@ -23,6 +23,7 @@ import {
   useControlStore,
   useProjectStore,
   useTimelineLaneRequest,
+  useTouchStore,
 } from '@state'
 import { type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject, useEffect, useRef, useState } from 'react'
 import { CcLaneField } from '../automation/CcLaneField'
@@ -68,11 +69,12 @@ export const TimelineLanes = ({ owner, name, ...props }: LaneProps & { readonly 
   )
 }
 
-/** One lane: its header (name, on/off, *Read* while overridden) and its body, a canvas of the visible timeline. */
+/** One lane: its header (name, on/off, ● while touch records it, *Read* while overridden) and its body, a canvas of the visible timeline. */
 const TimelineLane = ({ owner, lane, scroller, pxPerBeat, width, depth }: LaneProps & { readonly lane: AutomationLane }) => {
   const project = useProjectStore((state) => state.project)
   const key = controlTargetKey(lane.target)
   const overridden = useControlStore((state) => state.overrides.some((entry) => controlTargetKey(entry.target) === key))
+  const recording = useTouchStore((state) => state.recording.includes(key))
   const label = controlTargetLabel(project, lane.target)
   const resolved = resolveControlTarget(project, lane.target)
   const reason = resolved.status !== 'available' ? resolved.reason : resolved.automatable ? undefined : resolved.reason
@@ -239,6 +241,7 @@ const TimelineLane = ({ owner, lane, scroller, pxPerBeat, width, depth }: LanePr
             {label}
           </span>
           {reason && <span className={styles.laneNote} title={reason} aria-label={reason}>!</span>}
+          {recording && <span className={styles.laneRecording} title="Touch recording" aria-label="Touch recording">●</span>}
           {overridden && (
             <button className={styles.readButton} title="Give the control back to its lane" onClick={() => readLane(lane.target)}>
               Read

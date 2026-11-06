@@ -349,3 +349,16 @@ Signed off 2026-11-06: every row as proposed.
   owner whose controls resolve may have lanes (a folder's don't resolve, so recall skips them). The refusal tested is a
   stopped transport, with the texts naming the arrangement.
 * A bus's mixer controls recall under a `track` scope (`inSnapshotScope`: `fx` is only its effect graph).
+
+### Step 5: UI
+
+* **The feedback texts live in the store** (step 3): the transport bar shows `useTouchStore.feedback` as before, so this
+  step changed only the arm's tooltip, `EffectiveValue`'s hint and the lane header.
+* **The lane header's ● shows only on a lane that exists**: a first take creates its lane when it is saved, so the ●
+  marks a later take on the same target (the smoke spec's second take), beside *Read*, which the take's override shows
+  too.
+* **Clip's note on a region's own lanes** now says "Touch records on the timeline, not into a region's own lanes": the
+  old text ("Touch doesn't record into a region's own lanes") left out where it does record. Not in the plan's table.
+* The smoke spec (`timeline/touch-arrangement.smoke.spec.ts`) also checks that playing the arrangement clears the
+  mixer's "Touch unavailable" (a destination for every owner), and that the lanes stay open after the undos. The
+  timeline, pulse and workbench groups pass.
