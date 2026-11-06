@@ -1,5 +1,5 @@
-import { BEND_RANGE, type ControlTarget, type InstrumentTrack, controlTargetKey, midiSourceKey, resolveControlTarget, trackBendRange } from '@core'
-import { LATENCY_OFFSET_MS, type MidiInputInfo, editMidiMappings, useMidi, useMidiStore, useProjectStore, useControlStore, useRecordSettings } from '@state'
+import { BEND_RANGE, type ControlTarget, type InstrumentTrack, ccLabel, controlTargetKey, midiSourceKey, resolveControlTarget, trackBendRange } from '@core'
+import { LATENCY_OFFSET_MS, type MidiInputInfo, editMidiMappings, isRecordableCC, useMidi, useMidiStore, useProjectStore, useControlStore, useRecordSettings } from '@state'
 import { useEffect, useState } from 'react'
 import styles from './MidiSettings.module.css'
 import { formatParam } from '../shared/param-scale'
@@ -51,6 +51,28 @@ const TrackInputRow = ({ track, inputs }: { track: InstrumentTrack; inputs: read
  * The recording latency offset: what the recorder moves notes earlier by beyond the output latency the browser
  * reports (a positive offset places them earlier).
  */
+/**
+ * *Recorded CCs*: the unmapped CCs ● keeps as lanes besides the wheel, pressure and the mod wheel, a browser
+ * preference. *Add CC…* ticks one by number; *Learn* ticks the next one that arrives.
+ */
+const RecordedCCs = () => {
+  const ticked = useRecordSettings((s) => s.recordedCCs)
+  const tick = useRecordSettings((s) => s.setRecordedCC)
+  const learning = useMidiStore((s) => s.learningRecordedCC)
+  const [text, setText] = useState('')
+  const number = text.trim() === '' ? NaN : Number(text)
+  const valid = isRecordableCC(number) && !ticked.includes(number)
+  const add = () => { if (valid) { tick(number, true); setText('') } }
+  return <div className={styles.recordedCCs} role="group" aria-label="Recorded CCs">
+    <span>Recorded CCs</span>
+    {ticked.length === 0 && <span className={styles.none}>none</span>}
+    {ticked.map((cc) => <span key={cc} className={styles.chip}>{ccLabel(cc)}<button aria-label={`Stop recording CC ${ccLabel(cc)}`} title="Stop recording this CC" onClick={() => tick(cc, false)}>×</button></span>)}
+    <label>Add CC… <input type="number" aria-label="CC to record" min={0} max={119} step={1} placeholder="0–119" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} /></label>
+    <button disabled={!valid} title={valid ? `Record CC ${ccLabel(number)}` : ticked.includes(number) ? 'Already recorded' : 'A CC 0 to 119, not 1 (always recorded) or 64 (the pedal)'} onClick={add}>Add</button>
+    <button aria-pressed={learning} onClick={() => useMidiStore.setState({ learningRecordedCC: !learning })}>{learning ? 'Move a control…' : 'Learn'}</button>
+  </div>
+}
+
 const LatencyOffset = () => {
   const offset = useRecordSettings((s) => s.latencyOffsetMs)
   const set = useRecordSettings((s) => s.setLatencyOffset)
@@ -100,6 +122,8 @@ export const MidiSettings = () => {
       <h3>Recording</h3>
       <p>Recorded notes are placed earlier by the output latency the browser reports, plus this offset. If notes land late, raise it; if early, lower it.</p>
       <LatencyOffset />
+      <p>Pitch bend, pressure and the mod wheel are always recorded, as lanes of the clip or region the notes go into. Other CCs that no mapping takes play, and are recorded only when listed here.</p>
+      <RecordedCCs />
       <h3>Track inputs</h3>
       <p>An instrument follows the selection: it plays while it is selected (or pinned as the destination). Give it an input of its own to have it always listen to that input and channel; notes that match a track's own input go only to it, and the rest to the selected instrument.</p>
       {project.tracks.filter((t): t is InstrumentTrack => t.kind === 'instrument').map((track) => <TrackInputRow key={track.id} track={track} inputs={state.inputs} />)}

@@ -228,8 +228,8 @@ before the take's start and counts as on it.
 
 **Settings** (`state/record-settings.ts`, kept per browser in `localStorage` under `sfxlab:record` by
 `useRecordSettingsStorage`, validated field by field on load): the metronome and its level, the fixed length (*Off*, 1,
-2, 4, 8, 16 bars), the count-in (*Off*, 1, 2 bars) and the latency offset (−50 to +50 ms, *Latency offset (ms)* in MIDI
-settings). ♩ in the transport bar toggles the metronome (`transport.metronome`); ● Rec's ▾ holds the fixed length
+2, 4, 8, 16 bars), the count-in (*Off*, 1, 2 bars), the latency offset (−50 to +50 ms, *Latency offset (ms)* in MIDI
+settings) and *Recorded CCs* (below). ♩ in the transport bar toggles the metronome (`transport.metronome`); ● Rec's ▾ holds the fixed length
 (`transport.fixed-length`), the count-in (`transport.count-in`) and the metronome level (`transport.metronome-level`).
 None of it is in the project.
 
@@ -273,6 +273,51 @@ render quantum, and that the metronome is live but not in an export. Overdub and
 and the button, two passes into one clip as one undo step, ■ during a count-in, a take after one), and an audio test
 checks a count-in's four clicks a beat apart with the metronome off. **No manual physical keyboard/controller check
 was performed**, for recording either.
+
+### Recording pitch bend, pressure and CC
+
+A take of any kind (slot, overdub, Arrangement) also records the **pitch bend**, **pressure** and **mod wheel** (CC 1)
+that reach the armed track, and the CCs ticked under **Recorded CCs**, into expression lanes
+([expression lanes](control-and-automation.md#expression-lanes-pitch-bend-pressure-and-cc)) of the clip or region the
+notes go into, in the same undo step.
+
+* **What is kept.** `isRecordedExpression(control, recordedCCs)`: the wheel, pressure (polyphonic pressure already
+  folded), CC 1, and the ticked CCs. *Recorded CCs* (`RecordSettings.recordedCCs`, a browser preference, empty at
+  first) holds CCs 0 to 119 but not 1 or 64, sorted, once each, dropped on load otherwise (`recordedCCsOf`). In MIDI
+  settings' *Recording* it is a row of the ticked CCs with ×, *Add CC…* and *Learn*
+  (`useMidiStore.learningRecordedCC`: the next unmapped CC that can be ticked is, then learning stops). A CC that isn't
+  ticked plays live and isn't kept; a mapped CC never reaches expression, so ● never records it.
+* **Events.** `app/midi-input`'s `express` passes each recorded control to the take of each track it goes to
+  (`recordExpression`), with its clock position and `at`, the message's timestamp in ms. When routing takes a track
+  away from an input, it records an `end` event for each control there, which closes the open span holding its value;
+  the rest it sends the engine isn't recorded.
+* **Spans** (`core/record/expression.ts`, pure): `expressionSpans` cuts a control's events into spans: the wheel from
+  its first value away from 0 to the first 0 after it, pressure from above 0 to 0, a CC until 800 ms without a message
+  (`CC_SPAN_GAP_MS`, on the timestamps, so tempo doesn't stretch it). Early events count as at the start and late ones
+  are dropped, as notes are. A value that changes after more than 50 ms (`HELD_AFTER_MS`) was held: the span steps there
+  instead of ramping from the last message. Values are normalized to the lane (the wheel's centre at 0.5).
+  `placeSpan` places a span by the notes' rules, cut at a loop's wrap into one piece per pass; `applyExpression` applies
+  pieces with touch's `applyTouch` (later pieces replace earlier ones where they overlap, the lane kept around them,
+  simplified to 0.002) and stops at the piece that would pass 2048 points; `splitLanes` cuts an Arrangement take's
+  pieces at its 64-bar regions, a piece crossing the split going on from a point holding its value.
+* **Writing.** A take keeps, per lane, the lane it started from (an overdub's existing lane, whose `enabled` stays) and
+  the lane after its ended spans so far, so a write applies only what is new. Lanes are written when a span of the
+  wheel or pressure ends and once a bar while one is open (`reconcileRecords`), under the pass's merge key: a session
+  clip's through `setClipAutomation`, an Arrangement take's in its regions' content (`writeRegions`), so `watchRegions`
+  sees the take's own write. Point ids are made from the lane's, so writing the same shape changes nothing. A region
+  appears with its first note or its first span. When the take ends, open spans close at its end; a slot take's
+  `setClipLength` then trims its lanes with the clip.
+* **Live input owns what is recorded.** While a track's take records a control, every message on it also sets a
+  control-store override (once a frame, as over a playing lane), so the lane being written never fights the wheel; the
+  take's end (`closeTake`) releases them, and the lane plays.
+* **Limits.** A lane that would pass 2048 points keeps what it has and records no more of that control: *Pitch bend on
+  Lead: too many points, stopped recording it*; the notes and the other lanes go on. A clip or region with 64 lanes
+  records no new one: *Lead: no room for another lane*.
+* **Tests.** Unit tables for spans, placing, applying, overflow and splits; the recorder's slot, overdub, Arrangement
+  (brace passes, a region made by a span) and undo cases; the adapter with fake ports and a fake clock (timestamps, an
+  unticked CC, *Learn*, a routing change). A smoke test records the wheel, the mod wheel and a ticked CC with fake
+  ports, and an audio test plays back a recorded bend at the level it was played. **No physical keyboard was checked**
+  ([BACKLOG](../BACKLOG.md) V5).
 
 ## Held-note engine input
 

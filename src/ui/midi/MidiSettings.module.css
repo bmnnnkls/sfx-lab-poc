@@ -18,3 +18,27 @@
 .mapping input[type='number'] {
   width: 4em;
 }
+
+.recordedCCs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.recordedCCs input[type='number'] {
+  width: 4.5em;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 2px 1px 8px;
+  border: 1px solid #596173;
+  border-radius: 10px;
+}
+
+.none {
+  color: #9aa3b5;
+}

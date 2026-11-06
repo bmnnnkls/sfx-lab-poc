@@ -15,3 +15,15 @@ it('restores the count-in field by field: a saved object without it, or with a b
   useRecordSettings.getState().setCountIn(4 as never)
   expect(useRecordSettings.getState().countInBars).toBe(1)
 })
+
+it('keeps Recorded CCs sorted and valid: 1, 64, 120 and up, fractions and duplicates are dropped on load and refused when ticked', () => {
+  useRecordSettings.getState().restore({ recordedCCs: [74, 1, 64, 2, 74, 120, 7.5, -1, '11', 0] })
+  expect(useRecordSettings.getState().recordedCCs).toEqual([0, 2, 74])
+  useRecordSettings.getState().restore({ recordedCCs: 'all' })
+  expect(useRecordSettings.getState().recordedCCs).toEqual([])
+  const { setRecordedCC } = useRecordSettings.getState()
+  setRecordedCC(74, true); setRecordedCC(11, true); setRecordedCC(1, true); setRecordedCC(64, true); setRecordedCC(11, true)
+  expect(useRecordSettings.getState().recordedCCs).toEqual([11, 74])
+  setRecordedCC(74, false)
+  expect(recordSettingsOf(useRecordSettings.getState()).recordedCCs).toEqual([11])
+})

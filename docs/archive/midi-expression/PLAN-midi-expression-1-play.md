@@ -10,7 +10,7 @@ Status: **done** 2026-11-06 on `imp/spec-midi-expression`, not merged. Signed of
 proposed. Shipped in [midi](../../architecture/midi.md#pitch-bend-pressure-and-cc) and
 [graphs and nodes](../../architecture/graphs-and-nodes.md#the-keyboards-wheel-pressure-and-ccs); not checked with a
 real keyboard ([BACKLOG](../../BACKLOG.md) V5). Written 2026-11-06 on `feat/midi-recording` at `9d6df92`. Carries out part 1 of
-the signed-off [pitch bend, aftertouch and CC spec](../../active/SPEC-midi-expression.md) (§ Parts). The spec's decisions are
+the signed-off [pitch bend, aftertouch and CC spec](SPEC-midi-expression.md) (§ Parts). The spec's decisions are
 settled and not repeated here; this plan adds only the ones it raises (§ Decisions to sign off). Where it differs from
 the spec, it says so.
 
@@ -30,7 +30,7 @@ After this part a keyboard's wheel, pressure and knobs reach the instruments liv
 
 ## Inventory
 
-What part 1 touches, beyond the [spec's inventory](../../active/SPEC-midi-expression.md#inventory).
+What part 1 touches, beyond the [spec's inventory](SPEC-midi-expression.md#inventory).
 
 ### Parsing and the adapter
 

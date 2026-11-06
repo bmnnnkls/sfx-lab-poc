@@ -1,16 +1,16 @@
 ---
-status: active
+status: done
 date: 2026-11-06
-note: "Pitch bend, aftertouch and CC: played live, kept as automation lanes, recorded with the notes. Signed off 2026-11-06 (decisions 3 and 8 changed in review); parts 1 and 2 done 2026-11-06; part 3 planned and signed off."
+shipped_in: architecture/midi.md
+note: "Pitch bend, aftertouch and CC: played live, kept as automation lanes, recorded with the notes. Signed off 2026-11-06 (decisions 3 and 8 changed in review); all three parts done 2026-11-06."
 ---
 # Pitch bend, aftertouch and CC (spec)
 
-Status: **spec, signed off** 2026-11-06: decisions 3 and 8 changed in review, the rest as proposed. **Parts 1 and 2 are done**
-(2026-11-06, plans for [part 1](../archive/midi-expression/PLAN-midi-expression-1-play.md) and
-[part 2](../archive/midi-expression/PLAN-midi-expression-2-lanes.md)); part 3
-([plan](PLAN-midi-expression-3-recording.md)) is planned and signed off (2026-11-06). Written 2026-11-06 on `feat/midi-recording` at `9d6df92` (MIDI recording
+Status: **spec, signed off** 2026-11-06: decisions 3 and 8 changed in review, the rest as proposed. **All three parts are done**
+(2026-11-06): [part 1](PLAN-midi-expression-1-play.md), [part 2](PLAN-midi-expression-2-lanes.md),
+[part 3](PLAN-midi-expression-3-recording.md). Written 2026-11-06 on `feat/midi-recording` at `9d6df92` (MIDI recording
 parts 1 to 3 and round 12c done). No code was changed. It picks up two items left out of
-[MIDI recording](../archive/midi-recording/SPEC-midi-recording.md): its out-of-scope line *"CC, pitch bend and
+[MIDI recording](../midi-recording/SPEC-midi-recording.md): its out-of-scope line *"CC, pitch bend and
 aftertouch as clip data"* and its wish *"Recording CC, pitch bend and the pedal as clip data"*. The sustain pedal stays
 folded into note lengths. Release velocity is not part of this work.
 
@@ -41,7 +41,7 @@ After this work:
 **Out of scope** (see [Wishes](#wishes-later)):
 
 * per-note expression: polyphonic pressure is folded into channel pressure for now, and recording it per note belongs
-  with MPE ([BACKLOG](../BACKLOG.md) D2);
+  with MPE ([BACKLOG](../../BACKLOG.md) D2);
 * release velocity;
 * recording the sustain pedal as data (it stays folded into note lengths);
 * mapped (learned) CCs: they move their parameter and are recorded by ● *Touch*, as today
@@ -266,7 +266,7 @@ lanes, this records expression into clip and region lanes (decision 11).
   replaces only its span; an Arrangement take's region has the lanes.
 * **Browser audio (real worklet):** a recorded bend plays back at the pitch and time it was played, within a render
   quantum and the timestamp precision.
-* **By hand** (added to [BACKLOG](../BACKLOG.md) V5): a real keyboard's wheel, pressure and mod wheel, live and recorded,
+* **By hand** (added to [BACKLOG](../../BACKLOG.md) V5): a real keyboard's wheel, pressure and mod wheel, live and recorded,
   at 90 and 140 BPM.
 
 ## Decisions to sign off
@@ -278,7 +278,7 @@ the mod wheel and chosen CCs are recorded), every other decision as proposed.
 |---|---|---|---|
 | 1 | Where recorded expression goes | **With the notes:** the take's clip lanes in the Session, the new region's own lanes in the Arrangement, so they move with the region (confirmed) | The track's timeline lanes in the Arrangement (as 12d does for touch), which don't follow a moved region |
 | 2 | Mapped CCs | **Not expression:** a learned CC moves its parameter, and only ● *Touch* records it, as today (confirmed) | ● Rec also records mapped CCs on armed tracks' own targets as touch takes (two arms that both record a CC) |
-| 3 | Polyphonic pressure | **Folded into channel pressure** (the highest held), live and recorded, for now; recording it per note is part of MPE, [BACKLOG](../BACKLOG.md) D2 (changed) | Per voice live but folded when recorded (live and playback differ); or per note in clips in this work |
+| 3 | Polyphonic pressure | **Folded into channel pressure** (the highest held), live and recorded, for now; recording it per note is part of MPE, [BACKLOG](../../BACKLOG.md) D2 (changed) | Per voice live but folded when recorded (live and playback differ); or per note in clips in this work |
 | 4 | What pitch bend does | **Bends every voice of the track** by a per-track range, ±2 by default, without a patch change | Nothing until a patch reads a Bend output; or a range per patch instead of per track |
 | 5 | How patches read pressure and CC | **Pressure and Bend on the Note node, a new MIDI CC node**; nothing moves by default | Fixed routings (pressure to volume, mod wheel to a vibrato); or only a MIDI CC node, with pressure as a CC number |
 | 6 | Live input on a control a lane is playing | **Overrides the lane until Read or ■**, as for parameters now | Combine them (bend adds, pressure takes the max); or the lane wins while it plays |
@@ -292,7 +292,7 @@ the mod wheel and chosen CCs are recorded), every other decision as proposed.
 
 ## Wishes, later
 
-* Per-note expression and MPE ([BACKLOG](../BACKLOG.md) D2): poly pressure recorded per note, per-note bend, slide.
+* Per-note expression and MPE ([BACKLOG](../../BACKLOG.md) D2): poly pressure recorded per note, per-note bend, slide.
 * Expression in note graphs (an arpeggiator gated by pressure) and in insert-effect graphs (the mod wheel opening an
   effect's filter).
 * Starter patches that use the mod wheel and pressure (vibrato, brightness).

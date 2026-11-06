@@ -1,4 +1,4 @@
-import { METRONOME_DEFAULT_DB, METRONOME_MAX_DB, METRONOME_MIN_DB } from '@core'
+import { METRONOME_DEFAULT_DB, METRONOME_MAX_DB, METRONOME_MIN_DB, RECORDED_MOD_WHEEL, SUSTAIN_CC, isExpressionCC } from '@core'
 import { create } from 'zustand'
 
 /** The fixed lengths a take can have, in bars; 0 is off (the take ends when the slot is pressed again). */
@@ -10,7 +10,19 @@ export type CountInBars = (typeof COUNT_IN_BARS)[number]
 /** The manual latency offset's range, in ms: a positive offset places recorded notes earlier. */
 export const LATENCY_OFFSET_MS = { min: -50, max: 50 } as const
 
-/** How recording runs, per browser: the metronome, the fixed length, the count-in and the latency offset. Not part of the project. */
+/**
+ * A CC that can be ticked under *Recorded CCs*: an expression CC (0 to 119, not the pedal) other than the mod wheel,
+ * which is always recorded.
+ */
+export const isRecordableCC = (cc: number): boolean => isExpressionCC(cc) && cc !== RECORDED_MOD_WHEEL && cc !== SUSTAIN_CC
+/** The ticked CCs as kept: recordable ones, each once, in order. */
+export const recordedCCsOf = (raw: unknown): readonly number[] =>
+  Array.isArray(raw) ? [...new Set(raw.filter((cc): cc is number => typeof cc === 'number' && isRecordableCC(cc)))].sort((a, b) => a - b) : []
+
+/**
+ * How recording runs, per browser: the metronome, the fixed length, the count-in, the latency offset and the CCs ● keeps
+ * besides the wheel, pressure and the mod wheel. Not part of the project.
+ */
 export interface RecordSettings {
   readonly metronome: boolean
   /** The click's level, in dB (`METRONOME_MIN_DB` to `METRONOME_MAX_DB`). */
@@ -19,9 +31,11 @@ export interface RecordSettings {
   /** Bars clicked before a take that starts from a stopped transport. */
   readonly countInBars: CountInBars
   readonly latencyOffsetMs: number
+  /** The unmapped CCs ● records into lanes besides the mod wheel (*Recorded CCs*), sorted; empty at first. */
+  readonly recordedCCs: readonly number[]
 }
 
-export const DEFAULT_RECORD_SETTINGS: RecordSettings = { metronome: false, metronomeLevel: METRONOME_DEFAULT_DB, fixedBars: 0, countInBars: 0, latencyOffsetMs: 0 }
+export const DEFAULT_RECORD_SETTINGS: RecordSettings = { metronome: false, metronomeLevel: METRONOME_DEFAULT_DB, fixedBars: 0, countInBars: 0, latencyOffsetMs: 0, recordedCCs: [] }
 
 const clampNumber = (value: number, min: number, max: number) => Math.round(Math.min(max, Math.max(min, value)))
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
@@ -34,6 +48,8 @@ interface RecordSettingsState extends RecordSettings {
   setCountIn(bars: CountInBars): void
   /** Clamped to `LATENCY_OFFSET_MS`, in whole ms. */
   setLatencyOffset(ms: number): void
+  /** Ticks or unticks a CC under *Recorded CCs*; one that can't be ticked (1, 64, 120 and up) is ignored. */
+  setRecordedCC(cc: number, on: boolean): void
   /** Takes what was saved, field by field: a value that isn't valid keeps the default. */
   restore(saved: unknown): void
 }
@@ -49,6 +65,8 @@ export const useRecordSettings = create<RecordSettingsState>((set) => ({
   setFixedBars: (fixedBars) => { if (FIXED_LENGTHS.includes(fixedBars)) set({ fixedBars }) },
   setCountIn: (countInBars) => { if (COUNT_IN_BARS.includes(countInBars)) set({ countInBars }) },
   setLatencyOffset: (ms) => { if (Number.isFinite(ms)) set({ latencyOffsetMs: clampNumber(ms, LATENCY_OFFSET_MS.min, LATENCY_OFFSET_MS.max) }) },
+  setRecordedCC: (cc, on) => set((state) => (!isRecordableCC(cc) || state.recordedCCs.includes(cc) === on ? state
+    : { recordedCCs: on ? recordedCCsOf([...state.recordedCCs, cc]) : state.recordedCCs.filter((ticked) => ticked !== cc) })),
   restore: (saved) => {
     const value = typeof saved === 'object' && saved !== null ? (saved as Record<string, unknown>) : {}
     set({
@@ -57,9 +75,10 @@ export const useRecordSettings = create<RecordSettingsState>((set) => ({
       fixedBars: FIXED_LENGTHS.includes(value.fixedBars as FixedLength) ? (value.fixedBars as FixedLength) : DEFAULT_RECORD_SETTINGS.fixedBars,
       countInBars: COUNT_IN_BARS.includes(value.countInBars as CountInBars) ? (value.countInBars as CountInBars) : DEFAULT_RECORD_SETTINGS.countInBars,
       latencyOffsetMs: finite(value.latencyOffsetMs) ? clampNumber(value.latencyOffsetMs, LATENCY_OFFSET_MS.min, LATENCY_OFFSET_MS.max) : DEFAULT_RECORD_SETTINGS.latencyOffsetMs,
+      recordedCCs: recordedCCsOf(value.recordedCCs),
     })
   },
 }))
 
 /** The settings as saved: only the fields, no actions. */
-export const recordSettingsOf = ({ metronome, metronomeLevel, fixedBars, countInBars, latencyOffsetMs }: RecordSettings): RecordSettings => ({ metronome, metronomeLevel, fixedBars, countInBars, latencyOffsetMs })
+export const recordSettingsOf = ({ metronome, metronomeLevel, fixedBars, countInBars, latencyOffsetMs, recordedCCs }: RecordSettings): RecordSettings => ({ metronome, metronomeLevel, fixedBars, countInBars, latencyOffsetMs, recordedCCs })

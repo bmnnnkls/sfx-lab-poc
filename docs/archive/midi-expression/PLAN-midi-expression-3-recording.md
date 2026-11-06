@@ -1,12 +1,13 @@
 ---
-status: active
+status: done
 date: 2026-11-06
-note: "Part 3 of the pitch bend, aftertouch and CC spec: ● records pitch bend, pressure, the mod wheel and chosen CCs into the take's clip or region lanes, in the take's undo step; Recorded CCs in MIDI settings. Signed off 2026-11-06, every decision as proposed; needs part 2."
+shipped_in: architecture/midi.md
+note: "Part 3 of the pitch bend, aftertouch and CC spec: ● records pitch bend, pressure, the mod wheel and chosen CCs into the take's clip or region lanes, in the take's undo step; Recorded CCs in MIDI settings. Signed off and built 2026-11-06. Not checked with a real keyboard (BACKLOG V5)."
 ---
 # Pitch bend, aftertouch and CC, part 3: recording them
 
-Status: **plan, signed off** 2026-11-06, every decision as proposed. Written 2026-11-06 on `imp/spec-midi-expression` after part 1, with part 2
-planned ([plan](../archive/midi-expression/PLAN-midi-expression-2-lanes.md)) and since built (2026-11-06); this part needs it. Carries out part 3 of the
+Status: **done** 2026-11-06 (plan signed off the same day, every decision as proposed). Written 2026-11-06 on `imp/spec-midi-expression` after part 1, with part 2
+planned ([plan](PLAN-midi-expression-2-lanes.md)) and since built (2026-11-06); this part needs it. Carries out part 3 of the
 signed-off [pitch bend, aftertouch and CC spec](SPEC-midi-expression.md) (§ Recording, § Parts). The spec's decisions
 are settled and not repeated here; this plan adds only the ones it raises (§ Decisions to sign off). Where it differs
 from the spec, it says so.
@@ -169,4 +170,26 @@ Signed off 2026-11-06: every decision as proposed.
 
 ## Changes made while implementing
 
-None yet.
+* **Spans (step 1).** A value a message changes after more than 50 ms (`HELD_AFTER_MS`) was held, so the span steps
+  there (a point 1e-4 beat before the new value) instead of ramping from the last message: controllers send messages
+  only on change, and a linear lane between sparse ones drew a held pressure as a slope. R5's end of a span is an
+  expression event with `end: true`, which closes the open span holding its value. Pieces are simplified before
+  `applyTouch`, so touch's 16,384-sample limit never cuts a long swell. While a take is live, an open span of the wheel
+  or pressure holds its last value up to now.
+* **Settings (step 2).** `isRecordableCC` and `recordedCCsOf` sit beside the settings; *Learn*'s flag is
+  `useMidiStore.learningRecordedCC`, transient.
+* **The recorder (step 3).** Recomputing every lane from its base at each write was quadratic: a take of 700 short bends
+  took 24 s in a unit test. Each lane keeps the lane after its ended spans (keyed by the lane's length and the take's
+  end) and applies only what is new; open spans are applied on top at each write. The result is the same however often
+  it is written. Point ids are made from the lane's id, so rewriting the same shape is no change (and `setClipAutomation`
+  and the regions see none). The wheel's and pressure's spans are written when they end; CC spans, which end by a gap,
+  once a bar and at the take's end. The overflow notice names the control without *MIDI /*: *Pitch bend on Lead: …*,
+  as the spec has it.
+* **Live input owns what is recorded (step 4, not in the plan).** The audio test found that once a take wrote its lane
+  into the playing clip, the engine played that lane, which fought the wheel and, ahead of the last write, played rest.
+  While a track's take records a control, the adapter sets an override on every message of it (as touch owns its
+  target), and the take's end (`closeTake`) releases them, so the lane plays from then on.
+* **Tests (step 6).** The smoke test is in the `pulse` group with the MIDI recording one. The audio test compares the
+  recorded bend's playback with the level the wheel made live; when it plays, within a quantum, isn't measured, since
+  the tap reports peaks: expression is placed by the same clock and timestamps as notes, whose timing
+  `midi-recording.audio.spec.ts` checks to the frame. The overdub case is a unit test, not a smoke test.

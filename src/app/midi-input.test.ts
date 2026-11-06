@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Engine, type EngineCommand, type MidiMapping, type Patch, createDemoProject, controlFromNormalized, diffProject, expressionTarget, resolveControlTarget } from '@core'
-import { type EngineControls, cancelRecords, editMidiMappings, readLane, reconcileRecords, recordInSlot, setRecordClock, useControlStore, useMidiStore, useProjectStore, useRecordStore, useSelectionStore, useStatusStore } from '@state'
+import { Engine, type EngineCommand, type MidiMapping, type Patch, automationPosition, createDemoProject, controlFromNormalized, diffProject, expressionTarget, resolveControlTarget } from '@core'
+import { type EngineControls, cancelRecords, editMidiMappings, endTakesNow, readLane, reconcileRecords, recordInSlot, setRecordClock, useControlStore, useMidiStore, useProjectStore, useRecordSettings, useRecordStore, useSelectionStore, useStatusStore } from '@state'
 import { createMidiControls } from './midi-controls'
 import { createMidiInput } from './midi-input'
 
@@ -495,6 +495,71 @@ describe('recording', () => {
       }
       // A track not armed and not selected hears and records nothing.
       expect(vi.mocked(c.noteOn).mock.calls.some((call) => call[0] === other)).toBe(false)
+      dispose()
+    } finally {
+      cancelRecords(); setRecordClock(); useStatusStore.setState({ status: null }); vi.restoreAllMocks()
+    }
+  })
+
+  it('records the wheel, the mod wheel and ticked CCs into the take\u2019s lanes by their timestamps; Learn ticks the next CC', async () => {
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    setRecordClock((agoMs) => (now - agoMs) / 500, () => 0)
+    try {
+      const [selected] = instruments() as [string]
+      useSelectionStore.getState().selectTrack(selected)
+      useRecordStore.getState().arm(selected, true)
+      const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+      await adapter.enable()
+      const scene = emptySlot(selected)
+      recordInSlot(selected, scene, c.launchClip)
+      const ids = { [selected]: clipOf(selected, scene)!.id }
+      now = 10; reconcileRecords(status(ids)); useStatusStore.getState().setStatus(status(ids))
+      // Half up at beat 1 (500 ms), received late; back to the centre at beat 2: the span is in the clip at once.
+      now = 1100; send(p, [0xe0, 0, 96], 500); send(p, [0xe0, 0, 64], 1000)
+      const bend = clipOf(selected, scene)!.automation?.find((lane) => lane.target.kind === 'expression' && lane.target.control === 'pitchBend')
+      expect([0.5, 1.5, 2].map((beat) => Number(automationPosition(bend!, beat)!.toFixed(3)))).toEqual([0.5, 0.75, 0.5])
+      // CC 73 isn't ticked: it plays but isn't kept. *Learn* ticks the next recordable CC (not the mod wheel), CC 74.
+      send(p, [0xb0, 73, 100], 1100)
+      useMidiStore.setState({ learningRecordedCC: true })
+      send(p, [0xb0, 1, 64], 1150)
+      expect(useMidiStore.getState().learningRecordedCC).toBe(true)
+      send(p, [0xb0, 74, 64], 1200)
+      expect(useRecordSettings.getState().recordedCCs).toEqual([74])
+      expect(useMidiStore.getState().learningRecordedCC).toBe(false)
+      send(p, [0xb0, 74, 127], 1210)
+      expect(vi.mocked(c.expression).mock.calls.some(([, , , control]) => typeof control === 'object' && control.cc === 73)).toBe(true)
+      // While the take records them, live input owns these controls over the lanes being written; its end gives them back.
+      expect(useControlStore.getState().overrides.map((entry) => entry.target.kind === 'expression' && (entry.target.control === 'cc' ? entry.target.cc : entry.target.control)).sort()).toEqual([1, 74, 'pitchBend'])
+      now = 1300; endTakesNow()
+      expect(useControlStore.getState().overrides).toEqual([])
+      const ccs = clipOf(selected, scene)!.automation!.flatMap((lane) => (lane.target.kind === 'expression' && lane.target.control === 'cc' ? [lane.target.cc] : []))
+      expect(ccs.sort()).toEqual([1, 74])
+      dispose()
+    } finally {
+      cancelRecords(); setRecordClock(); useStatusStore.setState({ status: null }); useRecordSettings.getState().restore({}); vi.restoreAllMocks()
+    }
+  })
+
+  it('a routing change ends the span the track had open, holding its value, and records no rest', async () => {
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    setRecordClock((agoMs) => (now - agoMs) / 500, () => 0)
+    try {
+      const [selected] = instruments() as [string]
+      useSelectionStore.getState().selectTrack(selected)
+      useRecordStore.getState().arm(selected, true)
+      const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+      await adapter.enable()
+      const scene = emptySlot(selected)
+      recordInSlot(selected, scene, c.launchClip)
+      const ids = { [selected]: clipOf(selected, scene)!.id }
+      now = 10; reconcileRecords(status(ids)); useStatusStore.getState().setStatus(status(ids))
+      now = 500; send(p, [0xe0, 0, 96], 500)
+      // At beat 2 the track stops hearing channel 1; the wheel there goes on, unrecorded.
+      now = 1000; useMidiStore.setState({ channel: 1 })
+      now = 1200; send(p, [0xe0, 127, 127], 1200)
+      now = 1300; endTakesNow()
+      const bend = clipOf(selected, scene)!.automation!.find((lane) => lane.target.kind === 'expression' && lane.target.control === 'pitchBend')!
+      expect([1.5, 1.99, 2.5].map((beat) => Number(automationPosition(bend, beat)!.toFixed(3)))).toEqual([0.75, 0.75, 0.5])
       dispose()
     } finally {
       cancelRecords(); setRecordClock(); useStatusStore.setState({ status: null }); vi.restoreAllMocks()

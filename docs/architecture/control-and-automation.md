@@ -233,6 +233,9 @@ instrument track: a third kind of control target, `{ kind: 'expression', owner, 
   per frame, the latest value);
   `track/expression` still goes at once. The engine then skips the lane and writes the override (as the lane source)
   until *Read* or ■, and the lane header shows *Override*.
+* **Recorded.** ● writes these lanes with the notes, into the take's clip or region
+  ([recording pitch bend, pressure and CC](midi.md#recording-pitch-bend-pressure-and-cc)); while a take records a
+  control, live input owns it over the lane being written.
 * **Files.** Format v15 (`targetOf(raw, { allowExpression })`, which only lanes pass): a malformed expression target is
   an invalid lane, skipped with a warning; one on an owner that isn't an instrument track (an audio clip, a return or
   master slot, a non-instrument timeline owner) is kept with the *Unsupported automation owner* warning and doesn't play.

@@ -1,7 +1,7 @@
 import { recordSettingsOf, useRecordSettings } from '@state'
 import { useEffect, useState } from 'react'
 
-/** Where the record settings are kept per browser: the metronome, its level, the fixed length and the latency offset. */
+/** Where the record settings are kept per browser: the metronome, its level, the fixed length, the count-in, the latency offset and the recorded CCs. */
 export const RECORD_SETTINGS_KEY = 'sfxlab:record'
 
 // Storage can be missing or blocked (private mode), so every access is guarded, as in `useStoredState`.

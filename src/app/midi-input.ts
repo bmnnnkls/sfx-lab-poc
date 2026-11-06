@@ -1,5 +1,5 @@
-import { type ClockPosition, EXPRESSION_REST, type ExpressionControl, type LiveNoteAddress, MIDI_MAX, type MidiFollow, PressureFold, controlTargetKey, expressionKey, expressionTarget, isExpressionCC, liveNoteRouting, liveNoteTracks, parseMidiMessage } from '@core'
-import { type EngineControls, type MidiService, recordNote, recordPosition, recordPedal, useControlStore, useMidiStore, useProjectStore, useRecordStore, useSelectionStore } from '@state'
+import { type ClockPosition, EXPRESSION_REST, type ExpressionControl, type LiveNoteAddress, MIDI_MAX, type MidiFollow, PressureFold, controlTargetKey, expressionKey, expressionTarget, isExpressionCC, isRecordedExpression, liveNoteRouting, liveNoteTracks, parseMidiMessage } from '@core'
+import { type EngineControls, type MidiService, isRecordableCC, isRecordingTrack, recordExpression, recordNote, recordPosition, recordPedal, useControlStore, useMidiStore, useProjectStore, useRecordSettings, useRecordStore, useSelectionStore } from '@state'
 import { createMidiControls, nextFrame } from './midi-controls'
 
 /** Only this adapter holds browser access/port objects. enable is called by a user action. */
@@ -35,34 +35,52 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
    * the override, which only says who owns the control, is written once per frame with the latest value, as a mapped
    * CC's value is.
    */
-  const overriding = new Map<string, { readonly target: ReturnType<typeof expressionTarget>; value: number }>()
+  const overriding = new Map<string, { readonly target: ReturnType<typeof expressionTarget>; value: number; readonly recording: boolean }>()
   let overrideScheduled = false
   const flushOverrides = () => {
     overrideScheduled = false
     const pending = [...overriding.values()]
     overriding.clear()
-    for (const { target, value } of pending) useControlStore.getState().setOverride(target, value)
+    // One owned for a take that has ended since goes back to its lane, as the take's end said.
+    for (const { target, value, recording } of pending) if (!recording || (target.owner.kind === 'track' && isRecordingTrack(target.owner.trackId))) useControlStore.getState().setOverride(target, value)
   }
-  const overrideLane = (trackId: string, control: ExpressionControl, value: number) => {
+  /** `recording`: a take is recording this control on the track, so live input owns it whether a lane plays it yet or not. */
+  const overrideLane = (trackId: string, control: ExpressionControl, value: number, recording = false) => {
     const target = expressionTarget(trackId, control), key = controlTargetKey(target)
     const pending = overriding.get(key)
     if (pending) { pending.value = value; return }
     const state = useControlStore.getState()
-    if (!state.playback.some((entry) => controlTargetKey(entry.target) === key) && !state.overrides.some((entry) => controlTargetKey(entry.target) === key)) return
-    overriding.set(key, { target, value })
+    if (!recording && !state.playback.some((entry) => controlTargetKey(entry.target) === key) && !state.overrides.some((entry) => controlTargetKey(entry.target) === key)) return
+    overriding.set(key, { target, value, recording })
     if (!overrideScheduled) { overrideScheduled = true; nextFrame(() => { if (overrideScheduled) flushOverrides() }) }
   }
-  /** The wheel, pressure or an unmapped CC goes where a note-on from that input and channel would. */
-  const express = (portId: string, channel: number, control: ExpressionControl, value: number) => {
+  /** Whether ● keeps this control: the wheel, pressure, the mod wheel and the CCs ticked under *Recorded CCs*. */
+  const recorded = (control: ExpressionControl) => isRecordedExpression(control, useRecordSettings.getState().recordedCCs)
+  /**
+   * The wheel, pressure or an unmapped CC goes where a note-on from that input and channel would, and to the recorder
+   * when ● keeps it, with the message's time as notes are.
+   */
+  const express = (portId: string, channel: number, control: ExpressionControl, value: number, timestamp?: number) => {
     const key = portChannel(portId, channel)
     let entry = expressed.get(key)
     if (!entry) expressed.set(key, entry = { tracks: new Set(), controls: new Map() })
     entry.controls.set(expressionKey(control), control)
+    const keep = recorded(control)
+    const position = keep ? recordPosition(timestamp) : undefined
+    const at = timestamp ?? performance.now()
     for (const trackId of liveNoteTracks(useProjectStore.getState().project, portId, channel, follow())) {
       entry.tracks.add(trackId)
       controls.expression(trackId, sourceId(portId), channel, control, value)
-      overrideLane(trackId, control, value)
+      const recording = keep && isRecordingTrack(trackId)
+      overrideLane(trackId, control, value, recording)
+      if (recording) recordExpression(trackId, { source: sourceId(portId), channel, control, value, at, beat: position?.beat, ...(position && { lap: position.lap, run: position.run }) })
     }
+  }
+  /** *Recorded CCs* → *Learn*: the next CC that can be ticked is, and learning stops. */
+  const learnRecordedCC = (number: number) => {
+    if (!useMidiStore.getState().learningRecordedCC || !isRecordableCC(number)) return
+    useRecordSettings.getState().setRecordedCC(number, true)
+    useMidiStore.setState({ learningRecordedCC: false })
   }
   const forgetExpression = (portId?: string, channel?: number) => {
     // Panic, disabling MIDI and a new document drop an override not yet written.
@@ -105,7 +123,11 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
       for (const trackId of entry.tracks) {
         if (taking.has(trackId)) continue
         entry.tracks.delete(trackId)
-        for (const control of entry.controls.values()) controls.expression(trackId, sourceId(portId), channel, control, EXPRESSION_REST)
+        for (const control of entry.controls.values()) {
+          controls.expression(trackId, sourceId(portId), channel, control, EXPRESSION_REST)
+          // A take there ends the span it had open on that control, holding its value: the rest isn't played.
+          if (recorded(control)) recordExpression(trackId, { source: sourceId(portId), channel, control, value: EXPRESSION_REST, at: performance.now(), end: true, beat: beat?.beat, ...(beat && { lap: beat.lap, run: beat.run }) })
+        }
       }
     }
   }
@@ -135,12 +157,15 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
       // 120 to 127 are channel mode messages (all sound off, reset all controllers, all notes off…): each releases the
       // source and channel, which also puts its expression back at rest.
       else if (message.cc >= 120) release(port.id, channel)
-      else if (!cc.receive(port.id, port.name ?? port.id, message, timestamp) && isExpressionCC(message.cc)) express(port.id, channel, { cc: message.cc }, message.value / MIDI_MAX)
+      else if (!cc.receive(port.id, port.name ?? port.id, message, timestamp) && isExpressionCC(message.cc)) {
+        learnRecordedCC(message.cc)
+        express(port.id, channel, { cc: message.cc }, message.value / MIDI_MAX, timestamp)
+      }
       return
     }
-    if (message.kind === 'pitchBend') { express(port.id, channel, 'pitchBend', message.value); return }
-    if (message.kind === 'pressure') { express(port.id, channel, 'pressure', fold(port.id, channel).set(message.value)); return }
-    if (message.kind === 'polyPressure') { express(port.id, channel, 'pressure', fold(port.id, channel).key(message.note, message.value)); return }
+    if (message.kind === 'pitchBend') { express(port.id, channel, 'pitchBend', message.value, timestamp); return }
+    if (message.kind === 'pressure') { express(port.id, channel, 'pressure', fold(port.id, channel).set(message.value), timestamp); return }
+    if (message.kind === 'polyPressure') { express(port.id, channel, 'pressure', fold(port.id, channel).key(message.note, message.value), timestamp); return }
     const key = JSON.stringify([port.id, channel, message.note])
     if (message.kind === 'noteOn') {
       const trackIds = liveNoteTracks(useProjectStore.getState().project, port.id, channel, follow())
@@ -165,7 +190,7 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
       }
       // A key that comes up takes its polyphonic pressure with it.
       const folded = folds.get(portChannel(port.id, channel))?.keyUp(message.note)
-      if (folded !== undefined) express(port.id, channel, 'pressure', folded)
+      if (folded !== undefined) express(port.id, channel, 'pressure', folded, timestamp)
     }
   }
   const detach = (id: string, port: MIDIInput) => {

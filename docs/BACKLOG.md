@@ -53,7 +53,9 @@ Things that shipped without the check their plan asked for.
   punching in and out with F9, and a 2-bar loop brace over three passes, at 90 and 140 BPM (part 3). Pitch bend,
   aftertouch and CC (part 1): a real keyboard's wheel at bend ranges 2 and 12, channel and polyphonic pressure through
   the Note node's *Pressure*, and a controller's mod wheel through a MIDI CC node. Part 2: drawing a vibrato with a
-  CC 1 lane into a MIDI CC node on a real patch, and a real wheel taking over a bend lane until *Read*.
+  CC 1 lane into a MIDI CC node on a real patch, and a real wheel taking over a bend lane until *Read*. Part 3: a real
+  keyboard's wheel and pressure recorded at 90 and 140 BPM, played back, then overdubbed, and a controller's knob
+  ticked with *Learn* under *Recorded CCs*.
 - **V6 Flaky smoke test**: `library.smoke.spec.ts`, the isolated preview case, reads the saved project right after
   loading the Starter, sometimes before the autosave has written it (2 failures in 5 runs on its own, round 8).
 - **V7 Load-sensitive audio test**: `tempo.audio.spec.ts`'s ping-pong case fails its tail-level check when the machine
@@ -217,6 +219,6 @@ Not work yet: each needs a scope decision first.
 
 - **D1 External MIDI clock and output.**
 - **D2 MPE**, including polyphonic pressure recorded per note: until then it is folded into channel pressure
-  ([pitch bend, aftertouch and CC spec](active/SPEC-midi-expression.md), decision 3).
+  ([pitch bend, aftertouch and CC spec](archive/midi-expression/SPEC-midi-expression.md), decision 3).
 - **D3 Linked library updates** (a project copy that follows its library item).
 - **D4 When `feat/ui-redesign` merges into `main`**, and whether a v11 build ships to Pages before round 12.

@@ -1,3 +1,4 @@
+import type { ExpressionControl } from '../midi'
 import type { Note } from '../project'
 
 /**
@@ -8,6 +9,23 @@ export type TakeEvent =
   | { readonly beat: number; readonly kind: 'on'; readonly source: string; readonly channel: number; readonly pitch: number; readonly velocity: number }
   | { readonly beat: number; readonly kind: 'off'; readonly source: string; readonly channel: number; readonly pitch: number }
   | { readonly beat: number; readonly kind: 'pedal'; readonly source: string; readonly channel: number; readonly down: boolean }
+  | ExpressionEvent
+
+/**
+ * The wheel, pressure or a CC as it reached the track (`value` in the control's own range), with `at`, the message's
+ * timestamp in ms, which a CC's span gap is measured on. `end`: no new value, the span open on that control ends here
+ * (routing took the track away from the keyboard).
+ */
+export interface ExpressionEvent {
+  readonly beat: number
+  readonly kind: 'expression'
+  readonly at: number
+  readonly source: string
+  readonly channel: number
+  readonly control: ExpressionControl
+  readonly value: number
+  readonly end?: true
+}
 
 /**
  * Where the transport was when something was played: its beat, and the run and the loop pass it was in
@@ -83,6 +101,7 @@ const pair = (events: readonly TakeEvent[]): Paired[] => {
   // Sorted by beat, keeping arrival order for equal beats; the index is the arrival order, so ids never move.
   const ordered = events.map((event, order) => ({ event, order, index: event.kind === 'on' ? ons++ : -1 })).sort((a, b) => a.event.beat - b.event.beat || a.order - b.order)
   for (const { event, index } of ordered) {
+    if (event.kind === 'expression') continue
     const channelKey = `${event.source}\u0000${event.channel}`
     if (event.kind === 'pedal') {
       if (event.down) pedals.add(channelKey)

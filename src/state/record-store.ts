@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { type ArrangementClip, type ClockPosition, type Clip, type EngineStatus, type Note, type Project, type TakeEvent, type TakeLoop, EARLY_BEATS, MAX_CLIP_BEATS, MAX_TAKE_NOTES, MAX_TIMELINE_BEATS, MIN_CLIP_BEATS, REGION_BEATS, addArrangementClip, commit, createArrangementClip, createClip, finishedNotes, sessionClipRef, setClipAt, setClipLength, setClipNotes, splitRegions, takeNotes, updateArrangementClip } from '@core'
+import { type ArrangementClip, type AutomationLane, type ClockPosition, type Clip, type EngineStatus, type ExpressionControl, type Note, type Project, type ExpressionSpan, type SpanSample, type TakeEvent, type TakeLoop, EARLY_BEATS, MAX_AUTOMATION_LANES, applyExpression, controlTargetKey, expressionLabel, expressionRestValue, expressionSpans, expressionTarget, placeSpan, setClipAutomation, splitLanes, takeControls, MAX_CLIP_BEATS, MAX_TAKE_NOTES, MAX_TIMELINE_BEATS, MIN_CLIP_BEATS, REGION_BEATS, addArrangementClip, commit, createArrangementClip, createClip, finishedNotes, sessionClipRef, setClipAt, setClipLength, setClipNotes, splitRegions, takeNotes, updateArrangementClip } from '@core'
+import { useControlStore } from './control-store'
 import { guardHistory, useProjectStore } from './project-store'
 import { transportBeat, transportPosition } from './record-clock'
 import { useSelectionStore } from './selection-store'
@@ -75,6 +76,24 @@ interface RegionTake {
   lastLap: number
 }
 
+/**
+ * A lane a take writes: the lane it started from, how many pieces went in before one passed 2048 points (all, while
+ * none has), and the lane after its ended spans so far, so a write applies only what is new (kept while the lane's
+ * length and the take's end stay the same).
+ */
+interface LaneState {
+  readonly base?: AutomationLane
+  readonly id: string
+  kept: number
+  cache?: { readonly key: string; applied: number; lane: AutomationLane }
+}
+
+/** A control's pieces, placed in the clip or region: those of ended spans, then that of the one still open. */
+interface LanePieces {
+  readonly closed: readonly (readonly SpanSample[])[]
+  readonly open: readonly (readonly SpanSample[])[]
+}
+
 interface Take {
   readonly id: string
   readonly kind: TakeKind
@@ -105,6 +124,15 @@ interface Take {
   seen: boolean
   /** The ids of the notes already written into the clip. */
   readonly written: Set<string>
+  /** Whether it has recorded the wheel, pressure or a CC: then its lanes are written too. */
+  expressive: boolean
+  /**
+   * Per lane it writes (a control, and in the arrangement a region): the lane it started from (an overdub's), and how
+   * many of its pieces went in before one passed 2048 points (all, while none has).
+   */
+  readonly lanes: Map<string, LaneState>
+  /** The loop pass and bar its lanes were last written in: open spans are written once per bar. */
+  laneBar: string
 }
 
 const takes = new Map<string, Take>()
@@ -214,8 +242,18 @@ const write = (take: Take, notes: readonly Note[]): boolean => {
   return kept.length === fresh.length
 }
 
-const drop = (take: Take, message?: string) => {
+/**
+ * Takes a take out of the running. While it recorded the wheel, pressure or a CC, live input owned that control (an
+ * override, so the lane being written doesn't fight it); it goes back to the lane now.
+ */
+const closeTake = (take: Take) => {
   takes.delete(take.trackId)
+  if (!take.expressive) return
+  for (const control of takeControls(take.events).values()) useControlStore.getState().release(expressionTarget(take.trackId, control))
+}
+
+const drop = (take: Take, message?: string) => {
+  closeTake(take)
   publish()
   if (message) feedback(message)
   else if (takes.size) recording()
@@ -224,6 +262,79 @@ const drop = (take: Take, message?: string) => {
 
 /** The take's range for the take model: its start and end, how early a note may be, and an overdub's passes. */
 const rangeOf = (take: Take) => ({ id: take.id, start: take.start!, end: take.end, early: take.early, ...(take.loop && { loop: take.loop }) })
+
+/** Now on the clock MIDI messages are stamped with, for a CC span's 800 ms gap. */
+const nowMs = () => performance.now()
+/** A lane's points with ids made from its own, so writing the same shape again changes nothing. */
+const stableIds = (lane: AutomationLane): AutomationLane => ({ ...lane, points: lane.points.map((point, index) => ({ ...point, id: `${lane.id}~${index}` })) })
+/** The wheel or pressure back at rest, or a span cut by routing: a span ended, so its lane is written now. */
+const endsSpan = (event: TakeEvent) => event.kind === 'expression' && (event.end === true || (typeof event.control === 'string' && event.value === 0))
+
+/**
+ * One lane of a take: its pieces applied to the lane it started from (or a new one), as long as `length`. Undefined
+ * when there is nothing to write, or no room for another lane (`count` lanes already, with a notice). A lane that would
+ * pass 2048 points keeps the pieces before that one from then on, with a notice.
+ */
+const takeLane = (take: Take, stateKey: string, control: ExpressionControl, existing: AutomationLane | undefined, count: number, { closed, open }: LanePieces, length: number, cacheKey: string): AutomationLane | undefined => {
+  let state = take.lanes.get(stateKey)
+  if (!state) {
+    if (!closed.length && !open.length) return undefined
+    state = { ...(existing && { base: existing }), id: existing?.id ?? `${take.id}:${stateKey}`, kept: Infinity }
+    if (!existing && count >= MAX_AUTOMATION_LANES) { state.kept = 0; feedback(`${trackName(take.trackId)}: no room for another lane`) }
+    take.lanes.set(stateKey, state)
+  }
+  if (!state.base && state.kept === 0) return undefined
+  const target = expressionTarget(take.trackId, control)
+  const rest = expressionRestValue(control)
+  const stop = (kept: number) => {
+    if (state!.kept !== Infinity) return
+    state!.kept = kept
+    feedback(`${expressionLabel(target)} on ${trackName(take.trackId)}: too many points, stopped recording it`)
+  }
+  if (state.cache?.key !== cacheKey) state.cache = { key: cacheKey, applied: 0, lane: state.base ?? { id: state.id, target, enabled: true, points: [] } }
+  const cache = state.cache
+  const upTo = Math.min(state.kept, closed.length)
+  if (cache.applied < upTo) {
+    const result = applyExpression(cache.lane, closed.slice(cache.applied, upTo), length, rest)
+    cache.lane = result.lane
+    if (result.overflow) stop(cache.applied + result.applied)
+    cache.applied = result.overflow ? state.kept : upTo
+  }
+  let lane = cache.lane
+  if (state.kept === Infinity && open.length) {
+    const result = applyExpression(lane, open, length, rest)
+    lane = result.lane
+    if (result.overflow) stop(closed.length + result.applied)
+  }
+  return stableIds({ ...lane, enabled: state.base?.enabled ?? true })
+}
+
+/** A control's spans placed by `place`, split into those that ended and the one still open. */
+const lanePieces = (spans: readonly ExpressionSpan[], place: (samples: readonly SpanSample[]) => SpanSample[][]): LanePieces =>
+  ({ closed: spans.filter((span) => !span.open).flatMap((span) => place(span.samples)), open: spans.filter((span) => span.open).flatMap((span) => place(span.samples)) })
+
+/**
+ * Writes the take's lanes into its session clip: each control's spans so far, placed by pass, applied to the lane it
+ * started from. With `end`, the take is ending: open spans close there; else they hold their value to now.
+ */
+const writeLanes = (take: Take, end?: number) => {
+  if (!take.expressive || take.start === undefined) return
+  const clip = clipOf(useProjectStore.getState().project, take)
+  if (!clip) return
+  const range = { start: take.start, end: end ?? take.end, early: take.early, close: end ?? beatNow(), ...(end === undefined && { nowMs: nowMs() }) }
+  let automation = [...(clip.automation ?? [])]
+  for (const [key, control] of takeControls(take.events)) {
+    const pieces = lanePieces(expressionSpans(take.events, control, range), (samples) => placeSpan(samples, { start: take.start!, ...(take.loop && { loop: take.loop }) }))
+    const target = expressionTarget(take.trackId, control)
+    // The lane already there is where the take starts from; it is looked at only on the first write.
+    const existing = automation.find((lane) => controlTargetKey(lane.target) === controlTargetKey(target))
+    const lane = takeLane(take, key, control, existing, automation.length, pieces, clip.lengthBeats, `${clip.lengthBeats}|${end ?? ''}`)
+    if (!lane) continue
+    const at = automation.findIndex((candidate) => candidate.id === lane.id)
+    automation = at < 0 ? [...automation, lane] : automation.map((candidate, index) => (index === at ? lane : candidate))
+  }
+  commitTake(take, (project) => setClipAutomation(project, take.trackId, take.clipId, automation))
+}
 
 /** Writes what is finished so far. */
 const writeFinished = (take: Take) => {
@@ -241,11 +352,12 @@ const finish = (take: Take, end: number, message?: string, close = end) => {
   if (take.kind === 'overdub') { endOverdub(take, close, message); return }
   if (take.kind === 'region') { endRegion(take, close, message); return }
   const start = take.start
-  takes.delete(take.trackId)
+  closeTake(take)
   publish()
   if (start === undefined) { feedback(message ?? (takes.size ? '' : 'The take ended before it started')); if (takes.size) recording(); return }
   const length = Math.min(MAX_CLIP_BEATS, Math.max(BAR, end - start))
   write(take, takeNotes(take.events, { ...rangeOf(take), end: Math.min(close, start + length) }))
+  if (useProjectStore.getState().documentEpoch === take.epoch) writeLanes(take, Math.min(close, start + length))
   if (useProjectStore.getState().documentEpoch === take.epoch && clipOf(useProjectStore.getState().project, take)) {
     commitTake(take, (project) => setClipLength(project, sessionClipRef(take.trackId, take.clipId), length))
     const clip = clipOf(useProjectStore.getState().project, take)
@@ -260,9 +372,12 @@ const finish = (take: Take, end: number, message?: string, close = end) => {
  * left as long as it was. Nothing played, nothing written: an empty overdub leaves no undo step.
  */
 const endOverdub = (take: Take, at: number, message?: string) => {
-  takes.delete(take.trackId)
+  closeTake(take)
   publish()
-  if (take.start !== undefined && take.epoch === useProjectStore.getState().documentEpoch && at > take.start) write(take, takeNotes(take.events, { ...rangeOf(take), end: at }))
+  if (take.start !== undefined && take.epoch === useProjectStore.getState().documentEpoch && at > take.start) {
+    write(take, takeNotes(take.events, { ...rangeOf(take), end: at }))
+    writeLanes(take, at)
+  }
   if (message) feedback(message)
   else if (takes.size) recording()
   else if (useRecordStore.getState().rec) feedback(recFeedback())
@@ -272,7 +387,7 @@ const endOverdub = (take: Take, at: number, message?: string) => {
 const passFor = () => takes.values().next().value?.pass ?? `pass-${crypto.randomUUID()}`
 
 const newTake = (kind: TakeKind, trackId: string, clipId: string, scene: number, events: TakeEvent[] = []): Take =>
-  ({ id: `take-${crypto.randomUUID()}`, kind, pass: passFor(), trackId, clipId, scene, epoch: useProjectStore.getState().documentEpoch, state: 'queued', early: EARLY_BEATS, events, openedAt: Date.now(), seen: false, written: new Set() })
+  ({ id: `take-${crypto.randomUUID()}`, kind, pass: passFor(), trackId, clipId, scene, epoch: useProjectStore.getState().documentEpoch, state: 'queued', early: EARLY_BEATS, events, openedAt: Date.now(), seen: false, written: new Set(), expressive: events.some((event) => event.kind === 'expression'), lanes: new Map(), laneBar: '' })
 
 /** The clip with that id in a track's slots, and its scene. */
 const sessionClip = (project: Project, trackId: string, clipId: string): { clip: Clip; scene: number } | undefined => {
@@ -416,9 +531,11 @@ export type RecordedNote =
 
 /** Adds an event to a take: an arrangement take places it in take time, or holds it until it knows its run. */
 const addEvent = (take: Take, event: TakeEvent, lap: number | undefined, run: number | undefined) => {
+  if (event.kind === 'expression') take.expressive = true
   if (take.region) { regionEvent(take, event, lap ?? take.region.lastLap, run); return }
   take.events.push(event)
-  writeFinished(take)
+  if (event.kind !== 'expression') writeFinished(take)
+  else if (endsSpan(event)) writeLanes(take)
 }
 
 /** A note-on or note-off that reached an armed track. Dropped without a beat (the transport stopped) or a take. */
@@ -434,6 +551,25 @@ export const recordPedal = (source: string, channel: number, down: boolean, at: 
   const { beat, lap, run } = typeof at === 'number' ? { beat: at, lap: undefined, run: undefined } : at
   for (const take of [...takes.values()]) addEvent(take, { beat, kind: 'pedal', source, channel, down }, lap, run)
 }
+
+/**
+ * The wheel, pressure or a CC that reached an armed track and is recorded (`isRecordedExpression`): `at` is the
+ * message's timestamp in ms. `end`: the keyboard no longer reaches the track, so the span open on that control ends.
+ */
+export type RecordedExpression = { readonly source: string; readonly channel: number; readonly control: ExpressionControl; readonly value: number; readonly at: number; readonly end?: true } & When
+
+/** Expression for a track's take, kept in spans that become lanes. Dropped without a beat or a take. */
+export const recordExpression = (trackId: string, { lap, run, ...event }: RecordedExpression): void => {
+  const take = takes.get(trackId)
+  if (!take || event.beat === undefined || take.epoch !== useProjectStore.getState().documentEpoch) return
+  addEvent(take, { ...event, kind: 'expression', beat: event.beat }, lap, run)
+}
+
+/**
+ * Whether a track has a take that records what reaches it: live input then owns the controls it records, over the lane
+ * it is writing.
+ */
+export const isRecordingTrack = (trackId: string): boolean => takes.has(trackId)
 
 /**
  * Follows the engine: a queued take starts when its clip plays (from its launch boundary), a take ends when the
@@ -489,6 +625,18 @@ export const reconcileRecords = (status: EngineStatus): void => {
   }
   openOverdubs(status)
   openRegionTakes(status)
+  if (status.playing) writeLanesPerBar(status)
+}
+
+/** Lanes with spans still open are written once a bar, so a long swell shows as it grows. */
+const writeLanesPerBar = (status: EngineStatus) => {
+  const bar = `${status.lap ?? 0}:${Math.floor((status.beat + EPSILON) / BAR)}`
+  for (const take of [...takes.values()]) {
+    if (!take.expressive || take.start === undefined || take.state === 'queued' || take.laneBar === bar) continue
+    take.laneBar = bar
+    if (take.region) writeRegions(take)
+    else writeLanes(take)
+  }
 }
 
 /** Whether a track overdubs now: ● Rec on, the track armed, and the Session playing (or counting in). */
@@ -651,7 +799,7 @@ const regionEvent = (take: Take, event: TakeEvent, lap: number, run: number | un
   }
   if (run !== undefined && run !== r.run) return
   placeEvent(take, event, lap)
-  if (take.start === undefined) return
+  if (take.start === undefined || (event.kind === 'expression' && !endsSpan(event))) return
   if (!writeRegions(take)) { blocked.add(take.trackId); endRegion(take, r.lastBeat, `${MAX_TAKE_NOTES} notes reached: the take ended`) }
 }
 
@@ -664,6 +812,27 @@ const regionNotes = (take: Take, end?: number): Note[] => {
   return r.brace ? notes : notes.map((note) => ({ ...note, start: note.start + start - r.origin }))
 }
 
+/**
+ * The take's expression, placed from its first region's start and cut into its 64-bar regions: per control, a list of
+ * pieces per region. With `end` the take is ending and open spans close there; else they hold their value to now.
+ */
+type RegionPieces = Map<string, { readonly control: ExpressionControl; readonly closed: SpanSample[][][]; readonly open: SpanSample[][][] }>
+const regionPieces = (take: Take, end?: number): RegionPieces => {
+  const pieces: RegionPieces = new Map()
+  if (!take.expressive || take.start === undefined) return pieces
+  const r = take.region!, start = take.start
+  const loop = r.brace && { anchor: r.brace.from, length: braceLength(r), origin: r.origin }
+  const range = { start, end, early: take.early, close: end ?? takeTime(r, r.lastBeat, r.lastLap), ...(end === undefined && { nowMs: nowMs() }) }
+  for (const [key, control] of takeControls(take.events)) {
+    // Without the brace, take time is the timeline: pieces come relative to the take's start.
+    const place = (samples: readonly SpanSample[]) => placeSpan(samples, { start, ...(loop && { loop }) })
+      .map((piece) => (r.brace ? piece : piece.map((sample) => ({ beat: sample.beat + start - r.origin, value: sample.value }))))
+    const { closed, open } = lanePieces(expressionSpans(take.events, control, range), place)
+    if (closed.length || open.length) pieces.set(key, { control, closed: splitLanes(closed), open: splitLanes(open) })
+  }
+  return pieces
+}
+
 const sameNotes = (a: readonly Note[], b: readonly Note[]) =>
   a.length === b.length && a.every((n, i) => { const m = b[i]!; return n.id === m.id && n.pitch === m.pitch && n.start === m.start && n.duration === m.duration && n.velocity === m.velocity })
 
@@ -671,23 +840,39 @@ const sameNotes = (a: readonly Note[], b: readonly Note[]) =>
  * Writes the take's regions whole, under its pass's key: each 64-bar segment from `origin` that has notes or already
  * has a region, as long as `extent` allows. A region appears with its first note. False when a region is full.
  */
-const writeRegions = (take: Take, notes: readonly Note[] = regionNotes(take)): boolean => {
+const writeRegions = (take: Take, notes: readonly Note[] = regionNotes(take), pieces = regionPieces(take), ending?: number): boolean => {
   const r = take.region!
   for (const note of notes) growTo(r, r.origin + note.start + note.duration)
+  let segmentCount = r.segments.length
+  for (const { closed, open } of pieces.values()) for (const regions of [closed, open]) {
+    segmentCount = Math.max(segmentCount, regions.length)
+    regions.forEach((list, k) => { for (const piece of list) { const last = piece.at(-1); if (last) growTo(r, r.origin + k * REGION_BEATS + last.beat) } })
+  }
+  /** A region's lanes: each control's pieces in it, applied to a new lane as long as the region. */
+  const lanesOf = (k: number, lengthBeats: number): AutomationLane[] => {
+    const lanes: AutomationLane[] = []
+    for (const [key, { control, closed, open }] of pieces) {
+      const lane = takeLane(take, `${key}@${k}`, control, undefined, lanes.length, { closed: closed[k] ?? [], open: open[k] ?? [] }, lengthBeats, `${lengthBeats}|${ending ?? ''}`)
+      if (lane) lanes.push(lane)
+    }
+    return lanes
+  }
   const project = useProjectStore.getState().project
   const segments = splitRegions(notes)
   const before = project.arrangement ?? []
   let arrangement = before
   let full = false
-  for (let k = 0; k < Math.max(segments.length, r.segments.length); k++) {
+  for (let k = 0; k < Math.max(segments.length, segmentCount); k++) {
     let list = segments[k] ?? []
     const id = r.segments[k]
-    if (id === undefined && list.length === 0) continue
-    if (list.length > MAX_TAKE_NOTES) { list = list.slice(0, MAX_TAKE_NOTES); full = true }
     const startBeat = r.origin + k * REGION_BEATS
     const lengthBeats = Math.min(REGION_BEATS, Math.max(MIN_CLIP_BEATS, r.extent - startBeat))
+    const lanes = lanesOf(k, lengthBeats)
+    // A region appears with its first note or its first span.
+    if (id === undefined && list.length === 0 && lanes.length === 0) continue
+    if (list.length > MAX_TAKE_NOTES) { list = list.slice(0, MAX_TAKE_NOTES); full = true }
     if (id === undefined) {
-      const region = createArrangementClip(take.trackId, startBeat, { ...createClip(trackName(take.trackId), lengthBeats), notes: list })
+      const region = createArrangementClip(take.trackId, startBeat, { ...createClip(trackName(take.trackId), lengthBeats), notes: list, ...(lanes.length && { automation: lanes }) })
       arrangement = addArrangementClip(arrangement, region)
       r.segments[k] = region.id
       continue
@@ -695,8 +880,9 @@ const writeRegions = (take: Take, notes: readonly Note[] = regionNotes(take)): b
     const existing = arrangement.find((region) => region.id === id)
     if (!existing || !('notes' in existing.content)) continue
     const content = existing.content
-    if (existing.startBeat === startBeat && content.lengthBeats === lengthBeats && sameNotes(content.notes, list)) continue
-    arrangement = updateArrangementClip(arrangement, id, { startBeat, content: { ...content, lengthBeats, notes: list } })
+    const automation = lanes.length ? lanes : content.automation
+    if (existing.startBeat === startBeat && content.lengthBeats === lengthBeats && sameNotes(content.notes, list) && JSON.stringify(automation ?? []) === JSON.stringify(content.automation ?? [])) continue
+    arrangement = updateArrangementClip(arrangement, id, { startBeat, content: { ...content, lengthBeats, notes: list, ...(automation && { automation }) } })
   }
   if (arrangement !== before) {
     // Kept before the commit: the watch below compares the project's regions with these.
@@ -714,7 +900,7 @@ const writeRegions = (take: Take, notes: readonly Note[] = regionNotes(take)): b
  */
 const endRegion = (take: Take, beat: number, message?: string) => {
   const r = take.region!
-  takes.delete(take.trackId)
+  closeTake(take)
   publish()
   if (r.run === undefined || take.start === undefined || take.state === 'queued') { if (message) feedback(message); passEnded(take.pass, false); return }
   const position = transportPosition()
@@ -722,7 +908,7 @@ const endRegion = (take: Take, beat: number, message?: string) => {
   if (r.brace && here.lap > r.startLap) markLooped(r)
   growTo(r, here.beat)
   const end = Math.max(take.start, takeTime(r, here.beat, here.lap))
-  if (take.epoch === useProjectStore.getState().documentEpoch) writeRegions(take, regionNotes(take, end))
+  if (take.epoch === useProjectStore.getState().documentEpoch) writeRegions(take, regionNotes(take, end), regionPieces(take, end), end)
   const made = r.segments.filter((id): id is string => id !== undefined)
   const pass = passes.get(take.pass)
   if (pass && made.length) { pass.tracks.set(take.trackId, made.at(-1)!); pass.bars = Math.max(pass.bars, (r.extent - r.origin) / BAR) }

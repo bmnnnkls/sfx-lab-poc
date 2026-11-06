@@ -8,7 +8,7 @@ note: "Part 2 of the pitch bend, aftertouch and CC spec: expression lanes (a new
 
 Status: **done** 2026-11-06 (plan signed off the same day, every decision as proposed). Written 2026-11-06 on `imp/spec-midi-expression` after part 1
 ([plan](PLAN-midi-expression-1-play.md)). Carries out part 2 of the signed-off
-[pitch bend, aftertouch and CC spec](../../active/SPEC-midi-expression.md) (§ Expression lanes, § Persistence, § Parts). The spec's
+[pitch bend, aftertouch and CC spec](SPEC-midi-expression.md) (§ Expression lanes, § Persistence, § Parts). The spec's
 decisions are settled and not repeated here; this plan adds only the ones it raises (§ Decisions to sign off). Where it
 differs from the spec, it says so.
 
@@ -30,7 +30,7 @@ After this part an instrument track's clips, regions and timeline can hold **exp
 
 ## Inventory
 
-What part 2 touches, beyond the [spec's inventory](../../active/SPEC-midi-expression.md#inventory) and part 1.
+What part 2 touches, beyond the [spec's inventory](SPEC-midi-expression.md#inventory) and part 1.
 
 ### Control targets
 
