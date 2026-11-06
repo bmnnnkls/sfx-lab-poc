@@ -52,8 +52,8 @@ two ([archive/ui-redesign](archive/ui-redesign/README.md)).
    automation lanes on the timeline for every owner, groups with a bus included, under each owner's row; rows for returns
    and the master; a region's own lanes playing inside it; *Show automation on timeline*; Clip showing a region's lanes
    and playhead; format v14. 12d (touch recording into the arrangement) is to plan.
-2. **Round 12d: touch recording into the arrangement**, next. It closes round 12. The plan is to be written in
-   [active/](active/).
+2. **Round 12d: touch recording into the arrangement**, next. It closes round 12. The
+   [plan](active/PLAN-round-12d-touch-arrangement.md) is written and waits for sign-off.
 3. **Round 13a: UI foundations** (design tokens, no hard-coded colours, the theme mechanism with light and
    high-contrast token sets, one icon set, shared control states;
    [roadmap](active/ui-redesign-roadmap.md#round-13a-ui-foundations-before-the-engine-pi)).

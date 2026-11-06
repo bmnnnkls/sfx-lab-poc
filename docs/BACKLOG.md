@@ -15,7 +15,8 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
   [Spec](active/SPEC-round-12-arrangement-editor.md) signed off 2026-11-01; 12a is done
   ([plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)), and so is 12b, markers and the loop
   ([plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)), and 12c, automation on the timeline
-  ([plan](archive/ui-redesign/PLAN-round-12c-timeline-automation.md)); 12d (touch into the arrangement) is to plan.
+  ([plan](archive/ui-redesign/PLAN-round-12c-timeline-automation.md)); 12d (touch into the arrangement) is
+  [planned](active/PLAN-round-12d-touch-arrangement.md), to sign off.
 - **U3a Round 13a: UI foundations**, next after 12d and before the engine PI: tokens, no hard-coded colours, the theme
   mechanism with light and high-contrast token sets, one icon set, shared control states
   ([roadmap](active/ui-redesign-roadmap.md#round-13a-ui-foundations-before-the-engine-pi)).
