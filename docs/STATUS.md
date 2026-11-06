@@ -10,10 +10,9 @@ Where the project stands, in one page. Updated 2026-11-05. Update it whenever a 
   human listening pass and the tag are still open ([BACKLOG](BACKLOG.md) V9).
 * **`feat/ui-redesign`**, the workbench redesign up to round 12b, is merged into `main` (`7d299bf`), which writes
   project format **v13**.
-* **`feat/midi-recording`** holds MIDI recording parts 1 to 3 on top of `main`, not merged. Round 12c is built on it, on
-  `imp/round-12c`, not merged either; it writes format **v14**, which `main`'s build refuses to open.
-* **`imp/spec-midi-expression`** holds pitch bend, aftertouch and CC (parts 1 to 3) on top of `feat/midi-recording`
-  with round 12c, not merged; it writes format **v15**, which a v14 build refuses to open.
+* **`feat/midi-recording`** holds, on top of `main` and not merged into it: MIDI recording parts 1 to 3, round 12c
+  (timeline automation) and pitch bend, aftertouch and CC parts 1 to 3. It writes format **v15**, which `main`'s
+  build (v13) refuses to open.
 
 Current file and storage versions are in [reference/formats-and-versions.md](reference/formats-and-versions.md).
 
@@ -52,7 +51,7 @@ two ([archive/ui-redesign](archive/ui-redesign/README.md)).
    editor. **12b is done** (2026-11-04, [plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)): a mark lane
    under the ruler with markers and a loop brace, the engine looping the arrangement sample-accurately, a seek while
    playing that releases held notes and restarts audio in phase, M, L, `[` and `]`, and format v13. **12c is done**
-   (2026-11-06, on `imp/round-12c` on top of `feat/midi-recording`, [plan](archive/ui-redesign/PLAN-round-12c-timeline-automation.md)):
+   (2026-11-06, on `feat/midi-recording`, [plan](archive/ui-redesign/PLAN-round-12c-timeline-automation.md)):
    automation lanes on the timeline for every owner, groups with a bus included, under each owner's row; rows for returns
    and the master; a region's own lanes playing inside it; *Show automation on timeline*; Clip showing a region's lanes
    and playhead; format v14. 12d (touch recording into the arrangement) is to plan.
@@ -69,32 +68,31 @@ track's empty slot records the keyboard into a new clip from the next bar; press
 bar and the clip loops. A fixed length, a metronome (♩, never in an export), latency compensation and a manual offset;
 a take is one undo step. Not checked: a real keyboard (V5).
 
-**MIDI recording part 2 is done** (2026-11-05, on `imp/ecstatic-lehmann-5efb9d`, with part 1, neither merged;
+**MIDI recording part 2 is done** (2026-11-05, on `feat/midi-recording`;
 [plan](archive/midi-recording/PLAN-midi-recording-2-overdub.md)): ● Rec (F9) overdubs what you play into the clips
 playing on armed tracks, pass after pass, each overdub one undo step; a count-in of 1 or 2 bars clicks before a take
 from a stopped transport; ● Rec's menu holds the fixed length, the count-in and the metronome level.
 
-**MIDI recording part 3 is done** (2026-11-05, on `imp/midi-recording-part3-plan`, on top of parts 1 and 2, none
-merged; [plan](archive/midi-recording/PLAN-midi-recording-3-arrangement.md)): with ● Rec on, ▶ on the arrangement
+**MIDI recording part 3 is done** (2026-11-05, on `feat/midi-recording`; [plan](archive/midi-recording/PLAN-midi-recording-3-arrangement.md)): with ● Rec on, ▶ on the arrangement
 records every armed track into a new region (red while it records), ● Rec punches in and out, the loop brace merges
 passes into one region, takes past 64 bars go on in the next region, and a count-in works there too. Takes recording at
 the same time are one undo step, in the Session too. Not checked: a real keyboard (V5).
 
-**Pitch bend, aftertouch and CC, part 1 is done** (2026-11-06, on `imp/spec-midi-expression` on top of
-`feat/midi-recording`, not merged; [plan](archive/midi-expression/PLAN-midi-expression-1-play.md),
+**Pitch bend, aftertouch and CC, part 1 is done** (2026-11-06, on `feat/midi-recording`;
+[plan](archive/midi-expression/PLAN-midi-expression-1-play.md),
 [spec](archive/midi-expression/SPEC-midi-expression.md)): the pitch wheel bends what a keyboard plays by a per-track range (*Bend ±* in
 MIDI settings, ±2 by default); pressure (polyphonic pressure folded in) and the CCs no mapping takes reach patches
 through the Note node's *Pressure* and *Bend* and a new MIDI CC node; Panic, ■, a disconnect and routing put them back
 at rest. Not checked: a real keyboard (V5).
 
-**Pitch bend, aftertouch and CC, part 2 is done** (2026-11-06, on `imp/spec-midi-expression`, not merged;
+**Pitch bend, aftertouch and CC, part 2 is done** (2026-11-06, on `feat/midi-recording`;
 [plan](archive/midi-expression/PLAN-midi-expression-2-lanes.md)): an instrument track's clips, regions and timeline can
 hold *Pitch bend*, *Pressure* and CC lanes (*+ Lane* has a **MIDI** group and *CC…* for any CC), shown in semitones and
 0 to 127. They play in the Session, the Arrangement and a bounce, back to rest when they stop; moving the wheel over a
 playing lane takes it over until *Read* or ■. Files save as **format v15**; library clips keep the lanes. Not checked:
 a real keyboard (V5).
 
-**Pitch bend, aftertouch and CC, part 3 is done** (2026-11-06, on `imp/spec-midi-expression`, not merged;
+**Pitch bend, aftertouch and CC, part 3 is done** (2026-11-06, on `feat/midi-recording`;
 [plan](archive/midi-expression/PLAN-midi-expression-3-recording.md); the spec and its three plans are archived): ●
 records the pitch bend, pressure and mod wheel that reach an armed track, and the CCs ticked under *Recorded CCs* in
 MIDI settings, as lanes of the slot take's clip, the overdubbed clip or the Arrangement take's regions, in the take's
