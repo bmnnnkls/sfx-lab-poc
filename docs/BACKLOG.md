@@ -199,6 +199,12 @@ Things that shipped without the check their plan asked for.
 - **G4 An explicit send-notes-only control.**
 - **G5 Feedback cycles in graph routing** behind an explicit delay boundary (cycles are refused today).
 - **G6 Launch quantisation other than one bar; triplet grids in the piano roll.**
+- **V15 MIDI expression checks left at unit level** (pitch bend, aftertouch and CC, part 3): that a recorded bend plays
+  back at the beat it was played, within a render quantum, in the real worklet (the audio test reads levels from the
+  tap's peaks; it needs a sample capture like `midi-recording.audio.spec.ts`'s); an overdub pass replacing only its
+  expression span, and an Arrangement take's lanes across the loop brace, in the browser (both are unit tests); the
+  cost of a long take's per-bar lane writes and of live input's per-frame overrides with a real controller sending
+  hundreds of messages a second.
 
 ## MIDI
 

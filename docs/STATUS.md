@@ -12,6 +12,8 @@ Where the project stands, in one page. Updated 2026-11-05. Update it whenever a 
   project format **v13**.
 * **`feat/midi-recording`** holds MIDI recording parts 1 to 3 on top of `main`, not merged. Round 12c is built on it, on
   `imp/round-12c`, not merged either; it writes format **v14**, which `main`'s build refuses to open.
+* **`imp/spec-midi-expression`** holds pitch bend, aftertouch and CC (parts 1 to 3) on top of `feat/midi-recording`
+  with round 12c, not merged; it writes format **v15**, which a v14 build refuses to open.
 
 Current file and storage versions are in [reference/formats-and-versions.md](reference/formats-and-versions.md).
 
