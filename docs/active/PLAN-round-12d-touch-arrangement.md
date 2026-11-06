@@ -339,3 +339,13 @@ Signed off 2026-11-06: every row as proposed.
   owner), and the "start playback" text names the arrangement. The folder text is used in both modes.
 * `state/touch-arrangement.test.ts` drives the store with hand-built statuses (reconciling before each is set, as
   `project-sync` does), plus one test on a real `Engine`'s clock across a loop jump.
+
+### Step 4: armed recall on the timeline
+
+* **The step lands at the song beat** (`touchBeatNow`), with `stepRecallLane` given the timeline's bound as its length,
+  so there is no wrap; a recall in a later loop pass steps where the transport is in the brace.
+* **The recall opens the owner's lanes** when it adds one, as a take does (a view field, after the commit).
+* **"Refused if any owner has no destination"** can't happen for an available target while the arrangement plays: every
+  owner whose controls resolve may have lanes (a folder's don't resolve, so recall skips them). The refusal tested is a
+  stopped transport, with the texts naming the arrangement.
+* A bus's mixer controls recall under a `track` scope (`inSnapshotScope`: `fx` is only its effect graph).
