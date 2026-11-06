@@ -23,23 +23,23 @@ Widen what a patch can sound like with three additions, in this order:
 3. **Distortion** (idea D2): a Waveshaper and a Crusher. The top-rated open idea; lets the
    hand-built *Soft clip* module migrate to a node.
 
-## Verified: chorus and flanger need no new nodes (idea D7)
+## Chorus and flanger from a modulated delay: corrected 2026-11-06 (idea D7)
 
-Checked against the compiler and the DSP (2026-10-18):
+This section first said (2026-10-18) that the recipe below modulates the delay per sample and needs no new node. **That
+was wrong.** It was rechecked on 2026-11-06 by reading `compile.ts` and counting `setParam` calls in a test:
 
-* Every numeric parameter has a socket; `delay.time` is `param:time`.
-* When a varying source feeds a parameter socket the compiler re-runs the node sample by sample
-  (`compile.ts` → `processAutomatedRun`), calling `setParam` per frame. True per-sample
-  modulation, not block steps.
-* A chorus (0.5 Hz over 10–30 ms) is smooth and click-free. A flanger (1–5 ms sweep) is smooth,
-  finite and stable, but a swept comb at feedback 0.9 rings to about 9x the input; keep feedback
-  at or under 0.8 (about 5x) or ride the mix.
-* The recipe: `LFO (uni)` -> `Map range` (0.005–0.03 s) -> `delay.param:time`, feedback 0.3–0.8,
-  mix about 0.5. A stereo chorus is two delays with slightly different LFO rates.
-* Limits: the delay's time floor is 1 ms (flangers go lower), and the per-sample re-run costs
-  CPU, so keep it to one or two nodes per patch.
-* A **phaser** still needs a node: an all-pass chain, which the filter modes below add. It then
-  builds from parts (all-pass, LFO on `param:cutoff`).
+* An LFO wired into `delay.param:time` (directly or through *Map range*) is applied **once per 128-sample block**, in
+  an insert graph and in an instrument alike.
+* `processAutomatedRun`, the per-sample re-run, starts only when an automation curve is upstream, and only in an
+  insert graph. Across an instrument's voice→shared boundary it never starts.
+* The delay changes its time through a 20 ms crossfade between two stationary read heads (`DelayTap`). So even
+  per-sample updates give a click-free comb that steps about every 20 ms, not a swept delay with the Doppler pitch
+  movement a chorus or flanger is made of.
+
+The recipe `LFO (uni)` → `Map range` (0.005–0.03 s) → `delay.param:time` therefore gives a slow, stepped comb wash, not a
+chorus. **A chorus and a flanger need their own node** with a per-sample interpolated delay read (the flagship report's
+N7, and a phaser N12). The engine gap is EG2 in [REPORT-engine-gaps](REPORT-engine-gaps.md). A **phaser** also still
+needs a node: an all-pass chain with feedback.
 
 ## 1. Filter modes (edit `src/core/dsp/nodes/filter.node.ts`)
 

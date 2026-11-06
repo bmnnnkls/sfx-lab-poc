@@ -4,8 +4,9 @@ Why things are the way they are. One row per decision, newest round last. The so
 spec whose decisions table holds the alternatives and the full reasoning. Before reopening one of these, read that
 table: most rows list what else was considered.
 
-A new decision is a new row. A reversed decision keeps its row, marked *reversed by* the later one. Write a separate
-file here (`NNNN-short-title.md`) only when a decision needs more than a row: context, options and consequences.
+A new decision is a new row. A reversed decision keeps its row, marked *reversed by* the later one. A decision that
+needs more than a row (context, options and consequences), or that later work must follow as a rule, is an
+**architecture decision record** in [adr/](adr/README.md); its row links to it once it is accepted.
 
 ## Engine, audio and formats
 

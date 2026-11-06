@@ -362,14 +362,48 @@ Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACK
 * Loop brace, markers, follow-playhead, horizontal zoom to fit or to the selection.
 * Opening a region in the clip editor and in the wave editor.
 
-## Round 13: visual refresh and themes
+## Round 13: visual refresh and themes, in two parts
 
-Deliberately last, so it restyles a stable structure.
+Split on 2026-11-06 around the [engine-improvements PI](REPORT-engine-gaps.md#5-the-engine-improvements-pi): the order
+is round 12d, then **13a** (foundations), then the PI, then **13b** (the design pass). The PI adds a lot of UI (power and
+bypass controls on nodes, dormant and sleeping states, routing nodes, modulation routes, depth handles and rings), so it
+should be built on tokens, and the visual design should be tuned once that UI exists.
 
-* Design tokens: spacing, type scale, radii, elevation and colour roles, built on the variables in `theme.css`.
-* Remove the hard-coded colours (e.g. `MidiSettings.module.css`).
-* A light theme, high-contrast, user accent colour; a density setting.
-* One icon set for the activity bar, toolbars, region toggles and node categories.
+### Round 13a: UI foundations (before the engine PI)
+
+What new UI must be built on, without redesigning anything. Dark stays the default and looks as it does today.
+
+* **Design tokens** in `theme.css`, on top of today's variables:
+  * colour roles: surfaces (background, panel, raised, sunken), text (normal, dim, disabled), borders, accent, focus
+    ring; states (play, queued, record, danger, warning); the group colours as they are;
+  * colour roles the PI needs: signal kinds (audio, pitch, modulation, gate, notes, control; see
+    [ADR-0003](../decisions/adr/0003-signal-conventions.md)) and the switching states (inactive, dormant, sleeping;
+    [ADR-0008](../decisions/adr/0008-switching-parts-off.md));
+  * scales for spacing, type, radii, elevation and motion durations.
+* **No hard-coded colours.**
+  * About 100 colour literals in 31 files under `src/ui` (2026-11-06 count) move to tokens, and so do the colours of
+    canvas renderers (waveforms, the spectrogram, wires, meters).
+  * Canvas code reads tokens through one helper that updates on a theme change.
+  * An architecture test refuses colour literals outside the token files.
+* **The theme mechanism.**
+  * A `data-theme` attribute on the root, chosen by a command and in the View menu, saved per browser.
+  * **Light** and **high-contrast** token sets, complete and contrast-checked but not polished (13b polishes them).
+* **One icon set**: an `Icon` component over one SVG set (the source is a 13a plan decision). It replaces text glyphs
+  and emoji in the activity bar, toolbars, region toggles, the transport bar and node categories. It includes the icons
+  the PI will need: power, bypass, sleep, routing, modulation.
+* **Shared control states**: one style each for hover, pressed, selected, disabled, focus-visible, and the PI's
+  inactive, dormant and sleeping, so every new control uses them.
+
+### Round 13b: the design pass (after the engine PI)
+
+* Density setting and a user accent colour.
+* Polish of the light and high-contrast themes.
+* Typography, spacing and layout tuned view by view.
+* The visual design of the patcher, panels and pinned panels, the mixer, and the modulation display.
+* Motion.
+* Whatever the PI's new UI needs after use.
+
+It gets its own spec.
 
 ## Cross-cutting
 

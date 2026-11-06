@@ -16,7 +16,11 @@ Planned round by round. Each round gets a plan in [`active/`](active/) before it
   ([plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)), and so is 12b, markers and the loop
   ([plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)), and 12c, automation on the timeline
   ([plan](archive/ui-redesign/PLAN-round-12c-timeline-automation.md)); 12d (touch into the arrangement) is to plan.
-- **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
+- **U3a Round 13a: UI foundations**, next after 12d and before the engine PI: tokens, no hard-coded colours, the theme
+  mechanism with light and high-contrast token sets, one icon set, shared control states
+  ([roadmap](active/ui-redesign-roadmap.md#round-13a-ui-foundations-before-the-engine-pi)).
+- **U3b Round 13b: the design pass**, after the engine PI
+  ([roadmap](active/ui-redesign-roadmap.md#round-13b-the-design-pass-after-the-engine-pi)).
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
   Samples and the Library, library samples, several things at once outside the Library (the Library's tree drags
   several items since library phase 7).
@@ -142,13 +146,22 @@ Things that shipped without the check their plan asked for.
 - **T3 Review leftovers**: F19 concurrent lane ownership, and R5 harness and deployment policy, from the
   [remediation plan](archive/2026-10-perf-library/PLAN-review-remediation.md).
 
+## Engine
+
+- **X1 The engine-improvements PI**: seven iterations (I0–I6) closing the gaps in
+  [REPORT-engine-gaps](active/REPORT-engine-gaps.md), after rounds 12d and 13a. It starts with accepting the
+  [ADR drafts](decisions/adr/README.md). It covers P2 in part (sleep for idle effects) and BACKLOG G5 optionally (the
+  feedback pair).
+- **X2 The flagship synth and the Factory library**, built on the PI
+  ([REPORT-flagship-synth](active/REPORT-flagship-synth.md)); L7 (Factory presets) becomes part of it.
+
 ## Effects and audio editing
 
 - **E1 Waveshaper and Crusher**: part 3 of [SPEC-effects-round-2](active/SPEC-effects-round-2.md), ready to build.
 - **E2 Granular sampler (G6-lite)**: position, density, grain size, pitch spread and spray over a loaded buffer, edited
   from the wave editor. Nodes already read whole sample buffers.
-- **E3 Gate, true brickwall limiter, phaser.** Chorus and flanger need no new nodes (spec, idea D7), so ship them as
-  example modules.
+- **E3 Gate, true brickwall limiter, chorus, flanger, phaser.** A chorus or flanger can't be built from the Delay
+  (corrected 2026-11-06, [SPEC-effects-round-2](active/SPEC-effects-round-2.md)); they are the flagship's N7 and N12.
 - **E4 Mixer meters**: peak hold and numeric readouts; a dB fader law.
 - **E5 Stereo plain Reverb** (Stereo reverb and Mono sum cover stereo routing today).
 - **E6 Audio clips and regions**: loop points inside a region, loop crossfades, time-stretch, recording.
@@ -227,4 +240,3 @@ Not work yet: each needs a scope decision first.
 - **D2 MPE**, including polyphonic pressure recorded per note: until then it is folded into channel pressure
   ([pitch bend, aftertouch and CC spec](archive/midi-expression/SPEC-midi-expression.md), decision 3).
 - **D3 Linked library updates** (a project copy that follows its library item).
-- **D4 When `feat/ui-redesign` merges into `main`**, and whether a v11 build ships to Pages before round 12.

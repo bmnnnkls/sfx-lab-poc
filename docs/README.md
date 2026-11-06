@@ -12,7 +12,7 @@ docs/
   architecture/    how it works now, one file per subsystem (the index is ../ARCHITECTURE.md)
   reference/       versions and formats, the .sfxlib format, limits, baselines
   dev/             setup, verification, conventions, common changes, gotchas, how these docs are kept
-  decisions/       why things are the way they are, one row per decision with its source
+  decisions/       why things are the way they are, one row per decision with its source; adr/ for the rules
   active/          specs and plans in flight
   archive/         finished plans, handoffs, reviews, assessments and reports, frozen with a status header
   measurements/    raw evidence from measurement campaigns (logs, traces, JSON)
