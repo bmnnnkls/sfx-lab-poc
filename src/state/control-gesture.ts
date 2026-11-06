@@ -1,5 +1,5 @@
 import { type ControlValue, controlTargetKey, commit, editControlBases } from '@core'
-import { captureTouch, finishTouch, touchBeatNow, TOUCH_RELEASE_MS } from './touch-store'
+import { captureTouch, finishTouch, touchPositionNow, TOUCH_RELEASE_MS } from './touch-store'
 import { useControlStore } from './control-store'
 import { useProjectStore } from './project-store'
 let serial = 0
@@ -13,12 +13,12 @@ export const createControlGesture = () => {
   return {
     stamp(at: number) { timestamp = at },
     begin() { key ??= `control-gesture:${++serial}`; burst = undefined },
-    end(at?: number) { clearTimeout(timer); finishTouch(source, touchBeatNow(at === undefined ? 0 : Math.max(0, performance.now() - at))); key = undefined; burst = undefined; timestamp = undefined },
+    end(at?: number) { clearTimeout(timer); finishTouch(source, touchPositionNow(at === undefined ? 0 : Math.max(0, performance.now() - at))); key = undefined; burst = undefined; timestamp = undefined },
     change(changes: readonly ControlValue[], at = timestamp ?? performance.now()) {
       clearTimeout(timer)
       if (key === undefined) {
         const deadline = at + TOUCH_RELEASE_MS
-        timer = setTimeout(() => finishTouch(source, touchBeatNow(Math.max(0, performance.now() - deadline))), Math.max(0, deadline - performance.now()))
+        timer = setTimeout(() => finishTouch(source, touchPositionNow(Math.max(0, performance.now() - deadline))), Math.max(0, deadline - performance.now()))
       }
       const now = Date.now()
       // Wheel input has no native begin/end; merge only a short burst on the same controls.

@@ -314,3 +314,28 @@ Signed off 2026-11-06: every row as proposed.
 * **Two host stubs in `app` tests named `recordingBeat`** (`touch-runtime`, `project-sync`); they now give
   `recordingPosition`, which `project-sync` wires. `touch-runtime`'s still returns a bare beat, so it is the beat-only
   case end to end.
+
+### Step 3: timeline destinations, captures and finishing
+
+* **The destination's shape is inferred**, `{ kind: 'clip', … } | { kind: 'timeline', … }`, from `touchDestination`;
+  callers narrow on `kind`. The capture is a union too (`ClipCapture`, `TimelineCapture`), and `finishTouch` and
+  `reconcileTouches` branch on it where they read and write lanes, as the plan said.
+* **The brace is kept only when the take begins before its end.** Playing from after the brace never loops, so its
+  beats are song beats; the capture still keeps the brace's key, so a change of it ends the take either way.
+* **`finishTouch(source, end, reason)`'s `end`** is a position (a release, ■: take time when the run is the take's, else
+  the last sample), a number (a clip's launch boundary as before; take time for a timeline take at its 256-beat limit),
+  or `null` for the last sample. The gesture's end and its 800 ms inactivity now pass `touchPositionNow`.
+* **A run is compared one way.** The clock's anchors can be ahead of the 30 Hz status, so a take whose run is newer than
+  the status's is not ended; only a status (or a sample) of a *later* run ends it, and a sample of an *earlier* run (an
+  event queued from before the seek) is dropped without authoring the base.
+* **A held control records on after a seek, a loop change or a switch**, into a new take from the new position, as a
+  clip take does when its clip relaunches; the feedback then reads "Touch → timeline" again.
+* **A session take ends at its last sample when the Arrangement starts.** Before, it ended at the transport's "now",
+  which by then was an arrangement beat with no relation to the clip.
+* **The lanes open when the take adds a lane** to an owner whose lanes are closed, not on every take: a later take on a
+  lane already there leaves a closed twisty closed. The lanes open through `setTimelineLanesOpen`, after the history
+  commit, so undo leaves them open (a test).
+* **Arrangement-mode texts the plan didn't list:** "Touch unavailable: this owner has no timeline lanes" (a removed
+  owner), and the "start playback" text names the arrangement. The folder text is used in both modes.
+* `state/touch-arrangement.test.ts` drives the store with hand-built statuses (reconciling before each is set, as
+  `project-sync` does), plus one test on a real `Engine`'s clock across a loop jump.

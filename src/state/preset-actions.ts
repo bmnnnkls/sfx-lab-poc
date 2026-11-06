@@ -14,7 +14,7 @@ const recordRecall = (project: Project, changes: readonly ControlValue[]): Proje
   let next = project
   for (const entry of changes) {
     const dest = touchDestination(next, entry.target, status), resolved = resolveControlTarget(project, entry.target)
-    if (!dest || beat < dest.start || dest.playing.queued) throw new Error('Armed recall needs an acknowledged active destination for every affected owner')
+    if (!dest || dest.kind !== 'clip' || beat < dest.start || dest.playing.queued) throw new Error('Armed recall needs an acknowledged active destination for every affected owner')
     if (resolved.status !== 'available' || !resolved.automatable) throw new Error('Recall control cannot be recorded')
     const key = controlTargetKey(entry.target), lanes = dest.clip.automation ?? []
     const lane = lanes.find(l => controlTargetKey(l.target) === key) ?? { id: crypto.randomUUID(), target: entry.target, enabled: true, points: [] }
