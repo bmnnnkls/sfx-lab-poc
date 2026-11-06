@@ -362,3 +362,18 @@ Signed off 2026-11-06: every row as proposed.
 * The smoke spec (`timeline/touch-arrangement.smoke.spec.ts`) also checks that playing the arrangement clears the
   mixer's "Touch unavailable" (a destination for every owner), and that the lanes stay open after the undos. The
   timeline, pulse and workbench groups pass.
+
+### Step 6: the real worklet
+
+* **One spec file, two cases** (`audio/touch-arrangement.audio.spec.ts`): a group bus's fader held while the
+  arrangement plays, and a track's fader held over two passes of a one-bar brace, both at 240 BPM. Each takes the
+  saved project, reloads, plays the arrangement from 0, and compares the capture with the bounce of the saved project
+  (`renderProject`, arrangement scope) within 2·10⁻⁵, after checking the take changes the level against the project
+  before it.
+* **The loop case checks the take spanned the passes** from the saved lane: its first point is on the brace's start
+  (a later pass replaced from there, so no guard before it) and its last is the guard just after the brace's end
+  (4 + 10⁻⁷, holding the base past it). The bounce ignores the loop, so the comparison covers the first pass.
+* **No engine change**, as planned: `core/engine` is untouched by the round.
+* Passed three times in a row each. The affected audio specs pass: timeline automation, group bus, the arrangement
+  loop, every mode of `automation.audio.spec.ts` (the session `touch` mode among them), expression lanes and recording
+  (they call `applyTouch` with a clip's span) and MIDI recording.
