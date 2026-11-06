@@ -68,7 +68,10 @@ beat is 29690.72 frames), and at several render sizes (1, 97, 128, 4096), so a r
 120 BPM can't hide (`arrangement-loop.test.ts`). A check that a guard matters is run once with the guard taken out: the
 test must fail. The arrangement loop's audio spec compares what the worklet plays, captured on the render thread, with
 an offline `Engine` given the same commands, after the jump's 5 ms tail (`arrangement-loop.audio.spec.ts`); at 240 BPM
-a bar is a second, so the passes start on whole samples at any context rate.
+a bar is a second, so the passes start on whole samples at any context rate. A take recorded by hand in a spec is
+checked after a reload against the bounce of the saved project, so the gesture's timing doesn't matter
+(`touch-arrangement.audio.spec.ts`); that it spanned loop passes is read from the saved lane (its first point on the
+brace's start, no guard before it).
 
 Unit tests sit beside the code. Two repository-wide tests guard structure: `tests/architecture.test.ts` (the layering
 in [overview](../architecture/overview.md#layers) and the package allow-list) and `tests/status-subscriptions.test.ts`

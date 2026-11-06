@@ -1,7 +1,7 @@
 ---
 status: active
-date: 2026-11-04
-note: "Rounds 1-11 are done (11d, the spectrum, in two parts: the spectrogram and spectral edits); 12 (arrangement editor) is under way, 12a done; 13 (visual refresh) comes after."
+date: 2026-11-06
+note: "Rounds 1-12 are done (12, the arrangement editor, in four parts: 12a to 12d); 13 (visual refresh) comes next, 13a before the engine PI and 13b after it."
 ---
 # UI redesign roadmap (draft)
 
@@ -334,7 +334,7 @@ view, its activity-bar button and its entry points; this round replaces what is 
 
 ## Round 12: arrangement editor
 
-**Spec signed off** 2026-11-01, every decision as proposed; see the [spec](SPEC-round-12-arrangement-editor.md). Its inventory
+**Done** 2026-11-06. **Spec signed off** 2026-11-01, every decision as proposed; see the [spec](../archive/ui-redesign/SPEC-round-12-arrangement-editor.md). Its inventory
 changes the outline below: opening a region in Clip and in the wave editor exists already (Clip lacks a region's
 playhead and lanes); there is nothing for a per-track arm to arm, since touch is the only recording, so headers get M, S
 and a lanes twisty; timeline automation is a new holder per owner, in song beats, so returns, the master and group buses
@@ -349,8 +349,11 @@ mark lane under the ruler (DOM elements, not a canvas), the engine looping the a
 that releases what was sounding for the loop's jump and a click in the ruler while playing, M, L, `[` and `]`, and
 format v13. **12c is done** 2026-11-06 ([plan](../archive/ui-redesign/PLAN-round-12c-timeline-automation.md)):
 automation lanes on the timeline for every owner, groups with a bus included, region lanes playing, returns' and the
-master's rows, format v14. 12d is to plan. The outline below is what the spec
-started from.
+master's rows, format v14. **12d is done** 2026-11-06
+([plan](../archive/ui-redesign/PLAN-round-12d-touch-arrangement.md)): touch records into each owner's timeline lane
+while the arrangement plays, groups with a bus included, over loop passes, and armed recall with it; it keeps 12c's
+rule that a timeline lane takes its target for the whole song, which corrects a sentence of the spec. The outline below
+is what the spec started from.
 
 Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACKLOG.md).
 
@@ -365,7 +368,7 @@ Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACK
 ## Round 13: visual refresh and themes, in two parts
 
 Split on 2026-11-06 around the [engine-improvements PI](REPORT-engine-gaps.md#5-the-engine-improvements-pi): the order
-is round 12d, then **13a** (foundations), then the PI, then **13b** (the design pass). The PI adds a lot of UI (power and
+is **13a** (foundations), then the PI, then **13b** (the design pass). The PI adds a lot of UI (power and
 bypass controls on nodes, dormant and sleeping states, routing nodes, modulation routes, depth handles and rings), so it
 should be built on tokens, and the visual design should be tuned once that UI exists.
 
@@ -436,5 +439,5 @@ It gets its own spec.
 | Key overrides: saved with the project or per browser | **Settled in round 10's plan:** per browser (`sfxlab:keybindings`), like layouts | round 10 |
 | Wave editor: destructive edits vs. derived samples | **Settled in round 11's [spec](../archive/ui-redesign/SPEC-round-11-wave-editor.md):** in place with undo; an edit writes a new file and moves every use onto it; bytes are never changed, only added | round 11 SPEC |
 | Stereo samples throughout the engine, or only in the editor | **Settled in round 11's spec:** throughout, instruments staying mono; old audio tracks sound the same | round 11 SPEC |
-| Arrangement automation: per owner on the timeline, or inside regions | **Settled in round 12's [spec](SPEC-round-12-arrangement-editor.md):** per owner, in song beats, for tracks, returns, the master and group buses; a region's own clip lanes play inside it, and a timeline lane on the same target wins | round 12 SPEC |
+| Arrangement automation: per owner on the timeline, or inside regions | **Settled in round 12's [spec](../archive/ui-redesign/SPEC-round-12-arrangement-editor.md):** per owner, in song beats, for tracks, returns, the master and group buses; a region's own clip lanes play inside it, and a timeline lane on the same target wins | round 12 SPEC |
 | A per-track arm in the arrangement's headers | **Settled in round 12's spec:** none; touch's global arm stays the only one until notes are recorded | round 12 SPEC |

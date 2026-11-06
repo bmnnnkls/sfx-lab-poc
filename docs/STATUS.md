@@ -10,6 +10,8 @@ Where the project stands, in one page. Updated 2026-11-06. Update it whenever a 
   human listening pass and the tag are still open ([BACKLOG](BACKLOG.md) V9).
 * Everything below is on `main`: the workbench redesign up to round 12c, the library UX round (`397460c`, PR #8), MIDI
   recording, and pitch bend, aftertouch and CC (`84a25b3`, PR #9). `main` writes project format **v15**.
+* **`feat/round-12d-touch-arrangement`** adds round 12d, touch recording into the arrangement, on top of `main`; not
+  merged yet. No format change.
 
 Current file and storage versions are in [reference/formats-and-versions.md](reference/formats-and-versions.md).
 
@@ -22,9 +24,9 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 | Control nodes, front panels, pinned panels | Shipped | [control-nodes-and-panels](architecture/control-nodes-and-panels.md) |
 | Stereo, sends and returns, master bus, mixer, Track audio | Shipped | [mixing-and-routing](architecture/mixing-and-routing.md) |
 | Track groups, group buses, Tracks tree | Shipped (redesign rounds 7–8) | [tracks-and-groups](architecture/tracks-and-groups.md) |
-| Automation (clip, return and master, and on the arrangement's timeline for every owner, group buses included), touch recording | Shipped (the timeline lanes in round 12c); touch into the timeline is round 12d | [control-and-automation](architecture/control-and-automation.md) |
+| Automation (clip, return and master, and on the arrangement's timeline for every owner, group buses included), touch recording into clips, slots and the timeline | Shipped (the timeline lanes in round 12c, touch into them in 12d) | [control-and-automation](architecture/control-and-automation.md) |
 | Browser MIDI input and learn; recording into Session slots and the Arrangement, overdub, count-in, the metronome; pitch bend, pressure and unmapped CCs played live, drawn as lanes and recorded with the notes | Shipped ([spec](archive/midi-expression/SPEC-midi-expression.md)); physical hardware not verified | [midi](architecture/midi.md) |
-| Arrangement timeline: headers, zoom, snap, a position, follow, keys, markers, the loop brace and the transport looping it, rows for returns and the master, automation lanes, a region's own lanes playing | Shipped (rounds 12a to 12c); touch recording into it is the rest of round 12 | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
+| Arrangement timeline: headers, zoom, snap, a position, follow, keys, markers, the loop brace and the transport looping it, rows for returns and the master, automation lanes, a region's own lanes playing, touch recording into the lanes | Shipped (round 12, 12a to 12d) | [clips-and-arrangement](architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline) |
 | Samples, audio clips, wave editor (stereo, in-place edits, processes, crossfades, grouped toolbar, right-click menu, keys, mouse, markers, regions, the sampler's loop, snap, *Revert to original*, a second pane, a spectrogram, band selection and spectral edits) | Shipped (round 11 done) | [samples-and-wave-editor](architecture/samples-and-wave-editor.md) |
 | Snapshots, presets, personal library, `.sfxlib` bundles | Shipped | [library-and-presets](architecture/library-and-presets.md) |
 | Workbench: docking shell, views, layouts, actions, drag and drop, command palette, keys | Shipped (redesign rounds 1–6, 9–10) | [workbench](architecture/workbench.md) |
@@ -33,34 +35,20 @@ Current file and storage versions are in [reference/formats-and-versions.md](ref
 
 ## Now and next
 
-Round 11, the wave editor, is done (2026-10-31), the last part being 11d part 2: a box drawn in the spectrogram
-selects a frequency band, and *Band gain…* and *Keep band* change only that band, in the spectrum worker
-([plan](archive/ui-redesign/PLAN-round-11d-2-spectral-edits.md)). Its parts: 11a, 11b, 11c in three parts and 11d in
-two ([archive/ui-redesign](archive/ui-redesign/README.md)).
+Round 12, the arrangement editor, is done (2026-11-06), the last part being 12d: while the arrangement plays and
+● *Touch* is armed, moving a control records it into its owner's timeline lane (groups with a bus included), over loop
+passes, a take an undo step; armed recall records there too ([plan](archive/ui-redesign/PLAN-round-12d-touch-arrangement.md)).
+Its parts: 12a (headers and the timeline frame), 12b (markers and the loop, v13), 12c (automation on the timeline,
+v14) and 12d, from one [spec](archive/ui-redesign/SPEC-round-12-arrangement-editor.md)
+([archive/ui-redesign](archive/ui-redesign/README.md)). Its hand pass is BACKLOG V11.
 
-1. **Round 12: the arrangement editor.** Track headers, automation lanes on the timeline (groups too), recording into
-   the arrangement. Outline in [active/ui-redesign-roadmap.md](active/ui-redesign-roadmap.md#round-12-arrangement-editor);
-   the [spec](active/SPEC-round-12-arrangement-editor.md) is signed off (2026-11-01, every decision as proposed). It
-   splits the round into 12a (headers and the timeline frame), 12b (markers and the loop), 12c (automation on the
-   timeline) and 12d (touch recording into the arrangement). **12a is done** (2026-11-04,
-   [plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)): headers beside the lanes with M and S, zoom to 256 px a
-   beat, a grid and snap, a position to play from, follow, view keys, and the timeline geometry shared with the wave
-   editor. **12b is done** (2026-11-04, [plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)): a mark lane
-   under the ruler with markers and a loop brace, the engine looping the arrangement sample-accurately, a seek while
-   playing that releases held notes and restarts audio in phase, M, L, `[` and `]`, and format v13. **12c is done**
-   (2026-11-06, [plan](archive/ui-redesign/PLAN-round-12c-timeline-automation.md)):
-   automation lanes on the timeline for every owner, groups with a bus included, under each owner's row; rows for returns
-   and the master; a region's own lanes playing inside it; *Show automation on timeline*; Clip showing a region's lanes
-   and playhead; format v14. 12d (touch recording into the arrangement) is to plan.
-2. **Round 12d: touch recording into the arrangement**, next. It closes round 12. The
-   [plan](active/PLAN-round-12d-touch-arrangement.md) is written and waits for sign-off.
-3. **Round 13a: UI foundations** (design tokens, no hard-coded colours, the theme mechanism with light and
+1. **Round 13a: UI foundations**, next (design tokens, no hard-coded colours, the theme mechanism with light and
    high-contrast token sets, one icon set, shared control states;
    [roadmap](active/ui-redesign-roadmap.md#round-13a-ui-foundations-before-the-engine-pi)).
-4. **The engine-improvements PI** ([report](active/REPORT-engine-gaps.md), BACKLOG X1). It starts by accepting the
+2. **The engine-improvements PI** ([report](active/REPORT-engine-gaps.md), BACKLOG X1). It starts by accepting the
    [ADR drafts](decisions/adr/README.md), written 2026-11-06 and all *proposed*. It prepares the flagship synth and
    its Factory library ([report](active/REPORT-flagship-synth.md), BACKLOG X2).
-5. **Round 13b: the design pass**, after the PI
+3. **Round 13b: the design pass**, after the PI
    ([roadmap](active/ui-redesign-roadmap.md#round-13b-the-design-pass-after-the-engine-pi)).
 
 Outside the redesign, [active/SPEC-effects-round-2.md](active/SPEC-effects-round-2.md) has parts 1–2 done, and
@@ -138,6 +126,8 @@ Each of these is a backlog item:
 * The arrangement's headers, zoom, snap, follow and keys by hand (round 12a): sticky headers on a trackpad, pinch,
   middle-drag on a mouse, auto-scroll, the keys with the focus on the timeline, a region and a field; Playwright drove
   them in Chromium only.
+* Touch into the timeline by hand (round 12d): a trackpad and a MIDI controller's knob over a loop at two tempos, a
+  seek while touching, the feedback in both themes; Playwright drove it in Chromium only.
 * Firefox and Safari for anything in the redesign: Safari loading float WAV, stereo MP3, Shift+F10.
 * Manual listening passes for rounds 11a and 11b, and a looped sampler (11c-2). The bounce hashes and audio specs stand
   in for them.

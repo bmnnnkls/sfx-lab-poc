@@ -60,7 +60,8 @@ with its keys in one order, since the rename store compares subjects as JSON.
 `state/preset-actions` commits one recall to history. Normal Read recall edits authored bases, releases affected temporary
 overrides, leaves lane points alone and reports Read-controlled values. Armed recall finishes pending Touch gestures,
 preflights every active owner/destination against the audio recording clock, and builds all base/sample changes plus
-hold lane events before committing once. `stepRecallLane` guards the previous curve just before the recall beat and holds
+hold lane events before committing once; while the arrangement plays the events go on the owners' timeline lanes at the
+song beat ([touch into the timeline](control-and-automation.md#touch-into-the-timeline)). `stepRecallLane` guards the previous curve just before the recall beat and holds
 the new value to the next authored point/loop end. Missing/unacknowledged destinations or point/lane overflow reject
 that recall atomically. Sample choices are discrete saved state, outside numeric automation. Morph uses common gesture
 transactions, including explicit pointer/key/blur/unmount cleanup (React documentation checked via Context7).

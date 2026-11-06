@@ -10,14 +10,7 @@ Reconciled with the code on 2026-10-31 (`feat/ui-redesign` after round 11c, part
 
 Planned round by round. Each round gets a plan in [`active/`](active/) before it starts.
 
-- **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline, recording into
-  the arrangement (touch recording on the timeline).
-  [Spec](active/SPEC-round-12-arrangement-editor.md) signed off 2026-11-01; 12a is done
-  ([plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)), and so is 12b, markers and the loop
-  ([plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)), and 12c, automation on the timeline
-  ([plan](archive/ui-redesign/PLAN-round-12c-timeline-automation.md)); 12d (touch into the arrangement) is
-  [planned](active/PLAN-round-12d-touch-arrangement.md), to sign off.
-- **U3a Round 13a: UI foundations**, next after 12d and before the engine PI: tokens, no hard-coded colours, the theme
+- **U3a Round 13a: UI foundations**, next, before the engine PI: tokens, no hard-coded colours, the theme
   mechanism with light and high-contrast token sets, one icon set, shared control states
   ([roadmap](active/ui-redesign-roadmap.md#round-13a-ui-foundations-before-the-engine-pi)).
 - **U3b Round 13b: the design pass**, after the engine PI
@@ -83,7 +76,7 @@ Things that shipped without the check their plan asked for.
   under 300 px, the fill-in on a long file, zooming in and scrolling on a trackpad (the columns on demand); boxes in the
   spectrogram (round 11d-2): drawing and resizing them on a trackpad, their outline in both themes, and listening to
   *Band gain…* and *Keep band* on real material (ringing, the feathers in time and frequency).
-- **V11 Hand pass for the arrangement's timeline frame** (round 12a), in Chrome, and Firefox and Safari once V3 is
+- **V11 Hand pass for the arrangement's timeline** (round 12a), in Chrome, and Firefox and Safari once V3 is
   done: the sticky headers and ruler on a trackpad scroll in both axes, at the editors' minimum size and under 600 px;
   the header splitter; pinch and ⌘-wheel zoom; middle-drag on a mouse; auto-scroll while dragging a region on a
   trackpad; snapping with Alt; follow pausing on a trackpad scroll; every key in the *Arrangement* rows with the focus
@@ -93,7 +86,9 @@ Things that shipped without the check their plan asked for.
   notes and an unwarped audio region across the jump, and to a click in the ruler while playing (notes cut, audio
   rejoining in phase). Round 12c adds: drawing, dragging and box-selecting points on a timeline lane with a trackpad and
   a mouse, at high and low zoom; the lanes and the corner twisty in both themes and at 120 px; *+ Lane*'s picker by
-  keyboard; and listening to a bus fader lane and a region's own filter sweep on the timeline.
+  keyboard; and listening to a bus fader lane and a region's own filter sweep on the timeline. Round 12d adds: touch
+  on a knob with a trackpad, and on a MIDI controller's knob (V5), over a 2-bar loop at 90 and 140 BPM; a seek while
+  touching; the feedback and the ● in a lane header in both themes.
 - **V12 Library listening pass** (library round): each Factory instrument and effect auditioned once (▶ in the
   Library; the tests check only that every instrument is finite, audible and not blown up, before and after a
   Randomize roll), and a copy of Low Light's stab on a new track played beside the original.
@@ -150,7 +145,7 @@ Things that shipped without the check their plan asked for.
 ## Engine
 
 - **X1 The engine-improvements PI**: seven iterations (I0–I6) closing the gaps in
-  [REPORT-engine-gaps](active/REPORT-engine-gaps.md), after rounds 12d and 13a. It starts with accepting the
+  [REPORT-engine-gaps](active/REPORT-engine-gaps.md), after round 13a (12d is done). It starts with accepting the
   [ADR drafts](decisions/adr/README.md). It covers P2 in part (sleep for idle effects) and BACKLOG G5 optionally (the
   feedback pair).
 - **X2 The flagship synth and the Factory library**, built on the PI

@@ -1,11 +1,13 @@
 ---
-status: active
+status: done
 date: 2026-11-06
-note: "Part 4 of the round 12 spec: touch recording into the arrangement. Written 2026-11-06 on feat/round-12d-touch-arrangement; signed off 2026-11-06, every decision as proposed."
+shipped_in: architecture/control-and-automation.md
+note: "Part 4 of the round 12 spec: touch recording into the arrangement, the last part of round 12. Signed off 2026-11-06, every decision as proposed; done 2026-11-06 on feat/round-12d-touch-arrangement. No engine or format change. The hand pass is BACKLOG V11."
 ---
 # Round 12d: touch recording into the arrangement
 
-Status: **signed off** 2026-11-06, every decision as proposed. Written 2026-11-06. Part of the [UI redesign](ui-redesign-roadmap.md#round-12-arrangement-editor).
+Status: **done** 2026-11-06; the plan was signed off 2026-11-06, every decision as proposed. Written 2026-11-06. Part
+of the [UI redesign](../../active/ui-redesign-roadmap.md#round-12-arrangement-editor).
 
 This plan carries out part 4 of the signed-off [round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested
 split). It implements the spec's § 4 (touch recording into the arrangement) on top of 12b's loop and 12c's timeline
@@ -16,7 +18,7 @@ lanes, both done. The inventory was taken on `main` at `84a25b3` (`feat/midi-rec
 * One of them corrects a sentence of the spec (§ Decisions, row 1).
 
 It is the last part of round 12. After it come round 13a and the
-[engine-improvements PI](REPORT-engine-gaps.md#order-with-the-redesign).
+[engine-improvements PI](../../active/REPORT-engine-gaps.md#order-with-the-redesign).
 
 ## Goal
 
@@ -377,3 +379,21 @@ Signed off 2026-11-06: every row as proposed.
 * Passed three times in a row each. The affected audio specs pass: timeline automation, group bus, the arrangement
   loop, every mode of `automation.audio.spec.ts` (the session `touch` mode among them), expression lanes and recording
   (they call `applyTouch` with a clip's span) and MIDI recording.
+
+### Step 7: docs
+
+* **The round 12 spec is archived with the plans**, its § 4 noting decision 1's correction where the sentence stands.
+* **V11's title** became "the arrangement's timeline": it holds the hand passes of all four parts now.
+
+### Where the notes went
+
+* Invariants (the destination per mode, take time, writing a take with a span, how a take ends, the feedback, armed
+  recall on the timeline, a timeline lane taking its target for the whole song) are in
+  [control-and-automation](../../architecture/control-and-automation.md#touch-into-the-timeline), with pointers from
+  [clips-and-arrangement](../../architecture/clips-and-arrangement.md) and
+  [library-and-presets](../../architecture/library-and-presets.md).
+* Decisions 173 to 179 in [decisions](../../decisions/README.md).
+* Gotchas: touch right after ▶ *Arrangement*, `finishTouch`'s end, reconciling a test status before setting it
+  ([gotchas](../../dev/gotchas.md)); checking a hand-made take against the bounce of the saved project
+  ([verification](../../dev/verification.md)).
+* The hand pass in [BACKLOG](../../BACKLOG.md) V11, and in STATUS's "Not verified".

@@ -494,7 +494,7 @@ Decided 2026-11-06:
 
 | When | What |
 |---|---|
-| Next | **Round 12d**, touch recording into the arrangement (its signed-off spec, §4 of [SPEC-round-12](SPEC-round-12-arrangement-editor.md)). It closes round 12. Its tests then guard I1's rewrite of the automation path. |
+| Next | **Round 12d**, touch recording into the arrangement (its signed-off spec, §4 of [SPEC-round-12](../archive/ui-redesign/SPEC-round-12-arrangement-editor.md)). It closes round 12. Its tests then guard I1's rewrite of the automation path. |
 | Then | **Round 13a, UI foundations**, scoped in the [roadmap](ui-redesign-roadmap.md#round-13a-ui-foundations-before-the-engine-pi): design tokens, no hard-coded colours, the theme mechanism with light and high-contrast token sets, one icon set, shared control states. New UI in the PI is built on them. |
 | Then | **This PI**, I0 to I6. Its UI (power and bypass controls in headers, dormant and sleep states, routing-node cards, the route list, depth handles and rings) uses 13a's tokens and icons. |
 | After the PI | **Round 13b, the design pass**: the look and feel of the whole app with the PI's UI in place. Its own spec. |

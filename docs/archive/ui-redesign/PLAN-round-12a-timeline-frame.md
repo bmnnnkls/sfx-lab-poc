@@ -7,7 +7,7 @@ note: "Part 1 of the round 12 spec: headers beside the lanes, zoom, snap, a posi
 # Round 12a: the timeline frame
 
 Status: **done** 2026-11-04; plan signed off 2026-11-01, every decision as proposed. Written 2026-11-01. Part of the [UI redesign](README.md).
-Carries out part 1 of the signed-off [round 12 spec](../../active/SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
+Carries out part 1 of the signed-off [round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
 § 1, the timeline frame and the headers, and the two fixes its inventory found. The inventory was taken on
 `feat/ui-redesign` at `49804e9` (round 11 done, its spec archived). The spec's decisions are settled and not repeated
 here; this plan only adds the ones it raises. Where it differs from the spec, it says so.
@@ -39,7 +39,7 @@ The arrangement is a timeline that can be moved around in. After this part:
 
 ## Inventory
 
-What 12a touches, beyond the [spec's inventory](../../active/SPEC-round-12-arrangement-editor.md#inventory).
+What 12a touches, beyond the [spec's inventory](SPEC-round-12-arrangement-editor.md#inventory).
 
 ### The view's structure
 
