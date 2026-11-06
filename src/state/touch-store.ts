@@ -98,7 +98,7 @@ export const finishTouch = (source: string, endBeat = touchBeatNow()) => {
       if (end > last.beat) samples.push({ ...last, id: crypto.randomUUID(), beat: end })
       const key = controlTargetKey(capture.target), lanes = clip.automation ?? []
       const lane: AutomationLane = lanes.find((l) => controlTargetKey(l.target) === key) ?? { id: crypto.randomUUID(), target: capture.target, enabled: true, points: [] }
-      const next = applyTouch(lane, samples, capture.length, capture.base)
+      const next = applyTouch(lane, samples, { offset: 0, length: capture.length, extent: capture.length }, capture.base)
       const updated = lanes.some((l) => l.id === lane.id) ? lanes.map((l) => l.id === lane.id ? next : l) : [...lanes, next]
       if (updated.length > MAX_AUTOMATION_LANES) throw new Error('Touch lane limit reached; take discarded')
       project = slots ? setAutomationSlot(project, owner, slots.findIndex((s) => s?.id === clip.id), { ...clip, automation: updated }) : owner.kind === 'track' ? setClipAutomation(project, owner.trackId, clip.id, updated) : project

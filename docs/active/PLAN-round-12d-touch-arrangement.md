@@ -1,11 +1,11 @@
 ---
 status: active
 date: 2026-11-06
-note: "Part 4 of the round 12 spec: touch recording into the arrangement. Written 2026-11-06 on feat/round-12d-touch-arrangement; to sign off."
+note: "Part 4 of the round 12 spec: touch recording into the arrangement. Written 2026-11-06 on feat/round-12d-touch-arrangement; signed off 2026-11-06, every decision as proposed."
 ---
 # Round 12d: touch recording into the arrangement
 
-Status: **to sign off**. Written 2026-11-06. Part of the [UI redesign](ui-redesign-roadmap.md#round-12-arrangement-editor).
+Status: **signed off** 2026-11-06, every decision as proposed. Written 2026-11-06. Part of the [UI redesign](ui-redesign-roadmap.md#round-12-arrangement-editor).
 
 This plan carries out part 4 of the signed-off [round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested
 split). It implements the spec's § 4 (touch recording into the arrangement) on top of 12b's loop and 12c's timeline
@@ -282,6 +282,8 @@ No format change: timeline lanes are already v15.
 
 ## Decisions to sign off
 
+Signed off 2026-11-06: every row as proposed.
+
 | Question | Proposed | Alternative |
 |---|---|---|
 | A take on a target a region automates | **Keep 12c's rule** (the timeline lane takes the target for the whole song) and warn in the feedback; correct the spec's sentence | Change the engine so a timeline lane wins only between its first and last point, region lanes playing outside (a punch-in; changes how 12c's hand-drawn lanes play outside their points, and the constant-range proof) |
@@ -292,4 +294,14 @@ No format change: timeline lanes are already v15.
 
 ## Changes made while implementing
 
-(Filled in while building.)
+### Step 1: `applyTouch` with a span
+
+* **The split at the brace's start is its own function**, `applyTimelineTouch(lane, samples, brace, base)` in
+  `core/automation/record.ts`, so the store only names the brace. Both parts meet at a point on the brace's start, at
+  the value the take had there, so neither leaves a gap or a ramp across the join.
+* **A pass's shift is `pass × length`, not `offset + pass × length`:** lane beats of every pass fall in
+  `[offset, offset + length]`. The guard before a pass is written whenever it starts after 0, so a looped pass keeps
+  what lies before the brace.
+* **The clip path's equality test** pins the output of the function before the change (taken from `HEAD` once) for a
+  take over three passes of a looped clip, holds included.
+* The MIDI recorder's expression lanes (`core/record/expression.ts`) call `applyTouch` too; they pass a clip's span.

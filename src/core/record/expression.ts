@@ -152,7 +152,7 @@ export const applyExpression = (lane: AutomationLane, pieces: readonly (readonly
     if (!piece.length) continue
     const points: AutomationPoint[] = piece.map((sample) => ({ id: '', beat: Math.min(length, Math.max(0, sample.beat)), value: Math.min(1, Math.max(0, sample.value)), interpolation: 'linear' }))
     try {
-      current = applyTouch(current, simplifyTouch(points), length, base)
+      current = applyTouch(current, simplifyTouch(points), { offset: 0, length, extent: length }, base)
     } catch {
       return { lane: current, applied: i, overflow: true }
     }
