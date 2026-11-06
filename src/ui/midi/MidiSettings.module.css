@@ -14,3 +14,7 @@
 .latency input[type='number'] {
   width: 4.5em;
 }
+
+.mapping input[type='number'] {
+  width: 4em;
+}

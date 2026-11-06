@@ -2,7 +2,7 @@ import { compileAutomation, compileTimelineAutomation } from '../automation'
 import { projectWithControlValues } from '../control'
 import type { EngineCommand } from '../engine'
 import { type ModuleLibrary, type Patch, engineNoteGraph, flattenPatch } from '../patch'
-import { type AudioTrack, type BusGroup, type ChannelRoute, type InstrumentTrack, type Project, type SendLevels, type Track, activeArrangementLoop, busGroups, mixRouting, panOf } from '../project'
+import { type AudioTrack, type BusGroup, type ChannelRoute, type InstrumentTrack, type Project, type SendLevels, type Track, activeArrangementLoop, busGroups, mixRouting, panOf, trackBendRange } from '../project'
 
 /** Identity of a patch's wiring, ignoring params and canvas positions. */
 const structureOf = (patch: Patch): string =>
@@ -94,6 +94,9 @@ const diffInstrumentTrack = (
   if (prev.voices !== next.voices) {
     commands.push({ type: 'track/setVoices', trackId: next.id, voices: next.voices })
   }
+  if (trackBendRange(prev) !== trackBendRange(next)) {
+    commands.push({ type: 'track/setBendRange', trackId: next.id, bendRange: trackBendRange(next) })
+  }
   return commands
 }
 
@@ -177,6 +180,7 @@ const addTrackCommand = (track: Track, route: ChannelRoute, modules: ModuleLibra
         clips: track.clips,
         ...mix,
         voices: track.voices,
+        bendRange: trackBendRange(track),
       }
   }
 }

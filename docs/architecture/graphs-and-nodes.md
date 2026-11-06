@@ -1,6 +1,7 @@
 # Graphs and nodes
 
-Voices, the modulation and effects nodes, modules (reusable sub-patches), the note graph and tempo-synced delay timing.
+Voices, the keyboard's wheel, pressure and CCs, the modulation and effects nodes, modules (reusable sub-patches), the
+note graph and tempo-synced delay timing.
 
 ## Polyphony
 
@@ -22,6 +23,23 @@ Voices, the modulation and effects nodes, modules (reusable sub-patches), the no
   optional field with a safe default needs no format-version bump).
 * Measured on the engine alone (Node, this container): 3 tracks / ~3 voices ≈ 2 % of the real-time budget, 8 tracks ×
   16 voices ≈ 25 %.
+
+## The keyboard's wheel, pressure and CCs
+
+An instrument track's patch hears what the keyboard does besides notes ([midi](midi.md#pitch-bend-pressure-and-cc)).
+
+* **The pitch wheel bends every voice** by the track's bend range (±2 semitones by default): `Voice` sets
+  `NoteState.frequency` from the pitch and the wheel every block, so whatever follows the note's frequency bends with
+  it (oscillators, the sampler, key tracking, the comb), with no change to the patch.
+* **The Note node** has *Pressure* (0 to 1) and *Bend* (−1 to 1) after *Freq*, *Gate* and *Vel*; ports are saved by id,
+  so old patches are unchanged. To use the wheel for something else than pitch, set the track's bend range to 0 and
+  wire *Bend*. Outside a voice (shared, global and insert stages) they are 0, like the note.
+* **MIDI CC** (`dsp/nodes/midi-cc.node.ts`, *Sources*, global): *CC* (0 to 119, default 1, shown with its common
+  name, `format: 'midiCC'`, no socket) and one output, *Value*, the track's value of that CC from 0 to 1, from
+  `ProcessContext.expression`; 0 outside an instrument's patch. Being global it reads the same in every voice. An
+  output fed only by it still sounds only while a note does, since the Output node runs per voice.
+* These values change once per block; a patch that steps audibly (a filter swept by a 7-bit CC) puts a *Smooth* node
+  after them.
 
 ## Modulation and effects nodes
 

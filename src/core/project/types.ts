@@ -108,6 +108,8 @@ export interface InstrumentTrack extends TrackBase {
    * selected.
    */
   readonly midiInput?: MidiTrackInput
+  /** How far the pitch wheel bends, in whole semitones either way (0 to 24); absent is 2. */
+  readonly bendRange?: number
 }
 
 /** Plays audio clips (library samples) straight to the mix. */

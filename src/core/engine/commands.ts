@@ -1,6 +1,7 @@
 import type { AutomationTrack, TimelineAutomation } from '../automation'
 import type { ControlValue } from '../control'
 import type { LiveNoteAddress } from './live-notes'
+import type { ExpressionControl } from '../midi'
 import type { Patch } from '../patch'
 import type { ArrangementClip, AudioClip, Clip, SendLevels } from '../project'
 import type { SampleData, SampleLoop } from '../sample'
@@ -20,6 +21,8 @@ export type EngineCommand =
   | { readonly type: 'automation/overrides'; readonly values: readonly ControlValue[]; readonly revision?: number }
   | { readonly type: 'track/noteOn'; readonly trackId: string; readonly note: LiveNoteAddress; readonly pitch: number; readonly velocity: number }
   | { readonly type: 'track/noteOff'; readonly trackId: string; readonly note: LiveNoteAddress }
+  /** The keyboard's wheel, pressure or an unmapped CC on an instrument track, from `sourceId` on `channel` (0 to 15). */
+  | { readonly type: 'track/expression'; readonly trackId: string; readonly sourceId: string; readonly channel: number; readonly control: ExpressionControl; readonly value: number }
   | { readonly type: 'notes/sustain'; readonly sourceId: string; readonly channel: number; readonly down: boolean }
   /** Disconnect, disable or destination change: cancels this source everywhere, including delayed notes. */
   | { readonly type: 'notes/releaseSource'; readonly sourceId: string; readonly channel?: number }
@@ -53,6 +56,8 @@ export type EngineCommand =
       readonly muted?: boolean
       readonly soloed?: boolean
       readonly voices: number
+      /** How far the pitch wheel bends, in semitones either way; absent is 2. */
+      readonly bendRange?: number
       /** Absent means nothing is sent. */
       readonly sends?: SendLevels
       /** The bus it sums into; absent = the master. */
@@ -108,6 +113,7 @@ export type EngineCommand =
   | { readonly type: 'master/setSample'; readonly nodeId: string; readonly sampleId: string | null }
   | { readonly type: 'track/setNoteGraph'; readonly trackId: string; readonly graph: Patch }
   | { readonly type: 'track/setVoices'; readonly trackId: string; readonly voices: number }
+  | { readonly type: 'track/setBendRange'; readonly trackId: string; readonly bendRange: number }
   | { readonly type: 'track/setClips'; readonly trackId: string; readonly clips: readonly (Clip | null)[] }
   | { readonly type: 'track/setAudioClips'; readonly trackId: string; readonly clips: readonly (AudioClip | null)[] }
   | { readonly type: 'track/setVolume'; readonly trackId: string; readonly volume: number }

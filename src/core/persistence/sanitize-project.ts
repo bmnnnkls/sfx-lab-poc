@@ -15,7 +15,7 @@ import {
   type Project,
   type Track,
 } from '../project'
-import { sanitizeMidiTrackInput } from '../midi'
+import { BEND_RANGE, sanitizeMidiTrackInput } from '../midi'
 import { type ModuleDefinition, createDefaultFxGraph, createDefaultMasterGraph, createDefaultNoteGraph, createDefaultReturnGraph } from '../patch'
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
@@ -99,6 +99,8 @@ const sanitizeTrack = (
   )
   const midiInput = raw.midiInput === undefined ? undefined : sanitizeMidiTrackInput(raw.midiInput)
   if (raw.midiInput !== undefined && midiInput === undefined) warn(`${where}: invalid MIDI input dropped; the track follows the selection`)
+  const bendRange = raw.bendRange === undefined || raw.bendRange === BEND_RANGE.default ? undefined : readBendRange(raw.bendRange)
+  if (raw.bendRange !== undefined && raw.bendRange !== BEND_RANGE.default && bendRange === undefined) warn(`${where}: invalid bend range dropped; the track bends ±${BEND_RANGE.default}`)
 
   return {
     kind: 'instrument',
@@ -116,8 +118,14 @@ const sanitizeTrack = (
     clips,
     // Absent: the track follows the selection, as in files from before track inputs.
     ...(midiInput && { midiInput }),
+    // Absent: ±2, as in files from before the bend range.
+    ...(bendRange !== undefined && { bendRange }),
   }
 }
+
+/** A saved bend range: a whole number of semitones, 0 to 24. Anything else is not one. */
+const readBendRange = (raw: unknown): number | undefined =>
+  typeof raw === 'number' && Number.isInteger(raw) && raw >= BEND_RANGE.min && raw <= BEND_RANGE.max ? raw : undefined
 
 const masterVolume = (raw: unknown): number => clamp(finiteNumber(raw, 1), 0, 1)
 

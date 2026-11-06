@@ -235,7 +235,7 @@ export {
   unpinPanel,
 } from './pins'
 export { duplicateTrack } from './track-duplicate'
-export { type MidiFollow, liveNoteRouting, liveNoteTracks, setTrackMidiInput } from './midi-routes'
+export { type MidiFollow, liveNoteRouting, liveNoteTracks, setTrackBendRange, setTrackMidiInput, trackBendRange } from './midi-routes'
 export { copyNodes, pasteNodes, type CopiedNodes } from './node-copy'
 export { duplicateScene, insertScene, removeScene } from './scenes'
 

@@ -7,7 +7,7 @@ import { createMidiInput } from './midi-input'
 const port = (id = 'keys') => ({ id, name: id, state: 'connected', onmidimessage: null, close: vi.fn(async () => {}) }) as unknown as MIDIInput
 const fakeAccess = (...inputs: MIDIInput[]) => ({ inputs: new Map(inputs.map((p) => [p.id, p])), onstatechange: null }) as unknown as MIDIAccess
 const send = (p: MIDIInput, bytes: number[], timeStamp?: number) => p.onmidimessage?.call(p, { data: new Uint8Array(bytes), timeStamp } as MIDIMessageEvent)
-const controls = (): EngineControls => ({ noteOn: vi.fn(), noteOff: vi.fn(), sustain: vi.fn(), releaseSource: vi.fn(), panic: vi.fn(), play: vi.fn(), stop: vi.fn(), stopTrack: vi.fn(), launchClip: vi.fn(), launchAutomation: vi.fn(), launchScene: vi.fn(), auditionNote: vi.fn(), playArrangement: vi.fn() })
+const controls = (): EngineControls => ({ noteOn: vi.fn(), noteOff: vi.fn(), sustain: vi.fn(), expression: vi.fn(), releaseSource: vi.fn(), panic: vi.fn(), play: vi.fn(), stop: vi.fn(), stopTrack: vi.fn(), launchClip: vi.fn(), launchAutomation: vi.fn(), launchScene: vi.fn(), auditionNote: vi.fn(), playArrangement: vi.fn() })
 const target = { kind: 'mixer' as const, owner: { kind: 'master' as const }, control: 'volume' as const }
 const mapping = (extra: Partial<MidiMapping> = {}): MidiMapping => ({ id: 'binding', deviceId: 'keys', deviceName: 'keys', channel: 0, cc: 21, target, pickup: true, ...extra })
 const learn = (p: MIDIInput, bytes = [0xb0, 21, 10]) => { useMidiStore.getState().learn(target); send(p, bytes) }
@@ -359,6 +359,67 @@ describe('track inputs', () => {
     expect(c.releaseSource).not.toHaveBeenCalled()
     send(p, [0x89, 36, 0]); send(p, [0x80, 60, 0])
     expect(c.noteOff).toHaveBeenCalledTimes(2)
+    dispose()
+  })
+})
+
+describe('pitch bend, pressure and unmapped CCs', () => {
+  const instruments = () => useProjectStore.getState().project.tracks.filter((track) => track.kind === 'instrument').map((track) => track.id)
+  const sent = (c: EngineControls) => vi.mocked(c.expression).mock.calls.map(([trackId, source, channel, control, value]) => [trackId, source, channel, control, Number(value.toFixed(4))])
+
+  it('goes where a note-on from that input and channel would', async () => {
+    const [selected, drums] = instruments() as [string, string]
+    useSelectionStore.getState().selectTrack(selected)
+    useProjectStore.getState().setTrackMidiInput(drums, { channel: 9 })
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0xe0, 127, 127]); send(p, [0xd9, 127]); send(p, [0xb0, 1, 127])
+    expect(sent(c)).toEqual([
+      [selected, 'midi:keys', 0, 'pitchBend', 1],
+      [drums, 'midi:keys', 9, 'pressure', 1],
+      [selected, 'midi:keys', 0, { cc: 1 }, 1],
+    ])
+    dispose()
+  })
+
+  it('a mapped CC moves its mapping and is not expression; one confirming MIDI learn neither', async () => {
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    editMidiMappings(() => [mapping()])
+    send(p, [0xb0, 21, 64])
+    learn(p, [0xb0, 22, 10])
+    expect(c.expression).not.toHaveBeenCalled()
+    send(p, [0xb0, 23, 10])
+    expect(sent(c)).toEqual([[useSelectionStore.getState().trackId, 'midi:keys', 0, { cc: 23 }, Number((10 / 127).toFixed(4))]])
+    dispose()
+  })
+
+  it('folds polyphonic pressure into channel pressure, and a key-up drops its share', async () => {
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0x90, 60, 100]); send(p, [0x90, 64, 100])
+    send(p, [0xa0, 60, 100]); send(p, [0xa0, 64, 50]); send(p, [0xd0, 20]); send(p, [0x80, 60, 0]); send(p, [0x80, 64, 0])
+    expect(sent(c).map((call) => call[4])).toEqual([100, 100, 100, 50, 20].map((v) => Number((v / 127).toFixed(4))))
+    dispose()
+  })
+
+  it('puts a track back at rest when routing takes it away, and leaves the sustain pedal and channel modes alone', async () => {
+    const [selected, other] = instruments() as [string, string]
+    useSelectionStore.getState().selectTrack(selected)
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0xe0, 0, 96]); send(p, [0xb0, 74, 64])
+    vi.mocked(c.expression).mockClear()
+    useSelectionStore.getState().selectTrack(other)
+    expect(sent(c)).toEqual([[selected, 'midi:keys', 0, 'pitchBend', 0], [selected, 'midi:keys', 0, { cc: 74 }, 0]])
+    vi.mocked(c.expression).mockClear()
+    send(p, [0xb0, 64, 127]); send(p, [0xb0, 121, 0])
+    expect(c.expression).not.toHaveBeenCalled()
+    // Reset all controllers releases the source and channel, which the engine takes as back to rest.
+    expect(c.releaseSource).toHaveBeenCalledWith('midi:keys', 0)
+    // After it, a routing change has nothing of this channel's left to put back.
+    useSelectionStore.getState().selectTrack(selected)
+    expect(c.expression).not.toHaveBeenCalled()
     dispose()
   })
 })

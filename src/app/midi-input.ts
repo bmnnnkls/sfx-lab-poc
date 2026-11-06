@@ -1,4 +1,4 @@
-import { type ClockPosition, type LiveNoteAddress, type MidiFollow, liveNoteRouting, liveNoteTracks, parseMidiMessage } from '@core'
+import { type ClockPosition, EXPRESSION_REST, type ExpressionControl, type LiveNoteAddress, MIDI_MAX, type MidiFollow, PressureFold, expressionKey, isExpressionCC, liveNoteRouting, liveNoteTracks, parseMidiMessage } from '@core'
 import { type EngineControls, type MidiService, recordNote, recordPosition, recordPedal, useMidiStore, useProjectStore, useRecordStore, useSelectionStore } from '@state'
 import { createMidiControls } from './midi-controls'
 
@@ -18,9 +18,41 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
   }
   const cc = createMidiControls()
   const sourceId = (id: string) => `midi:${id}`
+  /** Per input and channel: polyphonic pressure folded into channel pressure. */
+  const folds = new Map<string, PressureFold>()
+  /** Per input and channel: the tracks its wheel, pressure and CCs went to, and which controls, to put back at rest. */
+  const expressed = new Map<string, { readonly tracks: Set<string>; readonly controls: Map<string, ExpressionControl> }>()
+  const portChannel = (portId: string, channel: number) => JSON.stringify([portId, channel])
+  const fold = (portId: string, channel: number) => {
+    const key = portChannel(portId, channel)
+    let found = folds.get(key)
+    if (!found) folds.set(key, found = new PressureFold())
+    return found
+  }
+  /** The wheel, pressure or an unmapped CC goes where a note-on from that input and channel would. */
+  const express = (portId: string, channel: number, control: ExpressionControl, value: number) => {
+    const key = portChannel(portId, channel)
+    let entry = expressed.get(key)
+    if (!entry) expressed.set(key, entry = { tracks: new Set(), controls: new Map() })
+    entry.controls.set(expressionKey(control), control)
+    for (const trackId of liveNoteTracks(useProjectStore.getState().project, portId, channel, follow())) {
+      entry.tracks.add(trackId)
+      controls.expression(trackId, sourceId(portId), channel, control, value)
+    }
+  }
+  const forgetExpression = (portId?: string, channel?: number) => {
+    for (const map of [folds, expressed]) {
+      for (const key of map.keys()) {
+        const [p, ch] = JSON.parse(key) as [string, number]
+        if ((portId === undefined || p === portId) && (channel === undefined || ch === channel)) map.delete(key)
+      }
+    }
+  }
+  /** Releasing a source also puts its expression back at rest in the engine; here only the bookkeeping goes. */
   const release = (id: string, channel?: number) => {
     controls.releaseSource(sourceId(id), channel)
     cc.release(id, channel)
+    forgetExpression(id, channel)
     for (const [key, presses] of keys) if (presses.some((press) => press.some((p) => p.note.sourceId === sourceId(id) && (channel === undefined || p.note.channel === channel)))) keys.delete(key)
   }
   const releaseAll = () => { for (const id of ports.keys()) release(id); cc.reset() }
@@ -38,6 +70,17 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
         .filter((press) => press.length > 0)
       if (kept.length > 0) keys.set(key, kept)
       else keys.delete(key)
+    }
+    // A track that no longer hears an input's channel gets its wheel, pressure and CCs from there back at rest; one that
+    // starts hearing it takes the next message.
+    for (const [key, entry] of expressed) {
+      const [portId, channel] = JSON.parse(key) as [string, number]
+      const taking = new Set(liveNoteTracks(project, portId, channel, now))
+      for (const trackId of entry.tracks) {
+        if (taking.has(trackId)) continue
+        entry.tracks.delete(trackId)
+        for (const control of entry.controls.values()) controls.expression(trackId, sourceId(portId), channel, control, EXPRESSION_REST)
+      }
     }
   }
   /**
@@ -63,10 +106,15 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
         controls.sustain(sourceId(port.id), channel, message.value >= 64)
         recordPedal(sourceId(port.id), channel, message.value >= 64, recordPosition(timestamp))
       }
+      // 120 to 127 are channel mode messages (all sound off, reset all controllers, all notes off…): each releases the
+      // source and channel, which also puts its expression back at rest.
       else if (message.cc >= 120) release(port.id, channel)
-      else cc.receive(port.id, port.name ?? port.id, message, timestamp)
+      else if (!cc.receive(port.id, port.name ?? port.id, message, timestamp) && isExpressionCC(message.cc)) express(port.id, channel, { cc: message.cc }, message.value / MIDI_MAX)
       return
     }
+    if (message.kind === 'pitchBend') { express(port.id, channel, 'pitchBend', message.value); return }
+    if (message.kind === 'pressure') { express(port.id, channel, 'pressure', fold(port.id, channel).set(message.value)); return }
+    if (message.kind === 'polyPressure') { express(port.id, channel, 'pressure', fold(port.id, channel).key(message.note, message.value)); return }
     const key = JSON.stringify([port.id, channel, message.note])
     if (message.kind === 'noteOn') {
       const trackIds = liveNoteTracks(useProjectStore.getState().project, port.id, channel, follow())
@@ -89,6 +137,9 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
         controls.noteOff(trackId, note)
         record(trackId, 'off', port.id, channel, message.note, 0, beat)
       }
+      // A key that comes up takes its polyphonic pressure with it.
+      const folded = folds.get(portChannel(port.id, channel))?.keyUp(message.note)
+      if (folded !== undefined) express(port.id, channel, 'pressure', folded)
     }
   }
   const detach = (id: string, port: MIDIInput) => {
@@ -127,11 +178,11 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
       ++generation; enabled = false
       if (access) access.onstatechange = null
       for (const [id, port] of ports) detach(id, port)
-      access = undefined; keys.clear(); cc.reset()
+      access = undefined; keys.clear(); cc.reset(); forgetExpression()
       useMidiStore.getState().cancelLearn()
       useMidiStore.setState({ status: 'disabled', inputs: [] })
     },
-    panic() { keys.clear(); cc.release(); cc.reset(); useMidiStore.getState().cancelLearn(); controls.panic() },
+    panic() { keys.clear(); forgetExpression(); cc.release(); cc.reset(); useMidiStore.getState().cancelLearn(); controls.panic() },
   }
   const connect = () => {
     let route = routing()
@@ -143,7 +194,7 @@ export const createMidiInput = (controls: EngineControls, request: (() => Promis
       if (next.disabledInputs !== prev.disabledInputs) refresh()
     })
     const project = useProjectStore.subscribe((next, prev) => {
-      if (next.documentEpoch !== prev.documentEpoch) { keys.clear(); cc.reset(); controls.panic(); useMidiStore.getState().cancelLearn(); useMidiStore.setState({ pinnedTrackId: null }); route = routing() }
+      if (next.documentEpoch !== prev.documentEpoch) { keys.clear(); forgetExpression(); cc.reset(); controls.panic(); useMidiStore.getState().cancelLearn(); useMidiStore.setState({ pinnedTrackId: null }); route = routing() }
       else {
         const pinned = useMidiStore.getState().pinnedTrackId
         if (pinned && !next.project.tracks.some((t) => t.id === pinned && t.kind === 'instrument')) useMidiStore.setState({ pinnedTrackId: null })

@@ -3,7 +3,8 @@ import { parseProject, serializeProject } from '../persistence'
 import { diffProject } from '../sync'
 import { createDemoProject } from './demo-project'
 import { setTrackVoices } from './edit'
-import { liveNoteRouting, liveNoteTracks, setTrackMidiInput } from './midi-routes'
+import { duplicateTrack } from './track-duplicate'
+import { liveNoteRouting, liveNoteTracks, setTrackBendRange, setTrackMidiInput, trackBendRange } from './midi-routes'
 import type { Project } from './types'
 
 const project = createDemoProject()
@@ -113,5 +114,47 @@ describe('the file', () => {
     if (!result.ok) throw new Error('did not load')
     expect(result.project.tracks.find((track) => track.id === a)).not.toHaveProperty('midiInput')
     expect(result.warnings.some((warning) => warning.includes('invalid MIDI input'))).toBe(true)
+  })
+})
+
+describe('the bend range', () => {
+  const instrument = (value: Project, id: string) => value.tracks.find((track) => track.id === id)
+  const range = (value: Project, id: string) => {
+    const track = instrument(value, id)
+    return track?.kind === 'instrument' ? trackBendRange(track) : undefined
+  }
+
+  it('is 2 by default, kept as no field, and rounded and clamped when set', () => {
+    expect(range(project, a)).toBe(2)
+    expect(range(setTrackBendRange(project, a, 12.4), a)).toBe(12)
+    expect(range(setTrackBendRange(project, a, 40), a)).toBe(24)
+    expect(range(setTrackBendRange(project, a, -1), a)).toBe(0)
+    expect(instrument(setTrackBendRange(setTrackBendRange(project, a, 7), a, 2), a)).not.toHaveProperty('bendRange')
+    expect(setTrackBendRange(project, a, 2)).toBe(project)
+  })
+
+  it('reaches the engine on a change and with a new track', () => {
+    const set = setTrackBendRange(project, a, 12)
+    expect(diffProject(project, set)).toEqual([{ type: 'track/setBendRange', trackId: a, bendRange: 12 }])
+    expect(diffProject(null, set).find((command) => command.type === 'track/add' && command.trackId === a)).toMatchObject({ bendRange: 12 })
+  })
+
+  it('is saved, loaded and copied by Duplicate; a malformed one is dropped with a warning', () => {
+    const set = setTrackBendRange(project, a, 7)
+    const result = parseProject(serializeProject(set))
+    if (!result.ok) throw new Error('did not load')
+    expect(instrument(result.project, a)).toMatchObject({ bendRange: 7 })
+    expect(instrument(result.project, b)).not.toHaveProperty('bendRange')
+    const copied = duplicateTrack(set, a)
+    expect(copied.project.tracks.filter((track) => track.kind === 'instrument' && track.bendRange === 7)).toHaveLength(2)
+
+    for (const bad of [2.5, 30, -1, 'ten']) {
+      const raw = JSON.parse(serializeProject(project))
+      raw.project.tracks.find((track: { id: string }) => track.id === a).bendRange = bad
+      const loaded = parseProject(JSON.stringify(raw))
+      if (!loaded.ok) throw new Error('did not load')
+      expect(instrument(loaded.project, a)).not.toHaveProperty('bendRange')
+      expect(loaded.warnings.some((warning) => warning.includes('invalid bend range'))).toBe(true)
+    }
   })
 })

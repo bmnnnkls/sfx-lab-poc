@@ -75,6 +75,7 @@ import {
   setTrackSoloed,
   setTrackVoices,
   setTrackMidiInput,
+  setTrackBendRange,
   setTrackSend,
   setTrackVolume,
   undo,
@@ -208,6 +209,8 @@ interface ProjectActions {
   setTrackVoices(trackId: string, voices: number): void
   /** Gives an instrument track its own MIDI input, or (undefined) lets it follow the selection again. One undo step. */
   setTrackMidiInput(trackId: string, input: MidiTrackInput | undefined): void
+  /** Sets how far an instrument track's pitch wheel bends, 0 to 24 semitones. One undo step. */
+  setTrackBendRange(trackId: string, range: number): void
   /**
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
    * Rapid edits sharing a `mergeKey` (a slider or node drag) collapse into one undo step.
@@ -429,6 +432,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       ),
     setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
     setTrackMidiInput: (trackId, input) => edit((project) => setTrackMidiInput(project, trackId, input)),
+    setTrackBendRange: (trackId, range) => edit((project) => setTrackBendRange(project, trackId, range)),
 
     updatePatch: (trackId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { trackId }, change), mergeKey),

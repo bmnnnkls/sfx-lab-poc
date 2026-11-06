@@ -1,6 +1,7 @@
 # MIDI
 
-Parsing, held-note input to the engine, browser MIDI devices, MIDI learn and recording notes into clips.
+Parsing, held-note input to the engine, browser MIDI devices, MIDI learn, pitch bend, pressure and CC, and recording
+notes into clips.
 
 ## Browser MIDI input and learn
 
@@ -16,7 +17,8 @@ on 2026-10-17; secure context and browser permission are required. No output por
 The adapter reuses `parseMidiMessage` and converts its musician channels (1–16) once at the engine boundary (0–15).
 Each note-on allocates a per-press ID. Physical note-offs consume FIFO queues per input/channel/pitch; zero velocity is
 already an off from the parser. Input lifecycle changes (disconnect, disable) release affected sources. CC64 drives source/channel sustain; reserved CC120–127
-release that source/channel. Project document-epoch changes discard adapter queues and panic, even with identical IDs.
+release that source/channel. Pitch bend, pressure and the CCs no mapping takes are expression
+([Pitch bend, pressure and CC](#pitch-bend-pressure-and-cc)). Project document-epoch changes discard adapter queues and panic, even with identical IDs.
 Visible Panic clears queues/pedals/generated events without stopping transport; Stop also forgets physical ownership.
 Fresh presses are required after cleanup. The held-note engine retains release/effect tails. Live notes edit a project
 only through the recorder, into a clip being recorded ([Recording notes into a clip](#recording-notes-into-a-clip)).
@@ -48,6 +50,47 @@ input* or a device, and a channel), one undo step each, and a track with its own
 tag on its session header. The field is optional and needs no format bump (an older build drops it and the track
 follows the selection again); the sanitizer drops an input whose device or channel is malformed, with a warning,
 rather than widen it to any device or any channel. Library items and presets don't carry it; *Duplicate* copies it.
+
+## Pitch bend, pressure and CC
+
+What a keyboard does besides notes reaches the instrument tracks it plays as **expression** (`core/midi/expression.ts`):
+the pitch wheel (−1 to 1), channel pressure (0 to 1) and the CCs no mapping takes (0 to 119 except 64, each 0 to 1).
+Each is 0 at rest.
+
+* **Parsing.** `parseMidiMessage` reads pitch bend (14 bits, LSB first; 8192 is 0, and 0 and 16383 are exactly −1 and
+  1), channel pressure (a 2-byte message) and polyphonic pressure.
+* **Where it goes.** The adapter sends each message to the tracks `liveNoteTracks` gives for its input and channel at
+  that moment, where a note-on would go, through `EngineControls.expression` (`track/expression`), at once: these are
+  engine commands, not project edits, and a bend coalesced to a frame would step. A CC goes to `app/midi-controls`
+  first; its `receive` returns whether a mapping or MIDI learn used it, and only one it didn't use is expression. CC64
+  stays the pedal.
+* **Polyphonic pressure** is folded into channel pressure per input and channel (`PressureFold`): a track's pressure is
+  the highest of the channel's and the held keys'. A key-up drops its share. Per-note pressure belongs with MPE
+  ([BACKLOG](../BACKLOG.md) D2).
+* **Back to rest.** In the engine each control remembers the source and channel that set it last, and
+  `notes/releaseSource` (a disconnect, a disabled input, CC120–127, *Reset all controllers* among them) puts back only
+  those; `notes/panic` and `transport/stop` put back everything. When routing changes, the adapter sends rest for the
+  controls an input and channel set on each track that no longer hears it; a track that starts hearing it takes the
+  next message. Two sources on one track: the last message wins.
+* **In the engine** (`TrackRuntime`): one `TrackExpression` per instrument track, kept across instrument rebuilds
+  (`setPatch`, `setVoices`) and handed to each `Instrument`. Each block, a sounding voice's `NoteState.frequency` is
+  `bentFrequency(pitch, bend, bendRange)` and its `pressure` and `bend` are the track's, so a note started while bent
+  starts bent. Values change once per block (at most 128 frames), unsmoothed. `ProcessContext.expression` reaches the
+  three stages of an instrument's patch and nothing else.
+* **The bend range** (`InstrumentTrack.bendRange`, whole semitones 0 to 24, absent meaning 2) is *Bend ±* in each
+  *Track inputs* row of MIDI settings (`setTrackBendRange`, one undo step) and reaches the engine on `track/add` and
+  `track/setBendRange` from `diffProject`. It is an optional field with no format bump: an older build drops it and
+  bends ±2. The sanitizer drops anything but an integer 0 to 24, with a warning. *Duplicate* keeps it; library
+  instrument items (a patch, a note graph and voices) and presets don't carry it.
+* **In patches:** the Note node's *Pressure* and *Bend* outputs and the MIDI CC node
+  ([graphs and nodes](graphs-and-nodes.md#the-keyboards-wheel-pressure-and-ccs)).
+* `describeMidiMessage` names the new kinds (*Bend +0.42 on ch 1*, *Pressure C4 80 on ch 1*); no view shows received
+  messages.
+* **Tests.** Unit tests cover the parser, the fold, bending in the instrument and the engine, resets per source, the
+  bend range in the project, diff and file, and the adapter's routing with fake ports. In the real worklet, an audio
+  test reads a held note's bent pitch as a level (through *Hz to MIDI*) and checks a full bend at ranges 2 and 12, the
+  centre and ■; another checks the mod wheel reaching a MIDI CC node until Panic. **No physical keyboard or controller
+  was checked** ([BACKLOG](../BACKLOG.md) V5).
 
 ## Recording notes into a clip
 
@@ -259,7 +302,8 @@ worklet port for real-output stopped-note/sustain/effect/panic checks.
 
 ## MIDI parsing foundation
 
-`core/midi` parses note-on/off and 7-bit CC messages without browser or device dependencies. Velocity-zero
-note-on becomes note-off; malformed bytes and unsupported messages are ignored. CCs remain raw messages here:
+`core/midi` parses note-on/off, 7-bit CC, pitch bend and channel and polyphonic pressure messages without browser or
+device dependencies. Velocity-zero note-on becomes note-off; malformed bytes and unsupported messages (clock, program
+change, SysEx) are ignored. CCs remain raw messages here:
 the browser adapter interprets sustain/channel-mode cleanup and converts parser channels (1–16) to engine channels
 (0–15). The source-aware held-note path ships in slice 2a; browser input and learned mappings ship in slice 2b.

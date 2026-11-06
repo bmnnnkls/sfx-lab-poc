@@ -1,9 +1,25 @@
-import { type MidiTrackInput, midiInputMatches, sanitizeMidiTrackInput } from '../midi'
+import { BEND_RANGE, type MidiTrackInput, clampBendRange, midiInputMatches, sanitizeMidiTrackInput } from '../midi'
 import { updateInstrument } from './edit'
 import type { InstrumentTrack, Project } from './types'
 
 const sameInput = (a: MidiTrackInput | undefined, b: MidiTrackInput | undefined): boolean =>
   a === b || (!!a && !!b && a.deviceId === b.deviceId && a.deviceName === b.deviceName && a.channel === b.channel)
+
+/** How far a track's pitch wheel bends, in semitones either way. */
+export const trackBendRange = (track: InstrumentTrack): number => track.bendRange ?? BEND_RANGE.default
+
+/**
+ * Sets how far an instrument track's pitch wheel bends: whole semitones, 0 to 24. The default (2) is kept as no field.
+ * The same project when nothing changes.
+ */
+export const setTrackBendRange = (project: Project, trackId: string, range: number): Project => {
+  const next = clampBendRange(range)
+  return updateInstrument(project, trackId, (track) => {
+    if (trackBendRange(track) === next) return track
+    const { bendRange: _previous, ...rest } = track
+    return next === BEND_RANGE.default ? rest : { ...rest, bendRange: next }
+  })
+}
 
 /**
  * Gives an instrument track its own MIDI input (`{}` for any input on any channel), or, with undefined, lets it follow

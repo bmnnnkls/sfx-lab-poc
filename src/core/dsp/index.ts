@@ -11,6 +11,7 @@ export type {
   DspNode,
   NodeDefinition,
   NoteState,
+  TrackExpression,
   ParamSpec,
   PortKind,
   PortSpec,

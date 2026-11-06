@@ -98,15 +98,19 @@ export const createMidiControls = (schedule: FlushScheduler = nextFrame) => {
     }
     useMidiStore.setState((s) => ({ feedback: Object.fromEntries(Object.entries(s.feedback).filter(([id]) => states.has(id))) }))
   }
-  const receive = (deviceId: string, deviceName: string, message: Extract<MidiMessage, { kind: 'cc' }>, timestamp = performance.now()) => {
-    if (!isLearnableCC(message.cc)) return
+  /**
+   * Acts on a CC that is mapped, or confirms one during MIDI learn. Returns whether it used the message: one it did not
+   * is free to be expression on the tracks the keyboard plays.
+   */
+  const receive = (deviceId: string, deviceName: string, message: Extract<MidiMessage, { kind: 'cc' }>, timestamp = performance.now()): boolean => {
+    if (!isLearnableCC(message.cc)) return false
     const channel = message.channel - 1
     const source = { deviceId, channel, cc: message.cc }
     const store = useMidiStore.getState()
-    if (store.conflict && midiSourceKey(store.conflict.mapping) === midiSourceKey(source)) return
+    if (store.conflict && midiSourceKey(store.conflict.mapping) === midiSourceKey(source)) return true
     if (store.learning) {
       const resolved = resolveControlTarget(useProjectStore.getState().project, store.learning.target)
-      if (resolved.status !== 'available' || !resolved.automatable) { store.cancelLearn(); return }
+      if (resolved.status !== 'available' || !resolved.automatable) { store.cancelLearn(); return true }
       const mapping: MidiMapping = { ...source, deviceName, id: store.learning.replaceId ?? crypto.randomUUID(), target: store.learning.target, pickup: !discrete(store.learning.target, resolved.spec) }
       const existing = useProjectStore.getState().project.midiMappings?.find((m) => midiSourceKey(m) === midiSourceKey(mapping) && m.id !== store.learning?.replaceId)
       if (existing) useMidiStore.setState({ learning: undefined, conflict: { mapping, existingId: existing.id, replaceId: store.learning.replaceId } })
@@ -115,16 +119,16 @@ export const createMidiControls = (schedule: FlushScheduler = nextFrame) => {
         store.cancelLearn()
       }
       // The confirming message never changes the target's value.
-      return
+      return true
     }
     const project = useProjectStore.getState().project
     const mapping = project.midiMappings?.find((m) => midiSourceKey(m) === midiSourceKey(source))
-    if (!mapping) return
+    if (!mapping) return false
     let state = states.get(mapping.id)
     const fresh = state?.project !== project || state.mapping !== mapping
     const resolved = !fresh && state?.resolved ? state.resolved : resolveControlTarget(project, mapping.target)
     const feedback = (shown: Feedback['state'], value?: number) => { feedbacks.set(mapping.id, { state: shown, value }); later() }
-    if (resolved.status !== 'available' || !resolved.automatable) { writes.delete(mapping.id); states.delete(mapping.id); feedback('unavailable'); return }
+    if (resolved.status !== 'available' || !resolved.automatable) { writes.delete(mapping.id); states.delete(mapping.id); feedback('unavailable'); return true }
     const override = useControlStore.getState().overrides.find((entry) => controlTargetKey(entry.target) === controlTargetKey(mapping.target))
     const playing = useControlStore.getState().playback.find((entry) => controlTargetKey(entry.target) === controlTargetKey(mapping.target))
     // A value still waiting to be written is where the control already is, as far as this source is concerned.
@@ -145,7 +149,7 @@ export const createMidiControls = (schedule: FlushScheduler = nextFrame) => {
     const crossed = state.previous !== undefined && (state.previous - current) * (position - current) <= 0
     if (!mapping.pickup || stepped || Math.abs(position - current) <= 0.5 / 127 || crossed) state.active = true
     state.previous = position
-    if (!state.active) { feedback('pickup', override?.value ?? playing?.value ?? resolved.baseValue); return }
+    if (!state.active) { feedback('pickup', override?.value ?? playing?.value ?? resolved.baseValue); return true }
     const value = controlFromNormalized(resolved.spec, position)
     if (stepped) {
       if (state.momentary && value >= 0.5 && !state.held) state.gesture.begin()
@@ -159,6 +163,7 @@ export const createMidiControls = (schedule: FlushScheduler = nextFrame) => {
     }
     state.expected = controlToNormalized(resolved.spec, value)
     feedback('active', value)
+    return true
   }
   const reconcile = (mappings: readonly MidiMapping[]) => {
     const changed = new Set<string>()

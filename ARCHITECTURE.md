@@ -10,10 +10,10 @@ edit reaches the audio thread.
 | File | Covers (former sections of this file) |
 |---|---|
 | [overview.md](docs/architecture/overview.md) | Layers · `core` modules · Data flow |
-| [graphs-and-nodes.md](docs/architecture/graphs-and-nodes.md) | Polyphony · Modulation and effects nodes · Modules (reusable sub-patches) · The note graph (MIDI effects) · Delay timing and tempo transitions |
+| [graphs-and-nodes.md](docs/architecture/graphs-and-nodes.md) | Polyphony · The keyboard's wheel, pressure and CCs · Modulation and effects nodes · Modules (reusable sub-patches) · The note graph (MIDI effects) · Delay timing and tempo transitions |
 | [control-nodes-and-panels.md](docs/architecture/control-nodes-and-panels.md) | Control nodes, parameter sockets and the global stage · Front panel · Pinned panels |
 | [control-and-automation.md](docs/architecture/control-and-automation.md) | Shared control targets and effective values · Clip and return/master automation · Touch automation recording |
-| [midi.md](docs/architecture/midi.md) | MIDI parsing · Held-note engine input · Browser MIDI input and learn · Recording notes into a clip |
+| [midi.md](docs/architecture/midi.md) | MIDI parsing · Held-note engine input · Browser MIDI input and learn · Pitch bend, pressure and CC · Recording notes into a clip |
 | [mixing-and-routing.md](docs/architecture/mixing-and-routing.md) | Effects on tracks (the insert graph) · Stereo · Return tracks and sends · The master bus · Mixer (mute and solo rules) · Track audio |
 | [tracks-and-groups.md](docs/architecture/tracks-and-groups.md) | Tracks and groups · Group buses · The Tracks tree |
 | [clips-and-arrangement.md](docs/architecture/clips-and-arrangement.md) | Editing clips (piano roll) · Groove · Audio clips · The arrangement |

@@ -1,3 +1,4 @@
+import { CC_NAMES } from '@core'
 import { formatParam, fromSlider, snapToStep, toSlider } from '../shared/param-scale'
 import { paramTooltip } from '../shared/tooltip/tooltip-text'
 import { NumberField } from './NumberField'
@@ -32,8 +33,9 @@ export const ParamRow = ({ row, onChange, onCreateControl, onUnwire, canUnwire =
       ) : (
         <div className={styles.rowControl}>
           <NumberField className={styles.number} label={`${spec.label} value`} value={value} disabled={driven} onChange={(next) => onChange(clampToSpec(spec, next))} />
-          {spec.unit && spec.format !== 'midiNote' && <span className={styles.unit}>{spec.unit}</span>}
+          {spec.unit && !spec.format && <span className={styles.unit}>{spec.unit}</span>}
           {spec.format === 'midiNote' && <span className={styles.unit}>{formatParam(spec, value)}</span>}
+          {spec.format === 'midiCC' && CC_NAMES[Math.round(value)] && <span className={styles.unit}>{CC_NAMES[Math.round(value)]}</span>}
           {showsSlider(spec) && (
             <input
               type="range"

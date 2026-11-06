@@ -5,6 +5,7 @@ import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
 import type { TapBoard } from '../notefx'
 import { createDefaultMasterGraph } from '../patch'
 import { SampleBank } from '../sample'
+import { isExpressionControl } from '../midi'
 import type { LauncherStatus, NoteScope } from '../session'
 import { Transport } from '../transport'
 import { AudioBoard } from './audio-board'
@@ -138,14 +139,19 @@ export class Engine {
       case 'track/noteOff':
         this.instrument(command.trackId)?.noteOff(command.note)
         break
+      case 'track/expression':
+        if (isExpressionControl(command.control)) this.instrument(command.trackId)?.express(command.sourceId, command.channel, command.control, command.value)
+        break
       case 'notes/sustain':
         for (const track of this.tracks.values()) if (track instanceof TrackRuntime) track.sustain(command.sourceId, command.channel, command.down)
         break
       case 'notes/releaseSource':
         this.cancelNotes({ source: liveSource(command.sourceId), ...(command.channel === undefined ? {} : { channel: command.channel }) })
+        for (const track of this.tracks.values()) if (track instanceof TrackRuntime) track.restExpression(command.sourceId, command.channel)
         break
       case 'notes/panic':
         this.cancelNotes()
+        this.restExpression()
         break
       case 'transport/play':
         // During a count-in the transport is about to start.
@@ -236,6 +242,9 @@ export class Engine {
       case 'track/setVoices':
         this.cancelTrackNotes(command.trackId)
         this.instrument(command.trackId)?.setVoices(command.voices)
+        break
+      case 'track/setBendRange':
+        this.instrument(command.trackId)?.setBendRange(command.bendRange)
         break
       case 'track/setClips':
         this.instrument(command.trackId)?.setClips(command.clips)
@@ -475,6 +484,12 @@ export class Engine {
     this.automation.reset()
     this.transport.stop()
     for (const track of this.tracks.values()) track.reset()
+    this.restExpression()
+  }
+
+  /** Puts every instrument track's wheel, pressure and CCs back at rest (Panic, ■). */
+  private restExpression(): void {
+    for (const track of this.tracks.values()) if (track instanceof TrackRuntime) track.restExpression()
   }
 
   /** Plays with the session launchers as the event source (switching back from the arrangement if needed). */
@@ -840,6 +855,7 @@ export class Engine {
           command.voices,
           this.sampleRate,
           this.samples,
+          command.bendRange,
         )
         track.setSends(command.sends ?? {})
         return track

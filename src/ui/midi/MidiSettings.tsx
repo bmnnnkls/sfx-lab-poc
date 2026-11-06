@@ -1,4 +1,4 @@
-import { type ControlTarget, type InstrumentTrack, controlTargetKey, midiSourceKey, resolveControlTarget } from '@core'
+import { BEND_RANGE, type ControlTarget, type InstrumentTrack, controlTargetKey, midiSourceKey, resolveControlTarget, trackBendRange } from '@core'
 import { LATENCY_OFFSET_MS, type MidiInputInfo, editMidiMappings, useMidi, useMidiStore, useProjectStore, useControlStore, useRecordSettings } from '@state'
 import { useEffect, useState } from 'react'
 import styles from './MidiSettings.module.css'
@@ -18,6 +18,7 @@ const ANY = 'any'
 const TrackInputRow = ({ track, inputs }: { track: InstrumentTrack; inputs: readonly MidiInputInfo[] }) => {
   const input = track.midiInput
   const set = useProjectStore((s) => s.setTrackMidiInput)
+  const setBendRange = useProjectStore((s) => s.setTrackBendRange)
   const device = input === undefined ? FOLLOW : input.deviceId ?? ANY
   const missing = input?.deviceId !== undefined && !inputs.some((i) => i.id === input.deviceId)
   return <div className={styles.mapping} data-testid="midi-track-input">
@@ -39,6 +40,9 @@ const TrackInputRow = ({ track, inputs }: { track: InstrumentTrack; inputs: read
     }}>
       <option value={ANY}>Any channel</option>{Array.from({ length: 16 }, (_, ch) => <option key={ch} value={ch}>{ch + 1}</option>)}
     </select></label>
+    <label title="How far the pitch wheel bends this track, in semitones either way">Bend ± <input type="number" aria-label={`Bend range of ${track.name}`} min={BEND_RANGE.min} max={BEND_RANGE.max} step={1} value={trackBendRange(track)} onChange={(e) => {
+      if (e.target.value !== '') setBendRange(track.id, Number(e.target.value))
+    }} /></label>
     {input && <output>Always listens: {describeTrackInput(input, inputs.find((i) => i.id === input.deviceId)?.name)}</output>}
   </div>
 }
