@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { type ControlTarget, type ControlValue, type AutomationPoint, type AutomationLane, type EngineStatus, type Project, MAX_AUTOMATION_LANES, MAX_TOUCH_BEATS, MAX_TOUCH_SAMPLES, applyTouch, automationSlotsOf, controlTargetKey, controlToNormalized, resolveControlTarget, setClipAutomation, setAutomationSlot, commit } from '@core'
+import { type ClockPosition, type ControlTarget, type ControlValue, type AutomationPoint, type AutomationLane, type EngineStatus, type Project, MAX_AUTOMATION_LANES, MAX_TOUCH_BEATS, MAX_TOUCH_SAMPLES, applyTouch, automationSlotsOf, controlTargetKey, controlToNormalized, resolveControlTarget, setClipAutomation, setAutomationSlot, commit } from '@core'
 import { useProjectStore } from './project-store'
 import { useControlStore } from './control-store'
 import { useStatusStore } from './status-store'
@@ -15,9 +15,17 @@ export const useTouchStore = create<TouchState>((set) => ({
   armed: false, recording: [], feedback: '',
   arm: (armed) => { if (!armed) finishTouches(); set({ armed, feedback: armed ? 'Touch armed · play a clip or automation slot' : '' }) },
 }))
-let clock: ((agoMs?: number) => number | undefined) | undefined
-export const setTouchClock = (read?: (agoMs?: number) => number | undefined) => { clock = read }
-export const touchBeatNow = (agoMs = 0) => clock ? clock(agoMs) : useStatusStore.getState().status?.beat
+/** The transport `agoMs` before now: a position (beat, run and loop pass), or just a beat (as tests give it). */
+type PositionReader = (agoMs?: number) => ClockPosition | number | undefined
+let clock: PositionReader | undefined
+/** Connects touch to the audio clock (`AudioHost.recordingPosition`); called without a reader to disconnect. */
+export const setTouchClock = (read?: PositionReader) => { clock = read }
+/** Where the transport was `agoMs` before now; a bare beat takes the status's run and loop pass. */
+export const touchPositionNow = (agoMs = 0): ClockPosition | undefined => {
+  const status = useStatusStore.getState().status, read = clock ? clock(agoMs) : status?.beat
+  return read === undefined ? undefined : typeof read === 'number' ? { beat: read, lap: status?.lap ?? 0, run: status?.run ?? 0 } : read
+}
+export const touchBeatNow = (agoMs = 0) => touchPositionNow(agoMs)?.beat
 export const touchDestination = (project: Project, target: ControlTarget, status: EngineStatus | null) => {
   const owner = target.owner
   // A group has no clips or slots, so nothing plays its lanes: touch authors its base.

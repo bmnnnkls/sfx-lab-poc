@@ -305,3 +305,12 @@ Signed off 2026-11-06: every row as proposed.
 * **The clip path's equality test** pins the output of the function before the change (taken from `HEAD` once) for a
   take over three passes of a looped clip, holds included.
 * The MIDI recorder's expression lanes (`core/record/expression.ts`) call `applyTouch` too; they pass a clip's span.
+
+### Step 2: the touch clock as positions
+
+* **A bare beat takes the status's run and loop pass**, not `{ lap: 0, run: 0 }` as `record-clock.ts`'s `asPosition`
+  does: touch compares a sample's run with the status's (step 3), and a test's beat-only reader would otherwise look
+  like a seek on the first status with a run. With no reader at all, touch reads the status, as before.
+* **Two host stubs in `app` tests named `recordingBeat`** (`touch-runtime`, `project-sync`); they now give
+  `recordingPosition`, which `project-sync` wires. `touch-runtime`'s still returns a bare beat, so it is the beat-only
+  case end to end.
