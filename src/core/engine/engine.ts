@@ -5,20 +5,25 @@ import { FxGraph, MAX_BLOCK_FRAMES } from '../instrument'
 import type { TapBoard } from '../notefx'
 import { createDefaultMasterGraph } from '../patch'
 import { SampleBank } from '../sample'
+import { type ExpressionControl, LANE_SOURCE, isExpressionControl } from '../midi'
 import type { LauncherStatus, NoteScope } from '../session'
 import { Transport } from '../transport'
 import { AudioBoard } from './audio-board'
 import { AudioTaps } from './audio-taps'
 import { AudioTrackRuntime } from './audio-track-runtime'
-import type { EngineCommand } from './commands'
+import type { CountInStart, EngineCommand } from './commands'
 import { GroupBusRuntime } from './group-bus-runtime'
 import { type MixChannel, mixState } from './mix-state'
 import type { MixContext, PlayableTrack, ScheduledAction, PlaybackMode } from './playable-track'
 import { ReturnTrackRuntime } from './return-track-runtime'
+import { Metronome } from './metronome'
 import { SamplePreview } from './sample-preview'
 import type { EngineStatus } from './status'
 import { clipSource, liveSource } from './live-notes'
 import { TrackRuntime } from './track-runtime'
+
+/** Beats in a bar a count-in counts (4/4, as the metronome accents). */
+const COUNT_IN_BAR_BEATS = 4
 
 interface ScheduledEvent {
   readonly frame: number
@@ -35,7 +40,7 @@ export class Engine {
   private readonly automation = new EngineAutomation((target, value, baseValue) => this.writeAutomation(target, value, baseValue))
   private collecting: { frame: number; frames: number } | null = null
   /** Curves live until every audio subrun of their planning horizon has consumed them. */
-  private targetMetadata = new WeakMap<ControlTarget, { key: string; nodeId: string }>()
+  private targetMetadata = new WeakMap<ControlTarget, { key: string; nodeId: string; expression?: ExpressionControl }>()
   private readonly curves = new Map<string, { target: ControlTarget; values: Float64Array; baseValue: number; used: boolean }>()
   /** Reused per horizon; a queued launch may clear overrides before its earlier samples are mixed. */
   private readonly horizonEntryOverrides = new Map<string, number>()
@@ -44,6 +49,8 @@ export class Engine {
   private readonly tracks = new Map<string, PlayableTrack>()
   private readonly samples = new SampleBank()
   private readonly preview: SamplePreview
+  /** Clicks the beats while the transport plays; mixed after the master, and off unless told (so a bounce never clicks). */
+  private readonly metronome: Metronome
   private peak = 0
   private noteBeat = 0
   /** The master fader, applied after the master graph and before the soft clip. */
@@ -79,12 +86,26 @@ export class Engine {
   private readonly masterInput = new Float32Array(STEREO_FRAMES)
   /** Which event source the tracks follow: the session launchers or the arrangement timeline. */
   private playbackMode: PlaybackMode = 'session'
-  /** The last loop jump in the current `render` call: the frame it fell on and the beat it went to. */
+  /**
+   * The last place in the current `render` call where the clock jumped: a loop jump, or the transport starting after a
+   * count-in. The frame it fell on and the beat it went to.
+   */
   private jump: { readonly frame: number; readonly beat: number } | null = null
+  /**
+   * The transport's run: one more at every start (from stopped, or a count-in's start) and every seek while playing,
+   * and the loop jumps within it (`lap`). Beats go back at a jump, so a recorder tells passes and runs apart by these.
+   */
+  private run = 0
+  private lap = 0
+  /** Set while a count-in's own start runs: it is part of the run the count-in began. */
+  private keepRun = false
+  /** A count-in running: the beats left to click, and what starts when it ends. */
+  private counting: { left: number; readonly bars: number; then: CountInStart } | null = null
 
   constructor(private readonly sampleRate: number) {
     this.transport = new Transport(sampleRate)
     this.preview = new SamplePreview(sampleRate)
+    this.metronome = new Metronome(sampleRate)
     this.master = new FxGraph(createDefaultMasterGraph(), sampleRate, this.samples)
   }
 
@@ -102,13 +123,14 @@ export class Engine {
     switch (command.type) {
       case 'automation/launch':
         this.automation.launchSlot(command.owner, command.slotId)
+        if (!this.transport.playing) this.newRun()
         this.transport.play()
         break
       case 'automation/configure':
         this.curves.clear()
         this.targetMetadata = new WeakMap()
-        this.automation.configure(command.tracks, new Map([...this.tracks].map(([id, track]) => [id, track.status()])))
-        for (const [id, track] of this.tracks) if (track instanceof TrackRuntime) track.setAutomationNoteGraph(command.tracks.find((t) => t.trackId === id)?.noteGraph)
+        this.automation.configure(command.tracks, new Map([...this.tracks].map(([id, track]) => [id, track.status()])), command.timeline)
+        for (const [id, track] of this.tracks) if (track instanceof TrackRuntime) track.setAutomationNoteGraph(command.tracks.find((t) => t.trackId === id)?.noteGraph ?? command.timeline?.noteGraphs?.[id])
         break
       case 'automation/overrides': this.automation.setOverrides(command.values, command.revision); break
       case 'track/noteOn':
@@ -117,20 +139,32 @@ export class Engine {
       case 'track/noteOff':
         this.instrument(command.trackId)?.noteOff(command.note)
         break
+      case 'track/expression':
+        if (isExpressionControl(command.control)) this.instrument(command.trackId)?.express(command.sourceId, command.channel, command.control, command.value)
+        break
       case 'notes/sustain':
         for (const track of this.tracks.values()) if (track instanceof TrackRuntime) track.sustain(command.sourceId, command.channel, command.down)
         break
       case 'notes/releaseSource':
         this.cancelNotes({ source: liveSource(command.sourceId), ...(command.channel === undefined ? {} : { channel: command.channel }) })
+        for (const track of this.tracks.values()) if (track instanceof TrackRuntime) track.restExpression(command.sourceId, command.channel)
         break
       case 'notes/panic':
         this.cancelNotes()
+        this.restExpression()
         break
       case 'transport/play':
-        this.playSession()
+        // During a count-in the transport is about to start.
+        if (!this.counting) this.playSession()
+        break
+      case 'transport/countIn':
+        this.countIn(command.bars, command.then)
         break
       case 'transport/stop':
         this.stopTransport()
+        break
+      case 'transport/metronome':
+        this.metronome.set(command.on, command.level)
         break
       case 'transport/setTempo':
         this.transport.setTempo(command.bpm)
@@ -142,12 +176,17 @@ export class Engine {
         for (const track of this.tracks.values()) track.setArrangement(command.clips)
         break
       case 'arrangement/play':
+        // During a count-in, an arrangement start becomes what it starts.
+        if (this.counting) { this.counting.then = command; break }
         // A seek while the arrangement plays releases what was sounding, as the loop's jump does.
         if (this.playbackMode === 'arrangement' && this.transport.playing) {
+          this.newRun()
           this.seekArrangement(command.fromBeat ?? 0)
           break
         }
+        this.newRun()
         this.playbackMode = 'arrangement'
+        this.automation.setArrangement(true)
         this.transport.seek(command.fromBeat ?? 0)
         this.transport.play()
         for (const track of this.tracks.values()) track.setMode('arrangement')
@@ -203,6 +242,9 @@ export class Engine {
       case 'track/setVoices':
         this.cancelTrackNotes(command.trackId)
         this.instrument(command.trackId)?.setVoices(command.voices)
+        break
+      case 'track/setBendRange':
+        this.instrument(command.trackId)?.setBendRange(command.bendRange)
         break
       case 'track/setClips':
         this.instrument(command.trackId)?.setClips(command.clips)
@@ -270,16 +312,58 @@ export class Engine {
         this.tracks.get(command.trackId)?.stopClip()
         break
       case 'clip/launch':
-        this.automation.launch(command.trackId, command.clipId)
-        this.tracks.get(command.trackId)?.launchClip(command.clipId)
-        this.playSession()
-        break
       case 'scene/launch':
-        this.automation.scene(command.scene, command.trackIds)
-        for (const [id, track] of this.tracks) if (!command.trackIds || command.trackIds.includes(id)) track.launchScene(command.scene)
-        this.playSession()
+        // During a count-in, a launch is queued and starts with the transport.
+        this.queueLaunch(command)
+        if (!this.counting) this.playSession()
         break
     }
+  }
+
+  /** Queues a clip or a scene on the launchers, in session mode, without starting the transport. */
+  private queueLaunch(command: Extract<CountInStart, { type: 'clip/launch' | 'scene/launch' }>): void {
+    this.sessionMode()
+    if (command.type === 'clip/launch') {
+      this.automation.launch(command.trackId, command.clipId)
+      this.tracks.get(command.trackId)?.launchClip(command.clipId)
+      return
+    }
+    this.automation.scene(command.scene, command.trackIds)
+    for (const [id, track] of this.tracks) if (!command.trackIds || command.trackIds.includes(id)) track.launchScene(command.scene)
+  }
+
+  /**
+   * Starts a count-in from a stopped transport: `bars` bars of clicks, then `then` on the frame it ends. Launches are
+   * queued now, so they show as waiting. While playing, or with no bars, `then` runs at once; a second count-in
+   * replaces what the first starts.
+   */
+  private countIn(bars: number, then: CountInStart): void {
+    const whole = Number.isFinite(bars) ? Math.max(0, Math.round(bars)) : 0
+    if (this.transport.playing || (whole === 0 && !this.counting)) { this.apply(then); return }
+    if (then.type === 'clip/launch' || then.type === 'scene/launch') this.queueLaunch(then)
+    if (this.counting) { this.counting.then = then; return }
+    this.newRun()
+    this.counting = { left: whole * COUNT_IN_BAR_BEATS, bars: whole, then }
+  }
+
+  /** Ends the count-in on this frame: the transport starts as `then` says. */
+  private endCountIn(): void {
+    const then = this.counting!.then
+    this.counting = null
+    this.keepRun = true
+    try {
+      if (then.type === 'arrangement/play') this.apply(then)
+      else this.playSession()
+    } finally {
+      this.keepRun = false
+    }
+  }
+
+  /** A new run of the transport: a start or a seek. Not for a count-in's own start, which continues its run. */
+  private newRun(): void {
+    if (this.keepRun) return
+    this.run++
+    this.lap = 0
   }
 
   /** Fills `left`/`right` with audio, advancing the transport. Buffers may be any length. */
@@ -293,11 +377,27 @@ export class Engine {
       // A block never crosses the loop's end: it stops on the last sample before it, and the position jumps back.
       const toLoopEnd = this.playbackMode === 'arrangement' && this.transport.playing ? this.transport.framesToLoopEnd() : null
       if (toLoopEnd !== null) frames = Math.min(frames, toLoopEnd)
+      const beatsPerSample = this.transport.beatsPerSample
+      // A count-in ends on a block's edge too: the transport starts on its first sample.
+      const counting = this.counting
+      if (counting) frames = Math.min(frames, Math.max(1, Math.ceil(counting.left / beatsPerSample - 1e-6)))
+      const fromBeat = this.transport.playing ? this.transport.positionBeats : counting ? -counting.left : null
       this.renderBlock(left, right, offset, frames)
+      // The click is not part of the mix: it comes after the master graph and fader, as the preview does. A count-in
+      // clicks whether the metronome is on or not.
+      this.metronome.mixInto(left, right, offset, frames, fromBeat, beatsPerSample, counting !== null)
       offset += frames
+      if (counting && this.counting === counting) {
+        counting.left -= frames * beatsPerSample
+        if (counting.left <= 1e-9) {
+          this.endCountIn()
+          if (this.transport.playing) this.jump = { frame: offset, beat: this.transport.positionBeats }
+        }
+      }
       const beat = toLoopEnd === null ? null : this.transport.loopJump()
       if (beat !== null) {
         this.seekArrangement(beat, this.transport.loop!.from)
+        this.lap++
         this.jump = { frame: offset, beat }
       }
     }
@@ -308,14 +408,23 @@ export class Engine {
     this.peak = Math.max(this.peak, peakOf(left), peakOf(right))
   }
 
-  /** The last loop jump of the latest `render` call, `frame` samples into it, or null; the recording clock anchors on it. */
-  lastJump(): { readonly frame: number; readonly beat: number } | null {
+  /**
+   * The last place the clock jumped in the latest `render` call (a loop jump, or the start after a count-in), `frame`
+   * samples into it, or null; the recording clock anchors on it.
+   */
+  lastClockEdge(): { readonly frame: number; readonly beat: number } | null {
     return this.jump
   }
 
   /** Clock-only snapshot: no readout traversal, peak reset or audio-state mutation. */
-  clock(): Pick<EngineStatus, 'tempo' | 'playing' | 'beat'> {
-    return { tempo: this.transport.tempo, playing: this.transport.playing, beat: this.transport.positionBeats }
+  clock(): Pick<EngineStatus, 'tempo' | 'playing' | 'beat' | 'countIn' | 'run' | 'lap'> {
+    const countIn = this.countInStatus()
+    return { tempo: this.transport.tempo, playing: this.transport.playing, beat: this.transport.positionBeats, run: this.run, lap: this.lap, ...(countIn && { countIn }) }
+  }
+
+  private countInStatus(): EngineStatus['countIn'] {
+    if (!this.counting) return undefined
+    return { barsLeft: Math.max(1, Math.ceil(this.counting.left / COUNT_IN_BAR_BEATS - 1e-9)), beat: -this.counting.left }
   }
 
   /** Snapshot for display. Reading it also resets the output-level peak. */
@@ -334,7 +443,8 @@ export class Engine {
     const masterReadouts = this.master.readouts()
     if (Object.keys(masterReadouts).length > 0) readouts.master = masterReadouts
     const preview = this.preview.position()
-    return { tempo: this.transport.tempo, masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, mode: this.playbackMode, beat: this.transport.positionBeats, peak, peaks, readouts, tracks, ...(preview && { preview }) }
+    const countIn = this.countInStatus()
+    return { ...(countIn && { countIn }), tempo: this.transport.tempo, masterAutomation: this.automation.slotStatus({ kind: 'master' }), automationOverrides: this.automation.overrideValues(), automationOverrideRevision: this.automation.overrideRevision, automation: this.automation.readouts(), playing: this.transport.playing, mode: this.playbackMode, beat: this.transport.positionBeats, run: this.run, lap: this.lap, peak, peaks, readouts, tracks, ...(preview && { preview }) }
   }
 
   /** Structural edits cancel the affected track and every transitive note reader, without touching unrelated tracks. */
@@ -370,18 +480,31 @@ export class Engine {
   }
 
   private stopTransport(): void {
+    this.counting = null
     this.automation.reset()
     this.transport.stop()
     for (const track of this.tracks.values()) track.reset()
+    this.restExpression()
+  }
+
+  /** Puts every instrument track's wheel, pressure and CCs back at rest (Panic, ■). */
+  private restExpression(): void {
+    for (const track of this.tracks.values()) if (track instanceof TrackRuntime) track.restExpression()
   }
 
   /** Plays with the session launchers as the event source (switching back from the arrangement if needed). */
   private playSession(): void {
+    if (!this.transport.playing) this.newRun()
+    this.sessionMode()
+    this.transport.play()
+  }
+
+  private sessionMode(): void {
     if (this.playbackMode !== 'session') {
       this.playbackMode = 'session'
+      this.automation.setArrangement(false)
       for (const track of this.tracks.values()) track.setMode('session')
     }
-    this.transport.play()
   }
 
   /** Runs the mix of the block through the master graph and the master fader, in place. */
@@ -523,6 +646,7 @@ export class Engine {
       const track = this.tracks.get(ownerId)
       if (!track) continue
       if (target.kind === 'graph') track.setAutomationCurve(flatControlNodeId(target), target.paramId, values, target.domain)
+      else if (target.kind === 'expression') continue
       else if (target.control === 'volume') { track.strip.volumeCurve = values; track.strip.volume = values[frames - 1]! }
       else if (target.control === 'pan') { track.strip.panCurve = values; track.strip.pan = values[frames - 1]! }
       else {
@@ -732,6 +856,7 @@ export class Engine {
           command.voices,
           this.sampleRate,
           this.samples,
+          command.bendRange,
         )
         track.setSends(command.sends ?? {})
         return track
@@ -742,8 +867,17 @@ export class Engine {
   private writeAutomation(target: ControlTarget, value: number, baseValue = value): void {
     let metadata = this.targetMetadata.get(target)
     if (!metadata) {
-      metadata = { key: controlTargetKey(target), nodeId: target.kind === 'graph' ? flatControlNodeId(target) : '' }
+      metadata = {
+        key: controlTargetKey(target), nodeId: target.kind === 'graph' ? flatControlNodeId(target) : '',
+        ...(target.kind === 'expression' && { expression: target.control === 'cc' ? { cc: target.cc } : target.control }),
+      }
       this.targetMetadata.set(target, metadata)
+    }
+    // Pitch bend, pressure and CC go to the instrument at once, never into a curve: it reads them each block, as it
+    // reads a keyboard's. Within a planning horizon, the last value written is the one its block hears.
+    if (target.kind === 'expression') {
+      if (target.owner.kind === 'track') this.instrument(target.owner.trackId)?.express(LANE_SOURCE, 0, metadata.expression!, value)
+      return
     }
     if (this.collecting && !(target.kind === 'graph' && target.domain === 'notes')) {
       const key = metadata.key

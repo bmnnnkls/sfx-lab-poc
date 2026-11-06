@@ -13,7 +13,7 @@ browser and no Web Audio); the UI is a dialog and `app/` fetches the sample audi
   looping regions included). It then pulls `Engine.render` in chunks
   of 4096 frames (`BOUNCE_CHUNK_FRAMES`, 32 engine blocks) and returns `{ left, right, sampleRate, bitDepth, bodyFrames }`. The transport starts at beat 0
   and a launch takes effect at the next bar line, so the first note is at the first sample. It is the engine the worklet runs, so the file is what you
-  hear, master volume, soft clip and all; a muted or soloed track or group is muted or soloed in the file, and buses sum as they do live (a clip scope still runs every bus, as it runs the returns).
+  hear, master volume, soft clip and all, except the metronome, which is not in the project and so never reaches it; a muted or soloed track or group is muted or soloed in the file, and buses sum as they do live (a clip scope still runs every bus, as it runs the returns).
 * **Where it ends** (clips loop for ever, so the bounce decides). The *body* is `bars` bars (a bar is four beats, the project is 4/4 everywhere) at the
   project tempo, to the frame (`round(bars * 4 * 60 / tempo * sampleRate)`; `bars` may be fractional, so a 2-beat clip is 0.5 and is 1 s at 120 BPM
   and 2 s at 60). Its default is the longest clip of the scope played once through (`defaultBounceBars`; an arrangement scope runs to the end of its last

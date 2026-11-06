@@ -36,11 +36,17 @@ interface GraphViewState {
   readonly addRequest: AddRequest | null
   /** A pin (by `pinKey`) for the Pinned view to scroll into view and focus. */
   readonly pinRequest: string | null
+  /**
+   * The nodes of each canvas (by `canvasKey`) whose card shows every parameter socket, as the toolbar's *Sockets* does for
+   * all of them. A way of looking, for the session only.
+   */
+  readonly sockets: Readonly<Record<string, readonly string[]>>
   setViewport(canvas: string, viewport: GraphViewport): void
   setPath(graph: string, path: readonly string[]): void
   toggleModuleInterface(): void
   requestAdd(request: AddRequest | null): void
   requestPin(key: string | null): void
+  toggleSockets(canvas: string, nodeId: string): void
 }
 
 /**
@@ -56,6 +62,12 @@ export const useGraphViewStore = create<GraphViewState>((set) => ({
   moduleInterface: true,
   addRequest: null,
   pinRequest: null,
+  sockets: {},
+  toggleSockets: (canvas, nodeId) =>
+    set((state) => {
+      const shown = state.sockets[canvas] ?? []
+      return { sockets: { ...state.sockets, [canvas]: shown.includes(nodeId) ? shown.filter((id) => id !== nodeId) : [...shown, nodeId] } }
+    }),
   toggleModuleInterface: () => set((state) => ({ moduleInterface: !state.moduleInterface })),
   requestAdd: (addRequest) => set({ addRequest }),
   requestPin: (pinRequest) => set({ pinRequest }),

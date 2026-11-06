@@ -1,7 +1,10 @@
 import {
   type Clip,
+  type ControlOwner,
+  setTimelineLanesOpen,
   type ClipRef,
   type History,
+  type MidiTrackInput,
   type ModuleDefinition,
   type Note,
   type Patch,
@@ -71,6 +74,8 @@ import {
   setTrackPan,
   setTrackSoloed,
   setTrackVoices,
+  setTrackMidiInput,
+  setTrackBendRange,
   setTrackSend,
   setTrackVolume,
   undo,
@@ -104,6 +109,10 @@ import type { ArrangementChanges, AudioClip } from '@core'
 import { useSelectionStore } from './selection-store'
 
 const DEFAULT_CLIP_BEATS = 4
+
+let historyGuard: (() => void) | undefined
+/** Runs before every undo and redo: the recorder ends its takes there, so a take is whole when it is undone. */
+export const guardHistory = (guard?: () => void): void => { historyGuard = guard }
 
 interface ProjectActions {
   /** Loads a project as the starting point (app startup): history begins empty. */
@@ -198,6 +207,10 @@ interface ProjectActions {
    */
   updateAudioClip(ref: ClipRef, changes: AudioClipChanges): void
   setTrackVoices(trackId: string, voices: number): void
+  /** Gives an instrument track its own MIDI input, or (undefined) lets it follow the selection again. One undo step. */
+  setTrackMidiInput(trackId: string, input: MidiTrackInput | undefined): void
+  /** Sets how far an instrument track's pitch wheel bends, 0 to 24 semitones. One undo step. */
+  setTrackBendRange(trackId: string, range: number): void
   /**
    * Applies a pure patch edit (see `@core` patch functions) to a track's instrument.
    * Rapid edits sharing a `mergeKey` (a slider or node drag) collapse into one undo step.
@@ -284,6 +297,8 @@ interface ProjectActions {
   removeArrangementLoop(): void
   /** Turns looping on or off: a view edit, saved and not undone. */
   setArrangementLoopEnabled(enabled: boolean): void
+  /** Opens or closes an owner's lanes under its row on the timeline: a view edit, saved and not undone. */
+  setTimelineLanesOpen(owner: ControlOwner, open: boolean): void
 }
 
 export interface ProjectState extends ProjectActions {
@@ -332,8 +347,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       ...withHistory(commit(state.history, project, { now: Date.now() })),
       documentEpoch: state.documentEpoch + 1,
     })),
-    undo: () => set((state) => restored(state, undo(state.history))),
-    redo: () => set((state) => restored(state, redo(state.history))),
+    undo: () => { historyGuard?.(); set((state) => restored(state, undo(state.history))) },
+    redo: () => { historyGuard?.(); set((state) => restored(state, redo(state.history))) },
 
     setName: (name) => edit((project) => setProjectName(project, name), 'name'),
     setTempo: (bpm) => edit((project) => setTempo(project, bpm), 'tempo'),
@@ -416,6 +431,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         `audio:${ref.kind === 'region' ? ref.regionId : ref.clipId}:${Object.keys(changes).sort().join(',')}`,
       ),
     setTrackVoices: (trackId, voices) => edit((project) => setTrackVoices(project, trackId, voices)),
+    setTrackMidiInput: (trackId, input) => edit((project) => setTrackMidiInput(project, trackId, input)),
+    setTrackBendRange: (trackId, range) => edit((project) => setTrackBendRange(project, trackId, range)),
 
     updatePatch: (trackId, change, mergeKey) =>
       edit((project) => editPatchAt(project, { trackId }, change), mergeKey),
@@ -482,6 +499,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     setArrangementLoop: (range, mergeKey) => edit((project) => setArrangementLoop(project, range), mergeKey),
     removeArrangementLoop: () => edit(removeArrangementLoop),
     setArrangementLoopEnabled: (enabled) => editView((project) => setArrangementLoopEnabled(project, enabled)),
+    setTimelineLanesOpen: (owner, open) => editView((project) => setTimelineLanesOpen(project, owner, open)),
   }
 })
 

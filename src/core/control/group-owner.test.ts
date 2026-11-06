@@ -68,7 +68,7 @@ describe('a group as a control owner', () => {
   it('is enumerated with a key of its own', () => {
     const { project, groupId } = fixture()
     const targets = enumerateControlTargets(project).filter((target) => target.owner.kind === 'group')
-    expect(targets.map((target) => (target.kind === 'mixer' ? target.control : target.paramId))).toEqual(['volume', 'pan', 'send', 'gain'])
+    expect(targets.map((target) => (target.kind === 'graph' ? target.paramId : target.control))).toEqual(['volume', 'pan', 'send', 'gain'])
     expect(controlTargetKey(fader(groupId))).not.toBe(controlTargetKey({ kind: 'mixer', owner: { kind: 'track', trackId: groupId }, control: 'volume' }))
   })
 

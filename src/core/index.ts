@@ -16,6 +16,7 @@ export { pitchName } from './shared'
 export * from './control'
 export * from './midi'
 export * from './automation'
+export * from './record'
 export * from './preset'
 
 export * from './library'

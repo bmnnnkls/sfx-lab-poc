@@ -273,10 +273,10 @@ right-clicked; what can be done to it lives in `state/actions/`.
 
 | Kind | Open | Edit | Clipboard | Delete |
 |---|---|---|---|---|
-| Track | Stop (instrument, audio), Open instrument, Open effects, Open notes, Show automation | Rename, Duplicate, Save to library ▸ Instrument + notes, Audio effects, Note effects (instrument) or Save effects to library (audio, return), Mute / Unmute, Solo / Unsolo | | Delete |
+| Track | Stop (instrument, audio), Open instrument, Open effects, Open notes, Show automation | Rename, Duplicate, Save to library ▸ Instrument + notes, Audio effects, Note effects (instrument) or Save effects to library (audio, return), Arm for recording / Disarm (instrument), Mute / Unmute, Solo / Unsolo | | Delete |
 | Master | Open effects, Show automation | Save effects to library | | |
-| Session clip | Launch / Restart, Edit notes or Edit clip, Edit automation | Rename, Duplicate to empty slot, Place on arrangement, Save to library | Copy, Cut | Delete |
-| Empty slot | | Create clip (MIDI), Add audio clip ▸ samples (audio) | Paste | |
+| Session clip | Stop recording (while a take records into it), Launch / Restart, Edit notes or Edit clip, Edit automation | Rename, Duplicate to empty slot, Place on arrangement, Save to library | Copy, Cut | Delete |
+| Empty slot | | Create clip, Record a clip here (MIDI; disabled until the track is armed), Add audio clip ▸ samples (audio) | Paste | |
 | Automation slot | Launch / Stop, Edit | Create (empty) | Copy, Paste (empty) | Delete |
 | Scene | Launch | Rename, Insert scene before, Duplicate | | Delete |
 | Sample | Preview, Open in wave editor | Rename, New sampler track, New audio track, Add to library | | Remove from project |

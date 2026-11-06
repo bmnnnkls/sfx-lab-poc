@@ -13,11 +13,14 @@ import { type CSSProperties, Fragment, type ReactNode, useRef, useState } from '
 import { viewTitles } from '../layout/view-titles'
 import { useDropTarget } from '../shared/drag'
 import { ActionMenu, useFocusSubjects } from '../shared/menu'
+import { revealKey, useRevealRequest } from '../shared/reveal'
 import { ArrangementHeader } from './ArrangementHeader'
 import { ArrangementMarkLines, ArrangementMarks } from './ArrangementMarks'
 import { ArrangementPlayhead, ArrangementPosition, PositionMark } from './ArrangementPlayhead'
 import { ArrangementRegion } from './ArrangementRegion'
+import { RecordingOutline, useRecordingRegions } from './RecordingOutline'
 import { ArrangementRuler } from './ArrangementRuler'
+import { TimelineLanes } from './TimelineLanes'
 import { HeaderSplitter } from './HeaderSplitter'
 import { BEATS_PER_BAR, MIN_BARS, TRAILING_BARS } from './timeline-constants'
 import { gridSpacing } from './timeline-geometry'
@@ -98,6 +101,12 @@ export const ArrangementView = () => {
   const headerWidth = useArrangementView((state) => state.headerWidth)
   // The selection store's: a region deleted from its menu (or by undo) is still named there, and shows as nothing.
   const selected = useSelectionStore((state) => state.regionId)
+  const recordingRegions = useRecordingRegions()
+  const selectedTrack = useSelectionStore((state) => state.trackId)
+  const selectedGroup = useSelectionStore((state) => state.groupId)
+  const selectedMaster = useSelectionStore((state) => state.master)
+  // Returns and the master always have rows; with no clip track shown, the view says why it is empty instead.
+  const hasClipRows = rows.some((row) => row.kind === 'track' || row.kind === 'group')
   const view = useRef<HTMLDivElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
   /** Where an empty lane was right-clicked, so "add" places the clip there. */
@@ -117,6 +126,8 @@ export const ArrangementView = () => {
   const selection = selectedRegion ? regionZoom(selectedRegion, arrangement) : loop ? loopZoom(loop) : null
 
   useFollowPause(scroller)
+  // Choosing a row in the Tracks view scrolls its lane (or its collapsed group's) into view.
+  useRevealRequest(scroller)
   // The focused timeline is the timeline at the position: the palette lists *Add marker here* and the loop there.
   useFocusSubjects(scroller, () => [{ kind: 'arrangement-timeline', beat: useArrangementView.getState().position }])
   const follow = useArrangementView((state) => state.follow)
@@ -269,18 +280,48 @@ export const ArrangementView = () => {
           <div className={styles.markLines} style={{ width }} aria-hidden>
             <ArrangementMarkLines pxPerBeat={pxPerBeat} />
           </div>
-          {rows.map((row) => {
+          {hasClipRows && rows.map((row) => {
+            if (row.kind === 'master' || row.kind === 'return') {
+              // A return's and the master's rows hold no regions: nothing is dropped on them.
+              const key = row.kind === 'master' ? 'master' : row.track.id
+              const isSelected = row.kind === 'master' ? selectedMaster : row.track.id === selectedTrack
+              return (
+                <Fragment key={key}>
+                  <div className={styles.lane} data-reveal={row.kind === 'master' ? 'master' : revealKey('track', row.track.id)} data-selected={isSelected || undefined} data-owner-row={key}>
+                    <ArrangementHeader row={row} />
+                    <div className={`${styles.row} ${styles.ownerRow}`} style={{ width }} />
+                  </div>
+                  <TimelineLanes
+                    owner={row.kind === 'master' ? { kind: 'master' } : { kind: 'track', trackId: row.track.id }}
+                    name={row.kind === 'master' ? 'Master' : row.track.name}
+                    scroller={scroller}
+                    pxPerBeat={pxPerBeat}
+                    width={width}
+                    depth={0}
+                  />
+                </Fragment>
+              )
+            }
             if (row.kind === 'group') {
               return (
-                <div key={row.group.id} className={`${styles.lane} ${styles.groupLane}`} style={{ '--group': `var(--group-${row.group.colour})` } as CSSProperties}>
+                <Fragment key={row.group.id}>
+                <div
+                  className={`${styles.lane} ${styles.groupLane}`}
+                  data-reveal={revealKey('group', row.group.id)}
+                  // A collapsed group's lane stands for the selected track inside it.
+                  data-selected={row.group.id === selectedGroup || (row.group.collapsed === true && selectedTrack !== null && row.trackIds.includes(selectedTrack)) || undefined}
+                  style={{ '--group': `var(--group-${row.group.colour})` } as CSSProperties}>
                   <ArrangementHeader row={row} />
                   <GroupRow trackIds={row.trackIds} collapsed={row.group.collapsed === true} regions={arrangement} pxPerBeat={pxPerBeat} width={width} />
                 </div>
+                {row.group.bus && <TimelineLanes owner={{ kind: 'group', groupId: row.group.id }} name={row.group.name} scroller={scroller} pxPerBeat={pxPerBeat} width={width} depth={row.depth} />}
+                </Fragment>
               )
             }
             const track = row.track
             return (
-              <div key={track.id} className={styles.lane}>
+              <Fragment key={track.id}>
+              <div className={styles.lane} data-reveal={revealKey('track', track.id)} data-selected={track.id === selectedTrack || undefined}>
                 <ArrangementHeader row={row} />
                 <LaneRow trackId={track.id} pxPerBeat={pxPerBeat} width={width}>
                   <ActionMenu subject={{ kind: 'lane', trackId: track.id, beat: placedAt }}>
@@ -313,24 +354,28 @@ export const ArrangementView = () => {
                             region={region}
                             pxPerBeat={pxPerBeat}
                             selected={selected === region.id}
+                            recording={recordingRegions.has(region.id)}
                             onSelect={() => useSelectionStore.getState().selectRegion(region.id, region.trackId)}
                           />
                         </ActionMenu>
                       </Fragment>
                     )
                   })}
+                  <RecordingOutline trackId={track.id} pxPerBeat={pxPerBeat} />
                 </LaneRow>
               </div>
+              <TimelineLanes owner={{ kind: 'track', trackId: track.id }} name={track.name} scroller={scroller} pxPerBeat={pxPerBeat} width={width} depth={row.depth} />
+              </Fragment>
             )
           })}
-          {rows.length > 0 && (
+          {hasClipRows && (
             <div className={styles.overlay} style={{ width }} aria-hidden>
               <ArrangementPosition pxPerBeat={pxPerBeat} />
               <ArrangementPlayhead pxPerBeat={pxPerBeat} scroller={scroller} />
             </div>
           )}
         </div>
-        {rows.length === 0 && (hiddenTracks ? (
+        {!hasClipRows && (hiddenTracks ? (
           <div className={styles.empty}>
             <p>Every track is hidden. Hidden tracks still play.</p>
             <button onClick={() => useProjectStore.getState().showAllTracks()}>Show all tracks</button>

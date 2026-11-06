@@ -1,9 +1,34 @@
-import type { EngineCommand, EngineStatus } from '@core'
+import type { ClockPosition, EngineCommand, EngineStatus } from '@core'
 import { type HostMessage, PROCESSOR_NAME, type WorkletMessage } from './protocol'
 import { RecordingClock } from './recording-clock'
 import workletUrl from './worklet/engine-processor.ts?worker&url'
 
 type StatusListener = (status: EngineStatus) => void
+
+/** How many recent reads the render clock's lead over the output is taken from (about two seconds of statuses). */
+const LEAD_SAMPLES = 64
+/** The most the smoothed render time is from `currentTime`: more than any output callback. */
+const MAX_STEP_SECONDS = 0.025
+
+/**
+ * How far the render clock runs ahead of the output clock, from recent readings of `currentTime` minus the output
+ * clock. A reading is short of the true lead by however far into its step `currentTime` was, spread evenly over a
+ * step, so the true lead is the top of that spread: the median plus half the spread, from the 10th to the 90th
+ * percentile (80 % of a step). Percentiles, not the largest reading, so a late callback that ran two steps at once
+ * doesn't move the clock.
+ */
+const remember = (readings: number[], reading: number) => {
+  readings.push(reading)
+  if (readings.length > LEAD_SAMPLES) readings.shift()
+}
+const median = (readings: readonly number[]) => [...readings].sort((a, b) => a - b)[Math.floor(readings.length / 2)]!
+
+export const renderLead = (readings: readonly number[]): number => {
+  const sorted = [...readings].sort((a, b) => a - b)
+  if (sorted.length < 10) return sorted.at(-1) ?? 0
+  const at = (q: number) => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))]!
+  return at(0.5) + (at(0.9) - at(0.1)) / 1.6
+}
 type FailureListener = (error: Error) => void
 
 /**
@@ -20,11 +45,59 @@ export class AudioHost {
   private readonly failureListeners = new Set<FailureListener>()
 
   private readonly clock = new RecordingClock()
+  /** Recent readings of how far `currentTime` was ahead of the output clock, and of the output clock's offset from `performance.now()`. */
+  private readonly leads: number[] = []
+  private readonly offsets: number[] = []
+  /** Recent readings of the output latency. */
+  private readonly latencies: number[] = []
 
   /** Audio-clock bridge: never extrapolate from animation frames or message arrival time. */
   recordingBeat(agoMs = 0): number | undefined {
+    return this.recordingPosition(agoMs)?.beat
+  }
+
+  /** The transport's beat `agoMs` before now, with the run and loop pass it was in (`RecordingClock.position`). */
+  recordingPosition(agoMs = 0): ClockPosition | undefined {
     if (!this.context || this.context.state !== 'running') return undefined
-    return this.clock.beat(this.context.currentTime - agoMs / 1000)
+    return this.clock.position(this.audioNow() - agoMs / 1000)
+  }
+
+  /**
+   * The context's render time now. `currentTime` moves in steps of the output's callback (256 frames, 5 ms, or more),
+   * so it is read through the output timestamp, which pairs the audio clock with `performance.now()`, plus how far
+   * `currentTime` runs ahead of that (`renderLead`). A pair read at a callback's edge can be a callback off, so the
+   * clocks' offset is the median of recent pairs. Where the browser has no output timestamp, `currentTime`.
+   */
+  private audioNow(): number {
+    const context = this.context!
+    const current = context.currentTime
+    const stamp = typeof context.getOutputTimestamp === 'function' ? context.getOutputTimestamp() : undefined
+    if (!stamp || stamp.contextTime === undefined || stamp.performanceTime === undefined || !(stamp.performanceTime > 0)) return current
+    const now = performance.now() / 1000
+    remember(this.offsets, stamp.contextTime - stamp.performanceTime / 1000)
+    const output = median(this.offsets) + now
+    remember(this.leads, current - output)
+    // Never more than a callback or two from `currentTime`, which itself runs ahead when a late callback renders twice.
+    return Math.min(current + MAX_STEP_SECONDS, Math.max(current - MAX_STEP_SECONDS, output + renderLead(this.leads)))
+  }
+
+  /**
+   * How long after the engine renders a sample it is heard, in seconds: the context's output latency plus its base
+   * latency, each 0 where the browser doesn't report it. Read when asked, since it changes with the output device, and
+   * taken as the median of recent readings, since a browser's estimate can flip between values a callback apart.
+   */
+  outputLatency(): number {
+    const reading = this.latencyNow()
+    if (reading === undefined) return 0
+    if (this.latencies.length === 0) remember(this.latencies, reading)
+    return median(this.latencies)
+  }
+
+  private latencyNow(): number | undefined {
+    const context = this.context
+    if (!context) return undefined
+    const seconds = (value: number | undefined) => (typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0)
+    return seconds(context.outputLatency) + seconds(context.baseLatency)
   }
 
   get isRunning(): boolean {
@@ -92,6 +165,12 @@ export class AudioHost {
         if (event.data.kind === 'clock') { this.clock.update(event.data.clock, event.data.audioTime); return }
         if (event.data.kind !== 'status') return
         if (event.data.audioTime !== undefined) this.clock.update(event.data.status, event.data.audioTime)
+        // Each status also samples the clocks and the latency, so a MIDI event finds them warm.
+        if (this.context) {
+          this.audioNow()
+          const latency = this.latencyNow()
+          if (latency !== undefined) remember(this.latencies, latency)
+        }
         for (const listener of this.listeners) listener(event.data.status)
       }
       node.onprocessorerror = (event) => {

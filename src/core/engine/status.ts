@@ -2,6 +2,11 @@ import type { ControlValue } from '../control'
 import type { LauncherStatus } from '../session'
 import type { PlaybackMode } from './playable-track'
 
+export interface CountInStatus {
+  readonly barsLeft: number
+  readonly beat: number
+}
+
 /** Snapshot of engine state for display; produced by the engine, consumed by the UI. */
 export interface EngineStatus {
   readonly tempo?: number
@@ -10,9 +15,20 @@ export interface EngineStatus {
   readonly automationOverrideRevision?: number
   readonly automation?: readonly ControlValue[]
   readonly playing: boolean
+  /**
+   * While a count-in runs (the transport is stopped until it ends): the bars left to click, counting down (2, 1), and
+   * where it is, from −4 × bars up to 0, which the recording clock runs on.
+   */
+  readonly countIn?: CountInStatus
   /** What the tracks follow: the session's launchers, or the arrangement's timeline. */
   readonly mode: PlaybackMode
   readonly beat: number
+  /**
+   * The transport's run, one more at every start and every seek while playing, and the arrangement loop's jumps within
+   * it. A position on the timeline is `beat`; `beat + lap × loop length` only goes forward within a run.
+   */
+  readonly run?: number
+  readonly lap?: number
   /** Loudest output sample (0..1) since the previous status snapshot. */
   readonly peak: number
   /**

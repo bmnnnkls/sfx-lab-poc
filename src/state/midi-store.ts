@@ -22,6 +22,8 @@ interface MidiState {
   readonly learning?: { readonly target: ControlTarget; readonly replaceId?: string }
   readonly conflict?: { readonly mapping: MidiMapping; readonly existingId: string; readonly replaceId?: string }
   readonly feedback: Readonly<Record<string, { readonly state: 'pickup' | 'active' | 'unavailable'; readonly value?: number }>>
+  /** *Recorded CCs* → *Learn*: the next unmapped CC that can be ticked is added, then this goes off. */
+  readonly learningRecordedCC: boolean
   learn(target: ControlTarget, replaceId?: string): void
   cancelLearn(): void
   confirmReassign(): void
@@ -33,7 +35,7 @@ export const editMidiMappings = (edit: (mappings: readonly MidiMapping[]) => rea
   useProjectStore.setState({ project, history: commit(state.history, project, { now: Date.now() }) })
 }
 export const useMidiStore = create<MidiState>((set, get) => ({
-  status: 'disabled', inputs: [], disabledInputs: [], channel: null, pinnedTrackId: null, feedback: {},
+  status: 'disabled', inputs: [], disabledInputs: [], channel: null, pinnedTrackId: null, feedback: {}, learningRecordedCC: false,
   learn: (target, replaceId) => {
     const resolved = resolveControlTarget(useProjectStore.getState().project, target)
     if (resolved.status !== 'available' || !resolved.automatable) return

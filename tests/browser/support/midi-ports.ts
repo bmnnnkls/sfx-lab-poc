@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 declare global {
   interface Window {
-    __midiTest: { requests: number; send(bytes: number[], id?: string): void; connected(id: string, connected: boolean): void }
+    __midiTest: { requests: number; send(bytes: number[], id?: string, timeStamp?: number): void; connected(id: string, connected: boolean): void }
   }
 }
 /** Simulate only the browser device boundary; application parser, stores and worklet are real. */
@@ -11,7 +11,7 @@ export const installMidiPorts = (page: Page, mode: 'granted' | 'denied' | 'unsup
   const access = { inputs: ports, onstatechange: null } as unknown as MIDIAccess
   window.__midiTest = {
     requests: 0,
-    send(bytes, id = 'keys') { const p = ports.get(id)!; p.onmidimessage?.call(p, { data: new Uint8Array(bytes) } as MIDIMessageEvent) },
+    send(bytes, id = 'keys', timeStamp = performance.now()) { const p = ports.get(id)!; p.onmidimessage?.call(p, { data: new Uint8Array(bytes), timeStamp } as MIDIMessageEvent) },
     connected(id, connected) { Object.assign(ports.get(id)!, { state: connected ? 'connected' : 'disconnected' }); access.onstatechange?.call(access, {} as MIDIConnectionEvent) },
   }
   Object.defineProperty(navigator, 'requestMIDIAccess', { configurable: true, value: mode === 'unsupported' ? undefined : async (options: MIDIOptions) => {
@@ -21,4 +21,5 @@ export const installMidiPorts = (page: Page, mode: 'granted' | 'denied' | 'unsup
     return access
   } })
 }, mode)
-export const sendMidi = (page: Page, bytes: number[], id = 'keys') => page.evaluate(({ bytes, id }) => window.__midiTest.send(bytes, id), { bytes, id })
+/** Sends a message from a fake port, stamped now (as a browser stamps it) or at `timeStamp` on the `performance.now()` clock. */
+export const sendMidi = (page: Page, bytes: number[], id = 'keys', timeStamp?: number) => page.evaluate(({ bytes, id, timeStamp }) => window.__midiTest.send(bytes, id, timeStamp), { bytes, id, timeStamp })

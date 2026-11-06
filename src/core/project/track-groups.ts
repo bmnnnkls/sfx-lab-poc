@@ -3,6 +3,7 @@ import { removeTrack } from './edit'
 import { groupChain, groupsById, withoutGroups } from './group-membership'
 import { busGroups } from './group-routing'
 import { hasMixLoop } from './mix-order'
+import { withTimelineOpenOf } from '../automation'
 import { withLoopEnabledOf } from './arrangement-marks'
 import { withPinsOf } from './pins'
 import type { GroupColour, Project, Track, TrackGroup } from './types'
@@ -397,7 +398,7 @@ export const showAllTracks = (project: Project): Project => updateTracks(project
  * (`withLoopEnabledOf`). Those are view fields, which undo doesn't change. `restored` itself when nothing differs.
  */
 export const withViewOf = (restored: Project, current: Project): Project =>
-  withLoopEnabledOf(withPinsOf(withFlagsOf(restored, current), current), current)
+  withTimelineOpenOf(withLoopEnabledOf(withPinsOf(withFlagsOf(restored, current), current), current), current)
 
 const withFlagsOf = (restored: Project, current: Project): Project => {
   const groups = new Map((current.groups ?? []).map((group) => [group.id, group]))

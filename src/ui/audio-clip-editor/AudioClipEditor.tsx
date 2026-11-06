@@ -12,7 +12,7 @@ import {
   regionFraction,
   sessionClipRef,
 } from '@core'
-import { type Subject, runAction, useProjectStore } from '@state'
+import { type Subject, clipPhase, runAction, useProjectStore } from '@state'
 import { useActionContext } from '../shared/menu'
 import toolbar from '../clip-editor/ClipEditor.module.css'
 import { LengthField } from '../clip-editor/LengthField'
@@ -155,10 +155,9 @@ export const AudioClipEditor = ({ track, clip, clipRef, where }: { track: AudioT
         </p>
         {sample && (
           <AudioWaveform
-            trackId={track.id}
             clip={clip}
             sampleSeconds={sample.durationSeconds}
-            playhead={ref.kind === 'session'}
+            phase={clipPhase(ref, track.id, clip.id, clip.lengthBeats)}
             onTrim={change}
           />
         )}

@@ -43,9 +43,13 @@ remembered per kind of graph in `localStorage` (`sfxlab.view.<patch|fx|notes>`):
   editor's slider, and `axisSpec` gives an axis its live range, curve and unit (`resolveSpec`) with the node's own `default` as the reset
   value, so a log-scaled cutoff feels the same everywhere; `spanOf` gives a control its grid cells (a knob grows square, a slider along
   its length, a pad wide). `ControlCell` draws one control, captioned by its node's name (`nodeTitles`), and, in **Edit** mode, its tools
-  (drag handle, move, size, sideways for a slider, hide, delete, rename = the node's name); hidden controls are listed in a tray with a
+  (drag handle, move, size, sideways for a slider, hide, rename = the node's name). The panel never deletes a node: hiding
+  takes a control off the board, and deleting it is done in the graph. Hidden controls are listed in a tray with a
   *Show* button each, and the property editor has *Show on panel* and *Size* for a control node. `PanelView` is the grid, the Play / Edit
-  toggle and the add form.
+  toggle and the add form. *Edit panel* keeps the patch as it was; **Done** keeps what was changed, and **Cancel** puts it
+  back in one undo step (`discardPanelEdits`: the old nodes and wires, so added controls and their wires go and order,
+  sizes, shows and names return, while every node still there keeps its current parameters, so values turned meanwhile
+  stay). Undo brings the discarded changes back.
 * **Fitted spans.** A control wider than the board takes the columns there are (`fitSpan` in `panel-values.ts`): a knob
   stays square, so its rows shrink with it; a pad's rows shrink in proportion, never under two; anything else keeps its
   rows. `PanelView` counts the board's columns with a `ResizeObserver` (`boardColumns`: its width inside the padding,
@@ -264,7 +268,11 @@ plain cards; the property editor, the panel built from control nodes and the nod
   height is the header plus the port rows, plus the picture's area, `nodeHeight`). It shows the node's title (`nodeTitles`: its name, else its label numbered when
   alike) and only state that matters at a glance: `shared`, `L R`, `module`, bypassed (dimmed), and the module's *Edit* / *Unlink*. A
   parameter socket is drawn only when it is wired, or for all of them while the **Sockets** toggle (a checkbox in the toolbar,
-  remembered like the Graph | Panel switch) is on (`ui/patcher/visible-shape.ts`; `portPosition` indexes the visible shape). A press
+  remembered like the Graph | Panel switch) is on, or for one card while its own **⊶** toggle in the title bar is (a node
+  with parameter sockets only; kept per canvas in the graph-view store's `sockets` for the session, not in the project;
+  disabled while the toolbar's is on). `ui/patcher/visible-shape.ts` makes the shape and `PatchCanvas` computes it once
+  per card for the cards, the wires and `nodeHeight` alike (`portPosition` indexes the visible shape). A **selected**
+  card has an accent border, a title bar in the accent and a tinted body. A press
   anywhere on a card but a port or button selects it. The patcher's grid is one column that may be narrower than its content, so the
   canvas scrolls and the property editor keeps its width.
 * **Controls inside modules** (`core/patch/module-controls.ts`, `ModuleControl`). Two ways in, both from the plan. **Exposed inputs:** any inner

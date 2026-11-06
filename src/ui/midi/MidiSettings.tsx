@@ -1,10 +1,86 @@
-import { type ControlTarget, controlTargetKey, midiSourceKey, resolveControlTarget } from '@core'
-import { editMidiMappings, useMidi, useMidiStore, useProjectStore, useControlStore } from '@state'
+import { BEND_RANGE, type ControlTarget, type InstrumentTrack, ccLabel, controlTargetKey, midiSourceKey, resolveControlTarget, trackBendRange } from '@core'
+import { LATENCY_OFFSET_MS, type MidiInputInfo, editMidiMappings, isRecordableCC, useMidi, useMidiStore, useProjectStore, useControlStore, useRecordSettings } from '@state'
 import { useEffect, useState } from 'react'
 import styles from './MidiSettings.module.css'
 import { formatParam } from '../shared/param-scale'
+import { describeTrackInput } from './track-input'
 
 const targetName = (target: ControlTarget, names: ReadonlyMap<string, string>) => `${target.owner.kind === 'master' ? 'Master' : target.owner.kind === 'group' ? names.get(target.owner.groupId) ?? 'Missing group' : names.get(target.owner.trackId) ?? 'Missing track'} / ${target.kind === 'graph' ? `${target.path.map((s) => s.nodeId).join('/')} ${target.nodeId} · ${target.paramId}` : target.control === 'send' ? `send to ${names.get(target.returnId) ?? 'missing return'}` : target.control}`
+
+/** The value of the input picker: the track follows the selection, takes any input, or one input by id. */
+const FOLLOW = 'follow'
+const ANY = 'any'
+
+/**
+ * One instrument track's MIDI input: following the selection (the default), or its own input and channel, which it
+ * always listens to. Notes matching a track's own input go only to such tracks; the rest go to the selected one.
+ */
+const TrackInputRow = ({ track, inputs }: { track: InstrumentTrack; inputs: readonly MidiInputInfo[] }) => {
+  const input = track.midiInput
+  const set = useProjectStore((s) => s.setTrackMidiInput)
+  const setBendRange = useProjectStore((s) => s.setTrackBendRange)
+  const device = input === undefined ? FOLLOW : input.deviceId ?? ANY
+  const missing = input?.deviceId !== undefined && !inputs.some((i) => i.id === input.deviceId)
+  return <div className={styles.mapping} data-testid="midi-track-input">
+    <span>{track.name}</span>
+    <label>Input <select aria-label={`MIDI input of ${track.name}`} value={device} onChange={(e) => {
+      const value = e.target.value
+      if (value === FOLLOW) set(track.id, undefined)
+      else set(track.id, { ...(value !== ANY && { deviceId: value, deviceName: inputs.find((i) => i.id === value)?.name ?? value }), ...(input?.channel !== undefined && { channel: input.channel }) })
+    }}>
+      <option value={FOLLOW}>Follows the selection</option>
+      <option value={ANY}>Any input</option>
+      {missing && <option value={input.deviceId}>{input.deviceName ?? input.deviceId} (unavailable)</option>}
+      {inputs.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+    </select></label>
+    <label>Channel <select aria-label={`MIDI channel of ${track.name}`} disabled={input === undefined} value={input?.channel ?? ANY} onChange={(e) => {
+      if (!input) return
+      const { channel: _previous, ...rest } = input
+      set(track.id, e.target.value === ANY ? rest : { ...rest, channel: Number(e.target.value) })
+    }}>
+      <option value={ANY}>Any channel</option>{Array.from({ length: 16 }, (_, ch) => <option key={ch} value={ch}>{ch + 1}</option>)}
+    </select></label>
+    <label title="How far the pitch wheel bends this track, in semitones either way">Bend ± <input type="number" aria-label={`Bend range of ${track.name}`} min={BEND_RANGE.min} max={BEND_RANGE.max} step={1} value={trackBendRange(track)} onChange={(e) => {
+      if (e.target.value !== '') setBendRange(track.id, Number(e.target.value))
+    }} /></label>
+    {input && <output>Always listens: {describeTrackInput(input, inputs.find((i) => i.id === input.deviceId)?.name)}</output>}
+  </div>
+}
+
+/**
+ * The recording latency offset: what the recorder moves notes earlier by beyond the output latency the browser
+ * reports (a positive offset places them earlier).
+ */
+/**
+ * *Recorded CCs*: the unmapped CCs ● keeps as lanes besides the wheel, pressure and the mod wheel, a browser
+ * preference. *Add CC…* ticks one by number; *Learn* ticks the next one that arrives.
+ */
+const RecordedCCs = () => {
+  const ticked = useRecordSettings((s) => s.recordedCCs)
+  const tick = useRecordSettings((s) => s.setRecordedCC)
+  const learning = useMidiStore((s) => s.learningRecordedCC)
+  const [text, setText] = useState('')
+  const number = text.trim() === '' ? NaN : Number(text)
+  const valid = isRecordableCC(number) && !ticked.includes(number)
+  const add = () => { if (valid) { tick(number, true); setText('') } }
+  return <div className={styles.recordedCCs} role="group" aria-label="Recorded CCs">
+    <span>Recorded CCs</span>
+    {ticked.length === 0 && <span className={styles.none}>none</span>}
+    {ticked.map((cc) => <span key={cc} className={styles.chip}>{ccLabel(cc)}<button aria-label={`Stop recording CC ${ccLabel(cc)}`} title="Stop recording this CC" onClick={() => tick(cc, false)}>×</button></span>)}
+    <label>Add CC… <input type="number" aria-label="CC to record" min={0} max={119} step={1} placeholder="0–119" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} /></label>
+    <button disabled={!valid} title={valid ? `Record CC ${ccLabel(number)}` : ticked.includes(number) ? 'Already recorded' : 'A CC 0 to 119, not 1 (always recorded) or 64 (the pedal)'} onClick={add}>Add</button>
+    <button aria-pressed={learning} onClick={() => useMidiStore.setState({ learningRecordedCC: !learning })}>{learning ? 'Move a control…' : 'Learn'}</button>
+  </div>
+}
+
+const LatencyOffset = () => {
+  const offset = useRecordSettings((s) => s.latencyOffsetMs)
+  const set = useRecordSettings((s) => s.setLatencyOffset)
+  return <div className={styles.latency}>
+    <label>Latency offset (ms) <input type="number" aria-label="Latency offset (ms)" min={LATENCY_OFFSET_MS.min} max={LATENCY_OFFSET_MS.max} step={1} value={offset} onChange={(e) => { if (e.target.value !== '') set(Number(e.target.value)) }} /></label>
+    <input type="range" aria-label="Latency offset slider" min={LATENCY_OFFSET_MS.min} max={LATENCY_OFFSET_MS.max} step={1} value={offset} onChange={(e) => set(Number(e.target.value))} />
+  </div>
+}
 
 export const MidiSettings = () => {
   const [open, setOpen] = useState(false)
@@ -34,7 +110,7 @@ export const MidiSettings = () => {
       <button onClick={() => setOpen(false)} aria-label="Close MIDI settings">Close</button>{' '}
       {state.status === 'enabled' || state.status === 'requesting' ? <button onClick={midi.disable}>Disable MIDI</button> : <button onClick={() => void midi.enable()}>Enable MIDI</button>}
       <p role="status">MIDI: {state.status}{state.error ? ` — ${state.error}` : ''}</p>
-      <label>Channel <select aria-label="MIDI channel" value={state.channel ?? 'all'} onChange={(e) => useMidiStore.setState({ channel: e.target.value === 'all' ? null : Number(e.target.value) })}>
+      <label>Selection channel <select aria-label="MIDI channel" value={state.channel ?? 'all'} onChange={(e) => useMidiStore.setState({ channel: e.target.value === 'all' ? null : Number(e.target.value) })}>
         <option value="all">All channels</option>{Array.from({ length: 16 }, (_, ch) => <option key={ch} value={ch}>{ch + 1}</option>)}
       </select></label>
       <label>Destination <select aria-label="MIDI destination" value={state.pinnedTrackId ?? ''} onChange={(e) => useMidiStore.setState({ pinnedTrackId: e.target.value || null })}>
@@ -43,6 +119,14 @@ export const MidiSettings = () => {
       <p>Inputs</p>
       {state.inputs.length === 0 && <p>No inputs available.</p>}
       {state.inputs.map((input) => <label key={input.id}><input type="checkbox" checked={!state.disabledInputs.includes(input.id)} onChange={(e) => useMidiStore.setState({ disabledInputs: e.target.checked ? state.disabledInputs.filter((id) => id !== input.id) : [...state.disabledInputs, input.id] })} />{input.name} — {input.connected ? 'connected' : 'disconnected'}</label>)}
+      <h3>Recording</h3>
+      <p>Recorded notes are placed earlier by the output latency the browser reports, plus this offset. If notes land late, raise it; if early, lower it.</p>
+      <LatencyOffset />
+      <p>Pitch bend, pressure and the mod wheel are always recorded, as lanes of the clip or region the notes go into. Other CCs that no mapping takes play, and are recorded only when listed here.</p>
+      <RecordedCCs />
+      <h3>Track inputs</h3>
+      <p>An instrument follows the selection: it plays while it is selected (or pinned as the destination). Give it an input of its own to have it always listen to that input and channel; notes that match a track's own input go only to it, and the rest to the selected instrument.</p>
+      {project.tracks.filter((t): t is InstrumentTrack => t.kind === 'instrument').map((track) => <TrackInputRow key={track.id} track={track} inputs={state.inputs} />)}
       <h3>Mappings</h3>
       <p>Right-click a panel control or mixer value to learn. Continuous controls wait for pickup; movements within 800 ms undo together. Sustain and channel-mode CCs are reserved.</p>
       {mappings.length === 0 && <p>No MIDI mappings.</p>}

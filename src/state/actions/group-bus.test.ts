@@ -35,7 +35,7 @@ describe('the group menu with buses', () => {
   })
 
   it('offers a bus Open effects and Remove bus, which says it discards the effects', () => {
-    expect(titles('Drums')).toEqual(['Collapse', 'Open effects', 'Pin effects panel', 'Rename', 'Remove bus', 'Save effects to library', 'Mute', 'Solo', 'Colour', 'Move up', 'Move down', 'Hide tracks', 'Ungroup', 'Delete group and tracks'])
+    expect(titles('Drums')).toEqual(['Collapse', 'Open effects', 'Show automation', 'Pin effects panel', 'Rename', 'Remove bus', 'Save effects to library', 'Mute', 'Solo', 'Colour', 'Move up', 'Move down', 'Hide tracks', 'Ungroup', 'Delete group and tracks', 'Show automation lanes'])
     expect(items('Drums').find((item) => item.id === 'group.bus')!.tooltip).toMatch(/discard the bus's effects/)
   })
 
@@ -67,10 +67,11 @@ describe('the group menu with buses', () => {
     expect(useSelectionStore.getState().groupId).toBeNull()
   })
 
-  it('offers no automation on a group\'s controls', () => {
+  it('offers a group\'s controls automation on the timeline only', () => {
     const fader = { kind: 'control' as const, targets: [{ kind: 'mixer' as const, owner: { kind: 'group' as const, groupId: group('Drums').id }, control: 'volume' as const }] }
     const entries = describeActions(fader, fakeContext())
-    expect(entries.find((item) => item.id === 'control.show-automation')!.choices![0]!.enabled).toBe(false)
+    expect(entries.find((item) => item.id === 'control.show-automation')).toBeUndefined()
+    expect(entries.find((item) => item.id === 'control.show-timeline-automation')!.choices![0]!.enabled).toBe(true)
     expect(entries.find((item) => item.id === 'control.midi-learn')!.choices![0]!.enabled).toBe(true)
   })
 })

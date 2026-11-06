@@ -128,7 +128,7 @@ export const validateLibraryCatalog = (input: unknown): LibraryCatalog => {
       for (const lane of content.lanes) {
         if (!record(lane) || !record(lane.target)) fail('lane fields')
         keys(lane, ['id', 'target', 'points', 'enabled', 'graphSignature', 'nodeIndex'])
-        if ('owner' in lane.target || lane.target.kind === 'mixer' && lane.target.control === 'send' || lane.target.kind === 'graph' && (['send', 'trackAudio', 'trackNotes'].includes(lane.target.nodeType) || typeof lane.graphSignature !== 'string' || !Number.isInteger(lane.nodeIndex) || lane.nodeIndex! < 0 || lane.nodeIndex! >= 10000)) fail('unsafe portable lane')
+        if ('owner' in lane.target || lane.target.kind === 'mixer' && lane.target.control === 'send' || lane.target.kind === 'expression' && ('graphSignature' in lane || 'nodeIndex' in lane) || lane.target.kind === 'graph' && (['send', 'trackAudio', 'trackNotes'].includes(lane.target.nodeType) || typeof lane.graphSignature !== 'string' || !Number.isInteger(lane.nodeIndex) || lane.nodeIndex! < 0 || lane.nodeIndex! >= 10000)) fail('unsafe portable lane')
         if (lane.target.kind === 'graph') {
           const signature = canonicalPortableSignature(lane.graphSignature)
           const nodes = JSON.parse(signature)[0] as unknown[][]

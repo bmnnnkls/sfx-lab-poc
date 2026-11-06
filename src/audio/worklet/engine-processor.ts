@@ -39,8 +39,9 @@ class EngineProcessor extends AudioWorkletProcessor {
       this.framesSinceStatus = sampleRate * STATUS_INTERVAL_SECONDS
     }
     this.engine.render(left, right)
-    // A loop jump is stamped with its own frame's time, so the recording clock maps a touch to the right pass.
-    const jump = this.engine.lastJump()
+    // A loop jump, or the start after a count-in, is stamped with its own frame's time, so the recording clock maps a
+    // note or a touch to the right beat.
+    const jump = this.engine.lastClockEdge()
     if (jump) this.port.postMessage({ kind: 'clock', clock: { ...this.engine.clock(), beat: jump.beat }, audioTime: currentTime + jump.frame / sampleRate } satisfies WorkletMessage)
     this.reportStatus(left.length)
     return true

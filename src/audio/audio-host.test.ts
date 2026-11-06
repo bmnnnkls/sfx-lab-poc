@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import type { HostMessage, WorkletMessage } from './protocol'
-import { AudioHost } from './audio-host'
+import { AudioHost, renderLead } from './audio-host'
 
 afterEach(() => vi.unstubAllGlobals())
 const fixture = ({ failResume = false }: { failResume?: boolean } = {}) => {
@@ -11,6 +11,10 @@ const fixture = ({ failResume = false }: { failResume?: boolean } = {}) => {
     constructor() { contexts++ }
     state = 'running'
     currentTime = 0
+    outputLatency = 0.032
+    baseLatency = 0.005
+    output: { contextTime: number; performanceTime: number } | undefined
+    getOutputTimestamp() { return this.output ?? { contextTime: 0, performanceTime: 0 } }
     destination = {}
     audioWorklet = { addModule: async () => { order.push('module') } }
     async suspend() { order.push('suspend'); this.state = 'suspended' }
@@ -18,6 +22,9 @@ const fixture = ({ failResume = false }: { failResume?: boolean } = {}) => {
     async close() { order.push('close'); this.state = 'closed' }
   }
   let node!: Node
+  let context!: Context
+  // Keeps the context the host made, for a test to move its clocks.
+  const Tracked = class extends Context { constructor() { super(); context = this } }
   class Node {
     onprocessorerror?: (event: Event) => void
     port = {
@@ -30,8 +37,8 @@ const fixture = ({ failResume = false }: { failResume?: boolean } = {}) => {
     constructor() { node = this }
     connect() { order.push('connect') }
   }
-  vi.stubGlobal('AudioContext', Context); vi.stubGlobal('AudioWorkletNode', Node)
-  return { order, sent, get contexts() { return contexts }, get node() { return node } }
+  vi.stubGlobal('AudioContext', Tracked); vi.stubGlobal('AudioWorkletNode', Node)
+  return { order, sent, get contexts() { return contexts }, get node() { return node }, get context() { return context } }
 }
 
 it('keeps the context suspended and later commands queued until ready; transfers initial samples once', async () => {
@@ -134,4 +141,45 @@ it('uses compact clock anchors for recording before publishing the end-of-quantu
   f.node.port.onmessage({ data: { kind: 'clock', clock: { beat: 0, tempo: 240, playing: false }, audioTime: 0 } })
   expect(host.recordingBeat()).toBeUndefined()
   expect(listener).toHaveBeenCalledTimes(1)
+})
+
+it('reports the output latency, and reads the render clock between the steps of currentTime', async () => {
+  const f = fixture(), host = new AudioHost()
+  expect(host.outputLatency()).toBe(0)
+  const starting = host.start()
+  await vi.waitFor(() => expect(f.order).toContain('prepare'))
+  f.node.port.onmessage({ data: { kind: 'ready' } }); await starting
+  expect(host.outputLatency()).toBeCloseTo(0.037)
+  // A reading that flips for a moment doesn't move it; a lasting change does.
+  const status = { beat: 0, tempo: 120, playing: false, mode: 'session' as const, peak: 0, peaks: {}, tracks: {}, readouts: {} }
+  for (let i = 0; i < 5; i++) f.node.port.onmessage({ data: { kind: 'status', status, audioTime: 0 } })
+  f.context.outputLatency = 0.024
+  f.node.port.onmessage({ data: { kind: 'status', status, audioTime: 0 } })
+  expect(host.outputLatency()).toBeCloseTo(0.037)
+  for (let i = 0; i < 10; i++) f.node.port.onmessage({ data: { kind: 'status', status, audioTime: 0 } })
+  expect(host.outputLatency()).toBeCloseTo(0.029)
+  // 120 BPM from beat 0 at audio time 0; currentTime has just stepped to 0.1, heard 33 ms later.
+  let now = 1000
+  vi.spyOn(performance, 'now').mockImplementation(() => now)
+  f.node.port.onmessage({ data: { kind: 'clock', clock: { beat: 0, tempo: 120, playing: true }, audioTime: 0 } })
+  f.context.currentTime = 0.1
+  f.context.output = { contextTime: 0.1 - 0.033, performanceTime: now }
+  expect(host.recordingBeat()).toBeCloseTo(0.2)
+  // 4 ms later currentTime hasn't moved, but the render clock has.
+  now += 4
+  expect(host.recordingBeat()).toBeCloseTo(0.208)
+  expect(host.recordingBeat(4)).toBeCloseTo(0.2)
+  // Without an output timestamp, currentTime itself.
+  f.context.output = undefined
+  expect(host.recordingBeat()).toBeCloseTo(0.2)
+  vi.restoreAllMocks()
+})
+
+it('takes the render lead from the spread of readings, not an outlier', () => {
+  // Readings spread evenly over a 5.33 ms step below a true lead of 33 ms, and one late callback 8 ms over.
+  const readings = Array.from({ length: 63 }, (_, i) => 0.033 - ((i * 7) % 63) / 63 * 0.00533)
+  // Within a millisecond, where the largest reading would be 8 ms off.
+  expect(Math.abs(renderLead(readings) - 0.033)).toBeLessThan(0.001)
+  expect(Math.abs(renderLead([...readings, 0.041]) - 0.033)).toBeLessThan(0.001)
+  expect(renderLead([0.03, 0.031])).toBe(0.031)
 })

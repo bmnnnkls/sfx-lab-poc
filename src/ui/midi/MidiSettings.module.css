@@ -4,3 +4,41 @@
 .overlay select { max-width: 210px; }
 .mapping { border-top: 1px solid #596173; padding: 10px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .notice { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 90; padding: 12px; background: #28394b; color: #fff; border: 1px solid #7ba4d1; border-radius: 6px; }
+
+.latency {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.latency input[type='number'] {
+  width: 4.5em;
+}
+
+.mapping input[type='number'] {
+  width: 4em;
+}
+
+.recordedCCs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.recordedCCs input[type='number'] {
+  width: 4.5em;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 2px 1px 8px;
+  border: 1px solid #596173;
+  border-radius: 10px;
+}
+
+.none {
+  color: #9aa3b5;
+}

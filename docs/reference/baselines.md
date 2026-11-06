@@ -162,6 +162,22 @@ The F1 capacity campaign (2026-10-19) is the most recent engine measurement. Its
 method and raw data are in [measurements/f1-fix](../measurements/f1-fix/README.md) and
 [`scripts/review-benchmark/`](../../scripts/review-benchmark/README.md).
 
+**Timeline automation** (round 12c, 2026-11-06, `9f37962`, the development Mac, load average 13 to 25 from other work,
+Node through Vitest; `MEASURE=1 npx vitest run tests/measure/timeline-automation.measure.test.ts`). Engine time per
+128-frame block at 48 kHz, 16 instrument tracks each holding a note, median of five 10 s runs:
+
+| Case | ms per block |
+|---|---|
+| Arrangement, no lanes | 0.289 (best of three runs 0.261; the commit before the round, best of three 0.260) |
+| Arrangement, a volume lane per track on the timeline | 0.687 |
+| Session, the same lanes in playing clips | 0.708 (the commit before the round: 0.664) |
+| Session, no lanes | 0.254 |
+
+Runs varied by up to 70% at that load; the no-lane figures agree on their best runs, as they should, since a project
+without lanes in the playing mode takes the same block path as before. An edit's automation signature
+(`project-sync` compiles and stringifies on every edit) for 16 owners × 4 lanes × 512 points: 0.09 ms to compile,
+2.65 ms to stringify 1.2 MB.
+
 ## Bit-for-bit references
 
 `core/engine/old-projects.test.ts` holds bounce hashes taken before round 11a's engine changes: both examples' busiest

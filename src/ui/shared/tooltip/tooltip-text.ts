@@ -9,7 +9,7 @@ const rows = (...lines: Array<string | undefined>): string => lines.filter((line
 
 /** A value as a person writes it: no trailing zeros ("20 Hz", not "20.0 Hz"), a note by name. */
 const shown = (spec: ParamSpec, value: number): string =>
-  spec.format === 'midiNote' ? formatParam(spec, value) : `${Number(value.toPrecision(4))}${spec.unit ? ` ${spec.unit}` : ''}`
+  spec.format ? formatParam(spec, value) : `${Number(value.toPrecision(4))}${spec.unit ? ` ${spec.unit}` : ''}`
 
 /** "Range 20 Hz to 20000 Hz · default 2000 Hz · logarithmic", or the options of an enum. */
 export const paramFacts = (spec: ParamSpec): string => {

@@ -1,0 +1,446 @@
+{
+  "format": "sfx-lab-project",
+  "version": 15,
+  "project": {
+    "name": "MIDI expression",
+    "tempo": 120,
+    "sceneCount": 4,
+    "samples": [],
+    "modules": [],
+    "master": {
+      "fx": {
+        "nodes": [
+          {
+            "id": "node_ru3g6ecg",
+            "type": "masterIn",
+            "x": 20,
+            "y": 40,
+            "params": {}
+          },
+          {
+            "id": "node_qd2du8yy",
+            "type": "trackOut",
+            "x": 620,
+            "y": 40,
+            "params": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "wire_479o5bcw",
+            "from": {
+              "node": "node_ru3g6ecg",
+              "port": "out"
+            },
+            "to": {
+              "node": "node_qd2du8yy",
+              "port": "in"
+            }
+          }
+        ]
+      }
+    },
+    "tracks": [
+      {
+        "kind": "instrument",
+        "id": "track_8tufyfwh",
+        "name": "Lead",
+        "volume": 0.8,
+        "fx": {
+          "nodes": [
+            {
+              "id": "node_st01v0pd",
+              "type": "trackIn",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_2pv87d1h",
+              "type": "trackOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_gfu0xmb8",
+              "from": {
+                "node": "node_st01v0pd",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_2pv87d1h",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "sends": {},
+        "voices": 8,
+        "patch": {
+          "nodes": [
+            {
+              "id": "node_wxd4pfqj",
+              "type": "note",
+              "x": 20,
+              "y": 120,
+              "params": {}
+            },
+            {
+              "id": "node_yqoyk3kn",
+              "type": "oscillator",
+              "x": 220,
+              "y": 40,
+              "params": {
+                "waveform": 1,
+                "frequency": 220,
+                "detune": 0,
+                "pitchAmount": 2
+              }
+            },
+            {
+              "id": "node_i4dly6py",
+              "type": "filter",
+              "x": 420,
+              "y": 40,
+              "params": {
+                "mode": 0,
+                "cutoff": 2000,
+                "resonance": 0.707,
+                "cvAmount": 2,
+                "keyTrack": 0,
+                "gain": 0,
+                "slope": 0
+              }
+            },
+            {
+              "id": "node_dixxvbt0",
+              "type": "envelope",
+              "x": 220,
+              "y": 260,
+              "params": {
+                "attack": 0.01,
+                "decay": 0.15,
+                "sustain": 0.6,
+                "release": 0.25
+              }
+            },
+            {
+              "id": "node_zhgoti8i",
+              "type": "gain",
+              "x": 620,
+              "y": 120,
+              "params": {
+                "gain": 0.3
+              }
+            },
+            {
+              "id": "node_yrt9nous",
+              "type": "delay",
+              "x": 820,
+              "y": 120,
+              "params": {
+                "time": 0.3,
+                "feedback": 0.4,
+                "mix": 0.35,
+                "sync": 0,
+                "division": 0
+              }
+            },
+            {
+              "id": "node_ez1srxdd",
+              "type": "output",
+              "x": 1020,
+              "y": 150,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_hvp6qsom",
+              "from": {
+                "node": "node_wxd4pfqj",
+                "port": "frequency"
+              },
+              "to": {
+                "node": "node_yqoyk3kn",
+                "port": "freq"
+              }
+            },
+            {
+              "id": "wire_6q8i5ico",
+              "from": {
+                "node": "node_wxd4pfqj",
+                "port": "gate"
+              },
+              "to": {
+                "node": "node_dixxvbt0",
+                "port": "gate"
+              }
+            },
+            {
+              "id": "wire_pmtv47ll",
+              "from": {
+                "node": "node_yqoyk3kn",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_i4dly6py",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_gz3fkhxd",
+              "from": {
+                "node": "node_i4dly6py",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_zhgoti8i",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_brw0ofop",
+              "from": {
+                "node": "node_dixxvbt0",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_zhgoti8i",
+                "port": "cv"
+              }
+            },
+            {
+              "id": "wire_mz13p7fj",
+              "from": {
+                "node": "node_zhgoti8i",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_yrt9nous",
+                "port": "in"
+              }
+            },
+            {
+              "id": "wire_v846hyrp",
+              "from": {
+                "node": "node_yrt9nous",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_ez1srxdd",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "noteGraph": {
+          "nodes": [
+            {
+              "id": "node_r5retofa",
+              "type": "clipNotes",
+              "x": 20,
+              "y": 40,
+              "params": {}
+            },
+            {
+              "id": "node_yqnph9bs",
+              "type": "noteOut",
+              "x": 620,
+              "y": 40,
+              "params": {}
+            }
+          ],
+          "connections": [
+            {
+              "id": "wire_23ai2fu3",
+              "from": {
+                "node": "node_r5retofa",
+                "port": "out"
+              },
+              "to": {
+                "node": "node_yqnph9bs",
+                "port": "in"
+              }
+            }
+          ]
+        },
+        "clips": [
+          {
+            "id": "clip_8z0rhtjx",
+            "name": "Bent",
+            "lengthBeats": 4,
+            "notes": [
+              {
+                "id": "note_bw110he5",
+                "pitch": 60,
+                "start": 0,
+                "duration": 4,
+                "velocity": 0.8
+              }
+            ],
+            "automation": [
+              {
+                "id": "lane_bend",
+                "target": {
+                  "kind": "expression",
+                  "owner": {
+                    "kind": "track",
+                    "trackId": "track_8tufyfwh"
+                  },
+                  "control": "pitchBend"
+                },
+                "enabled": true,
+                "points": [
+                  {
+                    "id": "p1",
+                    "beat": 0,
+                    "value": 0.5,
+                    "interpolation": "linear"
+                  },
+                  {
+                    "id": "p2",
+                    "beat": 2,
+                    "value": 1,
+                    "interpolation": "linear"
+                  },
+                  {
+                    "id": "p3",
+                    "beat": 4,
+                    "value": 0.5,
+                    "interpolation": "linear"
+                  }
+                ]
+              },
+              {
+                "id": "lane_mod",
+                "target": {
+                  "kind": "expression",
+                  "owner": {
+                    "kind": "track",
+                    "trackId": "track_8tufyfwh"
+                  },
+                  "control": "cc",
+                  "cc": 1
+                },
+                "enabled": true,
+                "points": [
+                  {
+                    "id": "p4",
+                    "beat": 0,
+                    "value": 0,
+                    "interpolation": "linear"
+                  },
+                  {
+                    "id": "p5",
+                    "beat": 4,
+                    "value": 0.8,
+                    "interpolation": "linear"
+                  }
+                ]
+              }
+            ]
+          },
+          null,
+          null,
+          null
+        ],
+        "bendRange": 12
+      }
+    ],
+    "arrangement": [
+      {
+        "id": "region_pressed",
+        "trackId": "track_8tufyfwh",
+        "startBeat": 4,
+        "content": {
+          "id": "clip_uyovglyh",
+          "name": "Pressed",
+          "lengthBeats": 4,
+          "notes": [
+            {
+              "id": "note_ogmr5xxg",
+              "pitch": 64,
+              "start": 0,
+              "duration": 2,
+              "velocity": 0.8
+            }
+          ],
+          "automation": [
+            {
+              "id": "lane_press",
+              "target": {
+                "kind": "expression",
+                "owner": {
+                  "kind": "track",
+                  "trackId": "track_8tufyfwh"
+                },
+                "control": "pressure"
+              },
+              "enabled": true,
+              "points": [
+                {
+                  "id": "p6",
+                  "beat": 0,
+                  "value": 0,
+                  "interpolation": "linear"
+                },
+                {
+                  "id": "p7",
+                  "beat": 1,
+                  "value": 0.6,
+                  "interpolation": "linear"
+                },
+                {
+                  "id": "p8",
+                  "beat": 3,
+                  "value": 0,
+                  "interpolation": "linear"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "arrangementAutomation": [
+      {
+        "owner": {
+          "kind": "track",
+          "trackId": "track_8tufyfwh"
+        },
+        "lanes": [
+          {
+            "id": "lane_timeline_bend",
+            "target": {
+              "kind": "expression",
+              "owner": {
+                "kind": "track",
+                "trackId": "track_8tufyfwh"
+              },
+              "control": "pitchBend"
+            },
+            "enabled": true,
+            "points": [
+              {
+                "id": "p9",
+                "beat": 0,
+                "value": 0.5,
+                "interpolation": "linear"
+              },
+              {
+                "id": "p10",
+                "beat": 8,
+                "value": 0.25,
+                "interpolation": "linear"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -58,7 +58,7 @@ test('a track renames and duplicates from its menu, in the session grid and the 
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
   await session.getByRole('button', { name: 'Bass', exact: true }).click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Pin panel▸', 'Show automation', '—', 'Rename', 'Duplicate', 'Save to library▸', 'Group', 'Move to group▸', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo', '—', 'Delete'])
+  expect(await menuEntries(page)).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Pin panel▸', 'Show automation', '—', 'Rename', 'Duplicate', 'Save to library▸', 'Group', 'Move to group▸', 'Move up', 'Move down', 'Hide', 'Arm for recording', 'Mute', 'Solo', '—', 'Delete', '—', 'Show automation lanes'])
   await page.getByRole('menuitem', { name: 'Rename', exact: true }).click()
   const field = session.getByRole('textbox', { name: 'Name of Bass', exact: true })
   await expect(field).toBeFocused()
@@ -88,15 +88,15 @@ test('the master has a menu in the session grid and the mixer', async ({ page })
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
   await session.getByRole('button', { name: 'Master', exact: true }).click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Open effects', 'Pin effects panel', 'Show automation', '—', 'Save effects to library'])
+  expect(await menuEntries(page)).toEqual(['Open effects', 'Pin effects panel', 'Show automation', '—', 'Save effects to library', '—', 'Show automation lanes'])
   await page.keyboard.press('Escape')
   const mixer = await openView(page, 'Mixer')
   await mixer.getByRole('region', { name: 'Master channel', exact: true }).getByText('Master', { exact: true }).click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Open effects', 'Pin effects panel', 'Show automation', '—', 'Save effects to library'])
+  expect(await menuEntries(page)).toEqual(['Open effects', 'Pin effects panel', 'Show automation', '—', 'Save effects to library', '—', 'Show automation lanes'])
   // The fader inside the strip keeps its own menu.
   await page.keyboard.press('Escape')
   await mixer.getByRole('slider', { name: 'Master fader', exact: true }).click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['MIDI learn', 'Show automation'])
+  expect(await menuEntries(page)).toEqual(['MIDI learn', 'Show automation in clip', 'Show automation on timeline'])
 })
 
 test('a scene renames, inserts and deletes from its menu', async ({ page }) => {
@@ -136,7 +136,7 @@ test('a clip copies into an empty slot and onto a lane', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'Copy', exact: true }).click()
   // The first empty MIDI slot is Lead's in scene 2.
   await session.getByRole('button', { name: 'Create clip', exact: true }).first().click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Create clip', '—', 'Paste'])
+  expect(await menuEntries(page)).toEqual(['Create clip', 'Record a clip here', '—', 'Paste'])
   await page.getByRole('menuitem', { name: 'Paste', exact: true }).click()
   await expect(session.getByRole('button', { name: '▶ Root', exact: true })).toHaveCount(2)
 
@@ -323,7 +323,7 @@ test("a group's menu offers a bus to a folder, and its effects and removal to a 
   expect(await menuEntries(page)).toEqual(['Collapse', '—', 'Rename', 'Sum to a bus', 'Mute', 'Solo', 'Colour▸', 'Move up', 'Move down', 'Hide tracks', 'Ungroup', '—', 'Delete group and tracks'])
   await page.getByRole('menuitem', { name: 'Sum to a bus', exact: true }).click()
   await name.click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Collapse', 'Open effects', 'Pin effects panel', '—', 'Rename', 'Remove bus', 'Save effects to library', 'Mute', 'Solo', 'Colour▸', 'Move up', 'Move down', 'Hide tracks', 'Ungroup', '—', 'Delete group and tracks'])
+  expect(await menuEntries(page)).toEqual(['Collapse', 'Open effects', 'Show automation', 'Pin effects panel', '—', 'Rename', 'Remove bus', 'Save effects to library', 'Mute', 'Solo', 'Colour▸', 'Move up', 'Move down', 'Hide tracks', 'Ungroup', '—', 'Delete group and tracks', '—', 'Show automation lanes'])
   await expect(page.getByRole('menuitem', { name: 'Remove bus', exact: true })).toHaveAttribute('title', /discard the bus's effects/)
   await page.getByRole('menuitem', { name: 'Mute', exact: true }).click()
   await name.click({ button: 'right' })
@@ -341,7 +341,7 @@ test("tracks offer their panels to pin and unpin, and a pin's header has its own
   expect(await menuEntries(page)).toEqual(['Instrument', 'Effects', 'Notes'])
   await page.getByRole('menuitem', { name: 'Notes', exact: true }).click()
   await bass.click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Pin panel▸', 'Unpin notes panel', 'Show automation', '—', 'Rename', 'Duplicate', 'Save to library▸', 'Group', 'Move to group▸', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo', '—', 'Delete'])
+  expect(await menuEntries(page)).toEqual(['Stop', 'Open instrument', 'Open effects', 'Open notes', 'Pin panel▸', 'Unpin notes panel', 'Show automation', '—', 'Rename', 'Duplicate', 'Save to library▸', 'Group', 'Move to group▸', 'Move up', 'Move down', 'Hide', 'Arm for recording', 'Mute', 'Solo', '—', 'Delete', '—', 'Show automation lanes'])
   await page.keyboard.press('Escape')
 
   // An audio track has one panel: one entry, which turns into Unpin.
@@ -349,7 +349,7 @@ test("tracks offer their panels to pin and unpin, and a pin's header has its own
   await page.getByRole('menuitem', { name: 'Audio track', exact: true }).click()
   const audio = session.getByRole('button', { name: 'Audio 4 audio', exact: true })
   await audio.click({ button: 'right' })
-  expect(await menuEntries(page)).toEqual(['Stop', 'Open effects', 'Pin effects panel', 'Show automation', '—', 'Rename', 'Duplicate', 'Save effects to library', 'Group', 'Move to group▸', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo', '—', 'Delete'])
+  expect(await menuEntries(page)).toEqual(['Stop', 'Open effects', 'Pin effects panel', 'Show automation', '—', 'Rename', 'Duplicate', 'Save effects to library', 'Group', 'Move to group▸', 'Move up', 'Move down', 'Hide', 'Mute', 'Solo', '—', 'Delete', '—', 'Show automation lanes'])
   await page.getByRole('menuitem', { name: 'Pin effects panel', exact: true }).click()
   await audio.click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Unpin effects panel', exact: true })).toBeVisible()

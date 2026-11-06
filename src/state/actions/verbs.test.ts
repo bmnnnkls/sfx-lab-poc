@@ -46,6 +46,7 @@ const VERBS: Readonly<Record<SubjectKind, Partial<Record<Verb, string>>>> = {
   'arrangement-marker': { delete: 'arrangement-marker.delete', rename: 'arrangement-marker.rename' },
   'arrangement-loop': { delete: 'arrangement-loop.remove' },
   'arrangement-timeline': {},
+  'timeline-lane': { delete: 'timeline-lane.delete' },
 }
 
 /** One subject per kind; the lists don't depend on the ids. */

@@ -13,6 +13,7 @@ import { geigerNode } from './nodes/geiger.node'
 import { lfoNode } from './nodes/lfo.node'
 import { noiseNode } from './nodes/noise.node'
 import { noteNode } from './nodes/note.node'
+import { midiCCNode } from './nodes/midi-cc.node'
 import { oscillatorNode } from './nodes/oscillator.node'
 import { monoSumNode } from './nodes/mono-sum.node'
 import { outputNode } from './nodes/output.node'
@@ -46,6 +47,7 @@ import type { NodeDefinition } from './types'
 
 const plainDefinitions: readonly NodeDefinition[] = [
   noteNode,
+  midiCCNode,
   oscillatorNode,
   noiseNode,
   geigerNode,

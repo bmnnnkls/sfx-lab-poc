@@ -67,6 +67,8 @@ export interface PatchCanvasHandle {
 }
 
 /** Two presses on empty canvas this close in time and place are a double-click. */
+const NO_NODES: readonly string[] = []
+
 const DOUBLE_MS = 450
 const DOUBLE_PX = 8
 
@@ -200,14 +202,20 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
     return [...stages].some(([id, stage]) => stage === 'shared' && id.startsWith(`${node.id}/`))
   }
 
-  const shapes = useMemo(() => {
+  // Cards whose own toggle shows all their sockets, as the toolbar's Sockets does for every card.
+  const ownSockets = useGraphViewStore((state) => state.sockets[viewKey]) ?? NO_NODES
+  const { shapes, socketed } = useMemo(() => {
     const map = new Map<string, NodeShape>()
+    /** Nodes with parameter sockets, which a card's toggle can show. */
+    const socketed = new Set<string>()
     for (const node of patch.nodes) {
       const shape = describeNode(node, modules)
-      if (shape) map.set(node.id, visibleShape(shape, node.id, patch, showSockets))
+      if (!shape) continue
+      if (shape.inputs.some((port) => port.param !== undefined)) socketed.add(node.id)
+      map.set(node.id, visibleShape(shape, node.id, patch, showSockets || ownSockets.includes(node.id)))
     }
-    return map
-  }, [patch, modules, showSockets])
+    return { shapes: map, socketed }
+  }, [patch, modules, showSockets, ownSockets])
   // The picture of each node that has one, from the numbers it is working with: a wire into a socket counts for its value.
   const pictures = useMemo(() => {
     const map = new Map<string, { preview: NonNullable<ReturnType<typeof nodePreview>>; moving: boolean }>()
@@ -380,6 +388,8 @@ export const PatchCanvas = forwardRef<PatchCanvasHandle, PatchCanvasProps>(funct
               selected={selected.has(node.id)}
               subject={nodesSubject(selected.has(node.id) ? [...selected] : [node.id])}
               moduleUse={node.type === MODULE_NODE_TYPE && !!node.moduleId}
+              sockets={socketed.has(node.id) ? (showSockets ? 'all' : ownSockets.includes(node.id) ? 'shown' : 'wired') : undefined}
+              onToggleSockets={() => useGraphViewStore.getState().toggleSockets(viewKey, node.id)}
               onSelect={(additive) => select(node.id, additive)}
               onMove={(x, y) => onMoveNode(node.id, x, y)}
               onWireStart={(from) => setPending({ from, pointer: { x: node.x, y: node.y } })}

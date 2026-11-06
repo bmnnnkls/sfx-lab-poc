@@ -1,8 +1,8 @@
 import { controlFromNormalized, projectWithControlValues, resolveControlTarget } from '../control'
 import { flattenPatch } from '../patch'
-import type { Project } from '../project'
+import { arrangementLoopEnd, type Project } from '../project'
 import { automationOwnerKey } from './edit'
-import type { AutomationLane, AutomationTrack } from './types'
+import type { AutomationLane, AutomationTrack, PlaybackLane, TimelineAutomation } from './types'
 
 /** Pure musical-time evaluator: hold outside points, with no implicit interpolation across wrap. */
 export const automationPosition = (lane: AutomationLane, beat: number, discrete = false): number | undefined => {
@@ -34,3 +34,35 @@ export const compileAutomation = (project: Project): AutomationTrack[] => [
   }),
   { trackId: '', slotOwner: { kind: 'master' as const }, clips: (project.master.automationSlots ?? []).map((slot) => !slot ? null : { id: slot.id, lengthBeats: slot.lengthBeats, lanes: compileLanes(project, slot.automation ?? [], { kind: 'master' }) }) },
 ].filter((track) => track.slotOwner ? track.clips.some(Boolean) : track.clips.some((clip) => clip?.lanes.length))
+
+const notesLane = (lane: PlaybackLane) => lane.target.kind === 'graph' && lane.target.domain === 'notes'
+
+/**
+ * The timeline's automation, compiled against the current specs as `compileAutomation` compiles clips: each owner's
+ * timeline lanes, and every region's own lanes with where it plays. Only owners and regions with lanes that resolve are
+ * listed, so a project without any compiles to empty lists.
+ */
+export const compileTimelineAutomation = (project: Project): TimelineAutomation => {
+  const owners = (project.arrangementAutomation ?? []).flatMap((entry) => {
+    const lanes = compileLanes(project, entry.lanes, entry.owner)
+    return lanes.length ? [{ owner: entry.owner, lanes }] : []
+  })
+  const regions = (project.arrangement ?? []).flatMap((region) => {
+    const lanes = compileLanes(project, region.content.automation ?? [], { kind: 'track', trackId: region.trackId })
+    if (!lanes.length) return []
+    const end = region.loop ? arrangementLoopEnd(region, project.arrangement!) : region.startBeat + region.content.lengthBeats
+    return [{ trackId: region.trackId, start: region.startBeat, end, length: region.content.lengthBeats, lanes }]
+  })
+  const noteTracks = new Set([
+    ...owners.flatMap(({ owner, lanes }) => (owner.kind === 'track' && lanes.some(notesLane) ? [owner.trackId] : [])),
+    ...regions.flatMap((region) => (region.lanes.some(notesLane) ? [region.trackId] : [])),
+  ])
+  if (!noteTracks.size) return { owners, regions }
+  const effective = projectWithControlValues(project)
+  const noteGraphs: Record<string, import('../patch').Patch> = {}
+  for (const id of noteTracks) {
+    const track = effective.tracks.find((candidate) => candidate.id === id)
+    if (track?.kind === 'instrument') noteGraphs[id] = flattenPatch(track.noteGraph, project.modules)
+  }
+  return { owners, regions, noteGraphs }
+}

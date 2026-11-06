@@ -31,9 +31,11 @@ The piano roll, groove tools, audio clips and the arrangement timeline.
   `ClipRef` (`core/project/clip-ref.ts`): `{ kind: 'session', trackId, clipId }` or `{ kind: 'region', regionId }`.
   `editClipAt(project, ref, change)` edits a session clip in its slot or a region's own `content`, and `clipAt` reads
   one. So Clip edits a selected region's copy the same way it edits a session clip, and never its session source.
-  Lengthening a region in Clip lets it overlap the next one, as resizing its edge does. A region shows no automation
-  toggle and no playhead in Clip yet (the timeline plays neither; round 12): its content keeps its source's id, so
-  the piano roll and the waveform are told not to follow the session launcher (`playhead={false}`).
+  Lengthening a region in Clip lets it overlap the next one, as resizing its edge does. A region has the *Automation*
+  toggle too: its own lanes are edited through its `ClipRef` (`editRegionAutomation`), never its source's. Its content
+  keeps its source's id, so no editor matches a region by id: the piano roll, the waveform and the lane editor take a
+  phase selector (`clipPhase`), the session launcher's for a session clip and the arrangement's beat for a region
+  (`regionPhaseAt`, wrapped while it loops, none outside it).
 * **Velocity lane** (`VelocityLane.tsx`, pure picking logic in `velocity-lane-logic.ts`): one bar per note under the
   roll. Press a bar and drag; if the note is selected the whole selection follows. Chords put several bars at one x,
   so the bar whose top is nearest the pointer wins. Same draft-then-commit pattern as the roll (one undo step).
@@ -51,6 +53,21 @@ The piano roll, groove tools, audio clips and the arrangement timeline.
 * **Remembered UI preferences:** grid, zoom, audition, follow and lane visibility are kept in `localStorage` via
   `useStoredState` (guarded, validated, falls back to defaults). The panel's height is part of the saved layout (see
   [Layout and navigation](workbench.md#layout-and-navigation)).
+
+## Recording into a slot
+
+An armed instrument track ([midi](midi.md#recording-notes-into-a-clip)) shows **●** in its empty slots instead of +
+(*Create clip* stays in the slot's menu). Pressing ● makes a clip there and launches it, so it records from the next
+bar; the slot blinks red while the take waits for the bar and is red with ● and the clip's name while it records.
+Pressing it again ends the take at the next bar: the clip's length is set to the bars recorded at the press, and since a
+playing clip loops by `(beat - startBeat) mod lengthBeats`, it loops from there in time. Notes reach the clip as they
+end, so a piano roll open on it shows them arriving. The arm ● is on the session header (after ■) and on the
+arrangement header (after M S); recording into the timeline is not built yet.
+
+With a **count-in** set, ● from a stopped transport queues the clip at once (the slot blinks) and the transport starts
+after the count-in, so the clip starts on beat 0; ■ during the count-in removes the clip again. With **● Rec** on, a
+clip playing on an armed track is **overdubbed**: its slot keeps playing, with a red dot after its name, and what is
+played is added to it ([midi](midi.md#overdub-and-count-in)).
 
 ## Groove: quantize, swing, humanize
 
@@ -178,17 +195,25 @@ Arrangement), and Tab switches views like in Ableton.
   jump starts its events at `from` (`eventsFrom`), so a note on the loop's first beat sounds on every pass. Playback
   from before the brace runs into it and then loops; from after it, it plays on and never loops. The jump goes through
   `seekArrangement`, so notes held across it are released at it and audio restarts in phase.
-* **The clock after a jump.** `Engine.lastJump()` is the frame and beat of the latest jump in a `render` call; the
-  worklet posts a clock packet stamped with that frame's own time (`currentTime + frame / sampleRate`), and after every
-  `arrangement/` command, as after `transport/` ones, so the recording clock anchors the jump where it happened.
+* **The clock after a jump.** `Engine.lastClockEdge()` is the frame and beat of the latest jump in a `render` call (a
+  loop jump, or the start after a count-in); the worklet posts a clock packet stamped with that frame's own time
+  (`currentTime + frame / sampleRate`), and after every `arrangement/` command, as after `transport/` ones, so the
+  recording clock anchors the jump where it happened. The engine also counts the jumps since the run began (`lap`) and
+  the runs, one more at every start and every seek while playing (`run`), in the clock packets and the status, so the
+  recording clock can tell a pass, and a seek, from a beat that went back
+  ([midi](midi.md#recording-into-the-arrangement)).
+* **Recording into it.** With ● Rec on, ▶ records the armed tracks into new regions, drawn red and locked while they
+  record, with a dashed outline up to the playhead before the first note ([midi](midi.md#recording-into-the-arrangement)).
 * **The bounce ignores the loop**: after `diffProject`, it sends `arrangement/setLoop { loop: null }`, so an export
   renders the whole timeline once.
 * **The view's layout** (`ui/arrangement/`). A toolbar over **one scroller** for both axes. Its content is a grid of the
   header column and the timeline; the headers are `position: sticky` at its left and the ruler row at its top, so a
   sideways scroll moves only the timeline and an up-and-down one moves headers and lanes together, with no script to
   keep them in step. The scroller's `scroll-padding` is the header column and the ruler with the mark lane (44 px), so
-  what scrolls into view lands beside them, not behind them. The rows come from `arrangementRows(project)` (`core`): `visibleRows` without the
-  returns, each track with its group's colour, memoized like `trackRows`.
+  what scrolls into view lands beside them, not behind them. The rows come from `arrangementRows(project)` (`core`): `visibleRows`, each track with
+  its group's colour, then a row per shown return and one for the master (`kind: 'return'`, `kind: 'master'`), which
+  hold no regions and take no drops; memoized like `trackRows`. With no clip track shown, the view says why it is empty
+  and draws none of them.
 * **Headers.** A track's header has its name (click or Enter selects the track, marked while selected), and the
   mixer's `MuteSolo` (`ui/shared/MuteSolo.tsx`: lit for the row's own flag, half lit through a group); a muted row's
   name is struck through. A group's header has its fold twisty, its name (selects the group), a *bus* tag on a bus and
@@ -196,7 +221,22 @@ Arrangement), and Tab switches views like in Ableton.
   menu, drags to reorder (before or after by halves, into a group by its middle third) and takes presets as the
   session's does. The header column is 180 px, resized from 120 to 320 by the splitter at its right edge (← and → move
   it by 10 px, a double-click returns it to 180); below 600 px of view it is drawn at 120 px. Track rows are 56 px high,
-  group rows 28.
+  group, return and master rows 28. A return's header has its name and `MuteSolo`, the master's its name (selects the
+  master). Every row that can own automation (a track, a return, the master, a group with a bus) has a **lanes twisty**
+  (`LanesTwisty`), showing how many lanes it has while closed; a clip track's sits in its header's bottom-left corner, so
+  the name and buttons keep their room at 120 px.
+* **Automation lanes** ([timeline automation](control-and-automation.md#timeline-automation)). Under an open owner's row,
+  one 40 px lane per timeline lane (`TimelineLanes.tsx`), then a *+ Lane* row whose picker (a search field and a list
+  of the owner's targets without a lane) opens in the timeline part. A lane's header has an on/off box, the target's
+  name, a note when the target is missing or wired, and *Read* while the control is overridden; its menu is the
+  `timeline-lane` subject's (*Show in panel*, *Disable*, *Read*, *Clear*, *Delete lane*). Its body is a canvas the size of
+  the visible timeline, sticky like the ruler and redrawn in an animation frame: the curve (flat before the first point
+  and after the last, stepped for a hold or a stepped control), the points and a box. Hit-testing is pure
+  (`timeline-lane-geometry.ts`) and the gestures are the clip editor's (`point-gestures.ts`): click adds a point snapped
+  to the grid and the marks, drag moves the selection (Shift keeps the beats, Alt doesn't snap), Shift-click toggles, ⌘
+  or Ctrl with a drag boxes, ⌘A, ⌘C, ⌘X and ⌘V (at the position); Delete on the body removes points, never the lane. A
+  right-click on a segment offers *Linear segment* and *Hold segment*. Each gesture is one undo step. The canvas carries
+  its points as attributes (`data-beats`, `data-holds`) for the browser specs.
 * **The ruler and the lines.** The ruler is a canvas the size of the visible timeline, sticky at the timeline's left
   edge, redrawn in an animation frame on scroll, zoom and resize: bar numbers, and beats and sixteenths
   (`formatBeat`) as the zoom allows, at least 72 px apart (`ticks` from `ui/shared/timeline`, steps up to 2048 beats).
@@ -284,4 +324,4 @@ Arrangement), and Tab switches views like in Ableton.
   timeline is dropped, a duplicate or missing id gets a fresh one, names are trimmed and the first 256 by beat kept; a
   loop not inside the timeline is dropped, its ends are ordered and a short one stretched to a beat, and it is on only
   for a real `true`. Each repair warns.
-* **Not yet.** Automation lanes on the timeline, and recording into the arrangement.
+* **Not yet.** Touch recording into the timeline.

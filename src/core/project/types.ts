@@ -1,6 +1,6 @@
 import type { Snapshot, SampleBinding, AssetRevision, ProjectPreset } from '../preset'
 import type { AutomationLane } from '../automation'
-import type { MidiMapping } from '../midi'
+import type { MidiMapping, MidiTrackInput } from '../midi'
 import type { ControlValue } from '../control'
 import type { ModuleDefinition, Patch } from '../patch'
 import type { SampleInfo } from '../sample'
@@ -102,6 +102,14 @@ export interface InstrumentTrack extends TrackBase {
   readonly noteGraph: Patch
   /** One slot per scene (row) of the session grid; null = empty slot. */
   readonly clips: readonly (Clip | null)[]
+  /**
+   * Where live MIDI notes come from: absent, the track follows the selection (it plays while it is the selected or the
+   * pinned instrument); set, it always listens to that input and channel (`{}` is any input, any channel), whatever is
+   * selected.
+   */
+  readonly midiInput?: MidiTrackInput
+  /** How far the pitch wheel bends, in whole semitones either way (0 to 24); absent is 2. */
+  readonly bendRange?: number
 }
 
 /** Plays audio clips (library samples) straight to the mix. */
@@ -182,6 +190,14 @@ export interface GroupBus {
 }
 
 /** The saveable document. Everything the user authors lives here. */
+/** One owner's automation lanes on the arrangement's timeline. */
+export interface TimelineLanes {
+  readonly owner: import('../control').ControlOwner
+  readonly lanes: readonly AutomationLane[]
+  /** The lanes are shown under the owner's row: a view field, saved and not undone. */
+  readonly open?: boolean
+}
+
 export interface Project {
   readonly libraryOrigins?: readonly import('../library').LibraryOrigin[]
   readonly snapshots?: readonly Snapshot[]
@@ -219,4 +235,9 @@ export interface Project {
   readonly arrangementMarkers?: readonly import('./arrangement-marks').ArrangementMarker[]
   /** The loop brace on the arrangement's timeline; absent when none is drawn. */
   readonly arrangementLoop?: import('./arrangement-marks').ArrangementLoop
+  /**
+   * Automation lanes on the arrangement's timeline, in beats from the song's start: one entry per owner (a track, a
+   * return, the master or a group with a bus), absent when there are none. Since format v14.
+   */
+  readonly arrangementAutomation?: readonly TimelineLanes[]
 }

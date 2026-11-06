@@ -10,12 +10,12 @@ Reconciled with the code on 2026-10-31 (`feat/ui-redesign` after round 11c, part
 
 Planned round by round. Each round gets a plan in [`active/`](active/) before it starts.
 
-- **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline (groups are
-  control owners but not automation owners yet), recording into the arrangement (touch recording on the timeline).
+- **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline, recording into
+  the arrangement (touch recording on the timeline).
   [Spec](active/SPEC-round-12-arrangement-editor.md) signed off 2026-11-01; 12a is done
   ([plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)), and so is 12b, markers and the loop
-  ([plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)); 12c (automation on the timeline) and 12d (touch
-  into the arrangement) are to plan.
+  ([plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)), and 12c, automation on the timeline
+  ([plan](archive/ui-redesign/PLAN-round-12c-timeline-automation.md)); 12d (touch into the arrangement) is to plan.
 - **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
   Samples and the Library, library samples, several things at once outside the Library (the Library's tree drags
@@ -47,11 +47,22 @@ Things that shipped without the check their plan asked for.
   and a sampler; a delete before a looped clip's trim; cut and paste with 0 and 100 ms crossfades; a 120 s stereo file
   opened in the UI; a sampler in loop mode with a loop set on zero crossings and one not.
 - **V5 Physical MIDI**: a keyboard and a controller, for permission, routing, sustain, disconnect and timing. Simulated
-  ports and real-worklet tests exist.
+  ports and real-worklet tests exist. Recording too: a real keyboard at 90 and 140 BPM with the metronome, and that the
+  latency offset nudges notes as expected (MIDI recording part 1); overdubbing a 2-bar loop at 90 and 140 BPM, and a
+  1-bar count-in with a downbeat played slightly early (part 2); recording 8 bars from bar 5 into the Arrangement,
+  punching in and out with F9, and a 2-bar loop brace over three passes, at 90 and 140 BPM (part 3). Pitch bend,
+  aftertouch and CC (part 1): a real keyboard's wheel at bend ranges 2 and 12, channel and polyphonic pressure through
+  the Note node's *Pressure*, and a controller's mod wheel through a MIDI CC node. Part 2: drawing a vibrato with a
+  CC 1 lane into a MIDI CC node on a real patch, and a real wheel taking over a bend lane until *Read*. Part 3: a real
+  keyboard's wheel and pressure recorded at 90 and 140 BPM, played back, then overdubbed, and a controller's knob
+  ticked with *Learn* under *Recorded CCs*.
 - **V6 Flaky smoke test**: `library.smoke.spec.ts`, the isolated preview case, reads the saved project right after
   loading the Starter, sometimes before the autosave has written it (2 failures in 5 runs on its own, round 8).
 - **V7 Load-sensitive audio test**: `tempo.audio.spec.ts`'s ping-pong case fails its tail-level check when the machine
-  is busy, because it times tempo edits from the page.
+  is busy, because it times tempo edits from the page. `midi-recording.audio.spec.ts`'s first case failed once the same
+  way, late in a run of the whole audio suite (MIDI recording part 3), and passes on its own. On 2026-11-06 both
+  `tempo.audio.spec.ts` cases also failed their capture check (a 128-frame chunk missing, `chunk.frame - start`) in 4 of
+  8 repeats on its own, on `090d93b` and on part 2 of MIDI expression alike.
 - **V8 Commit the measuring scripts** that rounds 4 and 11b used (`measure.cjs`, the in-place flow timing). Only
   `scripts/profile-status.cjs`, `scripts/measure-selection-levels.cjs` (round 11c-1) and
   `scripts/measure-revert-and-zero.cjs` (round 11c-2), `scripts/measure-second-pane.cjs` (round 11c-3) and
@@ -75,7 +86,9 @@ Things that shipped without the check their plan asked for.
   (markers, drawing the brace, its body and edges, auto-scroll past the side, Alt), rename in place, a marker's and the
   brace's menu with Shift+F10, the brace dimmed and lit in both themes, and listening to a loop of a few bars with held
   notes and an unwarped audio region across the jump, and to a click in the ruler while playing (notes cut, audio
-  rejoining in phase).
+  rejoining in phase). Round 12c adds: drawing, dragging and box-selecting points on a timeline lane with a trackpad and
+  a mouse, at high and low zoom; the lanes and the corner twisty in both themes and at 120 px; *+ Lane*'s picker by
+  keyboard; and listening to a bus fader lane and a region's own filter sweep on the timeline.
 - **V12 Library listening pass** (library round): each Factory instrument and effect auditioned once (▶ in the
   Library; the tests check only that every instrument is finite, audible and not blown up, before and after a
   Randomize roll), and a copy of Low Light's stab on a new track played beside the original.
@@ -88,6 +101,10 @@ Things that shipped without the check their plan asked for.
   keeps the morph slider across selections; the empty Library at 280 × 200 puts *Save Bass to library* before the hint;
   the Factory's content choices (*Hook stab* for a Groove stab, *Pluck* without its arpeggiator, two *Hall*s told apart
   by their descriptions).
+- **V14 Profile round 12c's timeline lanes** (round 12c): `scripts/profile-status.cjs` has a `lanes` setup (Bass's and
+  the master's lanes open, a fader lane with three points each, the arrangement playing), not run yet: it needs a dev
+  server and a preview server from the round's checkout. Compare with 12b's `editor` 87 and `loop` 87 component renders
+  a second; the lanes subscribe to the project, not the status, so they should add none.
 
 ## Performance
 
@@ -167,6 +184,12 @@ Things that shipped without the check their plan asked for.
 - **C6 MIDI note names on suitable controls; right-click to create an XY control paired with another parameter.**
 - **C7 Animated node pictures and audio-rate parameter sockets** (telemetry needed).
 - **C8 Open a pinned panel in Panel mode**: the mode lives in `ui`'s `localStorage`, so *Open* can't choose it yet.
+- **C9 Control groups on a panel**: a frame with a label, direction and items per line (user testing 6,
+  [review](active/REVIEW-user-testing-2026-11.md)).
+- **C10 Pin parts of a panel**: single controls, groups, module uses and controls inside modules, shown under their
+  instrument (user testing 7; groups need C9).
+- **C11 Control ports on module uses**: a wire into a module's control replaces it and hides it on panels (user
+  testing 8).
 
 ## Graph and note workflow
 
@@ -176,6 +199,16 @@ Things that shipped without the check their plan asked for.
 - **G4 An explicit send-notes-only control.**
 - **G5 Feedback cycles in graph routing** behind an explicit delay boundary (cycles are refused today).
 - **G6 Launch quantisation other than one bar; triplet grids in the piano roll.**
+- **V15 MIDI expression checks left at unit level** (pitch bend, aftertouch and CC, part 3): that a recorded bend plays
+  back at the beat it was played, within a render quantum, in the real worklet (the audio test reads levels from the
+  tap's peaks; it needs a sample capture like `midi-recording.audio.spec.ts`'s); an overdub pass replacing only its
+  expression span, and an Arrangement take's lanes across the loop brace, in the browser (both are unit tests); the
+  cost of a long take's per-bar lane writes and of live input's per-frame overrides with a real controller sending
+  hundreds of messages a second.
+
+## MIDI
+
+- **M3 A track's MIDI input on its header or mixer strip**: it is set in MIDI settings only, and the header shows a tag.
 
 ## Documentation
 
@@ -191,6 +224,7 @@ Things that shipped without the check their plan asked for.
 Not work yet: each needs a scope decision first.
 
 - **D1 External MIDI clock and output.**
-- **D2 MPE.**
+- **D2 MPE**, including polyphonic pressure recorded per note: until then it is folded into channel pressure
+  ([pitch bend, aftertouch and CC spec](archive/midi-expression/SPEC-midi-expression.md), decision 3).
 - **D3 Linked library updates** (a project copy that follows its library item).
 - **D4 When `feat/ui-redesign` merges into `main`**, and whether a v11 build ships to Pages before round 12.

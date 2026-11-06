@@ -1,6 +1,6 @@
-import { type AudioClip, type ControlTarget, type InstrumentTrack, type Track, createArrangementClip, originOf, savedFrameCount } from '@core'
+import { type AudioClip, type ControlTarget, type InstrumentTrack, type Track, controlTargetKey, createArrangementClip, originOf, savedFrameCount, timelineLanesOf, timelineLanesOpen } from '@core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { useAutomationEditor } from '../automation-store'
+import { useAutomationEditor, useTimelineLaneRequest } from '../automation-store'
 import { useLayoutStore } from '../layout-store'
 import { useMidiStore } from '../midi-store'
 import { useProjectStore } from '../project-store'
@@ -173,7 +173,7 @@ describe('session clip', () => {
 describe('empty slot', () => {
   it('creates a MIDI clip and opens it', () => {
     const lead = track('Lead')
-    expect(titles({ kind: 'slot', trackId: lead.id, scene: 1 })).toEqual(['Create clip', 'Paste'])
+    expect(titles({ kind: 'slot', trackId: lead.id, scene: 1 })).toEqual(['Create clip', 'Record a clip here', 'Paste'])
     runAction('slot.create-clip', { kind: 'slot', trackId: lead.id, scene: 1 }, fakeContext())
     expect(useSelectionStore.getState().clipId).toBe(clipOf('Lead', 1).id)
     expect(titles({ kind: 'slot', trackId: lead.id, scene: 1 })).toEqual([])
@@ -231,12 +231,19 @@ describe('control', () => {
 
   it('learns MIDI and shows automation for one target', () => {
     const subject: Subject = { kind: 'control', targets: [volume()] }
-    expect(describeActions(subject, fakeContext()).flatMap((item) => item.choices!.map((choice) => choice.title))).toEqual(['MIDI learn', 'Show automation'])
+    expect(describeActions(subject, fakeContext()).flatMap((item) => item.choices!.map((choice) => choice.title))).toEqual(['MIDI learn', 'Show automation in clip', 'Show automation on timeline'])
     runAction('control.midi-learn', subject, fakeContext(), { choice: '0' })
     expect(useMidiStore.getState().learning?.target).toEqual(volume())
     runAction('control.show-automation', subject, fakeContext(), { choice: '0' })
     expect(useAutomationEditor.getState().target).toEqual(volume())
     expect(useSelectionStore.getState().clipId).toBe(clipOf('Bass', 0).id)
+    // On the timeline: the lane is added (one undo step), the owner's lanes open, and the lane asked to show.
+    runAction('control.show-timeline-automation', subject, fakeContext(), { choice: '0' })
+    expect(timelineLanesOf(project(), owner()).map((lane) => lane.target)).toEqual([volume()])
+    expect(timelineLanesOpen(project(), owner())).toBe(true)
+    expect(useTimelineLaneRequest.getState().key).toBe(controlTargetKey(volume()))
+    runAction('control.show-timeline-automation', subject, fakeContext(), { choice: '0' })
+    expect(timelineLanesOf(project(), owner())).toHaveLength(1)
   })
 
   it('has one entry per axis of an XY pad', () => {
@@ -244,7 +251,7 @@ describe('control', () => {
     const node = bass.patch.nodes.find((candidate) => candidate.type !== 'output')!
     const axes = ['x', 'y'].map((paramId): ControlTarget => ({ kind: 'graph', owner: owner(), domain: 'instrument', path: [], nodeId: node.id, paramId } as unknown as ControlTarget))
     const entries = describeActions({ kind: 'control', targets: axes }, fakeContext()).flatMap((item) => item.choices!.map((choice) => choice.title.split(' — ')[0]))
-    expect(entries).toEqual(['MIDI learn X', 'MIDI learn Y', 'Show automation X', 'Show automation Y'])
+    expect(entries).toEqual(['MIDI learn X', 'MIDI learn Y', 'Show automation in clip X', 'Show automation in clip Y', 'Show automation on timeline X', 'Show automation on timeline Y'])
   })
 
   it('disables Show automation on a track without clips', () => {

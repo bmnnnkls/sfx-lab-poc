@@ -78,3 +78,39 @@
   font-size: 11px;
   color: var(--text-dim);
 }
+
+/* ● Rec and its ▾, joined. */
+.joined {
+  display: flex;
+}
+
+.joined > button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.joined > button:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: none;
+  padding-inline: 4px;
+}
+
+.recording {
+  color: var(--record);
+  border-color: var(--record);
+}
+
+/* ▶ while a count-in runs: lit, but dimmed, since the transport hasn't started yet. */
+.countingIn {
+  opacity: 0.6;
+}
+
+.countIn {
+  color: var(--record);
+  font-variant-numeric: tabular-nums;
+}
+
+.recordFeedback {
+  color: var(--record);
+}

@@ -1,4 +1,4 @@
-import { BEATS_PER_BAR, controlTargetLabel, nodeTitles, patchAt } from '@core'
+import { BEATS_PER_BAR, controlTargetLabel, nodeTitles, patchAt, timelineLanesOf } from '@core'
 import { catalogOf } from '../library-store'
 import { markerTitle } from './arrangement-marks'
 import { GRAPH_TITLES } from './pin'
@@ -85,5 +85,9 @@ export const subjectName = (subject: Subject): string => {
     }
     case 'arrangement-timeline':
       return `Timeline at ${barBeat(subject.beat)}`
+    case 'timeline-lane': {
+      const lane = timelineLanesOf(project(), subject.owner).find((candidate) => candidate.id === subject.laneId)
+      return lane ? `${controlTargetLabel(project(), lane.target)} lane` : 'Lane'
+    }
   }
 }

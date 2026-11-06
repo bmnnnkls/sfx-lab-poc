@@ -15,11 +15,13 @@ import {
   type Project,
   type Track,
 } from '../project'
+import { BEND_RANGE, sanitizeMidiTrackInput } from '../midi'
 import { type ModuleDefinition, createDefaultFxGraph, createDefaultMasterGraph, createDefaultNoteGraph, createDefaultReturnGraph } from '../patch'
 import { clamp, createId } from '../shared'
 import { LIMITS } from './format'
 import { type Warn, asList, finiteNumber, isRecord, nonEmptyText } from './raw'
 import { sanitizeArrangement, sanitizeArrangementMarks } from './sanitize-arrangement'
+import { sanitizeTimelineAutomation } from './sanitize-timeline-automation'
 import { sanitizeAudioClip } from './sanitize-audio-clip'
 import { sanitizeClip } from './sanitize-clip'
 import { repairGroupOrder, sanitizeGroups } from './sanitize-groups'
@@ -95,6 +97,10 @@ const sanitizeTrack = (
   const clips = Array.from({ length: sceneCount }, (_, scene) =>
     sanitizeClip(rawClips[scene], where, usedClipIds, warn, { kind: 'track', trackId: id }),
   )
+  const midiInput = raw.midiInput === undefined ? undefined : sanitizeMidiTrackInput(raw.midiInput)
+  if (raw.midiInput !== undefined && midiInput === undefined) warn(`${where}: invalid MIDI input dropped; the track follows the selection`)
+  const bendRange = raw.bendRange === undefined || raw.bendRange === BEND_RANGE.default ? undefined : readBendRange(raw.bendRange)
+  if (raw.bendRange !== undefined && raw.bendRange !== BEND_RANGE.default && bendRange === undefined) warn(`${where}: invalid bend range dropped; the track bends ±${BEND_RANGE.default}`)
 
   return {
     kind: 'instrument',
@@ -110,8 +116,16 @@ const sanitizeTrack = (
       ? sanitizePatch(raw.noteGraph, where, sampleIds, modules, warn, 'notes')
       : createDefaultNoteGraph(),
     clips,
+    // Absent: the track follows the selection, as in files from before track inputs.
+    ...(midiInput && { midiInput }),
+    // Absent: ±2, as in files from before the bend range.
+    ...(bendRange !== undefined && { bendRange }),
   }
 }
+
+/** A saved bend range: a whole number of semitones, 0 to 24. Anything else is not one. */
+const readBendRange = (raw: unknown): number | undefined =>
+  typeof raw === 'number' && Number.isInteger(raw) && raw >= BEND_RANGE.min && raw <= BEND_RANGE.max ? raw : undefined
 
 const masterVolume = (raw: unknown): number => clamp(finiteNumber(raw, 1), 0, 1)
 
@@ -157,6 +171,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
   const midiMappings = sanitizeMidiMappings(raw.midiMappings, warn)
   const arrangement = sanitizeArrangement(raw.arrangement, new Set(tracks.map((track) => track.id)), sampleIds, warn)
   const marks = sanitizeArrangementMarks(raw.arrangementMarkers, raw.arrangementLoop, warn)
+  const timelineAutomation = sanitizeTimelineAutomation(raw.arrangementAutomation, { tracks, groups }, warn)
   const project = repairGroupOrder({
     ...sanitizePresetFields(raw, sampleIds, warn),
     ...(libraryOrigins && { libraryOrigins }),
@@ -171,6 +186,7 @@ export const sanitizeProject = (raw: unknown, warn: Warn): Project | null => {
     ...(arrangement && { arrangement }),
     ...(marks.markers && { arrangementMarkers: marks.markers }),
     ...(marks.loop && { arrangementLoop: marks.loop }),
+    ...(timelineAutomation && { arrangementAutomation: timelineAutomation }),
     // Files from before the master bus existed have none: the mix passes through untouched.
     master: {
       ...(isRecord(raw.master) && raw.master.automationSlots !== undefined && { automationSlots: sanitizeAutomationSlots(raw.master.automationSlots, sceneCount, { kind: 'master' }, warn) }),

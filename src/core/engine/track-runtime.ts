@@ -1,5 +1,6 @@
 import { NoteControlGraph } from '../instrument'
-import { DEFAULT_TEMPO } from '../dsp'
+import { DEFAULT_TEMPO, type TrackExpression } from '../dsp'
+import { BEND_RANGE, type ExpressionControl, clampBendRange, createTrackExpression, expressionKey, expressionRange, restTrackExpression } from '../midi'
 import { FxGraph, Instrument } from '../instrument'
 import { NoteGraph, type TapBoard } from '../notefx'
 import { type Patch, audioSources, sendTargets, setNodeParam } from '../patch'
@@ -36,6 +37,12 @@ export class TrackRuntime implements PlayableTrack {
   private audition: { pitch: number; framesLeft: number } | null = null
   /** Kept here as well, since the instrument and the insert graph are rebuilt by edits and must start with it. */
   private tempo = DEFAULT_TEMPO
+  /**
+   * The keyboard's wheel, pressure and CCs on this track, handed to every instrument built for it, so a patch edit keeps
+   * them. Each control remembers the source and channel that set it last, so a source's release puts back only its own.
+   */
+  private readonly expression: TrackExpression
+  private readonly expressionWriters = new Map<string, { readonly sourceId: string; readonly channel: number }>()
   private beatOrigin = 0
   private readonly tap = { clip: EMPTY_EVENTS, out: EMPTY_EVENTS }
 
@@ -49,10 +56,12 @@ export class TrackRuntime implements PlayableTrack {
     private voices: number,
     private readonly sampleRate: number,
     private readonly samples: SampleLookup,
+    bendRange: number = BEND_RANGE.default,
   ) {
     this.launcher = new ClipLauncher(4, clipSource(trackId))
     this.arrangement = new ArrangementNotes(clipSource(trackId))
-    this.instrument = new Instrument(patch, sampleRate, voices, samples)
+    this.expression = createTrackExpression(bendRange)
+    this.instrument = new Instrument(patch, sampleRate, voices, samples, DEFAULT_TEMPO, this.expression)
     this.fx = new FxGraph(fx, sampleRate, samples)
     this.targets = sendTargets(fx)
     this.sources = audioSources(fx)
@@ -69,6 +78,42 @@ export class TrackRuntime implements PlayableTrack {
   noteOn(note: LiveNoteAddress, pitch: number, velocity: number): void { this.live.noteOn(note, pitch, velocity) }
   noteOff(note: LiveNoteAddress): void { this.live.noteOff(note) }
   sustain(sourceId: string, channel: number, down: boolean): void { this.live.sustain(sourceId, channel, down) }
+
+  /** Sets one of the keyboard's controls from the next block on, clamped to its range. */
+  express(sourceId: string, channel: number, control: ExpressionControl, value: number): void {
+    if (!Number.isFinite(value)) return
+    const { min, max } = expressionRange(control)
+    const clamped = Math.min(max, Math.max(min, value))
+    if (control === 'pitchBend') this.expression.bend = clamped
+    else if (control === 'pressure') this.expression.pressure = clamped
+    else this.expression.cc[control.cc] = clamped
+    this.expressionWriters.set(expressionKey(control), { sourceId, channel })
+  }
+
+  /** Puts back at rest what `sourceId` (on `channel`, or any) set last, or everything without a source. */
+  restExpression(sourceId?: string, channel?: number): void {
+    if (sourceId === undefined) {
+      restTrackExpression(this.expression)
+      this.expressionWriters.clear()
+      return
+    }
+    for (const [key, writer] of this.expressionWriters) {
+      if (writer.sourceId !== sourceId || (channel !== undefined && writer.channel !== channel)) continue
+      this.expressionWriters.delete(key)
+      if (key === 'pitchBend') this.expression.bend = 0
+      else if (key === 'pressure') this.expression.pressure = 0
+      else this.expression.cc[Number(key.slice(3))] = 0
+    }
+  }
+
+  setBendRange(range: number): void {
+    this.expression.bendRange = clampBendRange(range)
+  }
+
+  /** What the keyboard is doing to this track now (tests, readouts). */
+  expressionNow(): Readonly<TrackExpression> {
+    return this.expression
+  }
 
   /** Cancel ownership even when the graph has no connected source/sink. */
   cancelNotes(scope?: NoteScope): void {
@@ -110,13 +155,13 @@ export class TrackRuntime implements PlayableTrack {
   setPatch(patch: Patch): void {
     this.audition = null
     this.patch = patch
-    this.instrument = new Instrument(patch, this.sampleRate, this.voices, this.samples, this.tempo)
+    this.instrument = new Instrument(patch, this.sampleRate, this.voices, this.samples, this.tempo, this.expression)
   }
 
   setVoices(voices: number): void {
     this.audition = null
     this.voices = voices
-    this.instrument = new Instrument(this.patch, this.sampleRate, voices, this.samples, this.tempo)
+    this.instrument = new Instrument(this.patch, this.sampleRate, voices, this.samples, this.tempo, this.expression)
   }
 
   setClips(clips: readonly (Clip | null)[]): void {

@@ -146,6 +146,21 @@
   line-height: 18px;
 }
 
+/* A card's own Sockets toggle, beside its ×; lit (as control sockets are) while it shows every socket. */
+.cardSockets {
+  margin-left: auto;
+  margin-right: 2px;
+  padding: 0 4px;
+  line-height: 18px;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+.cardSockets[aria-pressed='true'] {
+  color: var(--play);
+  border-color: var(--play);
+}
+
 .ports {
   padding: 6px 0;
 }
@@ -213,9 +228,16 @@
   grid-column: 1 / -1;
 }
 
+/* A selected card: accented border, a title bar in the accent and a body tinted with it. */
 .selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel-raised));
+}
+
+.selected > .nodeHeader {
+  background: color-mix(in srgb, var(--accent) 34%, var(--panel));
+  border-bottom-color: var(--accent);
 }
 
 .marquee {

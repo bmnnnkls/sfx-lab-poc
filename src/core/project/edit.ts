@@ -1,4 +1,4 @@
-import { MAX_AUTOMATION_POINTS, resizeAutomation, doubleAutomation } from '../automation'
+import { MAX_AUTOMATION_POINTS, resizeAutomation, doubleAutomation, pruneTimelineLanes } from '../automation'
 import {
   clearTrackReferences,
   createDefaultFxGraph,
@@ -122,7 +122,7 @@ export const addTrack = (project: Project, track: Track): Project => ({
  * leaves empty goes too. Undo restores all of it.
  */
 export const removeTrack = (project: Project, trackId: string): Project => pruneGroups({
-  ...project,
+  ...pruneTimelineLanes(project, (owner) => owner.kind === 'track' && owner.trackId === trackId, (target) => removedControlReference(target, trackId)),
   ...(project.groups && {
     groups: mapBuses(project.groups, (bus) => {
       const fx = clearTrackReferences(bus.fx, trackId)

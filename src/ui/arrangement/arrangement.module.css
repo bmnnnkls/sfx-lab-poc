@@ -71,6 +71,11 @@
   inset: 0;
 }
 
+/* The selected track's lane (or its collapsed group's, or a selected group's own) is lighter, as its header is marked. */
+.lane[data-selected] > .row {
+  background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
 /* A track's or a group's header, at the left while the timeline scrolls. */
 .header {
   position: sticky;
@@ -193,6 +198,28 @@
 .region.selected {
   border-width: 2px;
   box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* A region being recorded into: red, like a recording slot, and not draggable. */
+.region.recording {
+  border-color: var(--record);
+  background: color-mix(in srgb, var(--record) 16%, var(--bg));
+  cursor: default;
+}
+
+.region.recording .noteRect {
+  background: var(--record);
+}
+
+/* What an armed track records before its first note (or past its last region): an outline up to the playhead. */
+.recordingOutline {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  border: 1px dashed var(--record);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--record) 8%, transparent);
+  pointer-events: none;
 }
 
 .notes {
@@ -610,4 +637,111 @@
   color: var(--bg);
   background: var(--play, #4caf50);
   border-color: var(--play, #4caf50);
+}
+
+/* An instrument header's arm ●, after M and S. */
+.headerArm {
+  flex: none;
+  padding: 1px 5px;
+}
+
+/* A return's and the master's rows: no regions, only a place for their lanes. */
+.ownerHeader,
+.ownerRow {
+  height: 28px;
+}
+
+.ownerRow {
+  background: color-mix(in srgb, var(--panel) 60%, transparent);
+}
+
+.lanesTwisty {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+}
+
+.laneCount {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+/* A clip track's lanes twisty: in its tall header's bottom-left corner, out of the row of name and buttons. */
+.cornerTwisty {
+  position: absolute;
+  left: var(--twisty-left, 2px);
+  bottom: 2px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+/* An automation lane under its owner's row, and the row that adds one. */
+.automationHeader,
+.automationRow {
+  height: 40px;
+}
+
+.automationHeader {
+  gap: 4px;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--panel) 85%, var(--bg));
+}
+
+.automationHeader .headerName {
+  font-weight: 500;
+}
+
+.automationRow {
+  background-color: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+/* The visible part of a lane, kept at the timeline's left edge while it scrolls, as the ruler is. */
+.laneCanvas {
+  position: sticky;
+  left: var(--header-width);
+  display: block;
+  height: 40px;
+  cursor: crosshair;
+}
+
+.laneCanvas:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.laneNote {
+  color: var(--warning, #d88);
+  font-weight: 700;
+}
+
+.readButton {
+  padding: 0 4px;
+  font-size: 10px;
+}
+
+.addLaneHeader,
+.addLaneRow {
+  height: 24px;
+}
+
+.addLaneHeader button {
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.lanePicker {
+  position: sticky;
+  left: var(--header-width);
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  height: 24px;
+  padding: 0 6px;
+}
+
+.lanePicker input,
+.lanePicker select {
+  font-size: 11px;
+  max-width: 180px;
 }

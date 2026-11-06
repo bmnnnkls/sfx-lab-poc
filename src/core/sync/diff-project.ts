@@ -1,8 +1,8 @@
-import { compileAutomation } from '../automation'
+import { compileAutomation, compileTimelineAutomation } from '../automation'
 import { projectWithControlValues } from '../control'
 import type { EngineCommand } from '../engine'
 import { type ModuleLibrary, type Patch, engineNoteGraph, flattenPatch } from '../patch'
-import { type AudioTrack, type BusGroup, type ChannelRoute, type InstrumentTrack, type Project, type SendLevels, type Track, activeArrangementLoop, busGroups, mixRouting, panOf } from '../project'
+import { type AudioTrack, type BusGroup, type ChannelRoute, type InstrumentTrack, type Project, type SendLevels, type Track, activeArrangementLoop, busGroups, mixRouting, panOf, trackBendRange } from '../project'
 
 /** Identity of a patch's wiring, ignoring params and canvas positions. */
 const structureOf = (patch: Patch): string =>
@@ -94,6 +94,9 @@ const diffInstrumentTrack = (
   if (prev.voices !== next.voices) {
     commands.push({ type: 'track/setVoices', trackId: next.id, voices: next.voices })
   }
+  if (trackBendRange(prev) !== trackBendRange(next)) {
+    commands.push({ type: 'track/setBendRange', trackId: next.id, bendRange: trackBendRange(next) })
+  }
   return commands
 }
 
@@ -177,6 +180,7 @@ const addTrackCommand = (track: Track, route: ChannelRoute, modules: ModuleLibra
         clips: track.clips,
         ...mix,
         voices: track.voices,
+        bendRange: trackBendRange(track),
       }
   }
 }
@@ -203,7 +207,8 @@ const diffLoops = (prev: Project | null, next: Project): EngineCommand[] => {
 
 export const diffProject = (prev: Project | null, next: Project, syncAutomation = true): EngineCommand[] => {
   const automation = syncAutomation ? compileAutomation(next) : []
-  const automationChanged = syncAutomation && JSON.stringify(prev && compileAutomation(prev)) !== JSON.stringify(automation)
+  const timeline = syncAutomation ? compileTimelineAutomation(next) : undefined
+  const automationChanged = syncAutomation && JSON.stringify(prev && [compileAutomation(prev), compileTimelineAutomation(prev)]) !== JSON.stringify([automation, timeline])
   prev = prev && projectWithControlValues(prev)
   next = projectWithControlValues(next)
   const commands: EngineCommand[] = []
@@ -265,6 +270,7 @@ export const diffProject = (prev: Project | null, next: Project, syncAutomation 
   const loop = activeArrangementLoop(next)
   const looped = prev ? activeArrangementLoop(prev) : null
   if (loop?.from !== looped?.from || loop?.to !== looped?.to) commands.push({ type: 'arrangement/setLoop', loop })
-  if (syncAutomation && automationChanged && (automation.length || prev)) commands.push({ type: 'automation/configure', tracks: automation })
+  const timed = !!timeline && (timeline.owners.length > 0 || timeline.regions.length > 0)
+  if (syncAutomation && automationChanged && (automation.length || timed || prev)) commands.push({ type: 'automation/configure', tracks: automation, ...(timed && { timeline }) })
   return commands
 }

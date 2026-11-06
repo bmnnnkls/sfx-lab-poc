@@ -146,6 +146,18 @@ sends to it; it just processes what the tracks and returns have summed.
   graph and before the soft clip, so it scales the final mix exactly. The sample preview skips it, like it skips the graph
   (an audition is not part of the mix). `master/setVolume`; `diffProject` sends it on load and on change. There is still no
   limiter: the soft clip is the only one.
+* **The metronome** (`core/engine/metronome.ts`) is mixed in after each block's `processMaster`, beside the preview and
+  before the soft clip, so effects and the master fader never touch it. While the transport plays, in either mode, it
+  starts a click on the first sample at or after each whole beat (a click running past a block goes on into the next):
+  a 25 ms sine with a 1 ms attack and an exponential decay, 1500 Hz on the first beat of a bar (4/4) and 1000 Hz on the
+  others. A loop jump makes the next click the loop start's beat. `transport/metronome { on, level }` (level in dB, −40
+  to 0, default −12) sets it; it starts off and is not part of the project, so `diffProject` never sends it: the
+  browser preference is sent by `app/project-sync`, and a bounce, which builds its own engine from the project, never
+  clicks.
+* **The count-in** (`transport/countIn { bars, then }`) clicks through the same metronome, at its level, **even while it
+  is off**: the count-in's own beats, −4 × bars up to −1, the bar's first beat higher. While it runs the transport is
+  stopped, so clips are silent and live notes sound; at its end the block is split and `then` (▶, a clip or scene
+  launch, or an arrangement play) starts the transport on that exact frame. A bounce never sends it.
 
 ## Mixer
 

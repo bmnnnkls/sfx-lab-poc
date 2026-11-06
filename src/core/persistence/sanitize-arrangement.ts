@@ -38,8 +38,8 @@ export const sanitizeArrangement = (
     }
     const content =
       isRecord(entry.content) && 'sampleId' in entry.content
-        ? sanitizeAudioClip(entry.content, 'the arrangement', sampleIds, usedIds, warn)
-        : sanitizeClip(entry.content, 'the arrangement', usedIds, warn)
+        ? sanitizeAudioClip(entry.content, 'the arrangement', sampleIds, usedIds, warn, { kind: 'track', trackId: entry.trackId })
+        : sanitizeClip(entry.content, 'the arrangement', usedIds, warn, { kind: 'track', trackId: entry.trackId })
     if (!content) {
       dropped++
       continue

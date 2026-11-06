@@ -32,6 +32,7 @@ export const DEFAULT_KEYS: readonly KeyRow[] = [
   { command: 'layout.toggle.secondary', key: 'mod+alt+shift+b', apple: 'ctrl+mod+shift+b' },
   { command: 'layout.maximize', key: 'mod+alt+m', apple: 'ctrl+mod+m' },
   { command: 'transport.play-stop', key: 'space', scope: 'workspace' },
+  { command: 'transport.record', key: 'f9' },
   { command: 'edit.delete', key: 'delete' },
   { command: 'edit.delete', key: 'backspace', apple: 'forwarddelete' },
   { command: 'edit.duplicate', key: 'mod+d' },

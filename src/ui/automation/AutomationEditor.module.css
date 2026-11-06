@@ -35,3 +35,12 @@
   .lane { flex: 1 1 100%; margin: 0; }
   .lane:not(:has(button[aria-pressed='true'])) { display: none; }
 }
+
+/* A box selecting points: ⌘ or Ctrl and a drag on empty space. */
+.box {
+  fill: color-mix(in srgb, var(--accent) 12%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}

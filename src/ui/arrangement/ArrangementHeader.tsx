@@ -3,15 +3,17 @@ import { type SubjectOf, runAction, useProjectStore, useSelectionStore } from '@
 import type { CSSProperties } from 'react'
 import { useDragSource, useEdgeTarget } from '../shared/drag'
 import { ActionMenu, useActionContext } from '../shared/menu'
+import { ArmButton } from '../shared/ArmButton'
 import { GroupMuteSolo, MuteSolo, useRoute } from '../shared/MuteSolo'
+import { LanesTwisty } from './LanesTwisty'
 import styles from './arrangement.module.css'
 
 /**
  * A track's header, at the left of its lane while the timeline scrolls: its name (clicking selects the track, as the
- * session header and the mixer strip do; the selected one is marked), M and S. It carries the track's menu, drags to
+ * session header and the mixer strip do; the selected one is marked), M and S, and an instrument's arm ●. It carries the track's menu, drags to
  * reorder, and takes a preset or a library graph dropped on it.
  */
-export const TrackHeader = ({ track, depth, stripe }: { track: Track; depth: number; stripe?: GroupColour }) => {
+export const TrackHeader = ({ track, depth, stripe, owner = false }: { track: Track; depth: number; stripe?: GroupColour; owner?: boolean }) => {
   const subject: SubjectOf<'track'> = { kind: 'track', trackId: track.id }
   const context = useActionContext()
   // A track or a group dragged here lands above or below it.
@@ -22,12 +24,13 @@ export const TrackHeader = ({ track, depth, stripe }: { track: Track; depth: num
   return (
     <ActionMenu subject={subject}>
       <div
-        className={`${styles.header} ${selected ? styles.selectedHeader : ''} ${route.muted ? styles.mutedHeader : ''}`}
-        style={{ paddingInlineStart: 8 + depth * 10, ...(stripe && { '--group': `var(--group-${stripe})` }) } as CSSProperties}
+        className={`${styles.header} ${owner ? styles.ownerHeader : ''} ${selected ? styles.selectedHeader : ''} ${route.muted ? styles.mutedHeader : ''}`}
+        style={{ paddingInlineStart: 8 + depth * 10, '--twisty-left': `${depth * 10 + 2}px`, ...(stripe && { '--group': `var(--group-${stripe})` }) } as CSSProperties}
         data-stripe={stripe}
         {...drop}
         {...drag}
       >
+        <LanesTwisty owner={{ kind: 'track', trackId: track.id }} name={track.name} corner={!owner} />
         <span
           className={styles.headerName}
           tabIndex={0}
@@ -49,6 +52,7 @@ export const TrackHeader = ({ track, depth, stripe }: { track: Track; depth: num
           onMute={() => runAction('track.mute', subject, context)}
           onSolo={() => runAction('track.solo', subject, context)}
         />
+        {track.kind === 'instrument' && <ArmButton trackId={track.id} name={track.name} className={styles.headerArm} />}
       </div>
     </ActionMenu>
   )
@@ -79,6 +83,7 @@ export const GroupHeader = ({ group, depth }: { group: TrackGroup; depth: number
         >
           {group.collapsed ? '▸' : '▾'}
         </button>
+        {group.bus && <LanesTwisty owner={{ kind: 'group', groupId: group.id }} name={group.name} />}
         <span className={styles.headerName} onClick={() => useSelectionStore.getState().selectGroup(group.id)}>
           {group.name}
         </span>
@@ -89,6 +94,31 @@ export const GroupHeader = ({ group, depth }: { group: TrackGroup; depth: number
   )
 }
 
+/** The master's header: its lanes twisty and its name, which selects it; the master's menu. */
+export const MasterHeader = () => {
+  const selected = useSelectionStore((state) => state.master)
+  return (
+    <ActionMenu subject={{ kind: 'master' }}>
+      <div className={`${styles.header} ${styles.ownerHeader} ${selected ? styles.selectedHeader : ''}`}>
+        <LanesTwisty owner={{ kind: 'master' }} name="Master" />
+        <span
+          className={styles.headerName}
+          tabIndex={0}
+          aria-current={selected || undefined}
+          onClick={() => useSelectionStore.getState().selectMaster()}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') useSelectionStore.getState().selectMaster()
+          }}
+        >
+          Master
+        </span>
+      </div>
+    </ActionMenu>
+  )
+}
+
 /** The header a row of the timeline has. */
 export const ArrangementHeader = ({ row }: { row: ArrangementRow }) =>
-  row.kind === 'group' ? <GroupHeader group={row.group} depth={row.depth} /> : <TrackHeader track={row.track} depth={row.depth} stripe={row.stripe} />
+  row.kind === 'group' ? <GroupHeader group={row.group} depth={row.depth} />
+    : row.kind === 'master' ? <MasterHeader />
+    : <TrackHeader track={row.track} depth={row.depth} stripe={row.kind === 'track' ? row.stripe : undefined} owner={row.kind === 'return'} />

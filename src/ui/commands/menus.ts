@@ -59,3 +59,6 @@ export const LIBRARY_MENU: readonly CommandMenuItem[] = [
   SEPARATOR,
   'view.show.library',
 ]
+
+/** ● Rec's ▾ in the transport bar: the record settings. */
+export const RECORD_MENU: readonly CommandMenuItem[] = ['transport.fixed-length', 'transport.count-in', 'transport.metronome-level']

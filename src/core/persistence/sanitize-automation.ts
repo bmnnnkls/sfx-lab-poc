@@ -4,15 +4,19 @@ import { type ControlOwner, controlTargetKey } from '../control'
 import { isRecord, type Warn } from './raw'
 import { targetOf } from './sanitize-midi-mappings'
 const id = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256
-export const sanitizeAutomation = (raw: unknown, length: number, warn: Warn, owner?: ControlOwner): readonly AutomationLane[] | undefined => {
+/**
+ * `expression`: whether the owner plays pitch bend, pressure and CC lanes (an instrument track's clips and timeline);
+ * elsewhere such a lane is kept with a warning and doesn't play, as a lane naming another owner is.
+ */
+export const sanitizeAutomation = (raw: unknown, length: number, warn: Warn, owner?: ControlOwner, expression = true): readonly AutomationLane[] | undefined => {
   if (raw === undefined) return undefined
   if (!Array.isArray(raw)) { warn('Invalid automation lanes'); return undefined }
   if (raw.length > MAX_AUTOMATION_LANES) warn('Automation lane limit exceeded')
   const ids = new Set<string>(), targets = new Set<string>(), lanes: AutomationLane[] = []
   for (const lane of raw.slice(0, MAX_AUTOMATION_LANES)) {
-    const target = isRecord(lane) ? targetOf(lane.target) : undefined
+    const target = isRecord(lane) ? targetOf(lane.target, { allowExpression: true }) : undefined
     if (!isRecord(lane) || !id(lane.id) || ids.has(lane.id) || !target || !Array.isArray(lane.points) || typeof lane.enabled !== 'boolean') { warn('Invalid automation lane skipped'); continue }
-    if (owner && automationOwnerKey(target.owner) !== automationOwnerKey(owner)) warn(`Unsupported automation owner in lane "${lane.id}"; lane retained but will not play`)
+    if (owner && (automationOwnerKey(target.owner) !== automationOwnerKey(owner) || (target.kind === 'expression' && !expression))) warn(`Unsupported automation owner in lane "${lane.id}"; lane retained but will not play`)
     const key = controlTargetKey(target)
     if (targets.has(key)) { warn('Duplicate automation target skipped'); continue }
     ids.add(lane.id); targets.add(key)

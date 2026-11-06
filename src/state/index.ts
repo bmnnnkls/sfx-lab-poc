@@ -71,10 +71,14 @@ export * from './wave-edits'
 export * from './wave-view'
 export * from './arrangement-view-store'
 export * from './arrangement-transport'
+export { clipPhase } from './clip-phase'
 
 export { editAutomationSlot, editOwnerAutomation } from './automation-store'
 
 export * from './touch-store'
+export { type RecordedExpression, type RecordedNote, type TakeKind, type TakeState, type TakeView, cancelRecords, countInBars, endTake, endTakesNow, isRecordingRegion, isRecordingTrack, stopRecordingRegion, reconcileRecords, recordInSlot, recordExpression, recordNote, recordPedal, startArrangementTakes, stopTakes, useRecordStore } from './record-store'
+export { recordBeat, recordLatencyMs, recordPosition, setRecordClock, transportBeat, transportPosition } from './record-clock'
+export { COUNT_IN_BARS, type CountInBars, DEFAULT_RECORD_SETTINGS, FIXED_LENGTHS, type FixedLength, LATENCY_OFFSET_MS, type RecordSettings, isRecordableCC, recordSettingsOf, recordedCCsOf, useRecordSettings } from './record-settings'
 export * from './preset-actions'
 
 export * from './library'

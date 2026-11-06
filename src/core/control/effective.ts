@@ -8,6 +8,8 @@ import { clampControlValue } from './values'
 export interface EffectiveControl extends ControlValue { readonly baseValue: number }
 /** Only active overrides cross the readout boundary; no copy of all parameters per refresh. */
 export const effectiveControlReadouts = (project: Project, overrides: readonly ControlValue[]): EffectiveControl[] => overrides.flatMap((entry) => {
+  // Pitch bend, pressure and CC have no value in the project: an override of one goes to the engine only.
+  if (entry.target.kind === 'expression') return []
   const resolved = resolveControlTarget(project, entry.target)
   return resolved.status === 'available' && resolved.automatable && Number.isFinite(entry.value)
     ? [{ target: entry.target, baseValue: resolved.baseValue, value: clampControlValue(resolved.spec, entry.value) }] : []
@@ -19,6 +21,7 @@ export const projectWithControlValues = (project: Project, overrides: readonly C
   for (const entry of effectiveControlReadouts(project, overrides)) entries.set(controlTargetKey(entry.target), entry)
   let next = projectWithSampleBindings(project)
   for (const { target, value } of entries.values()) {
+    if (target.kind === 'expression') continue
     const resolved = resolveControlTarget(project, target)
     if (resolved.status !== 'available') continue
     const clamped = clampControlValue(resolved.spec, value)

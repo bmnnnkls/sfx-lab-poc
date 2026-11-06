@@ -13,12 +13,14 @@ export type {
   GroupBus,
   GroupColour,
   WarpMode,
+  TimelineLanes,
 } from './types'
 export { isAudioTrack, isInstrumentTrack, isReturnTrack } from './track-kind'
 export {
   addArrangementClip,
   arrangementEnd,
   arrangementLoopEnd,
+  regionPhaseAt,
   arrangementOnTrack,
   arrangementOverlaps,
   clampStartBeat,
@@ -49,7 +51,7 @@ export {
   type ArrangementLoop,
   type ArrangementMarker,
 } from './arrangement-marks'
-export { arrangementRows, type ArrangementRow } from './arrangement-rows'
+export { arrangementRows, isRegionRow, type ArrangementRow } from './arrangement-rows'
 export { MAX_TIMELINE_BEATS } from './limits'
 export {
   SAMPLE_USES,
@@ -233,6 +235,7 @@ export {
   unpinPanel,
 } from './pins'
 export { duplicateTrack } from './track-duplicate'
+export { type MidiFollow, liveNoteRouting, liveNoteTracks, setTrackBendRange, setTrackMidiInput, trackBendRange } from './midi-routes'
 export { copyNodes, pasteNodes, type CopiedNodes } from './node-copy'
 export { duplicateScene, insertScene, removeScene } from './scenes'
 

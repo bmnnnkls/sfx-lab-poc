@@ -1,4 +1,4 @@
-import { type Command, type CommandContext, commandTooltip, runCommand, useLayoutStore, useLibraryStore, usePersistenceStore, useProjectStore, useSelectionStore, useTouchStore } from '@state'
+import { type Command, type CommandContext, commandTooltip, runCommand, useLayoutStore, useLibraryStore, usePersistenceStore, useProjectStore, useRecordSettings, useSelectionStore, useTouchStore } from '@state'
 import type { MenuEntry } from '../shared/menu'
 import { useKeybindingsContext } from './CommandHost'
 import { keysOf } from './keybindings'
@@ -56,6 +56,7 @@ export const menuEntriesOf = (
         label: choice.title,
         disabled: !enabled || choice.enabled === false,
         ...(choice.tooltip && { tooltip: choice.tooltip }),
+        ...(choice.checked !== undefined && { checked: choice.checked }),
         onSelect: () => run(command, choice.id),
       }))
       if (choices.length === 0) return []
@@ -89,6 +90,7 @@ export const useCommandEntries = (items: readonly CommandMenuItem[]): readonly M
   usePersistenceStore(signature)
   useProjectStore(signature)
   useTouchStore(signature)
+  useRecordSettings(signature)
   useSelectionStore(signature)
   useLibraryStore(signature)
   useLayoutNames()

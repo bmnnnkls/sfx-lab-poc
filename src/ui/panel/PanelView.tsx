@@ -10,10 +10,10 @@ import {
   createControlFor,
   controlParamKey,
   createXyFor,
+  discardPanelEdits,
   movePanelControl,
   nodeTitles,
   panelItems,
-  removeNode,
   resizePanelControl,
   setNodeDisplay,
   setNodeName,
@@ -84,8 +84,9 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOw
     return { kind: 'graph', owner: controlOwner, domain: controlDomain, path: item.via && use?.moduleId ? [{ nodeId: use.id, moduleId: use.moduleId }] : [], nodeId: item.via?.inner ?? item.node.id, nodeType: item.node.type, paramId }
   }
   const valueParams = (item: PanelItem): readonly string[] => item.kind === 'xy' ? ['x', 'y'] : item.kind === 'switch' ? ['on'] : item.kind === 'selector' ? ['index'] : item.kind === 'knob' || item.kind === 'slider' ? ['value'] : []
-  const [editingOn, setEditing] = useState(false)
-  const editing = editingOn && !pinned
+  // While editing: the patch as it was when *Edit panel* was pressed, which *Cancel* puts back.
+  const [before, setBefore] = useState<Patch | null>(null)
+  const editing = before !== null && !pinned
   const items = useMemo(() => panelItems(patch, modules), [patch, modules])
   const titles = useMemo(() => nodeTitles(patch, modules), [patch, modules])
   const shown = items.filter((item) => item.shown)
@@ -137,9 +138,21 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOw
     <div {...gesture.events} className={styles.panel} data-testid="front-panel" data-editing={editing || undefined} data-variant={variant}>
       {!pinned && (
         <div className={styles.bar}>
-          <button aria-pressed={editing} onClick={() => setEditing((on) => !on)} title={editing ? 'Back to playing' : 'Add, remove and arrange controls'}>
+          <button aria-pressed={editing} onClick={() => setBefore(editing ? null : patch)} title={editing ? 'Keep the changes and go back to playing' : 'Add, hide and arrange controls'}>
             {editing ? 'Done' : 'Edit panel'}
           </button>
+          {editing && (
+            <button
+              title="Put the panel back as it was before Edit panel (values turned since stay), and go back to playing"
+              onClick={() => {
+                // One undo step, so the discarded changes can be brought back.
+                if (before !== patch) edit((current) => discardPanelEdits(before, current))
+                setBefore(null)
+              }}
+            >
+              Cancel
+            </button>
+          )}
           {editing && <AddControl patch={patch} modules={modules} onAdd={add} />}
         </div>
       )}
@@ -201,7 +214,6 @@ export const PanelView = ({ patch, modules, scope, readoutTrack, edit, controlOw
                   resize: (size) => edit((current, library) => resizePanelControl(current, library, id, size)),
                   setHorizontal: (horizontal) => edit((current) => setNodeDisplay(current, id, horizontal ? 'slider-horizontal' : 'slider')),
                   hide: () => edit((current, library) => setPanelShow(current, library, id, false)),
-                  remove: () => edit((current) => removeNode(current, id)),
                   // Moves among the visible ones: the neighbour's place in the whole order is where it goes.
                   move: (delta) => {
                     const neighbour = ownShown[ownIndex + delta]

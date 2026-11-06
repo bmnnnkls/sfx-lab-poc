@@ -11,6 +11,14 @@ const keyOf = (row: TrackRow) => (row.kind === 'group' ? `g:${row.group.id}` : `
 const subjectOf = (row: TrackRow): SubjectOf<'track' | 'group'> =>
   row.kind === 'group' ? { kind: 'group', groupId: row.group.id } : { kind: 'track', trackId: row.track.id }
 
+/** Selects a row's track or group, and asks the Session and Arrangement views to scroll it into view. */
+const chooseRow = (row: TrackRow) => {
+  const selection = useSelectionStore.getState()
+  if (row.kind === 'track') selection.selectTrack(row.track.id)
+  else selection.selectGroup(row.group.id)
+  selection.requestReveal(row.kind, row.kind === 'track' ? row.track.id : row.group.id)
+}
+
 /** The rows the tree shows: everything but what is inside a collapsed group. Hidden tracks show, dimmed. */
 const treeRows = (rows: readonly TrackRow[]): TrackRow[] => {
   const shown: TrackRow[] = []
@@ -83,8 +91,7 @@ export const TracksView = () => {
         break
       case 'Enter':
       case ' ':
-        if (active.kind === 'track') useSelectionStore.getState().selectTrack(active.track.id)
-        else useSelectionStore.getState().selectGroup(active.group.id)
+        chooseRow(active)
         break
       default:
         return
@@ -174,8 +181,7 @@ const Row = ({ row, label, active, selected, hidden, onChoose }: RowProps) => {
           {...drop}
           onClick={() => {
             onChoose()
-            if (row.kind === 'track') useSelectionStore.getState().selectTrack(row.track.id)
-            else useSelectionStore.getState().selectGroup(row.group.id)
+            chooseRow(row)
           }}
         >
           <span

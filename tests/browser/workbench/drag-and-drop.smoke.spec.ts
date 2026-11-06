@@ -61,9 +61,12 @@ const sideBySide = async (page: Page) => {
   return { session: viewRoot(page, 'Session'), arrangement: viewRoot(page, 'Arrangement') }
 }
 
-/** A cell of the session grid, by track and scene: a header row comes first, and every row has the tracks, the master's cell and one more. */
+/**
+ * A cell of the session grid, by track and scene: a header row comes first, and every row has the tracks, the master's cell
+ * and one more. A track's cell sits in its column's wrapper (which draws nothing), so it is the wrapper's child.
+ */
 const slotOf = (session: Locator, tracks: number, track: number, scene: number) =>
-  session.locator('[data-scroll="both"] > div > *').nth((tracks + 2) * (scene + 1) + track)
+  session.locator('[data-scroll="both"] > div > *').nth((tracks + 2) * (scene + 1) + track).locator('xpath=./*[1]')
 
 const BEAT_PX = 24
 const undo = (page: Page) => page.getByRole('button', { name: 'Undo', exact: true }).click()

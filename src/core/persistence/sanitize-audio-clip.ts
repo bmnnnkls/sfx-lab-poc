@@ -44,6 +44,6 @@ export const sanitizeAudioClip = (
     fadeIn: finiteNumber(raw.fadeIn, 0),
     fadeOut: finiteNumber(raw.fadeOut, 0),
   })
-  const automation = sanitizeAutomation(raw.automation, clip.lengthBeats, warn, owner)
+  const automation = sanitizeAutomation(raw.automation, clip.lengthBeats, warn, owner, false)
   return { ...clip, ...(automation && { automation }) }
 }

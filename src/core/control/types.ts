@@ -13,6 +13,16 @@ export type ControlTarget =
   | { readonly kind: 'mixer'; readonly owner: ControlOwner; readonly control: 'volume' }
   | { readonly kind: 'mixer'; readonly owner: ControlOwner; readonly control: 'pan' }
   | { readonly kind: 'mixer'; readonly owner: ControlOwner; readonly control: 'send'; readonly returnId: string }
+  | ExpressionTarget
+
+/**
+ * What a keyboard plays besides notes, as a lane's target on an instrument track: the pitch wheel, channel pressure or
+ * a CC (0 to 119 but 64), `cc` present exactly for a CC. It has no saved value: at rest it is 0.
+ */
+export type ExpressionTarget =
+  | { readonly kind: 'expression'; readonly owner: ControlOwner; readonly control: 'pitchBend' }
+  | { readonly kind: 'expression'; readonly owner: ControlOwner; readonly control: 'pressure' }
+  | { readonly kind: 'expression'; readonly owner: ControlOwner; readonly control: 'cc'; readonly cc: number }
 
 export interface ControlValue { readonly target: ControlTarget; readonly value: number }
 export type ControlResolution =
@@ -24,5 +34,6 @@ export const controlTargetKey = (target: ControlTarget): string => JSON.stringif
   target.owner.kind, controlOwnerId(target.owner),
   target.kind, ...(target.kind === 'graph'
     ? [target.domain, target.path.map((step) => [step.nodeId, step.moduleId]), target.nodeId, target.nodeType, target.paramId]
+    : target.kind === 'expression' ? [target.control, target.control === 'cc' ? target.cc : null]
     : [target.control, target.control === 'send' ? target.returnId : null]),
 ])

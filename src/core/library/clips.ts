@@ -20,7 +20,7 @@ export const captureLibraryClip = (catalog: LibraryCatalog, project: Project, tr
   const lanes: PortableLane[] = (clip.automation ?? []).map(lane => {
     if (lane.target.owner.kind !== 'track' || lane.target.owner.trackId !== trackId || (lane.target.kind === 'mixer' && lane.target.control === 'send' || lane.target.kind === 'graph' && ['send', 'trackAudio', 'trackNotes'].includes(lane.target.nodeType))) throw new Error('Clip contains unresolved external routing: remove send/cross-owner automation before saving')
     const { owner: _owner, ...target } = lane.target
-    if (lane.target.kind === 'mixer') return { ...lane, target }
+    if (lane.target.kind === 'mixer' || lane.target.kind === 'expression') return { ...lane, target } as PortableLane
     const shape = graphShape(project, lane.target.owner, lane.target.domain)
     const nodeId = [...lane.target.path.map(p => p.nodeId), lane.target.nodeId].join('/')
     const nodeIndex = shape?.flat.nodes.findIndex(n => n.id === nodeId) ?? -1
@@ -47,7 +47,7 @@ export const insertLibraryClip = (project: Project, catalog: LibraryCatalog, ite
   const automation = content.lanes.flatMap(lane => {
     if (lane.target.kind === 'mixer' && lane.target.control === 'send' || lane.target.kind === 'graph' && ['send', 'trackAudio', 'trackNotes'].includes(lane.target.nodeType)) { issues.push(`Lane ${lane.id}: unresolved external routing; lane was not inserted`); return [] }
     let target: ControlTarget | undefined
-    if (lane.target.kind === 'mixer') target = { ...lane.target, owner } as ControlTarget
+    if (lane.target.kind === 'mixer' || lane.target.kind === 'expression') target = { ...lane.target, owner } as ControlTarget
     else {
       const shape = graphShape(project, owner, lane.target.domain)
       const portable = lane.target

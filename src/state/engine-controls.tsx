@@ -1,4 +1,4 @@
-import type { LiveNoteAddress } from '@core'
+import type { ExpressionControl, LiveNoteAddress } from '@core'
 import { createContext, useContext } from 'react'
 
 /** Everything the UI may ask of the audio engine. Implemented in `app/`, consumed by `ui/`. */
@@ -6,6 +6,8 @@ export interface EngineControls {
   noteOn(trackId: string, note: LiveNoteAddress, pitch: number, velocity: number): void
   noteOff(trackId: string, note: LiveNoteAddress): void
   sustain(sourceId: string, channel: number, down: boolean): void
+  /** The keyboard's wheel, pressure or an unmapped CC on an instrument track; sent at once, not throttled. */
+  expression(trackId: string, sourceId: string, channel: number, control: ExpressionControl, value: number): void
   releaseSource(sourceId: string, channel?: number): void
   panic(): void
   play(): void

@@ -1,4 +1,4 @@
-import { type AudioClip, MIN_REGION } from '@core'
+import { type AudioClip, type EngineStatus, MIN_REGION } from '@core'
 import { useStatusStore } from '@state'
 import { useRef } from 'react'
 import { WaveformThumb } from '../shared/WaveformThumb'
@@ -6,12 +6,11 @@ import { useElementWidth } from '../shared/use-element-width'
 import styles from './AudioClipEditor.module.css'
 
 interface AudioWaveformProps {
-  trackId: string
   clip: AudioClip
   /** Length of the whole sample, to draw fades at the right size. */
   sampleSeconds: number
-  /** Whether to show where the session launcher plays the clip; a region's copy has no playhead yet. */
-  playhead?: boolean
+  /** Where the clip plays now (`clipPhase`), for the playhead; none without it. */
+  phase?: (status: EngineStatus | null) => number | null
   /** Called continuously while a trim handle is dragged; one gesture merges into one undo step. */
   onTrim(changes: { start: number } | { end: number }): void
 }
@@ -26,7 +25,7 @@ const percent = (fraction: number): string => `${fraction * 100}%`
  * what spans the clip's length; seeing where the beats fall on the audio is how you tell whether
  * the length is right.
  */
-export const AudioWaveform = ({ trackId, clip, sampleSeconds, playhead: withPlayhead = true, onTrim }: AudioWaveformProps) => {
+export const AudioWaveform = ({ clip, sampleSeconds, phase, onTrim }: AudioWaveformProps) => {
   const frame = useRef<HTMLDivElement>(null)
   const width = useElementWidth(frame)
   const locked = clip.warp === 'repitch'
@@ -34,10 +33,8 @@ export const AudioWaveform = ({ trackId, clip, sampleSeconds, playhead: withPlay
   const region = end - start
 
   const playhead = useStatusStore((state) => {
-    const launcher = state.status?.tracks[trackId]
-    if (!withPlayhead || !locked || !state.status || launcher?.playingClipId !== clip.id || launcher.startBeat === null) return null
-    const phase = ((state.status.beat - launcher.startBeat) % clip.lengthBeats) / clip.lengthBeats
-    return start + phase * region
+    const beat = locked && phase ? phase(state.status) : null
+    return beat === null ? null : start + (beat / clip.lengthBeats) * region
   })
 
   const beats = Math.max(1, clip.lengthBeats)

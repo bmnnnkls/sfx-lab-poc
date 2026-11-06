@@ -1,5 +1,6 @@
 import { clamp, createId } from '../shared'
 import { clampAudioClip } from './audio-clip'
+import { movedTo } from './clip-copy'
 import { trimNotesToLength } from './note-edit'
 import { MAX_CLIP_BEATS, MAX_TIMELINE_BEATS, MIN_CLIP_BEATS } from './limits'
 import type { AudioClip, Clip } from './types'
@@ -92,9 +93,11 @@ export const updateArrangementClip = (
   let changed = false
   const next = regions.map((region) => {
     if (region.id !== id) return region
-    const content = changes.content ? normalizeContent(changes.content) : region.content
-    const startBeat = clampStartBeat(changes.startBeat ?? region.startBeat, content.lengthBeats)
     const trackId = changes.trackId ?? region.trackId
+    const edited = changes.content ? normalizeContent(changes.content) : region.content
+    // Moved to another track, its own lanes follow it, as a session clip's do; targets the track lacks show unavailable.
+    const content = trackId !== region.trackId ? movedTo(edited, trackId) : edited
+    const startBeat = clampStartBeat(changes.startBeat ?? region.startBeat, content.lengthBeats)
     const loop = changes.loop ?? region.loop
     if (content === region.content && startBeat === region.startBeat && trackId === region.trackId && loop === region.loop) return region
     changed = true
@@ -119,3 +122,13 @@ const normalizeContent = (content: Clip | AudioClip): Clip | AudioClip =>
   isAudioContent(content)
     ? clampAudioClip(content)
     : { ...content, lengthBeats: clamp(content.lengthBeats, MIN_CLIP_BEATS, MAX_CLIP_BEATS), notes: trimNotesToLength(content.notes, clamp(content.lengthBeats, MIN_CLIP_BEATS, MAX_CLIP_BEATS)) }
+
+/**
+ * Where in its clip a region plays at song beat `beat`: its phase, wrapped by the clip's length while it loops (up to its
+ * loop end), or null outside it.
+ */
+export const regionPhaseAt = (region: ArrangementClip, regions: readonly ArrangementClip[], beat: number): number | null => {
+  const end = region.loop ? arrangementLoopEnd(region, regions) : arrangementEnd(region)
+  if (beat < region.startBeat || beat >= end) return null
+  return (beat - region.startBeat) % region.content.lengthBeats
+}

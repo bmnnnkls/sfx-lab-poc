@@ -7,7 +7,7 @@ export const clipFitsTrack = (clip: Clip | AudioClip, track: Track | undefined):
   !!track && track.kind !== 'return' && ('notes' in clip ? track.kind === 'instrument' : track.kind === 'audio')
 
 /** Its lanes moved to `trackId`'s controls; a lane whose target isn't on that track shows as unavailable. */
-const movedTo = <T extends Clip | AudioClip>(clip: T, trackId: string): T => {
+export const movedTo = <T extends Clip | AudioClip>(clip: T, trackId: string): T => {
   const automation = clip.automation?.map((lane) => ({ ...lane, target: { ...lane.target, owner: { kind: 'track' as const, trackId } } }))
   return { ...clip, ...(automation && { automation }) }
 }

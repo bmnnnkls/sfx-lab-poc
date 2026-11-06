@@ -5,6 +5,8 @@ import { usePersistenceStore } from '../persistence-store'
 import { selectCanRedo, selectCanUndo, useProjectStore } from '../project-store'
 import { useStatusStore } from '../status-store'
 import { useTouchStore } from '../touch-store'
+import { COUNT_IN_BARS, type CountInBars, FIXED_LENGTHS, type FixedLength, useRecordSettings } from '../record-settings'
+import { useRecordStore } from '../record-store'
 import { LIBRARY_COMMANDS } from './library-commands'
 import type { Command } from './types'
 
@@ -33,6 +35,56 @@ const regionToggle = (region: Exclude<RegionId, 'editor'>): Command => ({
 })
 
 const STARTER = 'starter'
+
+/** The metronome levels its menu and command offer, in dB. */
+export const METRONOME_LEVELS = [0, -6, -12, -18, -24, -30, -40] as const
+/** How a fixed length is named: *Off*, *1 bar*, *4 bars*. */
+export const fixedLengthTitle = (bars: FixedLength): string => (bars === 0 ? 'Off' : `${bars} bar${bars === 1 ? '' : 's'}`)
+
+/** How a count-in is named: *Off*, *1 bar*, *2 bars*. */
+export const countInTitle = (bars: CountInBars): string => (bars === 0 ? 'Off' : `${bars} bar${bars === 1 ? '' : 's'}`)
+
+const recordCommands: readonly Command[] = [
+  {
+    id: 'transport.record',
+    category: 'Transport',
+    title: 'Toggle recording',
+    label: () => (useRecordStore.getState().rec ? 'Turn recording off' : 'Turn recording on'),
+    tooltip: 'Record: overdub into the clips playing on armed tracks in the Session, record new regions in the Arrangement',
+    run: () => useRecordStore.getState().setRec(!useRecordStore.getState().rec),
+  },
+  {
+    id: 'transport.count-in',
+    category: 'Transport',
+    title: 'Count-in',
+    tooltip: 'Bars clicked before a take that starts from a stopped transport',
+    choices: () => COUNT_IN_BARS.map((bars) => ({ id: String(bars), title: countInTitle(bars), checked: useRecordSettings.getState().countInBars === bars })),
+    run: (_context, choice) => { if (choice !== undefined) useRecordSettings.getState().setCountIn(Number(choice) as CountInBars) },
+  },
+  {
+    id: 'transport.metronome',
+    category: 'Transport',
+    title: 'Toggle metronome',
+    label: () => (useRecordSettings.getState().metronome ? 'Turn metronome off' : 'Turn metronome on'),
+    tooltip: 'Click on every beat while the transport runs; never in an export',
+    run: () => useRecordSettings.getState().setMetronome(!useRecordSettings.getState().metronome),
+  },
+  {
+    id: 'transport.metronome-level',
+    category: 'Transport',
+    title: 'Metronome level',
+    choices: () => METRONOME_LEVELS.map((db) => ({ id: String(db), title: `${db} dB`, checked: useRecordSettings.getState().metronomeLevel === db })),
+    run: (_context, choice) => { if (choice !== undefined) useRecordSettings.getState().setMetronomeLevel(Number(choice)) },
+  },
+  {
+    id: 'transport.fixed-length',
+    category: 'Transport',
+    title: 'Fixed recording length',
+    tooltip: 'A take recorded into a slot ends by itself after this many bars',
+    choices: () => FIXED_LENGTHS.map((bars) => ({ id: String(bars), title: fixedLengthTitle(bars), checked: useRecordSettings.getState().fixedBars === bars })),
+    run: (_context, choice) => { if (choice !== undefined) useRecordSettings.getState().setFixedBars(Number(choice) as FixedLength) },
+  },
+]
 
 const VERB_TITLES: Readonly<Record<Verb, string>> = {
   delete: 'Delete',
@@ -96,7 +148,8 @@ export const STATE_COMMANDS: readonly Command[] = [
     id: 'transport.play-stop',
     category: 'Transport',
     title: 'Play or stop',
-    run: ({ engine }) => (useStatusStore.getState().status?.playing ? engine.stop() : engine.play()),
+    // A count-in is a start under way: Space stops it, as it stops playing.
+    run: ({ engine }) => { const status = useStatusStore.getState().status; if (status?.playing || status?.countIn) engine.stop(); else engine.play() },
   },
   { id: 'transport.play', category: 'Transport', title: 'Play', run: ({ engine }) => engine.play() },
   { id: 'transport.stop', category: 'Transport', title: 'Stop', run: ({ engine }) => engine.stop() },
@@ -108,6 +161,7 @@ export const STATE_COMMANDS: readonly Command[] = [
     tooltip: "Record controls into each owner's playing clip or automation slot",
     run: () => useTouchStore.getState().arm(!useTouchStore.getState().armed),
   },
+  ...recordCommands,
   { id: 'history.undo', category: 'Edit', title: 'Undo', repeat: true, enabled: () => selectCanUndo(useProjectStore.getState()), run: () => useProjectStore.getState().undo() },
   { id: 'history.redo', category: 'Edit', title: 'Redo', repeat: true, enabled: () => selectCanRedo(useProjectStore.getState()), run: () => useProjectStore.getState().redo() },
   { id: 'track.add-instrument', category: 'Track', title: 'Add instrument track', run: () => useProjectStore.getState().addTrack() },

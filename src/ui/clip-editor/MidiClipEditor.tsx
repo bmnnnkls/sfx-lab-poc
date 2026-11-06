@@ -9,7 +9,7 @@ import {
   sessionClipRef,
   swingNotes,
 } from '@core'
-import { useEngineControls, useProjectStore } from '@state'
+import { clipPhase, useEngineControls, useProjectStore } from '@state'
 import { useState } from 'react'
 import { useStoredState } from '../shared/use-stored-state'
 import styles from './ClipEditor.module.css'
@@ -129,14 +129,13 @@ export const MidiClipEditor = ({ track, clip, clipRef, where }: { track: Instrum
         </span>
       </div>
       <PianoRoll
-        trackId={track.id}
         clipId={clip.id}
         lengthBeats={clip.lengthBeats}
         notes={clip.notes}
         step={step}
         pixelsPerBeat={zoom}
         follow={follow}
-        playhead={ref.kind === 'session'}
+        phase={clipPhase(ref, track.id, clip.id, clip.lengthBeats)}
         showVelocity={showVelocity}
         selected={selected}
         onSelect={setSelected}

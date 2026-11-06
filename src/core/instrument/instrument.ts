@@ -1,5 +1,6 @@
 import type { NoteIdentity, NoteScope } from '../session'
-import { DEFAULT_TEMPO, type NoteState } from '../dsp'
+import { DEFAULT_TEMPO, type NoteState, type TrackExpression } from '../dsp'
+import { createTrackExpression } from '../midi'
 import type { Patch } from '../patch'
 import type { SampleLookup } from '../sample'
 import { MAX_BLOCK_FRAMES, compileStage, processStage, setStageAutomation, setStageParam, setStageSample, stageReadouts } from './compile'
@@ -30,6 +31,11 @@ export class Instrument {
     voiceCount: number,
     private readonly samples: SampleLookup,
     tempo = DEFAULT_TEMPO,
+    /**
+     * The track's wheel, pressure and CCs. The engine owns it and hands the same object to every instrument it builds for
+     * the track, so a patch edit doesn't drop what the keyboard is doing.
+     */
+    readonly expression: TrackExpression = createTrackExpression(),
   ) {
     this.tempo = tempo
     const plan = planStages(patch)
@@ -56,6 +62,7 @@ export class Instrument {
             plan.boundaries,
             sampleRate,
             samples,
+            expression,
           ),
       ),
     )
@@ -118,7 +125,7 @@ export class Instrument {
     for (const { buffer } of this.boundaries) buffer.fill(0, 0, frames)
 
     // Every block, voices or not: a smoothing node keeps its state, and the voices read the buffers it fills.
-    processStage(this.global, { frames, sampleRate: this.sampleRate, note: NO_NOTE, samples: this.samples, tempo: this.tempo })
+    processStage(this.global, { frames, sampleRate: this.sampleRate, note: NO_NOTE, samples: this.samples, tempo: this.tempo, expression: this.expression })
     for (const voice of this.pool.voices) {
       if (!voice.active) continue
       voice.render(frames, this.tempo)
@@ -135,6 +142,7 @@ export class Instrument {
       note: NO_NOTE,
       samples: this.samples,
       tempo: this.tempo,
+      expression: this.expression,
     })
     for (const source of this.shared.outputSources) this.accumulate(this.mix, source, frames)
     return this.mix

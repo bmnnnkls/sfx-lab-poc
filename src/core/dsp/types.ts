@@ -44,8 +44,13 @@ export interface ParamSpec {
   readonly unit?: string
   /** When present the parameter is an enum; its value is an index into this list. */
   readonly options?: readonly string[]
-  /** How to show the value: `midiNote` renders 60 as "C4". */
-  readonly format?: 'midiNote'
+  /**
+   * How to show the value: `midiNote` renders 60 as "C4", `midiCC` renders 1 as "1 Mod wheel", `midi7` renders 0 to 1
+   * as 0 to 127, `bend` renders −1 to 1 as semitones at `displayScale` ("+1.40 st").
+   */
+  readonly format?: 'midiNote' | 'midiCC' | 'midi7' | 'bend'
+  /** What a `bend` value is multiplied by when shown: the track's bend range in semitones. */
+  readonly displayScale?: number
   /**
    * The range of this parameter is not fixed: it is whatever the node's own parameters `min` and `max` say (a control
    * node's value lies between its min and max). `min` / `max` here are then only wide bounds; `liveSpec` resolves it.
@@ -66,6 +71,25 @@ export interface NoteState {
   gate: boolean
   /** Increments on every note start, so a note that steals a still-held voice can be seen as new. */
   trigger: number
+  /** The track's pressure (aftertouch), 0 to 1, while the note sounds; absent is 0. */
+  pressure?: number
+  /** The track's pitch wheel, −1 to 1, while the note sounds; absent is 0. `frequency` is already bent by it. */
+  bend?: number
+}
+
+/**
+ * What the keyboard does to an instrument track besides notes (`core/midi/expression`): the pitch wheel, pressure and
+ * the unmapped CCs, and how far the wheel bends. Kept by the engine per track, read by the instrument each block.
+ */
+export interface TrackExpression {
+  /** −1 to 1. */
+  bend: number
+  /** In semitones either way, 0 to 24. */
+  bendRange: number
+  /** 0 to 1. */
+  pressure: number
+  /** CC 0 to 119, each 0 to 1. */
+  readonly cc: Float32Array
 }
 
 /** Where a Send node puts its signal: the engine adds it, scaled, to the input of the return track `trackId`. */
@@ -86,6 +110,8 @@ export interface ProcessContext {
   readonly sampleRate: number
   readonly note: Readonly<NoteState>
   readonly samples: SampleLookup
+  /** The instrument track's pitch wheel, pressure and CCs, in all three stages of its patch. Absent in other graphs. */
+  readonly expression?: Readonly<TrackExpression>
   /**
    * The signal a track's insert graph is processing: mono for an instrument or audio track (read by `trackIn`),
    * stereo for a return track (read by `returnIn`). Absent elsewhere (silence).

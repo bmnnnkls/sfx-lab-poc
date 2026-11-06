@@ -347,7 +347,9 @@ the master's rows wait for 12c's lanes. **12b is done** 2026-11-04; see its
 [plan](../archive/ui-redesign/PLAN-round-12b-markers-and-loop.md), signed off as proposed: markers and a loop brace in a
 mark lane under the ruler (DOM elements, not a canvas), the engine looping the arrangement sample-accurately, one seek
 that releases what was sounding for the loop's jump and a click in the ruler while playing, M, L, `[` and `]`, and
-format v13. 12c and 12d are to plan. The outline below is what the spec
+format v13. **12c is done** 2026-11-06 ([plan](../archive/ui-redesign/PLAN-round-12c-timeline-automation.md)):
+automation lanes on the timeline for every owner, groups with a bus included, region lanes playing, returns' and the
+master's rows, format v14. 12d is to plan. The outline below is what the spec
 started from.
 
 Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACKLOG.md).

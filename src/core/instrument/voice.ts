@@ -1,6 +1,6 @@
-import { DEFAULT_TEMPO, type NoteState } from '../dsp'
+import { DEFAULT_TEMPO, type NoteState, type TrackExpression } from '../dsp'
+import { bentFrequency } from '../midi'
 import type { SampleLookup } from '../sample'
-import { midiToFrequency } from '../shared'
 import { type CompiledStage, processStage, setStageAutomation, setStageParam, setStageSample, stageReadouts } from './compile'
 
 /** Below this peak level (about -80 dB) a released voice counts as silent. */
@@ -18,7 +18,7 @@ export class Voice {
   /** Allocation order, used to steal the oldest voice. */
   startedAt = 0
 
-  private readonly note: NoteState = { frequency: 440, velocity: 0, gate: false, trigger: 0 }
+  private readonly note: NoteState = { frequency: 440, velocity: 0, gate: false, trigger: 0, pressure: 0, bend: 0 }
   private readonly sinks: readonly Float32Array[]
   private silentFrames = 0
   private releasedFrames = 0
@@ -28,6 +28,8 @@ export class Voice {
     boundaryKeys: readonly string[],
     private readonly sampleRate: number,
     private readonly samples: SampleLookup,
+    /** The track's wheel and pressure, read at every start and block: a held note follows the wheel. */
+    private readonly expression?: Readonly<TrackExpression>,
   ) {
     this.sinks = [
       ...stage.outputSources,
@@ -55,7 +57,7 @@ export class Voice {
     this.released = false
     this.pitch = pitch
     this.startedAt = startedAt
-    this.note.frequency = midiToFrequency(pitch)
+    this.express()
     this.note.velocity = velocity
     this.note.gate = true
     this.note.trigger++
@@ -80,13 +82,23 @@ export class Voice {
     setStageSample(this.stage, nodeId, sampleId)
   }
 
+  /** Takes the track's wheel and pressure: the frequency is the pitch bent by the wheel. */
+  private express(): void {
+    const bend = this.expression?.bend ?? 0
+    this.note.frequency = bentFrequency(this.pitch, bend, this.expression?.bendRange ?? 0)
+    this.note.bend = bend
+    this.note.pressure = this.expression?.pressure ?? 0
+  }
+
   render(frames: number, tempo = DEFAULT_TEMPO): void {
+    this.express()
     processStage(this.stage, {
       frames,
       sampleRate: this.sampleRate,
       note: this.note,
       samples: this.samples,
       tempo,
+      ...(this.expression && { expression: this.expression }),
     })
     if (this.released) this.checkFinished(frames)
   }

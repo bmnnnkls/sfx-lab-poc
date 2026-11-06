@@ -1,5 +1,6 @@
 import { usePersistenceStore } from '../persistence-store'
 import { arrangementLoopActions, arrangementMarkerActions, arrangementTimelineActions } from './arrangement-marks'
+import { timelineLaneActions } from './timeline-lane'
 import { automationSlotActions } from './automation-slot'
 import { clipActions } from './clip'
 import { controlActions } from './control'
@@ -34,11 +35,13 @@ export { clipTrackFor, graphFitsOwner, insertLibraryClipAt, insertionScope, isIn
 export { canPasteClipOnLane, pasteClipOnLane } from './lane'
 export { copyName, projectGraphItem, projectGraphItemId } from './project-graph'
 export { canPasteClipInSlot, pasteClipInSlot } from './slot'
+export { ARM_TOOLTIP } from './track'
 export { canRecallPresetOn, nextSoundName, recallablePresets, recallPresetOn, saveSound, soundSubject } from './sound'
 export { automationSlotClipboard, clipClipboard, libraryClipboard, nodeClipboard, type CopiedClip, type CopiedGraphNodes, type LibraryClip, type LibraryClipEntry } from './clipboards'
 export { editTargetOf, graphKeyOf } from './nodes'
 export { processActions } from './sample-selection'
 export { markerTitle, toggleArrangementLoop } from './arrangement-marks'
+export { readLane, showControl, timelineLaneOf } from './timeline-lane'
 
 const GROUP_ORDER: readonly Action['group'][] = ['open', 'edit', 'clipboard', 'delete', 'process', 'marks', 'view']
 
@@ -74,6 +77,7 @@ const lists: { readonly [K in SubjectKind]: readonly Action<SubjectOf<K>>[] } = 
   'arrangement-marker': arrangementMarkerActions,
   'arrangement-loop': arrangementLoopActions,
   'arrangement-timeline': arrangementTimelineActions,
+  'timeline-lane': timelineLaneActions,
 }
 
 /** The actions of a subject's kind, in menu order. Nothing else picks actions. */

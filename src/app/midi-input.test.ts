@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Engine, type EngineCommand, type MidiMapping, type Patch, createDemoProject, controlFromNormalized, diffProject, resolveControlTarget } from '@core'
-import { type EngineControls, editMidiMappings, useControlStore, useMidiStore, useProjectStore, useSelectionStore } from '@state'
+import { Engine, type EngineCommand, type MidiMapping, type Patch, automationPosition, createDemoProject, controlFromNormalized, diffProject, expressionTarget, resolveControlTarget } from '@core'
+import { type EngineControls, cancelRecords, editMidiMappings, endTakesNow, readLane, reconcileRecords, recordInSlot, setRecordClock, useControlStore, useMidiStore, useProjectStore, useRecordSettings, useRecordStore, useSelectionStore, useStatusStore } from '@state'
+import { createMidiControls } from './midi-controls'
 import { createMidiInput } from './midi-input'
 
 const port = (id = 'keys') => ({ id, name: id, state: 'connected', onmidimessage: null, close: vi.fn(async () => {}) }) as unknown as MIDIInput
 const fakeAccess = (...inputs: MIDIInput[]) => ({ inputs: new Map(inputs.map((p) => [p.id, p])), onstatechange: null }) as unknown as MIDIAccess
-const send = (p: MIDIInput, bytes: number[]) => p.onmidimessage?.call(p, { data: new Uint8Array(bytes) } as MIDIMessageEvent)
-const controls = (): EngineControls => ({ noteOn: vi.fn(), noteOff: vi.fn(), sustain: vi.fn(), releaseSource: vi.fn(), panic: vi.fn(), play: vi.fn(), stop: vi.fn(), stopTrack: vi.fn(), launchClip: vi.fn(), launchAutomation: vi.fn(), launchScene: vi.fn(), auditionNote: vi.fn(), playArrangement: vi.fn() })
+const send = (p: MIDIInput, bytes: number[], timeStamp?: number) => p.onmidimessage?.call(p, { data: new Uint8Array(bytes), timeStamp } as MIDIMessageEvent)
+const controls = (): EngineControls => ({ noteOn: vi.fn(), noteOff: vi.fn(), sustain: vi.fn(), expression: vi.fn(), releaseSource: vi.fn(), panic: vi.fn(), play: vi.fn(), stop: vi.fn(), stopTrack: vi.fn(), launchClip: vi.fn(), launchAutomation: vi.fn(), launchScene: vi.fn(), auditionNote: vi.fn(), playArrangement: vi.fn() })
 const target = { kind: 'mixer' as const, owner: { kind: 'master' as const }, control: 'volume' as const }
 const mapping = (extra: Partial<MidiMapping> = {}): MidiMapping => ({ id: 'binding', deviceId: 'keys', deviceName: 'keys', channel: 0, cc: 21, target, pickup: true, ...extra })
 const learn = (p: MIDIInput, bytes = [0xb0, 21, 10]) => { useMidiStore.getState().learn(target); send(p, bytes) }
@@ -54,11 +55,16 @@ describe('browser MIDI lifecycle with fake ports', () => {
     const p = port(), c = controls(), a = fakeAccess(p), adapter = createMidiInput(c, async () => a), dispose = adapter.connect()
     await adapter.enable(); send(p, [0x90, 60, 127])
     useMidiStore.setState({ channel: 1 })
-    expect(c.releaseSource).toHaveBeenCalledWith('midi:keys', undefined)
+    // The held note no longer reaches its track: it is released there.
+    expect(c.noteOff).toHaveBeenCalledWith(vi.mocked(c.noteOn).mock.calls[0]![0], vi.mocked(c.noteOn).mock.calls[0]![1])
+    vi.mocked(c.noteOff).mockClear()
     send(p, [0x90, 61, 127]); expect(c.noteOn).toHaveBeenCalledTimes(1)
     useMidiStore.setState({ channel: null, pinnedTrackId: useProjectStore.getState().project.tracks[0]!.id })
     useSelectionStore.getState().selectMaster(); send(p, [0x90, 62, 127]); expect(c.noteOn).toHaveBeenCalledTimes(2)
     useMidiStore.setState({ pinnedTrackId: null }); send(p, [0x90, 63, 127]); expect(c.noteOn).toHaveBeenCalledTimes(2)
+    // Unpinning took the held 62 away from its track.
+    expect(c.noteOff).toHaveBeenCalledWith(vi.mocked(c.noteOn).mock.calls[1]![0], vi.mocked(c.noteOn).mock.calls[1]![1])
+    vi.mocked(c.noteOff).mockClear()
     useMidiStore.setState({ disabledInputs: ['keys'] }); expect(p.onmidimessage).toBeNull(); expect(p.close).toHaveBeenCalled()
     useMidiStore.setState({ disabledInputs: [] }); await Promise.resolve(); await Promise.resolve(); expect(p.onmidimessage).not.toBeNull()
     Object.assign(p, { state: 'disconnected' }); a.onstatechange?.call(a, {} as MIDIConnectionEvent)
@@ -259,4 +265,320 @@ it('allows an unrelated held momentary release while a different source assignme
   expect(resolveControlTarget(useProjectStore.getState().project, held)).toMatchObject({ baseValue: 0 })
   expect(useProjectStore.getState().project.master.volume).toBeUndefined()
   dispose()
+})
+
+describe('CC writes once per frame', () => {
+  const cc = (value: number) => ({ kind: 'cc' as const, channel: 1, cc: 21, value })
+  const frames = () => {
+    const waiting: (() => void)[] = []
+    return { schedule: (flush: () => void) => { waiting.push(flush) }, waiting, run: () => waiting.splice(0).forEach((flush) => flush()) }
+  }
+
+  it('writes only the latest value of a burst, as one edit, with its feedback', () => {
+    editMidiMappings(() => [mapping({ pickup: false })])
+    const frame = frames(), controls = createMidiControls(frame.schedule)
+    const before = useProjectStore.getState().project, count = useProjectStore.getState().history.past.length
+    for (const value of [10, 20, 30, 40]) controls.receive('keys', 'keys', cc(value))
+    expect(frame.waiting).toHaveLength(1)
+    expect(useProjectStore.getState().project).toBe(before)
+    expect(useMidiStore.getState().feedback.binding).toBeUndefined()
+    frame.run()
+    expect(useProjectStore.getState().project.master.volume).toBeCloseTo(40 / 127, 6)
+    expect(useProjectStore.getState().history.past).toHaveLength(count + 1)
+    expect(useMidiStore.getState().feedback.binding).toEqual({ state: 'active', value: expect.closeTo(40 / 127, 6) })
+    controls.receive('keys', 'keys', cc(50))
+    expect(frame.waiting).toHaveLength(1)
+    frame.run()
+    expect(useProjectStore.getState().project.master.volume).toBeCloseTo(50 / 127, 6)
+  })
+
+  it('picks up on every message, and a waiting value does not count as a manual edit', () => {
+    useProjectStore.getState().setMasterVolume(0.5)
+    editMidiMappings(() => [mapping()])
+    const frame = frames(), controls = createMidiControls(frame.schedule)
+    controls.receive('keys', 'keys', cc(10)); controls.receive('keys', 'keys', cc(60))
+    frame.run()
+    expect(useMidiStore.getState().feedback.binding?.state).toBe('pickup')
+    expect(useProjectStore.getState().project.master.volume).toBe(0.5)
+    // Crossing the value takes over; later messages in the same frame follow it.
+    controls.receive('keys', 'keys', cc(70)); controls.receive('keys', 'keys', cc(80)); controls.receive('keys', 'keys', cc(90))
+    frame.run()
+    expect(useProjectStore.getState().project.master.volume).toBeCloseTo(90 / 127, 6)
+  })
+
+  it('writes a waiting value before releasing its source, and drops it on reset', () => {
+    editMidiMappings(() => [mapping({ pickup: false })])
+    const frame = frames(), controls = createMidiControls(frame.schedule)
+    controls.receive('keys', 'keys', cc(64)); controls.release('keys')
+    expect(useProjectStore.getState().project.master.volume).toBeCloseTo(64 / 127, 6)
+    controls.receive('keys', 'keys', cc(127)); controls.reset(); frame.run()
+    expect(useProjectStore.getState().project.master.volume).toBeCloseTo(64 / 127, 6)
+  })
+})
+
+describe('track inputs', () => {
+  const instruments = () => useProjectStore.getState().project.tracks.filter((track) => track.kind === 'instrument').map((track) => track.id)
+
+  it('sends a channel to the track listening on it, and the rest to the selected track', async () => {
+    const [selected, drums] = instruments() as [string, string]
+    useSelectionStore.getState().selectTrack(selected)
+    useProjectStore.getState().setTrackMidiInput(drums, { channel: 9 })
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0x99, 36, 100]); send(p, [0x90, 60, 100])
+    expect(vi.mocked(c.noteOn).mock.calls.map((call) => [call[0], call[2]])).toEqual([[drums, 36], [selected, 60]])
+    dispose()
+  })
+
+  it('layers tracks on one input, and one key-up releases every layer', async () => {
+    const [selected, a, b] = instruments() as [string, string, string]
+    useSelectionStore.getState().selectTrack(selected)
+    useProjectStore.getState().setTrackMidiInput(a, { deviceId: 'keys' })
+    useProjectStore.getState().setTrackMidiInput(b, { deviceId: 'keys', channel: 0 })
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0x90, 60, 100]); send(p, [0x80, 60, 0])
+    const ons = vi.mocked(c.noteOn).mock.calls
+    expect(ons.map((call) => call[0])).toEqual([a, b])
+    expect(ons[0]![1].noteId).not.toBe(ons[1]![1].noteId)
+    expect(vi.mocked(c.noteOff).mock.calls).toEqual(ons.map((call) => [call[0], call[1]]))
+    dispose()
+  })
+
+  it("keeps a held note on a track's own input through a selection change, and releases it when the input changes", async () => {
+    const [selected, other, drums] = instruments() as [string, string, string]
+    useSelectionStore.getState().selectTrack(selected)
+    useProjectStore.getState().setTrackMidiInput(drums, { channel: 9 })
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0x99, 36, 100]); send(p, [0x90, 60, 100])
+    useSelectionStore.getState().selectTrack(other)
+    expect(vi.mocked(c.noteOff).mock.calls.map((call) => call[0])).toEqual([selected])
+    useProjectStore.getState().setTrackMidiInput(drums, { channel: 8 })
+    expect(vi.mocked(c.noteOff).mock.calls.map((call) => call[0])).toEqual([selected, drums])
+    expect(c.releaseSource).not.toHaveBeenCalled()
+    send(p, [0x89, 36, 0]); send(p, [0x80, 60, 0])
+    expect(c.noteOff).toHaveBeenCalledTimes(2)
+    dispose()
+  })
+})
+
+describe('pitch bend, pressure and unmapped CCs', () => {
+  const instruments = () => useProjectStore.getState().project.tracks.filter((track) => track.kind === 'instrument').map((track) => track.id)
+  const sent = (c: EngineControls) => vi.mocked(c.expression).mock.calls.map(([trackId, source, channel, control, value]) => [trackId, source, channel, control, Number(value.toFixed(4))])
+
+  it('goes where a note-on from that input and channel would', async () => {
+    const [selected, drums] = instruments() as [string, string]
+    useSelectionStore.getState().selectTrack(selected)
+    useProjectStore.getState().setTrackMidiInput(drums, { channel: 9 })
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0xe0, 127, 127]); send(p, [0xd9, 127]); send(p, [0xb0, 1, 127])
+    expect(sent(c)).toEqual([
+      [selected, 'midi:keys', 0, 'pitchBend', 1],
+      [drums, 'midi:keys', 9, 'pressure', 1],
+      [selected, 'midi:keys', 0, { cc: 1 }, 1],
+    ])
+    dispose()
+  })
+
+  it('a mapped CC moves its mapping and is not expression; one confirming MIDI learn neither', async () => {
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    editMidiMappings(() => [mapping()])
+    send(p, [0xb0, 21, 64])
+    learn(p, [0xb0, 22, 10])
+    expect(c.expression).not.toHaveBeenCalled()
+    send(p, [0xb0, 23, 10])
+    expect(sent(c)).toEqual([[useSelectionStore.getState().trackId, 'midi:keys', 0, { cc: 23 }, Number((10 / 127).toFixed(4))]])
+    dispose()
+  })
+
+  it('folds polyphonic pressure into channel pressure, and a key-up drops its share', async () => {
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0x90, 60, 100]); send(p, [0x90, 64, 100])
+    send(p, [0xa0, 60, 100]); send(p, [0xa0, 64, 50]); send(p, [0xd0, 20]); send(p, [0x80, 60, 0]); send(p, [0x80, 64, 0])
+    expect(sent(c).map((call) => call[4])).toEqual([100, 100, 100, 50, 20].map((v) => Number((v / 127).toFixed(4))))
+    dispose()
+  })
+
+  it('puts a track back at rest when routing takes it away, and leaves the sustain pedal and channel modes alone', async () => {
+    const [selected, other] = instruments() as [string, string]
+    useSelectionStore.getState().selectTrack(selected)
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    send(p, [0xe0, 0, 96]); send(p, [0xb0, 74, 64])
+    vi.mocked(c.expression).mockClear()
+    useSelectionStore.getState().selectTrack(other)
+    expect(sent(c)).toEqual([[selected, 'midi:keys', 0, 'pitchBend', 0], [selected, 'midi:keys', 0, { cc: 74 }, 0]])
+    vi.mocked(c.expression).mockClear()
+    send(p, [0xb0, 64, 127]); send(p, [0xb0, 121, 0])
+    expect(c.expression).not.toHaveBeenCalled()
+    // Reset all controllers releases the source and channel, which the engine takes as back to rest.
+    expect(c.releaseSource).toHaveBeenCalledWith('midi:keys', 0)
+    // After it, a routing change has nothing of this channel's left to put back.
+    useSelectionStore.getState().selectTrack(selected)
+    expect(c.expression).not.toHaveBeenCalled()
+    dispose()
+  })
+
+  it('over a lane playing that control, takes the lane over until Read; elsewhere it only plays', async () => {
+    const [selected] = instruments() as [string]
+    useSelectionStore.getState().selectTrack(selected)
+    const bend = expressionTarget(selected, 'pitchBend')
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    // Nothing plays the wheel: it only goes to the engine.
+    send(p, [0xe0, 0, 96])
+    expect(useControlStore.getState().overrides).toEqual([])
+    // A bend lane plays (as the engine's status reports): the wheel overrides it, and the engine still hears it at once.
+    // The mod wheel has no lane playing, so it only plays.
+    useControlStore.setState({ playback: [{ target: bend, value: 0 }] })
+    vi.mocked(c.expression).mockClear()
+    send(p, [0xe0, 127, 127]); send(p, [0xb0, 1, 127])
+    expect(sent(c)).toEqual([[selected, 'midi:keys', 0, 'pitchBend', 1], [selected, 'midi:keys', 0, { cc: 1 }, 1]])
+    expect(useControlStore.getState().overrides).toEqual([{ target: bend, value: 1 }])
+    // Once overridden, later moves follow, even after the lane stops reporting.
+    useControlStore.setState({ playback: [] })
+    send(p, [0xe0, 0, 64])
+    expect(useControlStore.getState().overrides).toEqual([{ target: bend, value: 0 }])
+    // A key-up of the source leaves the override; Read gives the control back to its lane.
+    adapter.releaseNotes()
+    expect(useControlStore.getState().overrides).toHaveLength(1)
+    readLane(bend)
+    expect(useControlStore.getState().overrides).toEqual([])
+    dispose()
+  })
+})
+
+describe('recording', () => {
+  const instruments = () => useProjectStore.getState().project.tracks.filter((track) => track.kind === 'instrument').map((track) => track.id)
+  const clipOf = (trackId: string, scene: number) => {
+    const track = useProjectStore.getState().project.tracks.find((t) => t.id === trackId)
+    return track?.kind === 'instrument' ? track.clips[scene] : undefined
+  }
+  /** Plays at 120 BPM from beat 0, `now` ms after it started. */
+  let now = 0
+  const status = (clips: Record<string, string>) => ({
+    playing: true, mode: 'session' as const, beat: now / 500, peak: 0, peaks: {}, readouts: {},
+    tracks: Object.fromEntries(Object.entries(clips).map(([trackId, clipId]) => [trackId, { playingClipId: clipId, startBeat: 0, queued: null }])),
+  })
+  const emptySlot = (trackId: string) => {
+    const track = useProjectStore.getState().project.tracks.find((t) => t.id === trackId)
+    return track?.kind === 'instrument' ? track.clips.findIndex((clip) => clip === null) : -1
+  }
+
+  it('records an armed follower and the selected armed track one copy each, placed by the timestamps, with the pedal', async () => {
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    setRecordClock((agoMs) => (now - agoMs) / 500, () => 0)
+    try {
+      const [selected, armed, other] = instruments() as [string, string, string]
+      useSelectionStore.getState().selectTrack(selected)
+      useRecordStore.getState().arm(selected, true)
+      useRecordStore.getState().arm(armed, true)
+      const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+      await adapter.enable()
+      const scenes = [emptySlot(selected), emptySlot(armed)] as const
+      recordInSlot(selected, scenes[0], c.launchClip); recordInSlot(armed, scenes[1], c.launchClip)
+      const ids = { [selected]: clipOf(selected, scenes[0])!.id, [armed]: clipOf(armed, scenes[1])!.id }
+      now = 10; reconcileRecords(status(ids)); useStatusStore.getState().setStatus(status(ids))
+      // Played at beat 1 (500 ms), received 40 ms late; released at beat 1.5 under the pedal, which comes up at beat 3.
+      now = 1040; send(p, [0x90, 60, 127], 500)
+      expect(vi.mocked(c.noteOn).mock.calls.map((call) => call[0])).toEqual([selected, armed])
+      send(p, [0xb0, 64, 127], 600)
+      now = 2000; send(p, [0x80, 60, 0], 750)
+      expect(clipOf(selected, scenes[0])!.notes).toEqual([])
+      now = 3000; send(p, [0xb0, 64, 0], 1500)
+      for (const [trackId, scene] of [[selected, scenes[0]], [armed, scenes[1]]] as const) {
+        expect(clipOf(trackId, scene)!.notes.map((n) => [n.pitch, n.start, n.duration, n.velocity])).toEqual([[60, 1, 2, 1]])
+      }
+      // A track not armed and not selected hears and records nothing.
+      expect(vi.mocked(c.noteOn).mock.calls.some((call) => call[0] === other)).toBe(false)
+      dispose()
+    } finally {
+      cancelRecords(); setRecordClock(); useStatusStore.setState({ status: null }); vi.restoreAllMocks()
+    }
+  })
+
+  it('records the wheel, the mod wheel and ticked CCs into the take\u2019s lanes by their timestamps; Learn ticks the next CC', async () => {
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    setRecordClock((agoMs) => (now - agoMs) / 500, () => 0)
+    try {
+      const [selected] = instruments() as [string]
+      useSelectionStore.getState().selectTrack(selected)
+      useRecordStore.getState().arm(selected, true)
+      const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+      await adapter.enable()
+      const scene = emptySlot(selected)
+      recordInSlot(selected, scene, c.launchClip)
+      const ids = { [selected]: clipOf(selected, scene)!.id }
+      now = 10; reconcileRecords(status(ids)); useStatusStore.getState().setStatus(status(ids))
+      // Half up at beat 1 (500 ms), received late; back to the centre at beat 2: the span is in the clip at once.
+      now = 1100; send(p, [0xe0, 0, 96], 500); send(p, [0xe0, 0, 64], 1000)
+      const bend = clipOf(selected, scene)!.automation?.find((lane) => lane.target.kind === 'expression' && lane.target.control === 'pitchBend')
+      expect([0.5, 1.5, 2].map((beat) => Number(automationPosition(bend!, beat)!.toFixed(3)))).toEqual([0.5, 0.75, 0.5])
+      // CC 73 isn't ticked: it plays but isn't kept. *Learn* ticks the next recordable CC (not the mod wheel), CC 74.
+      send(p, [0xb0, 73, 100], 1100)
+      useMidiStore.setState({ learningRecordedCC: true })
+      send(p, [0xb0, 1, 64], 1150)
+      expect(useMidiStore.getState().learningRecordedCC).toBe(true)
+      send(p, [0xb0, 74, 64], 1200)
+      expect(useRecordSettings.getState().recordedCCs).toEqual([74])
+      expect(useMidiStore.getState().learningRecordedCC).toBe(false)
+      send(p, [0xb0, 74, 127], 1210)
+      expect(vi.mocked(c.expression).mock.calls.some(([, , , control]) => typeof control === 'object' && control.cc === 73)).toBe(true)
+      // While the take records them, live input owns these controls over the lanes being written; its end gives them back.
+      expect(useControlStore.getState().overrides.map((entry) => entry.target.kind === 'expression' && (entry.target.control === 'cc' ? entry.target.cc : entry.target.control)).sort()).toEqual([1, 74, 'pitchBend'])
+      now = 1300; endTakesNow()
+      expect(useControlStore.getState().overrides).toEqual([])
+      const ccs = clipOf(selected, scene)!.automation!.flatMap((lane) => (lane.target.kind === 'expression' && lane.target.control === 'cc' ? [lane.target.cc] : []))
+      expect(ccs.sort()).toEqual([1, 74])
+      dispose()
+    } finally {
+      cancelRecords(); setRecordClock(); useStatusStore.setState({ status: null }); useRecordSettings.getState().restore({}); vi.restoreAllMocks()
+    }
+  })
+
+  it('a routing change ends the span the track had open, holding its value, and records no rest', async () => {
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    setRecordClock((agoMs) => (now - agoMs) / 500, () => 0)
+    try {
+      const [selected] = instruments() as [string]
+      useSelectionStore.getState().selectTrack(selected)
+      useRecordStore.getState().arm(selected, true)
+      const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+      await adapter.enable()
+      const scene = emptySlot(selected)
+      recordInSlot(selected, scene, c.launchClip)
+      const ids = { [selected]: clipOf(selected, scene)!.id }
+      now = 10; reconcileRecords(status(ids)); useStatusStore.getState().setStatus(status(ids))
+      now = 500; send(p, [0xe0, 0, 96], 500)
+      // At beat 2 the track stops hearing channel 1; the wheel there goes on, unrecorded.
+      now = 1000; useMidiStore.setState({ channel: 1 })
+      now = 1200; send(p, [0xe0, 127, 127], 1200)
+      now = 1300; endTakesNow()
+      const bend = clipOf(selected, scene)!.automation!.find((lane) => lane.target.kind === 'expression' && lane.target.control === 'pitchBend')!
+      expect([1.5, 1.99, 2.5].map((beat) => Number(automationPosition(bend, beat)!.toFixed(3)))).toEqual([0.75, 0.75, 0.5])
+      dispose()
+    } finally {
+      cancelRecords(); setRecordClock(); useStatusStore.setState({ status: null }); vi.restoreAllMocks()
+    }
+  })
+
+  it('re-routes held notes when a track is armed, so arming makes it hear the keyboard', async () => {
+    const [selected, armed] = instruments() as [string, string]
+    useSelectionStore.getState().selectTrack(selected)
+    const p = port(), c = controls(), adapter = createMidiInput(c, async () => fakeAccess(p)), dispose = adapter.connect()
+    await adapter.enable()
+    useRecordStore.getState().arm(armed, true)
+    send(p, [0x90, 60, 100])
+    expect(vi.mocked(c.noteOn).mock.calls.map((call) => call[0])).toEqual([selected, armed])
+    useRecordStore.getState().arm(armed, false)
+    expect(vi.mocked(c.noteOff).mock.calls.map((call) => call[0])).toEqual([armed])
+    send(p, [0x80, 60, 0])
+    expect(vi.mocked(c.noteOff).mock.calls.map((call) => call[0])).toEqual([armed, selected])
+    dispose()
+    cancelRecords()
+  })
 })

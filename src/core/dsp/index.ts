@@ -4,6 +4,7 @@ export { TRACK_IN_TYPE } from './nodes/track-in.node'
 export { TRACK_OUT_TYPE } from './nodes/track-out.node'
 export { GROUP_IN_TYPE, MASTER_IN_TYPE, RETURN_IN_TYPE } from './nodes/return-in.node'
 export { SEND_TYPE } from './nodes/send.node'
+export { MIDI_CC_TYPE } from './nodes/midi-cc.node'
 export { TRACK_AUDIO_TYPE } from './nodes/track-audio.node'
 export { type NodeDocs, documented } from './document'
 export { DEFAULT_TEMPO, NODE_CATEGORIES, type NodeCategory, tempoOf } from './types'
@@ -11,6 +12,7 @@ export type {
   DspNode,
   NodeDefinition,
   NoteState,
+  TrackExpression,
   ParamSpec,
   PortKind,
   PortSpec,

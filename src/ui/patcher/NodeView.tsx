@@ -33,6 +33,12 @@ interface NodeViewProps {
   subject: Extract<Subject, { kind: 'nodes' }>
   /** A use of a module: its footer opens its inside or makes this use an independent copy. */
   moduleUse: boolean
+  /**
+   * Which parameter sockets the card draws, for a node that has any: the `wired` ones only, all of them because its
+   * own toggle is on (`shown`), or all because the toolbar's Sockets is on (`all`, which the card's toggle can't undo).
+   */
+  sockets?: 'wired' | 'shown' | 'all'
+  onToggleSockets(): void
   /** The right-click menu of an input: create a knob, disconnect. Empty for none (the port then has no menu). */
   inputMenu(portId: string): readonly MenuEntry[]
   /** `additive` is true when Shift/Ctrl/Cmd was held, to add to or remove from the selection. */
@@ -60,6 +66,8 @@ export const NodeView = ({
   selected,
   subject,
   moduleUse,
+  sockets,
+  onToggleSockets,
   inputMenu,
   onSelect,
   onMove,
@@ -113,6 +121,25 @@ export const NodeView = ({
             </em>
           )}
         </span>
+        {sockets && (
+          <button
+            className={styles.cardSockets}
+            aria-pressed={sockets !== 'wired'}
+            disabled={sockets === 'all'}
+            data-tooltip={
+              sockets === 'all'
+                ? 'Every socket shows: Sockets is on in the toolbar.'
+                : sockets === 'shown'
+                  ? 'Hide the sockets nothing is wired to.'
+                  : "Show a socket for each of this node's parameters, so a wire can drive it."
+            }
+            aria-label={`${sockets === 'wired' ? 'Show' : 'Hide'} the parameter sockets of ${title}`}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={onToggleSockets}
+          >
+            ⊶
+          </button>
+        )}
         <button
           className={styles.remove}
           onPointerDown={(event) => event.stopPropagation()}

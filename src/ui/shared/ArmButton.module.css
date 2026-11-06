@@ -1,0 +1,12 @@
+/* The arm toggle on the session and arrangement headers: a dim ●, red when armed. */
+.arm {
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.armed {
+  color: var(--record);
+  border-color: var(--record);
+  background: color-mix(in srgb, var(--record) 16%, transparent);
+}

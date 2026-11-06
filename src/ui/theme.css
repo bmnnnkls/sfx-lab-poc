@@ -9,6 +9,8 @@
   --accent-soft: rgba(245, 165, 36, 0.18);
   --play: #3ddc84;
   --queued: #f5d524;
+  /* Recording: an armed track, a slot being recorded into. */
+  --record: #f0524f;
   --wire: #7aa2f7;
   --radius: 4px;
   /* Track groups' colours, by the names in core's GROUP_COLOURS. */

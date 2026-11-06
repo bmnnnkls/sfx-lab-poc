@@ -1,6 +1,7 @@
 import { type ControlTarget, MAX_PINS, MAX_TRACKS, type TrackGraph, canGroupTrack, canMoveTrack, canPin, isPinned, pinKey, trackRows } from '@core'
 import { openTrackView, revealPin } from '../navigation'
 import { useProjectStore } from '../project-store'
+import { useRecordStore } from '../record-store'
 import { useSelectionStore } from '../selection-store'
 import { showAutomation } from './control'
 import { moveAction } from './group'
@@ -8,6 +9,7 @@ import { saveEffectsAction, saveToLibrary } from './library-save'
 import { project, trackOf } from './lookup'
 import { GRAPH_TITLES, graphChoices, pinLimitNote } from './pin'
 import { renameAction } from './rename'
+import { lanesToggleAction } from './timeline-lane'
 import type { Action, ActionChoice, SubjectOf } from './types'
 
 type TrackSubject = SubjectOf<'track'>
@@ -55,6 +57,9 @@ const hasNoteEffects = (trackId: string) => {
 }
 
 const volume = (trackId: string): ControlTarget => ({ kind: 'mixer', owner: { kind: 'track', trackId }, control: 'volume' })
+
+/** What arming does, for the arm buttons and the menu entry. */
+export const ARM_TOOLTIP = 'Arm for recording: an armed track hears the keyboard, records into a slot you press ● on, and with ● Rec on records into the Arrangement'
 
 /** An instrument, audio or return track. */
 export const trackActions: readonly Action<TrackSubject>[] = [
@@ -192,6 +197,14 @@ export const trackActions: readonly Action<TrackSubject>[] = [
     run: ({ trackId }) => useProjectStore.getState().setTrackHidden(trackId, !trackOf(trackId)?.hidden),
   },
   {
+    id: 'track.arm',
+    title: ({ trackId }) => (useRecordStore.getState().armed.includes(trackId) ? 'Disarm' : 'Arm for recording'),
+    group: 'edit',
+    applies: (subject) => kindOf(subject) === 'instrument',
+    tooltip: () => ARM_TOOLTIP,
+    run: ({ trackId }) => useRecordStore.getState().arm(trackId, !useRecordStore.getState().armed.includes(trackId)),
+  },
+  {
     id: 'track.mute',
     title: ({ trackId }) => (trackOf(trackId)?.muted ? 'Unmute' : 'Mute'),
     group: 'edit',
@@ -211,4 +224,5 @@ export const trackActions: readonly Action<TrackSubject>[] = [
     danger: true,
     run: ({ trackId }) => useProjectStore.getState().removeTrack(trackId),
   },
+  lanesToggleAction<SubjectOf<'track'>>('track.timeline-lanes', ({ trackId }) => ({ kind: 'track', trackId })),
 ]

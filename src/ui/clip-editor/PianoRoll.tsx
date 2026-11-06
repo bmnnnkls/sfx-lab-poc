@@ -1,4 +1,4 @@
-import type { Note } from '@core'
+import type { EngineStatus, Note } from '@core'
 import { useClipboard } from '@state'
 import { useEffect, useRef } from 'react'
 import { ContextMenu, type MenuEntry } from '../shared/menu'
@@ -25,7 +25,6 @@ import { usePianoRollInteraction } from './use-piano-roll-interaction'
 import { VelocityLane } from './VelocityLane'
 
 interface PianoRollProps {
-  trackId: string
   clipId: string
   lengthBeats: number
   notes: readonly Note[]
@@ -34,8 +33,8 @@ interface PianoRollProps {
   pixelsPerBeat: number
   /** Scroll along with the playhead. */
   follow: boolean
-  /** Whether to show where the session launcher plays the clip; a region's copy has no playhead yet. */
-  playhead?: boolean
+  /** Where the clip plays now (`clipPhase`), for the playhead; none without it. */
+  phase?: (status: EngineStatus | null) => number | null
   /** Show the velocity lane under the roll. */
   showVelocity: boolean
   onZoom(pixelsPerBeat: number): void
@@ -58,14 +57,13 @@ const ROWS = HIGH_PITCH - LOW_PITCH + 1
  * zooms. Right-click opens a context menu. The lane underneath sets velocities.
  */
 export const PianoRoll = ({
-  trackId,
   clipId,
   lengthBeats,
   notes,
   step,
   pixelsPerBeat,
   follow,
-  playhead = true,
+  phase,
   showVelocity,
   onZoom,
   onChange,
@@ -190,10 +188,8 @@ export const PianoRoll = ({
             />
           )}
 
-          {playhead && <Playhead
-            trackId={trackId}
-            clipId={clipId}
-            lengthBeats={lengthBeats}
+          {phase && <Playhead
+            phase={phase}
             pixelsPerBeat={pixelsPerBeat}
             follow={follow}
             scroller={scroller}

@@ -1,7 +1,9 @@
 import type { Project } from '../project'
 import { controlGraph } from './resolve'
 import type { ControlTarget } from './types'
+import { expressionLabel } from './expression'
 export const controlTargetLabel = (project: Project, target: ControlTarget): string => {
+  if (target.kind === 'expression') return `MIDI / ${expressionLabel(target)}`
   if (target.kind === 'mixer') return `Mixer / ${target.control}${target.control === 'send' ? ` / ${project.tracks.find((t) => t.id === target.returnId)?.name ?? target.returnId}` : ''}`
   let patch = controlGraph(project, target.owner, target.domain)
   const names: string[] = [target.domain === 'patch' ? 'Instrument' : target.domain === 'notes' ? 'Notes' : 'Effects']

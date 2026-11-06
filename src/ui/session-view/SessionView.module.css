@@ -1,6 +1,8 @@
 .scroller {
   height: 100%;
   overflow: auto;
+  /* What scrolls into view lands beside the sticky scene column, not behind it. */
+  scroll-padding-inline-end: 66px;
 }
 
 /*
@@ -245,6 +247,24 @@
   opacity: 0.55;
 }
 
+/* A column's header or cell, wrapped so it can be found and marked; the wrapper draws nothing. */
+.column {
+  display: contents;
+}
+
+/*
+ * The selected column's cells are lighter, as its header's border is accented. `:where` keeps this as weak as a
+ * single class, so a playing or queued cell (below) still wins.
+ */
+:where(.column[data-selected]) .slot {
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+:where(.column[data-selected]) .empty {
+  opacity: 0.8;
+}
+
 .launch {
   text-align: left;
   overflow: hidden;
@@ -334,4 +354,44 @@
 .header[data-drop='refuse'] {
   outline: 1px dashed var(--text-dim);
   outline-offset: -1px;
+}
+
+/* An empty slot of an armed track: ● records a clip into it. */
+.recordEmpty {
+  opacity: 0.8;
+}
+
+.recordEmpty button {
+  color: var(--record);
+}
+
+/* A slot being recorded into: red, blinking while its take waits for the bar. */
+.recording {
+  border-color: var(--record);
+  background: color-mix(in srgb, var(--record) 16%, var(--panel));
+}
+
+.recording .launch {
+  color: var(--record);
+}
+
+.recordQueued {
+  border-color: var(--record);
+  animation: record-blink 0.5s steps(2, jump-none) infinite;
+}
+
+/* A clip being overdubbed: a red dot after its name. */
+.overdubDot {
+  color: var(--record);
+}
+
+@keyframes record-blink {
+  50% {
+    background: color-mix(in srgb, var(--record) 22%, var(--panel));
+  }
+}
+
+/* ■, ● and × on a track header: narrow, so the name keeps its room in a 150 px column. */
+.header > button:not(.trackName):not(.fxBadge) {
+  padding-inline: 6px;
 }

@@ -1,4 +1,5 @@
 import { createDemoProject, createEmptyProject, serializeProject } from '@core'
+import { CURRENT_VERSION } from '../core/persistence/format'
 import { describe, expect, it } from 'vitest'
 import { type KeyValueStore, createMemoryStore } from './key-value-store'
 import { ProjectStorage } from './project-storage'
@@ -12,7 +13,7 @@ describe('ProjectStorage', () => {
     expect(storage.loadCurrent().status).toBe('loaded')
     expect(storage.saveCurrent(createEmptyProject())).toEqual({ ok: true })
     expect(store.getItem('sfxlab:pre-signature-v9')).toBe(old)
-    expect(JSON.parse(store.getItem('sfxlab:project')!).version).toBe(13)
+    expect(JSON.parse(store.getItem('sfxlab:project')!).version).toBe(CURRENT_VERSION)
     storage.saveCurrent(createDemoProject())
     storage.saveBackup(createEmptyProject())
     expect(store.getItem('sfxlab:pre-signature-v9')).toBe(old)

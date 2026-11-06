@@ -1,6 +1,7 @@
 import { arrangementEnd, arrangementLoopEnd, isAudioContent } from '@core'
 import { openClip, openRegion } from '../navigation'
 import { useProjectStore } from '../project-store'
+import { isRecordingRegion, stopRecordingRegion } from '../record-store'
 import { editSampleOf, sampleInLibrary } from './clip'
 import { clipClipboard } from './clipboards'
 import { project, sessionClipOf } from './lookup'
@@ -10,6 +11,10 @@ type RegionSubject = SubjectOf<'region'>
 
 const regionOf = ({ regionId }: RegionSubject) => (project().arrangement ?? []).find((region) => region.id === regionId)
 
+/** A region being recorded is locked: changing it would end the take. */
+const notRecording = ({ regionId }: RegionSubject) => !isRecordingRegion(regionId)
+const RECORDING_TIP = 'Recording into this region: stop recording first'
+
 const audioOf = (subject: RegionSubject) => {
   const content = regionOf(subject)?.content
   return content && isAudioContent(content) ? content : undefined
@@ -17,6 +22,13 @@ const audioOf = (subject: RegionSubject) => {
 
 /** A region on the arrangement timeline: a copy of a clip at a beat. */
 export const regionActions: readonly Action<RegionSubject>[] = [
+  {
+    id: 'region.stop-recording',
+    title: 'Stop recording',
+    group: 'open',
+    applies: ({ regionId }) => isRecordingRegion(regionId),
+    run: ({ regionId }) => stopRecordingRegion(regionId),
+  },
   {
     id: 'region.edit',
     title: 'Edit',
@@ -61,6 +73,8 @@ export const regionActions: readonly Action<RegionSubject>[] = [
     id: 'region.loop',
     title: (subject) => (regionOf(subject)?.loop ? 'Stop looping' : 'Loop until next region'),
     group: 'edit',
+    enabled: notRecording,
+    tooltip: (subject) => (notRecording(subject) ? undefined : RECORDING_TIP),
     run: (subject) => {
       const region = regionOf(subject)
       if (region) useProjectStore.getState().updateArrangementClip(region.id, { loop: !region.loop })
@@ -92,6 +106,8 @@ export const regionActions: readonly Action<RegionSubject>[] = [
     title: 'Delete',
     group: 'delete',
     danger: true,
+    enabled: notRecording,
+    tooltip: (subject) => (notRecording(subject) ? undefined : RECORDING_TIP),
     run: ({ regionId }) => useProjectStore.getState().removeArrangementClip(regionId),
   },
 ]

@@ -1,28 +1,37 @@
 import type { AudioHost } from '@audio'
-import { controlTargetKey, compileAutomation, diffProject, projectWithControlValues, resolveControlTarget } from '@core'
-import { useControlStore, useProjectStore, useStatusStore, setTouchClock, reconcileTouches, cancelTouches } from '@state'
+import { type Project, controlTargetKey, compileAutomation, compileTimelineAutomation, diffProject, projectWithControlValues, resolveControlTarget } from '@core'
+import { useControlStore, useProjectStore, useRecordSettings, useStatusStore, setTouchClock, reconcileTouches, cancelTouches, setRecordClock, reconcileRecords, cancelRecords } from '@state'
 
 /** Keeps the engine mirroring the project document and feeds engine status back to the UI. */
 export const connectEngine = (host: AudioHost): (() => void) => {
   setTouchClock(host.recordingBeat ? (agoMs) => host.recordingBeat(agoMs) : undefined)
+  setRecordClock(host.recordingPosition ? (agoMs) => host.recordingPosition(agoMs) : undefined, host.outputLatency ? () => host.outputLatency() : undefined)
+  // The click is a browser preference, not part of the project: sent apart from the diff, so a bounce never has it.
+  const metronome = ({ metronome: on, metronomeLevel: level }: ReturnType<typeof useRecordSettings.getState>) => host.send({ type: 'transport/metronome', on, level })
+  metronome(useRecordSettings.getState())
+  const stopMetronome = useRecordSettings.subscribe((state, previous) => {
+    if (state.metronome !== previous.metronome || state.metronomeLevel !== previous.metronomeLevel) metronome(state)
+  })
   const sendDiff = (prev: Parameters<typeof diffProject>[0], next: Parameters<typeof diffProject>[1]) => {
     for (const command of diffProject(prev, next, false)) host.send(command)
   }
 
   let projection = projectWithControlValues(useProjectStore.getState().project, useControlStore.getState().overrides)
   sendDiff(null, projection)
+  // Both sources the engine plays automation from: the session's clips and slots, and the arrangement's timeline.
+  const configure = (project: Project) => ({ type: 'automation/configure' as const, tracks: compileAutomation(project), timeline: compileTimelineAutomation(project) })
   let automationProject = useProjectStore.getState().project
-  let automationConfig = JSON.stringify(compileAutomation(automationProject))
-  host.send({ type: 'automation/configure', tracks: compileAutomation(useProjectStore.getState().project) })
+  let automationConfig = JSON.stringify(configure(automationProject))
+  host.send(configure(automationProject))
   const refresh = () => {
     const next = projectWithControlValues(useProjectStore.getState().project, useControlStore.getState().overrides)
     sendDiff(projection, next)
     projection = next
     if (automationProject === useProjectStore.getState().project) return
     automationProject = useProjectStore.getState().project
-    const config = compileAutomation(automationProject)
+    const config = configure(automationProject)
     const signature = JSON.stringify(config)
-    if (signature !== automationConfig) { automationConfig = signature; host.send({ type: 'automation/configure', tracks: config }) }
+    if (signature !== automationConfig) { automationConfig = signature; host.send(config) }
   }
   let overrideRevision = 0
   let lastOverrides = useControlStore.getState().overrides
@@ -47,6 +56,7 @@ export const connectEngine = (host: AudioHost): (() => void) => {
   })
   const stopStatus = host.onStatus((status) => {
     reconcileTouches(status)
+    reconcileRecords(status)
     useStatusStore.getState().setStatus(status)
     useControlStore.setState({ playback: status.automation ?? [] })
     if (status.automationOverrideRevision === overrideRevision && status.automationOverrides) {
@@ -60,6 +70,8 @@ export const connectEngine = (host: AudioHost): (() => void) => {
 
   return () => {
     cancelTouches(); setTouchClock()
+    cancelRecords(); setRecordClock()
+    stopMetronome()
     host.send({ type: 'notes/panic' })
     stopProject()
     stopControls()

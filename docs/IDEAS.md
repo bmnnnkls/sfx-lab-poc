@@ -166,6 +166,15 @@ entry in the quick-add picker would surface them (E8).
 | F7 | Comment and frame nodes; align; duplicate. | ★ | S |
 | F8 | Golden-render tests: render patches offline and compare, to catch silent DSP regressions. | ★★ | M |
 
+Later, from the [pitch bend, aftertouch and CC spec](archive/midi-expression/SPEC-midi-expression.md#wishes-later)
+(per-note expression and MPE are [BACKLOG](BACKLOG.md) D2, MIDI output D1):
+
+* Expression in note graphs (an arpeggiator gated by pressure) and in insert-effect graphs (the mod wheel opening an
+  effect's filter).
+* Starter patches that use the mod wheel and pressure (vibrato, brightness).
+* Thinning recorded expression lanes by a chosen amount; *Recorded CCs* per input device.
+* The sustain pedal as a lane, rather than folded into note lengths.
+
 ---
 
 ## G. Noise, granular and glitch

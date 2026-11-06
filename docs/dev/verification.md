@@ -13,7 +13,10 @@ storage, no retries, assertions with bounded waits, page/console error checks an
 There is one spec file per feature area (`*.smoke.spec.ts` for the UI, `*.audio.spec.ts` for real worklet output);
 `tests/browser/support/fixtures.ts` holds the shared helpers and view titles, and `viewRoot(page, title)` scopes a locator
 to one view. The audio project uses a sample-window tap derived from the legacy checks (`support/audio-tap.ts`) to
-measure real output through the worklet; it rejects an inactive tap. Legacy scenarios not yet migrated are listed in
+measure real output through the worklet; it rejects an inactive tap. The tap reports peaks over a window, not samples,
+so a pitch is read as a level: *Hz to MIDI* less 69, scaled (`support/expression-project.ts`). Gate such a level by
+the note when a clip loops: a patch without an envelope keeps a released voice sounding until the safety net frees it,
+and the passes' levels add up. Legacy scenarios not yet migrated are listed in
 [browser-checks](../browser-checks/README.md) ([BACKLOG](../BACKLOG.md) T1).
 
 Each smoke group is a folder and a project (`smoke-<group>`), listed in `tests/browser/groups.ts`;
@@ -48,12 +51,17 @@ it in the test (`sampler.node.test.ts`). Browser tests that need a position the 
 put a marker there and read the saved project (`wave-marks.smoke.spec.ts`). A measuring script that drives the
 stores itself on the dev server's page stubs the app's entry (`page.route` on `/src/main.tsx`, a regex since Vite adds
 `?t=`), so the app's own services don't answer the same stores (`scripts/measure-second-pane.cjs`). What a canvas
-shows is checked by its pixels: `wave-spectrum.smoke.spec.ts` writes a file with a tone in one half, and compares the
+shows is checked by its pixels, or, where the canvas draws the project's data, by attributes it carries (a timeline
+lane's `data-beats` and `data-holds`); `wave-spectrum.smoke.spec.ts` writes a file with a tone in one half, and compares the
 brightness of the lane's canvas at the tone's row and at an empty one, in each half. Code that runs in a worker is a
 plain function the worker calls (`replyTo`), so unit tests and the main-thread fallback run the same code, and
 a service under test takes a fake worker that answers on the next task. Code that must give the same floats from a
 slice as from the whole audio (`applyBandEdit`) is compared bit for bit (`Buffer.equals` on the floats' bytes) at
 several offsets, the sample's start and end among them.
+
+A measurement that runs in Node (the engine's cost per block, the cost of a compile) is a test that runs only with
+`MEASURE=1` (`tests/measure/timeline-automation.measure.test.ts`) and prints JSON through `process.stdout`, since the
+suite's console output is not shown.
 
 Sample-accurate timing is tested at a tempo where the edge under test falls between samples (97 BPM at 48 kHz: a
 beat is 29690.72 frames), and at several render sizes (1, 97, 128, 4096), so a rounding that happens to be exact at

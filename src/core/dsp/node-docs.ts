@@ -11,6 +11,19 @@ export const nodeDocs: Readonly<Record<string, NodeDocs>> = {
       frequency: 'The pitch of the note in Hz. Wire it to an oscillator or sampler Freq.',
       gate: '1 while the key is held, 0 after it is released. Wire it to an envelope.',
       velocity: 'How hard the key was hit, from 0 to 1.',
+      pressure: 'How hard the keys are pressed down after they are hit (aftertouch), from 0 to 1. Wire it to a filter or a gain to make a held note swell.',
+      bend: 'Where the pitch wheel is, from -1 to 1, 0 at rest. Freq already follows it; use this to bend something else, or set the track\'s bend range to 0 and use it for vibrato depth.',
+    },
+  },
+  midiCC: {
+    category: 'Sources',
+    description: 'The value of one MIDI controller (a CC) on this track, from 0 to 1: the mod wheel, a breath controller, a knob that is not mapped to anything.',
+    keywords: ['midi', 'cc', 'controller', 'mod wheel', 'modulation', 'knob', 'expression', 'breath'],
+    params: {
+      cc: 'Which controller to read. 1 is the mod wheel on most keyboards. A CC mapped with MIDI learn moves its control instead and does not reach this node.',
+    },
+    outputs: {
+      value: 'The controller\'s value, 0 to 1, and 0 until it is moved.',
     },
   },
   oscillator: {
