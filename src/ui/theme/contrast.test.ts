@@ -44,6 +44,7 @@ const pairs = (theme: ThemeName): { label: string; fg: string; bg: string; minim
     ...onSurfaces(NON_TEXT, nonText),
     ...(theme === 'contrast' ? onSurfaces(['--border'], 3) : []),
     { label: '--text-on-accent on --accent', fg: '--text-on-accent', bg: '--accent', minimum: text },
+    { label: '--accent on --tab-selected', fg: '--accent', bg: '--tab-selected', minimum: text },
   ]
 }
 

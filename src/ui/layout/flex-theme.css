@@ -14,6 +14,8 @@
   --flexlayout-color-tab-unselected: var(--text-dim);
   --flexlayout-color-border-tab-unselected: var(--text-dim);
   --flexlayout-color-tab-selected: var(--accent);
+  --flexlayout-color-tab-selected-background: var(--tab-selected);
+  --flexlayout-color-border-tab-selected-background: var(--tab-selected);
   --flexlayout-color-border-tab-selected: var(--accent);
   --flexlayout-color-focus: var(--accent);
   --flexlayout-color-icon: var(--text-dim);

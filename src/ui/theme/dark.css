@@ -35,6 +35,8 @@
   --accent: #f5a524;
   --accent-soft: rgba(245, 165, 36, 0.18);
   --selection: rgba(245, 165, 36, 0.25);
+  /* A docked view's selected tab, behind its title in the accent. */
+  --tab-selected: #383b42;
 
   /* States. Recording: an armed track, a slot being recorded into. */
   --play: #3ddc84;
