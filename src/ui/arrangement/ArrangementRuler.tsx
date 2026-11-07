@@ -1,7 +1,10 @@
 import { type RefObject, useEffect, useRef } from 'react'
 import { formatBeat, ticks } from '../shared/timeline'
+import { useThemeColors } from '../theme/theme-colors'
 import { TIMELINE_BEAT_STEPS, beatLabel, timelineAxis } from './timeline-geometry'
 import styles from './arrangement.module.css'
+
+const COLORS = ['--text-dim'] as const
 
 /**
  * Bars, beats and sixteenths over the lanes: a canvas the size of the visible timeline, kept at the left of it while
@@ -9,6 +12,7 @@ import styles from './arrangement.module.css'
  */
 export const ArrangementRuler = ({ scroller, pxPerBeat, headerWidth }: { scroller: RefObject<HTMLDivElement | null>; pxPerBeat: number; headerWidth: number }) => {
   const canvas = useRef<HTMLCanvasElement>(null)
+  const colors = useThemeColors(COLORS)
 
   useEffect(() => {
     const element = canvas.current
@@ -27,9 +31,8 @@ export const ArrangementRuler = ({ scroller, pxPerBeat, headerWidth }: { scrolle
       element.width = Math.round(width * ratio)
       element.height = Math.round(height * ratio)
       context.setTransform(ratio, 0, 0, ratio, 0, 0)
-      const style = getComputedStyle(element)
-      context.fillStyle = style.getPropertyValue('--text-dim').trim() || '#888'
-      context.font = `10px ${style.fontFamily}`
+      context.fillStyle = colors['--text-dim']
+      context.font = `10px ${getComputedStyle(element).fontFamily}`
       context.textBaseline = 'top'
       const axis = timelineAxis(scroll.scrollLeft, width, pxPerBeat)
       for (const tick of ticks(axis, 1, TIMELINE_BEAT_STEPS, (beats) => beatLabel(beats, formatBeat))) {
@@ -50,7 +53,7 @@ export const ArrangementRuler = ({ scroller, pxPerBeat, headerWidth }: { scrolle
       observer.disconnect()
       if (request) cancelAnimationFrame(request)
     }
-  }, [scroller, pxPerBeat, headerWidth])
+  }, [scroller, pxPerBeat, headerWidth, colors])
 
   return <canvas ref={canvas} className={styles.rulerCanvas} aria-label="Timeline ruler" role="img" data-testid="arrangement-ruler" />
 }

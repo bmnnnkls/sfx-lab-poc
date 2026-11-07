@@ -1,9 +1,12 @@
 import { columnsFor, frameCount } from '@core'
 import { type WaveAudio, useWaveEditorStore } from '@state'
 import { type RefObject, useEffect, useRef } from 'react'
+import { useThemeColors } from '../theme/theme-colors'
 import { currentView } from './current-view'
 import { clampView, fitFramesPerPixel } from './wave-geometry'
 import styles from './WaveEditor.module.css'
+
+const COLORS = ['--text-dim'] as const
 
 /** Within this many pixels of the box's edge, a drag moves that edge (zooms) instead of the box. */
 const EDGE_PX = 6
@@ -20,6 +23,7 @@ export const Overview = ({ wave, detail }: { wave: WaveAudio; detail: RefObject<
   const canvas = useRef<HTMLCanvasElement>(null)
   const box = useRef<HTMLDivElement>(null)
   const drag = useRef<{ mode: 'move' | 'start' | 'end'; grab: number } | null>(null)
+  const colors = useThemeColors(COLORS)
 
   /** Frames per overview pixel. */
   const scale = () => frames / Math.max(1, strip.current?.clientWidth ?? 1)
@@ -38,7 +42,7 @@ export const Overview = ({ wave, detail }: { wave: WaveAudio; detail: RefObject<
       element.height = Math.round(height * ratio)
       context.setTransform(ratio, 0, 0, ratio, 0, 0)
       const columns = columnsFor({ startFrame: 0, framesPerPixel: fitFramesPerPixel(frames, width), width }, pyramid, audio)
-      context.fillStyle = getComputedStyle(element).getPropertyValue('--text-dim').trim() || '#888'
+      context.fillStyle = colors['--text-dim']
       if (columns.kind !== 'points') {
         for (let x = 0; x < width; x++) {
           let low = Infinity
@@ -79,7 +83,7 @@ export const Overview = ({ wave, detail }: { wave: WaveAudio; detail: RefObject<
       observer.disconnect()
       if (request) cancelAnimationFrame(request)
     }
-  }, [wave, audio, pyramid, frames, viewKey, detail])
+  }, [wave, audio, pyramid, frames, viewKey, detail, colors])
 
   const show = (startFrame: number, framesPerPixel?: number) => {
     const store = useWaveEditorStore.getState()

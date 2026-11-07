@@ -3,6 +3,7 @@ import { type Subject, type WaveAudio, type WaveSelection, commitRename, useRena
 import { type RefObject, memo, useEffect, useMemo, useRef, useState } from 'react'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import { RenameField } from '../shared/RenameField'
+import { useThemeColors } from '../theme/theme-colors'
 import { currentView } from './current-view'
 import type { Marks } from './mark-geometry'
 import type { WaveSnap } from './snap'
@@ -20,7 +21,7 @@ interface MarkColors {
   readonly loop: string
 }
 
-const color = (element: Element, name: string, fallback: string) => getComputedStyle(element).getPropertyValue(name).trim() || fallback
+const COLORS = ['--text', '--text-dim', '--accent', '--play'] as const
 
 /** A name inside a band, clipped to it. */
 const label = (context: CanvasRenderingContext2D, text: string, from: number, to: number, height: number) => {
@@ -101,6 +102,7 @@ const summaryOf = (marks: Marks) => {
  */
 export const MarkLane = memo(({ wave, detail, marks, snap }: { wave: WaveAudio; detail: RefObject<HTMLDivElement | null>; marks: Marks; snap: WaveSnap }) => {
   const canvas = useRef<HTMLCanvasElement>(null)
+  const theme = useThemeColors(COLORS)
   const { viewKey, sampleId, pane } = wave
   const [subject, setSubject] = useState<Subject>({ kind: 'sample-selection', sampleId, pane })
   const gestures = useMarkGestures(wave, setSubject, snap)
@@ -122,12 +124,7 @@ export const MarkLane = memo(({ wave, detail, marks, snap }: { wave: WaveAudio; 
       const style = getComputedStyle(element)
       drawing.font = `10px ${style.fontFamily}`
       drawing.textBaseline = 'middle'
-      const colors = {
-        text: color(element, '--text', '#fff'),
-        dim: color(element, '--text-dim', '#888'),
-        accent: color(element, '--accent', '#f5a524'),
-        loop: color(element, '--play', '#4caf50'),
-      }
+      const colors = { text: theme['--text'], dim: theme['--text-dim'], accent: theme['--accent'], loop: theme['--play'] }
       const { selection } = waveViewOf(useWaveEditorStore.getState().views, viewKey)
       drawMarks(drawing, currentView(detail.current, wave), marks, height, colors, selection)
     }
@@ -145,7 +142,7 @@ export const MarkLane = memo(({ wave, detail, marks, snap }: { wave: WaveAudio; 
       observer.disconnect()
       if (request) cancelAnimationFrame(request)
     }
-  }, [wave, viewKey, detail, marks])
+  }, [wave, viewKey, detail, marks, theme])
 
   const named = useMemo(() => {
     // A rename shows in the pane it was asked from.
