@@ -1,0 +1,94 @@
+/*
+ * Dark, the default theme: every colour token. Light (light.css) and High contrast (contrast.css) define the same set;
+ * the token checks in tests/architecture.test.ts and the contrast test hold them to that. Opaque colours are hex, so
+ * the contrast test can read them.
+ */
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Surfaces, from the window's background up; sunken is an input's or a lane's well, overlay a popup's body. */
+  --bg: #1b1c1f;
+  --panel: #232529;
+  --panel-raised: #2c2f34;
+  --sunken: #1b1c1f;
+  --overlay: #232529;
+  --scrim: rgba(0, 0, 0, 0.5);
+  /* Elevation: tooltips and popovers, menus and palettes, dialogs; and a panel's edge over what it covers. */
+  --shadow-1: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 12px 48px rgba(0, 0, 0, 0.55);
+  --shadow-edge: -6px 0 16px rgba(0, 0, 0, 0.4);
+
+  /* Text. */
+  --text: #d8dae0;
+  --text-dim: #8b909a;
+  --text-disabled: #62666f;
+  --text-on-accent: #1b1c1f;
+
+  /* Lines: dividers, a control's boundary (at least 3:1), the keyboard focus ring. */
+  --border: #383b42;
+  --border-strong: #737985;
+  --focus-ring: #f5a524;
+
+  /* Accent, and a selected range. */
+  --accent: #f5a524;
+  --accent-soft: rgba(245, 165, 36, 0.18);
+  --selection: rgba(245, 165, 36, 0.25);
+
+  /* States. Recording: an armed track, a slot being recorded into. */
+  --play: #3ddc84;
+  --play-soft: rgba(61, 220, 132, 0.12);
+  --queued: #f5d524;
+  --queued-soft: rgba(245, 213, 36, 0.18);
+  --record: #f0524f;
+  --danger: #ff6b6b;
+  --danger-soft: rgba(255, 107, 107, 0.18);
+  --warning: #dd8888;
+
+  /* Editors: grid lines (bar, beat, step), shaded rows, notes, wires, the spectrogram (quiet to loud). */
+  --grid-bar: rgba(255, 255, 255, 0.28);
+  --grid-beat: rgba(255, 255, 255, 0.12);
+  --grid-step: rgba(255, 255, 255, 0.05);
+  --grid-shade: rgba(0, 0, 0, 0.2);
+  --note: #f5a524;
+  --note-selected: #ffd27a;
+  --note-outline: rgba(0, 0, 0, 0.45);
+  --note-text: rgba(0, 0, 0, 0.7);
+  --wire: #7aa2f7;
+  --spectrum-0: #0c0c14;
+  --spectrum-1: #301054;
+  --spectrum-2: #8c2268;
+  --spectrum-3: #f5a524;
+  --spectrum-4: #fff6dc;
+
+  /* Meters, low to high. */
+  --meter-low: #3ddc84;
+  --meter-mid: #f5d524;
+  --meter-high: #ff6b6b;
+
+  /* Signal kinds (ADR-0003), for ports and wires once ports have kinds (the engine PI). */
+  --signal-audio: #7aa2f7;
+  --signal-pitch: #c792ea;
+  --signal-mod: #56d4bc;
+  --signal-gate: #f78c6c;
+  --signal-notes: #3ddc84;
+  --signal-control: #b4bac4;
+
+  /* Switching parts off (ADR-0008): off, bypassed, dormant, sleeping. */
+  --state-off: #8b909a;
+  --state-bypass: #f5d524;
+  --state-dormant: #737985;
+  --state-sleeping: #82aaff;
+  --inactive-opacity: 0.45;
+
+  /* Track groups' colours, by the names in core's GROUP_COLOURS. */
+  --group-red: #e5534b;
+  --group-orange: #e8833a;
+  --group-yellow: #d9b43a;
+  --group-green: #57ab5a;
+  --group-teal: #39a99d;
+  --group-blue: #539bf5;
+  --group-purple: #b083f0;
+  --group-pink: #e275ad;
+}
