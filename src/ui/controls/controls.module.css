@@ -256,3 +256,24 @@
 :global([data-hide-labels]) .label {
   display: none;
 }
+
+/*
+ * Touch is armed and nothing records here (EffectiveValue): a dim mark in the corner of whatever hosts it, out of the
+ * flow, so arming moves nothing. Its host becomes the containing block unless it already is one; `:where` keeps that
+ * from overriding a host's own `position` (sticky headers and master strip).
+ */
+:global(:where(:has(> [data-touch-idle]))) {
+  position: relative;
+}
+
+/* Doubled up to beat a host's `> *` width. */
+.idle[data-touch-idle] {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  width: auto;
+  color: var(--text-dim);
+  opacity: 0.6;
+}
