@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { contrast, isHexColour } from './contrast'
 
 /**
  * Every theme's colours against WCAG 2 contrast ratios: text at 4.5:1 (High contrast 7:1), everything that has to be
@@ -12,20 +13,6 @@ type ThemeName = 'dark' | 'light' | 'contrast'
 const tokensOf = (theme: ThemeName): Map<string, string> => {
   const source = readFileSync(new URL(`./${theme}.css`, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   return new Map([...source.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(([, name, value]) => [name!, value!.trim()]))
-}
-
-const luminance = (hex: string): number => {
-  const value = Number.parseInt(hex.slice(1), 16)
-  const channels = [value >> 16, (value >> 8) & 255, value & 255].map((channel) => {
-    const c = channel / 255
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-  })
-  return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!
-}
-
-export const contrast = (a: string, b: string): number => {
-  const [x, y] = [luminance(a), luminance(b)]
-  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
 }
 
 const SURFACES = ['--bg', '--panel', '--panel-raised', '--sunken', '--overlay']
@@ -65,7 +52,7 @@ describe.each(['dark', 'light', 'contrast'] as const)('the %s theme', (theme) =>
 
   it('writes the colours it checks as hex, so they can be measured', () => {
     const names = new Set(pairs(theme).flatMap(({ fg, bg }) => [fg, bg]))
-    const unreadable = [...names].filter((name) => !/^#[0-9a-f]{6}$/i.test(tokens.get(name) ?? ''))
+    const unreadable = [...names].filter((name) => !isHexColour(tokens.get(name) ?? ''))
     expect(unreadable).toEqual([])
   })
 
