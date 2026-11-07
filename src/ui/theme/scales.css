@@ -19,3 +19,8 @@
   --icon-stroke: 2;
   --focus-width: 2px;
 }
+
+/* High contrast's focus ring is wider, so it is seen without its colour. */
+[data-theme='contrast'] {
+  --focus-width: 3px;
+}

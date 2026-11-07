@@ -1,4 +1,9 @@
-/* The theme: tokens (src/ui/theme/), then the base styles. A theme is chosen by `data-theme` on <html>; Dark is the default. */
+/*
+ * The theme: tokens (src/ui/theme/), then the base styles. A theme is chosen by `data-theme` on <html> (theme/theme.ts);
+ * Dark is the default.
+ */
 @import './theme/scales.css';
 @import './theme/dark.css';
+@import './theme/light.css';
+@import './theme/contrast.css';
 @import './theme/base.css';
