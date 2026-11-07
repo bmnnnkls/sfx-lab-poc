@@ -1,3 +1,4 @@
+import { Icon } from '../shared/icon'
 import { ActionMenu } from '../shared/menu'
 import { RenameField } from '../shared/RenameField'
 import type { ControlTarget } from '@core'
@@ -105,24 +106,24 @@ export const ControlCell = ({ item, modules, title, editing, readoutTrack, colum
               event.dataTransfer.effectAllowed = 'move'
             }}
           >
-            ⠿
+            <Icon name="grip" size={14} />
           </span>
           <button aria-label={`Move ${title} earlier`} disabled={first} onClick={() => actions.move(-1)}>
-            ◀
+            <Icon name="chevron-left" size={14} />
           </button>
           <button aria-label={`Move ${title} later`} disabled={last} onClick={() => actions.move(1)}>
-            ▶
+            <Icon name="chevron-right" size={14} />
           </button>
           <button aria-label={`Resize ${title}`} title={`Size ${item.size}: click for the next`} onClick={() => actions.resize(NEXT_SIZE[item.size])}>
             {item.size}
           </button>
           {item.kind === 'slider' && (
             <button aria-label={`Turn ${title} ${item.horizontal ? 'upright' : 'sideways'}`} onClick={() => actions.setHorizontal(!item.horizontal)}>
-              {item.horizontal ? '↕' : '↔'}
+              <Icon name={item.horizontal ? 'move-vertical' : 'move-horizontal'} size={14} />
             </button>
           )}
           <button aria-label={`Hide ${title}`} title="Hide from the panel (it stays in the graph)" onClick={actions.hide}>
-            ◌
+            <Icon name="eye-off" size={14} />
           </button>
           <RenameField className={styles.rename} name={node.name ?? ''} placeholder={title} label={`Name of ${title}`} allowEmpty onCommit={actions.rename} />
         </div>

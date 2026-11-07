@@ -1,6 +1,7 @@
 import { CROSSFADE_CURVES, FADE_CURVES, MAX_CROSSFADE_SECONDS, SPECTRUM_FFT_SIZES, isCrossfadeCurve, isSpectrumFftSize } from '@core'
 import { SPECTRUM_FLOOR_RANGE_DB, useWaveEditSettings } from '@state'
 import { useEffect, useRef, useState } from 'react'
+import { Icon } from '../shared/icon'
 import styles from './WaveEditor.module.css'
 
 const CROSSFADE_TITLES = Object.fromEntries(FADE_CURVES.map((entry) => [entry.curve, entry.title]))
@@ -32,7 +33,7 @@ export const EditorSettings = () => {
   return (
     <>
       <button ref={button} aria-label="Editor settings" aria-expanded={open} title="Crossfade, Edits make copies, and the spectrogram" onClick={() => setOpen(!open)}>
-        ⚙
+        <Icon name="settings" />
       </button>
       {open && (
         <div

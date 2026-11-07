@@ -1,6 +1,7 @@
 import { BEND_RANGE, type ControlTarget, type InstrumentTrack, ccLabel, controlTargetKey, midiSourceKey, resolveControlTarget, trackBendRange } from '@core'
 import { LATENCY_OFFSET_MS, type MidiInputInfo, editMidiMappings, isRecordableCC, useMidi, useMidiStore, useProjectStore, useControlStore, useRecordSettings } from '@state'
 import { useEffect, useState } from 'react'
+import { Icon } from '../shared/icon'
 import styles from './MidiSettings.module.css'
 import { formatParam } from '../shared/param-scale'
 import { describeTrackInput } from './track-input'
@@ -66,7 +67,7 @@ const RecordedCCs = () => {
   return <div className={styles.recordedCCs} role="group" aria-label="Recorded CCs">
     <span>Recorded CCs</span>
     {ticked.length === 0 && <span className={styles.none}>none</span>}
-    {ticked.map((cc) => <span key={cc} className={styles.chip}>{ccLabel(cc)}<button aria-label={`Stop recording CC ${ccLabel(cc)}`} title="Stop recording this CC" onClick={() => tick(cc, false)}>×</button></span>)}
+    {ticked.map((cc) => <span key={cc} className={styles.chip}>{ccLabel(cc)}<button aria-label={`Stop recording CC ${ccLabel(cc)}`} title="Stop recording this CC" onClick={() => tick(cc, false)}><Icon name="close" size={14} /></button></span>)}
     <label>Add CC… <input type="number" aria-label="CC to record" min={0} max={119} step={1} placeholder="0–119" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} /></label>
     <button disabled={!valid} title={valid ? `Record CC ${ccLabel(number)}` : ticked.includes(number) ? 'Already recorded' : 'A CC 0 to 119, not 1 (always recorded) or 64 (the pedal)'} onClick={add}>Add</button>
     <button aria-pressed={learning} onClick={() => useMidiStore.setState({ learningRecordedCC: !learning })}>{learning ? 'Move a control…' : 'Learn'}</button>

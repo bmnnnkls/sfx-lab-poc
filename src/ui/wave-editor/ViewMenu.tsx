@@ -1,4 +1,5 @@
 import { type Subject, type WaveLanes, useWaveEditSettings, useWavePanesStore } from '@state'
+import { Icon } from '../shared/icon'
 import { type MenuEntry, PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import type { RulerMode, RulerTempo } from './ruler-ticks'
 
@@ -77,7 +78,7 @@ export const ViewMenu = ({
   return (
     <PopupMenu entries={() => [...useActionEntries(subject, context, (item) => ZOOMS.has(item.id)), ...settings]}>
       <button aria-label="View" title="Zoom, what the lanes show, and what the ruler counts">
-        View ▾
+        View <Icon name="chevron-down" size={14} />
       </button>
     </PopupMenu>
   )

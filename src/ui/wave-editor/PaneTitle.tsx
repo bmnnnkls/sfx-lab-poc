@@ -1,5 +1,6 @@
 import { type SampleInfo, frameCount, savedFrameCount } from '@core'
 import { type WavePane, useProjectStore, useSelectionStore, useWaveAudioStore, useWavePanesStore } from '@state'
+import { Icon } from '../shared/icon'
 import { type MenuEntry, PopupMenu } from '../shared/menu'
 import { formatTime } from './ruler-ticks'
 import styles from './WaveEditor.module.css'
@@ -48,7 +49,7 @@ export const PaneTitle = ({ pane, sample }: { pane: WavePane; sample: SampleInfo
     <div className={styles.paneTitle} role="group" aria-label={pane === 'main' ? 'First pane' : 'Second pane'}>
       <PopupMenu entries={entries}>
         <button className={styles.paneSample} aria-label={`${pane === 'main' ? 'First' : 'Second'} pane's sample: ${sample.name}`} title="Show another sample in this pane">
-          <span className={styles.title}>{sample.name}</span> ▾
+          <span className={styles.title}>{sample.name}</span> <Icon name="chevron-down" size={14} />
         </button>
       </PopupMenu>
       <span className={styles.paneFacts}>
@@ -56,7 +57,7 @@ export const PaneTitle = ({ pane, sample }: { pane: WavePane; sample: SampleInfo
       </span>
       {pane === 'second' && (
         <button className={styles.end} onClick={() => useWavePanesStore.getState().setSecond({ open: false })} aria-label="Close the second pane" title="Close the second pane">
-          ×
+          <Icon name="close" size={14} />
         </button>
       )}
     </div>

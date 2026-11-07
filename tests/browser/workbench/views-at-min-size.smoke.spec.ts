@@ -78,7 +78,7 @@ const CASES: readonly Case[] = [
     // The mark lane stays under the ruler, and its toolbar buttons show.
     controls: (root) => [
       root.getByRole('button', { name: 'Play arrangement', exact: true }),
-      root.getByRole('button', { name: '⟳ Loop', exact: true }),
+      root.getByRole('button', { name: 'Loop', exact: true }),
       root.getByText('Markers', { exact: true }),
       root.getByText('Bass', { exact: true }),
     ],

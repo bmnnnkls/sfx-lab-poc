@@ -4,6 +4,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { EffectiveValue } from '../controls/EffectiveValue'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { useDragSource, useEdgeTarget } from '../shared/drag'
+import { Icon } from '../shared/icon'
 import { ActionMenu } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import { useSounding } from '../shared/use-sounding'
@@ -40,7 +41,7 @@ const GroupTitle = ({ group, count }: { group: TrackGroup; count: number }) => {
         aria-expanded={!group.collapsed}
         onClick={() => useProjectStore.getState().setGroupCollapsed(group.id, !group.collapsed)}
       >
-        {group.collapsed ? '▸' : '▾'}
+        <Icon name={group.collapsed ? 'chevron-right' : 'chevron-down'} size={14} />
       </button>
       <InPlaceRename subject={subject} name={group.name} label={`Name of ${group.name}`} className={styles.groupName}>
         <span
@@ -142,7 +143,7 @@ export const GroupCell = ({ group, trackIds, scene }: GroupProps & { scene: numb
         aria-label={filled ? `Launch ${group.name} in scene ${scene + 1}` : `Stop ${group.name} in scene ${scene + 1}`}
         data-state={state || undefined}
       >
-        {filled ? '▶' : '■'}
+        <Icon name={filled ? 'play' : 'stop'} filled size={14} />
       </button>
     </div>
   )
@@ -162,7 +163,7 @@ export const HiddenTracks = () => {
       data-sounding={sounding || undefined}
       onClick={() => useLayoutStore.getState().revealView('tracks')}
     >
-      ◌ {hidden.length}
+      <Icon name="eye-off" size={14} /> {hidden.length}
     </button>
   )
 }

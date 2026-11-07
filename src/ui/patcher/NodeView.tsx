@@ -1,4 +1,5 @@
 import { type Subject, runAction } from '@state'
+import { Icon } from '../shared/icon'
 import type { MenuEntry } from '../shared/menu'
 import { ActionMenu, ContextMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename } from '../shared/RenameField'
@@ -137,7 +138,7 @@ export const NodeView = ({
             onPointerDown={(event) => event.stopPropagation()}
             onClick={onToggleSockets}
           >
-            ⊶
+            <Icon name="modulation" size={14} />
           </button>
         )}
         <button
@@ -146,7 +147,7 @@ export const NodeView = ({
           onClick={() => runAction('nodes.delete', own, context)}
           aria-label={`Remove ${title}`}
         >
-          ×
+          <Icon name="close" size={14} />
         </button>
       </div>
 

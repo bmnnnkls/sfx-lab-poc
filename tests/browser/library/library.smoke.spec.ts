@@ -178,7 +178,7 @@ test("a clip's scenes: Insert into lists every scene and disables the occupied o
   await page.addInitScript(saved => localStorage.setItem('sfxlab:project', saved), serializeProject(sweepProject(true)))
   await page.goto('/')
   const session = await openView(page, 'Session')
-  await saveToLibrary(page, session.getByRole('button', { name: '▶ Sweep clip', exact: true }))
+  await saveToLibrary(page, session.getByRole('button', { name: 'Play Sweep clip', exact: true }))
   await openView(page, 'Library')
   const panel = libraryPanel(page)
   const clip = treeRow(panel, 'Sweep clip')

@@ -429,3 +429,10 @@
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* A button with an icon keeps the row's height: no line box under the icon. */
+.editorToolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}

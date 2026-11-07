@@ -2,6 +2,7 @@ import { type TrackRow, trackRows } from '@core'
 import { type SubjectOf, runAction, useProjectStore, useSelectionStore } from '@state'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useDragSource, useEdgeTarget } from '../shared/drag'
+import { Icon } from '../shared/icon'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import { useSounding } from '../shared/use-sounding'
@@ -193,7 +194,7 @@ const Row = ({ row, label, active, selected, hidden, onChoose }: RowProps) => {
               useProjectStore.getState().setGroupCollapsed(row.group.id, !row.group.collapsed)
             }}
           >
-            {row.kind === 'group' ? (row.group.collapsed ? '▸' : '▾') : ''}
+            {row.kind === 'group' && <Icon name={row.group.collapsed ? 'chevron-right' : 'chevron-down'} size={14} />}
           </span>
           {row.kind === 'group' && <span className={styles.swatch} style={{ background: `var(--group-${row.group.colour})` }} aria-hidden />}
           <InPlaceRename subject={subject} name={name} label={`Name of ${name}`} className={styles.name}>
@@ -213,7 +214,7 @@ const Row = ({ row, label, active, selected, hidden, onChoose }: RowProps) => {
               toggleHidden()
             }}
           >
-            {hidden ? '◌' : '◉'}
+            <Icon name={hidden ? 'eye-off' : 'eye'} size={14} />
           </button>
         </li>
       </ActionMenu>

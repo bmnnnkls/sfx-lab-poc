@@ -89,7 +89,7 @@ test('the eye hides a track, Show all shows it, and groups, collapse and hiding 
 
   await view.getByRole('button', { name: 'Hide Lead', exact: true }).click()
   await group(page, tree, 'Bass')
-  await row(tree, 'Group 1, group of 1 track').getByText('▾').click()
+  await row(tree, 'Group 1, group of 1 track').locator('svg').first().click()
   await expectSaved(page)
   await page.reload()
   const after = (await openTracks(page)).tree
@@ -141,9 +141,9 @@ test('the session grid draws a group as a band, and a collapsed group as one col
   await expect(launch).toHaveAttribute('data-state', 'playing')
   await expect(session.getByRole('button', { name: 'Launch scene 1', exact: true })).toBeVisible()
   await session.getByRole('button', { name: 'Expand Group 1', exact: true }).click()
-  await expect(session.getByRole('button', { name: '■ Arp', exact: true })).toBeVisible()
-  await expect(session.getByRole('button', { name: '■ Cm', exact: true })).toBeVisible()
-  await expect(session.getByRole('button', { name: '▶ Root', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: 'Stop Arp', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: 'Stop Cm', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: 'Play Root', exact: true })).toBeVisible()
 })
 
 test('a hidden track leaves the grid, which counts it and lights while it sounds', async ({ page }) => {
@@ -167,7 +167,7 @@ test('a hidden track leaves the grid, which counts it and lights while it sounds
 test('the arrangement and the mixer draw a group over its members, fold it away, and leave hidden tracks out', async ({ page }) => {
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
-  await session.getByRole('button', { name: '▶ Arp', exact: true }).click({ button: 'right' })
+  await session.getByRole('button', { name: 'Play Arp', exact: true }).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Place on arrangement', exact: true }).click()
   const { view, tree } = await openTracks(page)
   await group(page, tree, 'Lead')

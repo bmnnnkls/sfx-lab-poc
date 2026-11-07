@@ -8,7 +8,7 @@
 .tabs button:first-child { border-radius: var(--radius) 0 0 var(--radius); margin-inline-start: 0; }
 .tabs button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
 .tabs button[aria-selected='true'] { color: var(--bg); background: var(--accent); border-color: var(--accent); position: relative; }
-.more { flex: 0 0 auto; padding: 1px 6px; line-height: 1.2; }
+.more { flex: 0 0 auto; display: inline-flex; align-items: center; padding: 1px 6px; line-height: 1.2; }
 
 .header, .status, .buttons, .morph, .samples { flex: none; }
 /* The rows scroll; the buttons, the morph and the sample choices stay below them. */

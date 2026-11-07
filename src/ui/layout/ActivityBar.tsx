@@ -1,14 +1,15 @@
 import { type ViewId, useLayoutStore } from '@state'
 import { useSpringLoad } from '../shared/drag'
+import { Icon, type IconName } from '../shared/icon'
 import styles from './ActivityBar.module.css'
 import { viewTitles } from './view-titles'
 
-const VIEWS: readonly { readonly id: ViewId; readonly glyph: string }[] = [
-  { id: 'session', glyph: '▦' },
-  { id: 'arrangement', glyph: '▤' },
-  { id: 'wave', glyph: '∿' },
-  { id: 'library', glyph: '▥' },
-  { id: 'tracks', glyph: '☰' },
+const VIEWS: readonly { readonly id: ViewId; readonly icon: IconName }[] = [
+  { id: 'session', icon: 'session' },
+  { id: 'arrangement', icon: 'arrangement' },
+  { id: 'wave', icon: 'wave' },
+  { id: 'library', icon: 'library' },
+  { id: 'tracks', icon: 'tracks' },
 ]
 
 /**
@@ -26,7 +27,7 @@ const activate = (id: ViewId) => {
 /**
  * The strip beside the layout: Session, Arrangement, the wave editor, the library and the tracks, each marked while
  * it shows. The region toggles sit in the panel's tab strip and the status bar's *Layout* menu, *Reset layout* only in
- * the menu. Text and glyphs only until round 13's icons. The Tab key moves through it rather than switching views.
+ * the menu. The Tab key moves through it rather than switching views.
  */
 export const ActivityBar = () => {
   const visible = useLayoutStore((state) => state.visible)
@@ -40,7 +41,7 @@ export const ActivityBar = () => {
 
   return (
     <nav className={styles.bar} aria-label="Views" data-activity-bar {...springLoad}>
-      {VIEWS.map(({ id, glyph }) => (
+      {VIEWS.map(({ id, icon }) => (
         <button
           key={id}
           className={visible.includes(id) ? styles.showing : undefined}
@@ -49,7 +50,7 @@ export const ActivityBar = () => {
           data-view-button={id}
           title={`Show ${viewTitles[id]}`}
         >
-          {glyph}
+          <Icon name={icon} />
         </button>
       ))}
     </nav>

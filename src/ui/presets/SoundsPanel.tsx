@@ -3,6 +3,7 @@ import { type KeyboardEvent, useEffect, useId, useMemo, useState } from 'react'
 import { type SoundsTab, editPresetProject, isStillRecalled, morphPair, recallablePresets, runAction, saveSound, soundSubject, soundsTabsOf, tabFor, useProjectStore, useSelectionStore, useSoundsStore } from '@state'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { useDragSource } from '../shared/drag'
+import { Icon } from '../shared/icon'
 import { ActionMenu, PopupMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import { LibrarySounds } from './LibrarySounds'
@@ -173,7 +174,7 @@ export const SoundsPanel = () => {
           ))}
         </div>
         <PopupMenu entries={[{ label: 'Show all in project', checked: showAll, tooltip: "Every preset and snapshot of the project, under its owner; a click recalls it onto its own", onSelect: () => useSoundsStore.getState().setShowAll(!showAll) }]}>
-          <button className={styles.more} aria-label="Sounds actions" title="Sounds actions">⋯</button>
+          <button className={styles.more} aria-label="Sounds actions" title="Sounds actions"><Icon name="more" /></button>
         </PopupMenu>
       </div>
       <output role="status" className={styles.status}>{message}</output>

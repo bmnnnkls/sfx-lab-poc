@@ -3,23 +3,23 @@ import { test, expect, libraryPanel, openView, saveSound, saveToLibrary, treeRow
 /** The entries of the open menu, by name, with separators as '—'. */
 const menuEntries = async (page: import('@playwright/test').Page) =>
   page.getByRole('menu').last().locator('[role="menuitem"], [role="separator"]').evaluateAll((elements) =>
-    elements.map((element) => (element.getAttribute('role') === 'separator' ? '—' : (element.textContent ?? '').trim())))
+    elements.map((element) => (element.getAttribute('role') === 'separator' ? '—' : (element.textContent ?? '').trim() + (element.getAttribute('aria-haspopup') ? '▸' : ''))))
 
 test('a session clip has one menu, the same as its buttons', async ({ page }) => {
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
-  await session.getByRole('button', { name: '▶ Root', exact: true }).click({ button: 'right' })
+  await session.getByRole('button', { name: 'Play Root', exact: true }).click({ button: 'right' })
   expect(await menuEntries(page)).toEqual(['Launch', 'Edit notes', 'Edit automation', '—', 'Rename', 'Duplicate to empty slot', 'Place on arrangement', 'Save to library', '—', 'Copy', 'Cut', '—', 'Delete'])
   await page.keyboard.press('Escape')
   // × runs the same Delete as the menu.
   await session.getByRole('button', { name: 'Delete Walk', exact: true }).click()
-  await expect(session.getByRole('button', { name: '▶ Walk', exact: true })).toHaveCount(0)
+  await expect(session.getByRole('button', { name: 'Play Walk', exact: true })).toHaveCount(0)
 })
 
 test('Shift+F10 opens the menu of the focused element', async ({ page }) => {
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
-  await session.getByRole('button', { name: '▶ Root', exact: true }).focus()
+  await session.getByRole('button', { name: 'Play Root', exact: true }).focus()
   await page.keyboard.press('Shift+F10')
   await expect(page.getByRole('menuitem', { name: 'Launch', exact: true })).toBeVisible()
   await page.keyboard.press('Escape')
@@ -30,7 +30,7 @@ test('Rename turns a clip name into a field: Enter keeps the new name, Escape an
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
   const rename = async (name: string) => {
-    await session.getByRole('button', { name: `▶ ${name}`, exact: true }).click({ button: 'right' })
+    await session.getByRole('button', { name: `Play ${name}`, exact: true }).click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Rename', exact: true }).click()
     const field = session.getByRole('textbox', { name: `Name of ${name}`, exact: true })
     await expect(field).toBeFocused()
@@ -40,18 +40,18 @@ test('Rename turns a clip name into a field: Enter keeps the new name, Escape an
   }
   await (await rename('Root')).pressSequentially('Low root')
   await page.keyboard.press('Enter')
-  await expect(session.getByRole('button', { name: '▶ Low root', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: 'Play Low root', exact: true })).toBeVisible()
 
   await (await rename('Low root')).pressSequentially('Gone')
   await page.keyboard.press('Escape')
-  await expect(session.getByRole('button', { name: '▶ Low root', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: 'Play Low root', exact: true })).toBeVisible()
 
   await (await rename('Low root')).fill('')
   await page.keyboard.press('Enter')
-  await expect(session.getByRole('button', { name: '▶ Low root', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: 'Play Low root', exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
-  await expect(session.getByRole('button', { name: '▶ Root', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: 'Play Root', exact: true })).toBeVisible()
 })
 
 test('a track renames and duplicates from its menu, in the session grid and the mixer', async ({ page }) => {
@@ -77,7 +77,7 @@ test('a track renames and duplicates from its menu, in the session grid and the 
   await mixer.getByRole('button', { name: 'Lead', exact: true }).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Duplicate', exact: true }).click()
   await expect(mixer.getByRole('region', { name: 'Lead copy channel', exact: true })).toBeVisible()
-  await expect(session.getByRole('button', { name: '▶ Arp', exact: true })).toHaveCount(2)
+  await expect(session.getByRole('button', { name: 'Play Arp', exact: true })).toHaveCount(2)
 
   // × runs the same Delete.
   await session.getByRole('button', { name: 'Remove Lead copy', exact: true }).click()
@@ -119,26 +119,26 @@ test('a scene renames, inserts and deletes from its menu', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'Insert scene before', exact: true }).click()
   await expect(scenes).toHaveCount(5)
   // The Bass's Walk clip moved down a row with its scene.
-  await expect(session.getByRole('button', { name: '▶ Walk', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: 'Play Walk', exact: true })).toBeVisible()
 
   await session.getByRole('button', { name: 'Launch scene 1', exact: true }).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
   await expect(scenes).toHaveCount(4)
-  await expect(session.getByRole('button', { name: '▶ Root', exact: true })).toHaveCount(0)
+  await expect(session.getByRole('button', { name: 'Play Root', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
-  await expect(session.getByRole('button', { name: '▶ Root', exact: true })).toBeVisible()
+  await expect(session.getByRole('button', { name: 'Play Root', exact: true })).toBeVisible()
 })
 
 test('a clip copies into an empty slot and onto a lane', async ({ page }) => {
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
-  await session.getByRole('button', { name: '▶ Root', exact: true }).click({ button: 'right' })
+  await session.getByRole('button', { name: 'Play Root', exact: true }).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Copy', exact: true }).click()
   // The first empty MIDI slot is Lead's in scene 2.
   await session.getByRole('button', { name: 'Create clip', exact: true }).first().click({ button: 'right' })
   expect(await menuEntries(page)).toEqual(['Create clip', 'Record a clip here', '—', 'Paste'])
   await page.getByRole('menuitem', { name: 'Paste', exact: true }).click()
-  await expect(session.getByRole('button', { name: '▶ Root', exact: true })).toHaveCount(2)
+  await expect(session.getByRole('button', { name: 'Play Root', exact: true })).toHaveCount(2)
 
   const arrangement = await openView(page, 'Arrangement')
   const lane = arrangement.locator('[data-lane]').nth(1)
@@ -157,7 +157,7 @@ test('an empty audio slot offers its samples from the menu, and automation slots
   await session.getByRole('button', { name: 'Add audio clip', exact: true }).first().click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Add audio clip', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Demo Drum Loop 120 BPM', exact: true }).click()
-  await expect(session.getByRole('button', { name: /▶\s*Demo Drum Loop/ })).toHaveCount(2)
+  await expect(session.getByRole('button', { name: /Play Demo Drum Loop/ })).toHaveCount(2)
 
   await session.getByRole('button', { name: 'Create Master automation scene 1', exact: true }).click()
   await openView(page, 'Session')
@@ -375,7 +375,7 @@ test('tracks, the master, clips and samples save to the library from their menus
   await page.keyboard.press('Escape')
   await saveToLibrary(page, session.getByRole('button', { name: 'Bass', exact: true }), 'Instrument + notes')
   await saveToLibrary(page, session.getByRole('button', { name: 'Master', exact: true }))
-  await saveToLibrary(page, session.getByRole('button', { name: '▶ Root', exact: true }))
+  await saveToLibrary(page, session.getByRole('button', { name: 'Play Root', exact: true }))
   const samples = await openView(page, 'Samples')
   await samples.getByRole('button', { name: 'Add demo samples', exact: true }).click()
   await expect(samples.locator('[data-status="ready"]')).toHaveCount(5)
