@@ -2,6 +2,7 @@ import { trackRows, visibleRows } from '@core'
 import { type Subject, runAction, useProjectStore, useSelectionStore } from '@state'
 import { type CSSProperties, Fragment, type ReactNode, useMemo, useRef } from 'react'
 import { type GroupedColumn, bandsOf, groupedColumns, stripeOf } from '../shared/group-columns'
+import { Icon } from '../shared/icon'
 import { ActionMenu, PopupMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename } from '../shared/RenameField'
 import { revealKey, useRevealRequest } from '../shared/reveal'
@@ -137,7 +138,7 @@ const SceneRow = ({ scene, columns, selected, masterSelected }: { scene: number;
       <InPlaceRename subject={subject} name={name ?? ''} label={`Name of scene ${scene + 1}`} className={styles.scene}>
         <ActionMenu subject={subject}>
         <button className={styles.scene} onClick={() => runAction('scene.launch', subject, context)} aria-label={name ? `Launch scene ${scene + 1}, ${name}` : `Launch scene ${scene + 1}`} title={name || undefined}>
-          <span>▶ {scene + 1}</span>
+          <span><Icon name="play" filled size={14} /> {scene + 1}</span>
           {name && <small className={styles.sceneName}>{name}</small>}
         </button>
         </ActionMenu>

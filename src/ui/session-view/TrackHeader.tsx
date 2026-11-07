@@ -4,6 +4,7 @@ import { useControlGesture } from '../controls/use-control-gesture'
 import { EffectiveValue } from '../controls/EffectiveValue'
 import type { CSSProperties } from 'react'
 import { useDragSource, useEdgeTarget } from '../shared/drag'
+import { Icon } from '../shared/icon'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import styles from './SessionView.module.css'
@@ -78,12 +79,12 @@ export const TrackHeader = ({ track, stripe }: { track: Track; stripe?: GroupCol
       <EffectiveValue target={target} />
       {track.kind !== 'return' && (
         <button onClick={() => runAction('track.stop', subject, context)} aria-label={`Stop ${track.name}`}>
-          ■
+          <Icon name="stop" filled size={14} />
         </button>
       )}
       {track.kind === 'instrument' && <ArmButton trackId={track.id} name={track.name} />}
       <button onClick={() => runAction('track.delete', subject, context)} aria-label={`Remove ${track.name}`}>
-        ×
+        <Icon name="close" size={14} />
       </button>
     </div>
     </ActionMenu>

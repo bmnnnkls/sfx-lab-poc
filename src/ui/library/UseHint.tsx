@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { Icon } from '../shared/icon'
 import styles from './LibraryPanel.module.css'
 
 /** Kept per browser, as a view preference: `state` doesn't touch `localStorage`. */
@@ -41,7 +42,7 @@ export const UseHint = () => {
   return (
     <aside className={styles.hint} aria-label="Hint">
       <span>Drag onto a track, a slot or a graph to use it.</span>
-      <button className={styles.hintClose} aria-label="Dismiss hint" title="Don't show this again" onClick={dismiss}>×</button>
+      <button className={styles.hintClose} aria-label="Dismiss hint" title="Don't show this again" onClick={dismiss}><Icon name="close" size={14} /></button>
     </aside>
   )
 }

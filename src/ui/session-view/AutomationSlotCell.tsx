@@ -1,5 +1,6 @@
 import { automationSlotsOf, type ControlOwner } from '@core'
 import { type Subject, runAction, useProjectStore, useStatusStore } from '@state'
+import { Icon } from '../shared/icon'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import styles from './SessionView.module.css'
 
@@ -13,7 +14,7 @@ export const AutomationSlotCell = ({ owner, scene }: { owner: ControlOwner; scen
   const queued = slot ? status?.queued === slot.id : status?.queued === 'stop'
   const label = owner.kind === 'master' ? 'Master' : owner.kind === 'group' ? 'Group' : useProjectStore.getState().project.tracks.find((t) => t.id === owner.trackId)?.name ?? 'Return'
   return <ActionMenu subject={subject}><div data-automation-owner={label} data-scene={scene} className={`${styles.slot} ${styles.automationSlot} ${playing ? styles.playing : queued ? styles.queued : ''} ${!slot ? styles.empty : ''}`}>
-    <button className={styles.launch} aria-label={`${slot ? 'Launch' : 'Stop'} ${label} automation scene ${scene + 1}`} title={slot ? `${slot.lengthBeats} beats · automation only` : 'Empty slot: restore bases at next bar'} onClick={() => context.engine.launchAutomation(owner, slot?.id ?? null)}>{slot ? `▶ ${slot.name}` : '■'}</button>
-    {slot ? <>{(playing || queued) && <button aria-label={`Stop ${label} automation scene ${scene + 1}`} onClick={() => context.engine.launchAutomation(owner, null)}>■</button>}<button aria-label={`Edit ${label} automation scene ${scene + 1}`} onClick={() => runAction('automation-slot.edit', subject, context)}>✎</button><button aria-label={`Delete ${label} automation scene ${scene + 1}`} onClick={() => runAction('automation-slot.delete', subject, context)}>×</button></> : <button aria-label={`Create ${label} automation scene ${scene + 1}`} onClick={() => runAction('automation-slot.create', subject, context)}>+</button>}
+    <button className={styles.launch} aria-label={`${slot ? 'Launch' : 'Stop'} ${label} automation scene ${scene + 1}`} title={slot ? `${slot.lengthBeats} beats · automation only` : 'Empty slot: restore bases at next bar'} onClick={() => context.engine.launchAutomation(owner, slot?.id ?? null)}>{slot ? <><Icon name="play" filled size={14} /> {slot.name}</> : <Icon name="stop" filled size={14} />}</button>
+    {slot ? <>{(playing || queued) && <button aria-label={`Stop ${label} automation scene ${scene + 1}`} onClick={() => context.engine.launchAutomation(owner, null)}><Icon name="stop" filled size={14} /></button>}<button aria-label={`Edit ${label} automation scene ${scene + 1}`} onClick={() => runAction('automation-slot.edit', subject, context)}><Icon name="edit" size={14} /></button><button aria-label={`Delete ${label} automation scene ${scene + 1}`} onClick={() => runAction('automation-slot.delete', subject, context)}><Icon name="close" size={14} /></button></> : <button aria-label={`Create ${label} automation scene ${scene + 1}`} onClick={() => runAction('automation-slot.create', subject, context)}>+</button>}
   </div></ActionMenu>
 }

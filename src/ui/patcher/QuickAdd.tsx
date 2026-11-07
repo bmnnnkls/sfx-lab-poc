@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { type Point } from './geometry'
-import { type Catalog, type CatalogEntry } from './node-catalog'
+import { Icon, type IconName } from '../shared/icon'
+import { type Catalog, type CatalogCategory, type CatalogEntry } from './node-catalog'
 import { onViewHide } from '../layout/view-events'
 import { popupPosition } from './placement'
 import { INITIAL, type QuickAddAction, type QuickAddState, rowsOf, step } from './quick-add-model'
@@ -17,6 +18,21 @@ interface QuickAddProps {
 }
 
 const SIZE = { width: 340, height: 380 }
+
+/** The icon beside a category's name in the list; the examples have none. */
+const CATEGORY_ICONS: Readonly<Partial<Record<CatalogCategory, IconName>>> = {
+  Sources: 'category-sources',
+  Controls: 'category-controls',
+  Indicators: 'category-indicators',
+  Modulation: 'category-modulation',
+  Math: 'category-math',
+  Logic: 'category-logic',
+  Analysis: 'category-analysis',
+  Filters: 'category-filters',
+  Effects: 'category-effects',
+  Routing: 'category-routing',
+  Modules: 'category-modules',
+}
 
 /**
  * The node picker: a text field and a list under it, opened by double-clicking the canvas, Shift+A or the Add button.
@@ -95,7 +111,7 @@ export const QuickAdd = ({ catalog, anchor, heading, onPick, onClose }: QuickAdd
         {state.scope && !state.query ? (
           <>
             <button type="button" className={styles.up} onPointerDown={(event) => event.preventDefault()} onClick={() => send({ type: 'key', key: 'Backspace' })}>
-              ‹ All
+              <Icon name="chevron-left" size={14} /> All
             </button>
             <span>{state.scope}</span>
           </>
@@ -120,8 +136,14 @@ export const QuickAdd = ({ catalog, anchor, heading, onPick, onClose }: QuickAdd
           >
             {row.kind === 'category' ? (
               <>
-                <span className={styles.label}>{row.name}</span>
-                <span className={styles.meta}>{row.count} ›</span>
+                <span className={`${styles.label} ${styles.categoryLabel}`}>
+                  {CATEGORY_ICONS[row.name] ? <Icon name={CATEGORY_ICONS[row.name]!} size={14} /> : <span className={styles.noIcon} aria-hidden />}
+                  {row.name}
+                </span>
+                <span className={`${styles.meta} ${styles.categoryMeta}`}>
+                  {row.count}
+                  <Icon name="chevron-right" size={14} />
+                </span>
               </>
             ) : (
               <>

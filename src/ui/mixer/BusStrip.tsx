@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import type { GroupBus, TrackGroup } from '@core'
 import { type SubjectOf, openGroupEffects, useProjectStore, useSelectionStore } from '@state'
 import { useDragSource, useEdgeTarget } from '../shared/drag'
+import { Icon } from '../shared/icon'
 import { ActionMenu } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import { GroupMuteSolo, useRoute } from '../shared/MuteSolo'
@@ -18,7 +19,7 @@ const Twisty = ({ group }: { group: TrackGroup }) => (
     aria-expanded={!group.collapsed}
     onClick={() => useProjectStore.getState().setGroupCollapsed(group.id, !group.collapsed)}
   >
-    {group.collapsed ? '▸' : '▾'}
+    <Icon name={group.collapsed ? 'chevron-right' : 'chevron-down'} size={14} />
   </button>
 )
 

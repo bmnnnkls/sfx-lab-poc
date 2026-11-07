@@ -1,6 +1,7 @@
 import type { SampleInfo } from '@core'
 import { type SubjectOf, runAction, useSampleStore } from '@state'
 import { useDragSource } from '../shared/drag'
+import { Icon } from '../shared/icon'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import { WaveformThumb } from '../shared/WaveformThumb'
@@ -28,10 +29,10 @@ export const SampleRow = ({ sample }: { sample: SampleInfo }) => {
         <span>{describeSample(sample)}</span>
       </div>
       <button onClick={run('sample.preview')} disabled={!ready} title="Preview" aria-label={`Preview ${sample.name}`}>
-        ▶
+        <Icon name="play" filled size={14} />
       </button>
-      <button onClick={run('sample.open')} title="Open in the wave editor: normalize, reverse, trim and fades" disabled={!ready}>
-        ✎
+      <button onClick={run('sample.open')} title="Open in the wave editor: normalize, reverse, trim and fades" aria-label={`Edit ${sample.name}`} disabled={!ready}>
+        <Icon name="edit" size={14} />
       </button>
       <button onClick={run('sample.new-sampler-track')} title="Create an instrument track whose sampler plays this sample from MIDI notes">
         New sampler track
@@ -40,7 +41,7 @@ export const SampleRow = ({ sample }: { sample: SampleInfo }) => {
         New audio track
       </button>
       <button onClick={run('sample.remove')} aria-label={`Remove ${sample.name}`} title="Remove from the project">
-        ×
+        <Icon name="close" size={14} />
       </button>
     </li>
     </ActionMenu>

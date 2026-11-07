@@ -12,11 +12,11 @@
 .row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .row.selected { background: var(--accent-soft); }
 .row.hidden .name, .row.hidden .tag, .row.hidden .count { color: var(--text-dim); font-style: italic; }
-.twisty { flex: 0 0 14px; text-align: center; color: var(--text-dim); }
+.twisty { flex: 0 0 14px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); }
 .swatch { flex: 0 0 10px; height: 10px; border-radius: 2px; }
 .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tag, .count { color: var(--text-dim); font-size: 11px; }
-.eye { padding: 0 4px; border-color: transparent; background: none; color: var(--text-dim); line-height: 1; }
+.eye { display: inline-flex; align-items: center; padding: 0 4px; border-color: transparent; background: none; color: var(--text-dim); line-height: 1; }
 .row:not(:hover):not(:focus-within):not(.hidden) .eye { opacity: 0; }
 .dot { flex: 0 0 7px; height: 7px; border-radius: 50%; background: var(--border); }
 .dot.sounding { background: var(--play); }

@@ -37,6 +37,7 @@ import { type Subject, canvasKey, graphKey, livePath, runAction, useGraphViewSto
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { useControlGesture } from '../controls/use-control-gesture'
 import { PanelView } from '../panel/PanelView'
+import { Icon } from '../shared/icon'
 import { type MenuEntry, useActionContext } from '../shared/menu'
 import { useStoredState } from '../shared/use-stored-state'
 import { ModuleBar } from './ModuleBar'
@@ -288,7 +289,7 @@ export const GraphEditor = ({ owner, graph, aside }: GraphEditorProps) => {
           <nav className={styles.breadcrumb} aria-label="Patch location">
             {crumbs.map((crumb, index) => (
               <span key={crumb.path.join('/')}>
-                {index > 0 && ' ▸ '}
+                {index > 0 && <Icon name="chevron-right" size={14} />}
                 {index === crumbs.length - 1 ? (
                   <strong className={styles.crumbCurrent}>{crumb.label}</strong>
                 ) : (

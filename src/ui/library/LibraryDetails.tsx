@@ -1,5 +1,6 @@
 import { type ControlOwner, EFFECT_INPUTS, type LibraryCatalog, type LibraryItem, type Project, isFactoryId, libraryDependencies, linkOf, originOwner } from '@core'
 import { type LibraryRowRef, type Subject, clipTrackFor, graphFitsOwner, insertionScope, libraryClipFitsSlot, subjectName, useLibraryStore, useProjectStore, useSelectionStore } from '@state'
+import { Icon } from '../shared/icon'
 import { PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import { type ProjectEntry, projectModel, projectNodeOf } from './library-tree'
 import styles from './LibraryPanel.module.css'
@@ -105,12 +106,12 @@ const usedOn = (project: Project, catalog: LibraryCatalog, item: LibraryItem): r
   return [...names]
 }
 
-/** ⋯: the subject's menu, the same as a right-click on its row. */
+/** The more button: the subject's menu, the same as a right-click on its row. */
 const More = ({ subject, label }: { subject: Subject; label: string }) => {
   const context = useActionContext()
   return (
     <PopupMenu entries={() => useActionEntries(subject, context)}>
-      <button className={styles.more} aria-label={label} title="More">⋯</button>
+      <button className={styles.more} aria-label={label} title="More"><Icon name="more" /></button>
     </PopupMenu>
   )
 }

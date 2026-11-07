@@ -2,36 +2,40 @@ import type { ControlOwner, LibraryCatalog, LibraryItem } from '@core'
 import { type DragPayload, type DropTarget, type LibraryRowRef, type Subject, libraryClipboard, projectExpandedOf, projectGraphItemId, useClipboard, useLibraryStore, useProjectStore } from '@state'
 import { type KeyboardEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeDragProps, useDragSource, useDropTarget, useSpringOpen } from '../shared/drag'
+import { Icon, type IconName } from '../shared/icon'
 import { ActionMenu } from '../shared/menu'
 import { InPlaceRename, useRenaming } from '../shared/RenameField'
 import { expandedFor, folderKey, INITIAL_EXPANDED, isProjectKey, itemKey, type LibraryRow, libraryRows, type ProjectEntry, projectModel, projectRows, type RowKey, treeKey } from './library-tree'
 import styles from './LibraryPanel.module.css'
 
-/** The glyph before an item's name, by its kind. */
-const GLYPHS: Record<LibraryItem['content']['kind'], string> = {
-  instrument: '♪',
-  'audio-effect': '◈',
-  'note-effect': '♮',
-  preset: '•',
-  'midi-clip': '▦',
-  'audio-clip': '▤',
-  sample: '∿',
+/** What marks a preset: a plain bullet, as it is a snapshot of the row above it rather than a thing of its own. */
+const PRESET_MARK = 'preset'
+
+/** The icon before an item's name, by its kind. */
+const GLYPHS: Record<LibraryItem['content']['kind'], IconName | typeof PRESET_MARK> = {
+  instrument: 'instrument',
+  'audio-effect': 'audio-effect',
+  'note-effect': 'note-effect',
+  preset: PRESET_MARK,
+  'midi-clip': 'midi-clip',
+  'audio-clip': 'audio-clip',
+  sample: 'sample',
 }
 
-/** The glyph before a row of *This project*, by what it is; none for an owner or a heading. */
-const projectGlyph = (entry: ProjectEntry): string | undefined => {
+/** The icon before a row of *This project*, by what it is; none for an owner or a heading. */
+const projectGlyph = (entry: ProjectEntry): IconName | typeof PRESET_MARK | undefined => {
   switch (entry.kind) {
     case 'graph': return entry.domain === 'patch' ? GLYPHS.instrument : entry.domain === 'fx' ? GLYPHS['audio-effect'] : GLYPHS['note-effect']
     case 'project-preset': return GLYPHS.preset
     case 'clip': return GLYPHS[entry.clipKind]
     case 'sample': return GLYPHS.sample
-    case 'module': return '◇'
+    case 'module': return 'module'
     default: return undefined
   }
 }
 
-/** The glyph before a root: *This project*'s diamond, the Factory's lock. */
-const ROOT_GLYPHS: Partial<Record<LibraryRow['root'], string>> = { project: '◆', factory: '🔒' }
+/** The icon before a root: *This project*'s folder, the Factory's lock. */
+const ROOT_GLYPHS: Partial<Record<LibraryRow['root'], IconName>> = { project: 'project', factory: 'factory' }
 
 /** A row's key for the store's active row, and back. */
 export const keyOf = (ref: LibraryRowRef | null): RowKey => (!ref ? 'mine' : ref.kind === 'root' || ref.kind === 'project' ? ref.id : ref.kind === 'folder' ? folderKey(ref.id) : itemKey(ref.id))
@@ -152,9 +156,9 @@ const Row = ({ row, item, active, focusable, selected, previewing, cut, group, o
             onToggle(row)
           }}
         >
-          {row.hasChildren ? (row.expanded ? '▾' : '▸') : ''}
+          {row.hasChildren && <Icon name={row.expanded ? 'chevron-down' : 'chevron-right'} size={14} />}
         </span>
-        {glyph && <span className={styles.glyph} aria-hidden>{glyph}</span>}
+        {glyph && <span className={styles.glyph} aria-hidden>{glyph === PRESET_MARK ? '•' : <Icon name={glyph} size={14} />}</span>}
         {row.kind === 'root' || !subject ? (
           <span className={`${styles.name} ${row.kind === 'root' ? styles.rootName : ''}`}>{row.name}</span>
         ) : (
@@ -173,10 +177,10 @@ const Row = ({ row, item, active, focusable, selected, previewing, cut, group, o
               onPreview(row)
             }}
           >
-            {previewing ? '■' : '▶'}
+            <Icon name={previewing ? 'stop' : 'play'} filled size={14} />
           </button>
         )}
-        {reason && <span className={styles.reason} aria-hidden>⚠</span>}
+        {reason && <span className={styles.reason}><Icon name="warning" size={14} label={reason} /></span>}
         {count > 0 && <span className={styles.count} aria-hidden>{count}</span>}
       </li>
     </ActionMenu>
@@ -195,7 +199,7 @@ interface LibraryTreeProps {
   onActivate(active: LibraryRowRef, selected: readonly string[]): void
   /** Enter on a row: its primary action. */
   onPrimary(row: LibraryRow): void
-  /** Space or ▶ on an item: preview it, or stop its preview. */
+  /** Space or the preview button on an item: preview it, or stop its preview. */
   onPreview(row: LibraryRow): void
   onRename(subject: Subject, name: string): void
 }

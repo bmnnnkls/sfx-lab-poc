@@ -59,6 +59,28 @@
   text-align: right;
 }
 
+.categoryLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.noIcon {
+  flex: none;
+  width: 14px;
+}
+
+.categoryMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.up {
+  display: inline-flex;
+  align-items: center;
+}
+
 .description {
   grid-column: 1 / -1;
   overflow: hidden;
