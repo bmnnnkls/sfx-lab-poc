@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SPLIT_WAVE_SHARE, laneParts, partBox } from './lane-renderers'
-import { SPECTRUM_COLORS, binRows, colorLookup, frequencyAt, frequencyMarks, frequencyY, paintSpectrum } from './spectrogram'
+import { binRows, colorLookup, frequencyAt, frequencyMarks, frequencyY, paintSpectrum, parseHex, spectrumColors } from './spectrogram'
 
 const RATE = 48000
 const BINS = 1025
@@ -56,16 +56,35 @@ describe('frequencyMarks', () => {
 })
 
 describe('the colors', () => {
-  it('run from the background to white, and the floor and quieter are the first color', () => {
-    expect(SPECTRUM_COLORS).toHaveLength(256)
-    const lookup = colorLookup(-100)
-    const rgb = (word: number) => [word & 255, (word >>> 8) & 255, (word >>> 16) & 255]
-    expect(rgb(lookup[0]!)).toEqual([...SPECTRUM_COLORS[0]!])
+  const stops = ['#0c0c14', '#301054', '#8c2268', '#f5a524', '#fff6dc']
+  const rgb = (word: number) => [word & 255, (word >>> 8) & 255, (word >>> 16) & 255]
+
+  it('read hex, short or long', () => {
+    expect(parseHex('#f5a524')).toEqual([245, 165, 36])
+    expect(parseHex('#FA0')).toEqual([255, 170, 0])
+    expect(parseHex('nonsense')).toEqual([0, 0, 0])
+  })
+
+  it('blend between the stops, evenly spaced, and end on the first and last', () => {
+    const colors = spectrumColors(stops)
+    expect(colors).toHaveLength(256)
+    expect([...colors[0]!]).toEqual([12, 12, 20])
+    expect([...colors[255]!]).toEqual([255, 246, 220])
+    expect([...spectrumColors(['#000000', '#ff0000', '#00ff00'])[255]!]).toEqual([0, 255, 0])
+    expect([...spectrumColors(['#000000', '#ffffff'])[51]!]).toEqual([51, 51, 51])
+  })
+
+  it('use the stops given: the floor and quieter are the first, 0 dB the last', () => {
+    const lookup = colorLookup(-100, stops)
+    expect(rgb(lookup[0]!)).toEqual([12, 12, 20])
     // −100 dB is byte 42.5 on the −120 to 0 dB range: everything up to it is the floor.
     expect(lookup[42]).toBe(lookup[0])
-    expect(rgb(lookup[255]!)).toEqual([...SPECTRUM_COLORS[255]!])
+    expect(rgb(lookup[255]!)).toEqual([255, 246, 220])
     expect(lookup[200]).not.toBe(lookup[100])
     expect(lookup[0]! >>> 24).toBe(255)
+    const other = colorLookup(-100, ['#102030', '#a0b0c0'])
+    expect(rgb(other[0]!)).toEqual([16, 32, 48])
+    expect(rgb(other[255]!)).toEqual([160, 176, 192])
   })
 })
 

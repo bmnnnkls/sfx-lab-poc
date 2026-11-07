@@ -4,7 +4,7 @@ import type { LaneRenderer, SpectrumLaneColumns } from './lane-renderers'
 
 /**
  * The spectrogram's drawing: pixel rows to bins on the frequency scale (`binRows`), bytes to colors through one table
- * (`SPECTRUM_COLORS`, shifted by the floor), and the frequency scale beside the lane (`frequencyMarks`). The pixels are
+ * (`colorLookup`: the theme's stops, shifted by the floor), and the frequency scale beside the lane (`frequencyMarks`). The pixels are
  * written into an image at the lane's size in CSS pixels, one column per pixel as the waveform is.
  */
 
@@ -15,34 +15,42 @@ const LABEL_SPACING_PX = 24
 const LOG_LABELS_HZ = [50, 100, 200, 500, 1000, 2000, 5000, 10_000, 20_000]
 const LINEAR_STEPS_HZ = [1000, 2000, 5000, 10_000]
 
-/**
- * The colors, quiet to loud: from the background through violet and the accent's amber to white. One constant, so a
- * theme (round 13) can swap it.
- */
-export const SPECTRUM_COLORS: readonly (readonly [number, number, number])[] = (() => {
-  const stops: readonly [number, readonly [number, number, number]][] = [
-    [0, [12, 12, 20]],
-    [0.25, [48, 16, 84]],
-    [0.5, [140, 34, 104]],
-    [0.75, [245, 165, 36]],
-    [1, [255, 246, 220]],
-  ]
-  return Array.from({ length: 256 }, (_, index) => {
-    const t = index / 255
-    const upper = stops.findIndex(([at]) => at >= t)
-    const [toAt, to] = stops[Math.max(1, upper)]!
-    const [fromAt, from] = stops[Math.max(0, upper - 1)]!
-    const mix = toAt === fromAt ? 0 : (t - fromAt) / (toAt - fromAt)
-    return [0, 1, 2].map((c) => Math.round(from[c]! + (to[c]! - from[c]!) * mix)) as unknown as readonly [number, number, number]
-  })
-})()
+/** The theme tokens of the colors, quiet to loud: from the background through violet and the accent's amber to white. */
+export const SPECTRUM_TOKENS = ['--spectrum-0', '--spectrum-1', '--spectrum-2', '--spectrum-3', '--spectrum-4'] as const
 
-/** Each byte's color as an image pixel (RGBA in memory, so little-endian ABGR as a 32-bit word): the floor and quieter the first color, 0 dB the last. */
-export const colorLookup = (floorDb: number): Uint32Array => {
+/** `#rgb` or `#rrggbb` as its channels; anything else is black. */
+export const parseHex = (hex: string): readonly [number, number, number] => {
+  const digits = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim())?.[1]
+  if (!digits) return [0, 0, 0]
+  const full = digits.length === 3 ? [...digits].map((digit) => digit + digit).join('') : digits
+  return [0, 2, 4].map((at) => Number.parseInt(full.slice(at, at + 2), 16)) as unknown as readonly [number, number, number]
+}
+
+/** The 256 colors from `stops` (hex, quiet to loud, evenly spaced), blended between neighbours. */
+export const spectrumColors = (stops: readonly string[]): readonly (readonly [number, number, number])[] => {
+  const rgb = stops.map(parseHex)
+  const last = Math.max(0, rgb.length - 1)
+  return Array.from({ length: 256 }, (_, index) => {
+    const at = (index / 255) * last
+    const from = Math.min(Math.floor(at), Math.max(0, last - 1))
+    const mix = last === 0 ? 0 : at - from
+    const a = rgb[from] ?? [0, 0, 0]
+    const b = rgb[Math.min(last, from + 1)] ?? a
+    return [0, 1, 2].map((c) => Math.round(a[c]! + (b[c]! - a[c]!) * mix)) as unknown as readonly [number, number, number]
+  })
+}
+
+/**
+ * Each byte's color as an image pixel (RGBA in memory, so little-endian ABGR as a 32-bit word): the floor and quieter the
+ * first of `stops`, 0 dB the last. The stops are the theme's (`SPECTRUM_TOKENS`); the renderer is made again with them
+ * when the theme changes, so its table is per theme and floor.
+ */
+export const colorLookup = (floorDb: number, stops: readonly string[]): Uint32Array => {
+  const colors = spectrumColors(stops)
   const lookup = new Uint32Array(256)
   for (let byte = 0; byte < 256; byte++) {
     const t = Math.min(1, Math.max(0, (byteToDb(byte) - floorDb) / -floorDb))
-    const [r, g, b] = SPECTRUM_COLORS[Math.round(t * 255)]!
+    const [r, g, b] = colors[Math.round(t * 255)]!
     lookup[byte] = (255 << 24) | (b << 16) | (g << 8) | r
   }
   return lookup
@@ -136,8 +144,8 @@ export const paintSpectrum = (pixels: Uint32Array, width: number, height: number
  * The spectrogram renderer for one setting and sample rate: it keeps its row map, colors and image between draws, so
  * a redraw at the same size allocates nothing.
  */
-export const spectrogramRenderer = (settings: Pick<SpectrumSettings, 'scale' | 'floorDb'>, sampleRate: number): LaneRenderer<SpectrumLaneColumns | null> => {
-  const colors = colorLookup(settings.floorDb)
+export const spectrogramRenderer = (settings: Pick<SpectrumSettings, 'scale' | 'floorDb'>, sampleRate: number, stops: readonly string[]): LaneRenderer<SpectrumLaneColumns | null> => {
+  const colors = colorLookup(settings.floorDb, stops)
   let rows: { key: string; bins: RowBins } | null = null
   let image: { canvas: HTMLCanvasElement; data: ImageData } | null = null
   return {
