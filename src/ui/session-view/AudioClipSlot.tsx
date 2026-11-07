@@ -51,16 +51,16 @@ export const AudioClipSlot = ({ trackId, scene, clip }: AudioClipSlotProps) => {
       <div className={`${styles.slot} ${state}`} {...drop} {...drag}>
         <InPlaceRename subject={subject} name={clip.name} label={`Name of ${clip.name}`} className={styles.launch}>
           <button className={`${styles.launch} ${styles.audioLaunch}`} onClick={() => runAction('clip.launch', subject, context)} aria-label={`${playing ? 'Stop' : 'Play'} ${clip.name}`}>
-            <Icon name={playing ? 'stop' : 'play'} filled size={14} />
+            <Icon name={playing ? 'stop' : 'play'} filled size={12} />
             <span className={styles.slotName}>{clip.name}</span>
             <WaveformThumb sampleId={clip.sampleId} width={44} height={16} />
           </button>
         </InPlaceRename>
         <button onClick={() => runAction('clip.edit', subject, context)} aria-label={`Edit ${clip.name}`}>
-          <Icon name="edit" size={14} />
+          <Icon name="edit" size={12} />
         </button>
         <button onClick={() => runAction('clip.delete', subject, context)} aria-label={`Delete ${clip.name}`}>
-          <Icon name="close" size={14} />
+          <Icon name="close" size={12} />
         </button>
       </div>
     </ActionMenu>

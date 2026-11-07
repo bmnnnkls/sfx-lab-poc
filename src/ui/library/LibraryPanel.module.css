@@ -26,7 +26,7 @@
 .tree { margin: 0; padding: 0; list-style: none; }
 .row { display: flex; align-items: center; gap: 4px; min-height: 24px; padding-inline-end: 4px; border: 1px solid transparent; border-radius: var(--radius); cursor: default; user-select: none; }
 .row:hover { background: var(--panel-raised); }
-.row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.row:focus-visible { outline: var(--focus-width) solid var(--focus-ring); outline-offset: -2px; }
 .row.selected { background: var(--accent-soft); }
 .row.active { background: var(--panel-raised); border-color: var(--border); }
 .row.active.selected { background: var(--accent-soft); }

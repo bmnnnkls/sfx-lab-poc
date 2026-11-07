@@ -242,6 +242,14 @@
   border-radius: var(--radius);
 }
 
+/* A slot's icon buttons (edit, delete) stay narrow, so the clip's name keeps the room. */
+.slot > button:not(.launch) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+}
+
 .empty {
   grid-template-columns: 1fr;
   opacity: 0.55;

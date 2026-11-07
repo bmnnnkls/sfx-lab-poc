@@ -6,7 +6,7 @@
 .pin { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
 .header { display: flex; align-items: center; gap: 5px; min-height: 28px; padding: 2px 4px; border-bottom: 1px solid var(--border); }
 .pin[data-collapsed] .header { border-bottom: none; }
-.header:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.header:focus-visible { outline: var(--focus-width) solid var(--focus-ring); outline-offset: -2px; }
 .twisty, .unpin { display: inline-flex; align-items: center; padding: 0 4px; border-color: transparent; background: none; color: var(--text-dim); line-height: 1; }
 .swatch { flex: 0 0 10px; height: 10px; border-radius: 2px; }
 .title { flex: 1; min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }

@@ -39,7 +39,7 @@
 }
 
 .scroll:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -165,7 +165,7 @@
 
 .headerSplitter:hover,
 .headerSplitter:focus-visible {
-  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--focus-ring) 45%, transparent);
   outline: none;
 }
 
@@ -192,10 +192,6 @@
   user-select: none;
 }
 
-.region:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
 
 .region.selected {
   border-width: 2px;
@@ -548,7 +544,7 @@
 }
 
 .marker:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -583,10 +579,6 @@
   background: color-mix(in srgb, var(--play) 35%, transparent);
 }
 
-.brace:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
 
 .braceEdge {
   position: absolute;
@@ -708,7 +700,7 @@
 }
 
 .laneCanvas:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 1px solid var(--focus-ring);
   outline-offset: -1px;
 }
 

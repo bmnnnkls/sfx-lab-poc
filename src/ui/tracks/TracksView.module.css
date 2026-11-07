@@ -9,7 +9,7 @@
 .label { padding: 8px 4px 2px; color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
 .row { display: flex; align-items: center; gap: 5px; min-height: 26px; padding-inline-end: 4px; border: 1px solid transparent; border-radius: var(--radius); cursor: pointer; }
 .row:hover { background: var(--panel-raised); }
-.row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.row:focus-visible { outline: var(--focus-width) solid var(--focus-ring); outline-offset: -2px; }
 .row.selected { background: var(--accent-soft); }
 .row.hidden .name, .row.hidden .tag, .row.hidden .count { color: var(--text-dim); font-style: italic; }
 .twisty { flex: 0 0 14px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); }

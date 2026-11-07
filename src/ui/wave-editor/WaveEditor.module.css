@@ -84,7 +84,7 @@
 
 .splitter:hover,
 .splitter:focus-visible {
-  background: var(--accent);
+  background: var(--focus-ring);
   outline: none;
 }
 
@@ -220,7 +220,7 @@
 }
 
 .overview:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 1px solid var(--focus-ring);
   outline-offset: -1px;
 }
 
@@ -274,7 +274,7 @@
 }
 
 .markLane:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -326,7 +326,7 @@
 }
 
 .detail:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 

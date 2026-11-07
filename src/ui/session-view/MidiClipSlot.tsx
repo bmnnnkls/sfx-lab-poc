@@ -38,7 +38,7 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
         <div className={`${styles.slot} ${styles.empty} ${armed ? styles.recordEmpty : ''}`} {...drop}>
           {armed ? (
             <button onClick={() => runAction('slot.record', slot, context)} aria-label="Record a clip here" title="Record a clip here from the next bar">
-              <Icon name="record" filled size={14} />
+              <Icon name="record" filled size={12} />
             </button>
           ) : (
             <button onClick={() => runAction('slot.create-clip', slot, context)} aria-label="Create clip">
@@ -63,10 +63,10 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
             aria-label={ending ? `${clip.name}: recording ends at the next bar` : `Stop recording ${clip.name}`}
             title={ending ? 'The take ends at the next bar' : 'Stop recording at the next bar'}
           >
-            <Icon name="record" filled size={14} /> {clip.name}
+            <Icon name="record" filled size={12} /> {clip.name}
           </button>
           <button onClick={() => runAction('clip.edit', subject, context)} aria-label={`Edit ${clip.name}`}>
-            <Icon name="edit" size={14} />
+            <Icon name="edit" size={12} />
           </button>
         </div>
       </ActionMenu>
@@ -79,15 +79,15 @@ export const MidiClipSlot = ({ trackId, scene, clip }: ClipSlotProps) => {
       <div className={`${styles.slot} ${state}`} {...drop} {...drag}>
         <InPlaceRename subject={subject} name={clip.name} label={`Name of ${clip.name}`} className={styles.launch}>
           <button className={styles.launch} onClick={() => runAction('clip.launch', subject, context)} aria-label={`${playing ? 'Stop' : 'Play'} ${clip.name}`}>
-            <Icon name={playing ? 'stop' : 'play'} filled size={14} /> {clip.name}
-            {overdub && <span className={styles.overdubDot} title="Overdubbing: what you play is added to this clip"> <Icon name="record" filled size={14} label="overdubbing" /></span>}
+            <Icon name={playing ? 'stop' : 'play'} filled size={12} /> {clip.name}
+            {overdub && <span className={styles.overdubDot} title="Overdubbing: what you play is added to this clip"> <Icon name="record" filled size={12} label="overdubbing" /></span>}
           </button>
         </InPlaceRename>
         <button onClick={() => runAction('clip.edit', subject, context)} aria-label={`Edit ${clip.name}`}>
-          <Icon name="edit" size={14} />
+          <Icon name="edit" size={12} />
         </button>
         <button onClick={() => runAction('clip.delete', subject, context)} aria-label={`Delete ${clip.name}`}>
-          <Icon name="close" size={14} />
+          <Icon name="close" size={12} />
         </button>
       </div>
     </ActionMenu>

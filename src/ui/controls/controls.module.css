@@ -47,7 +47,7 @@
 .knob:focus-visible,
 .fader:focus-visible,
 .pad:focus-visible {
-  box-shadow: 0 0 0 2px var(--accent);
+  box-shadow: 0 0 0 var(--focus-width) var(--focus-ring);
 }
 
 /* Knob */
