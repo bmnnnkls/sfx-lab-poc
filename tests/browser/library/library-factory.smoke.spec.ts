@@ -65,7 +65,7 @@ test('nothing drops onto the Factory', async ({ page }) => {
   const panel = await openFactory(page)
   const drums = treeRow(panel, 'Drums')
   // A clip from the project, and a Factory sound, onto a Factory folder: refused, so no save and no move.
-  await dragTo(page, session.getByRole('button', { name: '▶ Root', exact: true }), drums, { whileOver: () => expect(drums).toHaveAttribute('data-drop', 'refuse') })
+  await dragTo(page, session.getByRole('button', { name: 'Play Root', exact: true }), drums, { whileOver: () => expect(drums).toHaveAttribute('data-drop', 'refuse') })
   await opened(panel, 'Bass')
   await dragTo(page, itemRow(panel, 'Sub'), drums, { whileOver: () => expect(drums).toHaveAttribute('data-drop', 'refuse') })
   await expect(drums).toHaveAttribute('aria-label', 'Drums, 8 items')

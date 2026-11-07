@@ -140,8 +140,8 @@ test('● Rec overdubs a playing clip on an armed track, pass after pass, as one
   await rec.click()
   await expect(rec).toHaveAttribute('aria-pressed', 'false')
 
-  await session.getByRole('button', { name: '▶ Loop' }).click()
-  await expect(session.getByRole('button', { name: /■ Loop/ })).toBeVisible()
+  await session.getByRole('button', { name: 'Play Loop' }).click()
+  await expect(session.getByRole('button', { name: /Stop Loop/ })).toBeVisible()
   await rec.click()
   await expect(session.getByRole('img', { name: 'overdubbing' })).toBeVisible()
   await expect(page.getByRole('status', { name: 'Recording' })).toHaveText('Overdubbing Keys synth')

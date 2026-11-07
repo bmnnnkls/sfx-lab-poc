@@ -37,7 +37,7 @@ const openTone = async (page: Page) => {
   await samples.getByTestId('sample-input').setInputFiles({ name: 'Tone.wav', mimeType: 'audio/wav', buffer: toneWav() })
   const row = samples.getByRole('listitem').filter({ hasText: 'Tone' })
   await expect(row.locator('[data-status="ready"]')).toHaveCount(1)
-  await row.getByRole('button', { name: '✎', exact: true }).click()
+  await row.getByRole('button', { name: 'Edit Tone', exact: true }).click()
   const wave = viewRoot(page, 'Wave editor')
   await expect(wave.getByRole('img', { name: 'Waveform', exact: true })).toBeVisible()
   return { wave, detail: wave.getByTestId('wave-detail').first() }

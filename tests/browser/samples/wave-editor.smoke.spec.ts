@@ -29,7 +29,7 @@ test('✎ on a sample opens it in the Wave editor beside the Samples list, and C
   await samples.getByRole('button', { name: 'Add demo samples', exact: true }).click()
   await expect(samples.locator('[data-status="ready"]')).toHaveCount(5)
 
-  await samples.getByRole('listitem').filter({ hasText: 'Demo Kick' }).getByRole('button', { name: '✎', exact: true }).click()
+  await samples.getByRole('listitem').filter({ hasText: 'Demo Kick' }).getByRole('button', { name: 'Edit Demo Kick', exact: true }).click()
   const wave = viewRoot(page, 'Wave editor')
   await expect(wave).toBeVisible()
   await expect(wave.getByTestId('sample-editor')).toContainText('Demo Kick')
@@ -106,7 +106,7 @@ test('a stereo sample opens with a lane per channel, zooms to single samples, se
   await samples.getByTestId('sample-input').setInputFiles({ name: 'Stereo 98 BPM.wav', mimeType: 'audio/wav', buffer: stereoWav() })
   const row = samples.getByRole('listitem').filter({ hasText: 'Stereo 98 BPM' })
   await expect(row.locator('[data-status="ready"]')).toHaveCount(1)
-  await row.getByRole('button', { name: '✎', exact: true }).click()
+  await row.getByRole('button', { name: 'Edit Stereo 98 BPM', exact: true }).click()
 
   const wave = viewRoot(page, 'Wave editor')
   await expect(wave.getByRole('img', { name: 'Left', exact: true })).toBeVisible()
@@ -176,7 +176,7 @@ test('an edit in place survives a reload, and the clip that played the sample pl
   await expect(samples.locator('[data-status="ready"]')).toHaveCount(5)
   const kick = samples.getByRole('listitem').filter({ hasText: 'Demo Kick' })
   await kick.getByRole('button', { name: 'New audio track', exact: true }).click()
-  await kick.getByRole('button', { name: '✎', exact: true }).click()
+  await kick.getByRole('button', { name: 'Edit Demo Kick', exact: true }).click()
   const wave = viewRoot(page, 'Wave editor')
   await expect(wave.getByTestId('sample-editor')).toContainText('Demo Kick')
   await wave.getByRole('button', { name: 'Process', exact: true }).click()
@@ -236,7 +236,7 @@ test('a session clip, its region and a sampler open their sample in the Wave edi
   await wave.getByRole('button', { name: 'Close sample', exact: true }).click()
 
   // A region is a copy of the clip, trim and all; its menu opens the same part.
-  await (await openView(page, 'Session')).getByRole('button', { name: '▶ Demo Kick', exact: true }).click({ button: 'right' })
+  await (await openView(page, 'Session')).getByRole('button', { name: 'Play Demo Kick', exact: true }).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Place on arrangement' }).click()
   const arrangement = await openView(page, 'Arrangement')
   await arrangement.getByTestId('arrangement-region').first().click({ button: 'right' })
@@ -259,7 +259,7 @@ test('Gain on the left channel of a selection changes only the left lane, and un
   await samples.getByTestId('sample-input').setInputFiles({ name: 'Stereo.wav', mimeType: 'audio/wav', buffer: stereoWav() })
   const row = samples.getByRole('listitem').filter({ hasText: 'Stereo' })
   await expect(row.locator('[data-status="ready"]')).toHaveCount(1)
-  await row.getByRole('button', { name: '✎', exact: true }).click()
+  await row.getByRole('button', { name: 'Edit Stereo', exact: true }).click()
   const wave = viewRoot(page, 'Wave editor')
   const [left, right] = [wave.getByRole('img', { name: 'Left', exact: true }), wave.getByRole('img', { name: 'Right', exact: true })]
   await expect(left).toBeVisible()
@@ -291,7 +291,7 @@ test('a cut part pastes at the cursor; the length and the status line agree, and
   await samples.getByTestId('sample-input').setInputFiles({ name: 'Stereo.wav', mimeType: 'audio/wav', buffer: stereoWav() })
   const row = samples.getByRole('listitem').filter({ hasText: 'Stereo' })
   await expect(row.locator('[data-status="ready"]')).toHaveCount(1)
-  await row.getByRole('button', { name: '✎', exact: true }).click()
+  await row.getByRole('button', { name: 'Edit Stereo', exact: true }).click()
   const wave = viewRoot(page, 'Wave editor')
   const detail = wave.getByTestId('wave-detail')
   const status = wave.getByTestId('wave-status')
@@ -334,7 +334,7 @@ const openStereo = async (page: Page) => {
   await samples.getByTestId('sample-input').setInputFiles({ name: 'Stereo.wav', mimeType: 'audio/wav', buffer: stereoWav() })
   const row = samples.getByRole('listitem').filter({ hasText: 'Stereo' })
   await expect(row.locator('[data-status="ready"]')).toHaveCount(1)
-  await row.getByRole('button', { name: '✎', exact: true }).click()
+  await row.getByRole('button', { name: 'Edit Stereo', exact: true }).click()
   const wave = viewRoot(page, 'Wave editor')
   await expect(wave.getByRole('img', { name: 'Left', exact: true })).toBeVisible()
   const duration = async () =>

@@ -39,7 +39,7 @@ test('a bend recorded with ● plays back in the real worklet at the pitch it wa
 
   // Played back with no keyboard: the recorded bend lifts the note as the wheel did.
   expect(await level(page)).toBeLessThan(0.002)
-  await session.getByRole('button', { name: '▶ Clip 2', exact: true }).click()
+  await session.getByRole('button', { name: 'Play Clip 2', exact: true }).click()
   const played = await level(page)
   expect(played / live).toBeGreaterThan(0.95)
   expect(played / live).toBeLessThan(1.05)

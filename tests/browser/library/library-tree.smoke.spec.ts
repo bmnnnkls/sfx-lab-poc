@@ -120,7 +120,7 @@ test('a session clip and a Tracks row dragged onto the library are saved there, 
   // The Library is hidden behind Samples: resting on its tab shows it, and the clip lands in the folder.
   await openView(page, 'Samples')
   const libraryTab = page.getByRole('tab', { name: 'Library', exact: true })
-  await dragTo(page, session.getByRole('button', { name: '▶ Root', exact: true }), treeRow(panel, 'Grooves'), { hold: libraryTab })
+  await dragTo(page, session.getByRole('button', { name: 'Play Root', exact: true }), treeRow(panel, 'Grooves'), { hold: libraryTab })
   await expect(page.getByRole('status').filter({ hasText: 'Saved Root to Grooves' })).toBeVisible()
   await expect(treeRow(panel, 'Grooves')).toHaveAttribute('aria-label', 'Grooves, 1 item')
 
