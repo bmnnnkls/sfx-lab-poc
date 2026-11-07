@@ -375,6 +375,7 @@ should be built on tokens, and the visual design should be tuned once that UI ex
 ### Round 13a: UI foundations (before the engine PI)
 
 What new UI must be built on, without redesigning anything. Dark stays the default and looks as it does today.
+Planned in [PLAN-round-13a-ui-foundations](PLAN-round-13a-ui-foundations.md) (signed off 2026-11-07).
 
 * **Design tokens** in `theme.css`, on top of today's variables:
   * colour roles: surfaces (background, panel, raised, sunken), text (normal, dim, disabled), borders, accent, focus
