@@ -90,20 +90,6 @@ const themedFiles = styledFiles.filter((file) => ['ui', 'app'].includes(layerOf(
 const isTheme = (file: string): boolean => file.startsWith(THEME_DIR + sep)
 const isCss = (file: string): boolean => file.endsWith('.css')
 
-/**
- * Temporary: the canvas renderers still read tokens with fallbacks and literals, until they move onto the theme-colors
- * helper (round 13a, step 4). Empty this set then; the TS side of the colour checks covers them from that step on.
- */
-const CANVAS_PENDING = new Set([
-  'ui/arrangement/TimelineLanes.tsx',
-  'ui/arrangement/ArrangementRuler.tsx',
-  'ui/wave-editor/Ruler.tsx',
-  'ui/wave-editor/MarkLane.tsx',
-  'ui/wave-editor/Overview.tsx',
-  'ui/wave-editor/WaveLane.tsx',
-  'ui/shared/WaveformThumb.tsx',
-  'ui/wave-editor/spectrogram.ts',
-])
 
 const stripCssComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, '')
 
@@ -353,7 +339,7 @@ describe('architecture', () => {
         for (const { property, value } of cssDeclarations(sourceOf(file))) {
           for (const literal of cssColourLiterals(value)) violations.push(`${name}: ${property}: ${literal}`)
         }
-      } else if (!CANVAS_PENDING.has(name)) {
+      } else {
         for (const { text } of stringLiterals(sourceOf(file))) {
           for (const literal of codeColourLiterals(text)) violations.push(`${name}: '${text.trim().slice(0, 60)}' has ${literal}`)
         }
@@ -372,21 +358,19 @@ describe('architecture', () => {
     expect(stringLiterals("const a = 'x' // 'y'\nconst b = `#abc ${c} rgb(` + \"#fff\" /* 'z' */").map((literal) => literal.text)).toEqual(['x', '#abc ', ' rgb(', '#fff'])
   })
 
-  it('uses no var() fallbacks, so a missing token cannot hide behind one', () => {
+  it('reads theme tokens without var() fallbacks, so a missing token cannot hide behind one', () => {
+    // A layout property may have one (a width a container can override); a token from src/ui/theme/ may not.
+    const tokens = new Set(readdirSync(THEME_DIR).filter(isCss).flatMap((file) => definedInCss(sourceOf(join(THEME_DIR, file)))))
+    const tokenFallbacks = (text: string): string[] => [...text.matchAll(FALLBACK)].map((match) => match[0]).filter((found) => tokens.has(found.match(/--[\w-]+/)![0]))
     const violations: string[] = []
     for (const file of themedFiles) {
       const name = posix(file)
-      if (isCss(file)) {
-        for (const match of stripCssComments(sourceOf(file)).matchAll(FALLBACK)) violations.push(`${name}: ${match[0]}…)`)
-      } else if (!CANVAS_PENDING.has(name)) {
-        for (const { text } of stringLiterals(sourceOf(file))) {
-          for (const match of text.matchAll(FALLBACK)) violations.push(`${name}: ${match[0]}…)`)
-        }
-      }
+      const texts = isCss(file) ? [stripCssComments(sourceOf(file))] : stringLiterals(sourceOf(file)).map((literal) => literal.text)
+      for (const text of texts) for (const found of tokenFallbacks(text)) violations.push(`${name}: ${found}…)`)
     }
-    expect(violations, 'set a default where the property is meant to be set (on the element or on :root) and write var(--x)').toEqual([])
+    expect(violations, 'write var(--x): every theme defines its tokens').toEqual([])
     // The check finds what it looks for.
-    expect(stripCssComments('a { color: var(--play, #4caf50); left: var( --x ,0); top: calc(var(--a) * var(--b)); } /* var(--c, 1) */').match(FALLBACK)).toEqual(['var(--play,', 'var( --x ,'])
+    expect(tokenFallbacks('a { color: var(--play, #4caf50); left: var( --accent ,0); width: var(--thumb-width, 40px); top: calc(var(--a) * var(--b)); }')).toEqual(['var(--play,', 'var( --accent ,'])
   })
 
   it('defines the same tokens in every theme', () => {
@@ -413,7 +397,6 @@ describe('architecture', () => {
     const violations: string[] = []
     for (const file of files) {
       const name = posix(file)
-      if (CANVAS_PENDING.has(name)) continue
       for (const token of new Set(isCss(file) ? usedInCss(sourceOf(file)) : usedInCode(sourceOf(file)))) {
         if (!defined.has(token)) violations.push(`${name} reads ${token}`)
       }
