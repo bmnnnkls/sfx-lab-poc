@@ -77,8 +77,17 @@
   transition: width 60ms linear;
 }
 
-.touchFeedback {
-  max-width: 200px;
+/* Takes what the row leaves over (none of its width counts when the row wraps); its messages shrink to fit it. */
+.status {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.feedback {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

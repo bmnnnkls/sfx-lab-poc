@@ -13,7 +13,7 @@ interface TouchState {
 }
 export const useTouchStore = create<TouchState>((set) => ({
   armed: false, recording: [], feedback: '',
-  arm: (armed) => { if (!armed) finishTouches(); set({ armed, feedback: armed ? 'Touch armed · play a clip, an automation slot or the arrangement' : '' }) },
+  arm: (armed) => { if (!armed) finishTouches(); set({ armed, feedback: '' }) },
 }))
 /** The transport `agoMs` before now: a position (beat, run and loop pass), or just a beat (as tests give it). */
 type PositionReader = (agoMs?: number) => ClockPosition | number | undefined

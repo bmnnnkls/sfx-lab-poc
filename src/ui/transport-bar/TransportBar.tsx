@@ -52,7 +52,6 @@ export const TransportBar = () => {
         <Icon name="stop" filled />
       </button>
       <button aria-label="Arm Touch automation" aria-pressed={touch.armed} title={withKey("Record controls into each owner's playing clip or automation slot, or into the timeline while the arrangement plays", touchKey)} className={touch.armed ? styles.active : undefined} onClick={() => touch.arm(!touch.armed)}><Icon name="record" filled />Touch</button>
-      {touch.armed && <output className={styles.touchFeedback} title={touch.feedback} role="status">{touch.feedback}</output>}
       <div className={styles.joined}>
         <button aria-label="Record" aria-pressed={rec} className={rec ? styles.recording : undefined} title={withKey('Record: overdub into the clips playing on armed tracks in the Session, record new regions in the Arrangement', recordKey)} onClick={() => useRecordStore.getState().setRec(!rec)}>
           <Icon name="record" filled />
@@ -65,8 +64,12 @@ export const TransportBar = () => {
       <button aria-label="Metronome" aria-pressed={metronome} className={metronome ? styles.active : undefined} title={withKey('Metronome: click on every beat while the transport runs (never in an export)', metronomeKey)} onClick={() => useRecordSettings.getState().setMetronome(!metronome)}>
         <Icon name="metronome" />
       </button>
-      {countIn !== undefined && <output className={styles.countIn} role="status" aria-label="Count-in">Count-in {countIn}</output>}
-      {recordFeedback && countIn === undefined && <output className={`${styles.touchFeedback} ${recordingTakes ? styles.recordFeedback : ''}`} title={recordFeedback} role="status" aria-label="Recording">{recordFeedback}</output>}
+      {/* Always there and filling the free space, so a message never moves the controls around it. */}
+      <div className={styles.status}>
+        {countIn !== undefined && <output className={styles.countIn} role="status" aria-label="Count-in">Count-in {countIn}</output>}
+        {recordFeedback && countIn === undefined && <output className={`${styles.feedback} ${recordingTakes ? styles.recordFeedback : ''}`} title={recordFeedback} role="status" aria-label="Recording">{recordFeedback}</output>}
+        {touch.armed && touch.feedback && <output className={styles.feedback} title={touch.feedback} role="status">{touch.feedback}</output>}
+      </div>
       <label className={styles.field}>
         BPM
         <input
