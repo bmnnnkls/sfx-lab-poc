@@ -29,7 +29,7 @@
 
 .error,
 .memoryOnly {
-  color: #ff6b6b;
+  color: var(--danger);
 }
 
 .menu {

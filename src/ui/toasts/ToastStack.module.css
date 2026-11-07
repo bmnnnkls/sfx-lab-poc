@@ -20,7 +20,7 @@
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-radius: var(--radius);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-2);
 }
 
 .info {
@@ -32,7 +32,7 @@
 }
 
 .error {
-  border-left-color: #ff6b6b;
+  border-left-color: var(--danger);
 }
 
 .body ul {

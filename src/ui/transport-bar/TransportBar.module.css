@@ -66,7 +66,7 @@
 
 .meterFill {
   height: 100%;
-  background: linear-gradient(90deg, var(--play), var(--queued) 75%, #ff6b6b);
+  background: linear-gradient(90deg, var(--play), var(--queued) 75%, var(--danger));
   transition: width 60ms linear;
 }
 

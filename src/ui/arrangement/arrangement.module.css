@@ -1,6 +1,6 @@
 .view {
   /* The header column's width as kept, or 120 px in a narrow view (below). */
-  --header-width: var(--header-saved, 180px);
+  --header-width: var(--header-saved);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -56,6 +56,8 @@
 }
 
 .row {
+  /* Where the drop marker goes, set while a drag is over the row. */
+  --drop-at: 0px;
   position: relative;
   height: 56px;
   border-bottom: 1px solid var(--border);
@@ -306,7 +308,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: var(--drop-at, 0);
+  left: var(--drop-at);
   width: 2px;
   background: var(--accent);
   pointer-events: none;
@@ -333,7 +335,7 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--play, #ff6b6b);
+  background: var(--play);
   pointer-events: none;
   z-index: 1;
 }
@@ -567,9 +569,9 @@
   position: absolute;
   top: 3px;
   bottom: 3px;
-  border: 1px dashed color-mix(in srgb, var(--play, #4caf50) 70%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--play) 70%, transparent);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--play, #4caf50) 12%, transparent);
+  background: color-mix(in srgb, var(--play) 12%, transparent);
   cursor: grab;
   touch-action: none;
   z-index: 1;
@@ -577,8 +579,8 @@
 
 .brace[data-enabled] {
   border-style: solid;
-  border-color: var(--play, #4caf50);
-  background: color-mix(in srgb, var(--play, #4caf50) 35%, transparent);
+  border-color: var(--play);
+  background: color-mix(in srgb, var(--play) 35%, transparent);
 }
 
 .brace:focus-visible {
@@ -603,7 +605,7 @@
 }
 
 .braceEdge:hover {
-  background: color-mix(in srgb, var(--play, #4caf50) 55%, transparent);
+  background: color-mix(in srgb, var(--play) 55%, transparent);
 }
 
 /* The markers' and the brace's lines down the lanes, under the regions. */
@@ -625,18 +627,18 @@
 
 .loopLine {
   border-left-style: dashed;
-  border-left-color: color-mix(in srgb, var(--play, #4caf50) 35%, transparent);
+  border-left-color: color-mix(in srgb, var(--play) 35%, transparent);
 }
 
 .loopLine[data-enabled] {
   border-left-style: solid;
-  border-left-color: color-mix(in srgb, var(--play, #4caf50) 60%, transparent);
+  border-left-color: color-mix(in srgb, var(--play) 60%, transparent);
 }
 
 .toolbar button[aria-pressed='true'].loopButton {
   color: var(--bg);
-  background: var(--play, #4caf50);
-  border-color: var(--play, #4caf50);
+  background: var(--play);
+  border-color: var(--play);
 }
 
 /* An instrument header's arm ●, after M and S. */
@@ -670,7 +672,7 @@
 /* A clip track's lanes twisty: in its tall header's bottom-left corner, out of the row of name and buttons. */
 .cornerTwisty {
   position: absolute;
-  left: var(--twisty-left, 2px);
+  left: var(--twisty-left);
   bottom: 2px;
   padding: 0 2px;
   line-height: 1;
@@ -711,7 +713,7 @@
 }
 
 .laneNote {
-  color: var(--warning, #d88);
+  color: var(--warning);
   font-weight: 700;
 }
 
