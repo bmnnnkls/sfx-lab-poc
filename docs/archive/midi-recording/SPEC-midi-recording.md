@@ -11,7 +11,7 @@ Status: **done** 2026-11-05: all three parts are built ([part 1](PLAN-midi-recor
 off 2026-11-05, every decision as proposed. Written 2026-11-05 on `feat/user-testing-quick-wins` at `608c10d` (after
 per-track MIDI inputs). No code was changed. The item is [BACKLOG](../../BACKLOG.md) M2, from
 [user testing](../../active/REVIEW-user-testing-2026-11.md) note 11: *"how can I record MIDI clips in sessions and directly in
-arrangement?"* It follows the shape of the [round 12 spec](../../active/SPEC-round-12-arrangement-editor.md).
+arrangement?"* It follows the shape of the [round 12 spec](../ui-redesign/SPEC-round-12-arrangement-editor.md).
 
 The plans for each part take their steps, tests and verification from here. Where a plan and this spec disagree
 later, the plan wins and says so.

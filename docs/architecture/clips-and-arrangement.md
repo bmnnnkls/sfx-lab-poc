@@ -324,4 +324,5 @@ Arrangement), and Tab switches views like in Ableton.
   timeline is dropped, a duplicate or missing id gets a fresh one, names are trimmed and the first 256 by beat kept; a
   loop not inside the timeline is dropped, its ends are ordered and a short one stretched to a beat, and it is on only
   for a real `true`. Each repair warns.
-* **Not yet.** Touch recording into the timeline.
+* **Touch** records into the timeline lanes while the arrangement plays
+  ([touch into the timeline](control-and-automation.md#touch-into-the-timeline)).

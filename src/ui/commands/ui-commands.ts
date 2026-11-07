@@ -1,5 +1,6 @@
 import { type Command, useLayoutStore } from '@state'
 import { LAYOUT_PRESETS } from '../layout/default-layout'
+import { getTheme, nextTheme, setTheme, THEME_NAMES, THEMES, isTheme } from '../theme/theme'
 import { groupToFocus, tabButtonId, viewOfElement } from '../layout/group-focus'
 import { focusedElement, openDialog, showDialog } from './dialogs'
 import { deleteNamedLayout, layoutNames } from './layout-names'
@@ -86,5 +87,22 @@ export const UI_COMMANDS: readonly Command[] = [
     title: 'Export audio (WAV)…',
     takesFocus: true,
     run: () => showDialog({ kind: 'export-audio' }),
+  },
+  {
+    id: 'view.theme',
+    category: 'View',
+    title: 'Theme',
+    tooltip: 'Kept in this browser',
+    choices: () => THEMES.map((theme) => ({ id: theme, title: THEME_NAMES[theme], checked: getTheme() === theme })),
+    run: (_context, choice) => {
+      if (isTheme(choice)) setTheme(choice)
+    },
+  },
+  {
+    id: 'view.theme.next',
+    category: 'View',
+    title: 'Next theme',
+    label: () => `Next theme (${THEME_NAMES[nextTheme()]})`,
+    run: () => setTheme(nextTheme()),
   },
 ]

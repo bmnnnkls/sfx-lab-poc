@@ -322,7 +322,9 @@ test('the activity bar shows Session, Arrangement, the Wave editor, Library and 
   await page.goto('/?starter')
   const bar = page.getByRole('navigation', { name: 'Views' })
   const button = (name: string) => bar.getByRole('button', { name, exact: true })
-  await expect(bar.getByRole('button')).toHaveText(['▦', '▤', '∿', '▥', '☰'])
+  // Each is an icon, named by its view.
+  await expect(bar.getByRole('button').locator('svg')).toHaveCount(5)
+  expect(await bar.getByRole('button').evaluateAll((buttons) => buttons.map((element) => element.getAttribute('aria-label')))).toEqual(['Session', 'Arrangement', 'Wave editor', 'Library', 'Tracks'])
 
   for (const [name, title] of [['Wave editor', 'Wave editor'], ['Tracks', 'Tracks'], ['Library', 'Library'], ['Arrangement', 'Arrangement']] as const) {
     await button(name).click()

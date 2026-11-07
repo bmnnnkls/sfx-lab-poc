@@ -52,11 +52,12 @@ describe('menus from commands', () => {
       .toEqual(['submenu', 'separator', 'action'])
   })
 
-  it('build View: the palette, every view under Show, the regions, maximize and the layouts', () => {
+  it('build View: the palette, every view under Show, the regions, maximize, the layouts and the theme', () => {
     const entries = menuEntriesOf(VIEW_MENU, context, keys)
     expect(labels(entries)).toEqual([
-      'Show all commands', 'Keyboard shortcuts', '—', 'Show', '—', 'Show primary sidebar', 'Hide panel', 'Show secondary sidebar', 'Maximize or restore group', '—', 'Layouts',
+      'Show all commands', 'Keyboard shortcuts', '—', 'Show', '—', 'Show primary sidebar', 'Hide panel', 'Show secondary sidebar', 'Maximize or restore group', '—', 'Layouts', '—', 'Theme',
     ])
+    expect(labels((entries.at(-1) as MenuSubmenu).entries)).toEqual(['Dark', 'Light', 'High contrast'])
     expect(labels((entries[3] as MenuSubmenu).entries)).toContain('Mixer')
     expect((entries[3] as MenuSubmenu).entries).toHaveLength(13)
   })

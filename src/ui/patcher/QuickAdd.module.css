@@ -7,7 +7,7 @@
   background: var(--panel-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-2);
 }
 
 .field {
@@ -57,6 +57,28 @@
   color: var(--text-dim);
   font-size: 11px;
   text-align: right;
+}
+
+.categoryLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.noIcon {
+  flex: none;
+  width: 14px;
+}
+
+.categoryMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.up {
+  display: inline-flex;
+  align-items: center;
 }
 
 .description {

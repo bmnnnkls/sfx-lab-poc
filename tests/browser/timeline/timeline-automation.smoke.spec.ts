@@ -146,7 +146,7 @@ test("Show automation on timeline on a bus fader adds its lane, opens the bus's 
 test("a region opened in Clip edits its own lanes, not its session source's, and shows its playhead while the arrangement plays", async ({ page }) => {
   await page.addInitScript((saved) => { if (!localStorage.getItem('sfxlab:project')) localStorage.setItem('sfxlab:project', saved) }, serializeProject(sweepProject()))
   await page.goto('/')
-  await (await openView(page, 'Session')).getByRole('button', { name: '▶ Sweep clip', exact: true }).click({ button: 'right' })
+  await (await openView(page, 'Session')).getByRole('button', { name: 'Play Sweep clip', exact: true }).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Place on arrangement', exact: true }).click()
   const arrangement = await openView(page, 'Arrangement')
   await arrangement.getByTestId('arrangement-region').first().dblclick()

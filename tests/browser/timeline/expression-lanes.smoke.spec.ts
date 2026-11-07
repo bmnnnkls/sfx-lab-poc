@@ -70,7 +70,7 @@ test('a library clip keeps its bend lane, and inserted on another track bends th
   await page.addInitScript((saved) => localStorage.setItem('sfxlab:project', saved), serializeProject(expressionProject([bendLane(1)])))
   await page.goto('/')
   const session = await openView(page, 'Session')
-  await saveToLibrary(page, session.getByRole('button', { name: '▶ Held', exact: true }))
+  await saveToLibrary(page, session.getByRole('button', { name: 'Play Held', exact: true }))
   await session.getByText('Other', { exact: true }).first().click()
   await openView(page, 'Library')
   const panel = libraryPanel(page)

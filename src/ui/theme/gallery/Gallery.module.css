@@ -1,0 +1,130 @@
+.gallery {
+  height: 100%;
+  overflow: auto;
+  padding: var(--space-6);
+  background: var(--bg);
+}
+
+.gallery h1 {
+  margin: 0;
+  font-size: var(--font-lg);
+}
+
+.gallery h2 {
+  margin: var(--space-6) 0 var(--space-4);
+  font-size: var(--font-lg);
+}
+
+.gallery h3 {
+  margin: var(--space-5) 0 var(--space-3);
+  font-size: var(--font-md);
+  color: var(--text-dim);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.note {
+  color: var(--text-dim);
+}
+
+.swatches,
+.icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.swatch {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  column-gap: var(--space-4);
+  align-items: center;
+}
+
+.chip {
+  grid-row: span 2;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.value {
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+}
+
+.scales {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.space {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.space > span {
+  height: 12px;
+  background: var(--accent);
+}
+
+.box {
+  padding: var(--space-5);
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+}
+
+.icons {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+}
+
+.icons li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.withIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.part {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 140px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.partHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-dim);
+}
+
+.powerIcon {
+  display: inline-flex;
+  color: var(--power-colour);
+}

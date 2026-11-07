@@ -2,6 +2,7 @@ import { type LivePin, type ModuleLibrary, type Patch, controlOwnerId, livePins,
 import { type Subject, runAction, useProjectSelect, useProjectStore } from '@state'
 import { memo } from 'react'
 import { PanelView } from '../panel/PanelView'
+import { Icon } from '../shared/icon'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import { pinTitle } from './pin-title'
 import styles from './PinnedView.module.css'
@@ -33,7 +34,7 @@ export const PinnedPanel = memo(({ pinKey }: { pinKey: string }) => {
       <ActionMenu subject={subject}>
         <header className={styles.header} tabIndex={-1}>
           <button className={styles.twisty} aria-expanded={!collapsed} aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${title}`} onClick={() => run('pin.collapse')}>
-            {collapsed ? '▸' : '▾'}
+            <Icon name={collapsed ? 'chevron-right' : 'chevron-down'} size={14} />
           </button>
           {colour && <span className={styles.swatch} style={{ background: `var(--group-${colour})` }} aria-hidden />}
           <span className={styles.title} title="Double-click to open the full editor" onDoubleClick={() => run('pin.open')}>
@@ -43,7 +44,7 @@ export const PinnedPanel = memo(({ pinKey }: { pinKey: string }) => {
             Open
           </button>
           <button className={styles.unpin} aria-label={`Unpin ${title}`} title="Unpin" onClick={() => run('pin.unpin')}>
-            ×
+            <Icon name="close" size={14} />
           </button>
         </header>
       </ActionMenu>

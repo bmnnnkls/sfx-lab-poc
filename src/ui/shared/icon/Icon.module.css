@@ -1,0 +1,5 @@
+.icon {
+  flex: none;
+  stroke-width: var(--icon-stroke);
+  vertical-align: -0.15em;
+}

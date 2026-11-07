@@ -70,7 +70,7 @@ test('a brace drawn in the mark lane resizes by its end, loops on ⟳ Loop, and 
   await page.goto('/?starter')
   const arrangement = await openView(page, 'Arrangement')
   await arrangement.getByLabel('Grid').selectOption('beat')
-  const loopButton = arrangement.getByRole('button', { name: '⟳ Loop', exact: true })
+  const loopButton = arrangement.getByRole('button', { name: 'Loop', exact: true })
   await expect(loopButton).toBeDisabled()
 
   // Drawn from beat 2 to 4, then its end dragged to 6.
@@ -156,7 +156,7 @@ test('M adds a marker at the position, ] and [ step between marks, L turns the l
   await expect(position).toHaveAttribute('data-beat', '12')
 
   // L does nothing without a brace; with one, it turns ⟳ Loop on and off.
-  const loop = arrangement.getByRole('button', { name: '⟳ Loop', exact: true })
+  const loop = arrangement.getByRole('button', { name: 'Loop', exact: true })
   await page.keyboard.press('l')
   await expect(loop).toBeDisabled()
   await markers.first().click({ button: 'right' })

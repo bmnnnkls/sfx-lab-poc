@@ -1,6 +1,7 @@
 import { type LibraryBundleSelection, type LibraryBundleStage, type LibraryCatalog, isFactoryId } from '@core'
 import { type LibraryRowRef, type Subject, catalogOf, commitRename, loadFactory, runAction, useLibraryStore, usePersonalLibrary, useSelectionStore } from '@state'
 import { type DragEvent, useEffect, useRef, useState } from 'react'
+import { Icon } from '../shared/icon'
 import { PopupMenu, useActionContext, useActionEntries } from '../shared/menu'
 import { BundleDialog } from './BundleDialog'
 import { KIND_NAMES, LibraryDetails, primaryOf } from './LibraryDetails'
@@ -155,7 +156,7 @@ export const LibraryPanel = () => {
           { kind: 'separator' as const },
           { label: `Export selection…${selected.length > 1 ? ` (${selected.length})` : ''}`, disabled: selected.length === 0 || busy, takesFocus: true, onSelect: () => void reviewExport({ itemIds: selected }, selected.length === 1 ? (catalogOf(selected[0]!).items.find((item) => item.id === selected[0])?.name ?? 'Selection') : 'Selection') },
         ]}>
-          <button className={styles.more} aria-label="Library actions" title="Library actions">⋯</button>
+          <button className={styles.more} aria-label="Library actions" title="Library actions"><Icon name="more" /></button>
         </PopupMenu>
       </div>
       {message && (

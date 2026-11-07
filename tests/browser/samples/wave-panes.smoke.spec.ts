@@ -128,7 +128,7 @@ test('the splitter drags, takes ↑ and ↓ and a double-click; the pane, its sa
   // The project is saved by then; open it again rather than the starter, and the same sample from Samples.
   await page.goto('/')
   const samples = await openView(page, 'Samples')
-  await samples.getByRole('listitem').filter({ hasText: 'Marked' }).getByRole('button', { name: '✎', exact: true }).click()
+  await samples.getByRole('listitem').filter({ hasText: 'Marked' }).getByRole('button', { name: 'Edit Marked', exact: true }).click()
   const again = viewRoot(page, 'Wave editor')
   await expect(again.getByTestId('wave-pane-second').getByRole('button', { name: "Second pane's sample: Demo Kick", exact: true })).toBeVisible()
   await expect(again.getByRole('separator', { name: 'Resize the panes', exact: true })).toHaveAttribute('aria-valuenow', share!)

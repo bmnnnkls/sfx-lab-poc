@@ -43,7 +43,7 @@ export const openMarked = async (page: Page) => {
   await samples.getByTestId('sample-input').setInputFiles({ name: 'Marked.wav', mimeType: 'audio/wav', buffer: stereoWav() })
   const row = samples.getByRole('listitem').filter({ hasText: 'Marked' })
   await expect(row.locator('[data-status="ready"]')).toHaveCount(1)
-  await row.getByRole('button', { name: '✎', exact: true }).click()
+  await row.getByRole('button', { name: 'Edit Marked', exact: true }).click()
   const wave = viewRoot(page, 'Wave editor')
   await expect(wave.getByRole('img', { name: 'Left', exact: true })).toBeVisible()
   const saved = () =>

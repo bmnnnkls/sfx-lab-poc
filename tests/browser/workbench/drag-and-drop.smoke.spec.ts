@@ -73,7 +73,7 @@ const undo = (page: Page) => page.getByRole('button', { name: 'Undo', exact: tru
 
 test('a session slot dragged onto a lane makes a region at the beat under the pointer, on lanes of its kind', async ({ page }) => {
   const { session, arrangement } = await sideBySide(page)
-  const root = session.getByRole('button', { name: '▶ Root', exact: true })
+  const root = session.getByRole('button', { name: 'Play Root', exact: true })
   const lanes = arrangement.locator('[data-lane]')
   const regions = arrangement.getByTestId('arrangement-region')
   // Bar 3 is beat 8.
@@ -99,7 +99,7 @@ test('a session slot dragged onto a lane makes a region at the beat under the po
 test('a session slot dragged onto an empty slot moves it, and copies it with Alt; occupied slots and other kinds refuse', async ({ page }) => {
   const { session } = await sideBySide(page)
   const slot = (track: number, scene: number) => slotOf(session, 3, track, scene)
-  const root = session.getByRole('button', { name: '▶ Root', exact: true })
+  const root = session.getByRole('button', { name: 'Play Root', exact: true })
   await expect(slot(0, 0)).toContainText('Root')
 
   await dragTo(page, root, slot(1, 1))
@@ -136,7 +136,7 @@ test('in the default layout, a slot held on the Arrangement tab shows Arrangemen
   const arrangement = viewRoot(page, 'Arrangement')
   await expect(arrangement).toBeHidden()
   // The source's view is hidden mid-drag; the drag goes on.
-  await dragTo(page, session.getByRole('button', { name: '▶ Root', exact: true }), arrangement.locator('[data-lane]').first(), {
+  await dragTo(page, session.getByRole('button', { name: 'Play Root', exact: true }), arrangement.locator('[data-lane]').first(), {
     hold: page.getByRole('tab', { name: 'Arrangement', exact: true }),
     position: { x: 4 * BEAT_PX + 1, y: 20 },
     whileOver: () => expect(session).toBeHidden(),
@@ -146,7 +146,7 @@ test('in the default layout, a slot held on the Arrangement tab shows Arrangemen
 
   // The activity bar's buttons spring-load too.
   await openView(page, 'Session')
-  await dragTo(page, session.getByRole('button', { name: '▶ Walk', exact: true }), arrangement.locator('[data-lane]').first(), {
+  await dragTo(page, session.getByRole('button', { name: 'Play Walk', exact: true }), arrangement.locator('[data-lane]').first(), {
     hold: page.getByRole('navigation', { name: 'Views' }).getByRole('button', { name: 'Arrangement', exact: true }),
     position: { x: 12 * BEAT_PX + 1, y: 20 },
   })
@@ -157,7 +157,7 @@ test('a slot passing over a tab without resting there leaves the view as it was'
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
   const tab = (await page.getByRole('tab', { name: 'Arrangement', exact: true }).boundingBox())!
-  const from = (await session.getByRole('button', { name: '▶ Root', exact: true }).boundingBox())!
+  const from = (await session.getByRole('button', { name: 'Play Root', exact: true }).boundingBox())!
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
   await page.mouse.down()
   await page.mouse.move(tab.x + tab.width / 2, tab.y + tab.height / 2, { steps: 10 })
@@ -237,7 +237,7 @@ test("a library instrument dropped on a session header replaces that track's ins
 test('a library MIDI clip dropped on an empty slot is inserted there', async ({ page }) => {
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
-  await saveToLibrary(page, session.getByRole('button', { name: '▶ Root', exact: true }))
+  await saveToLibrary(page, session.getByRole('button', { name: 'Play Root', exact: true }))
   await openView(page, 'Library')
   const item = treeRow(libraryPanel(page), 'Root')
   // Lead's second slot is empty, its first holds Arp.

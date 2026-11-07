@@ -30,7 +30,7 @@
 /* Track headers stay at the top, under the group bands, while the grid scrolls. */
 .header {
   position: sticky;
-  top: calc(var(--bands, 0) * var(--band-step));
+  top: calc(var(--bands) * var(--band-step));
   z-index: 1;
   display: grid;
   grid-template-columns: 1fr auto auto auto;
@@ -97,7 +97,7 @@
 /* The scene column's head: the + and, while tracks are hidden, how many. It stays at the top right. */
 .corner {
   position: sticky;
-  top: calc(var(--bands, 0) * var(--band-step));
+  top: calc(var(--bands) * var(--band-step));
   right: 0;
   z-index: 2;
   display: grid;
@@ -242,6 +242,14 @@
   border-radius: var(--radius);
 }
 
+/* A slot's icon buttons (edit, delete) stay narrow, so the clip's name keeps the room. */
+.slot > button:not(.launch) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+}
+
 .empty {
   grid-template-columns: 1fr;
   opacity: 0.55;
@@ -274,7 +282,7 @@
 
 .playing {
   border-color: var(--play);
-  background: rgba(61, 220, 132, 0.12);
+  background: var(--play-soft);
 }
 
 .queued {
@@ -284,7 +292,7 @@
 
 @keyframes blink {
   50% {
-    background: rgba(245, 213, 36, 0.18);
+    background: var(--queued-soft);
   }
 }
 

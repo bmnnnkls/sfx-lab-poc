@@ -50,6 +50,13 @@
   font-size: 12px;
 }
 
+.bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
 .bar button:disabled {
   opacity: 0.35;
   cursor: default;
@@ -66,12 +73,21 @@
 
 .meterFill {
   height: 100%;
-  background: linear-gradient(90deg, var(--play), var(--queued) 75%, #ff6b6b);
+  background: linear-gradient(90deg, var(--play), var(--queued) 75%, var(--danger));
   transition: width 60ms linear;
 }
 
-.touchFeedback {
-  max-width: 200px;
+/* Takes what the row leaves over (none of its width counts when the row wraps); its messages shrink to fit it. */
+.status {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.feedback {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

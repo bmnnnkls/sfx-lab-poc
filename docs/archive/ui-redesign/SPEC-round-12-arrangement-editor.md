@@ -1,15 +1,16 @@
 ---
-status: active
-date: 2026-11-04
-note: "Signed off 2026-11-01, every decision as proposed; 12a and 12b done 2026-11-04; 12c done 2026-11-06 (it bumps the format to v14 instead of adding under v13). Splits round 12 into 12a (headers and the timeline frame), 12b (markers and the loop), 12c (automation lanes on the timeline, groups included) and 12d (touch recording into the arrangement)."
+status: done
+date: 2026-11-06
+shipped_in: architecture/clips-and-arrangement.md
+note: "Done 2026-11-06: 12a and 12b 2026-11-04, 12c and 12d 2026-11-06. Signed off 2026-11-01, every decision as proposed. Two corrections by the plans: 12c saves timeline lanes as v14, not under v13; 12d keeps 12c's rule that a timeline lane takes its target for the whole song, so § 4's sentence on a region's lane stopping only where the take lands is wrong."
 ---
 # Round 12: the arrangement editor (spec)
 
-Status: **spec, signed off** 2026-11-01, every decision as proposed. Round 12 can now be planned, part by part; **12a is done** (2026-11-04, [plan](../archive/ui-redesign/PLAN-round-12a-timeline-frame.md)); **12b is done** (2026-11-04, [plan](../archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)); **12c is done** (2026-11-06, [plan](../archive/ui-redesign/PLAN-round-12c-timeline-automation.md)), and saves its lanes as v14 rather than under v13. Written 2026-11-01 on `feat/ui-redesign` at `5823b9d` (round 11 done). No code
-was changed. Part of the [UI redesign](../archive/ui-redesign/README.md);
-[roadmap § Round 12](ui-redesign-roadmap.md#round-12-arrangement-editor) gives the outline, and
-[BACKLOG](../BACKLOG.md) U2 is the item. It follows the shape of the [round 11 spec](../archive/ui-redesign/SPEC-round-11-wave-editor.md) and
-the [handling and spectrum spec](../archive/ui-redesign/SPEC-wave-editor-handling-and-spectrum.md).
+Status: **done** 2026-11-06, all four parts; spec signed off 2026-11-01, every decision as proposed. **12a is done** (2026-11-04, [plan](PLAN-round-12a-timeline-frame.md)); **12b is done** (2026-11-04, [plan](PLAN-round-12b-markers-and-loop.md)); **12c is done** (2026-11-06, [plan](PLAN-round-12c-timeline-automation.md)), and saves its lanes as v14 rather than under v13; **12d is done** (2026-11-06, [plan](PLAN-round-12d-touch-arrangement.md)), and corrects § 4 (below). Written 2026-11-01 on `feat/ui-redesign` at `5823b9d` (round 11 done). No code
+was changed. Part of the [UI redesign](README.md);
+[roadmap § Round 12](../../active/ui-redesign-roadmap.md#round-12-arrangement-editor) gives the outline, and
+[BACKLOG](../../BACKLOG.md) U2 was the item. It follows the shape of the [round 11 spec](SPEC-round-11-wave-editor.md) and
+the [handling and spectrum spec](SPEC-wave-editor-handling-and-spectrum.md).
 
 The round plans take their steps, their browser tests and their verification from here. Where this spec and a plan
 disagree later, the plan wins and says so.
@@ -53,7 +54,7 @@ What exists on `feat/ui-redesign` at `5823b9d`.
 
 ### The arrangement view
 
-`ui/arrangement/` has three components and a stylesheet ([clips-and-arrangement](../architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline)).
+`ui/arrangement/` has three components and a stylesheet ([clips-and-arrangement](../../architecture/clips-and-arrangement.md#the-arrangement-clips-on-a-timeline)).
 
 * **`ArrangementView`** (253 lines) draws a toolbar (▶ *Arrangement*, ■, a zoom slider, a hint) and **one scroller for
   both axes**. Inside it, every lane is a CSS grid of two columns, the name (`--name-width`, 120 px) and the row. So
@@ -99,7 +100,7 @@ What exists on `feat/ui-redesign` at `5823b9d`.
 
 ### Automation
 
-([control-and-automation](../architecture/control-and-automation.md))
+([control-and-automation](../../architecture/control-and-automation.md))
 
 * **Lanes** (`core/automation/types.ts`): `{ id, target, enabled, points }`, points `{ id, beat, value, interpolation }`
   with normalized values, at most 64 lanes per holder and 2048 points per lane. Beats are clip-relative, in
@@ -130,7 +131,7 @@ What exists on `feat/ui-redesign` at `5823b9d`.
 
 ### Tracks and groups
 
-([tracks-and-groups](../architecture/tracks-and-groups.md))
+([tracks-and-groups](../../architecture/tracks-and-groups.md))
 
 * `trackRows` and `visibleRows` give the rows, depth first, groups before their members, returns after the clip
   tracks. `mixRouting` gives each channel its effective mute and solo, through its groups.
@@ -425,6 +426,12 @@ authors its base.
   simplification. A take that would pass 2048 points is refused whole, as today.
 * **A region's own lane on the same target** stops sounding where the take lands, since a timeline lane with points
   wins (§ 3). The take doesn't touch the region's lanes.
+
+  **Corrected by 12d** ([plan](PLAN-round-12d-touch-arrangement.md#region-lanes-under-a-take-spec-correction), decision
+  1, signed off): what 12c built, and 12d keeps, is that a timeline lane with points takes its target **for the whole
+  song**, so a region's lane on that target is silent everywhere once a take lands, not only where it lands. Outside
+  the take the lane holds the base, from its guard points. The feedback warns ("· replaces the region's lane on this
+  control").
 * **Feedback** on the transport bar names the destination: "Touch → timeline", or today's texts in session mode. The
   touch button's tooltip says it records into "each owner's playing clip or slot, or the timeline while the arrangement
   plays".

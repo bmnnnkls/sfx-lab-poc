@@ -1,0 +1,26 @@
+/* Tokens that are the same in every theme: spacing, type sizes, radii, motion, icon stroke and the focus ring's width. */
+:root {
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --font-xs: 11px;
+  --font-sm: 12px;
+  --font-md: 13px;
+  --font-lg: 15px;
+  --radius-sm: 2px;
+  --radius: 4px;
+  --radius-lg: 8px;
+  --duration-fast: 100ms;
+  --duration: 180ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --icon-stroke: 2;
+  --focus-width: 2px;
+}
+
+/* High contrast's focus ring is wider, so it is seen without its colour. */
+[data-theme='contrast'] {
+  --focus-width: 3px;
+}

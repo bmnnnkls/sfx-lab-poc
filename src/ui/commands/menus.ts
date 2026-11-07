@@ -32,7 +32,7 @@ const LAYOUTS: readonly CommandMenuItem[] = [
 /** The status bar's *Layout*: the route to the toggles when the panel's strip is off screen. */
 export const LAYOUT_MENU: readonly CommandMenuItem[] = [...REGIONS, SEPARATOR, ...LAYOUTS]
 
-/** View, after File: the palette, every view, the regions and the layouts. */
+/** View, after File: the palette, every view, the regions, the layouts and the theme. */
 export const VIEW_MENU: readonly CommandMenuItem[] = [
   'palette.show',
   'help.shortcuts',
@@ -43,6 +43,8 @@ export const VIEW_MENU: readonly CommandMenuItem[] = [
   'layout.maximize',
   SEPARATOR,
   { submenu: 'Layouts', items: LAYOUTS },
+  SEPARATOR,
+  'view.theme',
 ]
 
 /** Library, after View: the saves of what is selected, then what *My library*'s own menu does, then the view. */

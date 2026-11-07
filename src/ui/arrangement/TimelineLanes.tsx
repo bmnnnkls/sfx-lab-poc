@@ -23,11 +23,14 @@ import {
   useControlStore,
   useProjectStore,
   useTimelineLaneRequest,
+  useTouchStore,
 } from '@state'
 import { type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject, useEffect, useRef, useState } from 'react'
 import { CcLaneField } from '../automation/CcLaneField'
 import { type PointGesture, type PointGrid, type PointerAt, copyPoints, dragPoints, pastePoints, pressPoints, removePoints } from '../automation/point-gestures'
+import { Icon } from '../shared/icon'
 import { ActionMenu } from '../shared/menu'
+import { useThemeColors } from '../theme/theme-colors'
 import { snapBeat, timelineSnapping } from './region-snap'
 import { timelineAxis } from './timeline-geometry'
 import { LANE_HEIGHT, beatAtX, curvePolyline, pointAt, valueAtY, xOfBeat, yOfValue } from './timeline-lane-geometry'
@@ -36,6 +39,7 @@ import styles from './arrangement.module.css'
 /** Points copied from a timeline lane, beats from the first; pasted at the position. */
 const pointClipboard = createClipboard<readonly AutomationPoint[]>([])
 const newPointId = () => crypto.randomUUID()
+const COLORS = ['--accent', '--text'] as const
 
 interface LaneProps {
   readonly owner: ControlOwner
@@ -68,11 +72,13 @@ export const TimelineLanes = ({ owner, name, ...props }: LaneProps & { readonly 
   )
 }
 
-/** One lane: its header (name, on/off, *Read* while overridden) and its body, a canvas of the visible timeline. */
+/** One lane: its header (name, on/off, ● while touch records it, *Read* while overridden) and its body, a canvas of the visible timeline. */
 const TimelineLane = ({ owner, lane, scroller, pxPerBeat, width, depth }: LaneProps & { readonly lane: AutomationLane }) => {
   const project = useProjectStore((state) => state.project)
+  const colors = useThemeColors(COLORS)
   const key = controlTargetKey(lane.target)
   const overridden = useControlStore((state) => state.overrides.some((entry) => controlTargetKey(entry.target) === key))
+  const recording = useTouchStore((state) => state.recording.includes(key))
   const label = controlTargetLabel(project, lane.target)
   const resolved = resolveControlTarget(project, lane.target)
   const reason = resolved.status !== 'available' ? resolved.reason : resolved.automatable ? undefined : resolved.reason
@@ -118,9 +124,8 @@ const TimelineLane = ({ owner, lane, scroller, pxPerBeat, width, depth }: LanePr
       element.width = Math.round(visible * ratio)
       element.height = Math.round(LANE_HEIGHT * ratio)
       context.setTransform(ratio, 0, 0, ratio, 0, 0)
-      const style = getComputedStyle(element)
-      const accent = style.getPropertyValue('--accent').trim() || '#e8a33d'
-      const text = style.getPropertyValue('--text').trim() || '#ddd'
+      const accent = colors['--accent']
+      const text = colors['--text']
       const axis = timelineAxis(scroll.scrollLeft, visible, pxPerBeat)
       const line = curvePolyline(lane.points, axis, stepped)
       context.globalAlpha = lane.enabled && !reason ? 1 : 0.4
@@ -158,7 +163,7 @@ const TimelineLane = ({ owner, lane, scroller, pxPerBeat, width, depth }: LanePr
       observer.disconnect()
       if (request) cancelAnimationFrame(request)
     }
-  }, [scroller, pxPerBeat, lane, selected, box, stepped, reason])
+  }, [scroller, pxPerBeat, lane, selected, box, stepped, reason, colors])
 
   /** The axis of the visible timeline now, and the pointer on it. */
   const axisNow = () => timelineAxis(scroller.current?.scrollLeft ?? 0, canvas.current?.clientWidth ?? 1, pxPerBeat)
@@ -239,6 +244,7 @@ const TimelineLane = ({ owner, lane, scroller, pxPerBeat, width, depth }: LanePr
             {label}
           </span>
           {reason && <span className={styles.laneNote} title={reason} aria-label={reason}>!</span>}
+          {recording && <span className={styles.laneRecording} title="Touch recording" aria-label="Touch recording"><Icon name="record" filled size={14} /></span>}
           {overridden && (
             <button className={styles.readButton} title="Give the control back to its lane" onClick={() => readLane(lane.target)}>
               Read

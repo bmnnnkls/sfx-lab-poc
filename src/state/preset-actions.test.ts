@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { type ControlTarget, type Snapshot, type InstrumentTrack, Engine, createNode, createEmptyProject, createClip, createReturnTrack, setAutomationSlot, captureSnapshot, putSnapshot, serializeProject, parseProject, automationPosition } from '@core'
+import { type ControlTarget, type Snapshot, type InstrumentTrack, Engine, setGroupBus, timelineLanesOf, timelineLanesOpen, createNode, createEmptyProject, createClip, createReturnTrack, setAutomationSlot, captureSnapshot, putSnapshot, serializeProject, parseProject, automationPosition } from '@core'
 import { recallSavedSound } from './preset-actions'
 import { useProjectStore } from './project-store'
 import { useControlStore } from './control-store'
@@ -60,6 +60,30 @@ describe('sound recall history and Read/Touch', () => {
     const slot = owner.kind === 'master' ? p.master.automationSlots![0]! : p.tracks.find(t => t.kind === 'return')?.automationSlots![0]!
     expect(slot?.automation?.[0]?.points.find(p => p.beat === 1)?.value).toBe(0.2)
     useProjectStore.getState().undo(); expect(useProjectStore.getState().project).toBe(project)
+  })
+  it('records steps on the timeline lanes of the owners while the arrangement plays, in one step', () => {
+    const { project, sound } = setup()
+    const grouped = setGroupBus({ ...project, groups: [{ id: 'G', name: 'G', colour: 'red' }], tracks: project.tracks.map((t) => t.id === 'r' ? t : { ...t, groupId: 'G' }) }, 'G', true)
+    useProjectStore.getState().resetProject(grouped); useTouchStore.getState().arm(true)
+    useStatusStore.setState({ status: { ...useStatusStore.getState().status!, mode: 'arrangement', tracks: {}, masterAutomation: undefined } }); setTouchClock(() => 6)
+    recallSavedSound(sound)
+    const lanes = timelineLanesOf(useProjectStore.getState().project, volume.owner)
+    expect(lanes).toHaveLength(2)
+    expect(automationPosition(lanes[0]!, 5.9)).toBe(0.4)
+    expect(automationPosition(lanes[0]!, 6)).toBe(0.9)
+    expect(automationPosition(lanes[1]!, 7)).toBe(0.25)
+    expect((useProjectStore.getState().project.tracks[0] as InstrumentTrack).clips).toBe((grouped.tracks[0] as InstrumentTrack).clips)
+    const bus = { kind: 'group' as const, groupId: 'G' }
+    recallSavedSound({ id: 'b', name: 'Bus', scope: { owner: bus, domain: 'track' }, values: [{ target: { kind: 'mixer', owner: bus, control: 'volume' }, value: 0.3 }] })
+    expect(automationPosition(timelineLanesOf(useProjectStore.getState().project, bus)[0]!, 6)).toBe(0.3)
+    expect(useProjectStore.getState().history.past).toHaveLength(2)
+    expect(timelineLanesOpen(useProjectStore.getState().project, volume.owner)).toBe(true)
+    useProjectStore.getState().undo(); useProjectStore.getState().undo()
+    expect(timelineLanesOf(useProjectStore.getState().project, volume.owner)).toEqual([])
+    useStatusStore.setState({ status: { ...useStatusStore.getState().status!, playing: false } })
+    const before = useProjectStore.getState().project
+    expect(() => recallSavedSound(sound)).toThrow('requires playback')
+    expect(useProjectStore.getState().project).toBe(before)
   })
   it('rejects a whole armed recall when a destination is unavailable', () => {
     const { project, sound } = setup(); useTouchStore.getState().arm(true)

@@ -1,4 +1,10 @@
 /* Generic widgets: sized by their container's grid cell, coloured only by the theme tokens. */
+
+/* A knob's widest size; a cell or a view can set its own (ControlCell, the patcher's nodes). */
+:root {
+  --knob-max: 64px;
+}
+
 .control {
   display: flex;
   flex-direction: column;
@@ -41,13 +47,13 @@
 .knob:focus-visible,
 .fader:focus-visible,
 .pad:focus-visible {
-  box-shadow: 0 0 0 2px var(--accent);
+  box-shadow: 0 0 0 var(--focus-width) var(--focus-ring);
 }
 
 /* Knob */
 .knob {
   width: 100%;
-  max-width: var(--knob-max, 64px);
+  max-width: var(--knob-max);
   aspect-ratio: 1;
   cursor: ns-resize;
   border-radius: 50%;
@@ -249,4 +255,25 @@
 /* On a node card the title says what a control is, so the widget's own label is left out. */
 :global([data-hide-labels]) .label {
   display: none;
+}
+
+/*
+ * Touch is armed and nothing records here (EffectiveValue): a dim mark in the corner of whatever hosts it, out of the
+ * flow, so arming moves nothing. Its host becomes the containing block unless it already is one; `:where` keeps that
+ * from overriding a host's own `position` (sticky headers and master strip).
+ */
+:global(:where(:has(> [data-touch-idle]))) {
+  position: relative;
+}
+
+/* Doubled up to beat a host's `> *` width. */
+.idle[data-touch-idle] {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  width: auto;
+  color: var(--text-dim);
+  opacity: 0.6;
 }

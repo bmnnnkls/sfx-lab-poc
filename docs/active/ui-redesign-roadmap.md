@@ -1,7 +1,7 @@
 ---
 status: active
-date: 2026-11-04
-note: "Rounds 1-11 are done (11d, the spectrum, in two parts: the spectrogram and spectral edits); 12 (arrangement editor) is under way, 12a done; 13 (visual refresh) comes after."
+date: 2026-11-06
+note: "Rounds 1-12 and 13a are done (12, the arrangement editor, in four parts: 12a to 12d; 13a, the UI foundations, 2026-11-07); the engine PI comes next, then 13b."
 ---
 # UI redesign roadmap (draft)
 
@@ -334,7 +334,7 @@ view, its activity-bar button and its entry points; this round replaces what is 
 
 ## Round 12: arrangement editor
 
-**Spec signed off** 2026-11-01, every decision as proposed; see the [spec](SPEC-round-12-arrangement-editor.md). Its inventory
+**Done** 2026-11-06. **Spec signed off** 2026-11-01, every decision as proposed; see the [spec](../archive/ui-redesign/SPEC-round-12-arrangement-editor.md). Its inventory
 changes the outline below: opening a region in Clip and in the wave editor exists already (Clip lacks a region's
 playhead and lanes); there is nothing for a per-track arm to arm, since touch is the only recording, so headers get M, S
 and a lanes twisty; timeline automation is a new holder per owner, in song beats, so returns, the master and group buses
@@ -349,8 +349,11 @@ mark lane under the ruler (DOM elements, not a canvas), the engine looping the a
 that releases what was sounding for the loop's jump and a click in the ruler while playing, M, L, `[` and `]`, and
 format v13. **12c is done** 2026-11-06 ([plan](../archive/ui-redesign/PLAN-round-12c-timeline-automation.md)):
 automation lanes on the timeline for every owner, groups with a bus included, region lanes playing, returns' and the
-master's rows, format v14. 12d is to plan. The outline below is what the spec
-started from.
+master's rows, format v14. **12d is done** 2026-11-06
+([plan](../archive/ui-redesign/PLAN-round-12d-touch-arrangement.md)): touch records into each owner's timeline lane
+while the arrangement plays, groups with a bus included, over loop passes, and armed recall with it; it keeps 12c's
+rule that a timeline lane takes its target for the whole song, which corrects a sentence of the spec. The outline below
+is what the spec started from.
 
 Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACKLOG.md).
 
@@ -362,14 +365,50 @@ Grows from the existing prototype. Follow-ups are listed in [BACKLOG.md](../BACK
 * Loop brace, markers, follow-playhead, horizontal zoom to fit or to the selection.
 * Opening a region in the clip editor and in the wave editor.
 
-## Round 13: visual refresh and themes
+## Round 13: visual refresh and themes, in two parts
 
-Deliberately last, so it restyles a stable structure.
+Split on 2026-11-06 around the [engine-improvements PI](REPORT-engine-gaps.md#5-the-engine-improvements-pi): the order
+is **13a** (foundations), then the PI, then **13b** (the design pass). The PI adds a lot of UI (power and
+bypass controls on nodes, dormant and sleeping states, routing nodes, modulation routes, depth handles and rings), so it
+should be built on tokens, and the visual design should be tuned once that UI exists.
 
-* Design tokens: spacing, type scale, radii, elevation and colour roles, built on the variables in `theme.css`.
-* Remove the hard-coded colours (e.g. `MidiSettings.module.css`).
-* A light theme, high-contrast, user accent colour; a density setting.
-* One icon set for the activity bar, toolbars, region toggles and node categories.
+### Round 13a: UI foundations (before the engine PI)
+
+What new UI must be built on, without redesigning anything. Dark stays the default and looks as it does today.
+**Done** 2026-11-07, see the [plan](../archive/ui-redesign/PLAN-round-13a-ui-foundations.md) and its notes; the outline below is what
+the round started from.
+
+* **Design tokens** in `theme.css`, on top of today's variables:
+  * colour roles: surfaces (background, panel, raised, sunken), text (normal, dim, disabled), borders, accent, focus
+    ring; states (play, queued, record, danger, warning); the group colours as they are;
+  * colour roles the PI needs: signal kinds (audio, pitch, modulation, gate, notes, control; see
+    [ADR-0003](../decisions/adr/0003-signal-conventions.md)) and the switching states (inactive, dormant, sleeping;
+    [ADR-0008](../decisions/adr/0008-switching-parts-off.md));
+  * scales for spacing, type, radii, elevation and motion durations.
+* **No hard-coded colours.**
+  * About 100 colour literals in 31 files under `src/ui` (2026-11-06 count) move to tokens, and so do the colours of
+    canvas renderers (waveforms, the spectrogram, wires, meters).
+  * Canvas code reads tokens through one helper that updates on a theme change.
+  * An architecture test refuses colour literals outside the token files.
+* **The theme mechanism.**
+  * A `data-theme` attribute on the root, chosen by a command and in the View menu, saved per browser.
+  * **Light** and **high-contrast** token sets, complete and contrast-checked but not polished (13b polishes them).
+* **One icon set**: an `Icon` component over one SVG set (the source is a 13a plan decision). It replaces text glyphs
+  and emoji in the activity bar, toolbars, region toggles, the transport bar and node categories. It includes the icons
+  the PI will need: power, bypass, sleep, routing, modulation.
+* **Shared control states**: one style each for hover, pressed, selected, disabled, focus-visible, and the PI's
+  inactive, dormant and sleeping, so every new control uses them.
+
+### Round 13b: the design pass (after the engine PI)
+
+* Density setting and a user accent colour.
+* Polish of the light and high-contrast themes.
+* Typography, spacing and layout tuned view by view.
+* The visual design of the patcher, panels and pinned panels, the mixer, and the modulation display.
+* Motion.
+* Whatever the PI's new UI needs after use.
+
+It gets its own spec.
 
 ## Cross-cutting
 
@@ -402,5 +441,5 @@ Deliberately last, so it restyles a stable structure.
 | Key overrides: saved with the project or per browser | **Settled in round 10's plan:** per browser (`sfxlab:keybindings`), like layouts | round 10 |
 | Wave editor: destructive edits vs. derived samples | **Settled in round 11's [spec](../archive/ui-redesign/SPEC-round-11-wave-editor.md):** in place with undo; an edit writes a new file and moves every use onto it; bytes are never changed, only added | round 11 SPEC |
 | Stereo samples throughout the engine, or only in the editor | **Settled in round 11's spec:** throughout, instruments staying mono; old audio tracks sound the same | round 11 SPEC |
-| Arrangement automation: per owner on the timeline, or inside regions | **Settled in round 12's [spec](SPEC-round-12-arrangement-editor.md):** per owner, in song beats, for tracks, returns, the master and group buses; a region's own clip lanes play inside it, and a timeline lane on the same target wins | round 12 SPEC |
+| Arrangement automation: per owner on the timeline, or inside regions | **Settled in round 12's [spec](../archive/ui-redesign/SPEC-round-12-arrangement-editor.md):** per owner, in song beats, for tracks, returns, the master and group buses; a region's own clip lanes play inside it, and a timeline lane on the same target wins | round 12 SPEC |
 | A per-track arm in the arrangement's headers | **Settled in round 12's spec:** none; touch's global arm stays the only one until notes are recorded | round 12 SPEC |

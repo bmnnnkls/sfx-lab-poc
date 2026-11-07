@@ -1,4 +1,4 @@
-import { type LinkedOrigin, type Project, type Snapshot, type ProjectPreset, presetFromLibrary, recallLinkedPreset, type SnapshotScope, type ControlValue, commit, controlTargetKey, controlToNormalized, resolveControlTarget, recallSnapshot, recallProjectPreset, stepRecallLane, automationSlotsOf, setAutomationSlot, setClipAutomation, MAX_AUTOMATION_LANES } from '@core'
+import { type LinkedOrigin, type Project, type Snapshot, type ProjectPreset, presetFromLibrary, recallLinkedPreset, type SnapshotScope, type ControlValue, commit, controlTargetKey, controlToNormalized, resolveControlTarget, recallSnapshot, recallProjectPreset, stepRecallLane, automationSlotsOf, setAutomationSlot, setClipAutomation, setTimelineLanes, timelineLanesOf, timelineLanesOpen, type ControlOwner, MAX_AUTOMATION_LANES, MAX_TIMELINE_BEATS } from '@core'
 import { useProjectStore } from './project-store'
 import { useTouchStore, touchBeatNow, touchDestination, finishTouches } from './touch-store'
 import { useStatusStore } from './status-store'
@@ -7,20 +7,27 @@ export const editPresetProject = (edit: (project: Project) => Project) => {
   const store = useProjectStore.getState(), project = edit(store.project)
   if (project !== store.project) useProjectStore.setState({ project, history: commit(store.history, project, { now: Date.now() }) })
 }
-const recordRecall = (project: Project, changes: readonly ControlValue[]): Project => {
+/** Records the recalled values as steps where the transport is: in each owner's playing clip or slot, or on its timeline lanes while the arrangement plays. */
+const recordRecall = (project: Project, changes: readonly ControlValue[], opened: ControlOwner[]): Project => {
   if (!useTouchStore.getState().armed) return project
   const status = useStatusStore.getState().status, beat = touchBeatNow()
-  if (!status?.playing || beat === undefined) throw new Error('Armed recall requires playback and an active clip/slot for every affected owner')
+  if (!status?.playing || beat === undefined) throw new Error('Armed recall requires playback and an active clip, slot or the arrangement for every affected owner')
   let next = project
   for (const entry of changes) {
     const dest = touchDestination(next, entry.target, status), resolved = resolveControlTarget(project, entry.target)
-    if (!dest || beat < dest.start || dest.playing.queued) throw new Error('Armed recall needs an acknowledged active destination for every affected owner')
+    if (!dest || (dest.kind === 'clip' && (beat < dest.start || dest.playing.queued))) throw new Error('Armed recall needs an acknowledged active destination for every affected owner')
     if (resolved.status !== 'available' || !resolved.automatable) throw new Error('Recall control cannot be recorded')
-    const key = controlTargetKey(entry.target), lanes = dest.clip.automation ?? []
+    const key = controlTargetKey(entry.target), lanes = dest.kind === 'clip' ? dest.clip.automation ?? [] : timelineLanesOf(next, dest.owner)
     const lane = lanes.find(l => controlTargetKey(l.target) === key) ?? { id: crypto.randomUUID(), target: entry.target, enabled: true, points: [] }
-    const updated = stepRecallLane(lane, beat - dest.start, controlToNormalized(resolved.spec, entry.value), dest.clip.lengthBeats, controlToNormalized(resolved.spec, resolved.baseValue))
+    // A recall is an instant: on the timeline it steps at the song beat, with no passes.
+    const updated = stepRecallLane(lane, dest.kind === 'clip' ? beat - dest.start : beat, controlToNormalized(resolved.spec, entry.value), dest.kind === 'clip' ? dest.clip.lengthBeats : MAX_TIMELINE_BEATS, controlToNormalized(resolved.spec, resolved.baseValue))
     const automation = lanes.some(l => l.id === lane.id) ? lanes.map(l => l.id === lane.id ? updated : l) : [...lanes, updated]
     if (automation.length > MAX_AUTOMATION_LANES) throw new Error('Recall exceeds 64 lanes; no changes recorded')
+    if (dest.kind === 'timeline') {
+      if (!lanes.some(l => l.id === lane.id) && !timelineLanesOpen(next, dest.owner)) opened.push(dest.owner)
+      next = setTimelineLanes(next, dest.owner, automation)
+      continue
+    }
     const slots = automationSlotsOf(next, entry.target.owner)
     next = slots ? setAutomationSlot(next, entry.target.owner, slots.findIndex(c => c?.id === dest.clip.id), { ...dest.clip, automation }) : entry.target.owner.kind === 'track' ? setClipAutomation(next, entry.target.owner.trackId, dest.clip.id, automation) : next
   }
@@ -42,12 +49,14 @@ const recallWith = (recall: (project: Project) => ReturnType<typeof recallSnapsh
   const store = useProjectStore.getState()
   const result = recall(store.project)
   // Record against the old bases, before recall changes them.
-  const recorded = recordRecall(store.project, result.applied)
+  const opened: ControlOwner[] = []
+  const recorded = recordRecall(store.project, result.applied, opened)
   const project = recorded === store.project ? result.project : { ...result.project, tracks: result.project.tracks.map(t => {
     const rec = recorded.tracks.find(r => r.id === t.id)!
     return t.kind === 'return' && rec.kind === 'return' ? { ...t, automationSlots: rec.automationSlots } : t.kind !== 'return' && rec.kind !== 'return' ? { ...t, clips: rec.clips } as typeof t : t
-  }), master: { ...result.project.master, automationSlots: recorded.master.automationSlots } }
+  }), master: { ...result.project.master, automationSlots: recorded.master.automationSlots }, ...(recorded.arrangementAutomation && { arrangementAutomation: recorded.arrangementAutomation }) }
   if (project !== store.project) useProjectStore.setState({ project, history: commit(store.history, project, { now: Date.now() }) })
+  for (const owner of opened) useProjectStore.getState().setTimelineLanesOpen(owner, true)
   for (const entry of result.applied) useControlStore.getState().release(entry.target)
   const controlled = result.applied.filter(e => useControlStore.getState().playback.some(p => controlTargetKey(p.target) === controlTargetKey(e.target))).length
   return `${result.applied.length} controls recalled${controlled ? ` · ${controlled} controlled by Read` : ''}${result.issues.length ? ` · ${result.issues.length} unavailable: ${result.issues.map(i => `${i.target.kind === 'graph' ? i.target.nodeId : i.target.control}: ${i.reason}`).join('; ')}` : ''}`

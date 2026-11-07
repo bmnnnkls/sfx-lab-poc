@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:," />
     <title>SFX Lab</title>
+    <script>
+      // The saved theme before the app loads, so it doesn't flash Dark first (src/ui/theme/theme.ts keeps it).
+      try {
+        var theme = localStorage.getItem('sfxlab:theme')
+        document.documentElement.dataset.theme = theme === 'light' || theme === 'contrast' ? theme : 'dark'
+      } catch (error) {
+        document.documentElement.dataset.theme = 'dark'
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

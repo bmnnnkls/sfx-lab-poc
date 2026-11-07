@@ -1,5 +1,6 @@
 import { type Notice, usePersistenceStore } from '@state'
 import { useEffect } from 'react'
+import { Icon } from '../shared/icon'
 import styles from './ToastStack.module.css'
 
 const AUTO_DISMISS_MS = 5000
@@ -42,7 +43,7 @@ const Toast = ({ notice }: { notice: Notice }) => {
         </button>
       )}
       <button onClick={() => dismiss(notice.id)} aria-label="Dismiss">
-        ×
+        <Icon name="close" size={14} />
       </button>
     </div>
   )

@@ -325,7 +325,7 @@ span.name {
   position: relative;
   width: 10px;
   overflow: hidden;
-  background: linear-gradient(to top, var(--play) 0 70%, var(--queued) 70% 90%, #e5484d 90%);
+  background: linear-gradient(to top, var(--meter-low) 0 70%, var(--meter-mid) 70% 90%, var(--meter-high) 90%);
   border: 1px solid var(--border);
   border-radius: 2px;
 }

@@ -1,5 +1,6 @@
 import type { FrequencyBand } from '@core'
 import { useCallback, useEffect, useRef } from 'react'
+import { useThemeColors } from '../theme/theme-colors'
 import { type LaneData, type LanePart, type LaneRenderers, partBox } from './lane-renderers'
 import type { FrequencyScale } from './use-lane-renderers'
 import styles from './WaveEditor.module.css'
@@ -19,7 +20,8 @@ export interface WaveLaneHandle {
   draw(data: LaneData, overlay: LaneOverlay): void
 }
 
-const color = (element: Element, name: string, fallback: string) => getComputedStyle(element).getPropertyValue(name).trim() || fallback
+const LANE_COLORS = ['--accent', '--border', '--selection', '--text-dim', '--text'] as const
+const SCALE_COLORS = ['--text-dim'] as const
 
 /** Fits a canvas to its box at the device pixel ratio; returns its context in CSS pixels, or null. */
 const fitted = (element: HTMLCanvasElement) => {
@@ -57,6 +59,7 @@ export const WaveLane = ({
   handle(lane: WaveLaneHandle | null): void
 }) => {
   const canvas = useRef<HTMLCanvasElement>(null)
+  const theme = useThemeColors(LANE_COLORS)
   const attach = useCallback(
     (element: HTMLCanvasElement | null) => {
       canvas.current = element
@@ -66,12 +69,12 @@ export const WaveLane = ({
           const fit = fitted(element)
           if (!fit) return
           const { context, width, height } = fit
-          const accent = color(element, '--accent', '#f5a524')
-          const colors = { wave: accent, line: color(element, '--border', '#444') }
+          const accent = theme['--accent']
+          const colors = { wave: accent, line: theme['--border'] }
           const selection = overlay.selection
           const veil = (top: number, partHeight: number) => {
             if (!selection) return
-            context.fillStyle = color(element, '--wave-selection', 'rgba(245, 165, 36, 0.25)')
+            context.fillStyle = theme['--selection']
             context.fillRect(selection.from, top, Math.max(1, selection.to - selection.from), partHeight)
           }
           for (const part of parts) {
@@ -108,7 +111,7 @@ export const WaveLane = ({
             }
           }
           if (overlay.edges.length > 0 || overlay.markers.length > 0) {
-            context.fillStyle = color(element, '--text-dim', '#888')
+            context.fillStyle = theme['--text-dim']
             context.globalAlpha = 0.35
             for (const x of overlay.edges) context.fillRect(Math.round(x), 0, 1, height)
             context.globalAlpha = 0.8
@@ -116,13 +119,13 @@ export const WaveLane = ({
             context.globalAlpha = 1
           }
           if (overlay.cursor !== null) {
-            context.fillStyle = color(element, '--text', '#fff')
+            context.fillStyle = theme['--text']
             context.fillRect(Math.round(overlay.cursor), 0, 1, height)
           }
         },
       })
     },
-    [handle, parts, renderers, frequencies],
+    [handle, parts, renderers, frequencies, theme],
   )
   return (
     <div className={styles.lane}>
@@ -138,13 +141,14 @@ export const WaveLane = ({
  */
 export const LaneScale = ({ parts, renderers }: { parts: readonly LanePart[]; renderers: LaneRenderers }) => {
   const canvas = useRef<HTMLCanvasElement>(null)
+  const theme = useThemeColors(SCALE_COLORS)
   useEffect(() => {
     const element = canvas.current
     if (!element) return
     const draw = () => {
       const fit = fitted(element)
       if (!fit) return
-      const dim = color(element, '--text-dim', '#888')
+      const dim = theme['--text-dim']
       for (const part of parts) {
         const box = partBox(part, fit.height)
         fit.context.save()
@@ -157,7 +161,7 @@ export const LaneScale = ({ parts, renderers }: { parts: readonly LanePart[]; re
     const observer = new ResizeObserver(draw)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [parts, renderers])
+  }, [parts, renderers, theme])
   return (
     <div className={styles.lane}>
       <canvas ref={canvas} className={styles.laneCanvas} aria-hidden="true" />

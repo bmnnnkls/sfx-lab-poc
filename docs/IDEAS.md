@@ -129,7 +129,7 @@ widget lives in the panel and the property editor). Both views edit the same nod
 | D4 | Phase-modulation input on the oscillator, plus hard sync. FM through today's Pitch input (semitones) probably works but is not linear phase FM `?`. | ★★ | M |
 | D5 | Pulse width (PWM); a wavetable or additive oscillator. | ★★ | M |
 | D6 ✓ | Compressor with sidechain built (threshold, ratio, knee, make-up, dry/wet, gain-reduction out). Still open: a gate; a true brickwall limiter. | ★★ | M |
-| D7 | Chorus, flanger, phaser. **Verified:** a chorus and a flanger build from a modulated delay (`LFO uni` -> `Map range` -> `delay.param:time`; the compiler re-runs the node per sample). Smooth and click-free; keep feedback at or under 0.8. See `SPEC-effects-round-2.md`. A phaser needs the all-pass filter (D3). | ★★ | M |
+| D7 | Chorus, flanger, phaser. Each needs a node: a modulated delay built from parts steps once per block, and the delay retargets through a 20 ms crossfade (corrected 2026-11-06, see `SPEC-effects-round-2.md`). Planned as the flagship's N7 (chorus) and N12 (phaser). | ★★ | M |
 | D8 | EQ (parametric). | ★★ | M |
 | D9 | Karplus-Strong plucked string as one node (audio feedback loops between nodes are probably refused, so it must be self-contained) `?`. | ★ | M |
 | D10 | Envelope variants: AD, AR, looping, multi-stage. | ★ | S |

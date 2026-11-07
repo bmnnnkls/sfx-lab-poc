@@ -20,6 +20,7 @@ import { EditToolbar } from './EditToolbar'
 import { ProcessMenu } from './ProcessMenu'
 import { PaneSplitter } from './PaneSplitter'
 import { PaneTitle, SampleFacts } from './PaneTitle'
+import { Icon } from '../shared/icon'
 import { isRulerMode, isRulerTempo } from './ruler-ticks'
 import { ViewMenu } from './ViewMenu'
 import { WavePane, usePaneSample } from './WavePane'
@@ -64,7 +65,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
             aria-label={previewing ? 'Stop preview' : selection ? 'Play selection' : 'Play from cursor'}
             title={previewing ? 'Stop' : selection ? 'Play the selection' : 'Play from the cursor'}
           >
-            {previewing ? '■' : '▶'}
+            <Icon name={previewing ? 'stop' : 'play'} filled />
           </button>
           <button aria-pressed={loop} onClick={() => useWaveEditSettings.getState().setLoop(!loop)} title="Loop the preview">
             Loop
@@ -95,7 +96,7 @@ export const SampleEditor = ({ sample, onClose }: { sample: SampleInfo; onClose(
         <span className={`${styles.toolGroup} ${styles.end}`} role="group" aria-label="Editor">
           <EditorSettings />
           <button onClick={onClose} aria-label="Close sample" title="Close this sample">
-            ×
+            <Icon name="close" size={14} />
           </button>
         </span>
       </div>

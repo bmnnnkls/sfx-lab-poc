@@ -88,7 +88,7 @@ test('looping regions repeat until the next region, and regions move across trac
 
 test('a session slot places its clip on the arrangement', async ({ page }) => {
   await page.goto('/?starter')
-  await page.getByRole('button', { name: '▶ Root', exact: true }).click({ button: 'right' })
+  await page.getByRole('button', { name: 'Play Root', exact: true }).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Place on arrangement' }).click()
   const arrangement = await openView(page, 'Arrangement')
   // The copy landed on the Bass track's lane at the start of its timeline.
@@ -131,7 +131,7 @@ const openDemoKick = async (page: Page) => {
   await page.getByRole('button', { name: 'Add demo samples', exact: true }).click()
   await expect(samples.locator('[data-status="ready"]')).toHaveCount(5)
   await expect(page.getByRole('listitem')).toHaveCount(5)
-  await page.getByRole('listitem').filter({ hasText: 'Demo Kick' }).getByRole('button', { name: '✎', exact: true }).click()
+  await page.getByRole('listitem').filter({ hasText: 'Demo Kick' }).getByRole('button', { name: 'Edit Demo Kick', exact: true }).click()
   const wave = viewRoot(page, 'Wave editor')
   await expect(wave.getByTestId('sample-editor')).toBeVisible()
   return wave

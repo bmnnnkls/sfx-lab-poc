@@ -8,7 +8,7 @@ note: "Part 3 of the round 12 spec: automation lanes on the timeline for every o
 
 Status: **done** 2026-11-06; the plan was signed off 2026-11-05, every decision as proposed. Written 2026-11-05. Part of
 the [UI redesign](README.md). Carries out part 3 of the signed-off
-[round 12 spec](../../active/SPEC-round-12-arrangement-editor.md) (§ Suggested split): its § 3, automation lanes on the timeline,
+[round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested split): its § 3, automation lanes on the timeline,
 the returns' and the master's rows that [12a's plan](PLAN-round-12a-timeline-frame.md) moved
 here, and the field § 5 adds. The inventory was taken on `main` at `397460c` (rounds 12a and 12b done, `feat/ui-redesign`
 merged into `main`). The spec's decisions are settled and not repeated here; this plan only adds the ones it raises.
@@ -41,7 +41,7 @@ Automation can be drawn on the arrangement and plays with it. After this part:
 
 ## Inventory
 
-What 12c touches, beyond the [spec's inventory](../../active/SPEC-round-12-arrangement-editor.md#inventory) and 12a's and 12b's.
+What 12c touches, beyond the [spec's inventory](SPEC-round-12-arrangement-editor.md#inventory) and 12a's and 12b's.
 
 ### The model and the files
 

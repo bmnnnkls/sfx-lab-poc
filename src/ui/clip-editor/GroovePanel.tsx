@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { onViewHide } from '../layout/view-events'
+import { Icon } from '../shared/icon'
 import type { GrooveSettings } from './groove-settings'
 import styles from './ClipEditor.module.css'
 
@@ -47,7 +48,7 @@ export const GroovePanel = ({ settings, onSettings, scope, onQuantize, onSwing, 
   return (
     <div ref={root} className={styles.groove}>
       <button onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="true">
-        Groove ▾
+        Groove <Icon name="chevron-down" size={14} />
       </button>
       {open && (
         <div className={styles.groovePanel} role="group" aria-label="Groove tools">

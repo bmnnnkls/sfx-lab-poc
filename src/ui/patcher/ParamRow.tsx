@@ -1,4 +1,5 @@
 import { CC_NAMES } from '@core'
+import { Icon } from '../shared/icon'
 import { formatParam, fromSlider, snapToStep, toSlider } from '../shared/param-scale'
 import { paramTooltip } from '../shared/tooltip/tooltip-text'
 import { NumberField } from './NumberField'
@@ -67,7 +68,7 @@ export const ParamRow = ({ row, onChange, onCreateControl, onUnwire, canUnwire =
               aria-label={`Reset ${spec.label}`}
               data-tooltip="Back to the default value."
             >
-              ↺
+              <Icon name="reset" size={14} />
             </button>
             {row.hasSocket && (
               <>

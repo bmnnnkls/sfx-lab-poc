@@ -7,7 +7,7 @@ note: "Part 2 of the round 12 spec: markers and a loop brace in a mark lane, the
 # Round 12b: markers and the loop
 
 Status: **done** 2026-11-04; the plan was signed off 2026-11-04, every decision as proposed. Written 2026-11-04. Part of the [UI redesign](README.md).
-Carries out part 2 of the signed-off [round 12 spec](../../active/SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
+Carries out part 2 of the signed-off [round 12 spec](SPEC-round-12-arrangement-editor.md) (§ Suggested split): its
 § 2, markers and the loop brace, and § 5, format v13. The inventory was taken on `imp/hungry-cannon-e8e493` at `c680c55`
 (round 12a done, not merged into `feat/ui-redesign` yet). The spec's decisions are settled and not repeated here; this
 plan only adds the ones it raises. Where it differs from the spec or from
@@ -37,7 +37,7 @@ The arrangement can be marked up and looped. After this part:
 
 ## Inventory
 
-What 12b touches, beyond the [spec's inventory](../../active/SPEC-round-12-arrangement-editor.md#inventory) and 12a's.
+What 12b touches, beyond the [spec's inventory](SPEC-round-12-arrangement-editor.md#inventory) and 12a's.
 
 ### The format
 

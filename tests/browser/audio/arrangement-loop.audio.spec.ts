@@ -135,7 +135,7 @@ test('the same loop drawn, turned on and played from the arrangement view', asyn
   await page.mouse.down()
   await page.mouse.move(lane.x + 4 * 24 - 3, lane.y + 10, { steps: 6 })
   await page.mouse.up()
-  await arrangement.getByRole('button', { name: '\u27f3 Loop', exact: true }).click()
+  await arrangement.getByRole('button', { name: 'Loop', exact: true }).click()
   await expect(arrangement.getByTestId('arrangement-loop-brace')).toHaveAttribute('data-enabled', 'true')
   await page.evaluate(() => { window.__loopSamples = [] })
   await arrangement.getByRole('button', { name: 'Play arrangement', exact: true }).click()

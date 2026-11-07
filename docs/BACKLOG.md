@@ -10,13 +10,12 @@ Reconciled with the code on 2026-10-31 (`feat/ui-redesign` after round 11c, part
 
 Planned round by round. Each round gets a plan in [`active/`](active/) before it starts.
 
-- **U2 Round 12: arrangement editor**: track headers beside the lanes, automation lanes on the timeline, recording into
-  the arrangement (touch recording on the timeline).
-  [Spec](active/SPEC-round-12-arrangement-editor.md) signed off 2026-11-01; 12a is done
-  ([plan](archive/ui-redesign/PLAN-round-12a-timeline-frame.md)), and so is 12b, markers and the loop
-  ([plan](archive/ui-redesign/PLAN-round-12b-markers-and-loop.md)), and 12c, automation on the timeline
-  ([plan](archive/ui-redesign/PLAN-round-12c-timeline-automation.md)); 12d (touch into the arrangement) is to plan.
-- **U3 Round 13: visual refresh and themes**: design tokens, no hard-coded colours, light and high-contrast themes.
+- **U3b Round 13b: the design pass**, after the engine PI
+  ([roadmap](active/ui-redesign-roadmap.md#round-13b-the-design-pass-after-the-engine-pi)). Left by 13a
+  ([notes](archive/ui-redesign/PLAN-round-13a-ui-foundations.md#changes-made-while-implementing)): Dark's `--text-dim`
+  on `--panel-raised` (4.19:1, an exception in `contrast.test.ts`); native range inputs in the browser's blue in every
+  theme (`accent-color`); the `+` add buttons as text; the Library's recalled ● and preset • marks; spacing and type
+  onto the scales.
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
   Samples and the Library, library samples, several things at once outside the Library (the Library's tree drags
   several items since library phase 7).
@@ -78,7 +77,7 @@ Things that shipped without the check their plan asked for.
   under 300 px, the fill-in on a long file, zooming in and scrolling on a trackpad (the columns on demand); boxes in the
   spectrogram (round 11d-2): drawing and resizing them on a trackpad, their outline in both themes, and listening to
   *Band gain…* and *Keep band* on real material (ringing, the feathers in time and frequency).
-- **V11 Hand pass for the arrangement's timeline frame** (round 12a), in Chrome, and Firefox and Safari once V3 is
+- **V11 Hand pass for the arrangement's timeline** (round 12a), in Chrome, and Firefox and Safari once V3 is
   done: the sticky headers and ruler on a trackpad scroll in both axes, at the editors' minimum size and under 600 px;
   the header splitter; pinch and ⌘-wheel zoom; middle-drag on a mouse; auto-scroll while dragging a region on a
   trackpad; snapping with Alt; follow pausing on a trackpad scroll; every key in the *Arrangement* rows with the focus
@@ -88,7 +87,9 @@ Things that shipped without the check their plan asked for.
   notes and an unwarped audio region across the jump, and to a click in the ruler while playing (notes cut, audio
   rejoining in phase). Round 12c adds: drawing, dragging and box-selecting points on a timeline lane with a trackpad and
   a mouse, at high and low zoom; the lanes and the corner twisty in both themes and at 120 px; *+ Lane*'s picker by
-  keyboard; and listening to a bus fader lane and a region's own filter sweep on the timeline.
+  keyboard; and listening to a bus fader lane and a region's own filter sweep on the timeline. Round 12d adds: touch
+  on a knob with a trackpad, and on a MIDI controller's knob (V5), over a 2-bar loop at 90 and 140 BPM; a seek while
+  touching; the feedback and the ● in a lane header in both themes.
 - **V12 Library listening pass** (library round): each Factory instrument and effect auditioned once (▶ in the
   Library; the tests check only that every instrument is finite, audible and not blown up, before and after a
   Randomize roll), and a copy of Low Light's stab on a new track played beside the original.
@@ -142,13 +143,22 @@ Things that shipped without the check their plan asked for.
 - **T3 Review leftovers**: F19 concurrent lane ownership, and R5 harness and deployment policy, from the
   [remediation plan](archive/2026-10-perf-library/PLAN-review-remediation.md).
 
+## Engine
+
+- **X1 The engine-improvements PI**: seven iterations (I0–I6) closing the gaps in
+  [REPORT-engine-gaps](active/REPORT-engine-gaps.md), after round 13a (12d is done). It starts with accepting the
+  [ADR drafts](decisions/adr/README.md). It covers P2 in part (sleep for idle effects) and BACKLOG G5 optionally (the
+  feedback pair).
+- **X2 The flagship synth and the Factory library**, built on the PI
+  ([REPORT-flagship-synth](active/REPORT-flagship-synth.md)); L7 (Factory presets) becomes part of it.
+
 ## Effects and audio editing
 
 - **E1 Waveshaper and Crusher**: part 3 of [SPEC-effects-round-2](active/SPEC-effects-round-2.md), ready to build.
 - **E2 Granular sampler (G6-lite)**: position, density, grain size, pitch spread and spray over a loaded buffer, edited
   from the wave editor. Nodes already read whole sample buffers.
-- **E3 Gate, true brickwall limiter, phaser.** Chorus and flanger need no new nodes (spec, idea D7), so ship them as
-  example modules.
+- **E3 Gate, true brickwall limiter, chorus, flanger, phaser.** A chorus or flanger can't be built from the Delay
+  (corrected 2026-11-06, [SPEC-effects-round-2](active/SPEC-effects-round-2.md)); they are the flagship's N7 and N12.
 - **E4 Mixer meters**: peak hold and numeric readouts; a dB fader law.
 - **E5 Stereo plain Reverb** (Stereo reverb and Mono sum cover stereo routing today).
 - **E6 Audio clips and regions**: loop points inside a region, loop crossfades, time-stretch, recording.
@@ -206,6 +216,11 @@ Things that shipped without the check their plan asked for.
   cost of a long take's per-bar lane writes and of live input's per-frame overrides with a real controller sending
   hundreds of messages a second.
 
+- **V16 Hand pass for the themes and icons** (round 13a), in Chrome, and Firefox and Safari once V3 is done: every
+  view in Dark, Light and High contrast for anything unreadable or a colour that didn't follow; *View ▸ Theme* and a
+  reload (no flash of Dark); keyboard focus through the transport, the activity bar, the session grid, the arrangement,
+  the graph editor and the panel, the ring visible on each; icons crisp at 1× and 2×; a screen reader on the slots
+  ("Play Root") and the icon-only buttons.
 ## MIDI
 
 - **M3 A track's MIDI input on its header or mixer strip**: it is set in MIDI settings only, and the header shows a tag.
@@ -227,4 +242,3 @@ Not work yet: each needs a scope decision first.
 - **D2 MPE**, including polyphonic pressure recorded per note: until then it is folded into channel pressure
   ([pitch bend, aftertouch and CC spec](archive/midi-expression/SPEC-midi-expression.md), decision 3).
 - **D3 Linked library updates** (a project copy that follows its library item).
-- **D4 When `feat/ui-redesign` merges into `main`**, and whether a v11 build ships to Pages before round 12.

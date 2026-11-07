@@ -2,6 +2,7 @@ import type { ArrangementRow, GroupColour, Track, TrackGroup } from '@core'
 import { type SubjectOf, runAction, useProjectStore, useSelectionStore } from '@state'
 import type { CSSProperties } from 'react'
 import { useDragSource, useEdgeTarget } from '../shared/drag'
+import { Icon } from '../shared/icon'
 import { ActionMenu, useActionContext } from '../shared/menu'
 import { ArmButton } from '../shared/ArmButton'
 import { GroupMuteSolo, MuteSolo, useRoute } from '../shared/MuteSolo'
@@ -81,7 +82,7 @@ export const GroupHeader = ({ group, depth }: { group: TrackGroup; depth: number
           aria-expanded={!group.collapsed}
           onClick={() => useProjectStore.getState().setGroupCollapsed(group.id, !group.collapsed)}
         >
-          {group.collapsed ? '▸' : '▾'}
+          <Icon name={group.collapsed ? 'chevron-right' : 'chevron-down'} size={14} />
         </button>
         {group.bus && <LanesTwisty owner={{ kind: 'group', groupId: group.id }} name={group.name} />}
         <span className={styles.headerName} onClick={() => useSelectionStore.getState().selectGroup(group.id)}>

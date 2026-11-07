@@ -1,0 +1,94 @@
+/*
+ * Light: the same tokens as dark.css, for a light window. Complete and contrast-checked (contrast.test.ts), not yet
+ * polished (round 13b).
+ */
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Surfaces, from the window's background up; sunken is an input's or a lane's well, overlay a popup's body. */
+  --bg: #eceef2;
+  --panel: #f7f8fa;
+  --panel-raised: #e3e6eb;
+  --sunken: #ffffff;
+  --overlay: #ffffff;
+  --scrim: rgba(20, 24, 32, 0.3);
+  /* Elevation: tooltips and popovers, menus and palettes, dialogs; and a panel's edge over what it covers. */
+  --shadow-1: 0 4px 14px rgba(20, 24, 32, 0.16);
+  --shadow-2: 0 8px 28px rgba(20, 24, 32, 0.2);
+  --shadow-3: 0 12px 48px rgba(20, 24, 32, 0.26);
+  --shadow-edge: -6px 0 16px rgba(20, 24, 32, 0.14);
+
+  /* Text. */
+  --text: #1b1e24;
+  --text-dim: #555b66;
+  --text-disabled: #a2a7b0;
+  --text-on-accent: #ffffff;
+
+  /* Lines: dividers, a control's boundary (at least 3:1), the keyboard focus ring. */
+  --border: #d2d6dd;
+  --border-strong: #7d838f;
+  --focus-ring: #a85a00;
+
+  /* Accent, and a selected range. */
+  --accent: #a85a00;
+  --accent-soft: rgba(214, 128, 0, 0.16);
+  --selection: rgba(214, 128, 0, 0.22);
+  /* A docked view's selected tab, behind its title in the accent. */
+  --tab-selected: #fdf3e6;
+
+  /* States. Recording: an armed track, a slot being recorded into. */
+  --play: #17803f;
+  --play-soft: rgba(23, 128, 63, 0.12);
+  --queued: #8a6d00;
+  --queued-soft: rgba(214, 170, 0, 0.22);
+  --record: #c42b28;
+  --danger: #c42b28;
+  --danger-soft: rgba(196, 43, 40, 0.12);
+  --warning: #a3521c;
+
+  /* Editors: grid lines (bar, beat, step), shaded rows, notes, wires, the spectrogram (quiet to loud). */
+  --grid-bar: rgba(20, 24, 32, 0.28);
+  --grid-beat: rgba(20, 24, 32, 0.13);
+  --grid-step: rgba(20, 24, 32, 0.06);
+  --grid-shade: rgba(20, 24, 32, 0.05);
+  --note: #f0a12e;
+  --note-selected: #ffd27a;
+  --note-outline: rgba(20, 24, 32, 0.45);
+  --note-text: rgba(0, 0, 0, 0.75);
+  --wire: #3566cc;
+  --spectrum-0: #f7f5ef;
+  --spectrum-1: #c9b6e8;
+  --spectrum-2: #8a3fa8;
+  --spectrum-3: #3f1458;
+  --spectrum-4: #0c0414;
+
+  /* Meters, low to high. */
+  --meter-low: #17803f;
+  --meter-mid: #b08a00;
+  --meter-high: #c42b28;
+
+  /* Signal kinds (ADR-0003), for ports and wires once ports have kinds (the engine PI). */
+  --signal-audio: #3566cc;
+  --signal-pitch: #8a3fb0;
+  --signal-mod: #0b7d6c;
+  --signal-gate: #b8501f;
+  --signal-notes: #17803f;
+  --signal-control: #5b616c;
+
+  /* Switching parts off (ADR-0008): off, bypassed, dormant, sleeping. */
+  --state-off: #555b66;
+  --state-bypass: #8a6d00;
+  --state-dormant: #7d838f;
+  --state-sleeping: #3566cc;
+  --inactive-opacity: 0.45;
+
+  /* Track groups' colours, by the names in core's GROUP_COLOURS. */
+  --group-red: #c93a33;
+  --group-orange: #b85a14;
+  --group-yellow: #8f7400;
+  --group-green: #2f8a34;
+  --group-teal: #16806f;
+  --group-blue: #2f6fd0;
+  --group-purple: #8048cc;
+  --group-pink: #b8407c;
+}

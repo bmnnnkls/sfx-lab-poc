@@ -84,7 +84,7 @@
 
 .splitter:hover,
 .splitter:focus-visible {
-  background: var(--accent);
+  background: var(--focus-ring);
   outline: none;
 }
 
@@ -190,7 +190,7 @@
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--panel);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
+  box-shadow: var(--shadow-1);
 }
 
 .editorSettings {
@@ -220,7 +220,7 @@
 }
 
 .overview:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 1px solid var(--focus-ring);
   outline-offset: -1px;
 }
 
@@ -274,7 +274,7 @@
 }
 
 .markLane:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -326,7 +326,7 @@
 }
 
 .detail:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -428,4 +428,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* A button with an icon keeps the row's height: no line box under the icon. */
+.editorToolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }

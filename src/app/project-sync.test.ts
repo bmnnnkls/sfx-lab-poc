@@ -15,7 +15,7 @@ it('keeps startup failure visible in app state and unsubscribes on disconnect', 
   const failureListeners = new Set<(error: Error) => void>()
   const host = {
     send: vi.fn(),
-    recordingBeat: () => undefined,
+    recordingPosition: () => undefined,
     onStatus: () => () => {},
     onFailure: (listener: (error: Error) => void) => {
       failureListeners.add(listener)

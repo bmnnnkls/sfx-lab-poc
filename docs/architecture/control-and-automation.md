@@ -51,7 +51,8 @@ folder has nothing to control: its targets are missing, "The group has no bus". 
 on a return. Panel controls, MIDI learn, snapshots and presets (`SnapshotScope { owner: group, domain: 'fx' }`), sample
 bindings, the bounce and automation on the arrangement's timeline (below) reach a bus. A group has no clips or session
 cells to hold a lane, so the clip and slot parsers keep refusing a group owner with their unsupported-owner warning,
-*Show automation in clip* is not offered on a group's control, and touch on one authors its base. `ungroup`,
+*Show automation in clip* is not offered on a group's control, and touch on one authors its base in the Session; while
+the arrangement plays it records into the bus's timeline lanes ([touch](#touch-automation-recording)). `ungroup`,
 `removeGroup` and a group losing its last track drop the control values, mappings and timeline lanes its bus owned;
 switching the bus off keeps them, unavailable, for undo.
 
@@ -183,7 +184,10 @@ master and groups with a bus (`core/automation/timeline.ts`).
 * **Which lane plays.** In arrangement mode, per target, at most one source: a timeline lane of its owner while it is
   enabled and has points; else a lane of the region playing on its track at the beat (the newest start under it),
   evaluated at the region's phase, wrapped while it loops up to its loop end; else the base. In session mode timeline
-  and region lanes don't play. A region moved to another track has its own lanes' owner rewritten (`movedTo`), as a
+  and region lanes don't play. A timeline lane takes its target **for the whole song**, not only between its first and
+  last point: outside them it holds its first or last value, and a region's own lane on the same target is silent
+  everywhere. So the first touch take on a target a region automates silences that region's lane; touch's feedback
+  says so. A region moved to another track has its own lanes' owner rewritten (`movedTo`), as a
   session clip's.
 * **Engine.** `compileTimelineAutomation(project)` compiles the owners' lanes and every region's own lanes (with
   start, end or loop end, and clip length) against the current specs, and the note graphs they need;
@@ -248,9 +252,14 @@ instrument track: a third kind of control target, `{ kind: 'expression', owner, 
 
 ## Touch automation recording
 
-`state/touch-store` owns explicit transient arm, per-gesture/source takes, target ownership and feedback. The common
-control gesture (including the session header volume slider) intercepts armed edits only when that owner's instrument/audio clip or return/master slot is actually
-playing. Selection cannot redirect capture. Learned MIDI enters after effective-value pickup; competing sources are
+`state/touch-store` owns explicit transient arm, per-gesture/source takes, target ownership and feedback.
+`touchDestination` has one branch per mode: in the Session, the owner's instrument/audio clip or return/master slot
+that is actually playing; while the arrangement plays (`EngineStatus.mode`), the owner's timeline lane for the target,
+for every owner `timelineOwnerAllowed` admits (tracks, returns, the master, groups with a bus), created on the first
+sample ([below](#touch-into-the-timeline)). A folder has neither: its controls author their base, and the feedback says
+to give the group a bus. The common control gesture (including the session header volume slider, the mixer's and the
+group header's bus controls, panels, pinned panels and the graph editor) intercepts armed edits only when the owner has
+a destination. Selection cannot redirect capture. Learned MIDI enters after effective-value pickup; competing sources are
 refused on a touched target. Native UI/MIDI event timestamps pass through the gesture path. Pointer/key release,
 cancellation, unmount, disarm and re-enable finish; wheel/CC inactivity finishes after 800 ms. Disconnect finishes
 valid takes. Document-epoch replacement cancels and disarms; incompatible, removed or resized destinations discard
@@ -268,8 +277,10 @@ render frames, animation callbacks and status message arrival times never advanc
 return no recording clock. Timing precision follows the render quantum and browser timestamp precision. Web Audio
 and native Event timestamps were checked via Context7 official Web Audio and MDN docs on 2026-10-17.
 
-`core/automation/record` splits absolute capture beats at loop wraps and applies spans in chronological order. Later
-passes replace only their own touched regions. Original values/interpolation outside the span are retained with 1e-7
+`core/automation/record`'s `applyTouch(lane, samples, span, base)` splits absolute capture beats at the passes of its
+span (pass 0 from `offset`, each `length` long, the lane's points over `[0, extent]`; a clip's span is
+`{ offset: 0, length, extent: length }`) and applies them in chronological order. Later passes replace only their own
+touched regions. Original values/interpolation outside the span are retained with 1e-7
 beat boundary guards; a new lane uses the normalized saved base around its span. Iterative linear simplification has
 a tested 0.002 vertical normalized error bound and preserves endpoints/hold transitions. Takes stop after 256 beats,
 64 targets or a bounded 16,384-sample raw buffer; saved limits remain 64 lanes and 2048 points per lane. Point overflow
@@ -277,3 +288,36 @@ rejects the whole take, preserving the project. Captured lanes become enabled. S
 project/history/autosave; release commits all gesture targets and loop passes once, then releases overrides to Read.
 Format v5 already stores the resulting lanes, so this slice needs no migration. Playback/offline rendering keep the
 same evaluator, including the known extra CPU cost of sample-sized note-graph automation scheduling.
+
+### Touch into the timeline
+
+* **Take time.** A timeline capture keeps its samples in take time, `beat + lap × brace length`, within the run it
+  began in, so a take only goes forward across loop jumps, as MIDI recording's do. The touch clock reads positions
+  (`ClockPosition`: beat, loop pass, run) from `AudioHost.recordingPosition` through `setTouchClock`;
+  `touchBeatNow` is the position's beat, and a reader that gives only a beat takes the status's run and pass. The
+  brace counts when the take began before its end; played from past it, the transport never jumps.
+* **Writing a take.** `applyTimelineTouch` writes it into the owner's lane for the target: with no brace, one pass over
+  `[0, MAX_TIMELINE_BEATS]` in song beats; with the brace, what came before its start straight, and the rest by passes
+  of the brace (`applyTouch` with the span `{ offset: from, length: to − from, extent: MAX_TIMELINE_BEATS }`), the last
+  pass winning where passes overlap, into one lane and one undo step (`setTimelineLanes`). The clip's guards,
+  simplification and limits hold: 256 beats of take time, 64 targets a take, 64 lanes an owner and 2048 points a lane,
+  a take past them refused whole.
+* **Ending a take.** At release and at ■, where the transport is. At its last sample on a seek (a later run, in the
+  status or in the next sample), a change of the brace, or a switch between Session and Arrangement, each named in
+  the feedback ("Touch take saved; the transport jumped", "…; the loop changed", "…; playback switched"); a sample of an
+  earlier run is dropped. A run is compared one way, since the clock's anchors can be ahead of the 30 Hz status. A
+  control still held records on into a new take. An owner no longer allowed (its bus switched off, its track removed)
+  discards the take ("Touch destination changed; take discarded"). A session take ends at its last sample when the
+  arrangement starts.
+* **Feedback.** "Touch → timeline" while recording in the arrangement, "Touch take saved to the timeline" after, with
+  "· replaces the region's lane on this control" when a region on the track has its own lane on the target. A take that
+  adds a lane opens the owner's lanes (`setTimelineLanesOpen`, a view field, outside the undo step); a lane's header
+  shows ● while touch records its target. The arm's tooltip and the effective-value hint name the arrangement.
+* **Armed recall.** A preset or snapshot recalled while touch is armed and the arrangement plays writes its steps into
+  the owners' timeline lanes at the song beat (`stepRecallLane` over the timeline's bound, no passes), in the recall's
+  one undo step, opening the lanes it adds.
+* **The engine** plays a take as any timeline lane; nothing in it is touch's.
+* **Tests.** `state/touch-arrangement.test.ts` (destinations for every owner kind in both modes, passes, the brace,
+  each way a take ends, the limits, undo); `timeline/touch-arrangement.smoke.spec.ts`; and on the real worklet
+  `audio/touch-arrangement.audio.spec.ts`, a bus fader and a track fader over two loop passes played back after a
+  reload against the bounce of the saved project.

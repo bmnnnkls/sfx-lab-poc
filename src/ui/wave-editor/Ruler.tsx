@@ -1,14 +1,18 @@
 import { frameCount } from '@core'
 import { type WaveAudio, useWaveEditorStore } from '@state'
 import { type RefObject, useEffect, useRef } from 'react'
+import { useThemeColors } from '../theme/theme-colors'
 import { currentView } from './current-view'
 import { type RulerMode, rulerTicks } from './ruler-ticks'
 import styles from './WaveEditor.module.css'
+
+const COLORS = ['--text-dim'] as const
 
 /** Time or bars and beats over the detail, redrawn with it (not by React) when the view moves. */
 export const Ruler = ({ wave, detail, mode, bpm }: { wave: WaveAudio; detail: RefObject<HTMLDivElement | null>; mode: RulerMode; bpm: number }) => {
   const canvas = useRef<HTMLCanvasElement>(null)
   const { viewKey, audio } = wave
+  const colors = useThemeColors(COLORS)
 
   useEffect(() => {
     let request = 0
@@ -23,9 +27,8 @@ export const Ruler = ({ wave, detail, mode, bpm }: { wave: WaveAudio; detail: Re
       element.width = Math.round(width * ratio)
       element.height = Math.round(height * ratio)
       context.setTransform(ratio, 0, 0, ratio, 0, 0)
-      const style = getComputedStyle(element)
-      context.fillStyle = style.getPropertyValue('--text-dim').trim() || '#888'
-      context.font = `10px ${style.fontFamily}`
+      context.fillStyle = colors['--text-dim']
+      context.font = `10px ${getComputedStyle(element).fontFamily}`
       context.textBaseline = 'top'
       for (const tick of rulerTicks(currentView(detail.current, wave), audio.sampleRate, mode, bpm)) {
         context.fillRect(Math.round(tick.x), 0, 1, height)
@@ -46,7 +49,7 @@ export const Ruler = ({ wave, detail, mode, bpm }: { wave: WaveAudio; detail: Re
       observer.disconnect()
       if (request) cancelAnimationFrame(request)
     }
-  }, [wave, audio, viewKey, detail, mode, bpm])
+  }, [wave, audio, viewKey, detail, mode, bpm, colors])
 
   return <canvas ref={canvas} className={styles.ruler} data-ruler={mode} aria-label={mode === 'time' ? 'Time ruler' : 'Beats ruler'} role="img" />
 }

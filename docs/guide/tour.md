@@ -9,7 +9,8 @@ The window is a workbench in the spirit of VS Code. The **activity bar** on the 
 editor and Library. The **primary sidebar** holds Samples, Library and Tracks. The **secondary sidebar** holds Sounds
 and Pinned. The **panel** under the editor area holds Instrument, Effects, Notes, Clip and Mixer. Drag any tab to dock
 it elsewhere, and save the arrangement from **View → Layouts**, which also has four built-in layouts (*Compose*,
-*Arrange*, *Sound design*, *Mix*).
+*Arrange*, *Sound design*, *Mix*). **View → Theme** switches between Dark, Light and High contrast, kept in this
+browser.
 
 ## Play
 

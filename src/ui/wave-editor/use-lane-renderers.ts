@@ -1,7 +1,8 @@
 import { type WaveLanes, useWaveEditSettings } from '@state'
 import { useMemo } from 'react'
 import { type LanePart, type LaneRenderers, laneParts, waveformRenderer } from './lane-renderers'
-import { frequencyAt, frequencyY, spectrogramRenderer } from './spectrogram'
+import { useThemeColors } from '../theme/theme-colors'
+import { SPECTRUM_TOKENS, frequencyAt, frequencyY, spectrogramRenderer } from './spectrogram'
 
 /** The spectrogram's frequency scale in a part `height` px high: a frequency's row, and the frequency at a row. */
 export interface FrequencyScale {
@@ -15,8 +16,13 @@ export const useLaneRenderers = (sampleRate: number): { lanes: WaveLanes; parts:
   const lanes = useWaveEditSettings((state) => state.lanes)
   const scale = useWaveEditSettings((state) => state.spectrum.scale)
   const floorDb = useWaveEditSettings((state) => state.spectrum.floorDb)
+  const spectrum = useThemeColors(SPECTRUM_TOKENS)
   const parts = useMemo(() => laneParts(lanes), [lanes])
-  const renderers = useMemo<LaneRenderers>(() => ({ waveform: waveformRenderer, spectrogram: spectrogramRenderer({ scale, floorDb }, sampleRate) }), [scale, floorDb, sampleRate])
+  // Made again when the theme changes, which also redraws the lanes (they redraw when the renderers do), and its color table is per theme and floor.
+  const renderers = useMemo<LaneRenderers>(
+    () => ({ waveform: waveformRenderer, spectrogram: spectrogramRenderer({ scale, floorDb }, sampleRate, SPECTRUM_TOKENS.map((token) => spectrum[token])) }),
+    [scale, floorDb, sampleRate, spectrum],
+  )
   const frequencies = useMemo<FrequencyScale>(() => {
     const nyquist = sampleRate / 2
     return {

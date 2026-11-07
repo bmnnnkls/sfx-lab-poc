@@ -27,6 +27,9 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 * **Moving an automated control right after ▶ authors its base.** A gesture overrides a control only once the status
   reports its lane playing (`playback` readouts), up to 33 ms after ▶; a spec waits for the mixer's *Read:* first.
   *(round 12c)*
+* **Touch right after ▶ *Arrangement* authors the base too.** Until the first status of the run reports the
+  arrangement playing, no owner has a destination; a spec waits for the mixer's "Touch unavailable: no active
+  destination" marks (a dim ○, found by label) to go before it holds a control. *(round 12d)*
 * **A focus given from a menu entry is taken back** as the menu closes, unless the action says `takesFocus`; and an
   element in a view revealed in the same update is still hidden when its effect runs, so it tries for a few frames
   (*Show automation on timeline*). *(round 12c)*
@@ -118,6 +121,13 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
 
 ## Architecture
 
+* **`finishTouch(source)` ends a take where the transport is now; `finishTouch(source, null)` at its last sample.**
+  Passing an `undefined` boundary means "now" (the default), not "nowhere". A number is a clip's absolute beat, but a
+  timeline take's take time (`beat + lap × brace length`), so pass a position (`touchPositionNow`) from outside the
+  store. *(round 12d)*
+* **A test status must reconcile before it is set**, as `project-sync` does (`reconcileTouches(status)`, then
+  `setStatus`): touch compares the new status with the one in the store to find a launch boundary, and a status whose
+  `run` is later than a take's ends it as a seek. *(round 12d)*
 * **A selector must not return a new empty list.** `timelineLanesOf` returns one constant for an owner without lanes; a
   fresh `[]` each call makes a store selector loop. *(round 12c)*
 * **`core/automation` reaches `core/project` through its index only**, values included (`MAX_TIMELINE_BEATS`): the

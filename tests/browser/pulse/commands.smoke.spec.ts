@@ -94,14 +94,14 @@ test("a graph's selection answers Delete, undo, Duplicate, and Copy and Paste at
 test('a focused session clip answers Delete and F2', async ({ page }) => {
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
-  await session.getByRole('button', { name: '▶ Root', exact: true }).focus()
+  await session.getByRole('button', { name: 'Play Root', exact: true }).focus()
   await page.keyboard.press('F2')
   const field = session.getByRole('textbox', { name: 'Name of Root', exact: true })
   await expect(field).toBeFocused()
   await page.keyboard.press('Escape')
-  await session.getByRole('button', { name: '▶ Walk', exact: true }).focus()
+  await session.getByRole('button', { name: 'Play Walk', exact: true }).focus()
   await page.keyboard.press('Delete')
-  await expect(session.getByRole('button', { name: '▶ Walk', exact: true })).toHaveCount(0)
+  await expect(session.getByRole('button', { name: 'Play Walk', exact: true })).toHaveCount(0)
 })
 
 test("Delete with the focus in the Mixer and a track selected deletes nothing, and ⌘Z in a field isn't the project's", async ({ page }) => {
@@ -117,20 +117,20 @@ test("Delete with the focus in the Mixer and a track selected deletes nothing, a
 
   // A project edit, then ⌘Z typed in the project's name: the edit stays.
   await openView(page, 'Session')
-  await session.getByRole('button', { name: '▶ Walk', exact: true }).focus()
+  await session.getByRole('button', { name: 'Play Walk', exact: true }).focus()
   await page.keyboard.press('Delete')
-  await expect(session.getByRole('button', { name: '▶ Walk', exact: true })).toHaveCount(0)
+  await expect(session.getByRole('button', { name: 'Play Walk', exact: true })).toHaveCount(0)
   const name = page.getByLabel('Project name', { exact: true })
   await name.click()
   await page.keyboard.type('x')
   await page.keyboard.press('ControlOrMeta+z')
-  await expect(session.getByRole('button', { name: '▶ Walk', exact: true })).toHaveCount(0)
+  await expect(session.getByRole('button', { name: 'Play Walk', exact: true })).toHaveCount(0)
 })
 
 test('⌘K opens the palette: a typed command runs, and Escape closes it with the focus back where it was', async ({ page }) => {
   await page.goto('/?starter')
   const session = await openView(page, 'Session')
-  const root = session.getByRole('button', { name: '▶ Root', exact: true })
+  const root = session.getByRole('button', { name: 'Play Root', exact: true })
   const palette = page.getByRole('dialog', { name: 'Commands', exact: true })
   await root.focus()
   await page.keyboard.press('ControlOrMeta+k')
