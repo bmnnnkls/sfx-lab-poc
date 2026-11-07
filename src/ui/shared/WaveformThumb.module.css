@@ -19,7 +19,7 @@
   display: grid;
   place-items: center;
   font-size: 11px;
-  color: #ff9a6b;
+  color: var(--danger);
 }
 
 .thumb[data-status='loading'] .message {

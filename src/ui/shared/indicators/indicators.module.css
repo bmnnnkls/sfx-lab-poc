@@ -20,17 +20,18 @@
 
 .led {
   --glow: 0;
+  --led: var(--play);
   width: 18px;
   height: 18px;
   flex: none;
   border-radius: 50%;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--led, #3ddc84) calc(var(--glow) * 100%), var(--bg));
-  box-shadow: 0 0 calc(var(--glow) * 10px) calc(var(--glow) * 2px) color-mix(in srgb, var(--led, #3ddc84) 70%, transparent);
+  background: color-mix(in srgb, var(--led) calc(var(--glow) * 100%), var(--bg));
+  box-shadow: 0 0 calc(var(--glow) * 10px) calc(var(--glow) * 2px) color-mix(in srgb, var(--led) 70%, transparent);
 }
 
 .led[data-colour='green'] { --led: var(--play); }
-.led[data-colour='red'] { --led: #ff5d5d; }
+.led[data-colour='red'] { --led: var(--danger); }
 .led[data-colour='amber'] { --led: var(--accent); }
 .led[data-colour='blue'] { --led: var(--wire); }
 

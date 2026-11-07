@@ -68,8 +68,8 @@
 .hintClose:hover, .hintClose:focus-visible { color: var(--text); }
 
 /* Bundle review. */
-.dialog { width: 440px; max-width: calc(100% - 32px); max-height: calc(100% - 64px); padding: 0; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55); }
-.dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+.dialog { width: 440px; max-width: calc(100% - 32px); max-height: calc(100% - 64px); padding: 0; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-3); }
+.dialog::backdrop { background: var(--scrim); }
 .dialogForm { display: grid; gap: 10px; padding: 16px; }
 .dialogForm h2 { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
 .dialogForm p { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
