@@ -1,15 +1,16 @@
 ---
-status: signed off
+status: done
 date: 2026-11-07
-note: "Round 13a: the UI foundations that the engine PI's new UI is built on (tokens, no hard-coded colours, themes, one icon set, shared control states). Dark looks as it does today. No engine or format change."
+shipped_in: architecture/workbench.md
+note: "Done 2026-11-07 on feat/ui-themes-1. Round 13a: the UI foundations that the engine PI's new UI is built on (tokens, no hard-coded colours, themes, one icon set, shared control states). Dark looks as it does today. No engine or format change."
 ---
 # Round 13a: UI foundations
 
-Status: **signed off** 2026-11-07, every decision as proposed. Written 2026-11-07. Part of the
-[UI redesign](ui-redesign-roadmap.md#round-13a-ui-foundations-before-the-engine-pi). The inventory was taken on
+Status: **done** 2026-11-07; the plan was signed off 2026-11-07, every decision as proposed. Written 2026-11-07. Part of the
+[UI redesign](../../active/ui-redesign-roadmap.md#round-13a-ui-foundations-before-the-engine-pi). The inventory was taken on
 `feat/ui-themes-1`, branched from `feat/round-12d-touch-arrangement` at `9b93d1b` (format v15).
 
-It comes before the [engine-improvements PI](REPORT-engine-gaps.md#order-with-the-redesign) and round 13b. The PI adds
+It comes before the [engine-improvements PI](../../active/REPORT-engine-gaps.md#order-with-the-redesign) and round 13b. The PI adds
 UI: power and bypass controls on nodes, dormant and sleeping states, routing nodes, modulation routes. That UI should be
 built on tokens, icons and shared states from the start, not migrated afterwards. 13b tunes the look once that UI
 exists.
@@ -458,3 +459,66 @@ runs all of them.
 | 10 | Signal-kind colours | **Tokens only;** wires stay one colour until the PI gives ports kinds |
 | 11 | Gallery | **Dev builds only,** behind `?gallery`, with an unchecked screenshot per theme |
 | 12 | `var()` fallbacks | **Refused** by the literal check |
+
+## Changes made while implementing
+
+Steps 1, 3, 4 and 7 were done by agents in their own worktrees and merged; steps 2, 5, 6, 8, 9 and 10 directly.
+
+* **Step 1.** The baseline is 11 Dark screenshots of the Low Light example at 1440×900 (scripts and images in the
+  session's scratchpad, not committed). `Math.random` is seeded in the shots, because the Instrument's *Seed* field
+  changes on every load.
+* **Step 3.**
+  * The `var()` fallback check refuses fallbacks on **theme tokens** only. `WaveformThumb` sets its width as
+    `var(--thumb-width, Npx)` on purpose, so the Samples list can override it; a layout property may keep one.
+  * Five non-colour fallbacks went anyway: three were always set inline, `--drop-at` got a default on `.row`, and
+    `--knob-max` a default on `:root` (a default on `.knob` would hide the value an ancestor sets).
+  * The reds merged into `--danger`: the menu's danger item (`#ff8a8a`), the red LED (`#ff5d5d`), the mixer meter's top
+    (`#e5484d`) and the waveform thumbnail's error text (`#ff9a6b`). The shadows snapped to three steps; the wave
+    editor's popover shadow is the one that moved most (30 % to 45 %).
+  * TypeScript 7 has no compiler API, so the literal check reads strings, templates and comments with a small tokenizer
+    of its own.
+* **Step 4.** `spectrogramRenderer` takes the stops as an argument; `use-lane-renderers.ts`, its only caller, rebuilds
+  it per theme and floor. `parseHex` reads a missing token as black, so a draw never throws.
+* **Step 5.** The theme is **one command with three choices** (`view.theme`, checked, its own *View ▸ Theme* submenu)
+  plus *Next theme* (`view.theme.next`), not three commands: checked menu items are a command's choices in this
+  codebase. A choice can't take a key, so *Next theme* is the bindable one.
+* **Step 6.**
+  * Light and High contrast passed the contrast test with their first values; the thinnest margin is Light's
+    `--border-strong` and `--state-dormant` at 3.04:1.
+  * The pass through the views found **flexlayout's selected tab painted in `--border`**, light grey in High contrast,
+    under a yellow title (1.5:1). It now has a token of its own, `--tab-selected` (Dark's value unchanged), checked
+    against the accent in every theme.
+  * High contrast's wider focus ring is set in `scales.css` under `[data-theme='contrast']`, so the theme files keep
+    the same set of colour tokens.
+* **Step 7.**
+  * Lucide 1.70 has a **metronome**, so only the low-pass and bypass icons are ours. Three Lucide names differ from the
+    plan's list: `list-music` (note effect), `file-headphone` (audio clip), `triangle-exclamation-point` (warning).
+    `eye`, `eye-off` and `reset` were added for the Tracks view's hide toggle, a panel cell's *Hide*, and a parameter's
+    reset.
+  * The node header's ⊶ (show or hide the sockets) is `modulation`, a wire between two sockets.
+  * The × buttons that delete, close or dismiss became the `close` icon too (about 14).
+  * Kept as text: the `+` add buttons (the `add` icon is unused so far), the recalled-preset ● and the preset • in the
+    Library (no icon means "recalled" or "preset"), and every glyph in prose, titles and key labels.
+  * The wave editor's toolbar buttons are `inline-flex`, so icon-only buttons don't make it taller (a view-size spec
+    caught 0.125 px of overflow).
+* **Step 8.**
+  * The 24 component focus rules use `--focus-width` and `--focus-ring` (Dark unchanged, High contrast's ring reaches
+    them); the two identical to the shared ring were removed.
+  * The `.active` classes stay: they mean the active row of a list (palette, picker, library), the active wave pane,
+    and the transport's green "running" look, none of them the shared "on".
+* **Step 9.**
+  * The gallery is **in every build** as its own chunk, loaded only with `?gallery`, not in dev builds only: the smoke
+    specs run against the production build.
+  * Against the baseline, Dark differs in: the icons; the transport bar, 4 px shorter (icons are shorter than the glyph
+    line), which moves everything under it; the MIDI settings dialog; the merged reds and shadows; disabled buttons
+    dimmed. The session slots' ✎ and × were wider as icons and cut clip names shorter; the slots' icon buttons now
+    have 12 px icons and narrow padding, so names have more room than before.
+  * Native range inputs (the mixer's and session's faders) keep the browser's blue in every theme: an `accent-color`
+    would change Dark. Left to 13b.
+
+**Verified:** typecheck; 3540 unit tests (1 skipped), including the architecture checks, the contrast test, the theme store and
+commands, the colour helper, the spectrogram's lookup and `Icon`; all smoke groups and the audio specs (299 passed)
+after the icons were merged; the workbench group again after the last token change; the baseline comparison in Dark,
+and screenshots of Session, Arrangement and Mixer in Light and High contrast, by eye. **Not verified:** a hand pass
+(keyboard focus everywhere, every view in each theme, Firefox and Safari for the inline script and `color-scheme`):
+BACKLOG V16.

@@ -1,6 +1,7 @@
 # The workbench
 
-The docking shell, views and layouts, actions and context menus, commands and keys, and drag and drop.
+The docking shell, views and layouts, actions and context menus, commands and keys, drag and drop, and themes, tokens
+and icons.
 
 ## Layout and navigation
 
@@ -556,3 +557,58 @@ group into itself or deeper than four levels, and a move that would make the mix
 * **Not yet.** Dragging regions out of the arrangement, drops that make tracks, files outside Samples and the Library,
   library samples, several things at once outside the Library, keyboard and touch drags (the menus cover both), and popout windows (turned off). Checked
   in Chromium only.
+
+## Themes, tokens and icons
+
+Round 13a ([plan](../archive/ui-redesign/PLAN-round-13a-ui-foundations.md)). Every colour comes from a token, three
+themes define the tokens, one icon set draws every icon, and controls share their states' looks.
+
+* **Files** (`src/ui/theme/`, imported in order by `ui/theme.css`):
+  * `scales.css`: tokens that are the same in every theme: spacing (`--space-1…6`), type sizes (`--font-xs…lg`),
+    radii, motion durations, `--icon-stroke`, `--focus-width` (wider in High contrast);
+  * `dark.css` (`:root` and `[data-theme='dark']`), `light.css`, `contrast.css`: every colour token, by role;
+  * `base.css`: the page's font and colours, the base look of buttons and fields, and the shared states.
+* **Roles.**
+  * Surfaces: `--bg`, `--panel`, `--panel-raised`, `--sunken`, `--overlay`, `--scrim`, `--shadow-1…3`, `--shadow-edge`.
+  * Text: `--text`, `--text-dim`, `--text-disabled`, `--text-on-accent`.
+  * Lines: `--border`, `--border-strong` (a control's boundary), `--focus-ring`.
+  * Accent: `--accent`, `--accent-soft`, `--selection`.
+  * States: `--play`, `--queued`, `--record`, `--danger`, `--warning`, with `-soft` tints.
+  * Editors: grid lines, notes, `--wire`, the spectrogram's `--spectrum-0…4`, the meters'.
+  * Signal kinds (`--signal-*`, ADR-0003) and switching states (`--state-*`, `--inactive-opacity`, ADR-0008), unused
+    until the engine PI.
+  * The track groups' `--group-*`.
+
+  A tint of a token is `color-mix(in srgb, var(--token) 12%, transparent)`, so it follows the theme.
+* **The rules** (`tests/architecture.test.ts`):
+  * no colour literals (hex, `rgb()`, `hsl()`, named colours) in CSS, TS or TSX outside the theme files;
+  * no `var()` fallback on a theme token (a layout property may have one, for a container to override);
+  * every theme file defines the same tokens as `dark.css`;
+  * every custom property read is defined somewhere.
+
+  `src/ui/theme/contrast.test.ts` holds each theme to WCAG ratios: text 4.5:1 (High contrast 7:1), the accent, states,
+  boundaries, focus ring, signal kinds and group colours 3:1 (High contrast 4.5:1). Dark's one shortfall, `--text-dim`
+  on `--panel-raised` (4.19:1), is recorded there for round 13b.
+* **Choosing a theme.** `theme/theme.ts` keeps `'dark' | 'light' | 'contrast'` per browser (`sfxlab:theme`) and
+  writes `data-theme` on `<html>`; an inline script in `index.html` sets it before the app loads, so a saved theme
+  doesn't flash Dark. *View ▸ Theme* (`view.theme`, a command with three checked choices) and *Next theme*
+  (`view.theme.next`, bindable) change it.
+* **Canvas.** A canvas can't use `var()`, so it reads tokens through `theme/theme-colors.ts`: `useThemeColors(names)`
+  in a component (a new object only when the theme changes, so it goes in the drawing effect's dependencies) and
+  `themeColors(names)` elsewhere, cached per theme. The spectrogram's colour table is built from `--spectrum-0…4`
+  (`colorLookup(floorDb, stops)`).
+* **Icons.** `<Icon name size? label? filled? />` (`ui/shared/icon/`) draws a shape from `ICONS` in the text's colour
+  with `--icon-stroke`, 16 px in toolbars and 14 px in rows. It is hidden from assistive technology unless it has a
+  `label`; a button with an icon names itself (`aria-label`, or a word beside the icon). The shapes are Lucide's
+  (lucide-static 1.70.0, ISC, `LICENSE-lucide`) copied as data, plus our own on the same grid (low-pass, bypass); a
+  name says what the icon means here (`record`, `category-filters`), not what it shows. Key symbols (⌘ ⇧ ⌥) and arrows
+  in prose stay text.
+* **Shared states** (`base.css`): pressed, on (`aria-pressed`, `aria-checked`, `data-on`), selected
+  (`aria-selected`, `data-selected`), disabled and the focus ring, for every `button` and anything marked `.control`.
+  They are written with `:where()`, so a component's own class wins; a component styles a state itself only when it
+  differs on purpose. Parts switched off carry `data-power="off" | "bypass" | "dormant" | "sleeping"` (ADR-0008),
+  which dims them and sets `--power-colour` for the state's icon.
+* **The gallery.** `?gallery` renders `theme/gallery/Gallery.tsx` instead of the app: every token with its contrast
+  against `--panel`, the scales, the icons, and the controls in every state, in the theme picked at its top. It is
+  its own chunk, loaded only there. `tests/browser/workbench/themes.smoke.spec.ts` checks it in each theme and saves a
+  screenshot of each for review.

@@ -1,7 +1,7 @@
 ---
 status: active
 date: 2026-11-06
-note: "Rounds 1-12 are done (12, the arrangement editor, in four parts: 12a to 12d); 13 (visual refresh) comes next, 13a before the engine PI and 13b after it."
+note: "Rounds 1-12 and 13a are done (12, the arrangement editor, in four parts: 12a to 12d; 13a, the UI foundations, 2026-11-07); the engine PI comes next, then 13b."
 ---
 # UI redesign roadmap (draft)
 
@@ -375,7 +375,8 @@ should be built on tokens, and the visual design should be tuned once that UI ex
 ### Round 13a: UI foundations (before the engine PI)
 
 What new UI must be built on, without redesigning anything. Dark stays the default and looks as it does today.
-Planned in [PLAN-round-13a-ui-foundations](PLAN-round-13a-ui-foundations.md) (signed off 2026-11-07).
+**Done** 2026-11-07, see the [plan](../archive/ui-redesign/PLAN-round-13a-ui-foundations.md) and its notes; the outline below is what
+the round started from.
 
 * **Design tokens** in `theme.css`, on top of today's variables:
   * colour roles: surfaces (background, panel, raised, sunken), text (normal, dim, disabled), borders, accent, focus

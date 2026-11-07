@@ -42,13 +42,16 @@ Its parts: 12a (headers and the timeline frame), 12b (markers and the loop, v13)
 v14) and 12d, from one [spec](archive/ui-redesign/SPEC-round-12-arrangement-editor.md)
 ([archive/ui-redesign](archive/ui-redesign/README.md)). Its hand pass is BACKLOG V11.
 
-1. **Round 13a: UI foundations**, next (design tokens, no hard-coded colours, the theme mechanism with light and
-   high-contrast token sets, one icon set, shared control states;
-   [roadmap](active/ui-redesign-roadmap.md#round-13a-ui-foundations-before-the-engine-pi)).
-2. **The engine-improvements PI** ([report](active/REPORT-engine-gaps.md), BACKLOG X1). It starts by accepting the
+**Round 13a, the UI foundations, is done** (2026-11-07, on `feat/ui-themes-1`, not yet merged;
+[plan](archive/ui-redesign/PLAN-round-13a-ui-foundations.md)): every colour is a token by role in `src/ui/theme/`,
+checked by architecture tests; *View ▸ Theme* switches between Dark (unchanged), Light and High contrast, kept per
+browser; one icon set replaces the text glyphs, with words as the buttons' names; controls share their states' looks,
+and `data-power` is ready for the PI's switched-off parts; `?gallery` shows it all. Its hand pass is BACKLOG V16.
+
+1. **The engine-improvements PI** ([report](active/REPORT-engine-gaps.md), BACKLOG X1). It starts by accepting the
    [ADR drafts](decisions/adr/README.md), written 2026-11-06 and all *proposed*. It prepares the flagship synth and
    its Factory library ([report](active/REPORT-flagship-synth.md), BACKLOG X2).
-3. **Round 13b: the design pass**, after the PI
+2. **Round 13b: the design pass**, after the PI
    ([roadmap](active/ui-redesign-roadmap.md#round-13b-the-design-pass-after-the-engine-pi)).
 
 Outside the redesign, [active/SPEC-effects-round-2.md](active/SPEC-effects-round-2.md) has parts 1–2 done, and

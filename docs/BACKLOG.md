@@ -10,11 +10,12 @@ Reconciled with the code on 2026-10-31 (`feat/ui-redesign` after round 11c, part
 
 Planned round by round. Each round gets a plan in [`active/`](active/) before it starts.
 
-- **U3a Round 13a: UI foundations**, next, before the engine PI: tokens, no hard-coded colours, the theme
-  mechanism with light and high-contrast token sets, one icon set, shared control states
-  ([roadmap](active/ui-redesign-roadmap.md#round-13a-ui-foundations-before-the-engine-pi)).
 - **U3b Round 13b: the design pass**, after the engine PI
-  ([roadmap](active/ui-redesign-roadmap.md#round-13b-the-design-pass-after-the-engine-pi)).
+  ([roadmap](active/ui-redesign-roadmap.md#round-13b-the-design-pass-after-the-engine-pi)). Left by 13a
+  ([notes](archive/ui-redesign/PLAN-round-13a-ui-foundations.md#changes-made-while-implementing)): Dark's `--text-dim`
+  on `--panel-raised` (4.19:1, an exception in `contrast.test.ts`); native range inputs in the browser's blue in every
+  theme (`accent-color`); the `+` add buttons as text; the Library's recalled ● and preset • marks; spacing and type
+  onto the scales.
 - **U4 Drops not done in round 6**: regions dragged out of the arrangement, drops that create tracks, OS files outside
   Samples and the Library, library samples, several things at once outside the Library (the Library's tree drags
   several items since library phase 7).
@@ -215,6 +216,11 @@ Things that shipped without the check their plan asked for.
   cost of a long take's per-bar lane writes and of live input's per-frame overrides with a real controller sending
   hundreds of messages a second.
 
+- **V16 Hand pass for the themes and icons** (round 13a), in Chrome, and Firefox and Safari once V3 is done: every
+  view in Dark, Light and High contrast for anything unreadable or a colour that didn't follow; *View ▸ Theme* and a
+  reload (no flash of Dark); keyboard focus through the transport, the activity bar, the session grid, the arrangement,
+  the graph editor and the panel, the ring visible on each; icons crisp at 1× and 2×; a screen reader on the slots
+  ("Play Root") and the icon-only buttons.
 ## MIDI
 
 - **M3 A track's MIDI input on its header or mixer strip**: it is set in MIDI settings only, and the header shows a tag.
