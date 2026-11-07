@@ -1,6 +1,9 @@
 import { useSampleStore } from '@state'
 import { useEffect, useRef } from 'react'
+import { useThemeColors } from '../theme/theme-colors'
 import styles from './WaveformThumb.module.css'
+
+const COLORS = ['--accent'] as const
 
 interface WaveformThumbProps {
   sampleId: string
@@ -16,6 +19,7 @@ export const WaveformThumb = ({ sampleId, width = 160, height = 32 }: WaveformTh
   const peaks = useSampleStore((state) => state.peaks[sampleId])
   const status = useSampleStore((state) => state.status[sampleId])
   const canvas = useRef<HTMLCanvasElement>(null)
+  const colors = useThemeColors(COLORS)
 
   useEffect(() => {
     const element = canvas.current
@@ -24,7 +28,7 @@ export const WaveformThumb = ({ sampleId, width = 160, height = 32 }: WaveformTh
     context.clearRect(0, 0, width, height)
     if (!peaks) return
 
-    context.fillStyle = getComputedStyle(element).getPropertyValue('--accent').trim() || '#f5a524'
+    context.fillStyle = colors['--accent']
     // One column per pixel: the loudest peak that falls under it, so any amount of detail draws cleanly.
     for (let x = 0; x < width; x++) {
       const from = Math.floor((x * peaks.length) / width)
@@ -34,7 +38,7 @@ export const WaveformThumb = ({ sampleId, width = 160, height = 32 }: WaveformTh
       const barHeight = Math.max(1, peak * height)
       context.fillRect(x, (height - barHeight) / 2, 1, barHeight)
     }
-  }, [peaks, width, height])
+  }, [peaks, width, height, colors])
 
   const message =
     status === 'missing' ? 'audio missing' : status === 'error' ? 'could not decode' : status === 'loading' ? 'loading…' : null
