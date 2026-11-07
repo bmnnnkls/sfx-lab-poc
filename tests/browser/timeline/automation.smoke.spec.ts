@@ -117,6 +117,43 @@ for (const surface of ['mixer', 'session']) test(`Touch records a held ${surface
   await expect(page.getByRole('button', { name: 'Mixer / volume', exact: true })).toBeVisible()
 })
 
+test('arming Touch, playing and an unavailable lane move nothing in the editor', async ({ page }) => {
+  const project = sweepProject(), track = project.tracks[0]!
+  if (track.kind !== 'instrument') throw new Error('Expected instrument')
+  const clip = track.clips[0]!
+  const foreign = { id: 'foreign', enabled: true, target: { kind: 'mixer' as const, owner: { kind: 'master' as const }, control: 'volume' as const }, points: [] }
+  const input = { ...project, tracks: [{ ...track, clips: [{ ...clip, automation: [...(clip.automation ?? []), foreign] }] }, ...project.tracks.slice(1)] }
+  await page.addInitScript(saved => localStorage.setItem('sfxlab:project', saved), serializeProject(input))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Edit Sweep clip', exact: true }).click()
+  await page.getByRole('button', { name: 'Automation', exact: true }).click()
+  const editor = page.locator('[data-automation-editor]')
+  const layout = () => Promise.all([editor.getByLabel('Automation grid'), editor.getByLabel('Automation zoom'), editor.getByRole('button', { name: 'Re-enable automation', exact: true }), editor.getByRole('button', { name: 'Copy', exact: true }), editor.getByRole('button', { name: 'Clear lane', exact: true }), editor.getByLabel('Paste beat'), editor.locator(':scope > div'), editor.getByRole('application', { name: 'Automation drawing area' })].map((l) => l.boundingBox()))
+  await expect(editor.getByText('Read', { exact: true })).toHaveCount(2)
+  const read = await layout()
+  expect(read.every(Boolean)).toBe(true)
+
+  // Armed with nothing playing, Touch has nowhere to record: a warning icon says so, and nothing moves.
+  await page.getByRole('button', { name: 'Arm Touch automation', exact: true }).click()
+  await expect(editor.getByText('Touch armed', { exact: true })).toBeVisible()
+  await expect(editor.getByRole('img', { name: /Touch unavailable here/ })).toBeVisible()
+  expect(await layout()).toEqual(read)
+
+  // A lane that can't play says why in an icon beside its mode, not in a longer label.
+  await page.getByRole('button', { name: /Unavailable:.*Mixer \/ volume/ }).click()
+  await expect(editor.getByRole('img', { name: /Unsupported automation owner/ })).toBeVisible()
+  expect(await layout()).toEqual(read)
+
+  // Playing the clip takes the warning away (the clip is where Touch records), still without a shift.
+  await page.getByRole('button', { name: 'Launch scene 1', exact: true }).click()
+  await expect(editor.getByRole('img', { name: /Touch unavailable here/ })).toHaveCount(0)
+  expect(await layout()).toEqual(read)
+
+  await page.getByRole('button', { name: 'Arm Touch automation', exact: true }).click()
+  await expect(editor.getByText('Touch armed', { exact: true })).toHaveCount(0)
+  expect(await layout()).toEqual(read)
+})
+
 test('empty keyboard Copy/Cut preserves the automation clipboard and foreign-owner lanes show diagnostics', async ({ page }) => {
   const project = sweepProject(true), track = project.tracks[0]!
   if (track.kind !== 'instrument') throw new Error('Expected instrument')

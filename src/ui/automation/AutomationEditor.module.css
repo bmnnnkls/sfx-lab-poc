@@ -1,5 +1,11 @@
 .editor { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+/* The track / clip name stays whole unless the row is too narrow for it. */
+.name { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The mode label ends the row and takes what it leaves over (its width never counts toward wrapping), so changing it moves nothing. */
+.status { display: flex; flex: 1 1 0; align-items: center; justify-content: flex-end; gap: 4px; min-width: 9ch; }
+.status > svg { color: var(--warning); }
+.status > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .toolbar label { display: inline-flex; align-items: center; gap: 6px; }
 .toolbar input[type=number] { width: 78px; }
 .body { display: flex; min-height: 0; flex: 1; }
