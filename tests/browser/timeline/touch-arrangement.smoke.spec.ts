@@ -20,6 +20,33 @@ const drag = async (page: Page, slider: ReturnType<Page['getByRole']>, dx: numbe
   await page.mouse.move(box.x + box.width * (0.5 + dx), box.y + box.height * (0.5 + dy), { steps: 8 })
 }
 
+/** The box of each locator, to compare before and after. */
+const boxes = (locators: ReturnType<Page['locator']>[]) => Promise.all(locators.map((locator) => locator.boundingBox()))
+
+test('arming Touch moves and resizes nothing: a mixer strip, the master, a session track header and their controls stay put', async ({ page }) => {
+  await page.goto('/?starter')
+  const mixer = await openView(page, 'Mixer')
+  const session = await openView(page, 'Session')
+  const volume = session.getByRole('slider', { name: 'Lead volume', exact: true })
+  const watched = [
+    mixer.getByRole('region', { name: 'Lead channel', exact: true }), mixer.getByRole('slider', { name: 'Lead pan', exact: true }), mixer.getByRole('slider', { name: 'Lead fader', exact: true }),
+    mixer.getByRole('region', { name: 'Master channel', exact: true }), mixer.getByRole('slider', { name: 'Master fader', exact: true }),
+    volume, volume.locator('..'),
+  ]
+  const before = await boxes(watched)
+  expect(before.every(Boolean)).toBe(true)
+  const touch = page.getByRole('button', { name: 'Arm Touch automation', exact: true })
+  await touch.click()
+  // Armed with nothing playing, every automatable control has no destination: its mark is there, the layout is not.
+  const marks = page.getByLabel('Touch unavailable: no active destination', { exact: true })
+  await expect(mixer.getByLabel('Touch unavailable: no active destination', { exact: true }).first()).toBeAttached()
+  await expect(session.getByLabel('Touch unavailable: no active destination', { exact: true }).first()).toBeAttached()
+  expect(await boxes(watched)).toEqual(before)
+  await touch.click()
+  await expect(marks).toHaveCount(0)
+  expect(await boxes(watched)).toEqual(before)
+})
+
 test("Touch while the arrangement plays records a track's knob and a bus's fader into their timeline lanes, a take an undo step", async ({ page }, info) => {
   await page.goto('/?starter')
   await leadInBus(page)
@@ -29,7 +56,7 @@ test("Touch while the arrangement plays records a track's knob and a bus's fader
   await expect(touch).toHaveAttribute('title', /or into the timeline while the arrangement plays/)
   await touch.click()
   const bus = mixer.getByRole('region', { name: 'Group 1 bus', exact: true })
-  const unavailable = bus.getByText('Touch unavailable: no active destination', { exact: true })
+  const unavailable = bus.getByLabel('Touch unavailable: no active destination', { exact: true })
   await expect(unavailable.first()).toHaveAttribute('title', 'Play a clip, an automation slot or the arrangement to record controls')
 
   // Playing the arrangement gives every owner a destination: its timeline.

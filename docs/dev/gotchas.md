@@ -29,7 +29,7 @@ the rule and where it came from. Add to it when a plan's notes record a surprise
   *(round 12c)*
 * **Touch right after ▶ *Arrangement* authors the base too.** Until the first status of the run reports the
   arrangement playing, no owner has a destination; a spec waits for the mixer's "Touch unavailable: no active
-  destination" to go before it holds a control. *(round 12d)*
+  destination" marks (a dim ○, found by label) to go before it holds a control. *(round 12d)*
 * **A focus given from a menu entry is taken back** as the menu closes, unless the action says `takesFocus`; and an
   element in a view revealed in the same update is still hidden when its effect runs, so it tries for a few frames
   (*Show automation on timeline*). *(round 12c)*

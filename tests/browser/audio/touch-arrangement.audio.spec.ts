@@ -73,7 +73,7 @@ for (const loop of [false, true]) test(loop ? "a track's fader touched over two 
   const arrangement = await openView(page, 'Arrangement')
   const mixer = await openView(page, 'Mixer')
   await arrangement.getByRole('button', { name: 'Play arrangement', exact: true }).click()
-  await expect(mixer.getByText('Touch unavailable: no active destination', { exact: true })).toHaveCount(0)
+  await expect(mixer.getByLabel('Touch unavailable: no active destination', { exact: true })).toHaveCount(0)
   await page.waitForTimeout(300)
   const fader = mixer.getByRole('slider', { name: loop ? 'Sweep fader' : 'Group 1 fader', exact: true })
   const box = (await fader.boundingBox())!
