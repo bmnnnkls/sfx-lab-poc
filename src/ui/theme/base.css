@@ -41,3 +41,67 @@ select {
   border-radius: var(--radius);
   padding: 3px 6px;
 }
+
+/*
+ * Shared control states, for every button and for anything marked `.control` (a knob, a row that acts). They are
+ * written with `:where()` so a component's own class still wins: they give a state its look wherever a component
+ * doesn't set one, and new controls set none.
+ */
+button:where(:active:not(:disabled)),
+:where(.control:active) {
+  background: var(--panel);
+}
+
+button:where([aria-pressed='true'], [aria-checked='true'], [data-on]),
+:where(.control):where([aria-pressed='true'], [aria-checked='true'], [data-on]) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+button:where([aria-selected='true'], [data-selected]),
+:where(.control):where([aria-selected='true'], [data-selected]) {
+  background: var(--accent-soft);
+}
+
+button:where(:disabled, [aria-disabled='true']),
+:where(.control):where([aria-disabled='true']) {
+  color: var(--text-disabled);
+  cursor: default;
+}
+
+button:disabled:hover {
+  border-color: var(--border);
+}
+
+:where(:focus-visible) {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/*
+ * Parts switched off (ADR-0008), on any element: `off` by the user or a socket, `bypass` passing its input through,
+ * `dormant` off by itself because nothing audible needs it, `sleeping` silent until its input wakes it. The
+ * state's icon (power, bypass, dormant, sleep) goes in the part's header, in the state's colour.
+ */
+[data-power='off'] {
+  opacity: var(--inactive-opacity);
+  filter: grayscale(1);
+}
+
+[data-power='bypass'] {
+  opacity: var(--inactive-opacity);
+  outline: 1px dashed var(--state-bypass);
+  outline-offset: -1px;
+}
+
+[data-power='dormant'] {
+  opacity: calc((1 + var(--inactive-opacity)) / 2);
+}
+
+[data-power='sleeping'] {
+  --power-colour: var(--state-sleeping);
+}
+
+[data-power='off'] { --power-colour: var(--state-off); }
+[data-power='bypass'] { --power-colour: var(--state-bypass); }
+[data-power='dormant'] { --power-colour: var(--state-dormant); }
