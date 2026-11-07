@@ -1,5 +1,6 @@
 import { type ControlOwner, timelineLanesOf, timelineLanesOpen } from '@core'
 import { useProjectStore } from '@state'
+import { Icon } from '../shared/icon'
 import styles from './arrangement.module.css'
 
 /**
@@ -22,7 +23,7 @@ export const LanesTwisty = ({ owner, name, corner = false }: { owner: ControlOwn
         useProjectStore.getState().setTimelineLanesOpen(owner, !open)
       }}
     >
-      {open ? '▾' : '▸'}
+      <Icon name={open ? 'chevron-down' : 'chevron-right'} size={14} />
       {!open && count > 0 && <span className={styles.laneCount}>{count}</span>}
     </button>
   )

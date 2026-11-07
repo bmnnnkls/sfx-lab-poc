@@ -2,6 +2,7 @@ import { useStatusStore } from '@state'
 import { useCommandEntries } from '../commands/menu-entries'
 import { LAYOUT_MENU } from '../commands/menus'
 import { SaveIndicator } from '../file-menu/SaveIndicator'
+import { Icon } from '../shared/icon'
 import { PopupMenu } from '../shared/menu'
 import styles from './StatusBar.module.css'
 
@@ -26,7 +27,7 @@ export const StatusBar = () => {
       <SaveIndicator />
       <PopupMenu entries={layoutEntries}>
         <button className={styles.menu} aria-label="Layout">
-          Layout ▾
+          Layout <Icon name="chevron-down" size={14} />
         </button>
       </PopupMenu>
     </footer>

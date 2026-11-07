@@ -12,6 +12,7 @@ import { ARRANGEMENT_ZOOM, TIMELINE_GRIDS, type TimelineGrid, gridBeats, playArr
 import { type CSSProperties, Fragment, type ReactNode, useRef, useState } from 'react'
 import { viewTitles } from '../layout/view-titles'
 import { useDropTarget } from '../shared/drag'
+import { Icon } from '../shared/icon'
 import { ActionMenu, useFocusSubjects } from '../shared/menu'
 import { revealKey, useRevealRequest } from '../shared/reveal'
 import { ArrangementHeader } from './ArrangementHeader'
@@ -140,10 +141,10 @@ export const ArrangementView = () => {
       <div className={styles.toolbar} title={HINT}>
         <strong>Arrangement</strong>
         <button onClick={() => playArrangementFromPosition(controls)} aria-label="Play arrangement" title="Play the arrangement from the position">
-          ▶ Arrangement
+          <Icon name="play" filled /> Arrangement
         </button>
         <button onClick={() => stopArrangement(controls)} aria-label="Stop" title="Stop; the position stays (press again to go back to the start)">
-          ■
+          <Icon name="stop" filled />
         </button>
         <label className={styles.grid} title="What drops, moves and resizes snap to; Alt held during a drag snaps to nothing">
           Grid
@@ -202,7 +203,7 @@ export const ArrangementView = () => {
           title={loop ? 'Loop the brace while the arrangement plays (L)' : 'Drag in the mark lane to draw a loop first'}
           onClick={toggleArrangementLoop}
         >
-          ⟳ Loop
+          <Icon name="loop" /> Loop
         </button>
         <span className={styles.info}>{HINT}</span>
       </div>

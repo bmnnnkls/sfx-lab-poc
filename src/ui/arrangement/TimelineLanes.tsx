@@ -28,6 +28,7 @@ import {
 import { type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject, useEffect, useRef, useState } from 'react'
 import { CcLaneField } from '../automation/CcLaneField'
 import { type PointGesture, type PointGrid, type PointerAt, copyPoints, dragPoints, pastePoints, pressPoints, removePoints } from '../automation/point-gestures'
+import { Icon } from '../shared/icon'
 import { ActionMenu } from '../shared/menu'
 import { useThemeColors } from '../theme/theme-colors'
 import { snapBeat, timelineSnapping } from './region-snap'
@@ -243,7 +244,7 @@ const TimelineLane = ({ owner, lane, scroller, pxPerBeat, width, depth }: LanePr
             {label}
           </span>
           {reason && <span className={styles.laneNote} title={reason} aria-label={reason}>!</span>}
-          {recording && <span className={styles.laneRecording} title="Touch recording" aria-label="Touch recording">●</span>}
+          {recording && <span className={styles.laneRecording} title="Touch recording" aria-label="Touch recording"><Icon name="record" filled size={14} /></span>}
           {overridden && (
             <button className={styles.readButton} title="Give the control back to its lane" onClick={() => readLane(lane.target)}>
               Read

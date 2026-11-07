@@ -6,6 +6,7 @@ import { LibraryMenu } from '../commands/LibraryMenu'
 import { ViewMenu } from '../commands/ViewMenu'
 import { useCommandEntries } from '../commands/menu-entries'
 import { RECORD_MENU } from '../commands/menus'
+import { Icon } from '../shared/icon'
 import { PopupMenu } from '../shared/menu'
 import { FileMenu } from '../file-menu/FileMenu'
 import { HistoryButtons } from '../history-buttons/HistoryButtons'
@@ -45,23 +46,24 @@ export const TransportBar = () => {
     <header className={styles.bar}>
       <strong className={styles.title}>SFX Lab</strong>
       <button onClick={controls.play} className={playing ? styles.active : countIn ? `${styles.active} ${styles.countingIn}` : undefined} aria-label="Play" title={withKey('Play', playKey)}>
-        ▶
+        <Icon name="play" filled />
       </button>
       <button onClick={controls.stop} aria-label="Stop" title={withKey('Stop', stopKey)}>
-        ■
+        <Icon name="stop" filled />
       </button>
-      <button aria-label="Arm Touch automation" aria-pressed={touch.armed} title={withKey("Record controls into each owner's playing clip or automation slot, or into the timeline while the arrangement plays", touchKey)} className={touch.armed ? styles.active : undefined} onClick={() => touch.arm(!touch.armed)}>● Touch</button>
+      <button aria-label="Arm Touch automation" aria-pressed={touch.armed} title={withKey("Record controls into each owner's playing clip or automation slot, or into the timeline while the arrangement plays", touchKey)} className={touch.armed ? styles.active : undefined} onClick={() => touch.arm(!touch.armed)}><Icon name="record" filled />Touch</button>
       {touch.armed && <output className={styles.touchFeedback} title={touch.feedback} role="status">{touch.feedback}</output>}
       <div className={styles.joined}>
         <button aria-label="Record" aria-pressed={rec} className={rec ? styles.recording : undefined} title={withKey('Record: overdub into the clips playing on armed tracks in the Session, record new regions in the Arrangement', recordKey)} onClick={() => useRecordStore.getState().setRec(!rec)}>
-          ● Rec
+          <Icon name="record" filled />
+          Rec
         </button>
         <PopupMenu entries={recordEntries}>
-          <button aria-label="Recording settings" title="Fixed length, count-in and metronome level">▾</button>
+          <button aria-label="Recording settings" title="Fixed length, count-in and metronome level"><Icon name="chevron-down" /></button>
         </PopupMenu>
       </div>
       <button aria-label="Metronome" aria-pressed={metronome} className={metronome ? styles.active : undefined} title={withKey('Metronome: click on every beat while the transport runs (never in an export)', metronomeKey)} onClick={() => useRecordSettings.getState().setMetronome(!metronome)}>
-        ♩
+        <Icon name="metronome" />
       </button>
       {countIn !== undefined && <output className={styles.countIn} role="status" aria-label="Count-in">Count-in {countIn}</output>}
       {recordFeedback && countIn === undefined && <output className={`${styles.touchFeedback} ${recordingTakes ? styles.recordFeedback : ''}`} title={recordFeedback} role="status" aria-label="Recording">{recordFeedback}</output>}

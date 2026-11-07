@@ -6,6 +6,7 @@ import {
 } from '@core'
 import { gridBeats, openRegion, useArrangementView, useProjectStore } from '@state'
 import { useRef } from 'react'
+import { Icon } from '../shared/icon'
 import { autoScrollUnits } from '../shared/timeline'
 import { WaveformThumb } from '../shared/WaveformThumb'
 import { snapBeat, snapRegionStart, timelineSnapping } from './region-snap'
@@ -191,7 +192,7 @@ export const ArrangementRegion = ({ region, pxPerBeat, selected, recording = fal
       <span className={styles.regionName}>{region.content.name}</span>
       {looping && (
         <span className={styles.loopBadge} title="Loops until the next region on this track">
-          ⟳
+          <Icon name="loop" size={14} label="Looping" />
         </span>
       )}
       {audio ? (

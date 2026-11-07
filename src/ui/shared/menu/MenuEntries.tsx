@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from 'react'
+import { Icon } from '../icon'
 import type { MenuEntry } from './menu-types'
 import styles from './Menu.module.css'
 
@@ -23,7 +24,7 @@ export const MenuEntries = ({ entries, parts }: { entries: readonly MenuEntry[];
         <parts.Sub key={`${index}-${entry.label}`}>
           <parts.SubTrigger className={styles.item} disabled={entry.disabled} title={entry.tooltip}>
             <span>{entry.label}</span>
-            <span className={styles.shortcut} aria-hidden="true">▸</span>
+            <span className={styles.shortcut} aria-hidden="true"><Icon name="chevron-right" size={14} /></span>
           </parts.SubTrigger>
           <parts.Portal>
             <parts.SubContent className={styles.menu} collisionPadding={8}>
@@ -40,7 +41,7 @@ export const MenuEntries = ({ entries, parts }: { entries: readonly MenuEntry[];
           checked={entry.checked}
           onSelect={entry.onSelect}
         >
-          <span className={styles.check} aria-hidden="true">{entry.checked ? '✓' : ''}</span>
+          <span className={styles.check} aria-hidden="true">{entry.checked && <Icon name="check" size={14} />}</span>
           <span>{entry.label}</span>
         </parts.CheckboxItem>
       ) : (

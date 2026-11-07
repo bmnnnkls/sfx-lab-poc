@@ -1,6 +1,7 @@
 import { type RegionId, useLayoutStore } from '@state'
 import type { SyntheticEvent } from 'react'
 import { useKeyLabel, withKey } from '../commands/CommandHost'
+import { Icon } from '../shared/icon'
 import { TOGGLED_REGIONS } from './regions'
 import styles from './RegionToggles.module.css'
 
@@ -22,9 +23,9 @@ export const RegionToggles = () => {
   }
   return (
     <span className={styles.toggles} data-region-toggles onPointerDown={stop} onDoubleClick={stop} onDragStart={(event) => event.preventDefault()}>
-      {TOGGLED_REGIONS.map(({ id, name, glyph }) => (
+      {TOGGLED_REGIONS.map(({ id, name, icon }) => (
         <button key={id} onClick={() => toggleRegion(id)} aria-pressed={!hiddenRegions.includes(id)} aria-label={name} title={withKey(`Toggle ${name.toLowerCase()}`, keys[id])}>
-          {glyph}
+          <Icon name={icon} />
         </button>
       ))}
     </span>
